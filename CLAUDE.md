@@ -380,8 +380,12 @@ as promos especiais.
 **Não é lista de compras.** Inclui as que ele já tem, marcadas a verde: o
 objetivo é saber o que existe para poder filtrar quando anda a procurar.
 
-A quantidade é a que os decks pedem, com o mesmo teto de playset. Dá 26
-cartas, 37 versões, 6112,88 € — o preço é para se ver, não para se pagar.
+**Duas leituras dos mesmos dados:** `by_set` (tudo junto) e `by_deck` (uma
+entrada por deck), com sub-abas na interface. A decisão de pimpar é por deck —
+é a olhar para um deck de cada vez que ele decide o que trocar. Na vista por
+deck a quantidade é a que AQUELE deck usa; na global é a soma com o teto.
+
+O preço é para se ver, não para se pagar: 35 versões, 4381,60 €.
 
 **A lista dos decks leva SÓ a versão mais barata** (André, 2026-09-01). Houve
 uma versão com um visto "com artes alternativas" na lista dos decks; foi

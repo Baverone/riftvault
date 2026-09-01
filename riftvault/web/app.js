@@ -30,7 +30,7 @@ const state = {
   decks: null, deckId: null, deck: null, faltas: null,
   prefs: { view: 'all', stateFilter: 'all',
            kinds: ['base', 'alt_art', 'signature', 'other'],
-           set: null, deck: null, falta: 'staples', faltaDeck: 0,
+           set: null, deck: null, falta: 'staples', faltaDeck: 0, pimpDeck: 'todos',
            section: 'colecao' },
 };
 
@@ -993,28 +993,51 @@ function renderPimp() {
     $('#falta-body').innerHTML = '<p class="empty">Nenhuma carta dos teus decks tem versão alterada.</p>';
     return;
   }
+  const sel = state.prefs.pimpDeck ?? 'todos';
+  const alvo = sel === 'todos' ? p : p.by_deck[sel];
+
+  const abas = `<button class="seg-btn ${sel === 'todos' ? 'is-on' : ''}" data-pd="todos">
+      Todas <b>${p.printings}</b></button>`
+    + p.by_deck.map((d, k) => `
+      <button class="seg-btn ${k === sel ? 'is-on' : ''}" data-pd="${k}">
+        ${d.priority}. ${escapeHTML(d.name.split(' · ')[0])}
+        <b>${d.printings}</b></button>`).join('');
+
   $('#falta-body').innerHTML = `
+    <div class="seg seg-wrap">${abas}</div>
     <div class="deck-card resumo">
-      <b>Pimp decks</b>
-      <span>${p.cards} cartas · ${p.printings} versões · ${eur(p.cents)}${
-        p.owned ? ` · já tens ${p.owned}` : ''}</span>
+      <b>${sel === 'todos' ? 'Todas as versões alteradas' : escapeHTML(p.by_deck[sel].name)}</b>
+      <span>${alvo.cards} cartas · ${alvo.printings} versões · ${eur(alvo.cents)}${
+        alvo.owned ? ` · já tens ${alvo.owned}` : ''}</span>
     </div>
-    <p class="note">Todas as versões alteradas das cartas que os teus decks
-      usam: artes alternativas, showcase, signatures e promos. Inclui as que já
-      tens (moldura verde), porque o objetivo é saberes o que existe quando
-      estiveres a procurar. A quantidade é a que os decks pedem.</p>
-    ${p.by_set.map(d => `
+    <p class="note">${sel === 'todos'
+      ? `As versões alteradas das cartas que os teus decks usam: artes
+         alternativas, showcase e promos. Escolhe um deck acima para veres só
+         as dele.`
+      : `O que dá para trocar neste deck. A quantidade é a que ele usa.`}
+      Moldura verde: já tens essa versão.</p>
+    ${alvo.by_set.map(d => `
       <h3 class="section-head sub">${escapeHTML(d.name)}
         <span>${d.printings} versões · ${eur(d.cents)}</span></h3>
-      <div class="grid deck-grid">${d.items.map(pimpTile).join('')}</div>`).join('')}
+      <div class="grid deck-grid">${d.items.map(x => pimpTile(x, sel === 'todos')).join('')}</div>`).join('')}
     <div class="wl-zona">
       <button class="btn" id="pimp-btn">Lista para a wantlist do Cardmarket</button>
       <textarea id="pimp-txt" class="wl-txt" readonly hidden></textarea>
       <small class="nota" id="pimp-nota" hidden></small>
     </div>`;
+
+  for (const b of document.querySelectorAll('#falta-body .seg-btn[data-pd]')) {
+    b.onclick = () => {
+      const v = b.dataset.pd;
+      state.prefs.pimpDeck = v === 'todos' ? 'todos' : Number(v);
+      savePrefs();
+      renderPimp();
+    };
+  }
+
   $('#pimp-btn').onclick = () => {
     const linhas = [];
-    for (const d of p.by_set) {
+    for (const d of alvo.by_set) {
       for (const it of d.items) {
         let l = `${it.qty} ${it.market_name || it.name}`;
         if (it.v && it.n_versions > 1) l += ` (V.${it.v})`;
@@ -1037,7 +1060,7 @@ function renderPimp() {
   };
 }
 
-function pimpTile(x) {
+function pimpTile(x, comDecks = true) {
   return `<div class="dtile ${x.have ? 'ok' : 'neutro'}">
     ${artHTML(x, `<span class="need">${x.qty}×</span>
       ${x.have ? '<span class="ja-tens">tens</span>' : ''}
@@ -1046,7 +1069,8 @@ function pimpTile(x) {
     <div class="codigo">${escapeHTML((x.code || '').split('/')[0])}${
       x.price != null ? ` · ${eur(x.price)}` : ''}</div>
     <div class="onde tenho">${escapeHTML(x.label)}${
-      x.decks.length ? ` · ${x.decks.map(d => escapeHTML(d.split(' · ')[0])).join(', ')}` : ''}</div>
+      comDecks && x.decks.length
+        ? ` · ${x.decks.map(d => escapeHTML(d.split(' · ')[0])).join(', ')}` : ''}</div>
   </div>`;
 }
 
