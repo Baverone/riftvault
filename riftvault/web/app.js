@@ -784,7 +784,8 @@ function renderFaltaTabs() {
 }
 
 function faltaHead() {
-  const t = state.faltas.totals;
+  const f = state.faltas;
+  const t = f.totals;
   return `<div class="deck-card">
     <div class="deck-title"><b>Falta comprar</b>
       <span class="prio">${t.cards} cartas · ${t.copies} cópias</span></div>
