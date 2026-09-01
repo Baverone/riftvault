@@ -439,6 +439,7 @@ def payload(con: sqlite3.Connection) -> dict:
         "por_deck": por_deck(con),
         "todos_juntos": todos_juntos(con),
         "spiking": spiking(con),
+        "pimp": pimp(con),
         "ignored_types": sorted(config.load().get("faltas_ignorar_tipos", [])),
         "totals": {
             "cards": len(todas),
@@ -493,3 +494,105 @@ def wantlist(grupos: list[dict], com_edicao: bool = True,
                             a["set"], a["foil_only"])
 
     return {"text": "\n".join(linhas), "lines": len(linhas), "foil": foil}
+
+
+# ---------------------------------------------------------------------------
+# "Pimp decks": as versões alteradas das cartas que os decks usam
+# ---------------------------------------------------------------------------
+
+
+def pimp(con: sqlite3.Connection) -> dict:
+    """Impressões alternativas das cartas usadas nos decks.
+
+    "Versão alterada" = tudo o que não é a impressão canónica da carta: artes
+    alternativas, signatures, as reimpressões showcase (que têm número de
+    coleção próprio) e as promos. A canónica é a base da edição mais antiga.
+
+    Serve para procurar: quando ele estiver a comprar, quer poder filtrar as
+    cartas dos decks que existem em versão bonita. Inclui as que já tem — o
+    ponto é saber que existem, e as que já tem vêm marcadas.
+    """
+    usados = {r["card_key"] for r in con.execute(
+        "SELECT DISTINCT card_key FROM deck_cards")}
+    if not usados:
+        return {"cards": 0, "printings": 0, "cents": 0, "owned": 0, "by_set": []}
+
+    quem = _wanted(con)
+    tenho_carta = decks.owned_by_card(con)
+    tipos = _tipos(con)
+    cfg = config.load()
+    ordens = {s: config.set_order(s) for s in
+              (r["set_id"] for r in con.execute("SELECT DISTINCT set_id FROM catalog.printings"))}
+    versoes = _versoes(con)
+    copias = {r["printing_id"]: r["qty"] for r in
+              con.execute("SELECT printing_id, qty FROM copies WHERE qty > 0")}
+
+    ph = ",".join("?" * len(usados))
+    linhas = [dict(r) for r in con.execute(
+        f"SELECT p.card_key, p.printing_id, p.set_id, p.api_sort, p.variant_kind, "
+        f"       p.variant_label, p.public_code, p.orientation, p.name, "
+        f"       p.image_medium, p.image_large, p.image_url, "
+        f"       pl.price_cents, pl.from_foil "
+        f"FROM catalog.printings p "
+        f"LEFT JOIN catalog.price_latest pl ON pl.printing_id = p.printing_id "
+        f"WHERE p.card_key IN ({ph})", list(usados))]
+
+    por_carta: dict[str, list] = {}
+    for r in linhas:
+        por_carta.setdefault(r["card_key"], []).append(r)
+
+    por_set: dict[str, dict] = {}
+    total_cents = total_owned = 0
+    for ck, lst in por_carta.items():
+        lst.sort(key=lambda r: (ordens.get(r["set_id"], 999), r["api_sort"]))
+        # A canónica é a primeira base; tudo o resto é versão alterada.
+        canonica = next((r for r in lst if r["variant_kind"] == "base"), lst[0])
+        alt = [r for r in lst if r["printing_id"] != canonica["printing_id"]]
+        if not alt:
+            continue
+
+        t, tok = tipos.get(ck, (None, False))
+        # Quantas ele quereria: o que os decks pedem, com o mesmo teto de sempre.
+        qtd = min(quem.get(ck, {}).get("qty", 1), metrics.playset_target(t, tok, cfg)) or 1
+
+        for r in alt:
+            v = versoes.get(r["printing_id"]) or {}
+            tem = copias.get(r["printing_id"], 0)
+            total_owned += 1 if tem else 0
+            total_cents += (r["price_cents"] or 0) * qtd
+            d = por_set.setdefault(r["set_id"], {
+                "set": r["set_id"], "name": config.set_name(r["set_id"]),
+                "printings": 0, "cents": 0, "items": []})
+            d["printings"] += 1
+            d["cents"] += (r["price_cents"] or 0) * qtd
+            d["items"].append({
+                "card_key": ck, "name": r["name"], "qty": qtd,
+                "code": r["public_code"], "label": r["variant_label"],
+                "kind": r["variant_kind"],
+                "price": r["price_cents"], "total": (r["price_cents"] or 0) * qtd,
+                "have": tem, "have_base": tenho_carta.get(ck, 0),
+                "landscape": (r["orientation"] or "").lower() == "landscape",
+                "img": f"img/{r['printing_id']}.webp",
+                "cdn": r["image_medium"] or r["image_large"] or r["image_url"],
+                "market_name": v.get("name"), "market_set": None,
+                "v": v.get("v"), "n_versions": v.get("n", 1),
+                "foil_only": v.get("foil_only", False),
+                "decks": sorted(quem.get(ck, {}).get("decks", {}).keys()),
+            })
+
+    # A edição de mercado, para a wantlist sair completa.
+    mkt = {r["printing_id"]: r["market_set"] for r in
+           con.execute("SELECT printing_id, market_set FROM catalog.cardtrader_map")}
+    for d in por_set.values():
+        for it in d["items"]:
+            it["market_set"] = mkt.get(
+                next((r["printing_id"] for r in por_carta[it["card_key"]]
+                      if r["public_code"] == it["code"]), None))
+        d["items"].sort(key=lambda x: (-x["total"], x["name"]))
+
+    out = sorted(por_set.values(), key=lambda d: (ordens.get(d["set"], 999), d["set"]))
+    return {
+        "cards": len({it["card_key"] for d in out for it in d["items"]}),
+        "printings": sum(d["printings"] for d in out),
+        "cents": total_cents, "owned": total_owned, "by_set": out,
+    }

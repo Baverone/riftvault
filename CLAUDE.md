@@ -366,6 +366,23 @@ desconta-se o que ele tem. A alocação por prioridade responde a outra coisa
   de 290 para 1178 impressões. Cresce só com o que muda. Se um dia incomodar,
   o sítio para podar é aqui.
 
+## "Pimp decks"
+
+`faltas.pimp()` — quarta aba das Faltas. Todas as impressões **alteradas** das
+cartas que os decks usam: artes alternativas, signatures, as reimpressões
+showcase (que têm número de coleção próprio) e as promos. Alterada = tudo o
+que não é a impressão canónica, e canónica é a base da edição mais antiga.
+
+**Não é lista de compras.** Inclui as que ele já tem, marcadas a verde: o
+objetivo é saber o que existe para poder filtrar quando anda a procurar.
+
+A quantidade é a que os decks pedem, com o mesmo teto de playset. Dá 26
+cartas, 37 versões, 6112,88 € — o preço é para se ver, não para se pagar.
+
+**A lista dos decks leva SÓ a versão mais barata** (André, 2026-09-01). Houve
+uma versão com um visto "com artes alternativas" na lista dos decks; foi
+retirada, é aqui que essa pergunta vive.
+
 ## Wantlist do Cardmarket
 
 `faltas.wantlist()` gera `qtd Nome (Edição)` por linha. Botão na secção

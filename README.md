@@ -93,6 +93,10 @@ Terceira secção, com três abas:
   número suficiente. São as que rendem mais por euro: uma compra serve vários
   decks. Cada tile diz quantos decks a querem e quais.
 - **Por deck** — o que falta a cada deck, agrupado por edição.
+- **Pimp decks** — todas as versões **alteradas** das cartas que os teus decks
+  usam: artes alternativas, showcase, signatures e promos. Não é lista de
+  compras; inclui as que já tens (moldura verde), porque serve para saberes o
+  que existe quando andas a procurar. Tem lista para a wantlist também.
 - **A subir** — **todo o Riftbound**, não só a tua coleção: impressões que
   subiram mais de 15% nos últimos 30 dias. As que já tens ficam com moldura
   verde, as que te faltam com moldura vermelha e o que custou esperar. Serve
@@ -129,9 +133,8 @@ O formato é `3 Nome da Carta (Edição)`, com o nome **como o mercado o
 escreve** — `Darius - Trifarian`, não `Darius, Trifarian` como está na
 RiftScribe. Sem isso o Cardmarket não casa as cartas.
 
-Há um visto **"com artes alternativas"**: quando ligado, cada carta que tenha
-arte alternativa ou showcase na mesma edição sai com todas as versões,
-numeradas `(V.1)`, `(V.2)`, para as poderes comparar na wantlist.
+A lista dos decks leva sempre a **versão mais barata** de cada carta. As
+versões bonitas vivem na aba **Pimp decks**, que tem lista própria.
 
 **O foil não se pode marcar no texto.** No Cardmarket o foil é um filtro por
 entrada, posto na interface depois de a carta entrar na lista. Por isso, por

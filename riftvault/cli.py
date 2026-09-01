@@ -374,8 +374,9 @@ def cmd_wantlist(args) -> int:
         alvo = {"by_set": [g for d in pd for g in d["by_set"]]}
         rotulo = "todos os decks, um de cada vez"
 
-    res = faltas_mod.wantlist(alvo["by_set"], com_edicao=not args.sem_edicao,
-                              com_variantes=args.variantes)
+    if args.pimp:
+        alvo, rotulo = faltas_mod.pimp(con), "versões alteradas dos decks"
+    res = faltas_mod.wantlist(alvo["by_set"], com_edicao=not args.sem_edicao)
     if args.out:
         open(args.out, "w", encoding="utf-8").write(res["text"] + "\n")
         print(f"{res['lines']} linhas escritas em {args.out}  ({rotulo})")
@@ -497,8 +498,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--deck", help="só deste deck (slug)")
     p.add_argument("--todos", action="store_true",
                    help="cenário de ter os decks todos montados ao mesmo tempo")
-    p.add_argument("--variantes", action="store_true",
-                   help="incluir as artes alternativas e showcase, para comparar")
+    p.add_argument("--pimp", action="store_true",
+                   help="versões alteradas das cartas dos decks, em vez das faltas")
     p.add_argument("--sem-edicao", action="store_true", dest="sem_edicao",
                    help="não escrever a edição entre parênteses")
     p.add_argument("--out", help="escrever para ficheiro em vez do ecrã")

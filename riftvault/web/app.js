@@ -30,7 +30,7 @@ const state = {
   decks: null, deckId: null, deck: null, faltas: null,
   prefs: { view: 'all', stateFilter: 'all',
            kinds: ['base', 'alt_art', 'signature', 'other'],
-           set: null, deck: null, falta: 'staples', faltaDeck: 0, wlVariantes: false,
+           set: null, deck: null, falta: 'staples', faltaDeck: 0,
            section: 'colecao' },
 };
 
@@ -759,6 +759,7 @@ const FALTA_TABS = [
   { id: 'staples', label: 'Staples', sub: 'pedidas por vários decks' },
   { id: 'deck', label: 'Por deck', sub: 'o que falta a cada um' },
   { id: 'spike', label: 'A subir', sub: 'comprar antes que suba mais' },
+  { id: 'pimp', label: 'Pimp decks', sub: 'versões alteradas das cartas dos decks' },
 ];
 
 async function loadFaltas() {
@@ -778,6 +779,7 @@ function renderFaltaTabs() {
     if (t.id === 'staples') n = `${f.staples.length} cartas`;
     if (t.id === 'deck') n = `${f.por_deck.reduce((s, d) => s + d.copies, 0)} cópias`;
     if (t.id === 'spike') n = f.spiking.ready ? `${f.spiking.items.length} cartas` : 'sem histórico';
+    if (t.id === 'pimp') n = `${f.pimp.printings} versões`;
     b.innerHTML = `${t.label}<small>${n}</small>`;
     b.onclick = () => { state.prefs.falta = t.id; savePrefs(); renderFaltaTabs(); renderFaltas(); };
     nav.appendChild(b);
@@ -816,6 +818,11 @@ function renderFaltas() {
 
   if (which === 'deck') {
     renderPorDeck();
+    return;
+  }
+
+  if (which === 'pimp') {
+    renderPimp();
     return;
   }
 
@@ -892,11 +899,7 @@ function renderPorDeck() {
       <div class="grid deck-grid">${m.items.map(faltaTile).join('')}</div>`).join('')
       : '<p class="empty">Nada a comprar — este deck fica completo com o que vem acima.</p>'}
     <div class="wl-zona">
-      <div class="wl-linha">
-        <button class="btn" id="wl-btn">Lista para a wantlist do Cardmarket</button>
-        <label class="chip"><input type="checkbox" id="wl-var"
-          ${state.prefs.wlVariantes ? 'checked' : ''}><span>com artes alternativas</span></label>
-      </div>
+      <button class="btn" id="wl-btn">Lista para a wantlist do Cardmarket</button>
       <textarea id="wl-txt" class="wl-txt" readonly hidden></textarea>
       <small class="nota" id="wl-nota" hidden></small>
       <small class="nota aviso-foil" id="wl-foil" hidden></small>
@@ -913,11 +916,6 @@ function renderPorDeck() {
     };
   }
   $('#wl-btn').onclick = () => mostrarWantlist(alvo);
-  $('#wl-var').onchange = (e) => {
-    state.prefs.wlVariantes = e.target.checked;
-    savePrefs();
-    mostrarWantlist(alvo);
-  };
 }
 
 /* Texto para colar na wantlist do Cardmarket.
@@ -928,8 +926,9 @@ function renderPorDeck() {
    A caixa de texto é o mecanismo principal, não um fallback: o
    `navigator.clipboard` só existe em contexto seguro, e no telemóvel isto
    abre por http num IP da rede local — ou seja, lá nunca funcionaria. */
-function mostrarWantlist(alvo) {
-  const comVar = !!state.prefs.wlVariantes;
+/* A lista dos decks leva só a versão mais barata de cada carta. As versões
+   bonitas vivem na aba "Pimp decks", que é outra pergunta. */
+function mostrarWantlist(alvo, comVar = false) {
   const linhas = [], foil = [];
 
   const escreve = (qtd, nome, v, n, edicao, ehFoil) => {
@@ -981,6 +980,74 @@ function mostrarWantlist(alvo) {
     nota.textContent = `${n} linhas — já selecionadas, copia à mão (no telemóvel, `
       + `toca e mantém para copiar).`;
   }
+}
+
+
+/* "Pimp decks": as versões alteradas das cartas que os decks usam — artes
+   alternativas, showcase, signatures e promos. Não é uma lista de compras: é
+   para saber o que existe e poder filtrar quando andar a procurar. Por isso
+   entram também as que ele já tem, marcadas. */
+function renderPimp() {
+  const p = state.faltas.pimp;
+  if (!p.printings) {
+    $('#falta-body').innerHTML = '<p class="empty">Nenhuma carta dos teus decks tem versão alterada.</p>';
+    return;
+  }
+  $('#falta-body').innerHTML = `
+    <div class="deck-card resumo">
+      <b>Pimp decks</b>
+      <span>${p.cards} cartas · ${p.printings} versões · ${eur(p.cents)}${
+        p.owned ? ` · já tens ${p.owned}` : ''}</span>
+    </div>
+    <p class="note">Todas as versões alteradas das cartas que os teus decks
+      usam: artes alternativas, showcase, signatures e promos. Inclui as que já
+      tens (moldura verde), porque o objetivo é saberes o que existe quando
+      estiveres a procurar. A quantidade é a que os decks pedem.</p>
+    ${p.by_set.map(d => `
+      <h3 class="section-head sub">${escapeHTML(d.name)}
+        <span>${d.printings} versões · ${eur(d.cents)}</span></h3>
+      <div class="grid deck-grid">${d.items.map(pimpTile).join('')}</div>`).join('')}
+    <div class="wl-zona">
+      <button class="btn" id="pimp-btn">Lista para a wantlist do Cardmarket</button>
+      <textarea id="pimp-txt" class="wl-txt" readonly hidden></textarea>
+      <small class="nota" id="pimp-nota" hidden></small>
+    </div>`;
+  $('#pimp-btn').onclick = () => {
+    const linhas = [];
+    for (const d of p.by_set) {
+      for (const it of d.items) {
+        let l = `${it.qty} ${it.market_name || it.name}`;
+        if (it.v && it.n_versions > 1) l += ` (V.${it.v})`;
+        if (it.market_set) l += ` (${it.market_set})`;
+        linhas.push(l);
+      }
+    }
+    const tx = $('#pimp-txt'), nt = $('#pimp-nota');
+    tx.value = linhas.join('\n');
+    tx.rows = Math.min(16, Math.max(4, linhas.length));
+    tx.hidden = false; nt.hidden = false;
+    tx.focus(); tx.select();
+    nt.textContent = `${linhas.length} linhas — já selecionadas, copia com Ctrl+C `
+      + `(no telemóvel, toca e mantém).`;
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(tx.value)
+        .then(() => { nt.textContent = `${linhas.length} linhas copiadas.`; })
+        .catch(() => {});
+    }
+  };
+}
+
+function pimpTile(x) {
+  return `<div class="dtile ${x.have ? 'ok' : 'neutro'}">
+    ${artHTML(x, `<span class="need">${x.qty}×</span>
+      ${x.have ? '<span class="ja-tens">tens</span>' : ''}
+      ${x.price != null ? `<span class="price">${eurShort(x.total)}</span>` : ''}`)}
+    <div class="tname" title="${escapeAttr(x.name)}">${escapeHTML(x.name)}</div>
+    <div class="codigo">${escapeHTML((x.code || '').split('/')[0])}${
+      x.price != null ? ` · ${eur(x.price)}` : ''}</div>
+    <div class="onde tenho">${escapeHTML(x.label)}${
+      x.decks.length ? ` · ${x.decks.map(d => escapeHTML(d.split(' · ')[0])).join(', ')}` : ''}</div>
+  </div>`;
 }
 
 function artHTML(x, extra = '') {
