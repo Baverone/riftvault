@@ -372,6 +372,14 @@ body.readonly .deck-actions .btn[data-act="descer"] { display: none; }
 .dtile.gone .badge { background: rgba(255, 107, 107, .95); color: #2a0d0d; }
 .dtile.shared .badge { background: rgba(240, 180, 41, .95); color: #24160a; }
 
+/* Edição + número + preço. Monoespaçado e alinhado para se ler de relance
+   quando se anda a procurar a carta. */
+.codigo {
+  font-size: 11px; color: var(--text); opacity: .8;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
 .onde { font-size: 10px; color: var(--dim); line-height: 1.35; }
 .onde.falta { color: var(--bad); }
 .onde.shared { color: var(--accent-2); }

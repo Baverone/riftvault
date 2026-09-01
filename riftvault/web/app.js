@@ -658,8 +658,18 @@ function deckTile(c) {
       <span class="badge">${c.have}/${c.wanted}</span>
     </div>
     <div class="tname" title="${escapeAttr(c.name)}">${escapeHTML(c.name)}</div>
+    ${codeLine(c)}
     ${nota}
   </div>`;
+}
+
+/* Edição + número + preço, em texto legível. É por aqui que ele procura a
+   carta na caixa ou na loja — no canto da imagem era pequeno de mais. */
+function codeLine(x) {
+  if (!x.code && x.price == null) return '';
+  const cod = x.code ? escapeHTML(x.code.split('/')[0]) : '';
+  const pr = x.price != null ? eur(x.price) : '';
+  return `<div class="codigo">${cod}${cod && pr ? ' · ' : ''}${pr}</div>`;
 }
 
 /* Tile de compra: a carta que falta, na edição onde sai mais barata. */
@@ -672,9 +682,9 @@ function faltaTile(x) {
          ${alt ? `data-fallback="${escapeAttr(alt)}"` : ''}>` : ''}
       <span class="need">${x.qty}×</span>
       ${x.price != null ? `<span class="price">${eurShort(x.total)}</span>` : ''}
-      <span class="cn">${escapeHTML((x.code || '').split('/')[0])}</span>
     </div>
     <div class="tname" title="${escapeAttr(x.name)}">${escapeHTML(x.name)}</div>
+    ${codeLine(x)}
     ${x.also.length ? `<div class="onde tenho">também em ${x.also.join(', ')}</div>` : ''}
   </div>`;
 }

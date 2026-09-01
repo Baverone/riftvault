@@ -438,24 +438,32 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
     # Imagem por carta: a impressão representativa do catálogo. Se ele tiver a
     # carta, vale mais mostrar a arte que tem em casa do que a canónica.
     arte = {r["card_key"]: r for r in con.execute(
-        "SELECT c.card_key, p.printing_id, p.public_code, p.orientation, "
+        "SELECT c.card_key, p.printing_id, p.public_code, p.set_id, p.orientation, "
         "       p.image_medium, p.image_large, p.image_url "
         "FROM catalog.cards c JOIN catalog.printings p "
         "ON p.printing_id = c.rep_printing_id")}
     por_id = {r["printing_id"]: r for r in con.execute(
-        "SELECT printing_id, public_code, orientation, image_medium, image_large, image_url "
-        "FROM catalog.printings")}
+        "SELECT printing_id, public_code, set_id, orientation, "
+        "       image_medium, image_large, image_url FROM catalog.printings")}
+
+    # Preço da impressão, para aparecer ao lado do código na lista do deck.
+    precos = {r["printing_id"]: r["price_cents"] for r in con.execute(
+        "SELECT printing_id, price_cents FROM catalog.price_latest "
+        "WHERE price_cents IS NOT NULL")}
 
     def imagem(card_key: str) -> dict:
         tenho = prints.get(card_key)
         r = por_id.get(tenho[0]["id"]) if tenho else arte.get(card_key)
         if not r:
-            return {"img": None, "cdn": None, "landscape": False, "code": None}
+            return {"img": None, "cdn": None, "landscape": False,
+                    "code": None, "set": None, "price": None}
         return {
             "img": f"img/{r['printing_id']}.webp",
             "cdn": r["image_medium"] or r["image_large"] or r["image_url"],
             "landscape": (r["orientation"] or "").lower() == "landscape",
             "code": r["public_code"],
+            "set": r["set_id"],
+            "price": precos.get(r["printing_id"]),
         }
 
     # Quanto de cada carta já foi consumido por papéis anteriores deste deck:
