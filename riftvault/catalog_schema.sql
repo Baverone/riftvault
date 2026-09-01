@@ -81,10 +81,16 @@ CREATE TABLE IF NOT EXISTS printing_aliases (
 -- variante ('007' base, '007a' arte alt., '299s' signature), por isso casa
 -- diretamente com (set_id, collector_number, variant) da RiftScribe.
 CREATE TABLE IF NOT EXISTS cardtrader_map (
-    printing_id  TEXT PRIMARY KEY,
-    blueprint_id INTEGER NOT NULL,
-    expansion_id INTEGER,
-    mapped_at    TEXT
+    printing_id   TEXT PRIMARY KEY,
+    blueprint_id  INTEGER NOT NULL,
+    expansion_id  INTEGER,
+    -- Nome e edição COMO O MERCADO OS ESCREVE. Não são os da RiftScribe:
+    -- lá é "Loose Cannon", no mercado é "Jinx - Loose Cannon". É por estes
+    -- que se exporta a wantlist, senão o Cardmarket não casa as cartas.
+    market_name   TEXT,
+    market_set    TEXT,
+    cardmarket_id INTEGER,
+    mapped_at     TEXT
 );
 CREATE INDEX IF NOT EXISTS ix_ctmap_blueprint ON cardtrader_map(blueprint_id);
 

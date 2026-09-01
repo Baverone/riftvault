@@ -52,9 +52,11 @@ def _cheapest(con: sqlite3.Connection, keys: list[str]) -> dict[str, dict]:
     best: dict[str, dict] = {}
     for r in con.execute(
         f"SELECT p.card_key, p.set_id, p.printing_id, p.public_code, p.orientation, "
-        f"       p.image_medium, p.image_large, p.image_url, pl.price_cents "
+        f"       p.image_medium, p.image_large, p.image_url, pl.price_cents, "
+        f"       m.market_name, m.market_set, m.cardmarket_id "
         f"FROM catalog.printings p "
         f"LEFT JOIN catalog.price_latest pl ON pl.printing_id = p.printing_id "
+        f"LEFT JOIN catalog.cardtrader_map m ON m.printing_id = p.printing_id "
         f"WHERE p.card_key IN ({ph}) AND p.variant_kind = 'base'", keys
     ):
         cand = {
@@ -63,6 +65,11 @@ def _cheapest(con: sqlite3.Connection, keys: list[str]) -> dict[str, dict]:
             "landscape": (r["orientation"] or "").lower() == "landscape",
             "img": f"img/{r['printing_id']}.webp",
             "cdn": r["image_medium"] or r["image_large"] or r["image_url"],
+            # Como o mercado escreve: "Darius - Trifarian", não
+            # "Darius, Trifarian". É por aqui que a wantlist tem de sair.
+            "market_name": r["market_name"],
+            "market_set": r["market_set"],
+            "cardmarket_id": r["cardmarket_id"],
         }
         atual = best.get(r["card_key"])
         rank = lambda c: (c["price"] is None, c["price"] if c["price"] is not None else 0,
@@ -180,6 +187,8 @@ def _agrupar(con: sqlite3.Connection, falta: dict[str, int]) -> list[dict]:
             "code": c["code"], "price": c["price"], "total": (c["price"] or 0) * n,
             "img": c["img"], "cdn": c["cdn"], "landscape": c["landscape"],
             "also": sorted(edicoes.get(k, set()) - {c["set"]}),
+            "market_name": c.get("market_name"), "market_set": c.get("market_set"),
+            "cardmarket_id": c.get("cardmarket_id"),
         })
     out = list(por_set.values())
     for d in out:
@@ -359,3 +368,31 @@ def payload(con: sqlite3.Connection) -> dict:
             "cents": sum(x["total"] for x in todas),
         },
     }
+
+
+# ---------------------------------------------------------------------------
+# Exportar para a wantlist do Cardmarket
+# ---------------------------------------------------------------------------
+
+
+def wantlist(grupos: list[dict], com_edicao: bool = True) -> str:
+    """Texto para colar na wantlist do Cardmarket: "3 Nome (Edição)".
+
+    Usa o nome COMO O MERCADO O ESCREVE, não o da RiftScribe — lá é
+    "Loose Cannon", no Cardmarket é "Jinx - Loose Cannon", e sem isso não
+    casa nada. A edição vai junto porque 104 nomes existem em mais do que
+    uma, e sem ela ficava ambíguo.
+
+    NÃO VALIDADO contra o Cardmarket: o site responde 403 a pedidos
+    automáticos e não há conta para experimentar. O formato "qtd nome
+    (edição)" é o que a ajuda deles documenta. Ver CLAUDE.md.
+    """
+    linhas = []
+    for g in grupos:
+        for it in g.get("items", []):
+            nome = it.get("market_name") or it["name"]
+            if com_edicao and it.get("market_set"):
+                linhas.append(f"{it['qty']} {nome} ({it['market_set']})")
+            else:
+                linhas.append(f"{it['qty']} {nome}")
+    return "\n".join(linhas)

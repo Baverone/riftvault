@@ -366,6 +366,30 @@ desconta-se o que ele tem. A alocação por prioridade responde a outra coisa
   de 290 para 1178 impressões. Cresce só com o que muda. Se um dia incomodar,
   o sítio para podar é aqui.
 
+## Wantlist do Cardmarket
+
+`faltas.wantlist()` gera `qtd Nome (Edição)` por linha. Botão na secção
+Faltas → Por deck, e `riftvault wantlist [--deck X] [--todos] [--out f.txt]`.
+
+**O nome tem de ser o DO MERCADO, não o da RiftScribe.** Lá é
+"Darius, Trifarian", no Cardmarket/CardTrader é "Darius - Trifarian" —
+vírgula contra hífen. 414 das 1179 impressões diferem. O `cardtrader_map`
+guarda `market_name`, `market_set` e `cardmarket_id`, recolhidos no
+`riftvault map`.
+
+A edição vai junto porque 104 nomes existem em mais do que uma edição e sem
+ela ficaria ambíguo.
+
+**NÃO VALIDADO contra o Cardmarket.** O site responde 403 a pedidos
+automáticos e não há conta para experimentar. O formato `qtd nome (edição)` é
+o que a ajuda deles documenta e o que as extensões de bulk import usam. Que o
+Cardmarket tem Riftbound está confirmado: **as 1178 impressões têm
+`card_market_ids`** nos blueprints do CardTrader.
+
+**A caixa de texto não é um fallback do clipboard, é o mecanismo principal.**
+O `navigator.clipboard` exige contexto seguro, e no telemóvel isto abre por
+http num IP da rede local — lá nunca funcionaria.
+
 ## Onde está cada cópia
 
 `decks.printing_allocation` responde a "não encontro a carta no binder, onde

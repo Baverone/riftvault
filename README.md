@@ -112,6 +112,27 @@ A carência aqui é **global** — soma-se o que todos os decks pedem e desconta
 o que tens. É diferente da alocação por prioridade da secção Decks, que
 responde a outra pergunta: quem fica com o quê.
 
+## Wantlist do Cardmarket
+
+Na secção Faltas → Por deck há um botão **Lista para a wantlist do
+Cardmarket**, que dá o texto da aba que estiveres a ver. Ou pela linha de
+comandos:
+
+```bash
+py -m riftvault wantlist                    # tudo, um deck de cada vez
+py -m riftvault wantlist --deck ornn        # só um deck
+py -m riftvault wantlist --todos            # todos montados ao mesmo tempo
+py -m riftvault wantlist --out faltas.txt
+```
+
+O formato é `3 Nome da Carta (Edição)`, com o nome **como o mercado o
+escreve** — `Darius - Trifarian`, não `Darius, Trifarian` como está na
+RiftScribe. Sem isso o Cardmarket não casa as cartas.
+
+Não consegui validar o formato contra o Cardmarket (o site bloqueia pedidos
+automáticos); é o que a ajuda deles documenta. Se alguma linha não entrar,
+diz qual e ajusto.
+
 ## As duas métricas
 
 São mostradas sempre lado a lado, nunca uma em vez da outra.

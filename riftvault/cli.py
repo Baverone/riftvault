@@ -19,7 +19,9 @@ import re
 import sys
 
 from . import build as build_mod
-from . import catalog, collection, config, db, decks as decks_mod, metrics, prices, server
+from . import catalog, collection, config, db, decks as decks_mod
+from . import faltas as faltas_mod
+from . import metrics, prices, server
 
 
 def _qty(raw: str | None) -> int:
@@ -352,6 +354,36 @@ def cmd_shopping(args) -> int:
     return 0
 
 
+def cmd_wantlist(args) -> int:
+    con = db.connect()
+    decks_mod.import_all(con, log=lambda *_: None)
+
+    if args.todos:
+        alvo, rotulo = faltas_mod.todos_juntos(con), "todos os decks ao mesmo tempo"
+    elif args.deck:
+        pd = faltas_mod.por_deck(con)
+        nomes = {r["name"]: i for i, r in enumerate(decks_mod.deck_rows(con))}
+        if args.deck not in nomes:
+            print(f"erro: não há deck chamado {args.deck!r}", file=sys.stderr)
+            return 1
+        alvo = pd[nomes[args.deck]]
+        rotulo = alvo["name"]
+    else:
+        # Sem argumentos: a soma das listas por deck, sem múltiplos.
+        pd = faltas_mod.por_deck(con)
+        alvo = {"by_set": [g for d in pd for g in d["by_set"]]}
+        rotulo = "todos os decks, um de cada vez"
+
+    texto = faltas_mod.wantlist(alvo["by_set"], com_edicao=not args.sem_edicao)
+    if args.out:
+        open(args.out, "w", encoding="utf-8").write(texto + "\n")
+        print(f"{len(texto.splitlines())} linhas escritas em {args.out}  ({rotulo})")
+    else:
+        print(texto)
+    con.close()
+    return 0
+
+
 def cmd_find(args) -> int:
     con = db.connect()
     rows = con.execute(
@@ -450,6 +482,15 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("value", help="valor da coleção")
     p.add_argument("-n", type=int, default=15, help="quantas mostrar no top")
     p.set_defaults(func=cmd_value)
+
+    p = sub.add_parser("wantlist", help="lista de texto para a wantlist do Cardmarket")
+    p.add_argument("--deck", help="só deste deck (slug)")
+    p.add_argument("--todos", action="store_true",
+                   help="cenário de ter os decks todos montados ao mesmo tempo")
+    p.add_argument("--sem-edicao", action="store_true", dest="sem_edicao",
+                   help="não escrever a edição entre parênteses")
+    p.add_argument("--out", help="escrever para ficheiro em vez do ecrã")
+    p.set_defaults(func=cmd_wantlist)
 
     p = sub.add_parser("find", help="procura impressões por nome ou código")
     p.add_argument("query")

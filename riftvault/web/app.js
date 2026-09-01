@@ -891,6 +891,11 @@ function renderPorDeck() {
           m.cards === 1 ? '' : 's'}${m.cents ? ` · ${eur(m.cents)}` : ''}</span></h3>
       <div class="grid deck-grid">${m.items.map(faltaTile).join('')}</div>`).join('')
       : '<p class="empty">Nada a comprar — este deck fica completo com o que vem acima.</p>'}
+    <div class="wl-zona">
+      <button class="btn" id="wl-btn">Lista para a wantlist do Cardmarket</button>
+      <textarea id="wl-txt" class="wl-txt" readonly hidden></textarea>
+      <small class="nota" id="wl-nota" hidden></small>
+    </div>
     <p class="note total-linha">Somando as abas dos decks:
       <b>${copias} cópias · ${eur(um)}</b> para os montar um de cada vez.</p>`;
 
@@ -901,6 +906,43 @@ function renderPorDeck() {
       savePrefs();
       renderPorDeck();
     };
+  }
+  $('#wl-btn').onclick = () => mostrarWantlist(alvo);
+}
+
+/* Texto para colar na wantlist do Cardmarket.
+
+   Usa o nome COMO O MERCADO O ESCREVE ("Darius - Trifarian"), não o da
+   RiftScribe ("Darius, Trifarian"), senão não casa lá nada.
+
+   A caixa de texto é o mecanismo principal, não um fallback: o
+   `navigator.clipboard` só existe em contexto seguro, e no telemóvel isto
+   abre por http num IP da rede local — ou seja, lá nunca funcionaria. */
+function mostrarWantlist(alvo) {
+  const linhas = [];
+  for (const g of alvo.by_set) {
+    for (const it of g.items) {
+      const nome = it.market_name || it.name;
+      linhas.push(`${it.qty} ${nome}${it.market_set ? ` (${it.market_set})` : ''}`);
+    }
+  }
+  const txt = $('#wl-txt');
+  const nota = $('#wl-nota');
+  txt.value = linhas.join('\n');
+  txt.rows = Math.min(16, Math.max(4, linhas.length));
+  txt.hidden = false;
+  nota.hidden = false;
+  txt.focus();
+  txt.select();
+
+  const n = linhas.length;
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(txt.value)
+      .then(() => { nota.textContent = `${n} linhas copiadas. Cola na wantlist do Cardmarket.`; })
+      .catch(() => { nota.textContent = `${n} linhas — já selecionadas, copia com Ctrl+C.`; });
+  } else {
+    nota.textContent = `${n} linhas — já selecionadas, copia à mão (no telemóvel, `
+      + `toca e mantém para copiar).`;
   }
 }
 

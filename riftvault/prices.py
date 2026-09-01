@@ -162,13 +162,15 @@ def sync_map(ct: CardTrader | None = None, log=print) -> dict:
             log(f"  ! {set_id} não tem expansão correspondente no CardTrader")
             continue
 
-        index: dict[str, int] = {}
+        index: dict[str, dict] = {}
         for b in ct.blueprints(exp["id"]):
             if b.get("category_id") != SINGLES_CATEGORY:
                 continue            # booster boxes, playmats e afins
             k = _ct_key((b.get("fixed_properties") or {}).get("collector_number"))
             if k and k not in index:
-                index[k] = b["id"]
+                cm = b.get("card_market_ids") or []
+                index[k] = {"id": b["id"], "name": b.get("name"),
+                            "cm": cm[0] if cm else None}
 
         rows = con.execute(
             "SELECT printing_id, collector_number, variant, public_code, name "
@@ -176,9 +178,10 @@ def sync_map(ct: CardTrader | None = None, log=print) -> dict:
         ).fetchall()
         hit = 0
         for r in rows:
-            bid = index.get(_rs_key(r["collector_number"], r["variant"]))
-            if bid:
-                pairs.append((r["printing_id"], bid, exp["id"], _now()))
+            b = index.get(_rs_key(r["collector_number"], r["variant"]))
+            if b:
+                pairs.append((r["printing_id"], b["id"], exp["id"], b["name"],
+                              exp.get("name_en") or exp.get("name"), b["cm"], _now()))
                 hit += 1
             else:
                 missing.append((r["printing_id"], r["public_code"], r["name"]))
@@ -188,8 +191,8 @@ def sync_map(ct: CardTrader | None = None, log=print) -> dict:
     con.execute("BEGIN")
     con.execute("DELETE FROM cardtrader_map")
     con.executemany(
-        "INSERT INTO cardtrader_map (printing_id, blueprint_id, expansion_id, mapped_at) "
-        "VALUES (?,?,?,?)", pairs)
+        "INSERT INTO cardtrader_map (printing_id, blueprint_id, expansion_id, "
+        "market_name, market_set, cardmarket_id, mapped_at) VALUES (?,?,?,?,?,?,?)", pairs)
     con.execute("COMMIT")
     con.close()
     return {"mapped": len(pairs), "missing": missing, "sets_sem_expansao": sem_exp}

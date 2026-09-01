@@ -400,6 +400,14 @@ body.readonly .deck-actions .btn[data-act="descer"] { display: none; }
 .resumo b { font-size: 15px; }
 .resumo span { font-size: 13px; color: var(--dim); font-variant-numeric: tabular-nums; }
 
+.wl-zona { display: flex; flex-direction: column; gap: 8px; margin-top: 18px; align-items: flex-start; }
+.wl-txt {
+  width: 100%; background: var(--panel-2); color: var(--text);
+  border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px;
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: 12px; line-height: 1.6; resize: vertical;
+}
+
 .total-linha { margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--line); }
 .total-linha b { color: var(--text); }
 
