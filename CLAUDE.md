@@ -499,6 +499,27 @@ o catálogo tem de voltar a correr os preços.
 O `navigator.clipboard` exige contexto seguro, e no telemóvel isto abre por
 http num IP da rede local — lá nunca funcionaria.
 
+## Encomendas a caminho (`pending`)
+
+Uma carta comprada mas ainda não recebida não está na coleção — mas também já
+não é uma falta. A tabela `pending` (vault.db) é a diferença entre as duas:
+
+- **Fora do `copies`**: a Coleção mede o que está na caixa. As barras de
+  progresso, o valor e o master set não mexem enquanto a encomenda vem.
+- **Descontada das faltas**: o `faltas.shortfall`, o `por_deck` e o
+  `todos_juntos` somam o pendente ao que ele tem, senão as listas mandavam
+  comprar outra vez.
+- `pending.arrive()` passa para o `copies` pelo `collection.adjust`, portanto
+  fica no `ops` e dá para desfazer.
+
+Aceita `market_only`: ele comprou runas do SFD que a RiftScribe não tem, e
+essas contam na mesma (`pending.open_by_card` junta as duas fontes).
+
+**Aliases das market_only.** O `sync_map` regista `sfd-r02a` -> `ct-374043`
+no `printing_aliases`, com o sufixo `a` acrescentado quando o CardTrader o
+omite. Sem isso o `riftvault add SFD-R02a` falhava — e foi assim que a fatura
+dele veio escrita.
+
 ## Onde está cada cópia
 
 `decks.printing_allocation` responde a "não encontro a carta no binder, onde

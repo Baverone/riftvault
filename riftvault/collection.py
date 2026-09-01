@@ -47,6 +47,14 @@ def resolve_printing(con: sqlite3.Connection, ref: str) -> str:
     if row:
         return row["printing_id"]
 
+    # Impressões que só o CardTrader lista (runas do SFD/UNL, signatures do
+    # VEN). Não estão no catálogo, mas podem ser compradas e possuídas.
+    row = con.execute(
+        "SELECT printing_id FROM catalog.market_only WHERE lower(printing_id) = ?",
+        (key,)).fetchone()
+    if row:
+        return row["printing_id"]
+
     raise UnknownPrinting(f"não encontrei nenhuma impressão para {ref!r}")
 
 

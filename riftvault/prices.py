@@ -234,6 +234,23 @@ def sync_map(ct: CardTrader | None = None, log=print) -> dict:
         "  SELECT c.card_key FROM cards c "
         "  WHERE c.card_key = lower(trim(market_only.market_name)) LIMIT 1)"
         " WHERE card_key IS NULL")
+    # Aliases para as market_only, para o `riftvault add SFD-R02a` funcionar
+    # como para qualquer outra impressão.
+    #
+    # O código impresso leva 'a' nas artes alternativas, mas o CardTrader
+    # gravou a Calm Rune do SFD como 'R02' e não 'R02a'. Regista-se as duas
+    # formas: a que eles têm e a que vem na fatura.
+    al = []
+    for r in con.execute(
+        "SELECT printing_id, set_id, collector_raw, version FROM market_only "
+        "WHERE collector_raw IS NOT NULL"
+    ):
+        base = f"{r['set_id']}-{r['collector_raw']}".lower()
+        al.append((base, r["printing_id"]))
+        if "alternate art" in (r["version"] or "").lower() and not base.endswith("a"):
+            al.append((base + "a", r["printing_id"]))
+    con.executemany(
+        "INSERT OR IGNORE INTO printing_aliases (alias, printing_id) VALUES (?,?)", al)
     con.execute("COMMIT")
     casadas = con.execute(
         "SELECT COUNT(*) n FROM market_only WHERE card_key IS NOT NULL").fetchone()["n"]

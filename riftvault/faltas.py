@@ -20,7 +20,7 @@ from __future__ import annotations
 import sqlite3
 from datetime import date, timedelta
 
-from . import config, decks, metrics
+from . import config, decks, metrics, pending
 
 # Abaixo disto o "subiu X%" é ruído de mercado, não um spike.
 SPIKE_MIN_CENTS = 50
@@ -141,7 +141,11 @@ def shortfall(con: sqlite3.Connection) -> list[dict]:
     pedido = _wanted(con)
     if not pedido:
         return []
+    # O que já vem a caminho conta como tido: senão a lista mandava comprar
+    # outra vez enquanto a encomenda não chega.
     tenho = decks.owned_by_card(con)
+    for k, q in pending.open_by_card(con).items():
+        tenho[k] = tenho.get(k, 0) + q
     nomes = {r["card_key"]: r["name"] for r in con.execute(
         "SELECT card_key, name FROM catalog.cards")}
 
@@ -301,6 +305,8 @@ def por_deck(con: sqlite3.Connection) -> list[dict]:
     ignorar = set(cfg.get("faltas_ignorar_tipos", []))
     tipos = _tipos(con)
     tenho = dict(decks.owned_by_card(con))
+    for k, q in pending.open_by_card(con).items():
+        tenho[k] = tenho.get(k, 0) + q
 
     def teto(k: str) -> int:
         t, tok = tipos.get(k, (None, False))
@@ -347,7 +353,9 @@ def todos_juntos(con: sqlite3.Connection) -> dict:
     cfg = config.load()
     ignorar = set(cfg.get("faltas_ignorar_tipos", []))
     tipos = _tipos(con)
-    tenho = decks.owned_by_card(con)
+    tenho = dict(decks.owned_by_card(con))
+    for k, q in pending.open_by_card(con).items():
+        tenho[k] = tenho.get(k, 0) + q
 
     pedido: dict[str, int] = {}
     for k, v in _wanted(con).items():
@@ -451,6 +459,7 @@ def payload(con: sqlite3.Connection) -> dict:
         "spiking": spiking(con),
         "pimp": pimp(con),
         "ignored_types": sorted(config.load().get("faltas_ignorar_tipos", [])),
+        "pending": {**pending.totals(con), "items": pending.listar(con)},
         "totals": {
             "cards": len(todas),
             "copies": sum(x["missing"] for x in todas),

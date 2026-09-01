@@ -470,6 +470,17 @@ body.readonly .deck-actions .btn[data-act="descer"] { display: none; }
   font-size: 12px; color: var(--text);
 }
 
+/* Lista de encomendas: aqui uma tabela lê-se melhor do que uma grelha —
+   confere-se contra a fatura, não se olha para as artes. */
+.deck-list { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
+.deck-list td { padding: 7px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.deck-list td.q { width: 38px; color: var(--dim); font-variant-numeric: tabular-nums; }
+.deck-list td.h {
+  width: 76px; text-align: right; color: var(--dim);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.deck-list tr:last-child td { border-bottom: 0; }
+
 /* ----------------------------------------------------------------- toasts */
 
 .toasts {

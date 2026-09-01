@@ -106,6 +106,10 @@ Terceira secção, com três abas:
   que esse deck usa. Cada sub-aba tem a sua lista para a wantlist. Não é lista de
   compras; inclui as que já tens (moldura verde), porque serve para saberes o
   que existe quando andas a procurar. Tem lista para a wantlist também.
+- **A caminho** — o que já compraste e ainda não chegou. Não conta na Coleção
+  (essa mede o que tens na caixa) mas já sai das faltas e das wantlists, para
+  não comprares duas vezes. Quando chegar:
+  `py -m riftvault pending --chegou`.
 - **A subir** — **todo o Riftbound**, não só a tua coleção: impressões que
   subiram mais de 15% nos últimos 30 dias. As que já tens ficam com moldura
   verde, as que te faltam com moldura vermelha e o que custou esperar. Serve

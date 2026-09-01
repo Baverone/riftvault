@@ -63,3 +63,22 @@ CREATE TABLE IF NOT EXISTS deck_cards (
 -- O histórico de preços vive no `prices.db` (ver riftvault/prices_schema.sql):
 -- é escrito pelo robô do GitHub Actions, e não pode partilhar ficheiro com a
 -- coleção sob pena de conflitos binários que custariam dados ao André.
+
+-- Cartas compradas que ainda não chegaram.
+--
+-- Ficam FORA de `copies`: ele ainda não as tem na mão, e a Coleção mede o que
+-- está na caixa. Mas saem das faltas e das wantlists, senão comprava-as duas
+-- vezes enquanto a encomenda vem a caminho.
+--
+-- Quando chegam, `pending.arrive()` passa-as para `copies` pelo caminho
+-- normal (com entrada no `ops`, portanto com undo).
+CREATE TABLE IF NOT EXISTS pending (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    printing_id TEXT    NOT NULL,
+    qty         INTEGER NOT NULL CHECK (qty > 0),
+    unit_cents  INTEGER,            -- o que pagou por cópia, se souber
+    ordered_at  TEXT    NOT NULL,
+    note        TEXT,               -- vendedor, nº de encomenda, o que for
+    arrived_at  TEXT                -- preenchido quando entra na coleção
+);
+CREATE INDEX IF NOT EXISTS ix_pending_aberto ON pending(arrived_at, printing_id);

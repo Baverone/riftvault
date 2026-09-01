@@ -760,6 +760,7 @@ const FALTA_TABS = [
   { id: 'deck', label: 'Por deck', sub: 'o que falta a cada um' },
   { id: 'spike', label: 'A subir', sub: 'comprar antes que suba mais' },
   { id: 'pimp', label: 'Pimp decks', sub: 'versões alteradas das cartas dos decks' },
+  { id: 'caminho', label: 'A caminho', sub: 'comprado, ainda não chegou' },
 ];
 
 async function loadFaltas() {
@@ -780,6 +781,7 @@ function renderFaltaTabs() {
     if (t.id === 'deck') n = `${f.por_deck.reduce((s, d) => s + d.copies, 0)} cópias`;
     if (t.id === 'spike') n = f.spiking.ready ? `${f.spiking.items.length} cartas` : 'sem histórico';
     if (t.id === 'pimp') n = `${f.pimp.printings} versões`;
+    if (t.id === 'caminho') n = f.pending.copies ? `${f.pending.copies} cópias` : 'nada';
     b.innerHTML = `${t.label}<small>${n}</small>`;
     b.onclick = () => { state.prefs.falta = t.id; savePrefs(); renderFaltaTabs(); renderFaltas(); };
     nav.appendChild(b);
@@ -823,6 +825,11 @@ function renderFaltas() {
 
   if (which === 'pimp') {
     renderPimp();
+    return;
+  }
+
+  if (which === 'caminho') {
+    renderCaminho();
     return;
   }
 
@@ -1084,6 +1091,48 @@ function pimpTile(x, comDecks = true) {
       comDecks && x.decks.length
         ? ` · ${x.decks.map(d => escapeHTML(d.split(' · ')[0])).join(', ')}` : ''}</div>
   </div>`;
+}
+
+
+/* "A caminho": comprado mas ainda não em casa. Não está na Coleção — essa
+   mede o que está na caixa — mas já saiu das faltas, senão ele comprava duas
+   vezes enquanto a encomenda vem. */
+function renderCaminho() {
+  const p = state.faltas.pending;
+  if (!p.copies) {
+    $('#falta-body').innerHTML = `<p class="empty">Nada a caminho.<br>
+      <small>Regista com <code>riftvault pending</code>.</small></p>`;
+    return;
+  }
+  // Agrupar por edição: é assim que as encomendas chegam e se conferem.
+  const porSet = new Map();
+  for (const it of p.items) {
+    if (!porSet.has(it.set_id)) porSet.set(it.set_id, []);
+    porSet.get(it.set_id).push(it);
+  }
+
+  $('#falta-body').innerHTML = `
+    <div class="deck-card resumo">
+      <b>A caminho</b>
+      <span>${p.copies} cópias em ${p.lines} linhas${p.cents ? ` · ${eur(p.cents)}` : ''}</span>
+    </div>
+    <p class="note">Já compradas, ainda não em casa. <b>Não contam na Coleção</b>
+      — essa mede o que tens na caixa — mas já saíram das faltas e das
+      wantlists. Quando chegarem, corre
+      <code>riftvault pending --chegou</code> para darem entrada.</p>
+    ${[...porSet.entries()].map(([s, itens]) => `
+      <h3 class="section-head sub">${escapeHTML(s)}
+        <span>${itens.reduce((a, x) => a + x.qty, 0)} cópias</span></h3>
+      <table class="deck-list">
+        <tbody>${itens.map(x => `
+          <tr>
+            <td class="q">${x.qty}×</td>
+            <td class="n">${escapeHTML(x.name || x.printing_id)}
+              <div class="onde tenho">${escapeHTML(x.code || '')} · ${escapeHTML(x.label)}${
+                x.market_only ? ' · fora do catálogo' : ''}</div></td>
+            <td class="h">${x.unit_cents ? eur(x.unit_cents * x.qty) : ''}</td>
+          </tr>`).join('')}</tbody>
+      </table>`).join('')}`;
 }
 
 function artHTML(x, extra = '') {

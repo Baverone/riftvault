@@ -21,7 +21,7 @@ import sys
 from . import build as build_mod
 from . import catalog, collection, config, db, decks as decks_mod
 from . import faltas as faltas_mod
-from . import metrics, prices, server
+from . import metrics, pending as pending_mod, prices, server
 
 
 def _qty(raw: str | None) -> int:
@@ -399,6 +399,35 @@ def cmd_wantlist(args) -> int:
     return 0
 
 
+def cmd_pending(args) -> int:
+    con = db.connect()
+    if args.chegou is not None:
+        feitas = pending_mod.arrive(con, args.chegou or None)
+        if not feitas:
+            print("não havia nada por chegar.")
+            return 1
+        for f in feitas:
+            print(f"+{f['qty']}  {_describe(con, f['printing_id'])}  -> {f['total']}")
+        print(f"\n{len(feitas)} linhas deram entrada na coleção.")
+        con.close()
+        return 0
+
+    linhas = pending_mod.listar(con)
+    if not linhas:
+        print("nada a caminho.")
+        return 0
+    t = pending_mod.totals(con)
+    print(f"A caminho: {t['copies']} cópias em {t['lines']} linhas"
+          + (f" · {prices.eur(t['cents'])}" if t["cents"] else "") + "\n")
+    for r in linhas:
+        so = "  [fora do catálogo]" if r["market_only"] else ""
+        preco = f"  {prices.eur((r['unit_cents'] or 0) * r['qty']):>9}" if r["unit_cents"] else ""
+        print(f"  #{r['id']:<4} {r['qty']}x {str(r['code']):<16} {str(r['name'])[:26]:<26} "
+              f"{r['label']:<11}{preco}{so}")
+    con.close()
+    return 0
+
+
 def cmd_find(args) -> int:
     con = db.connect()
     rows = con.execute(
@@ -508,6 +537,12 @@ def main(argv: list[str] | None = None) -> int:
                    help="não escrever a edição entre parênteses")
     p.add_argument("--out", help="escrever para ficheiro em vez do ecrã")
     p.set_defaults(func=cmd_wantlist)
+
+    p = sub.add_parser("pending", help="encomendas a caminho")
+    p.add_argument("--chegou", nargs="?", type=int, const=0, default=None,
+                   metavar="ID",
+                   help="dá entrada na coleção: sem ID, tudo o que está aberto")
+    p.set_defaults(func=cmd_pending)
 
     p = sub.add_parser("find", help="procura impressões por nome ou código")
     p.add_argument("query")
