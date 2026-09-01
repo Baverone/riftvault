@@ -133,6 +133,21 @@ main { padding: 12px; max-width: 1500px; margin: 0 auto; }
 .count-line { margin: 0 0 10px; font-size: 12px; color: var(--dim); }
 .empty { color: var(--dim); text-align: center; padding: 40px 0; }
 
+/* Modo publicado: dizer porque é que não há botões, em vez de deixar a
+   pessoa a carregar no vazio. */
+.banner {
+  display: flex; flex-direction: column; gap: 4px;
+  background: var(--panel); border: 1px solid var(--line);
+  border-left: 3px solid var(--accent-2);
+  border-radius: 10px; padding: 11px 14px; margin-bottom: 12px;
+}
+.banner b { font-size: 13px; }
+.banner span { font-size: 12px; color: var(--dim); line-height: 1.5; }
+.banner code {
+  background: var(--panel-2); border-radius: 4px; padding: 1px 5px;
+  font-size: 11px; color: var(--text);
+}
+
 /* ---------------------------------------------------------------- grelha */
 
 .grid {

@@ -63,6 +63,10 @@ async function boot() {
   state.imageMode = state.index.image_mode || 'local';
   document.body.classList.toggle('readonly', !state.editable);
   $('#mode-badge').hidden = state.editable;
+  // O chip "só leitura" ao lado do título passa despercebido — quem abre isto
+  // no telemóvel carrega no sítio dos +/- e não percebe porque não acontece
+  // nada. O aviso tem de ser grande.
+  $('#readonly-banner').hidden = state.editable;
   $('#generated').textContent = state.index.generated_at
     ? `Atualizado em ${state.index.generated_at.replace('T', ' ').replace('+00:00', ' UTC')}.` : '';
 

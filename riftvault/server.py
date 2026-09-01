@@ -41,15 +41,27 @@ def _close(_exc):
 # --------------------------------------------------------------------------
 
 
+def _sem_cache(resp):
+    """O modo edição serve sempre a versão fresca.
+
+    Sem isto, o telemóvel fica com um `app.js` antigo em cache e a página
+    parece partida depois de qualquer alteração ao código — carrega-se nos
+    `+` e não acontece nada, sem erro nenhum à vista. As imagens continuam
+    com cache longo; são o que pesa e nunca mudam.
+    """
+    resp.headers["Cache-Control"] = "no-store, must-revalidate"
+    return resp
+
+
 @app.get("/")
 def index():
-    return send_from_directory(config.WEB_DIR, "index.html")
+    return _sem_cache(send_from_directory(config.WEB_DIR, "index.html"))
 
 
 @app.get("/<path:name>")
 def web_asset(name: str):
     if (config.WEB_DIR / name).is_file():
-        return send_from_directory(config.WEB_DIR, name)
+        return _sem_cache(send_from_directory(config.WEB_DIR, name))
     return ("não encontrado", 404)
 
 
