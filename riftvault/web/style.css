@@ -427,6 +427,15 @@ body.readonly .deck-actions .btn[data-act="descer"] { display: none; }
 }
 .dtile .cn { right: 4px; bottom: 4px; left: auto; }
 
+/* Impressão que a RiftScribe não tem — veio do CardTrader e não conta para
+   métrica nenhuma. */
+.so-mercado {
+  position: absolute; left: 4px; top: 22px;
+  font-size: 9px; font-weight: 700;
+  background: rgba(124, 140, 255, .92); color: #0f1016;
+  border-radius: 5px; padding: 1px 5px;
+}
+
 .ja-tens {
   position: absolute; left: 4px; bottom: 4px;
   font-size: 10px; font-weight: 700;

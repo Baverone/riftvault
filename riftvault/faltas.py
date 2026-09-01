@@ -566,6 +566,36 @@ def pimp(con: sqlite3.Connection) -> dict:
         if alt:
             alt_de[ck] = alt
 
+    # Artes alternativas que só o CardTrader lista — as runas do SFD, UNL e
+    # VEN. Ficam fora do catálogo (não contam para métricas nenhumas) mas
+    # entram aqui, porque é o que o André quer pimpar quando o Legend do deck
+    # é dessa edição.
+    precos_mo = {r["printing_id"]: r["price_cents"] for r in con.execute(
+        "SELECT printing_id, price_cents FROM catalog.price_latest")}
+    for r in con.execute(
+        "SELECT printing_id, set_id, collector_raw, market_name, market_set, "
+        "       image_url, card_key, cardmarket_id "
+        "FROM catalog.market_only "
+        "WHERE card_key IS NOT NULL AND version LIKE '%Alternate Art%'"
+    ):
+        if r["card_key"] not in quem:
+            continue
+        alt_de.setdefault(r["card_key"], []).append({
+            "card_key": r["card_key"], "printing_id": r["printing_id"],
+            "set_id": r["set_id"], "api_sort": 9999,
+            "variant_kind": "alt_art", "variant_label": "Arte alt.",
+            "public_code": f"{r['set_id']}-{r['collector_raw']}",
+            "orientation": "portrait", "name": r["market_name"],
+            "image_medium": None, "image_large": None,
+            # Sem o `www.` o CardTrader responde 301; poupa-se um salto por
+            # imagem, e evita-se um `<img>` a falhar se o cliente não seguir.
+            "image_url": (r["image_url"] or "").replace(
+                "https://cardtrader.com/", "https://www.cardtrader.com/") or None,
+            "price_cents": precos_mo.get(r["printing_id"]),
+            "market_only": True, "market_name": r["market_name"],
+            "market_set": r["market_set"],
+        })
+
     def montar(pedido: dict[str, int], preferir: str | None = None) -> dict:
         """{card_key: quantas o deck usa} -> estrutura por edição.
 
@@ -604,11 +634,16 @@ def pimp(con: sqlite3.Connection) -> dict:
                     "price": r["price_cents"], "total": sub,
                     "have": tem, "have_base": tenho_carta.get(ck, 0),
                     "landscape": (r["orientation"] or "").lower() == "landscape",
-                    "img": f"img/{r['printing_id']}.webp",
+                    "img": None if r.get("market_only") else f"img/{r['printing_id']}.webp",
                     "cdn": r["image_medium"] or r["image_large"] or r["image_url"],
-                    "market_name": v.get("name"),
-                    "market_set": mkt.get(r["printing_id"]),
-                    "v": v.get("v"), "n_versions": v.get("n", 1),
+                    "market_only": bool(r.get("market_only")),
+                    "market_name": r.get("market_name") or v.get("name"),
+                    "market_set": r.get("market_set") or mkt.get(r["printing_id"]),
+                    # As market_only não têm grupo para numerar; em Riftbound
+                    # a arte alternativa é sempre a V.2 de 2 (medido nas 102
+                    # que o catálogo tem).
+                    "v": v.get("v", 2 if r.get("market_only") else None),
+                    "n_versions": v.get("n", 2 if r.get("market_only") else 1),
                     "foil_only": v.get("foil_only", False),
                     "decks": sorted(quem.get(ck, {}).get("decks", {}).keys()),
                 })

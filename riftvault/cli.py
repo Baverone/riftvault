@@ -189,6 +189,10 @@ def cmd_map(args) -> int:
     print("A mapear as impressões para os blueprints do CardTrader...")
     res = prices.sync_map(ct)
     print(f"\n{res['mapped']} impressões mapeadas.")
+    if res.get("market_only"):
+        print(f"{res['market_only']} impressões que só o CardTrader tem "
+              f"({res['market_only_casadas']} casadas com uma carta nossa) — "
+              f"ficam fora do catálogo, só para a aba Pimp.")
     if res["missing"]:
         print(f"\n{len(res['missing'])} sem par no CardTrader:")
         for pid, code, name in res["missing"][:20]:

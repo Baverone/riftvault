@@ -154,7 +154,7 @@ def sync_map(ct: CardTrader | None = None, log=print) -> dict:
     by_code = {(x.get("code") or "").upper(): x for x in ct.expansions()}
     our_sets = [r["set_id"] for r in con.execute("SELECT DISTINCT set_id FROM printings")]
 
-    pairs, missing, sem_exp = [], [], []
+    pairs, missing, sem_exp, so_mercado = [], [], [], []
     for set_id in sorted(our_sets):
         exp = by_code.get(set_id)
         if not exp:
@@ -162,40 +162,84 @@ def sync_map(ct: CardTrader | None = None, log=print) -> dict:
             log(f"  ! {set_id} não tem expansão correspondente no CardTrader")
             continue
 
-        index: dict[str, dict] = {}
+        # `singles` guarda TUDO; o `index` é só para casar com as nossas
+        # impressões. Não se pode deduplicar por número de coleção e ficar por
+        # aí: o CardTrader escreve a Calm Rune alternativa do SFD com o mesmo
+        # `R02` da base, e a segunda desaparecia — logo a runa que o deck do
+        # Ornn quer, por o Legend dele ser do SFD.
+        singles, index = [], {}
         for b in ct.blueprints(exp["id"]):
             if b.get("category_id") != SINGLES_CATEGORY:
                 continue            # booster boxes, playmats e afins
-            k = _ct_key((b.get("fixed_properties") or {}).get("collector_number"))
-            if k and k not in index:
-                cm = b.get("card_market_ids") or []
-                index[k] = {"id": b["id"], "name": b.get("name"),
-                            "cm": cm[0] if cm else None}
+            cm = b.get("card_market_ids") or []
+            info = {"id": b["id"], "name": b.get("name"),
+                    "cm": cm[0] if cm else None,
+                    "raw_cn": (b.get("fixed_properties") or {}).get("collector_number"),
+                    "version": b.get("version"),
+                    "image": b.get("image_url")}
+            singles.append(info)
+            k = _ct_key(info["raw_cn"])
+            # A base tem `version` vazio; se houver colisão, é ela que fica.
+            if k and (k not in index or not (info["version"] or "")):
+                index[k] = info
 
         rows = con.execute(
             "SELECT printing_id, collector_number, variant, public_code, name "
             "FROM printings WHERE set_id = ?", (set_id,)
         ).fetchall()
-        hit = 0
+        hit, usados = 0, set()
         for r in rows:
-            b = index.get(_rs_key(r["collector_number"], r["variant"]))
+            k = _rs_key(r["collector_number"], r["variant"])
+            b = index.get(k)
             if b:
+                usados.add(b["id"])
                 pairs.append((r["printing_id"], b["id"], exp["id"], b["name"],
                               exp.get("name_en") or exp.get("name"), b["cm"], _now()))
                 hit += 1
             else:
                 missing.append((r["printing_id"], r["public_code"], r["name"]))
+
+        # O que o CardTrader tem e nós não. Vai para `market_only`, fora do
+        # catálogo — ver o comentário no catalog_schema.sql.
+        for b in singles:
+            if b["id"] in usados:
+                continue
+            so_mercado.append((f"ct-{b['id']}", b["id"], set_id, b["raw_cn"],
+                               b["name"], exp.get("name_en") or exp.get("name"),
+                               b["version"], b["cm"], b["image"], _now()))
         log(f"  {set_id}: {hit}/{len(rows)} impressões mapeadas")
         time.sleep(0.5)             # a API permite 200/10s; não há pressa
 
     con.execute("BEGIN")
     con.execute("DELETE FROM cardtrader_map")
+    con.execute("DELETE FROM market_only")
     con.executemany(
         "INSERT INTO cardtrader_map (printing_id, blueprint_id, expansion_id, "
         "market_name, market_set, cardmarket_id, mapped_at) VALUES (?,?,?,?,?,?,?)", pairs)
+    con.executemany(
+        "INSERT INTO market_only (printing_id, blueprint_id, set_id, collector_raw, "
+        "market_name, market_set, version, cardmarket_id, image_url, seen_at) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?)", so_mercado)
+
+    # Casar cada uma com a carta lógica: primeiro pelo número de coleção (as
+    # signatures do VEN têm base nossa), depois pelo nome.
+    con.execute(
+        "UPDATE market_only SET card_key = ("
+        "  SELECT p.card_key FROM printings p WHERE p.set_id = market_only.set_id "
+        "  AND CAST(p.collector_number AS TEXT) = "
+        "      CAST(CAST(REPLACE(REPLACE(market_only.collector_raw,'a',''),'s','') AS INTEGER) AS TEXT)"
+        "  LIMIT 1) WHERE card_key IS NULL")
+    con.execute(
+        "UPDATE market_only SET card_key = ("
+        "  SELECT c.card_key FROM cards c "
+        "  WHERE c.card_key = lower(trim(market_only.market_name)) LIMIT 1)"
+        " WHERE card_key IS NULL")
     con.execute("COMMIT")
+    casadas = con.execute(
+        "SELECT COUNT(*) n FROM market_only WHERE card_key IS NOT NULL").fetchone()["n"]
     con.close()
-    return {"mapped": len(pairs), "missing": missing, "sets_sem_expansao": sem_exp}
+    return {"mapped": len(pairs), "missing": missing, "sets_sem_expansao": sem_exp,
+            "market_only": len(so_mercado), "market_only_casadas": casadas}
 
 
 # ---------------------------------------------------------------------------
@@ -241,6 +285,17 @@ def sync_prices(ct: CardTrader | None = None, log=print) -> dict:
     for r in con.execute("SELECT printing_id, blueprint_id, expansion_id FROM catalog.cardtrader_map"):
         bp_to_printings.setdefault(r["blueprint_id"], []).append(r["printing_id"])
         exps.setdefault(r["expansion_id"], set()).add(r["blueprint_id"])
+
+    # As `market_only` também levam preço: sem ele a aba Pimp mostrava-as sem
+    # valor nenhum, que é metade da decisão. Vêm no mesmo payload da expansão.
+    por_exp = {r["set_id"]: r["expansion_id"] for r in con.execute(
+        "SELECT DISTINCT p.set_id, m.expansion_id FROM catalog.printings p "
+        "JOIN catalog.cardtrader_map m ON m.printing_id = p.printing_id")}
+    for r in con.execute("SELECT printing_id, blueprint_id, set_id FROM catalog.market_only"):
+        bp_to_printings.setdefault(r["blueprint_id"], []).append(r["printing_id"])
+        e = por_exp.get(r["set_id"])
+        if e:
+            exps.setdefault(e, set()).add(r["blueprint_id"])
     if not bp_to_printings:
         con.close()
         raise CardTraderError("o mapa está vazio — corre primeiro `riftvault map`")

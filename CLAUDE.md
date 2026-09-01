@@ -421,9 +421,28 @@ A preferência **já está implementada** (`pimp()` -> `montar(pedido, preferir)
 e passa a funcionar sozinha assim que o catálogo tiver as cartas. Hoje não
 muda nada.
 
-**Por decidir:** suplementar o catálogo com as impressões que só o CardTrader
-tem. É meter uma segunda fonte no `catalog.db`, sem imagens da RiftScribe e
-mexendo em todos os totais do site (1180 -> 1228). Não fazer sem ele decidir.
+**Resolvido com `catalog.market_only`** (2026-09-01). O André deixou a decisão
+comigo e escolhi o caminho do meio: as 48 impressões ficam numa tabela à
+parte, **fora do catálogo**.
+
+- Não entram na grelha da Coleção nem em métrica nenhuma. As barras de
+  progresso, o master set e as contagens por raridade continuam a medir os
+  1180 da RiftScribe — que é a fonte que tem informação de jogo (tipo,
+  domínio, custo). O CardTrader não dá nada disso.
+- Entram **só na aba Pimp**, marcadas "fora do catálogo", porque aí a
+  pergunta é de mercado e não de coleção.
+- Casam-se com a carta lógica por número de coleção e, falhando isso, por
+  nome: 41 das 48. As 7 que sobram são tokens que não temos.
+- Levam preço (o `sync_prices` inclui-as) e imagem do CardTrader.
+
+**ARMADILHA — colisão de números no CardTrader.** Eles escrevem a `Calm Rune`
+alternativa do SFD com o mesmo `R02` da base. Deduplicar o índice por número
+de coleção fazia desaparecer a segunda — justamente a runa que o deck do Ornn
+quer. O `sync_map` guarda agora a lista toda (`singles`) e usa o índice só
+para casar; o `market_only` sai do que não foi casado, por `blueprint_id`.
+
+**Efeito:** os dois decks têm Legend do SFD e passam a mostrar as runas
+alternativas do SFD (`SFD-R02`, `SFD-R03a`, `SFD-R06a`) em vez das do OGN.
 
 ## Wantlist do Cardmarket
 

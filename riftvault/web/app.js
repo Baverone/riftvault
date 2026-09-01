@@ -1075,6 +1075,7 @@ function pimpTile(x, comDecks = true) {
   return `<div class="dtile ${x.have ? 'ok' : 'neutro'}">
     ${artHTML(x, `<span class="need">${x.qty}×</span>
       ${x.have ? '<span class="ja-tens">tens</span>' : ''}
+      ${x.market_only ? '<span class="so-mercado" title="A RiftScribe ainda não tem esta impressão; veio do CardTrader">fora do catálogo</span>' : ''}
       ${x.price != null ? `<span class="price">${eurShort(x.total)}</span>` : ''}`)}
     <div class="tname" title="${escapeAttr(x.name)}">${escapeHTML(x.name)}</div>
     <div class="codigo">${escapeHTML((x.code || '').split('/')[0])}${

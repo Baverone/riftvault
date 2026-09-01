@@ -96,7 +96,12 @@ Terceira secção, com três abas:
 - **Pimp decks** — as versões **alteradas** das cartas que os teus decks usam:
   artes alternativas e showcase. Sem signatures e sem as runas promo do VEN
   — nas runas o que se pimpa é a arte alternativa. Muda-se em
-  `pimp_ignorar_tipos`. Arrumado **por deck**, nunca por edição: a vista **Todas** tem uma
+  `pimp_ignorar_tipos`. Nas runas mostra a versão da **edição do Legend do deck**. Algumas dessas
+  impressões (as runas do SFD, UNL e VEN) a RiftScribe ainda não tem; vêm do
+  CardTrader e aparecem marcadas **"fora do catálogo"** — não contam para as
+  métricas da Coleção, só servem para comprar.
+
+  Arrumado **por deck**, nunca por edição: a vista **Todas** tem uma
   secção por deck, e há sub-abas para veres um de cada vez com a quantidade
   que esse deck usa. Cada sub-aba tem a sua lista para a wantlist. Não é lista de
   compras; inclui as que já tens (moldura verde), porque serve para saberes o

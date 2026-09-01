@@ -105,3 +105,28 @@ CREATE TABLE IF NOT EXISTS price_latest (
     day         TEXT,
     source      TEXT NOT NULL DEFAULT 'cardtrader'
 );
+
+-- Impressões que o CardTrader lista e a RiftScribe ainda não tem: as runas do
+-- SFD/UNL com as artes alternativas, as signatures do VEN, alguns tokens.
+--
+-- FICAM DE FORA DO CATÁLOGO DE PROPÓSITO. Não entram na grelha da Coleção nem
+-- nas métricas: se entrassem, mudavam as barras de progresso e o master set
+-- por causa de cartas que a fonte principal nem conhece, e sem informação de
+-- jogo nenhuma (o CardTrader não dá tipo, domínio nem custo).
+--
+-- Servem só para a aba "Pimp decks" poder sugerir a versão certa — o André
+-- quer as runas alternativas da edição do Legend do deck, e essas vivem aqui.
+CREATE TABLE IF NOT EXISTS market_only (
+    printing_id   TEXT PRIMARY KEY,   -- sintético: 'ct-<blueprint_id>'
+    blueprint_id  INTEGER NOT NULL,
+    set_id        TEXT NOT NULL,      -- o set_id NOSSO (OGN, SFD, ...)
+    collector_raw TEXT,               -- como o CardTrader o escreve: 'R01a'
+    card_key      TEXT,               -- a carta lógica, quando se consegue casar
+    market_name   TEXT,
+    market_set    TEXT,
+    version       TEXT,               -- 'SFD | Alternate Art'
+    cardmarket_id INTEGER,
+    image_url     TEXT,
+    seen_at       TEXT
+);
+CREATE INDEX IF NOT EXISTS ix_market_only_card ON market_only(card_key);
