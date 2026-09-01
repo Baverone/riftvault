@@ -64,14 +64,25 @@ def listar(con: sqlite3.Connection, incluir_chegadas: bool = False) -> list[dict
         "       COALESCE(p.public_code, m.set_id || '-' || m.collector_raw) AS code, "
         "       COALESCE(p.set_id, m.set_id) AS set_id, "
         "       COALESCE(p.variant_label, 'Arte alt.') AS label, "
-        "       (m.printing_id IS NOT NULL) AS market_only "
+        "       (m.printing_id IS NOT NULL) AS market_only, "
+        "       p.orientation, "
+        # A imagem: do cache local quando a carta é do catálogo, do CardTrader
+        # quando é `market_only` (as runas do SFD que ele comprou).
+        "       CASE WHEN p.printing_id IS NULL THEN NULL "
+        "            ELSE 'img/' || p.printing_id || '.webp' END AS img, "
+        "       COALESCE(p.image_medium, p.image_large, p.image_url, m.image_url) AS cdn "
         "FROM pending pe "
         "LEFT JOIN catalog.printings p ON p.printing_id = pe.printing_id "
         "LEFT JOIN catalog.market_only m ON m.printing_id = pe.printing_id ")
     if not incluir_chegadas:
         sql += "WHERE pe.arrived_at IS NULL "
     sql += "ORDER BY COALESCE(p.set_id, m.set_id), name"
-    return [dict(r) for r in con.execute(sql)]
+    out = []
+    for r in con.execute(sql):
+        d = dict(r)
+        d["landscape"] = (d.pop("orientation", None) or "").lower() == "landscape"
+        out.append(d)
+    return out
 
 
 def arrive(con: sqlite3.Connection, pending_id: int | None = None,

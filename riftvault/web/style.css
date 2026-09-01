@@ -450,6 +450,11 @@ body.readonly .deck-actions .btn[data-act="descer"] { display: none; }
   border-radius: 5px; padding: 2px 6px;
 }
 .spike-nota { color: var(--bad); }
+
+/* Encomendas: nem verde (tenho) nem vermelho (falta) — a chegar. */
+.dtile.a-caminho .art { border-color: rgba(124, 140, 255, .55); border-style: dashed; }
+.dtile.a-caminho .art img { filter: none; opacity: .92; }
+.price.pago { background: rgba(124, 140, 255, .92); color: #0f1016; }
 /* Impressões que não são dele: sobem na mesma, mas sem alarme de cor. */
 .dtile.neutro .art { border-color: var(--line); }
 .dtile.neutro .art img { filter: none; }

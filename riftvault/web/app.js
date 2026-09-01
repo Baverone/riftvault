@@ -1122,17 +1122,24 @@ function renderCaminho() {
       <code>riftvault pending --chegou</code> para darem entrada.</p>
     ${[...porSet.entries()].map(([s, itens]) => `
       <h3 class="section-head sub">${escapeHTML(s)}
-        <span>${itens.reduce((a, x) => a + x.qty, 0)} cópias</span></h3>
-      <table class="deck-list">
-        <tbody>${itens.map(x => `
-          <tr>
-            <td class="q">${x.qty}×</td>
-            <td class="n">${escapeHTML(x.name || x.printing_id)}
-              <div class="onde tenho">${escapeHTML(x.code || '')} · ${escapeHTML(x.label)}${
-                x.market_only ? ' · fora do catálogo' : ''}</div></td>
-            <td class="h">${x.unit_cents ? eur(x.unit_cents * x.qty) : ''}</td>
-          </tr>`).join('')}</tbody>
-      </table>`).join('')}`;
+        <span>${itens.reduce((a, x) => a + x.qty, 0)} cópias${
+          itens.some(x => x.unit_cents)
+            ? ` · ${eur(itens.reduce((a, x) => a + (x.unit_cents || 0) * x.qty, 0))}` : ''}</span></h3>
+      <div class="grid deck-grid">${itens.map(caminhoTile).join('')}</div>`).join('')}`;
+}
+
+/* Tile de encomenda. Sem moldura de estado: não é "tenho" nem "falta", é
+   uma terceira coisa — está a chegar. */
+function caminhoTile(x) {
+  return `<div class="dtile neutro a-caminho">
+    ${artHTML(x, `<span class="need">${x.qty}×</span>
+      ${x.market_only ? '<span class="so-mercado">fora do catálogo</span>' : ''}
+      ${x.unit_cents ? `<span class="price pago">${eurShort(x.unit_cents * x.qty)}</span>` : ''}`)}
+    <div class="tname" title="${escapeAttr(x.name || '')}">${escapeHTML(x.name || x.printing_id)}</div>
+    <div class="codigo">${escapeHTML((x.code || '').split('/')[0])}${
+      x.unit_cents ? ` · ${eur(x.unit_cents)}` : ''}</div>
+    ${x.label !== 'Base' ? `<div class="onde tenho">${escapeHTML(x.label)}</div>` : ''}
+  </div>`;
 }
 
 function artHTML(x, extra = '') {
