@@ -373,9 +373,10 @@ cartas que os decks usam: artes alternativas, signatures, as reimpressões
 showcase (que têm número de coleção próprio) e as promos. Alterada = tudo o
 que não é a impressão canónica, e canónica é a base da edição mais antiga.
 
-**Sem signatures** (`pimp_ignorar_tipos`, default `["signature"]`) — decisão
-dele, 2026-09-01. Ficam as artes alternativas, as showcase, as runas promo e
-as promos especiais.
+**Fora:** `pimp_ignorar_tipos`, default `["signature", "rune_promo"]` —
+decisões dele, 2026-09-01. Nas runas a versão que ele quer pimpar é a **arte
+alternativa do OGN**, não a promo do VEN (`VEN-R01`..`R06`). Ficam as artes
+alternativas, as reimpressões showcase e as promos especiais (`sp1`..`sp6`).
 
 **Não é lista de compras.** Inclui as que ele já tem, marcadas a verde: o
 objetivo é saber o que existe para poder filtrar quando anda a procurar.
