@@ -1,0 +1,425 @@
+/* riftvault — o mesmo CSS no modo edição e no modo publicado.
+   Pensado primeiro para telemóvel: os +/- têm de dar para carregar com o
+   polegar enquanto se está a mexer nas cartas com a outra mão. */
+
+:root {
+  --bg: #0f1016;
+  --panel: #181a24;
+  --panel-2: #1f2230;
+  --line: #2b2f40;
+  --text: #e8e9f0;
+  --dim: #9aa0b5;
+  --accent: #7c8cff;      /* playset jogável */
+  --accent-2: #f0b429;    /* master set */
+  --ok: #3ecf8e;
+  --bad: #ff6b6b;
+  /* 104px dá 3 colunas num telemóvel de 375px. Menos do que isto e os +/-
+     ficam pequenos de mais para o polegar. */
+  --tile: 104px;
+}
+
+* { box-sizing: border-box; }
+
+/* O atributo `hidden` vale só `display: none` por omissão, e qualquer regra
+   com `display: flex`/`grid` ganha-lhe. Sem isto, os separadores das edições
+   ficavam à vista na secção dos decks. */
+[hidden] { display: none !important; }
+
+html, body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-text-size-adjust: 100%;
+}
+
+a { color: var(--accent); }
+
+/* ---------------------------------------------------------------- topo */
+
+header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: rgba(15, 16, 22, .96);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--line);
+  padding: env(safe-area-inset-top) 0 0;
+}
+
+.brand { display: flex; align-items: center; gap: 10px; padding: 8px 12px 0; }
+.brand h1 { margin: 0; font-size: 16px; letter-spacing: .5px; font-weight: 700; }
+.brand .tabs { padding: 0; margin-left: auto; }
+
+.badge-mode {
+  font-size: 11px; color: var(--dim);
+  border: 1px solid var(--line); border-radius: 99px; padding: 1px 8px;
+}
+
+.tabs { display: flex; gap: 4px; overflow-x: auto; padding: 6px 12px; scrollbar-width: none; }
+.tabs::-webkit-scrollbar { display: none; }
+
+.tab {
+  flex: 0 0 auto;
+  background: transparent; color: var(--dim);
+  border: 1px solid transparent; border-radius: 99px;
+  padding: 6px 12px; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
+}
+.tab.is-on { color: var(--text); background: var(--panel-2); border-color: var(--line); }
+.tab:disabled { opacity: .35; cursor: default; }
+
+.tabs-set { padding-top: 0; }
+.tabs-set .tab { font-size: 14px; }
+.tabs-set .tab small { display: block; font-weight: 400; font-size: 10px; opacity: .7; }
+
+/* ------------------------------------------------------- barras e stats */
+
+main { padding: 12px; max-width: 1500px; margin: 0 auto; }
+
+.progress-wrap {
+  display: grid; gap: 12px;
+  grid-template-columns: 1fr 1fr;
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: 12px; padding: 10px; margin-bottom: 10px;
+}
+
+.bar-label { display: flex; justify-content: space-between; gap: 6px; font-size: 12px; margin-bottom: 5px; }
+.bar-label b { font-variant-numeric: tabular-nums; }
+
+.bar { height: 8px; background: var(--panel-2); border-radius: 99px; overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--accent); transition: width .25s; }
+.bar-alt i { background: var(--accent-2); }
+.bar-val i { background: var(--ok); }
+.bar-block small { display: block; margin-top: 5px; font-size: 10px; color: var(--dim); }
+
+.rarities { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; }
+.rarity {
+  font-size: 11px; color: var(--dim);
+  background: var(--panel-2); border: 1px solid var(--line);
+  border-radius: 99px; padding: 3px 9px;
+}
+.rarity b { color: var(--text); font-variant-numeric: tabular-nums; }
+.rarity.is-done b { color: var(--ok); }
+
+/* ------------------------------------------------------------ controlos */
+
+.controls { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; align-items: center; }
+
+.seg { display: flex; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.seg-btn {
+  background: transparent; color: var(--dim); border: 0;
+  padding: 8px 11px; font: inherit; font-size: 12px; cursor: pointer; white-space: nowrap;
+}
+.seg-btn.is-on { background: var(--panel-2); color: var(--text); font-weight: 600; }
+
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chips[hidden] { display: none; }
+.chip { position: relative; }
+.chip input { position: absolute; opacity: 0; pointer-events: none; }
+.chip span {
+  display: inline-block; font-size: 12px; color: var(--dim);
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: 99px; padding: 6px 10px; cursor: pointer;
+}
+.chip input:checked + span { color: var(--text); border-color: var(--accent); }
+
+#search {
+  flex: 1 1 180px; min-width: 140px;
+  background: var(--panel); color: var(--text);
+  border: 1px solid var(--line); border-radius: 10px;
+  padding: 8px 11px; font: inherit; font-size: 13px;
+}
+
+.count-line { margin: 0 0 10px; font-size: 12px; color: var(--dim); }
+.empty { color: var(--dim); text-align: center; padding: 40px 0; }
+
+/* ---------------------------------------------------------------- grelha */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--tile), 1fr));
+  gap: 10px;
+  align-items: start;
+}
+
+/* Um grupo = uma carta impressa e as variantes que lhe pertencem. Quando tem
+   mais do que uma impressão ganha moldura e faixa lateral partilhadas, para
+   se ver de relance que as artes alternativas são daquela carta. */
+.group { grid-column: span 1; }
+
+.group.multi {
+  grid-column: span var(--span, 2);
+  display: grid;
+  grid-template-columns: repeat(var(--span, 2), 1fr);
+  gap: 8px;
+  padding: 8px 8px 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  position: relative;
+}
+.group.multi::before {
+  content: "";
+  position: absolute; left: 5px; top: 10px; bottom: 10px; width: 3px;
+  border-radius: 3px; background: var(--accent); opacity: .55;
+}
+
+/* Cabeçalho de secção quando se ordena por tipo, raridade ou custo.
+   Ocupa a linha inteira da grelha. */
+.section-head {
+  grid-column: 1 / -1;
+  display: flex; align-items: baseline; gap: 8px;
+  margin: 10px 0 0; padding-bottom: 5px;
+  border-bottom: 1px solid var(--line);
+  font-size: 14px; font-weight: 700; text-transform: capitalize;
+}
+.section-head:first-child { margin-top: 0; }
+.section-head span {
+  font-size: 11px; font-weight: 400; color: var(--dim); text-transform: none;
+}
+
+.tile { position: relative; display: flex; flex-direction: column; gap: 5px; }
+
+.art {
+  position: relative; display: block; width: 100%; aspect-ratio: 5 / 7;
+  border-radius: 8px; overflow: hidden; background: var(--panel-2);
+  border: 1px solid var(--line);
+}
+.art.landscape { aspect-ratio: 7 / 5; }
+.art img { width: 100%; height: 100%; object-fit: cover; display: block; transition: filter .2s; }
+
+/* Sem cópias: dessaturada e escurecida. */
+.tile.none .art img { filter: grayscale(1) brightness(.42); }
+.tile.done .art { border-color: rgba(62, 207, 142, .55); }
+
+.label {
+  position: absolute; left: 4px; top: 4px;
+  font-size: 10px; font-weight: 700; letter-spacing: .3px;
+  background: rgba(0, 0, 0, .72); color: #fff;
+  border-radius: 5px; padding: 2px 6px;
+}
+.label.alt_art { background: rgba(124, 140, 255, .92); }
+.label.signature { background: rgba(240, 180, 41, .92); color: #24160a; }
+.label.token, .label.rune_promo, .label.special { background: rgba(255, 255, 255, .22); }
+
+.badge {
+  position: absolute; right: 4px; bottom: 4px;
+  font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums;
+  background: rgba(0, 0, 0, .78); color: #fff;
+  border-radius: 6px; padding: 2px 7px;
+}
+.tile.partial .badge { background: rgba(240, 180, 41, .95); color: #24160a; }
+.tile.done .badge { background: rgba(62, 207, 142, .18); color: var(--ok); font-weight: 600; }
+
+/* Preço por cima da carta, só a partir de price_badge_min (1 € por omissão).
+   Canto superior direito: é o único que não colide com a etiqueta de variante,
+   o número de coleção nem o contador. */
+.price {
+  position: absolute; right: 4px; top: 4px;
+  font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums;
+  background: rgba(62, 207, 142, .92); color: #04231a;
+  border-radius: 5px; padding: 2px 6px;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, .5);
+}
+/* Nas cartas que não tenho a imagem fica escurecida — o preço não deve
+   desaparecer com ela. */
+.tile.none .price { background: rgba(62, 207, 142, .82); }
+
+.cn {
+  position: absolute; left: 4px; bottom: 4px;
+  font-size: 10px; color: #cfd3e4;
+  background: rgba(0, 0, 0, .6); border-radius: 5px; padding: 1px 5px;
+}
+
+.tname {
+  font-size: 10px; line-height: 1.25; color: var(--dim);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* Os +/- estão SEMPRE visíveis e são grandes de propósito. */
+.steppers { display: flex; gap: 6px; }
+.step {
+  flex: 1; min-height: 40px;
+  background: var(--panel-2); color: var(--text);
+  border: 1px solid var(--line); border-radius: 9px;
+  font: inherit; font-size: 18px; font-weight: 700; line-height: 1;
+  cursor: pointer; user-select: none; -webkit-user-select: none;
+  touch-action: manipulation;
+}
+.step:active { background: var(--accent); color: #0f1016; transform: scale(.96); }
+.step.minus:disabled { opacity: .3; cursor: default; }
+
+/* Cópias que saíram do binder para um deck. Âmbar, a mesma cor que a vista
+   de decks usa para "está noutro deck". */
+.indeck {
+  font-size: 10px; text-align: center; color: var(--accent-2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.playset {
+  font-size: 10px; color: var(--dim); text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.playset.is-done { color: var(--ok); }
+
+.tile.focus .art { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tile.flash .badge { animation: flash .4s; }
+@keyframes flash { 0% { transform: scale(1.35); } 100% { transform: scale(1); } }
+
+/* Modo publicado: sem controlos de edição. */
+body.readonly .steppers { display: none; }
+
+/* ------------------------------------------------------------------ decks */
+
+.deck-card {
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: 12px; padding: 12px; margin-bottom: 14px;
+}
+.deck-title { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
+.deck-title b { font-size: 16px; }
+.prio {
+  font-size: 11px; color: var(--dim);
+  border: 1px solid var(--line); border-radius: 99px; padding: 1px 8px;
+}
+
+.deck-meta { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 12px; font-size: 13px; }
+.deck-meta i { color: var(--dim); font-style: normal; font-size: 11px; display: block; }
+
+.chips-l { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.chip-l {
+  font-size: 11px; border-radius: 99px; padding: 3px 9px;
+  border: 1px solid var(--line); font-variant-numeric: tabular-nums;
+}
+.chip-l.ok { color: var(--ok); border-color: rgba(62, 207, 142, .4); }
+.chip-l.bad { color: var(--bad); border-color: rgba(255, 107, 107, .45); }
+
+/* Quantas cópias faltam por edição — cada carta conta na edição onde sai mais
+   barata, que é onde ele a vai comprar. */
+.falta-set { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 10px; }
+.falta-lbl { font-size: 11px; color: var(--dim); }
+.fs {
+  font-size: 11px; color: var(--dim); font-variant-numeric: tabular-nums;
+  background: var(--panel-2); border: 1px solid var(--line);
+  border-radius: 99px; padding: 3px 9px; white-space: nowrap;
+}
+.fs b { color: var(--bad); font-weight: 700; }
+
+.nota { display: block; margin-top: 8px; font-size: 11px; color: var(--dim); }
+.nota.bad { color: var(--bad); }
+
+.deck-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.btn {
+  background: var(--panel-2); color: var(--text);
+  border: 1px solid var(--line); border-radius: 9px;
+  padding: 8px 12px; font: inherit; font-size: 12px; cursor: pointer;
+}
+.btn:active { background: var(--accent); color: #0f1016; }
+body.readonly .deck-actions .btn[data-act="principal"],
+body.readonly .deck-actions .btn[data-act="subir"],
+body.readonly .deck-actions .btn[data-act="descer"] { display: none; }
+
+/* A grelha dos decks fala a mesma língua da Coleção: mesmo tamanho de tile,
+   mesma moldura. O que muda é o que o badge conta — aqui é o que o deck pede
+   contra o que lhe está alocado. */
+.deck-grid { margin-bottom: 16px; }
+
+/* Separador entre "o deck" e "o que falta comprar". */
+.falta-head {
+  margin: 26px 0 4px; padding-top: 16px;
+  border-top: 2px solid var(--line);
+  font-size: 15px; font-weight: 700;
+}
+.section-head.sub { font-size: 13px; }
+/* Nesta secção o badge do preço faz sentido no canto; o contador não. */
+.dtile .price {
+  position: absolute; right: 4px; top: 4px;
+  font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums;
+  background: rgba(255, 107, 107, .95); color: #2a0d0d;
+  border-radius: 5px; padding: 2px 6px;
+}
+
+.dtile { position: relative; display: flex; flex-direction: column; gap: 4px; }
+.dtile .art { border-width: 2px; }
+/* Faltam cópias: dessaturada, como na Coleção. */
+.dtile.gone .art img, .dtile.shared .art img { filter: grayscale(1) brightness(.42); }
+.dtile.ok .art { border-color: rgba(62, 207, 142, .55); }
+.dtile.gone .art { border-color: rgba(255, 107, 107, .6); }
+.dtile.shared .art { border-color: rgba(240, 180, 41, .7); }
+
+/* Quantas o deck pede. */
+.need {
+  position: absolute; left: 4px; top: 4px;
+  font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums;
+  background: rgba(0, 0, 0, .78); color: #fff;
+  border-radius: 5px; padding: 2px 6px;
+}
+.dtile .badge { background: rgba(62, 207, 142, .2); color: var(--ok); }
+.dtile.gone .badge { background: rgba(255, 107, 107, .95); color: #2a0d0d; }
+.dtile.shared .badge { background: rgba(240, 180, 41, .95); color: #24160a; }
+
+.onde { font-size: 10px; color: var(--dim); line-height: 1.35; }
+.onde.falta { color: var(--bad); }
+.onde.shared { color: var(--accent-2); }
+.onde.tenho { color: var(--dim); opacity: .8; }
+
+
+/* ------------------------------------------------------------------ faltas */
+
+.decks-n {
+  position: absolute; left: 4px; bottom: 4px;
+  font-size: 10px; font-weight: 700;
+  background: rgba(124, 140, 255, .92); color: #0f1016;
+  border-radius: 5px; padding: 2px 6px;
+}
+.dtile .cn { right: 4px; bottom: 4px; left: auto; }
+
+.spike {
+  position: absolute; right: 4px; top: 4px;
+  font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums;
+  background: rgba(255, 107, 107, .95); color: #2a0d0d;
+  border-radius: 5px; padding: 2px 6px;
+}
+.spike-nota { color: var(--bad); }
+.spike-nota b { color: var(--bad); }
+
+.aviso {
+  background: var(--panel); border: 1px solid var(--line);
+  border-left: 3px solid var(--accent-2);
+  border-radius: 10px; padding: 14px 16px; max-width: 62ch;
+}
+.aviso b { display: block; margin-bottom: 8px; }
+.aviso p { margin: 0 0 8px; font-size: 13px; color: var(--dim); line-height: 1.5; }
+.aviso p:last-child { margin-bottom: 0; }
+.aviso code {
+  background: var(--panel-2); border-radius: 4px; padding: 1px 5px;
+  font-size: 12px; color: var(--text);
+}
+
+/* ----------------------------------------------------------------- toasts */
+
+.toasts {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  z-index: 60; display: flex; flex-direction: column-reverse; gap: 8px;
+  width: min(440px, calc(100vw - 24px));
+}
+
+.toast {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--panel-2); border: 1px solid var(--line);
+  border-radius: 10px; padding: 10px 12px; font-size: 13px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, .45);
+}
+.toast.err { border-color: var(--bad); color: #ffd8d8; }
+.toast span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.toast button {
+  background: transparent; color: var(--accent); border: 1px solid var(--line);
+  border-radius: 7px; padding: 6px 11px; font: inherit; font-weight: 600; cursor: pointer;
+}
+
+.foot { text-align: center; color: var(--dim); font-size: 11px; padding: 24px 12px 40px; }
+
+/* ------------------------------------------------------------- ecrãs maiores */
+
+@media (min-width: 620px) { :root { --tile: 132px; } .seg-btn { font-size: 13px; padding: 9px 13px; } }
+@media (min-width: 1000px) { :root { --tile: 158px; } .progress-wrap { grid-template-columns: 1fr 1fr 1fr; } .rarities { grid-column: auto; align-items: center; } }

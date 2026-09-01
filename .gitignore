@@ -1,0 +1,22 @@
+# Catálogo: cache reconstruível com `riftvault sync`. Nunca vai para o Git.
+data/catalog.db
+data/catalog.db-journal
+data/catalog.db-wal
+data/catalog.db-shm
+
+# NOTA: data/prices.db NÃO entra aqui — é o histórico de preços, vai para o
+# Git, e é o único ficheiro de dados que o GitHub Actions escreve.
+
+# Cache local das imagens (~70 MB nas 5 edições).
+data/images/
+
+# Build estático do modo publicado.
+site/
+
+__pycache__/
+*.pyc
+.venv/
+
+# Segredos: o CARDTRADER_TOKEN vive no ambiente, nunca em ficheiro.
+.env
+*token*.txt

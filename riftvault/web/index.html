@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#12131a">
+<title>riftvault — coleção de Riftbound</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header id="top">
+  <div class="brand">
+    <h1>riftvault</h1>
+    <span id="mode-badge" class="badge-mode" hidden>só leitura</span>
+    <nav id="section-tabs" class="tabs tabs-section">
+      <button class="tab is-on" data-section="colecao">Coleção</button>
+      <button class="tab" data-section="decks">Decks</button>
+      <button class="tab" data-section="faltas">Faltas</button>
+    </nav>
+  </div>
+
+  <nav id="set-tabs" class="tabs tabs-set" aria-label="Edições"></nav>
+  <nav id="deck-tabs" class="tabs tabs-set" aria-label="Decks" hidden></nav>
+  <nav id="falta-tabs" class="tabs tabs-set" aria-label="Faltas" hidden></nav>
+</header>
+
+<main>
+  <section id="colecao">
+
+    <div id="progress" class="progress-wrap">
+      <div class="bar-block">
+        <div class="bar-label"><span>Playsets jogáveis</span><b id="play-num">–</b></div>
+        <div class="bar"><i id="play-bar" style="width:0"></i></div>
+        <small id="play-sub">3 cópias da carta, qualquer impressão conta</small>
+      </div>
+      <div class="bar-block">
+        <div class="bar-label"><span>Master set</span><b id="master-num">–</b></div>
+        <div class="bar bar-alt"><i id="master-bar" style="width:0"></i></div>
+        <small id="master-sub">alvo próprio por impressão</small>
+      </div>
+      <div class="bar-block" id="value-block" hidden>
+        <div class="bar-label"><span>Valor nesta edição</span><b id="value-num">–</b></div>
+        <div class="bar bar-val"><i id="value-bar" style="width:0"></i></div>
+        <small id="value-sub">preço mais baixo no CardTrader</small>
+      </div>
+      <div id="rarities" class="rarities"></div>
+    </div>
+
+    <div id="controls" class="controls">
+      <div class="seg" role="group" aria-label="Impressões a mostrar">
+        <button class="seg-btn" data-view="base">Só artes base</button>
+        <button class="seg-btn is-on" data-view="all">Todas as impressões</button>
+      </div>
+
+      <div class="seg" role="group" aria-label="Estado">
+        <button class="seg-btn is-on" data-state="all">Tudo</button>
+        <button class="seg-btn" data-state="missing">Em falta</button>
+        <button class="seg-btn" data-state="partial">Parciais</button>
+      </div>
+
+      <div id="kind-filter" class="chips" role="group" aria-label="Tipo de impressão">
+        <label class="chip"><input type="checkbox" value="base" checked><span>Base</span></label>
+        <label class="chip"><input type="checkbox" value="alt_art" checked><span>Arte alt.</span></label>
+        <label class="chip"><input type="checkbox" value="signature" checked><span>Signature</span></label>
+        <label class="chip"><input type="checkbox" value="other" checked><span>Tokens/Promos</span></label>
+      </div>
+
+      <input id="search" type="search" placeholder="Procurar carta ou código…" autocomplete="off">
+    </div>
+
+    <p id="count-line" class="count-line"></p>
+    <div id="grid" class="grid"></div>
+    <p id="empty" class="empty" hidden>Nada corresponde a estes filtros.</p>
+
+  </section>
+
+  <section id="decks" hidden>
+    <div id="deck-head"></div>
+    <div id="deck-body"></div>
+  </section>
+
+  <section id="faltas" hidden>
+    <div id="falta-head"></div>
+    <div id="falta-body"></div>
+  </section>
+</main>
+
+<div id="toasts" class="toasts" aria-live="polite"></div>
+
+<p class="foot">
+  Catálogo da <a href="https://riftscribe.gg" rel="noreferrer">RiftScribe</a>.
+  <span id="generated"></span>
+</p>
+
+<script src="app.js"></script>
+</body>
+</html>

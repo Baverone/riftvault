@@ -1,0 +1,63 @@
+{
+  "_leia-me": "Config do riftvault. Editável à mão. O que está aqui NÃO vem da API da RiftScribe — ver CLAUDE.md, secção 'Superfícies NÃO validadas'.",
+
+  "sets": {
+    "OGN": { "name": "OGN", "order": 1 },
+    "OGS": { "name": "OGS (Proving Grounds)", "order": 2 },
+    "SFD": { "name": "SFD", "order": 3 },
+    "UNL": { "name": "UNL", "order": 4 },
+    "VEN": { "name": "VEN", "order": 5 }
+  },
+  "_sets_nota": "Decisão do André (2026-08-31): ficam os CÓDIGOS nos separadores, com a exceção do OGS que leva '(Proving Grounds)' à frente. A API não dá os nomes; os verdadeiros (Origins, Origins: Proving Grounds, Spiritforged, Unleashed, Vendetta) vieram das expansões do CardTrader. 'order' manda na ordem dos separadores.",
+
+  "playset_targets_by_type": {
+    "Unit": 3,
+    "Spell": 3,
+    "Gear": 3,
+    "Battlefield": 1,
+    "Legend": 1,
+    "Rune": 12,
+    "default": 3
+  },
+  "_playset_nota": "Métrica 1 (PLAYSET JOGÁVEL): alvo por carta lógica (nome). Qualquer impressão conta.",
+
+  "master_targets_by_variant": {
+    "base": 3,
+    "alt_art": 1,
+    "signature": 1,
+    "rune_promo": 1,
+    "special": 1
+  },
+  "master_base_follows_type": true,
+  "_master_nota": "Métrica 2 (MASTER SET): alvo por IMPRESSÃO. Com master_base_follows_type=true o alvo da impressão base vem de playset_targets_by_type (senão uma Rune base pediria 3 em vez de 12). Põe false para usar o 3 fixo acima.",
+
+  "token_target": 1,
+  "_token_target_nota": "Tokens: 1 de cada, nas DUAS métricas (decisão do André, 2026-08-31). Vale para os tokens com sufixo tNN e para os de token_card_keys.",
+
+  "master_target_overrides": {},
+  "_overrides_nota": "printing_id -> alvo. Ex: {\"ogn-164a-298\": 3} para quereres playset da alt art.",
+
+  "token_card_keys": [
+    "recruit (de)",
+    "recruit (nx)",
+    "recruit (zn)",
+    "sprite",
+    "gold",
+    "bird",
+    "brush",
+    "buff",
+    "reflection",
+    "baron pit",
+    "xp tracker"
+  ],
+  "_token_nota": "PALPITE MEU, por confirmar. Cartas que a API imprime com número de coleção normal mas que são tokens (OGN-271..274, SFD-003). Passam a usar token_target.",
+
+  "price_badge_min_cents": 100,
+  "_price_badge_nota": "Mostra o preço por cima da carta a partir deste valor (100 = 1 euro). As mais baratas continuam a ter o preço na linha de baixo do tile.",
+
+  "image_size": "medium",
+  "_image_nota": "small (150px, ~24 KB) | medium (300px, ~59 KB) | large (600px, ~107 KB) por impressão.",
+
+  "static_images": "remote",
+  "_static_images_nota": "No build estático: 'remote' aponta para o CDN da RiftScribe (Pages fica leve); 'local' copia o cache para o site (~70 MB)."
+}

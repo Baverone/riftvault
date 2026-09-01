@@ -1,0 +1,96 @@
+# Publica o site (só leitura) no GitHub Pages, e mantém o histórico de preços.
+#
+# O catálogo NÃO vem do Git (catalog.db está no .gitignore): é descarregado da
+# RiftScribe a cada build. A coleção vem do vault.db, esse sim commitado.
+#
+# ATENÇÃO AO QUE ESTE WORKFLOW ESCREVE
+#     Faz commit de `data/prices.db` e de mais nada. O histórico de preços vive
+#     nesse ficheiro à parte precisamente para isto: se fosse dentro do
+#     vault.db, um dia em que o André tivesse mexido na coleção localmente dava
+#     um conflito num ficheiro binário, e resolver isso é escolher uma versão e
+#     perder a outra. A coleção nunca é tocada por este robô.
+name: pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'data/vault.db'
+      - 'decks/**'
+      - 'riftvault/**'
+      - 'riftvault_config.json'
+      - '.github/workflows/pages.yml'
+  schedule:
+    # Todos os dias às 05:00 UTC: apanha edições novas e move os preços.
+    - cron: '0 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write     # para o commit do data/prices.db
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Instalar dependências
+        run: python -m pip install --quiet requests flask
+
+      - name: Descarregar o catálogo
+        # Sem --images: o site publicado aponta para o CDN da RiftScribe
+        # (static_images: "remote" no config), por isso não é preciso o cache.
+        run: python -m riftvault sync
+
+      - name: Preços do CardTrader
+        # Sem o segredo definido, salta em silêncio: o site continua a sair,
+        # só sem preços novos. Não vale a pena partir a publicação por isto.
+        env:
+          CARDTRADER_TOKEN: ${{ secrets.CARDTRADER_TOKEN }}
+        run: |
+          if [ -z "$CARDTRADER_TOKEN" ]; then
+            echo "CARDTRADER_TOKEN não definido — a saltar os preços."
+            exit 0
+          fi
+          python -m riftvault map
+          python -m riftvault prices
+
+      - name: Guardar o histórico de preços
+        # `git add` só do prices.db. Se nada mudou, não há commit.
+        run: |
+          if [ -n "$(git status --porcelain data/prices.db)" ]; then
+            git config user.name  "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add data/prices.db
+            git commit -m "preços: $(date -u +%Y-%m-%d)"
+            git push
+          else
+            echo "Nenhum preço mudou — nada para gravar."
+          fi
+
+      - name: Gerar o site
+        run: python -m riftvault build --out site
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4

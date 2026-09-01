@@ -1,0 +1,240 @@
+# riftvault
+
+Gestor da minha coleção de **Riftbound**. Objetivo: ter playsets, incluindo as
+artes normais **e** as alternativas.
+
+Duas secções: **Coleção** e **Decks**. O catálogo vem da API pública da
+[RiftScribe](https://riftscribe.gg) e os preços do
+[CardTrader](https://www.cardtrader.com).
+
+---
+
+## Instalar
+
+Precisa de Python 3.11+ e de dois pacotes:
+
+```bash
+py -m pip install flask requests qrcode
+```
+
+(`qrcode` é opcional — só serve para mostrar o QR ao arrancar o servidor.)
+
+## Primeira utilização
+
+```bash
+py -m riftvault sync --images
+```
+
+Descarrega as 5 edições (1180 impressões) e o cache das imagens (~70 MB).
+Demora uns minutos: há uma pausa de 1 segundo entre pedidos, por educação para
+com a API. Para só uma edição:
+
+```bash
+py -m riftvault sync --set OGN --images
+```
+
+## Modo edição (o do dia a dia)
+
+```bash
+py -m riftvault serve
+```
+
+Levanta o site em `0.0.0.0:8770` e mostra o URL da rede local com um QR. Aponta
+o telemóvel ao QR e ficas com a coleção na mão enquanto mexes nas cartas.
+Tudo o que carregares nos `+` e `−` é escrito no `data/vault.db`.
+
+No Windows há o atalho `riftvault.cmd`, por isso dá para escrever só
+`riftvault serve`.
+
+### Chegar ao servidor de fora de casa
+
+**O riftvault não tem autenticação.** Quem chegar ao URL pode escrever na
+coleção. Em casa não faz diferença; exposto à internet faz toda.
+
+Por isso: **não abras o porto no router**, e não uses ngrok nem tunnels
+públicos sem autenticação por cima. Usa uma rede privada:
+
+1. Instala o [Tailscale](https://tailscale.com/download) no PC e no telemóvel
+2. Entra com a mesma conta nos dois
+3. O `riftvault serve` passa a mostrar-te o endereço `100.x.y.z` e o QR
+
+Funciona em qualquer rede e nada fica exposto. O PC tem de estar ligado com o
+servidor a correr.
+
+Se lá fora só quiseres **consultar**, o modo publicado (GitHub Pages) chega e
+não precisa do PC ligado.
+
+## Modo publicado (só leitura)
+
+```bash
+py -m riftvault build
+```
+
+Gera `site/` — o **mesmo** frontend, sem os controlos de edição. É o que o
+GitHub Actions publica no GitHub Pages (`.github/workflows/pages.yml`).
+
+---
+
+## Ordenar e filtrar a grelha
+
+- **Ordem:** número de coleção, com as artes alternativas e signatures logo a
+  seguir à carta base.
+- **Filtros:** Tudo / Em falta / Parciais, e por tipo de impressão
+  (Base, Arte alt., Signature, Tokens/Promos).
+- **Procura** por nome ou código.
+
+As escolhas ficam guardadas no browser.
+
+## Faltas
+
+Terceira secção, com três abas:
+
+- **Staples** — cartas que **mais do que um deck** pede e que não tens em
+  número suficiente. São as que rendem mais por euro: uma compra serve vários
+  decks. Cada tile diz quantos decks a querem e quais.
+- **Por deck** — o que falta a cada deck, agrupado por edição.
+- **A subir** — cartas em falta cujo preço subiu mais de 15% nos últimos 30
+  dias, com o que já custou esperar. Precisa de histórico; o GitHub Actions
+  trata disso sozinho todos os dias (ver abaixo).
+
+**Nunca se compra mais do que um playset da mesma carta.** Cinco decks a pedir
+3 Defy não são 15 Defy — são 3, e trocam-se entre decks. O teto é o alvo de
+playset: 3 nas Units/Spells/Gears, 12 nas Runas, 1 nos Legends e Battlefields.
+Cada carta mostra o que os decks pedem ao todo e o teto que se aplicou.
+
+A carência aqui é **global** — soma-se o que todos os decks pedem e desconta-se
+o que tens. É diferente da alocação por prioridade da secção Decks, que
+responde a outra pergunta: quem fica com o quê.
+
+## As duas métricas
+
+São mostradas sempre lado a lado, nunca uma em vez da outra.
+
+**1. Playset jogável** — alvo por *carta lógica* (o nome). Qualquer impressão,
+de qualquer edição, conta. Alvos por tipo, em `riftvault_config.json`:
+Unit/Spell/Gear 3, Battlefield 1, Legend 1, Rune 12, tokens 1.
+
+**2. Master set** — alvo por *impressão*. A base segue o alvo de jogo, cada
+arte alternativa 1, cada signature 1. Configurável, incluindo por impressão.
+
+Não se distingue foil de normal: uma cópia é uma cópia.
+
+## Valor da coleção
+
+Preços do [CardTrader](https://www.cardtrader.com). Precisas de um token da
+API, criado nas definições do perfil deles:
+
+```bash
+setx CARDTRADER_TOKEN "o-teu-token"
+```
+
+Depois (abre um terminal novo primeiro):
+
+```bash
+py -m riftvault map      # liga as impressões aos blueprints (uma vez)
+py -m riftvault prices   # descarrega os preços (~225 MB, 5 pedidos)
+py -m riftvault value    # mostra o valor
+```
+
+O preço de cada impressão é o **mais baixo em Near Mint/Mint, inglês**, sem
+cartas graded, alteradas ou assinadas. Prefere-se a oferta não foil.
+
+As cartas de **1 € para cima** mostram o preço por cima da própria carta; as
+mais baratas só na linha de baixo do tile. O limiar é o
+`price_badge_min_cents` no `riftvault_config.json`.
+
+**Cuidado com o total:** muitas cartas de Riftbound só têm oferta em foil no
+CardTrader. Como o riftvault não distingue acabamentos, essas podem estar
+sobreavaliadas — o `riftvault value` diz-te que percentagem do total vem daí.
+
+## Decks
+
+As listas ficam em `decks/*.txt`. Cada uma dá um separador, com o nome
+**Legend · Champion**.
+
+Os decks têm uma **ordem**, e é ela que manda: o deck 1 fica com as cartas de
+que precisa, o deck 2 só recebe o que sobrou. Quando falta uma carta ao deck 2
+porque o deck 1 a levou, o site diz **em que deck está** em vez de a mandar
+para a lista de compras. Mudar a ordem refaz a alocação toda.
+
+Para reordenar, usa os botões **Tornar principal / Subir / Descer** no site,
+ou:
+
+```bash
+py -m riftvault decks --order azir,ornn   # o primeiro passa a principal
+py -m riftvault deck azir --onde          # detalhe, com as impressões a usar
+py -m riftvault shopping --deck azir --csv faltas.csv
+```
+
+Para **apagar** um deck, apaga o `.txt` — o site atualiza-se sozinho.
+
+Cada deck é uma grelha de cartas, como a Coleção. A moldura diz o estado:
+verde tens, vermelho falta, âmbar está noutro deck. O canto mostra quantas o
+deck pede, e o badge quantas lhe estão alocadas.
+
+Ao contrário, na **Coleção** cada carta que saiu para um deck diz para qual —
+para quando a procuras no binder e ela não lá está. Quando só parte saiu, diz
+quantas ficaram (`2× Ornn, Fire Below the Mountain · 1 no binder`). As cópias
+que vão para os decks são as **artes base primeiro**, para as alternativas e
+signatures ficarem no binder.
+
+O cabeçalho valida main 40 (o Champion conta), 12 runas, 3 battlefields,
+máximo 3 cópias e a identidade de domínio do Legend, e mostra **quantas cópias
+faltam por edição** com o custo estimado. Cada carta em falta conta na edição
+onde sai mais barata — é onde a irias comprar. As que existem em mais do que
+uma edição estão assinaladas no tooltip, para o número não parecer mais firme
+do que é. Cartas que faltam por estarem noutro deck não entram nessa conta:
+essas não se compram.
+
+A seguir ao deck vem **"Em falta, por edição"**: as mesmas cartas em falta, mas
+arrumadas por edição e ordenadas pelo que custam — é a vista de quem vai
+comprar, não de quem vai montar. Cada carta mostra a impressão dessa edição, o
+que faltam e o custo, e diz se também existe noutra edição. Essas regras estão em
+`deck_rules` no `riftvault_config.json`.
+
+## Linha de comandos
+
+```bash
+riftvault sync [--set OGN] [--images] [--fast]   # catálogo
+riftvault images [--set OGN]                     # só as imagens em falta
+riftvault serve [--port 8770]                    # modo edição
+riftvault build [--out site]                     # modo publicado
+riftvault add OGN-100a x1                        # somar cópias
+riftvault remove OGN-100a x1                     # tirar cópias
+riftvault set OGN-100a 3                         # fixar a quantidade
+riftvault undo                                   # desfazer a última operação
+riftvault log -n 20                              # histórico
+riftvault stats                                  # resumo por edição
+riftvault find "sett"                            # procurar impressões
+riftvault decks [--order azir,ornn]               # decks e alocação
+riftvault deck azir [--onde]                      # detalhe de um deck
+riftvault shopping [--deck azir] [--csv f.csv]    # o que falta comprar
+riftvault map / prices / value                    # CardTrader
+```
+
+O `add`/`remove` aceitam qualquer forma de escrever a impressão: `OGN-7`,
+`OGN-007`, `OGN-007a`, `ogn-007a-298`, `OGN-299*`, `OGN-299-star`, `UNL-T03`.
+
+## Ficheiros
+
+```
+riftvault/
+  riftscribe.py   cliente da API
+  catalog.py      constrói o catalog.db (impressões + cartas lógicas + aliases)
+  collection.py   escrita na coleção, log e undo
+  metrics.py      as duas métricas e os payloads do frontend
+  server.py       modo edição (Flask)
+  build.py        modo publicado (estático)
+  cli.py          linha de comandos
+  web/            index.html + app.js + style.css — o MESMO nos dois modos
+data/
+  vault.db        a coleção e os decks. VAI para o Git. Só tu escreves.
+  prices.db       histórico de preços. VAI para o Git. Só o robô escreve.
+  catalog.db      cache do catálogo. NÃO vai (está no .gitignore).
+  images/         cache das imagens. NÃO vai.
+decks/            listas de deck em .txt
+docs/             spec da API e snapshot do catálogo, para referência
+```
+
+O contexto todo — incluindo as armadilhas da API e o que ainda não foi
+validado — está no [CLAUDE.md](CLAUDE.md).
