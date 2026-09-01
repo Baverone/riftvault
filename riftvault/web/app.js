@@ -30,7 +30,8 @@ const state = {
   decks: null, deckId: null, deck: null, faltas: null,
   prefs: { view: 'all', stateFilter: 'all',
            kinds: ['base', 'alt_art', 'signature', 'other'],
-           set: null, deck: null, falta: 'staples', section: 'colecao' },
+           set: null, deck: null, falta: 'staples', faltaDeck: 0,
+           section: 'colecao' },
 };
 
 /* ------------------------------------------------------------ preferências */
@@ -685,7 +686,7 @@ function faltaTile(x) {
     </div>
     <div class="tname" title="${escapeAttr(x.name)}">${escapeHTML(x.name)}</div>
     ${codeLine(x)}
-    ${x.also.length ? `<div class="onde tenho">também em ${x.also.join(', ')}</div>` : ''}
+    ${(x.also || []).length ? `<div class="onde tenho">também em ${x.also.join(', ')}</div>` : ''}
   </div>`;
 }
 
@@ -775,7 +776,7 @@ function renderFaltaTabs() {
     b.className = 'tab' + (t.id === state.prefs.falta ? ' is-on' : '');
     let n = '';
     if (t.id === 'staples') n = `${f.staples.length} cartas`;
-    if (t.id === 'deck') n = `${f.por_deck.length} decks`;
+    if (t.id === 'deck') n = `${f.por_deck.reduce((s, d) => s + d.copies, 0)} cópias`;
     if (t.id === 'spike') n = f.spiking.ready ? `${f.spiking.items.length} cartas` : 'sem histórico';
     b.innerHTML = `${t.label}<small>${n}</small>`;
     b.onclick = () => { state.prefs.falta = t.id; savePrefs(); renderFaltaTabs(); renderFaltas(); };
@@ -814,15 +815,7 @@ function renderFaltas() {
   }
 
   if (which === 'deck') {
-    $('#falta-body').innerHTML = f.por_deck.map(d => `
-      <h2 class="section-head">${d.priority}. ${escapeHTML(d.name)}
-        <span>${d.missing} em falta${d.shared ? ` · ${d.shared} noutro deck` : ''}</span></h2>
-      ${d.by_set.length ? `<div class="falta-set">${d.by_set.map(m => `
-        <span class="fs">${escapeHTML(m.set)} <b>${m.copies}</b>${
-          m.cents ? ` · ${eur(m.cents)}` : ''}</span>`).join('')}</div>
-        ${d.by_set.map(m => `<div class="grid deck-grid">${
-          m.items.map(faltaTile).join('')}</div>`).join('')}`
-        : '<p class="note">Nada a comprar — este deck está completo.</p>'}`).join('');
+    renderPorDeck();
     return;
   }
 
@@ -853,6 +846,62 @@ function renderFaltas() {
     <div class="grid deck-grid">${sp.items.map(spikeTile).join('')}</div>`
     : `<p class="empty">Nenhuma impressão subiu mais de ${sp.min_pct}% nos
        últimos ${sp.window_days} dias.</p>`;
+}
+
+
+/* Sub-abas dentro de "Por deck". Cada deck conta só o que a lista dos decks
+   anteriores AINDA não cobre — as cartas trocam-se entre decks, não se compram
+   aos pares. A última aba responde à pergunta oposta: e se quisesse os decks
+   todos montados ao mesmo tempo? */
+function renderPorDeck() {
+  const f = state.faltas;
+  const um = f.por_deck.reduce((s, d) => s + d.cents, 0);
+  const copias = f.por_deck.reduce((s, d) => s + d.copies, 0);
+  const tj = f.todos_juntos;
+  const sel = state.prefs.faltaDeck ?? 0;
+
+  const abas = f.por_deck.map((d, i) => `
+    <button class="seg-btn ${i === sel ? 'is-on' : ''}" data-fd="${i}">
+      ${d.priority}. ${escapeHTML(d.name.split(' · ')[0])}
+      <b>${d.copies}</b></button>`).join('')
+    + `<button class="seg-btn ${sel === 'todos' ? 'is-on' : ''}" data-fd="todos">
+        Todos juntos <b>${tj.copies}</b></button>`;
+
+  const alvo = sel === 'todos' ? tj : f.por_deck[sel];
+  const intro = sel === 'todos'
+    ? `<p class="note">O que custaria ter os cinco decks montados
+       <b>ao mesmo tempo</b>, com cópias para cada um — sem trocar cartas de
+       deck. São <b>${eur(tj.cents - um)}</b> e <b>${tj.copies - copias}</b>
+       cópias a mais do que montá-los um de cada vez.</p>`
+    : `<p class="note">O que falta a este deck <b>depois</b> de comprares as
+       listas dos anteriores. ${sel > 0
+         ? 'As cartas que os decks de cima já obrigam a comprar não voltam a contar aqui.'
+         : 'É o primeiro da fila, por isso leva a lista inteira.'}</p>`;
+
+  $('#falta-body').innerHTML = `
+    <div class="seg seg-wrap">${abas}</div>
+    <div class="deck-card resumo">
+      <b>${sel === 'todos' ? 'Todos ao mesmo tempo' : escapeHTML(f.por_deck[sel].name)}</b>
+      <span>${alvo.cards} cartas · ${alvo.copies} cópias · ${eur(alvo.cents)}</span>
+    </div>
+    ${intro}
+    ${alvo.by_set.length ? alvo.by_set.map(m => `
+      <h3 class="section-head sub">${escapeHTML(m.name)}
+        <span>${m.copies} cópia${m.copies === 1 ? '' : 's'} de ${m.cards} carta${
+          m.cards === 1 ? '' : 's'}${m.cents ? ` · ${eur(m.cents)}` : ''}</span></h3>
+      <div class="grid deck-grid">${m.items.map(faltaTile).join('')}</div>`).join('')
+      : '<p class="empty">Nada a comprar — este deck fica completo com o que vem acima.</p>'}
+    <p class="note total-linha">Somando as abas dos decks:
+      <b>${copias} cópias · ${eur(um)}</b> para os montar um de cada vez.</p>`;
+
+  for (const b of document.querySelectorAll('#falta-body .seg-btn[data-fd]')) {
+    b.onclick = () => {
+      const v = b.dataset.fd;
+      state.prefs.faltaDeck = v === 'todos' ? 'todos' : Number(v);
+      savePrefs();
+      renderPorDeck();
+    };
+  }
 }
 
 function artHTML(x, extra = '') {

@@ -137,13 +137,135 @@ def staples(con: sqlite3.Connection) -> list[dict]:
     return out
 
 
+def _tipos(con: sqlite3.Connection) -> dict[str, tuple]:
+    return {r["card_key"]: (r["type"], bool(r["is_token"])) for r in con.execute(
+        "SELECT card_key, type, is_token FROM catalog.cards")}
+
+
+def _agrupar(con: sqlite3.Connection, falta: dict[str, int]) -> list[dict]:
+    """{card_key: quantas comprar} -> lista por edição, com as cartas dentro.
+
+    A edição escolhida é aquela onde a carta sai mais barata: é onde se compra.
+    """
+    if not falta:
+        return []
+    nomes = {r["card_key"]: r["name"] for r in con.execute(
+        "SELECT card_key, name FROM catalog.cards")}
+    onde = _cheapest(con, list(falta))
+
+    # Em que outras edições existe a carta — dá-lhe alternativa se não
+    # encontrar a versão mais barata.
+    ph = ",".join("?" * len(falta))
+    edicoes: dict[str, set] = {}
+    for r in con.execute(
+        f"SELECT card_key, set_id FROM catalog.printings "
+        f"WHERE card_key IN ({ph}) AND variant_kind = 'base'", list(falta)
+    ):
+        edicoes.setdefault(r["card_key"], set()).add(r["set_id"])
+    ordens = {s: config.set_order(s) for s in
+              (r["set_id"] for r in con.execute("SELECT DISTINCT set_id FROM catalog.printings"))}
+
+    por_set: dict[str, dict] = {}
+    for k, n in falta.items():
+        c = onde.get(k)
+        if not c:
+            continue
+        d = por_set.setdefault(c["set"], {"set": c["set"], "name": config.set_name(c["set"]),
+                                          "cards": 0, "copies": 0, "cents": 0, "items": []})
+        d["cards"] += 1
+        d["copies"] += n
+        d["cents"] += (c["price"] or 0) * n
+        d["items"].append({
+            "card_key": k, "name": nomes.get(k, k), "qty": n,
+            "code": c["code"], "price": c["price"], "total": (c["price"] or 0) * n,
+            "img": c["img"], "cdn": c["cdn"], "landscape": c["landscape"],
+            "also": sorted(edicoes.get(k, set()) - {c["set"]}),
+        })
+    out = list(por_set.values())
+    for d in out:
+        d["items"].sort(key=lambda x: (-x["total"], x["name"]))
+    out.sort(key=lambda d: (ordens.get(d["set"], 999), d["set"]))
+    return out
+
+
 def por_deck(con: sqlite3.Connection) -> list[dict]:
-    """O que falta a cada deck, por edição — a mesma conta da vista de decks."""
-    ignorar = set(config.load().get("faltas_ignorar_tipos", []))
+    """O que falta comprar a CADA deck, descontando o que os anteriores já levam.
+
+    Percorre-se por prioridade com uma reserva partilhada: o que ele tem, mais
+    o que as listas dos decks anteriores já mandam comprar. Se o deck 1 já
+    obriga a comprar 2 Defy, o deck 2 não pede mais nenhum — as cartas trocam-se
+    entre decks, não se compram aos pares.
+
+    Por isso a soma das abas é o custo REAL de montar os decks um de cada vez.
+    A aba "todos juntos" (ver `todos_juntos`) responde à outra pergunta: quanto
+    custaria tê-los montados ao mesmo tempo, com cópias para cada um.
+    """
+    cfg = config.load()
+    ignorar = set(cfg.get("faltas_ignorar_tipos", []))
+    tipos = _tipos(con)
+    tenho = dict(decks.owned_by_card(con))
+
+    def teto(k: str) -> int:
+        t, tok = tipos.get(k, (None, False))
+        return metrics.playset_target(t, tok, cfg)
+
+    reserva = dict(tenho)          # o que já está disponível, incluindo compras
     out = []
     for d in decks.decks_index(con):
-        out.append({**d, "by_set": decks.missing_by_set(con, d["id"], ignorar)})
+        pedido: dict[str, int] = {}
+        for r in con.execute(
+            "SELECT card_key, SUM(qty) AS q FROM deck_cards WHERE deck_id = ? "
+            "GROUP BY card_key", (d["id"],)
+        ):
+            pedido[r["card_key"]] = r["q"]
+
+        comprar: dict[str, int] = {}
+        for k, q in pedido.items():
+            if tipos.get(k, (None, False))[0] in ignorar:
+                continue
+            precisa = min(q, teto(k))
+            em_mao = reserva.get(k, 0)
+            if precisa > em_mao:
+                comprar[k] = precisa - em_mao
+                reserva[k] = precisa      # a compra passa a estar disponível
+
+        by_set = _agrupar(con, comprar)
+        out.append({
+            "id": d["id"], "name": d["name"], "priority": d["priority"],
+            "have": d["have"], "wanted": d["wanted"],
+            "cards": sum(len(g["items"]) for g in by_set),
+            "copies": sum(g["copies"] for g in by_set),
+            "cents": sum(g["cents"] for g in by_set),
+            "by_set": by_set,
+        })
     return out
+
+
+def todos_juntos(con: sqlite3.Connection) -> dict:
+    """E se ele quisesse os decks todos montados AO MESMO TEMPO?
+
+    Aqui não há teto nem partilha: soma-se o que cada deck pede e desconta-se
+    só o que ele tem. É o cenário de ter cópias a mais para não desmontar nada.
+    """
+    cfg = config.load()
+    ignorar = set(cfg.get("faltas_ignorar_tipos", []))
+    tipos = _tipos(con)
+    tenho = decks.owned_by_card(con)
+
+    pedido: dict[str, int] = {}
+    for k, v in _wanted(con).items():
+        if tipos.get(k, (None, False))[0] in ignorar:
+            continue
+        pedido[k] = v["qty"]
+
+    comprar = {k: q - tenho.get(k, 0) for k, q in pedido.items() if q > tenho.get(k, 0)}
+    by_set = _agrupar(con, comprar)
+    return {
+        "cards": sum(len(g["items"]) for g in by_set),
+        "copies": sum(g["copies"] for g in by_set),
+        "cents": sum(g["cents"] for g in by_set),
+        "by_set": by_set,
+    }
 
 
 def spiking(con: sqlite3.Connection, days: int = SPIKE_DAYS,
@@ -228,6 +350,7 @@ def payload(con: sqlite3.Connection) -> dict:
     return {
         "staples": staples(con),
         "por_deck": por_deck(con),
+        "todos_juntos": todos_juntos(con),
         "spiking": spiking(con),
         "ignored_types": sorted(config.load().get("faltas_ignorar_tipos", [])),
         "totals": {
