@@ -397,6 +397,34 @@ O preço é para se ver, não para se pagar: 35 versões, 4381,60 €.
 uma versão com um visto "com artes alternativas" na lista dos decks; foi
 retirada, é aqui que essa pergunta vive.
 
+## BURACO NO CATÁLOGO: 48 impressões que a RiftScribe não tem
+
+Medido a 2026-09-01, contra os blueprints do CardTrader:
+
+| edição | CardTrader | RiftScribe | a mais no CT |
+|---|---|---|---|
+| OGN | 353 | 352 | 1 (token `Buff`) |
+| OGS | 25 | 24 | 1 |
+| SFD | 302 | 288 | **14** (runas R01–R06 + artes alt., tokens) |
+| UNL | 300 | 288 | **12** (artes alt. das runas) |
+| VEN | 247 | 228 | **20** (artes alt. das runas + 9 signatures) |
+
+Confirmado na fonte: `GET /api/cards?set_id=SFD&type=Rune` devolve
+`X-Total-Count: 0`. A RiftScribe só tem runas no OGN (12) e no VEN (6).
+
+**Consequência prática.** O André pediu que o Pimp mostrasse, nas runas, as da
+edição do Legend do deck. Os dois decks dele têm Legend do SFD, e as runas
+alternativas do SFD existem (`SFD-R01a`..`R06a` no CardTrader) — mas não estão
+no catálogo, por isso continua a aparecer a do OGN.
+
+A preferência **já está implementada** (`pimp()` -> `montar(pedido, preferir)`)
+e passa a funcionar sozinha assim que o catálogo tiver as cartas. Hoje não
+muda nada.
+
+**Por decidir:** suplementar o catálogo com as impressões que só o CardTrader
+tem. É meter uma segunda fonte no `catalog.db`, sem imagens da RiftScribe e
+mexendo em todos os totais do site (1180 -> 1228). Não fazer sem ele decidir.
+
 ## Wantlist do Cardmarket
 
 `faltas.wantlist()` gera `qtd Nome (Edição)` por linha. Botão na secção

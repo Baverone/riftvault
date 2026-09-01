@@ -566,12 +566,27 @@ def pimp(con: sqlite3.Connection) -> dict:
         if alt:
             alt_de[ck] = alt
 
-    def montar(pedido: dict[str, int]) -> dict:
-        """{card_key: quantas o deck usa} -> estrutura por edição."""
+    def montar(pedido: dict[str, int], preferir: str | None = None) -> dict:
+        """{card_key: quantas o deck usa} -> estrutura por edição.
+
+        `preferir` é a edição do Legend do deck: quando uma carta tem versão
+        alterada nessa edição, mostra-se só essa. É o pedido do André para as
+        runas — um deck cujo Legend é do SFD quer as runas alternativas do
+        SFD, não as do OGN.
+
+        HOJE ISTO NÃO MUDA NADA: a RiftScribe só tem runas no OGN e no VEN,
+        e as artes alternativas delas só no OGN. As do SFD e do UNL existem
+        (o CardTrader tem-nas) mas não estão no catálogo. Ver CLAUDE.md.
+        """
         por_set: dict[str, dict] = {}
         cents = owned = 0
         for ck, qtd in pedido.items():
-            for r in alt_de.get(ck, []):
+            opcoes = alt_de.get(ck, [])
+            if preferir:
+                mesma = [r for r in opcoes if r["set_id"] == preferir]
+                if mesma:
+                    opcoes = mesma
+            for r in opcoes:
                 v = versoes.get(r["printing_id"]) or {}
                 tem = copias.get(r["printing_id"], 0)
                 owned += 1 if tem else 0
@@ -613,6 +628,17 @@ def pimp(con: sqlite3.Connection) -> dict:
     # Vista global: o que os decks pedem ao todo, com o teto de playset.
     geral = montar({ck: teto(ck, v["qty"]) for ck, v in quem.items() if ck in alt_de})
 
+    # A edição do Legend de cada deck. Quando uma carta tem versão alterada em
+    # várias edições, é a dessa que interessa — o deck é "de" uma edição.
+    legend_set = {}
+    for r in con.execute(
+        "SELECT dc.deck_id, p.set_id FROM deck_cards dc "
+        "JOIN catalog.cards c ON c.card_key = dc.card_key "
+        "JOIN catalog.printings p ON p.printing_id = c.rep_printing_id "
+        "WHERE dc.role = 'legend'"
+    ):
+        legend_set[r["deck_id"]] = r["set_id"]
+
     # Vista por deck: só o que aquele deck usa.
     por_deck = []
     for d in decks.decks_index(con):
@@ -624,6 +650,7 @@ def pimp(con: sqlite3.Connection) -> dict:
             if r["card_key"] in alt_de:
                 pedido[r["card_key"]] = teto(r["card_key"], r["q"])
         por_deck.append({"id": d["id"], "name": d["name"], "priority": d["priority"],
-                         **montar(pedido)})
+                         "legend_set": legend_set.get(d["id"]),
+                         **montar(pedido, legend_set.get(d["id"]))})
 
     return {**geral, "by_deck": por_deck, "ignored": sorted(fora)}
