@@ -1011,15 +1011,20 @@ function renderPimp() {
         alvo.owned ? ` · já tens ${alvo.owned}` : ''}</span>
     </div>
     <p class="note">${sel === 'todos'
-      ? `As versões alteradas das cartas que os teus decks usam: artes
-         alternativas, showcase e promos. Escolhe um deck acima para veres só
-         as dele.`
+      ? `As versões alteradas das cartas que os teus decks usam, deck a deck:
+         artes alternativas, showcase e promos. Uma carta que dois decks usem
+         aparece nos dois.`
       : `O que dá para trocar neste deck. A quantidade é a que ele usa.`}
       Moldura verde: já tens essa versão.</p>
-    ${alvo.by_set.map(d => `
-      <h3 class="section-head sub">${escapeHTML(d.name)}
-        <span>${d.printings} versões · ${eur(d.cents)}</span></h3>
-      <div class="grid deck-grid">${d.items.map(x => pimpTile(x, sel === 'todos')).join('')}</div>`).join('')}
+    ${sel === 'todos'
+      ? p.by_deck.map(d => `
+          <h3 class="section-head sub">${d.priority}. ${escapeHTML(d.name)}
+            <span>${d.printings} versões · ${eur(d.cents)}${
+              d.owned ? ` · já tens ${d.owned}` : ''}</span></h3>
+          <div class="grid deck-grid">${
+            achata(d).map(x => pimpTile(x, false)).join('')}</div>`).join('')
+      : `<div class="grid deck-grid">${
+          achata(alvo).map(x => pimpTile(x, false)).join('')}</div>`}
     <div class="wl-zona">
       <button class="btn" id="pimp-btn">Lista para a wantlist do Cardmarket</button>
       <textarea id="pimp-txt" class="wl-txt" readonly hidden></textarea>
@@ -1037,13 +1042,13 @@ function renderPimp() {
 
   $('#pimp-btn').onclick = () => {
     const linhas = [];
-    for (const d of alvo.by_set) {
-      for (const it of d.items) {
-        let l = `${it.qty} ${it.market_name || it.name}`;
-        if (it.v && it.n_versions > 1) l += ` (V.${it.v})`;
-        if (it.market_set) l += ` (${it.market_set})`;
-        linhas.push(l);
-      }
+    // Na vista "Todas" a lista sai deck a deck, na mesma ordem do ecrã.
+    const fonte = sel === 'todos' ? p.by_deck.flatMap(achata) : achata(alvo);
+    for (const it of fonte) {
+      let l = `${it.qty} ${it.market_name || it.name}`;
+      if (it.v && it.n_versions > 1) l += ` (V.${it.v})`;
+      if (it.market_set) l += ` (${it.market_set})`;
+      linhas.push(l);
     }
     const tx = $('#pimp-txt'), nt = $('#pimp-nota');
     tx.value = linhas.join('\n');
@@ -1058,6 +1063,12 @@ function renderPimp() {
         .catch(() => {});
     }
   };
+}
+
+/* Achata as edições: aqui a arrumação é por DECK, não por edição. Dentro do
+   deck ordena-se pelo que custa, que é o que decide a troca. */
+function achata(d) {
+  return d.by_set.flatMap(g => g.items).sort((a, b) => b.total - a.total);
 }
 
 function pimpTile(x, comDecks = true) {

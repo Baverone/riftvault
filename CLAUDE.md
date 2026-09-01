@@ -380,10 +380,15 @@ as promos especiais.
 **Não é lista de compras.** Inclui as que ele já tem, marcadas a verde: o
 objetivo é saber o que existe para poder filtrar quando anda a procurar.
 
-**Duas leituras dos mesmos dados:** `by_set` (tudo junto) e `by_deck` (uma
-entrada por deck), com sub-abas na interface. A decisão de pimpar é por deck —
-é a olhar para um deck de cada vez que ele decide o que trocar. Na vista por
-deck a quantidade é a que AQUELE deck usa; na global é a soma com o teto.
+**Arruma-se por DECK, nunca por edição** (André, 2026-09-01). A vista "Todas"
+tem um cabeçalho por deck; as sub-abas mostram um deck de cada vez, em grelha
+corrida. O `by_set` continua a existir no payload mas o frontend achata-o
+(`achata()`), ordenando pelo custo — é o custo que decide a troca.
+
+A decisão de pimpar é por deck: é a olhar para um deck de cada vez que ele
+decide o que trocar. Na vista por deck a quantidade é a que AQUELE deck usa;
+na global é a soma com o teto. Uma carta usada por dois decks aparece nos dois
+— aqui isso é a informação, não duplicação a evitar.
 
 O preço é para se ver, não para se pagar: 35 versões, 4381,60 €.
 
