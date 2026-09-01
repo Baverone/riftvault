@@ -42,6 +42,53 @@ def _wanted(con: sqlite3.Connection) -> dict[str, dict]:
     return out
 
 
+
+def _versoes(con: sqlite3.Connection) -> dict[str, dict]:
+    """printing_id -> {v, n, foil_only}: o número de versão no Cardmarket.
+
+    O Cardmarket distingue impressões com o mesmo nome na mesma edição por
+    `(V.1)`, `(V.2)`... e a ordem é a do número de coleção. Aqui calcula-se
+    esse índice a partir do nosso catálogo.
+
+    NÃO VALIDADO contra o Cardmarket — a numeração deles é inferida, não lida.
+    Se sair trocada, o sítio para corrigir é esta função.
+    """
+    rows = con.execute(
+        "SELECT m.printing_id, m.market_name, m.market_set, p.card_key, "
+        "       p.collector_number, p.variant, p.variant_label, p.public_code, "
+        "       pl.from_foil "
+        "FROM catalog.cardtrader_map m "
+        "JOIN catalog.printings p ON p.printing_id = m.printing_id "
+        "LEFT JOIN catalog.price_latest pl ON pl.printing_id = m.printing_id "
+        "WHERE m.market_name IS NOT NULL"
+    ).fetchall()
+
+    # Agrupar pela CARTA, não pelo nome de mercado: o CardTrader escreve o
+    # nome da arte alternativa de 3 cartas com vírgula e o da base com hífen
+    # ("Darius, Trifarian" vs "Darius - Trifarian"). Agrupar por nome partia
+    # essas em dois grupos de um, e nenhuma levava (V.n).
+    grupos: dict[tuple, list] = {}
+    for r in rows:
+        grupos.setdefault((r["market_set"], r["card_key"]), []).append(r)
+
+    out: dict[str, dict] = {}
+    for _, lst in grupos.items():
+        lst.sort(key=lambda r: (r["collector_number"], r["variant"]))
+        # No Cardmarket as versões vivem sob UM nome de produto; usa-se o da
+        # impressão base para todas.
+        canonico = lst[0]["market_name"]
+        for i, r in enumerate(lst, 1):
+            out[r["printing_id"]] = {
+                "v": i, "n": len(lst), "name": canonico,
+                "label": r["variant_label"], "code": r["public_code"],
+                # O mercado só tem oferta foil desta impressão. O texto da
+                # wantlist não leva flag de foil — isto serve para lhe dizer
+                # em que linhas tem de ligar o filtro à mão.
+                "foil_only": bool(r["from_foil"]),
+            }
+    return out
+
+
 def _cheapest(con: sqlite3.Connection, keys: list[str]) -> dict[str, dict]:
     """card_key -> impressão base mais barata (onde se vai comprar)."""
     if not keys:
@@ -172,11 +219,38 @@ def _agrupar(con: sqlite3.Connection, falta: dict[str, int]) -> list[dict]:
     ordens = {s: config.set_order(s) for s in
               (r["set_id"] for r in con.execute("SELECT DISTINCT set_id FROM catalog.printings"))}
 
+    versoes = _versoes(con)
+    # Todas as impressões de cada carta, para poder oferecer as alternativas.
+    ph2 = ",".join("?" * len(falta))
+    irmas: dict[str, list] = {}
+    for r in con.execute(
+        f"SELECT p.card_key, p.printing_id, p.set_id, m.market_name, m.market_set "
+        f"FROM catalog.printings p "
+        f"JOIN catalog.cardtrader_map m ON m.printing_id = p.printing_id "
+        f"WHERE p.card_key IN ({ph2})", list(falta)
+    ):
+        irmas.setdefault(r["card_key"], []).append(r)
+
     por_set: dict[str, dict] = {}
     for k, n in falta.items():
         c = onde.get(k)
         if not c:
             continue
+
+        # As versões da MESMA edição onde se vai comprar: base, arte
+        # alternativa, showcase, signature. É o que ele quer ver lado a lado.
+        alt = []
+        for r in irmas.get(k, []):
+            if r["set_id"] != c["set"] or r["printing_id"] == c["id"]:
+                continue
+            v = versoes.get(r["printing_id"])
+            if not v:
+                continue
+            alt.append({"name": v.get("name") or r["market_name"],
+                        "set": r["market_set"],
+                        "v": v["v"], "n": v["n"], "label": v["label"],
+                        "code": v["code"], "foil_only": v["foil_only"]})
+        alt.sort(key=lambda x: x["v"])
         d = por_set.setdefault(c["set"], {"set": c["set"], "name": config.set_name(c["set"]),
                                           "cards": 0, "copies": 0, "cents": 0, "items": []})
         d["cards"] += 1
@@ -189,6 +263,10 @@ def _agrupar(con: sqlite3.Connection, falta: dict[str, int]) -> list[dict]:
             "also": sorted(edicoes.get(k, set()) - {c["set"]}),
             "market_name": c.get("market_name"), "market_set": c.get("market_set"),
             "cardmarket_id": c.get("cardmarket_id"),
+            "v": (versoes.get(c["id"]) or {}).get("v"),
+            "n_versions": (versoes.get(c["id"]) or {}).get("n", 1),
+            "foil_only": (versoes.get(c["id"]) or {}).get("foil_only", False),
+            "outras_versoes": alt,
         })
     out = list(por_set.values())
     for d in out:
@@ -375,24 +453,43 @@ def payload(con: sqlite3.Connection) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def wantlist(grupos: list[dict], com_edicao: bool = True) -> str:
-    """Texto para colar na wantlist do Cardmarket: "3 Nome (Edição)".
+def wantlist(grupos: list[dict], com_edicao: bool = True,
+             com_versao: bool = True, com_variantes: bool = False) -> dict:
+    """Texto para colar na wantlist do Cardmarket.
 
-    Usa o nome COMO O MERCADO O ESCREVE, não o da RiftScribe — lá é
-    "Loose Cannon", no Cardmarket é "Jinx - Loose Cannon", e sem isso não
-    casa nada. A edição vai junto porque 104 nomes existem em mais do que
-    uma, e sem ela ficava ambíguo.
+    Formato documentado por eles: `4x High Tide (V.1) (Fallen Empires)` — a
+    quantidade, o nome, a versão opcional e a edição opcional.
 
-    NÃO VALIDADO contra o Cardmarket: o site responde 403 a pedidos
-    automáticos e não há conta para experimentar. O formato "qtd nome
-    (edição)" é o que a ajuda deles documenta. Ver CLAUDE.md.
+    O nome é o DO MERCADO ("Darius - Trifarian"), não o da RiftScribe
+    ("Darius, Trifarian"): 414 das 1179 impressões diferem.
+
+    **O foil não se pode marcar no texto.** Está confirmado na ajuda deles: o
+    foil é um filtro por entrada, posto na interface depois de a carta entrar
+    na lista. Por isso devolve-se também `foil` — as linhas onde o mercado só
+    tem oferta foil — para ele saber onde ligar o filtro.
     """
-    linhas = []
+    linhas, foil = [], []
+
+    def escreve(qtd, nome, v, n, edicao, ehfoil):
+        partes = [f"{qtd} {nome}"]
+        # Só faz sentido numerar quando há mais do que uma versão.
+        if com_versao and v and n > 1:
+            partes.append(f"(V.{v})")
+        if com_edicao and edicao:
+            partes.append(f"({edicao})")
+        linha = " ".join(partes)
+        linhas.append(linha)
+        if ehfoil:
+            foil.append(linha)
+
     for g in grupos:
         for it in g.get("items", []):
-            nome = it.get("market_name") or it["name"]
-            if com_edicao and it.get("market_set"):
-                linhas.append(f"{it['qty']} {nome} ({it['market_set']})")
-            else:
-                linhas.append(f"{it['qty']} {nome}")
-    return "\n".join(linhas)
+            escreve(it["qty"], it.get("market_name") or it["name"],
+                    it.get("v"), it.get("n_versions", 1),
+                    it.get("market_set"), it.get("foil_only"))
+            if com_variantes:
+                for a in it.get("outras_versoes", []):
+                    escreve(it["qty"], a["name"], a["v"], a["n"],
+                            a["set"], a["foil_only"])
+
+    return {"text": "\n".join(linhas), "lines": len(linhas), "foil": foil}

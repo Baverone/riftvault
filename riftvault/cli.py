@@ -374,12 +374,22 @@ def cmd_wantlist(args) -> int:
         alvo = {"by_set": [g for d in pd for g in d["by_set"]]}
         rotulo = "todos os decks, um de cada vez"
 
-    texto = faltas_mod.wantlist(alvo["by_set"], com_edicao=not args.sem_edicao)
+    res = faltas_mod.wantlist(alvo["by_set"], com_edicao=not args.sem_edicao,
+                              com_variantes=args.variantes)
     if args.out:
-        open(args.out, "w", encoding="utf-8").write(texto + "\n")
-        print(f"{len(texto.splitlines())} linhas escritas em {args.out}  ({rotulo})")
+        open(args.out, "w", encoding="utf-8").write(res["text"] + "\n")
+        print(f"{res['lines']} linhas escritas em {args.out}  ({rotulo})")
     else:
-        print(texto)
+        print(res["text"])
+
+    if res["foil"]:
+        print(f"\n# {len(res['foil'])} destas só têm oferta foil no mercado.",
+              file=sys.stderr)
+        print("# O texto da wantlist não leva marca de foil: liga o filtro Foil",
+              file=sys.stderr)
+        print("# nestas entradas depois de colares.", file=sys.stderr)
+        for l in res["foil"]:
+            print(f"#   {l}", file=sys.stderr)
     con.close()
     return 0
 
@@ -487,6 +497,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--deck", help="só deste deck (slug)")
     p.add_argument("--todos", action="store_true",
                    help="cenário de ter os decks todos montados ao mesmo tempo")
+    p.add_argument("--variantes", action="store_true",
+                   help="incluir as artes alternativas e showcase, para comparar")
     p.add_argument("--sem-edicao", action="store_true", dest="sem_edicao",
                    help="não escrever a edição entre parênteses")
     p.add_argument("--out", help="escrever para ficheiro em vez do ecrã")

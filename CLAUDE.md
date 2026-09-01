@@ -386,6 +386,28 @@ o que a ajuda deles documenta e o que as extensões de bulk import usam. Que o
 Cardmarket tem Riftbound está confirmado: **as 1178 impressões têm
 `card_market_ids`** nos blueprints do CardTrader.
 
+**Formato confirmado na ajuda deles:** `4x High Tide (V.1) (Fallen Empires)` —
+quantidade, nome, versão opcional, edição opcional.
+
+**O FOIL NÃO SE MARCA NO TEXTO.** Confirmado: no Cardmarket o foil é um filtro
+*por entrada*, posto na interface depois de a carta entrar na lista, a par de
+idioma, condição, signed e altered. Por isso o `wantlist()` devolve também
+`foil` — as linhas cujas impressões só têm oferta foil no mercado (623 das
+1179) — para ele saber onde ligar o filtro à mão. Não inventar uma sintaxe.
+
+**As versões (V.n) são INFERIDAS, não lidas.** `_versoes()` numera as
+impressões pela ordem do número de coleção dentro de (edição, carta lógica).
+Agrupa-se pela **carta**, não pelo nome de mercado: o CardTrader escreve o
+nome da arte alternativa de 3 cartas com vírgula e o da base com hífen
+("Darius, Trifarian" vs "Darius - Trifarian"), e agrupar por nome partia-as em
+dois grupos de um, sem V.n nenhum. Todas as versões saem com o nome da base.
+
+**ARMADILHA — o `price_latest` mora no catalog.db, que é descartável.** Apagar
+o catalog.db deita fora os preços atuais e só o `riftvault prices` os repõe.
+O histórico sobrevive (está no prices.db). No GitHub Actions isto resolve-se
+sozinho porque o sync e os preços correm em sequência; localmente, quem apagar
+o catálogo tem de voltar a correr os preços.
+
 **A caixa de texto não é um fallback do clipboard, é o mecanismo principal.**
 O `navigator.clipboard` exige contexto seguro, e no telemóvel isto abre por
 http num IP da rede local — lá nunca funcionaria.

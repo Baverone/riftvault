@@ -129,9 +129,17 @@ O formato é `3 Nome da Carta (Edição)`, com o nome **como o mercado o
 escreve** — `Darius - Trifarian`, não `Darius, Trifarian` como está na
 RiftScribe. Sem isso o Cardmarket não casa as cartas.
 
-Não consegui validar o formato contra o Cardmarket (o site bloqueia pedidos
-automáticos); é o que a ajuda deles documenta. Se alguma linha não entrar,
-diz qual e ajusto.
+Há um visto **"com artes alternativas"**: quando ligado, cada carta que tenha
+arte alternativa ou showcase na mesma edição sai com todas as versões,
+numeradas `(V.1)`, `(V.2)`, para as poderes comparar na wantlist.
+
+**O foil não se pode marcar no texto.** No Cardmarket o foil é um filtro por
+entrada, posto na interface depois de a carta entrar na lista. Por isso, por
+baixo do texto aparece a lista das cartas que **só têm oferta foil** no
+mercado — são essas em que tens de ligar o filtro *Foil* à mão.
+
+Os números de versão são **inferidos** pela ordem do número de coleção, não
+lidos do Cardmarket. Se saírem trocados, diz e corrijo.
 
 ## As duas métricas
 

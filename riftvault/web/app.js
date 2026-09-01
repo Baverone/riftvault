@@ -30,7 +30,7 @@ const state = {
   decks: null, deckId: null, deck: null, faltas: null,
   prefs: { view: 'all', stateFilter: 'all',
            kinds: ['base', 'alt_art', 'signature', 'other'],
-           set: null, deck: null, falta: 'staples', faltaDeck: 0,
+           set: null, deck: null, falta: 'staples', faltaDeck: 0, wlVariantes: false,
            section: 'colecao' },
 };
 
@@ -892,9 +892,14 @@ function renderPorDeck() {
       <div class="grid deck-grid">${m.items.map(faltaTile).join('')}</div>`).join('')
       : '<p class="empty">Nada a comprar — este deck fica completo com o que vem acima.</p>'}
     <div class="wl-zona">
-      <button class="btn" id="wl-btn">Lista para a wantlist do Cardmarket</button>
+      <div class="wl-linha">
+        <button class="btn" id="wl-btn">Lista para a wantlist do Cardmarket</button>
+        <label class="chip"><input type="checkbox" id="wl-var"
+          ${state.prefs.wlVariantes ? 'checked' : ''}><span>com artes alternativas</span></label>
+      </div>
       <textarea id="wl-txt" class="wl-txt" readonly hidden></textarea>
       <small class="nota" id="wl-nota" hidden></small>
+      <small class="nota aviso-foil" id="wl-foil" hidden></small>
     </div>
     <p class="note total-linha">Somando as abas dos decks:
       <b>${copias} cópias · ${eur(um)}</b> para os montar um de cada vez.</p>`;
@@ -908,6 +913,11 @@ function renderPorDeck() {
     };
   }
   $('#wl-btn').onclick = () => mostrarWantlist(alvo);
+  $('#wl-var').onchange = (e) => {
+    state.prefs.wlVariantes = e.target.checked;
+    savePrefs();
+    mostrarWantlist(alvo);
+  };
 }
 
 /* Texto para colar na wantlist do Cardmarket.
@@ -919,11 +929,26 @@ function renderPorDeck() {
    `navigator.clipboard` só existe em contexto seguro, e no telemóvel isto
    abre por http num IP da rede local — ou seja, lá nunca funcionaria. */
 function mostrarWantlist(alvo) {
-  const linhas = [];
+  const comVar = !!state.prefs.wlVariantes;
+  const linhas = [], foil = [];
+
+  const escreve = (qtd, nome, v, n, edicao, ehFoil) => {
+    let l = `${qtd} ${nome}`;
+    if (v && n > 1) l += ` (V.${v})`;      // só numera quando há mais do que uma
+    if (edicao) l += ` (${edicao})`;
+    linhas.push(l);
+    if (ehFoil) foil.push(l);
+  };
+
   for (const g of alvo.by_set) {
     for (const it of g.items) {
-      const nome = it.market_name || it.name;
-      linhas.push(`${it.qty} ${nome}${it.market_set ? ` (${it.market_set})` : ''}`);
+      escreve(it.qty, it.market_name || it.name, it.v, it.n_versions,
+              it.market_set, it.foil_only);
+      if (comVar) {
+        for (const o of (it.outras_versoes || [])) {
+          escreve(it.qty, o.name, o.v, o.n, o.set, o.foil_only);
+        }
+      }
     }
   }
   const txt = $('#wl-txt');
@@ -934,6 +959,18 @@ function mostrarWantlist(alvo) {
   nota.hidden = false;
   txt.focus();
   txt.select();
+
+  // O foil NÃO se pode marcar no texto — é um filtro por entrada, posto na
+  // interface deles. Aqui só se diz em que linhas é preciso ligá-lo.
+  const fnota = $('#wl-foil');
+  if (foil.length) {
+    fnota.hidden = false;
+    fnota.innerHTML = `<b>${foil.length} destas só têm oferta foil no mercado.</b>
+      O texto da wantlist não leva marca de foil — depois de colares, liga o
+      filtro <i>Foil</i> nestas entradas:<br>${foil.map(escapeHTML).join('<br>')}`;
+  } else {
+    fnota.hidden = true;
+  }
 
   const n = linhas.length;
   if (navigator.clipboard && window.isSecureContext) {
