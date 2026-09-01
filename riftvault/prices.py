@@ -242,16 +242,14 @@ def sync_prices(ct: CardTrader | None = None, log=print) -> dict:
         con.close()
         raise CardTraderError("o mapa está vazio — corre primeiro `riftvault map`")
 
-    # Impressões de interesse: as que ele TEM, mais as que os decks PEDEM.
-    # Sem as segundas nunca haveria histórico das cartas que lhe faltam, e a
-    # vista "a subir de preço" — que é sobre o que ainda vai comprar — ficava
-    # sempre vazia. Continua longe das 1180: o vault.db vai para o Git.
+    # Histórico de TODAS as impressões (decisão do André, 2026-09-01): a vista
+    # "a subir de preço" é sobre o Riftbound inteiro, não só sobre a coleção —
+    # serve para apanhar cartas a valorizar antes de entrarem num deck dele.
+    #
+    # O custo é contido porque só se grava quando o preço MUDA, e porque isto
+    # vive no prices.db, um ficheiro pequeno e à parte do vault.db.
     owned = {r["printing_id"] for r in con.execute(
-        "SELECT printing_id FROM copies WHERE qty > 0 "
-        "UNION "
-        "SELECT p.printing_id FROM catalog.printings p "
-        "WHERE p.variant_kind = 'base' AND p.card_key IN "
-        "  (SELECT DISTINCT card_key FROM deck_cards)")}
+        "SELECT printing_id FROM catalog.printings")}
     rows, sem_preco = [], 0
 
     for expansion_id in sorted(exps):

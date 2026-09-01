@@ -347,12 +347,20 @@ desconta-se o que ele tem. A alocação por prioridade responde a outra coisa
   medido: 88 -> 85 cartas, 262 -> 210 cópias, 919,94 € -> 848,01 €.
 - **Staples** = carência > 0 e pedida por >= 2 decks. É o critério de "rende
   mais por euro".
-- **A subir** = precisa de `price_history` com pelo menos dois dias. Enquanto
-  não houver, a aba **diz que não há histórico** — não inventa tendência.
-
-O `prices.sync_prices` grava histórico das impressões que ele TEM **mais** as
-que os decks pedem. Sem a segunda metade, a aba "a subir" nunca teria dados
-das cartas que lhe faltam, que são precisamente as que interessam.
+- **A subir** = **todo o Riftbound**, não só a coleção (André, 2026-09-01):
+  serve para apanhar cartas a valorizar antes de entrarem num deck dele. As
+  que ele tem ou de que precisa vêm marcadas. O `prices.sync_prices` grava
+  histórico das **1178** impressões com preço, não só das de interesse.
+- A prontidão mede-se em **impressões com duas leituras**, não em dias
+  gravados: o histórico só escreve quando o preço muda, por isso é normal ter
+  vários dias e nada comparável. Enquanto não houver, a aba diz isso — não
+  inventa tendência.
+- O `pct` é **primeiro -> último** dentro da janela, com sinal. Uma carta que
+  desceu não aparece; verificado com dados reais (o `Not So Fast` foi de 2,10
+  para 0,70 e ficou de fora, como devia).
+- Custo em disco medido: o `prices.db` passou de 52 KB para 140 KB ao alargar
+  de 290 para 1178 impressões. Cresce só com o que muda. Se um dia incomodar,
+  o sítio para podar é aqui.
 
 ## Onde está cada cópia
 

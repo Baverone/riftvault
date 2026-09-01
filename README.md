@@ -93,9 +93,11 @@ Terceira secção, com três abas:
   número suficiente. São as que rendem mais por euro: uma compra serve vários
   decks. Cada tile diz quantos decks a querem e quais.
 - **Por deck** — o que falta a cada deck, agrupado por edição.
-- **A subir** — cartas em falta cujo preço subiu mais de 15% nos últimos 30
-  dias, com o que já custou esperar. Precisa de histórico; o GitHub Actions
-  trata disso sozinho todos os dias (ver abaixo).
+- **A subir** — **todo o Riftbound**, não só a tua coleção: impressões que
+  subiram mais de 15% nos últimos 30 dias. As que já tens ficam com moldura
+  verde, as que te faltam com moldura vermelha e o que custou esperar. Serve
+  para apanhar cartas a valorizar antes de entrarem num deck teu. O GitHub
+  Actions atualiza os preços sozinho todos os dias.
 
 **Nunca se compra mais do que um playset da mesma carta.** Cinco decks a pedir
 3 Defy não são 15 Defy — são 3, e trocam-se entre decks. O teto é o alvo de

@@ -821,17 +821,20 @@ function renderFaltas() {
       <p>O histórico só escreve quando o preço <em>muda</em>, por isso é normal
       demorar uns dias a encher. Corre <code>riftvault prices</code> de vez em
       quando e esta aba começa a dizer alguma coisa.</p>
-      <p>São seguidas <b>290 impressões</b>: as que tens mais as que os teus
-      decks pedem.</p>
+      <p>São seguidas <b>${sp.tracked || 0} impressões</b> — o Riftbound
+      inteiro, não só a tua coleção.</p>
     </div>`;
     return;
   }
+  const meus = sp.items.filter(x => x.missing || x.have).length;
   $('#falta-body').innerHTML = sp.items.length ? `
-    <p class="note">Cartas que te faltam e que subiram mais de ${sp.min_pct}% nos
-      últimos ${sp.window_days} dias. A coluna da direita é o que já te custou
-      esperar, pelas cópias que ainda precisas.</p>
+    <p class="note">Todo o Riftbound, não só a tua coleção: impressões que
+      subiram mais de ${sp.min_pct}% nos últimos ${sp.window_days} dias.
+      ${meus ? `<b>${meus}</b> ${meus === 1 ? 'toca-te' : 'tocam-te'} —
+      moldura verde já tens, vermelha faz-te falta.` : 'Nenhuma delas te toca.'}
+      Seguidas ${sp.tracked} impressões.</p>
     <div class="grid deck-grid">${sp.items.map(spikeTile).join('')}</div>`
-    : `<p class="empty">Nenhuma carta em falta subiu mais de ${sp.min_pct}% nos
+    : `<p class="empty">Nenhuma impressão subiu mais de ${sp.min_pct}% nos
        últimos ${sp.window_days} dias.</p>`;
 }
 
@@ -858,12 +861,16 @@ function staplTile(x) {
 }
 
 function spikeTile(x) {
-  return `<div class="dtile gone">
-    ${artHTML(x, `<span class="need">${x.missing}×</span>
+  // Marca as que lhe tocam: tem, ou faz-lhe falta. As outras são só o mercado.
+  const meu = x.missing ? 'falta' : (x.have ? 'tenho' : '');
+  return `<div class="dtile ${x.missing ? 'gone' : (x.have ? 'ok' : 'neutro')}">
+    ${artHTML(x, `${meu === 'falta' ? `<span class="need">${x.missing}×</span>` : ''}
+      ${meu === 'tenho' ? `<span class="need have">${x.have}×</span>` : ''}
       <span class="spike">+${x.pct}%</span>`)}
-    <div class="tname" title="${escapeAttr(x.name)}">${escapeHTML(x.name)}</div>
-    <div class="onde spike-nota">${eur(x.from_cents)} → <b>${eur(x.to_cents)}</b><br>
-      custou-te ${eur(x.extra_cents)} esperar</div>
+    <div class="tname" title="${escapeAttr(x.name)}">${escapeHTML(x.name)}
+      ${x.label !== 'Base' ? `<i class="var">${escapeHTML(x.label)}</i>` : ''}</div>
+    <div class="onde spike-nota">${eur(x.from_cents)} → <b>${eur(x.to_cents)}</b></div>
+    ${x.missing ? `<div class="onde falta">custou-te ${eur(x.extra_cents)} esperar</div>` : ''}
   </div>`;
 }
 

@@ -140,63 +140,78 @@ def por_deck(con: sqlite3.Connection) -> list[dict]:
 
 def spiking(con: sqlite3.Connection, days: int = SPIKE_DAYS,
             min_pct: float = SPIKE_MIN_PCT) -> dict:
-    """Cartas em falta cujo preço subiu na janela. Precisa de histórico.
+    """Impressões cujo preço subiu na janela — **do Riftbound inteiro**.
 
-    O `price_history` só grava quando o preço muda, e só das impressões de
-    interesse. Com um único dia gravado não há subida nenhuma para medir — e é
-    isso que se diz, em vez de inventar uma tendência.
+    Não se limita à coleção nem aos decks (decisão do André, 2026-09-01): a
+    ideia é apanhar cartas a valorizar antes de entrarem num deck. As que ele
+    tem, ou de que precisa, vêm marcadas para saltarem à vista.
+
+    Precisa de histórico. O `price_history` só grava quando o preço muda, por
+    isso é normal haver vários dias gravados e nenhuma carta comparável — e
+    nesse caso diz-se isso, em vez de inventar uma tendência.
     """
     desde = (date.today() - timedelta(days=days)).isoformat()
     dias = [r["day"] for r in con.execute(
         "SELECT DISTINCT day FROM prices.price_history ORDER BY day")]
 
-    # O que conta não é haver dois DIAS gravados, é haver alguma IMPRESSÃO com
-    # duas leituras. O histórico só escreve quando o preço muda, por isso é
-    # normal ter vários dias e nenhuma carta comparável — e "nada subiu" seria
-    # mentira nesse caso: a verdade é que ainda não há com que comparar.
     comparaveis = con.execute(
         "SELECT COUNT(*) AS n FROM (SELECT printing_id FROM prices.price_history "
         "WHERE day >= ? GROUP BY printing_id HAVING COUNT(DISTINCT day) > 1)",
         (desde,)).fetchone()["n"]
     base = {"days_recorded": len(dias), "first": dias[0] if dias else None,
-            "comparable": comparaveis, "window_days": days, "min_pct": min_pct}
+            "comparable": comparaveis, "window_days": days, "min_pct": min_pct,
+            "tracked": con.execute(
+                "SELECT COUNT(DISTINCT printing_id) AS n FROM prices.price_history"
+            ).fetchone()["n"]}
     if comparaveis == 0:
         return {**base, "ready": False, "items": []}
 
-    falta = {x["card_key"]: x for x in shortfall(con)}
-    if not falta:
-        return {**base, "ready": True, "items": []}
+    preciso = {x["card_key"]: x["missing"] for x in shortfall(con)}
+    tenho = {r["printing_id"]: r["qty"] for r in
+             con.execute("SELECT printing_id, qty FROM copies WHERE qty > 0")}
 
     # Primeiro e último preço de cada impressão dentro da janela.
     linhas = con.execute(
-        "SELECT h.printing_id, h.day, h.price_cents, p.card_key "
+        "SELECT h.printing_id, h.day, h.price_cents, p.card_key, p.name, "
+        "       p.public_code, p.set_id, p.variant_label, p.orientation, "
+        "       p.image_medium, p.image_large, p.image_url "
         "FROM prices.price_history h JOIN catalog.printings p "
         "ON p.printing_id = h.printing_id "
         "WHERE h.day >= ? ORDER BY h.printing_id, h.day", (desde,)).fetchall()
 
     janela: dict[str, dict] = {}
     for r in linhas:
-        e = janela.setdefault(r["printing_id"], {"card_key": r["card_key"],
-                                                 "first": None, "last": None})
+        e = janela.get(r["printing_id"])
+        if e is None:
+            e = janela[r["printing_id"]] = {"row": r, "first": None, "last": None}
         if e["first"] is None:
             e["first"] = (r["day"], r["price_cents"])
         e["last"] = (r["day"], r["price_cents"])
 
     itens = []
     for pid, e in janela.items():
-        x = falta.get(e["card_key"])
-        if not x or e["first"] is None or e["last"] is None:
-            continue
         antes, agora = e["first"][1], e["last"][1]
         if antes <= 0 or agora < SPIKE_MIN_CENTS:
             continue
         pct = (agora - antes) / antes * 100
         if pct < min_pct:
             continue
-        itens.append({**x, "from_cents": antes, "to_cents": agora, "pct": round(pct, 1),
-                      "since": e["first"][0], "until": e["last"][0],
-                      "extra_cents": (agora - antes) * x["missing"]})
-    itens.sort(key=lambda i: (-i["pct"], -i["extra_cents"]))
+        r = e["row"]
+        falta = preciso.get(r["card_key"], 0)
+        itens.append({
+            "printing_id": pid, "name": r["name"], "code": r["public_code"],
+            "set": r["set_id"], "label": r["variant_label"],
+            "landscape": (r["orientation"] or "").lower() == "landscape",
+            "img": f"img/{pid}.webp",
+            "cdn": r["image_medium"] or r["image_large"] or r["image_url"],
+            "from_cents": antes, "to_cents": agora, "pct": round(pct, 1),
+            "since": e["first"][0], "until": e["last"][0],
+            "have": tenho.get(pid, 0),
+            "missing": falta,
+            # O que já custou esperar, nas cópias que ainda lhe faltam.
+            "extra_cents": (agora - antes) * falta,
+        })
+    itens.sort(key=lambda i: (-i["pct"], -i["to_cents"]))
     return {**base, "ready": True, "items": itens}
 
 
