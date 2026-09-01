@@ -60,7 +60,12 @@ class CardTraderError(RuntimeError):
 
 class CardTrader:
     def __init__(self, token: str | None = None):
-        self.token = token or os.environ.get("CARDTRADER_TOKEN")
+        # Limpar espaços e BOM: um token colado de um editor, ou passado por
+        # pipe do PowerShell, vem com `﻿` à frente — e aí o `requests`
+        # rebenta a codificar o header em latin-1, com uma mensagem que não
+        # faz lembrar nada disto. Aconteceu no GitHub Actions.
+        bruto = token or os.environ.get("CARDTRADER_TOKEN") or ""
+        self.token = bruto.strip().lstrip("﻿").strip()
         if not self.token:
             raise CardTraderError(
                 "Falta CARDTRADER_TOKEN no ambiente.\n"

@@ -53,8 +53,10 @@ jobs:
         run: python -m riftvault sync
 
       - name: Preços do CardTrader
-        # Sem o segredo definido, salta em silêncio: o site continua a sair,
-        # só sem preços novos. Não vale a pena partir a publicação por isto.
+        # `continue-on-error`: um token em falta, uma falha do CardTrader ou um
+        # timeout NUNCA devem impedir a publicação do site. Perde-se um dia de
+        # preços, não a página.
+        continue-on-error: true
         env:
           CARDTRADER_TOKEN: ${{ secrets.CARDTRADER_TOKEN }}
         run: |
