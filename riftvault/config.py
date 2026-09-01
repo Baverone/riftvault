@@ -47,6 +47,7 @@ DEFAULTS: dict = {
     "master_base_follows_type": True,
     "master_target_overrides": {},
     "token_card_keys": [],
+    "faltas_ignorar_tipos": ["Rune"],
     "price_badge_min_cents": 100,
     "image_size": "medium",
     "static_images": "remote",

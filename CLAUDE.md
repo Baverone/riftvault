@@ -345,6 +345,10 @@ desconta-se o que ele tem. A alocação por prioridade responde a outra coisa
   vale 3 nas Units/Spells/Gears, **12 nas Runas** e **1 nos Legends e
   Battlefields**, porque é o mesmo alvo da métrica de playset jogável. Efeito
   medido: 88 -> 85 cartas, 262 -> 210 cópias, 919,94 € -> 848,01 €.
+- **Runas fora da conta (André, 2026-09-01):** `faltas_ignorar_tipos` no
+  config, default `["Rune"]`. São baratas e compram-se a granel, e a 12 por
+  deck enchiam os staples. **Só afeta a secção Faltas** — na secção Decks e na
+  Coleção continuam a contar, porque aí a pergunta é outra.
 - **Staples** = carência > 0 e pedida por >= 2 decks. É o critério de "rende
   mais por euro".
 - **A subir** = **todo o Riftbound**, não só a coleção (André, 2026-09-01):

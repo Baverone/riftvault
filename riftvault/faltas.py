@@ -95,8 +95,15 @@ def shortfall(con: sqlite3.Connection) -> list[dict]:
         t, tok = tipos.get(k, (None, False))
         return metrics.playset_target(t, tok, cfg)
 
+    # Tipos que esta secção não conta. As runas são baratas e compram-se a
+    # granel; a 12 por deck enchiam os staples e escondiam o que interessa.
+    # Continuam a contar na secção Decks e na Coleção.
+    ignorar = set(cfg.get("faltas_ignorar_tipos", []))
+
     em_falta = {}
     for k, v in pedido.items():
+        if tipos.get(k, (None, False))[0] in ignorar:
+            continue
         alvo = min(v["qty"], teto(k))
         if alvo > tenho.get(k, 0):
             em_falta[k] = {**v, "alvo": alvo}
@@ -132,9 +139,10 @@ def staples(con: sqlite3.Connection) -> list[dict]:
 
 def por_deck(con: sqlite3.Connection) -> list[dict]:
     """O que falta a cada deck, por edição — a mesma conta da vista de decks."""
+    ignorar = set(config.load().get("faltas_ignorar_tipos", []))
     out = []
     for d in decks.decks_index(con):
-        out.append({**d, "by_set": decks.missing_by_set(con, d["id"])})
+        out.append({**d, "by_set": decks.missing_by_set(con, d["id"], ignorar)})
     return out
 
 
@@ -221,6 +229,7 @@ def payload(con: sqlite3.Connection) -> dict:
         "staples": staples(con),
         "por_deck": por_deck(con),
         "spiking": spiking(con),
+        "ignored_types": sorted(config.load().get("faltas_ignorar_tipos", [])),
         "totals": {
             "cards": len(todas),
             "copies": sum(x["missing"] for x in todas),

@@ -791,6 +791,8 @@ function faltaHead() {
     <div class="deck-meta">
       <span><i>Custo estimado</i>${eur(t.cents)}</span>
       <span><i>Critério</i>preço mais baixo no CardTrader, edição mais barata</span>
+      ${f.ignored_types.length ? `<span><i>Fora da conta</i>${
+        f.ignored_types.join(', ')} — compram-se a granel</span>` : ''}
     </div>
   </div>`;
 }

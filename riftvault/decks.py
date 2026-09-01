@@ -327,7 +327,8 @@ def allocate(con: sqlite3.Connection) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def missing_by_set(con: sqlite3.Connection, deck_id: int) -> list[dict]:
+def missing_by_set(con: sqlite3.Connection, deck_id: int,
+                   ignore_types: set[str] | None = None) -> list[dict]:
     """Cópias em falta neste deck, por edição onde as ir buscar.
 
     Cada carta é atribuída à edição onde sai **mais barata** — é a decisão
@@ -338,6 +339,10 @@ def missing_by_set(con: sqlite3.Connection, deck_id: int) -> list[dict]:
     Não inclui as que faltam por estarem noutro deck: essas não se compram.
     """
     falta = allocate(con)[deck_id]["missing"]
+    if ignore_types:
+        tipos = {r["card_key"]: r["type"] for r in con.execute(
+            "SELECT card_key, type FROM catalog.cards")}
+        falta = {k: v for k, v in falta.items() if tipos.get(k) not in ignore_types}
     if not falta:
         return []
 

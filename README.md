@@ -99,6 +99,10 @@ Terceira secção, com três abas:
   para apanhar cartas a valorizar antes de entrarem num deck teu. O GitHub
   Actions atualiza os preços sozinho todos os dias.
 
+**As runas não entram nesta secção** — são baratas e compram-se a granel, e a
+12 por deck enchiam os staples. Continuam a contar na secção Decks e na
+Coleção. O que fica de fora está em `faltas_ignorar_tipos`, no config.
+
 **Nunca se compra mais do que um playset da mesma carta.** Cinco decks a pedir
 3 Defy não são 15 Defy — são 3, e trocam-se entre decks. O teto é o alvo de
 playset: 3 nas Units/Spells/Gears, 12 nas Runas, 1 nos Legends e Battlefields.
