@@ -373,6 +373,10 @@ cartas que os decks usam: artes alternativas, signatures, as reimpressões
 showcase (que têm número de coleção próprio) e as promos. Alterada = tudo o
 que não é a impressão canónica, e canónica é a base da edição mais antiga.
 
+**Sem signatures** (`pimp_ignorar_tipos`, default `["signature"]`) — decisão
+dele, 2026-09-01. Ficam as artes alternativas, as showcase, as runas promo e
+as promos especiais.
+
 **Não é lista de compras.** Inclui as que ele já tem, marcadas a verde: o
 objetivo é saber o que existe para poder filtrar quando anda a procurar.
 
@@ -412,12 +416,21 @@ idioma, condição, signed e altered. Por isso o `wantlist()` devolve também
 `foil` — as linhas cujas impressões só têm oferta foil no mercado (623 das
 1179) — para ele saber onde ligar o filtro à mão. Não inventar uma sintaxe.
 
-**As versões (V.n) são INFERIDAS, não lidas.** `_versoes()` numera as
-impressões pela ordem do número de coleção dentro de (edição, carta lógica).
-Agrupa-se pela **carta**, não pelo nome de mercado: o CardTrader escreve o
-nome da arte alternativa de 3 cartas com vírgula e o da base com hífen
-("Darius, Trifarian" vs "Darius - Trifarian"), e agrupar por nome partia-as em
-dois grupos de um, sem V.n nenhum. Todas as versões saem com o nome da base.
+**As versões (V.n) são INFERIDAS, não lidas.** `_versoes()` agrupa pelo
+`group_key` — edição + número de coleção — e numera pela ordem do variante.
+
+**Foi o André que corrigiu o agrupamento** (2026-09-01): "as signatures são
+normalmente as V.2". Eu agrupava por carta lógica, e a `Daughter of the Void`
+do OGN dava três versões (base 247, showcase 299, signature 299*), pondo a
+signature em V.3. Se lá é V.2, o Cardmarket trata a 247 e a 299 como produtos
+diferentes e só junta as impressões que partilham número de coleção. Com o
+agrupamento certo, **as 36 signatures ficam todas em V.2 e as 102 artes
+alternativas também** — consistente com o que ele vê no site.
+
+Isto também resolve o problema do nome: o CardTrader escreve a arte
+alternativa de 3 cartas com vírgula e a base com hífen ("Darius, Trifarian" vs
+"Darius - Trifarian"), e agrupar por nome partia-as em dois grupos de um.
+Todas as versões saem com o nome da base.
 
 **ARMADILHA — o `price_latest` mora no catalog.db, que é descartável.** Apagar
 o catalog.db deita fora os preços atuais e só o `riftvault prices` os repõe.

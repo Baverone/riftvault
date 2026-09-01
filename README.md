@@ -93,8 +93,9 @@ Terceira secção, com três abas:
   número suficiente. São as que rendem mais por euro: uma compra serve vários
   decks. Cada tile diz quantos decks a querem e quais.
 - **Por deck** — o que falta a cada deck, agrupado por edição.
-- **Pimp decks** — todas as versões **alteradas** das cartas que os teus decks
-  usam: artes alternativas, showcase, signatures e promos. Não é lista de
+- **Pimp decks** — as versões **alteradas** das cartas que os teus decks usam:
+  artes alternativas, showcase e promos. Sem signatures (muda-se em
+  `pimp_ignorar_tipos`). Não é lista de
   compras; inclui as que já tens (moldura verde), porque serve para saberes o
   que existe quando andas a procurar. Tem lista para a wantlist também.
 - **A subir** — **todo o Riftbound**, não só a tua coleção: impressões que

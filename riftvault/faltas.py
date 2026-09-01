@@ -54,7 +54,7 @@ def _versoes(con: sqlite3.Connection) -> dict[str, dict]:
     Se sair trocada, o sítio para corrigir é esta função.
     """
     rows = con.execute(
-        "SELECT m.printing_id, m.market_name, m.market_set, p.card_key, "
+        "SELECT m.printing_id, m.market_name, m.market_set, p.group_key, "
         "       p.collector_number, p.variant, p.variant_label, p.public_code, "
         "       pl.from_foil "
         "FROM catalog.cardtrader_map m "
@@ -63,13 +63,23 @@ def _versoes(con: sqlite3.Connection) -> dict[str, dict]:
         "WHERE m.market_name IS NOT NULL"
     ).fetchall()
 
-    # Agrupar pela CARTA, não pelo nome de mercado: o CardTrader escreve o
-    # nome da arte alternativa de 3 cartas com vírgula e o da base com hífen
-    # ("Darius, Trifarian" vs "Darius - Trifarian"). Agrupar por nome partia
-    # essas em dois grupos de um, e nenhuma levava (V.n).
+    # Agrupar pelo NÚMERO DE COLEÇÃO (o `group_key`), não pela carta lógica
+    # nem pelo nome de mercado.
+    #
+    # Foi o André que corrigiu isto (2026-09-01): "as signatures são
+    # normalmente as V.2". Agrupando por carta, a `Daughter of the Void` do
+    # OGN dava três versões — a base 247, a reimpressão showcase 299 e a
+    # signature 299* — e a signature saía V.3. Se lá é V.2, então o Cardmarket
+    # trata a 247 e a 299 como PRODUTOS DIFERENTES, e junta só as impressões
+    # que partilham número de coleção. Com este agrupamento as 36 signatures
+    # ficam todas em V.2, como ele descreve.
+    #
+    # Também resolve o problema do nome: o CardTrader escreve a arte
+    # alternativa de 3 cartas com vírgula e a base com hífen, e agrupar por
+    # nome partia-as em dois grupos de um.
     grupos: dict[tuple, list] = {}
     for r in rows:
-        grupos.setdefault((r["market_set"], r["card_key"]), []).append(r)
+        grupos.setdefault(r["group_key"], []).append(r)
 
     out: dict[str, dict] = {}
     for _, lst in grupos.items():
@@ -524,6 +534,8 @@ def pimp(con: sqlite3.Connection) -> dict:
     ordens = {s: config.set_order(s) for s in
               (r["set_id"] for r in con.execute("SELECT DISTINCT set_id FROM catalog.printings"))}
     versoes = _versoes(con)
+    # Tipos que ele não quer ver aqui — as signatures, por omissão.
+    fora = set(cfg.get("pimp_ignorar_tipos", []))
     copias = {r["printing_id"]: r["qty"] for r in
               con.execute("SELECT printing_id, qty FROM copies WHERE qty > 0")}
 
@@ -547,7 +559,9 @@ def pimp(con: sqlite3.Connection) -> dict:
         lst.sort(key=lambda r: (ordens.get(r["set_id"], 999), r["api_sort"]))
         # A canónica é a primeira base; tudo o resto é versão alterada.
         canonica = next((r for r in lst if r["variant_kind"] == "base"), lst[0])
-        alt = [r for r in lst if r["printing_id"] != canonica["printing_id"]]
+        alt = [r for r in lst
+               if r["printing_id"] != canonica["printing_id"]
+               and r["variant_kind"] not in fora]
         if not alt:
             continue
 
@@ -595,4 +609,5 @@ def pimp(con: sqlite3.Connection) -> dict:
         "cards": len({it["card_key"] for d in out for it in d["items"]}),
         "printings": sum(d["printings"] for d in out),
         "cents": total_cents, "owned": total_owned, "by_set": out,
+        "ignored": sorted(fora),
     }

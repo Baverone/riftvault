@@ -48,6 +48,7 @@ DEFAULTS: dict = {
     "master_target_overrides": {},
     "token_card_keys": [],
     "faltas_ignorar_tipos": ["Rune"],
+    "pimp_ignorar_tipos": ["signature"],
     "price_badge_min_cents": 100,
     "image_size": "medium",
     "static_images": "remote",
