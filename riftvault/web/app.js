@@ -1122,19 +1122,53 @@ function renderCaminho() {
     <p class="note">Já compradas, ainda não em casa. <b>Não contam na Coleção</b>
       — essa mede o que tens na caixa — mas já saíram das faltas e das
       wantlists. Quando chegarem, corre
-      <code>riftvault pending --chegou</code> para darem entrada.</p>
+      <b>Chegou</b> em cada carta, ou o botão em baixo para dar entrada de tudo.</p>
+    ${state.editable ? `<div class="wl-zona">
+      <button class="btn" id="chegou-tudo">Chegou tudo (${p.copies} cópias)</button>
+    </div>` : ''}
     ${[...porSet.entries()].map(([s, itens]) => `
       <h3 class="section-head sub">${escapeHTML(s)}
         <span>${itens.reduce((a, x) => a + x.qty, 0)} cópias${
           itens.some(x => x.unit_cents)
             ? ` · ${eur(itens.reduce((a, x) => a + (x.unit_cents || 0) * x.qty, 0))}` : ''}</span></h3>
       <div class="grid deck-grid">${itens.map(caminhoTile).join('')}</div>`).join('')}`;
+
+  for (const b of document.querySelectorAll('#falta-body [data-chegou]')) {
+    b.onclick = () => chegou(Number(b.dataset.chegou), b);
+  }
+  const tudo = $('#chegou-tudo');
+  if (tudo) tudo.onclick = () => chegou(null, tudo);
+}
+
+/* Confirmar a chegada: sai do "a caminho" e entra na Coleção. Passa pelo
+   mesmo caminho dos `+`, portanto fica no log e dá para desfazer. */
+async function chegou(id, botao) {
+  if (botao) { botao.disabled = true; botao.textContent = 'a dar entrada…'; }
+  try {
+    const r = await fetch('api/pending/arrive', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(id ? { id } : {}),
+    });
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `HTTP ${r.status}`);
+    const res = await r.json();
+    const n = res.arrived.reduce((s, x) => s + x.qty, 0);
+    toast(`${n} ${n === 1 ? 'cópia entrou' : 'cópias entraram'} na coleção.`);
+    // A coleção mudou: força-se a recarga em vez de tentar remendar o estado.
+    state.faltas = null;
+    state.payload = null;
+    await loadFaltas();
+    if (state.setId) await loadSet(state.setId);
+    showSection('faltas');
+  } catch (err) {
+    toast(`Não deu para dar entrada: ${err.message}`, { error: true });
+    if (botao) { botao.disabled = false; botao.textContent = 'Chegou'; }
+  }
 }
 
 /* Tile de encomenda. Sem moldura de estado: não é "tenho" nem "falta", é
    uma terceira coisa — está a chegar. */
 function caminhoTile(x) {
-  return `<div class="dtile neutro a-caminho">
+  return `<div class="dtile neutro a-caminho" data-pid="${x.id}">
     ${artHTML(x, `<span class="need">${x.qty}×</span>
       ${x.market_only ? '<span class="so-mercado">fora do catálogo</span>' : ''}
       ${x.unit_cents ? `<span class="price pago">${eurShort(x.unit_cents * x.qty)}</span>` : ''}`)}
@@ -1142,6 +1176,7 @@ function caminhoTile(x) {
     <div class="codigo">${escapeHTML((x.code || '').split('/')[0])}${
       x.unit_cents ? ` · ${eur(x.unit_cents)}` : ''}</div>
     ${x.label !== 'Base' ? `<div class="onde tenho">${escapeHTML(x.label)}</div>` : ''}
+    ${state.editable ? `<button class="btn chegou" data-chegou="${x.id}">Chegou</button>` : ''}
   </div>`;
 }
 

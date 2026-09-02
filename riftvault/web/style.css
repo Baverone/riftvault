@@ -454,6 +454,13 @@ body.readonly .deck-actions .btn[data-act="descer"] { display: none; }
 /* Encomendas: nem verde (tenho) nem vermelho (falta) — a chegar. */
 .dtile.a-caminho .art { border-color: rgba(124, 140, 255, .55); border-style: dashed; }
 .dtile.a-caminho .art img { filter: none; opacity: .92; }
+.btn.chegou {
+  width: 100%; padding: 7px 8px; font-size: 12px;
+  border-color: rgba(124, 140, 255, .5); color: var(--accent);
+}
+.btn.chegou:disabled { opacity: .55; cursor: default; }
+body.readonly .btn.chegou { display: none; }
+
 .price.pago { background: rgba(124, 140, 255, .92); color: #0f1016; }
 /* Impressões que não são dele: sobem na mesma, mas sem alarme de cor. */
 .dtile.neutro .art { border-color: var(--line); }

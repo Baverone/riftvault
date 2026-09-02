@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 
 from flask import Flask, g, jsonify, redirect, request, send_from_directory
 
-from . import collection, config, db, decks, faltas, metrics
+from . import collection, config, db, decks, faltas, metrics, pending
 
 app = Flask(__name__, static_folder=None)
 
@@ -127,6 +127,22 @@ def api_deck(deck_id: int):
     if not payload:
         return jsonify({"error": "deck não encontrado"}), 404
     return jsonify(payload)
+
+
+@app.post("/api/pending/arrive")
+def api_pending_arrive():
+    """Confirma a chegada: passa do `pending` para a coleção.
+
+    Sem `id`, dá entrada em tudo o que está aberto. A entrada passa pelo
+    `collection.adjust`, portanto fica no log e dá para desfazer.
+    """
+    data = request.get_json(silent=True) or {}
+    pid = data.get("id")
+    con = get_con()
+    feitas = pending.arrive(con, int(pid) if pid else None, source="web")
+    if not feitas:
+        return jsonify({"error": "não havia nada por chegar"}), 404
+    return jsonify({"arrived": feitas, "pending": pending.totals(con)})
 
 
 @app.post("/api/decks/order")

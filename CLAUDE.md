@@ -516,6 +516,13 @@ não é uma falta. A tabela `pending` (vault.db) é a diferença entre as duas:
   comprar outra vez.
 - `pending.arrive()` passa para o `copies` pelo `collection.adjust`, portanto
   fica no `ops` e dá para desfazer.
+- Confirma-se pela interface: botão **Chegou** em cada carta e um "Chegou
+  tudo", em Faltas -> A caminho (`POST /api/pending/arrive`). Ou
+  `riftvault pending --chegou [ID]`.
+
+**Desfazer uma entrada tem DUAS metades.** O `collection.undo_last` reverte as
+cópias mas não mexe no `pending.arrived_at` — é preciso pôr a NULL também,
+senão a carta desaparece das duas listas. Não há undo automático disto.
 
 Aceita `market_only`: ele comprou runas do SFD que a RiftScribe não tem, e
 essas contam na mesma (`pending.open_by_card` junta as duas fontes).
