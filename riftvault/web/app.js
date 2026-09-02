@@ -20,7 +20,8 @@ const state = {
   imageMode: 'local',
   qty: new Map(),              // printing_id -> quantidade (verdade local, otimista)
   play: new Map(),             // card_key -> {owned, target}
-  targets: new Map(),          // printing_id -> alvo do master
+  targets: new Map(),          // printing_id -> alvo do master (o do tile)
+  counts: new Map(),           // printing_id -> entra na % de set?
   meta: new Map(),             // printing_id -> {name, card_key, rarity}
   pending: new Map(),          // card_key -> pedidos por responder
   tiles: [],                   // impressões visíveis, pela ordem do ecrã
@@ -94,12 +95,14 @@ async function loadSet(setId) {
   state.payload = p;
   state.imageMode = p.image_mode || state.imageMode;
 
-  state.qty.clear(); state.play.clear(); state.targets.clear(); state.meta.clear();
+  state.qty.clear(); state.play.clear(); state.targets.clear();
+  state.counts.clear(); state.meta.clear();
   for (const g of p.groups) {
     state.play.set(g.card_key, { owned: g.playset.owned, target: g.playset.target });
     for (const pr of g.printings) {
       state.qty.set(pr.id, pr.qty);
       state.targets.set(pr.id, pr.target);
+      state.counts.set(pr.id, pr.counts !== false);
       state.meta.set(pr.id, { name: pr.name, card_key: g.card_key, rarity: g.rarity, cn: g.cn });
     }
   }
@@ -247,7 +250,8 @@ function renderProgress() {
     }
     for (const p of g.printings) {
       const t = state.targets.get(p.id) || 0;
-      if (t <= 0) continue;
+      // O alvo é o que se mostra no tile; `counts` é o que entra na conta.
+      if (t <= 0 || !state.counts.get(p.id)) continue;
       const ok = (state.qty.get(p.id) || 0) >= t;
       mTotal++; if (ok) mDone++;
       const key = g.rarity || '?';

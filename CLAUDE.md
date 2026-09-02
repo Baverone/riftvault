@@ -286,10 +286,20 @@ valor da coleção, mas **não entram no denominador**.
 
 Denominadores: OGN 352 -> 322, SFD 288 -> 264, UNL 288 -> 258, VEN 228 -> 210.
 
-Dois efeitos por arrasto, ambos coerentes: o tile da arte alternativa deixa
-de ter alvo e mostra só a contagem (`0` em vez de `0/1`), e o "valor se
-estivesse completa" deixa de as incluir — se não fazem parte do set, não
-fazem parte do preço do set.
+**ALVO e CONTA são campos diferentes** (2026-09-02). A primeira versão pôs o
+alvo da arte alternativa a 0, e o tile perdeu o `0/1` — ele quer ver quantas
+lhe faltam, só não quer que baixem a percentagem. São duas perguntas, agora
+com dois campos:
+
+- `master_targets_by_variant` -> o alvo que aparece no tile (`alt_art: 1`).
+- `master_ignorar_variantes` -> o que fica fora do denominador (`["alt_art"]`),
+  via `metrics.master_counts()`.
+
+O payload leva `counts` por impressão e o `renderProgress` respeita-o — a
+percentagem é recalculada no cliente, por isso não bastava mudar o servidor.
+
+O "valor se estivesse completa" segue o `counts`, não o alvo: se a variante
+não faz parte do set, não faz parte do preço de o completar.
 
 ## Alvo do master da impressão base
 

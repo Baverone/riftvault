@@ -52,6 +52,20 @@ def master_target(printing_id: str, kind: str, card_type: str | None, is_token: 
     return int(by_variant.get(kind, 1))
 
 
+def master_counts(kind: str, is_token: bool, cfg: dict | None = None) -> bool:
+    """Esta impressão entra na PERCENTAGEM de set completo?
+
+    É diferente do alvo: o alvo é o que aparece no tile ("0/1"), isto é o que
+    entra no denominador. O André quer ver quantas artes alternativas lhe
+    faltam, mas não quer que elas baixem a percentagem do set — são duas
+    perguntas diferentes e passaram a ter dois campos.
+    """
+    cfg = cfg or config.load()
+    if kind in set(cfg.get("master_ignorar_variantes", [])):
+        return False
+    return not is_token or int(cfg.get("token_target", 1)) > 0
+
+
 # --------------------------------------------------------------------------
 # Payloads
 # --------------------------------------------------------------------------
@@ -148,6 +162,7 @@ def set_payload(con: sqlite3.Connection, set_id: str, editable: bool = True,
             "qty": qty.get(r["printing_id"], 0),
             "target": master_target(r["printing_id"], r["variant_kind"], r["type"],
                                     bool(r["is_token"]), cfg),
+            "counts": master_counts(r["variant_kind"], bool(r["is_token"]), cfg),
             "img": f"img/{r['printing_id']}.webp",
             "cdn": r["image_medium"] or r["image_large"] or r["image_url"],
             "banned": bool(r["is_banned"]),
@@ -177,7 +192,7 @@ def set_payload(con: sqlite3.Connection, set_id: str, editable: bool = True,
     by_rarity: dict[str, list[int]] = {}
     for g in ordered:
         for p in g["printings"]:
-            if p["target"] <= 0:
+            if p["target"] <= 0 or not p["counts"]:
                 continue
             master_total += 1
             complete = p["qty"] >= p["target"]
@@ -201,7 +216,10 @@ def set_payload(con: sqlite3.Connection, set_id: str, editable: bool = True,
             if p["price"] is None:
                 continue
             value_owned += p["qty"] * p["price"]
-            value_full += p["target"] * p["price"]
+            # "se estivesse completa" é sobre o SET: as variantes que não
+            # entram na percentagem também não entram no preço dele.
+            if p["counts"]:
+                value_full += p["target"] * p["price"]
 
     return {
         "editable": editable,
