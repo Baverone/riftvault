@@ -378,8 +378,10 @@ decisões dele, 2026-09-01. Nas runas a versão que ele quer pimpar é a **arte
 alternativa do OGN**, não a promo do VEN (`VEN-R01`..`R06`). Ficam as artes
 alternativas, as reimpressões showcase e as promos especiais (`sp1`..`sp6`).
 
-**Não é lista de compras.** Inclui as que ele já tem, marcadas a verde: o
-objetivo é saber o que existe para poder filtrar quando anda a procurar.
+**É lista de compras** (mudou 2026-09-02). Desconta o que ele tem **e o que
+vem a caminho**, por impressão: a quantidade mostrada é só o que ainda falta
+comprar. As versões já completas saem da lista e contam em `done`. Antes
+mostrava tudo, incluindo o que ele já tinha — ele pediu para tirar.
 
 **Arruma-se por DECK, nunca por edição** (André, 2026-09-01). A vista "Todas"
 tem um cabeçalho por deck; as sub-abas mostram um deck de cada vez, em grelha
@@ -391,7 +393,10 @@ decide o que trocar. Na vista por deck a quantidade é a que AQUELE deck usa;
 na global é a soma com o teto. Uma carta usada por dois decks aparece nos dois
 — aqui isso é a informação, não duplicação a evitar.
 
-O preço é para se ver, não para se pagar: 35 versões, 4381,60 €.
+**Cuidado com os contadores.** A vista "Todas" mostra os decks um a seguir ao
+outro, por isso a soma dos decks é o que se vê no ecrã — não o `printings` do
+payload, que é a vista global com quantidades somadas. A aba e o resumo usam
+a soma dos decks, senão o número no separador não batia com os tiles.
 
 **A lista dos decks leva SÓ a versão mais barata** (André, 2026-09-01). Houve
 uma versão com um visto "com artes alternativas" na lista dos decks; foi

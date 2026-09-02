@@ -780,7 +780,7 @@ function renderFaltaTabs() {
     if (t.id === 'staples') n = `${f.staples.length} cartas`;
     if (t.id === 'deck') n = `${f.por_deck.reduce((s, d) => s + d.copies, 0)} cópias`;
     if (t.id === 'spike') n = f.spiking.ready ? `${f.spiking.items.length} cartas` : 'sem histórico';
-    if (t.id === 'pimp') n = `${f.pimp.printings} versões`;
+    if (t.id === 'pimp') n = `${f.pimp.by_deck.reduce((s, d) => s + d.printings, 0)} versões`;
     if (t.id === 'caminho') n = f.pending.copies ? `${f.pending.copies} cópias` : 'nada';
     b.innerHTML = `${t.label}<small>${n}</small>`;
     b.onclick = () => { state.prefs.falta = t.id; savePrefs(); renderFaltaTabs(); renderFaltas(); };
@@ -1003,8 +1003,9 @@ function renderPimp() {
   const sel = state.prefs.pimpDeck ?? 'todos';
   const alvo = sel === 'todos' ? p : p.by_deck[sel];
 
+  const somaDecks = p.by_deck.reduce((s, d) => s + d.printings, 0);
   const abas = `<button class="seg-btn ${sel === 'todos' ? 'is-on' : ''}" data-pd="todos">
-      Todas <b>${p.printings}</b></button>`
+      Todas <b>${somaDecks}</b></button>`
     + p.by_deck.map((d, k) => `
       <button class="seg-btn ${k === sel ? 'is-on' : ''}" data-pd="${k}">
         ${d.priority}. ${escapeHTML(d.name.split(' · ')[0])}
@@ -1014,15 +1015,17 @@ function renderPimp() {
     <div class="seg seg-wrap">${abas}</div>
     <div class="deck-card resumo">
       <b>${sel === 'todos' ? 'Todas as versões alteradas' : escapeHTML(p.by_deck[sel].name)}</b>
-      <span>${alvo.cards} cartas · ${alvo.printings} versões · ${eur(alvo.cents)}${
-        alvo.owned ? ` · já tens ${alvo.owned}` : ''}</span>
+      <span>${sel === 'todos'
+        ? `${somaDecks} versões · ${eur(p.by_deck.reduce((s, d) => s + d.cents, 0))}`
+        : `${alvo.cards} cartas · ${alvo.printings} versões · ${eur(alvo.cents)}`}${
+        alvo.done ? ` · ${alvo.done} já feitas` : ''}</span>
     </div>
     <p class="note">${sel === 'todos'
-      ? `As versões alteradas das cartas que os teus decks usam, deck a deck:
-         artes alternativas, showcase e promos. Uma carta que dois decks usem
-         aparece nos dois.`
-      : `O que dá para trocar neste deck. A quantidade é a que ele usa.`}
-      Moldura verde: já tens essa versão.</p>
+      ? `O que falta comprar para pimpar, deck a deck: artes alternativas,
+         showcase e promos. Uma carta que dois decks usem aparece nos dois.`
+      : `O que falta comprar para pimpar este deck.`}
+      Já <b>não</b> mostra o que tens nem o que vem a caminho — a quantidade
+      é só o que ainda falta comprar.</p>
     ${sel === 'todos'
       ? p.by_deck.map(d => `
           <h3 class="section-head sub">${d.priority}. ${escapeHTML(d.name)}
@@ -1081,7 +1084,7 @@ function achata(d) {
 function pimpTile(x, comDecks = true) {
   return `<div class="dtile ${x.have ? 'ok' : 'neutro'}">
     ${artHTML(x, `<span class="need">${x.qty}×</span>
-      ${x.have ? '<span class="ja-tens">tens</span>' : ''}
+      ${x.have ? `<span class="ja-tens">tens ${x.have}</span>` : ''}
       ${x.market_only ? '<span class="so-mercado" title="A RiftScribe ainda não tem esta impressão; veio do CardTrader">fora do catálogo</span>' : ''}
       ${x.price != null ? `<span class="price">${eurShort(x.total)}</span>` : ''}`)}
     <div class="tname" title="${escapeAttr(x.name)}">${escapeHTML(x.name)}</div>

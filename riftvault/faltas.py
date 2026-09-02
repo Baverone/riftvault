@@ -546,8 +546,12 @@ def pimp(con: sqlite3.Connection) -> dict:
     ordens = {s: config.set_order(s) for s in
               (r["set_id"] for r in con.execute("SELECT DISTINCT set_id FROM catalog.printings"))}
     versoes = _versoes(con)
+    # O que já está tratado: o que tem na caixa mais o que vem a caminho.
+    # Estas saem da lista — ele pediu para ver só o que ainda tem de comprar.
     copias = {r["printing_id"]: r["qty"] for r in
               con.execute("SELECT printing_id, qty FROM copies WHERE qty > 0")}
+    for pid, q in pending.open_qty(con).items():
+        copias[pid] = copias.get(pid, 0) + q
     mkt = {r["printing_id"]: r["market_set"] for r in
            con.execute("SELECT printing_id, market_set FROM catalog.cardtrader_map")}
 
@@ -593,7 +597,10 @@ def pimp(con: sqlite3.Connection) -> dict:
             "card_key": r["card_key"], "printing_id": r["printing_id"],
             "set_id": r["set_id"], "api_sort": 9999,
             "variant_kind": "alt_art", "variant_label": "Arte alt.",
-            "public_code": f"{r['set_id']}-{r['collector_raw']}",
+            # O CardTrader omite o 'a' na Calm Rune do SFD; a carta impressa
+            # e a fatura levam-no, e é por aí que ele procura.
+            "public_code": f"{r['set_id']}-{r['collector_raw']}"
+                           + ("" if (r["collector_raw"] or "").lower().endswith("a") else "a"),
             "orientation": "portrait", "name": r["market_name"],
             "image_medium": None, "image_large": None,
             # Sem o `www.` o CardTrader responde 301; poupa-se um salto por
@@ -618,7 +625,7 @@ def pimp(con: sqlite3.Connection) -> dict:
         (o CardTrader tem-nas) mas não estão no catálogo. Ver CLAUDE.md.
         """
         por_set: dict[str, dict] = {}
-        cents = owned = 0
+        cents = owned = feitas = 0
         for ck, qtd in pedido.items():
             opcoes = alt_de.get(ck, [])
             if preferir:
@@ -628,8 +635,13 @@ def pimp(con: sqlite3.Connection) -> dict:
             for r in opcoes:
                 v = versoes.get(r["printing_id"]) or {}
                 tem = copias.get(r["printing_id"], 0)
+                # Só interessa o que ainda falta comprar desta versão.
+                falta = qtd - tem
+                if falta <= 0:
+                    feitas += 1
+                    continue
                 owned += 1 if tem else 0
-                sub = (r["price_cents"] or 0) * qtd
+                sub = (r["price_cents"] or 0) * falta
                 cents += sub
                 d = por_set.setdefault(r["set_id"], {
                     "set": r["set_id"], "name": config.set_name(r["set_id"]),
@@ -637,7 +649,7 @@ def pimp(con: sqlite3.Connection) -> dict:
                 d["printings"] += 1
                 d["cents"] += sub
                 d["items"].append({
-                    "card_key": ck, "name": r["name"], "qty": qtd,
+                    "card_key": ck, "name": r["name"], "qty": falta,
                     "code": r["public_code"], "label": r["variant_label"],
                     "kind": r["variant_kind"],
                     "price": r["price_cents"], "total": sub,
@@ -662,7 +674,7 @@ def pimp(con: sqlite3.Connection) -> dict:
         return {
             "cards": len({it["card_key"] for d in out for it in d["items"]}),
             "printings": sum(d["printings"] for d in out),
-            "cents": cents, "owned": owned, "by_set": out,
+            "cents": cents, "owned": owned, "done": feitas, "by_set": out,
         }
 
     def teto(ck: str, n: int) -> int:
