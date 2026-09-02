@@ -167,8 +167,10 @@ São mostradas sempre lado a lado, nunca uma em vez da outra.
 de qualquer edição, conta. Alvos por tipo, em `riftvault_config.json`:
 Unit/Spell/Gear 3, Battlefield 1, Legend 1, Rune 12, tokens 1.
 
-**2. Master set** — alvo por *impressão*. A base segue o alvo de jogo, cada
-arte alternativa 1, cada signature 1. Configurável, incluindo por impressão.
+**2. Master set** — alvo por *impressão*. A base segue o alvo de jogo e cada
+signature 1. **As artes alternativas não contam** para a percentagem: estão na
+grelha e contam para o playset e para o valor, mas ficam fora do set completo
+(`master_targets_by_variant.alt_art`). Configurável, incluindo por impressão.
 
 Não se distingue foil de normal: uma cópia é uma cópia.
 

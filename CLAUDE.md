@@ -277,6 +277,20 @@ O alvo do master set é por impressão, e qualquer cópia serve para o cumprir.
 Se um dia isto mudar: acrescentar `finish TEXT NOT NULL DEFAULT 'normal'` a
 `copies`, passar a PK a `(printing_id, finish)`, e o mesmo em `ops`.
 
+## Artes alternativas fora do master set
+
+`master_targets_by_variant.alt_art = 0` (André, 2026-09-02). A percentagem de
+set completo passa a medir só a impressão base e as signatures; as artes
+alternativas continuam na grelha, contam para o playset jogável e para o
+valor da coleção, mas **não entram no denominador**.
+
+Denominadores: OGN 352 -> 322, SFD 288 -> 264, UNL 288 -> 258, VEN 228 -> 210.
+
+Dois efeitos por arrasto, ambos coerentes: o tile da arte alternativa deixa
+de ter alvo e mostra só a contagem (`0` em vez de `0/1`), e o "valor se
+estivesse completa" deixa de as incluir — se não fazem parte do set, não
+fazem parte do preço do set.
+
 ## Alvo do master da impressão base
 
 `master_base_follows_type: true` no config. O André pediu "base 3, alt art 1,

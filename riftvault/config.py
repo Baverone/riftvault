@@ -38,7 +38,7 @@ DEFAULTS: dict = {
     },
     "master_targets_by_variant": {
         "base": 3,
-        "alt_art": 1,
+        "alt_art": 0,
         "signature": 1,
         "rune_promo": 1,
         "special": 1,
