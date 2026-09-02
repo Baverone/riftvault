@@ -10,6 +10,7 @@ O frontend é exatamente o mesmo do modo publicado. A única diferença é o fla
 from __future__ import annotations
 
 import io
+import re
 import socket
 import subprocess
 import sys
@@ -245,7 +246,7 @@ def _playset_for(printing_id: str) -> dict | None:
 
 
 def lan_ip() -> str:
-    """IP desta máquina na rede local (não abre ligação nenhuma de facto)."""
+    """IP da interface por onde sai o tráfego (não abre ligação nenhuma)."""
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
         s.connect(("10.255.255.255", 1))
@@ -254,6 +255,50 @@ def lan_ip() -> str:
         return "127.0.0.1"
     finally:
         s.close()
+
+
+def lan_ips() -> list[str]:
+    """TODOS os endereços locais, o da rota por omissão primeiro.
+
+    Mostrar só um engana quando a máquina tem Ethernet e Wi-Fi em sub-redes
+    diferentes: o `lan_ip()` devolve o da Ethernet, mas o telemóvel está no
+    Wi-Fi e não chega lá. Aconteceu — o endereço mudou de rede sem aviso e o
+    site pareceu ter ido abaixo.
+
+    Nem o `getaddrinfo(gethostname())` nem sondar a tabela de rotas com um
+    socket UDP encontram a interface Wi-Fi quando a Ethernet tem métrica
+    melhor; ambos foram testados e devolvem só a Ethernet. Por isso pergunta-se
+    ao sistema.
+    """
+    principal = lan_ip()
+    todos = {principal}
+
+    try:
+        for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
+            todos.add(info[4][0])
+    except OSError:
+        pass
+
+    cmd = (["ipconfig"] if sys.platform == "win32"
+           else ["ip", "-4", "-o", "addr", "show"])
+    try:
+        out = subprocess.run(cmd, capture_output=True, text=True, timeout=5,
+                             errors="replace").stdout
+        for m in re.finditer(r"(\d{1,3}(?:\.\d{1,3}){3})", out):
+            todos.add(m.group(1))
+    except (OSError, subprocess.SubprocessError):
+        pass
+
+    # Fora: loopback, link-local, máscaras, difusões e o que não é privado.
+    def util(ip: str) -> bool:
+        p = ip.split(".")
+        if p[0] == "127" or ip.startswith("169.254.") or p[-1] in ("0", "255"):
+            return False
+        return (p[0] == "10"
+                or (p[0] == "172" and 16 <= int(p[1]) <= 31)
+                or (p[0] == "192" and p[1] == "168"))
+
+    return [principal] + sorted(x for x in todos if x != principal and util(x))
 
 
 def tailscale_ip() -> str | None:
@@ -300,7 +345,8 @@ def serve(host: str = "0.0.0.0", port: int = 8770) -> None:
     if empty:
         print("O catálogo está vazio. Corre primeiro:  riftvault sync\n")
 
-    lan = f"http://{lan_ip()}:{port}/"
+    ips = lan_ips()
+    lan = f"http://{ips[0]}:{port}/"
     ts = tailscale_ip()
     # Fora de casa é o endereço da tailnet que serve; o da LAN não chega lá.
     url = f"http://{ts}:{port}/" if ts else lan
@@ -310,6 +356,10 @@ def serve(host: str = "0.0.0.0", port: int = 8770) -> None:
     print("=" * 60)
     print(f"  Neste PC:            http://localhost:{port}/")
     print(f"  Telemóvel (casa):    {lan}")
+    for extra in ips[1:]:
+        print(f"     ou:               http://{extra}:{port}/")
+    if len(ips) > 1:
+        print("     (redes diferentes — usa a que o telemóvel alcança)")
     if ts:
         print(f"  Telemóvel (qualquer rede): {url}   [Tailscale]")
     else:

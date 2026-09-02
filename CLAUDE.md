@@ -38,6 +38,20 @@ build. Um flag no payload (`"editable": true/false`) liga/desliga os `+`/`-`.
 O modo edição **não tem autenticação nenhuma**: quem chegar ao URL escreve na
 coleção. É aceitável na LAN, não é na internet.
 
+**O IP da LAN muda sozinho.** A 2026-09-02 a rede passou de `192.168.0.x`
+para `192.168.1.x` e o URL que ele tinha deixou de responder — pareceu que o
+site tinha ido abaixo, mas o servidor estava de pé. O `serve` passa a listar
+**todos** os endereços (`server.lan_ips()`), porque mostrar um só engana
+quando há Ethernet e Wi-Fi em sub-redes diferentes.
+
+Nem o `getaddrinfo(gethostname())` nem sondar a tabela de rotas com um socket
+UDP encontram a interface secundária quando a principal tem métrica melhor —
+os dois foram testados. É preciso perguntar ao sistema (`ipconfig` no Windows,
+`ip -4 -o addr` no resto).
+
+Isto continua a acontecer enquanto for DHCP. A cura é o Tailscale, que dá um
+endereço fixo.
+
 Para acesso de fora, a resposta é **Tailscale** (rede privada entre os
 dispositivos dele), não port forwarding nem tunnels públicos. O
 `server.tailscale_ip()` deteta a tailnet e o banner de arranque mostra esse
