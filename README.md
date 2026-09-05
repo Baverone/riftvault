@@ -169,10 +169,12 @@ de qualquer edição, conta. Alvos por tipo, em `riftvault_config.json`:
 Unit/Spell/Gear 3, Battlefield 1, Legend 1, Rune 12, tokens 1.
 
 **2. Master set** — alvo por *impressão*. A base segue o alvo de jogo e cada
-signature 1. **As artes alternativas não contam** para a percentagem, mas continuam a
-mostrar o alvo no tile (`0/1`), para veres o que te falta. São dois ajustes
-diferentes: `master_targets_by_variant` é o alvo que aparece, e
-`master_ignorar_variantes` é o que fica fora do denominador.
+signature 1. **As artes alternativas pedem playset na mesma** — um alt art de
+Unit mostra `0/3`, um de Rune mostra `0/12` — mas **não contam** para a
+percentagem. São três ajustes diferentes: `master_targets_by_variant` é o alvo
+fixo, `master_variantes_playset` diz quais as variantes que seguem o playset em
+vez desse alvo fixo, e `master_ignorar_variantes` é o que fica fora do
+denominador.
 
 Não se distingue foil de normal: uma cópia é uma cópia.
 

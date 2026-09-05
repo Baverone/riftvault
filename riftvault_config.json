@@ -29,8 +29,9 @@
     "special": 1
   },
   "master_ignorar_variantes": ["alt_art"],
+  "master_variantes_playset": ["alt_art"],
   "master_base_follows_type": true,
-  "_master_nota": "Métrica 2 (MASTER SET): alvo por IMPRESSÃO. Com master_base_follows_type=true o alvo da impressão base vem de playset_targets_by_type (senão uma Rune base pediria 3 em vez de 12). Põe false para usar o 3 fixo acima. O `master_targets_by_variant` é o alvo que aparece no tile; o `master_ignorar_variantes` é o que NÃO conta para a percentagem de set completo. As artes alternativas mostram 0/1 mas ficam fora do denominador (decisão do André, 2026-09-02).",
+  "_master_nota": "Métrica 2 (MASTER SET): alvo por IMPRESSÃO. Com master_base_follows_type=true o alvo da impressão base vem de playset_targets_by_type (senão uma Rune base pediria 3 em vez de 12). Põe false para usar o 3 fixo acima. O `master_targets_by_variant` é o alvo que aparece no tile; o `master_ignorar_variantes` é o que NÃO conta para a percentagem de set completo. O `master_variantes_playset` diz quais as variantes cujo alvo do tile segue o playset em vez do 1 fixo. As artes alternativas pedem playset (3, ou o alvo do tipo) mas ficam fora do denominador da percentagem (decisões do André, 2026-09-02 e 2026-09-05).",
 
   "token_target": 1,
   "_token_target_nota": "Tokens: 1 de cada, nas DUAS métricas (decisão do André, 2026-08-31). Vale para os tokens com sufixo tNN e para os de token_card_keys.",

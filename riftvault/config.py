@@ -45,6 +45,7 @@ DEFAULTS: dict = {
     },
     "token_target": 1,
     "master_ignorar_variantes": ["alt_art"],
+    "master_variantes_playset": ["alt_art"],
     "master_base_follows_type": True,
     "master_target_overrides": {},
     "token_card_keys": [],

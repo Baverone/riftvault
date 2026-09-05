@@ -49,6 +49,11 @@ def master_target(printing_id: str, kind: str, card_type: str | None, is_token: 
         # Senão uma Rune base pediria 3 em vez de 12, e um Legend pediria 3
         # em vez de 1. O alvo do master da base segue o alvo de jogo.
         return playset_target(card_type, is_token, cfg)
+    if kind in set(cfg.get("master_variantes_playset", [])):
+        # O André quer contagem de playset nas artes alternativas (2026-09-05):
+        # se decide colecionar a alt art, quer as 3 na mesma, não uma. Isto é
+        # só o alvo do tile — continuam fora da percentagem (`master_counts`).
+        return playset_target(card_type, is_token, cfg)
     return int(by_variant.get(kind, 1))
 
 

@@ -305,12 +305,31 @@ alvo da arte alternativa a 0, e o tile perdeu o `0/1` — ele quer ver quantas
 lhe faltam, só não quer que baixem a percentagem. São duas perguntas, agora
 com dois campos:
 
-- `master_targets_by_variant` -> o alvo que aparece no tile (`alt_art: 1`).
+- `master_targets_by_variant` -> o alvo fixo por variante.
+- `master_variantes_playset` -> as variantes cujo alvo segue o playset do tipo
+  em vez do alvo fixo (`["alt_art"]`, ver a secção abaixo).
 - `master_ignorar_variantes` -> o que fica fora do denominador (`["alt_art"]`),
   via `metrics.master_counts()`.
 
 O payload leva `counts` por impressão e o `renderProgress` respeita-o — a
 percentagem é recalculada no cliente, por isso não bastava mudar o servidor.
+
+### Alt arts com contagem de playset (2026-09-05)
+
+O alvo fixo de 1 não chegava: "para as Alt Art tbm quero a contagem de playset,
+elas contam na ordenação, contam para os decks, mas não contam para a % de
+faltas". O alvo da arte alternativa passou a seguir `playset_targets_by_type`,
+como já fazia a base — Unit/Spell/Gear 3, Rune 12, Legend e Battlefield 1.
+
+Configura-se em `master_variantes_playset`. O `master_counts()` não mexeu, por
+isso os denominadores da percentagem são exatamente os mesmos (OGN 322, SFD 264,
+UNL 258). O que muda é o badge do tile e, por consequência, o filtro "Faltas" da
+grelha: uma `Calm Rune` alt art com 6 cópias lia-se 6/1 (completa) e agora lê-se
+6/12 (parcial), que é o ponto — ele quer ver quantas lhe faltam.
+
+Não mexe na secção Faltas nem nos decks: ambos usam `playset_target` por carta
+lógica, nunca o alvo do master. Confirmado depois da mudança: 15 cartas, 26
+cópias, 170,28 € — igual ao de antes.
 
 O "valor se estivesse completa" segue o `counts`, não o alvo: se a variante
 não faz parte do set, não faz parte do preço de o completar.
