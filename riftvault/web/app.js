@@ -42,6 +42,9 @@ function loadPrefs() {
     const raw = localStorage.getItem(PREFS);
     if (raw) Object.assign(state.prefs, JSON.parse(raw));
   } catch (_) { /* localStorage pode estar bloqueado; segue com os defaults */ }
+  // 'partial' foi absorvido por 'missing'; sem isto a grelha abria sem filtro
+  // nenhum selecionado.
+  if (state.prefs.stateFilter === 'partial') state.prefs.stateFilter = 'missing';
 }
 function savePrefs() {
   try { localStorage.setItem(PREFS, JSON.stringify(state.prefs)); } catch (_) {}
@@ -148,9 +151,12 @@ function visiblePrintings(group) {
   if (state.prefs.view === 'all') {
     list = list.filter(p => state.prefs.kinds.includes(kindBucket(p.kind)));
   }
-  const f = state.prefs.stateFilter;
-  if (f === 'missing') list = list.filter(p => tileState(p.id) === 'none');
-  else if (f === 'partial') list = list.filter(p => tileState(p.id) === 'partial');
+  // "Faltas" é tudo o que ainda não está completo — tanto faz faltarem 3, 2
+  // ou 1. Havia dois filtros separados (em falta / parciais) e o André pediu
+  // para juntar: a pergunta é sempre a mesma, o que é que ainda me falta.
+  if (state.prefs.stateFilter === 'missing') {
+    list = list.filter(p => tileState(p.id) !== 'done');
+  }
   return list;
 }
 

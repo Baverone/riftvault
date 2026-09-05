@@ -79,8 +79,9 @@ GitHub Actions publica no GitHub Pages (`.github/workflows/pages.yml`).
 
 - **Ordem:** número de coleção, com as artes alternativas e signatures logo a
   seguir à carta base.
-- **Filtros:** Tudo / Em falta / Parciais, e por tipo de impressão
-  (Base, Arte alt., Signature, Tokens/Promos).
+- **Filtros:** Tudo / Faltas, e por tipo de impressão (Base, Arte alt.,
+  Signature, Tokens/Promos). "Faltas" mostra tudo o que não está completo,
+  tanto faz faltarem 3, 2 ou 1.
 - **Procura** por nome ou código.
 
 As escolhas ficam guardadas no browser.

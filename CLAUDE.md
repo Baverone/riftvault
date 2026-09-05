@@ -581,6 +581,16 @@ Aparece nos dois lados: no tile da Coleção (`2× Ornn · 1 no binder`) e na
 grelha do deck. Não confundir com o `shared` da alocação, que é a carta que
 falta a este deck por estar num deck anterior.
 
+## Filtro de estado: só "Faltas"
+
+Havia `Em falta` (zero cópias) e `Parciais` (tem algumas, não as suficientes).
+**Juntaram-se num só** (André, 2026-09-05): a pergunta é sempre a mesma — o
+que é que ainda me falta — e tanto faz faltarem 3, 2 ou 1. `Faltas` é
+`tileState() !== 'done'`.
+
+O `loadPrefs` converte um `'partial'` guardado em `'missing'`: sem isso a
+grelha abria sem botão nenhum selecionado, num filtro que já não existe.
+
 ## Ordenação da grelha (REMOVIDA)
 
 Houve ordenação por Tipo/Raridade/Custo e por folhas do binder. **O André
