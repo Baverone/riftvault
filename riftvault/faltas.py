@@ -541,6 +541,10 @@ def pimp(con: sqlite3.Connection) -> dict:
 
     cfg = config.load()
     fora = set(cfg.get("pimp_ignorar_tipos", []))
+    # Impressões concretas que ele nunca vai comprar — as sobrenumeradas de
+    # topo, do género do `unl-238-219` (Baron Nashor a 2400 €). A carta
+    # continua no Pimp pelas outras versões que tenha (ver `pimp_ignorar_impressoes`).
+    fora_ids = set(cfg.get("pimp_ignorar_impressoes", []))
     tipos = _tipos(con)
     tenho_carta = decks.owned_by_card(con)
     ordens = {s: config.set_order(s) for s in
@@ -575,7 +579,8 @@ def pimp(con: sqlite3.Connection) -> dict:
         lst.sort(key=lambda r: (ordens.get(r["set_id"], 999), r["api_sort"]))
         canonica = next((r for r in lst if r["variant_kind"] == "base"), lst[0])
         alt = [r for r in lst if r["printing_id"] != canonica["printing_id"]
-               and r["variant_kind"] not in fora]
+               and r["variant_kind"] not in fora
+               and r["printing_id"] not in fora_ids]
         if alt:
             alt_de[ck] = alt
 

@@ -314,6 +314,24 @@ com dois campos:
 O payload leva `counts` por impressão e o `renderProgress` respeita-o — a
 percentagem é recalculada no cliente, por isso não bastava mudar o servidor.
 
+## Impressões vetadas no Pimp (2026-09-05)
+
+"troca essa versao do Baron Nashor por outra Alt Art, nunca irei comprar essa
+carta" — o `unl-238-219` estava a 2400,64 € e sozinho fazia 79% do total do
+deck do Kennen (3028 € -> 627 € depois de sair).
+
+`pimp_ignorar_impressoes` é uma lista de `printing_id`, filtrada em
+`faltas.pimp()` a seguir ao `pimp_ignorar_tipos`. Veta a impressão, não a
+carta: o Baron Nashor continua no Pimp pela arte alternativa `unl-147a-219`
+(20,27 €), que já lá estava — as duas apareciam lado a lado.
+
+**A classe toda:** 128 impressões têm número de coleta acima do tamanho
+nominal do set (OGN 298, SFD 221, UNL 219, VEN 166). 36 são signatures, já
+fora por `pimp_ignorar_tipos`; as outras 92 são `variant_kind = base` —
+Legends, Units e Gear, mediana 80 €, mínimo 31 €. Não foram vetadas em bloco:
+ele só falou desta. Se um dia pedir, a regra existe e é `collector_number >
+tamanho do set`.
+
 ### Alt arts com contagem de playset (2026-09-05)
 
 O alvo fixo de 1 não chegava: "para as Alt Art tbm quero a contagem de playset,

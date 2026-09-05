@@ -51,6 +51,7 @@ DEFAULTS: dict = {
     "token_card_keys": [],
     "faltas_ignorar_tipos": ["Rune"],
     "pimp_ignorar_tipos": ["signature", "rune_promo"],
+    "pimp_ignorar_impressoes": ["unl-238-219"],
     "price_badge_min_cents": 100,
     "image_size": "medium",
     "static_images": "remote",

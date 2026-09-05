@@ -58,7 +58,8 @@
   "_faltas_ignorar_nota": "Tipos que a secção Faltas não conta (decisão do André, 2026-09-01): as runas são baratas e compram-se a granel, e enchiam os staples. Continuam a contar na secção Decks e na Coleção.",
 
   "pimp_ignorar_tipos": ["signature", "rune_promo"],
-  "_pimp_nota": "Tipos que a aba Pimp decks não mostra (decisão do André, 2026-09-01): as signatures ficam de fora. Nas runas a versão a pimpar é a arte alternativa, não a promo do VEN. Valores possíveis: base, alt_art, signature, token, rune_promo, special.",
+  "pimp_ignorar_impressoes": ["unl-238-219"],
+  "_pimp_nota": "Tipos que a aba Pimp decks não mostra (decisão do André, 2026-09-01): as signatures ficam de fora. Nas runas a versão a pimpar é a arte alternativa, não a promo do VEN. Valores possíveis: base, alt_art, signature, token, rune_promo, special. O `pimp_ignorar_impressoes` é uma lista de `printing_id` a nunca oferecer — serve para as sobrenumeradas de topo que ele não compra; a carta continua no Pimp pelas outras versões (André, 2026-09-05: `unl-238-219`, Baron Nashor a 2400 €, trocado pela arte alternativa `unl-147a-219` a 20 €).",
 
   "price_badge_min_cents": 100,
   "_price_badge_nota": "Mostra o preço por cima da carta a partir deste valor (100 = 1 euro). As mais baratas continuam a ter o preço na linha de baixo do tile.",
