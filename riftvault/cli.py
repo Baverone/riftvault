@@ -69,6 +69,14 @@ def cmd_sync(args) -> int:
               f"{img['failed']} falhadas (de {img['total']}).")
     else:
         print("\n(imagens não descarregadas — corre `riftvault sync --images`)")
+
+    # Sair com erro é de propósito: no GitHub Actions é isto que impede o
+    # `build` de publicar um site a que falta uma edição inteira.
+    if res["sets_vazias"]:
+        print(f"\nerro: {', '.join(res['sets_vazias'])} vieram sem uma única "
+              f"entrada da API. O catálogo dessas edições ficou como estava.",
+              file=sys.stderr)
+        return 1
     return 0
 
 

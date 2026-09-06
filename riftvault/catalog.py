@@ -190,6 +190,7 @@ def sync(set_ids: list[str] | None = None, delay: float = riftscribe.POLITE_DELA
     targets = [s for s in (set_ids or discovered) if s]
     unknown_variants: set[str] = set()
     counts: dict[str, int] = {}
+    vazias: list[str] = []
 
     for set_id in targets:
         if set_id not in discovered:
@@ -203,6 +204,18 @@ def sync(set_ids: list[str] | None = None, delay: float = riftscribe.POLITE_DELA
                 unknown_variants.add(row["variant"])
             rows.append(row)
 
+        if not rows:
+            # O /api/cards/filters anunciou esta edição e o /api/cards não
+            # devolveu nada. Isso é uma falha da API, não uma edição vazia — a
+            # RiftScribe nunca lista um set sem cartas. Apagar aqui as
+            # impressões deitava fora o catálogo de uma edição inteira, e o
+            # `build` a seguir publicava um site sem ela sem dar erro nenhum:
+            # exatamente o modo de falha que não se quer, verde a fingir.
+            vazias.append(set_id)
+            log(f"  ! {set_id}: a API não devolveu nenhuma entrada — "
+                f"catálogo mantido como estava")
+            continue
+
         # A raridade da VARIANTE não serve para contar: quase todas as artes
         # alternativas vêm como 'showcase'. Vale a raridade da base do grupo.
         base_rarity = {r["group_key"]: r["rarity"] for r in rows if r["variant_kind"] == "base"}
@@ -211,14 +224,11 @@ def sync(set_ids: list[str] | None = None, delay: float = riftscribe.POLITE_DELA
 
         con.execute("BEGIN")
         # Impressões que a API deixou de devolver saem do catálogo.
-        if rows:
-            placeholders = ",".join("?" * len(rows))
-            con.execute(
-                f"DELETE FROM printings WHERE set_id = ? AND printing_id NOT IN ({placeholders})",
-                [set_id] + [r["printing_id"] for r in rows],
-            )
-        else:
-            con.execute("DELETE FROM printings WHERE set_id = ?", (set_id,))
+        placeholders = ",".join("?" * len(rows))
+        con.execute(
+            f"DELETE FROM printings WHERE set_id = ? AND printing_id NOT IN ({placeholders})",
+            [set_id] + [r["printing_id"] for r in rows],
+        )
         con.executemany(_INSERT, rows)
         con.execute(
             "INSERT INTO sets (set_id, name, sort_order, n_printings, synced_at) "
@@ -239,6 +249,7 @@ def sync(set_ids: list[str] | None = None, delay: float = riftscribe.POLITE_DELA
         "sets": counts,
         "total": sum(counts.values()),
         "unknown_variants": sorted(unknown_variants),
+        "sets_vazias": vazias,
     }
 
 
