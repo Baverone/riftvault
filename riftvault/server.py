@@ -97,7 +97,12 @@ def api_index():
 
 @app.get("/api/set/<set_id>.json")
 def api_set(set_id: str):
-    return jsonify(metrics.set_payload(get_con(), set_id.upper(),
+    con = get_con()
+    # A grelha da Coleção diz em que deck está cada cópia; sem isto essa linha
+    # ficava presa às listas de quando o servidor arrancou, e só se atualizava
+    # depois de alguém abrir a secção Decks.
+    _reimport_if_changed(con)
+    return jsonify(metrics.set_payload(con, set_id.upper(),
                                        editable=True, image_mode="local"))
 
 
