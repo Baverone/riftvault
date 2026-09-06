@@ -16,13 +16,11 @@ on:
     branches: [main]
     paths:
       - 'data/vault.db'
+      - 'data/prices.db'
       - 'decks/**'
       - 'riftvault/**'
       - 'riftvault_config.json'
       - '.github/workflows/pages.yml'
-  schedule:
-    # Todos os dias às 05:00 UTC: apanha edições novas e move os preços.
-    - cron: '0 5 * * *'
   workflow_dispatch:
 
 permissions:
