@@ -887,7 +887,13 @@ function renderPorDeck() {
   const um = f.por_deck.reduce((s, d) => s + d.cents, 0);
   const copias = f.por_deck.reduce((s, d) => s + d.copies, 0);
   const tj = f.todos_juntos;
-  const sel = state.prefs.faltaDeck ?? 0;
+  // O índice do deck escolhido fica guardado no browser, mas apagar um deck é
+  // apagar o .txt — e aí o índice antigo passa a apontar para fora da lista.
+  // Sem esta correção o `f.por_deck[sel]` vinha `undefined`, a secção Faltas
+  // rebentava em branco e ficava assim a cada recarga, porque o índice mau
+  // continuava no localStorage.
+  let sel = state.prefs.faltaDeck ?? 0;
+  if (sel !== 'todos' && !f.por_deck[sel]) sel = f.por_deck.length ? 0 : 'todos';
 
   const abas = f.por_deck.map((d, i) => `
     <button class="seg-btn ${i === sel ? 'is-on' : ''}" data-fd="${i}">
@@ -1015,7 +1021,10 @@ function renderPimp() {
     $('#falta-body').innerHTML = '<p class="empty">Nenhuma carta dos teus decks tem versão alterada.</p>';
     return;
   }
-  const sel = state.prefs.pimpDeck ?? 'todos';
+  // Mesma história do "Por deck": o índice guardado pode ter sobrevivido ao
+  // deck. Cai para a vista "Todas" em vez de rebentar.
+  let sel = state.prefs.pimpDeck ?? 'todos';
+  if (sel !== 'todos' && !p.by_deck[sel]) sel = 'todos';
   const alvo = sel === 'todos' ? p : p.by_deck[sel];
 
   const somaDecks = p.by_deck.reduce((s, d) => s + d.printings, 0);
