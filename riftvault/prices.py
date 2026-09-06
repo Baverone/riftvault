@@ -29,9 +29,11 @@ O PREÇO
 
 ONDE FICA
     `catalog.price_latest` — preço atual das 1180 impressões. Descartável.
-    `price_history` (vault.db) — só das impressões que o André TEM, e só
-    quando o preço muda. O vault.db vai para o Git e cada commit guarda uma
-    cópia inteira do ficheiro.
+    `price_history` (prices.db) — de TODAS as impressões do catálogo, e só
+    quando o preço muda (decisão do André, 2026-09-01: a vista "a subir" é
+    sobre o Riftbound inteiro, para apanhar cartas a valorizar antes de
+    entrarem num deck dele). Fica no prices.db, à parte do vault.db, para o
+    robô do GitHub Actions poder fazer commit sem tocar na coleção.
 """
 
 from __future__ import annotations
@@ -323,7 +325,7 @@ def sync_prices(ct: CardTrader | None = None, log=print) -> dict:
     #
     # O custo é contido porque só se grava quando o preço MUDA, e porque isto
     # vive no prices.db, um ficheiro pequeno e à parte do vault.db.
-    owned = {r["printing_id"] for r in con.execute(
+    catalogadas = {r["printing_id"] for r in con.execute(
         "SELECT printing_id FROM catalog.printings")}
     rows, sem_preco = [], 0
 
@@ -350,11 +352,12 @@ def sync_prices(ct: CardTrader | None = None, log=print) -> dict:
         "n_listings=excluded.n_listings, day=excluded.day, source=excluded.source",
         rows)
 
-    # Histórico: só do que é meu, e só quando o valor muda face ao último
-    # registo. Assim o vault.db não cresce em dias em que nada mexeu.
+    # Histórico: de tudo o que está no catálogo (as `market_only` ficam de
+    # fora, não têm impressão nossa), e só quando o valor muda face ao último
+    # registo. Assim o prices.db não cresce em dias em que nada mexeu.
     gravadas = 0
     for pid, cents, cur, *_ in rows:
-        if cents is None or pid not in owned:
+        if cents is None or pid not in catalogadas:
             continue
         last = con.execute(
             "SELECT price_cents FROM prices.price_history WHERE printing_id = ? "
