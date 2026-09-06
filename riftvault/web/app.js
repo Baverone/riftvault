@@ -490,6 +490,11 @@ function wireControls() {
 function wireKeyboard() {
   document.addEventListener('keydown', (e) => {
     if (e.target.matches('input, textarea')) return;
+    // As outras secções só ficam `hidden` — os tiles da Coleção continuam no
+    // DOM e o querySelectorAll apanhava-os na mesma. Sem esta guarda, uma seta
+    // seguida de `+` na secção Decks somava uma cópia a uma carta que nem
+    // sequer estava no ecrã, sem nada a dizer que tinha acontecido.
+    if ($('#colecao').hidden) return;
     const tiles = [...document.querySelectorAll('.tile')];
     if (!tiles.length) return;
 
