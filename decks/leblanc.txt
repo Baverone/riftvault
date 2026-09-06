@@ -5,37 +5,31 @@ Champion:
 1 LeBlanc, Fragmented
 
 MainDeck:
-3 Baited Hook
-2 Black Rose Dignitary
-3 Glasc Mixologist
-3 Harnessed Dragon
-2 Hidden Blade
-3 Honest Broker
-3 Karthus, Eternal
-2 Mirror Image
-2 Rift Herald
-3 Ruined Rex
-3 Sacrifice
-3 Soaring Scout
 2 Thousand-Tailed Watcher
-3 Vi, Peacekeeper
-2 Watchful Sentry
+3 Ruined Rex
+3 Glasc Mixologist
+1 Vi, Peacekeeper
+3 Karthus, Eternal
+1 Chakram Dancer
+1 Black Rose Dignitary
+1 Kennen, Keeper of Balance
+3 Watchful Sentry
+3 Soaring Scout
+2 Honest Broker
+3 Mirror Image
+3 Cull the Weak
+3 Hidden Blade
+3 Deathgrip
+1 Ki Barrier
+1 Stupefy
+1 Sacrifice
+1 B.F. Sword
 
 Battlefields:
-1 Forbidding Waste
-1 Star Spring
 1 Windswept Hillock
+1 Dusk Rose Lab
+1 Star Spring
 
 Rune Pool:
 4 Mind Rune
 8 Order Rune
-
-Sideboard:
-1 Atakhan
-1 Decree of Insight
-2 Decree of Unity
-1 Hidden Blade
-1 LeBlanc, Everywhere at Once
-2 Pickpocket
-1 Salvage
-1 Thousand-Tailed Watcher
