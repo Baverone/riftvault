@@ -88,7 +88,7 @@ As escolhas ficam guardadas no browser.
 
 ## Faltas
 
-Terceira secção, com três abas:
+Terceira secção, com cinco abas:
 
 - **Staples** — cartas que **mais do que um deck** pede e que não tens em
   número suficiente. São as que rendem mais por euro: uma compra serve vários
@@ -107,9 +107,7 @@ Terceira secção, com três abas:
 
   Arrumado **por deck**, nunca por edição: a vista **Todas** tem uma
   secção por deck, e há sub-abas para veres um de cada vez com a quantidade
-  que esse deck usa. Cada sub-aba tem a sua lista para a wantlist. Não é lista de
-  compras; inclui as que já tens (moldura verde), porque serve para saberes o
-  que existe quando andas a procurar. Tem lista para a wantlist também.
+  que esse deck usa. Cada sub-aba tem a sua lista para a wantlist.
 - **A caminho** — o que já compraste e ainda não chegou. Não conta na Coleção
   (essa mede o que tens na caixa) mas já sai das faltas e das wantlists, para
   não comprares duas vezes. Quando chegar, carrega em **Chegou** na carta (ou em "Chegou tudo") e ela

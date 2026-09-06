@@ -1012,9 +1012,8 @@ function mostrarWantlist(alvo, comVar = false) {
 
 
 /* "Pimp decks": as versões alteradas das cartas que os decks usam — artes
-   alternativas, showcase, signatures e promos. Não é uma lista de compras: é
-   para saber o que existe e poder filtrar quando andar a procurar. Por isso
-   entram também as que ele já tem, marcadas. */
+   alternativas, showcase e promos. É lista de compras: desconta o que ele já
+   tem e o que vem a caminho, e a quantidade é só o que ainda falta comprar. */
 function renderPimp() {
   const p = state.faltas.pimp;
   if (!p.printings) {

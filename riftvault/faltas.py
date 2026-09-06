@@ -1,14 +1,17 @@
 """A secção "Faltas": o que comprar, e por que ordem.
 
-Três vistas da mesma pergunta:
+Cinco vistas da mesma pergunta:
 
-  STAPLES  — cartas que faltam e que MAIS DO QUE UM deck pede. São as que
-             rendem mais por euro: uma compra serve vários decks.
-  POR DECK — o que falta a cada deck, por edição.
-  A SUBIR  — cartas em falta cujo preço subiu. Precisa de histórico: o
-             `price_history` só ganha uma linha por dia em que o preço mude,
-             por isso isto só diz alguma coisa depois de o `riftvault prices`
-             correr algumas vezes.
+  STAPLES    — cartas que faltam e que MAIS DO QUE UM deck pede. São as que
+               rendem mais por euro: uma compra serve vários decks.
+  POR DECK   — o que falta a cada deck, por edição.
+  A SUBIR    — cartas em falta cujo preço subiu. Precisa de histórico: o
+               `price_history` só ganha uma linha por dia em que o preço mude,
+               por isso isto só diz alguma coisa depois de o `riftvault prices`
+               correr algumas vezes.
+  PIMP DECKS — as versões alteradas das cartas dos decks, também como lista de
+               compras (ver `pimp`).
+  A CAMINHO  — o que já comprou e ainda não chegou (ver `pending`).
 
 A carência é GLOBAL, não por deck: soma-se o que todos os decks pedem de uma
 carta e desconta-se o que ele tem. É diferente da alocação por prioridade, que
@@ -531,8 +534,10 @@ def pimp(con: sqlite3.Connection) -> dict:
     `by_deck`, uma lista por deck — porque a decisão de pimpar é por deck, e é
     a olhar para um deck de cada vez que ele decide o que vale a pena trocar.
 
-    Não é lista de compras: inclui as que ele já tem, marcadas, porque o ponto
-    é saber o que existe quando anda a procurar.
+    É LISTA DE COMPRAS (mudou a 2026-09-02, a pedido dele): desconta o que já
+    tem e o que vem a caminho, por impressão, e a quantidade mostrada é só o
+    que ainda falta comprar. As versões já completas saem da lista e contam em
+    `done`.
     """
     quem = _wanted(con)
     if not quem:
