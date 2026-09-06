@@ -532,7 +532,11 @@ def legality(con: sqlite3.Connection, deck_id: int) -> dict:
         "SELECT c.domains_json FROM deck_cards d JOIN catalog.cards c "
         "ON c.card_key = d.card_key WHERE d.deck_id = ? AND d.role = 'legend'",
         (deck_id,)).fetchone()
-    dominios = set(json.loads(legend_dom["domains_json"])) if legend_dom else set()
+    # `or "[]"`: a coluna é anulável e um Legend sem domínios rebentava aqui a
+    # secção Decks inteira. É a mesma guarda que o ciclo a seguir já fazia.
+    # `or "[]"`: a coluna é anulável e um Legend sem domínios rebentava aqui a
+    # secção Decks inteira. É a mesma guarda que o ciclo a seguir já fazia.
+    dominios = set(json.loads(legend_dom["domains_json"] or "[]")) if legend_dom else set()
     fora = []
     if dominios:
         for row in con.execute(
