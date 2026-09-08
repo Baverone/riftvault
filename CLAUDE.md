@@ -923,6 +923,81 @@ No CLI: `riftvault wantlist --edicao OGN` (uma edição) e
 continua a ser o dos decks — são duas perguntas com o mesmo formato. O corte
 por edição e os totais vão para o `stderr`, para o `stdout` ficar colável.
 
+## Contagem por níveis: 1 de cada, 2 de cada, o playset (2026-09-08)
+
+Palavras dele: *"Para a coleção de master set, gostava que fizesses também uma
+contagem: quantas cartas faltam para ter 1 de cada, quantas faltam para ter 2 de
+cada, quantas faltam para ter o playset de cada — do género 1/3 Z % · 2/3 X % ·
+3/3 Y %."*
+
+Uma linha de chips por baixo das barras da Coleção, **global e por edição**, e
+um degrau a mais nas wantlists do fim da página. Nada disto é um âmbito novo:
+
+    alvo do nível k = min(k, alvo do master)
+    faltam_k = Σ max(0, min(k, alvo) − cópias)
+    %_k      = impressões com cópias ≥ min(k, alvo) / impressões do âmbito
+    €_k      = preço de hoje × faltam_k
+
+**O ÂMBITO É O DA BARRA, não só a sequência.** Ele escreveu "para a coleção de
+master set", e o que o riftvault chama a percentagem de master set são os TRÊS
+blocos da Coleção. Ficaram todos, e as impressões de alvo 1 — as runas e os
+Legends da sequência, as runas especiais e as artes alternativas — **só podem
+faltar no nível 1**, porque `min(k, 1)` nunca lhes pede mais. A alternativa era
+contar só a sequência; escolhi esta porque assim **a percentagem do último nível
+é EXACTAMENTE a da barra por cima da qual ela aparece**. Duas percentagens
+diferentes a dizerem "master set" no mesmo canto do ecrã liam-se como um erro de
+contagem. Há teste que fixa a igualdade.
+
+**O denominador é o mesmo nos três níveis** (as impressões todas do âmbito),
+senão as percentagens não eram comparáveis entre si — é o mesmo denominador da
+barra.
+
+**Conta CÓPIAS, não o que vem a caminho.** É a regra da Coleção: o `pending`
+fica fora do `copies` e as barras não mexem enquanto a encomenda vem. As
+wantlists por nível é que descontam o pendente, como sempre fizeram — ali a
+pergunta é o que há a COMPRAR. O mesmo vale para as exclusões: as signatures e
+os showcases contam nestas percentagens (como na barra) e ficam de fora das
+listas de compra (como nas outras duas).
+
+**Quantos degraus há: o maior alvo do catálogo** (`metrics.niveis_max`), hoje
+**3**. Vem do catálogo inteiro e não de cada edição para as cinco mostrarem os
+mesmos — uma edição só de Legends daria um degrau só e o `1/3` de uma deixava de
+se comparar com o `1/1` da outra. Não há valor escrito à mão: se as runas
+voltarem ao playset (`runas_especiais.tipos: []`), passam a ser 12 degraus, e é
+isso que se vê.
+
+**Onde vive:** `metrics.niveis` (a conta), `metrics.niveis_payload` (global +
+`by_set`) e `metrics.niveis_max`. O payload da edição leva
+`progress.levels` e o `api/index.json` leva `levels`; o cliente recalcula os
+números a partir do estado local, como faz com as barras, mas os DEGRAUS vêm do
+servidor para não haver duas regras. O global é a soma das edições — todos os
+campos são somas —, por isso o `renderProgress` troca só a edição aberta pelos
+números otimistas e as outras quatro ficam como vieram. No CLI é o
+`riftvault stats`, que passou a imprimir a tabela por baixo das duas métricas.
+
+### Wantlist por nível
+
+Os dois blocos do fim da Coleção ganharam **até 1 de cada / até 2 / playset**. É
+a mesma lista, com `min(k, alvo)` no lugar do alvo: `a_subir.wantlist(...,
+nivel=k)` em Python (e `riftvault wantlist --edicao OGN --nivel 1`), `wlItens`
+no browser, e o gerador de linhas continua a ser um só. Os dois blocos
+partilham o degrau — é a mesma pergunta, e vê-los responder coisas diferentes na
+mesma página confundia.
+
+O que sai bate certo com a contagem: **a wantlist do nível k pede exactamente as
+`faltam_k` cópias** que os chips mostram (a menos das exclusões, que são das
+listas de compra e não da métrica). Há teste que compara os dois, e o `wlItens`
+do `app.js` foi comparado linha a linha com o Python nos três níveis.
+
+O «A subir», a Venda e a aba «Master set» **não mudaram**: ele falou da contagem
+e das wantlists da Coleção.
+
+**POR MEDIR contra o `data/` real.** Esta corrida não teve acesso às bases de
+dados dele (nem por caminho, nem por cópia, nem pelo `serve` — ver o relatório
+em `work/revisao/riftvault-niveis.md`), por isso, ao contrário das outras
+secções, **não há aqui a tabela de hoje**. A conta está fixada em testes com um
+catálogo de brincar; os números reais tiram-se com `riftvault stats`.
+
 ## Listas para o Cardmarket (2026-09-08)
 
 "No final dá-me uma lista para o Cardmarket para eu conseguir comprar as
@@ -1293,6 +1368,10 @@ oficiais**. Se estiver errado, é uma linha no config.
 - **Feito também:** a wantlist do Cardmarket no fim de cada edição da Coleção
   (e uma de tudo no fim da página), com a linha «faltam N cópias · X €» no
   cabeçalho, e o `riftvault wantlist --edicao X`.
+- **Feito também:** a contagem por níveis do master set — 1 de cada, 2 de cada,
+  o playset —, global e por edição, com o degrau também nas wantlists da
+  Coleção e a tabela no `riftvault stats`. **Os números de hoje ficaram por
+  medir**: esta corrida não teve acesso ao `data/` real.
 - **Por fazer:** vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck,
   com as partilhadas assinaladas); e apagar decks pela interface (hoje apaga-se
   o `.txt`).

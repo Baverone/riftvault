@@ -31,6 +31,12 @@ const state = {
   // A regra vive no servidor; aqui só se recalcula para as barras andarem ao
   // mesmo tempo que os +/-.
   counting: new Set(),
+  // A contagem por níveis (1 de cada, 2 de cada, playset) POR EDIÇÃO:
+  // set_id -> [{k, done, total, missing, cents}]. Começa com os números do
+  // `api/index.json` e a edição que estiver aberta passa a ser recalculada
+  // localmente, como as barras. O global é a soma — todos os campos são somas,
+  // por isso editar uma edição não estraga as outras quatro.
+  levels: new Map(),
   meta: new Map(),             // printing_id -> {name, card_key, rarity}
   pending: new Map(),          // card_key -> pedidos por responder
   tiles: [],                   // impressões visíveis, pela ordem do ecrã
@@ -47,6 +53,9 @@ const state = {
            // "A subir": qual das duas abas (por % / por valor) e o filtro de
            // raridade, ambos guardados como o resto das escolhas.
            subirOrd: 'pct', subirRar: 'all',
+           // As wantlists da Coleção: até que nível se compra (1, 2, … ) ou
+           // `null` para o alvo inteiro — o playset da sequência.
+           wlNivel: null,
            // "Master set": qual a edição escolhida no filtro da lista de faltas.
            masterSet: 'all',
            section: 'colecao' },
@@ -94,6 +103,12 @@ async function boot() {
 
   for (const b of document.querySelectorAll('#section-tabs .tab')) {
     b.onclick = () => showSection(b.dataset.section);
+  }
+
+  // A contagem por níveis das cinco edições, como estava quando o ficheiro foi
+  // gerado. A edição que ele abrir passa a ser recalculada a partir dos +/-.
+  for (const [sid, ls] of Object.entries((state.index.levels || {}).by_set || {})) {
+    state.levels.set(sid, ls);
   }
 
   renderSetTabs();
@@ -302,6 +317,12 @@ function renderProgress() {
   const seen = new Set();
   const rar = new Map();
   const porBloco = new Map();
+  // Os degraus da contagem por níveis vêm do servidor (são os do catálogo
+  // inteiro, para as cinco edições se compararem); os números recalculam-se
+  // aqui, no mesmo ciclo da barra — é o mesmo âmbito, e a percentagem do
+  // último nível tem de continuar a dar exactamente a da barra.
+  const niv = Array.from({ length: niveisN() },
+                         (_, i) => ({ k: i + 1, done: 0, total: 0, missing: 0, cents: 0 }));
 
   for (const g of state.payload.groups) {
     const play = state.play.get(g.card_key);
@@ -323,6 +344,14 @@ function renderProgress() {
       porBloco.set(bloco, bslot);
       if (!state.counting.has(bloco)) continue;
       mTotal++; if (ok) mDone++;
+      const tem = state.qty.get(p.id) || 0;
+      for (const nv of niv) {
+        // `min(k, alvo)`: uma impressão de alvo 1 — runa, Legend, arte
+        // alternativa — só pode faltar no nível 1; do 2 em diante já está feita.
+        const falta = Math.max(0, Math.min(nv.k, t) - tem);
+        nv.total++; nv.missing += falta; nv.cents += falta * (p.price || 0);
+        if (!falta) nv.done++;
+      }
       const key = g.rarity || '?';
       const slot = rar.get(key) || [0, 0];
       slot[1]++; if (ok) slot[0]++;
@@ -347,6 +376,9 @@ function renderProgress() {
       >${escapeHTML(nome)} <b>${d}/${t}</b> · ${pct}%</span>`;
   });
   $('#master-blocks').innerHTML = chips.length > 1 ? chips.join('') : '';
+
+  if (niv.length) state.levels.set(state.setId, niv);
+  renderNiveis(niv);
 
   // Valor: recalculado localmente pela mesma razão que as barras — para andar
   // ao mesmo tempo que os +/-. A barra compara o que tenho com o que a edição
@@ -379,6 +411,81 @@ function renderProgress() {
 }
 
 
+/* ================================ contagem por níveis do master set
+
+   André, 2026-09-08: *"quantas cartas faltam para ter 1 de cada, quantas
+   faltam para ter 2 de cada, quantas faltam para ter o playset de cada — do
+   género 1/3 Z % · 2/3 X % · 3/3 Y %."*
+
+   É a MESMA conta da barra do master set, partida em degraus: o alvo do nível k
+   é `min(k, alvo)`, por isso as impressões de alvo 1 (as runas, os Legends e os
+   Battlefields da sequência, as runas especiais e as artes alternativas) só
+   podem faltar no nível 1, e a percentagem do último nível dá exactamente a da
+   barra. Conta CÓPIAS, não o que vem a caminho — é a regra da Coleção; as
+   wantlists por nível é que descontam o pendente, porque aí a pergunta é o que
+   há a comprar.                                                             */
+
+/* Quantos degraus há. Vem do servidor (`metrics.niveis_max`, o maior alvo do
+   catálogo inteiro) para as cinco edições mostrarem os mesmos. */
+function niveisN() {
+  const doSet = state.payload?.progress?.levels;
+  if (doSet && doSet.length) return doSet.length;
+  return (state.index?.levels?.levels || []).length;
+}
+
+/* A soma das edições todas: as da sessão como estão no ecrã, as outras como
+   vieram do servidor. Todos os campos são somas, por isso isto é o global. */
+function niveisTotal() {
+  const n = niveisN();
+  if (!n || state.levels.size < 2) return null;
+  const out = Array.from({ length: n },
+                         (_, i) => ({ k: i + 1, done: 0, total: 0, missing: 0, cents: 0 }));
+  for (const ls of state.levels.values()) {
+    for (const lv of ls) {
+      const nv = out[lv.k - 1];
+      if (!nv) continue;                 // edição de outro tempo, com outros degraus
+      nv.done += lv.done; nv.total += lv.total;
+      nv.missing += lv.missing; nv.cents += lv.cents;
+    }
+  }
+  return out;
+}
+
+function renderNiveis(daEdicao) {
+  const el = $('#master-niveis');
+  if (!el) return;
+  // Uma edição sem nada que conte para a barra não tem degraus que mostrar —
+  // um "0 %" de um denominador vazio lia-se como coleção por fazer.
+  if (!daEdicao || !daEdicao.some(lv => lv.total)) { el.innerHTML = ''; return; }
+
+  const total = niveisTotal();
+  const nome = state.payload?.set?.name || state.setId || 'esta edição';
+  el.innerHTML =
+    niveisLinha(escapeHTML(nome), daEdicao)
+    + (total ? niveisLinha(`as ${state.levels.size} edições`, total) : '');
+}
+
+function niveisLinha(rotulo, ls) {
+  const n = ls.length;
+  return `<div class="niveis-linha"><span class="niveis-rot">${rotulo}</span>
+    ${ls.map(lv => niveisChip(lv, n)).join('')}</div>`;
+}
+
+/* «1/3 · 97 % · faltam 12 · 15,40 €». O euro é o preço de hoje das cópias que
+   faltam NESSE nível, e só aparece quando há preços — um "0,00 €" por falta de
+   dados lia-se como "não custa nada". */
+function niveisChip(lv, n) {
+  const pct = lv.total ? Math.round((lv.done / lv.total) * 100) : 0;
+  const feito = !lv.missing;
+  const rotulo = lv.k === n ? `playset (${lv.k}/${n})` : `${lv.k}/${n}`;
+  return `<span class="rarity nivel ${feito ? 'is-done' : ''}"
+    title="${lv.done} de ${lv.total} impressões já com ${lv.k} cópia${lv.k === 1 ? '' : 's'}${
+      lv.k === n ? ' (ou o alvo delas, se for menor)' : ' ou o alvo delas, se for menor'}"
+    >${rotulo} <b>${pct} %</b>${feito ? ' · completo'
+      : ` · faltam <b>${lv.missing}</b>${lv.cents ? ` · ${eur(lv.cents)}` : ''}`}</span>`;
+}
+
+
 /* ============================ wantlists do Cardmarket, no fim de cada edição
 
    André, 2026-09-08: *"Quero também que no fim de cada edição me dês uma
@@ -397,11 +504,47 @@ function renderProgress() {
    Dois blocos: o da edição aberta e, a seguir, o de todas as edições pela
    ordem dos separadores.                                                    */
 
-/* Os itens de uma edição (ou de todas, com `setId` a nulo). */
-function wlItens(setId) {
+/* Os itens de uma edição (ou de todas, com `setId` a nulo), até ao nível
+   pedido.
+
+   O NÍVEL não é uma lista nova: é o mesmo `min(k, alvo)` da contagem por
+   níveis, aplicado às faltas que o servidor já mandou. Dá para fazer aqui
+   porque cada item traz o `have` (cópias + a caminho) e o `target`; o gémeo em
+   Python é o `nivel` do `a_subir.wantlist`, e há teste que compara os dois. */
+function wlItens(setId, nivel) {
   const m = state.faltas && state.faltas.master;
   if (!m) return [];
-  return m.sets.filter(s => !setId || s.set === setId).flatMap(s => s.items);
+  const base = m.sets.filter(s => !setId || s.set === setId).flatMap(s => s.items);
+  if (!nivel) return base;
+  const out = [];
+  for (const x of base) {
+    const alvo = Math.min(nivel, x.target);
+    const missing = alvo - x.have;
+    if (missing <= 0) continue;
+    out.push({ ...x, target: alvo, full_target: x.target, missing,
+               total: (x.price || 0) * missing });
+  }
+  return out;
+}
+
+/* Os degraus do seletor: os mesmos da contagem por níveis. */
+function wlNiveis() {
+  const n = niveisN();
+  if (n) return n;
+  const alvos = wlItens(null).map(x => x.target || 1);
+  return alvos.length ? Math.max(...alvos) : 1;
+}
+
+/* «até 1 de cada / até 2 / playset». O último degrau é o alvo inteiro, e vale
+   `null` — assim a lista sem seletor é exactamente a de sempre. */
+function wlSeletorHTML(nivel) {
+  const n = wlNiveis();
+  if (n < 2) return '';
+  const bt = (v, txt) => `<button class="chip-b ${(nivel || 0) === (v || 0) ? 'is-on' : ''}"
+    data-wlnivel="${v == null ? '' : v}">${txt}</button>`;
+  let s = '';
+  for (let k = 1; k < n; k++) s += bt(k, k === 1 ? 'até 1 de cada' : `até ${k} de cada`);
+  return `<div class="chips wl-niveis">${s}${bt(null, 'playset')}</div>`;
 }
 
 /* O `faltas.json` é grande e não se pede duas vezes: as wantlists da Coleção e
@@ -451,8 +594,17 @@ function renderWantlists() {
   if (!m) { zona.innerHTML = ''; return; }   // payload antigo, sem a lista
 
   const nome = state.payload?.set?.name || state.setId || '';
-  const daEdicao = wlItens(state.setId);
-  const todas = wlItens(null);
+  const nivel = state.prefs.wlNivel || null;
+  const daEdicao = wlItens(state.setId, nivel);
+  const todas = wlItens(null, nivel);
+  const sufixo = nivel ? `-ate${nivel}` : '';
+  // O que o degrau muda na lista, dito por extenso: sem isto, uma lista que
+  // encolhe a metade parece que perdeu cartas.
+  const doNivel = nivel
+    ? ` Está no degrau <b>até ${nivel} de cada</b>: das cartas com playset pede-se
+        ${nivel}, e as de alvo <b>1</b> (runas, Legends, Battlefields, runas
+        especiais e artes alternativas) vão sempre por inteiro.`
+    : '';
 
   zona.innerHTML = `
     ${state.wlStale ? `<p class="note wl-stale">As contagens mudaram desde que
@@ -463,34 +615,48 @@ function renderWantlists() {
        blocos da Coleção: <b>playset</b> na sequência, <b>1</b> por runa,
        <b>1</b> por runa especial e <b>1</b> por arte alternativa. Conta
        enquanto <b>cópias + a caminho &lt; alvo</b>, e vai por número de
-       coleção.${foraTexto(m.scope)}`)}
+       coleção.${doNivel}${foraTexto(m.scope)}`, nivel)}
 
     ${wlBloco('wl-tudo', 'Wantlist — tudo', todas,
       `As cinco edições seguidas, na ordem dos separadores. É a mesma lista da
-       aba <b>Faltas → Master set</b>, sem o filtro de edição.`)}`;
+       aba <b>Faltas → Master set</b>, sem o filtro de edição.${doNivel}`, nivel)}`;
 
   const rf = $('#wl-refresh');
   if (rf) rf.onclick = () => wlAtualizar(zona);
 
-  wlLigar('wl-edicao', () => wlItens(state.setId),
-          `riftvault-wantlist-${state.setId}-${hojeISO()}.csv`);
-  wlLigar('wl-tudo', () => wlItens(null), `riftvault-wantlist-tudo-${hojeISO()}.csv`);
+  // Os dois blocos partilham o degrau: são a mesma pergunta ("até quantas
+  // compro"), e vê-los responder coisas diferentes na mesma página confundia.
+  for (const b of zona.querySelectorAll('[data-wlnivel]')) {
+    b.onclick = () => {
+      state.prefs.wlNivel = b.dataset.wlnivel ? Number(b.dataset.wlnivel) : null;
+      savePrefs();
+      renderWantlists();
+    };
+  }
+
+  wlLigar('wl-edicao', () => wlItens(state.setId, state.prefs.wlNivel || null),
+          `riftvault-wantlist-${state.setId}${sufixo}-${hojeISO()}.csv`);
+  wlLigar('wl-tudo', () => wlItens(null, state.prefs.wlNivel || null),
+          `riftvault-wantlist-tudo${sufixo}-${hojeISO()}.csv`);
 }
 
-function wlBloco(id, titulo, itens, nota) {
+function wlBloco(id, titulo, itens, nota, nivel) {
   const copias = itens.reduce((s, x) => s + cmQtd(x), 0);
   const cents = itens.reduce((s, x) => s + (x.total || 0), 0);
   const semPreco = itens.filter(x => x.price == null).length;
   if (!itens.length) {
     return `<section class="wl-bloco" id="${id}">
       <h2 class="section-head wl-head">${titulo}</h2>
-      <p class="empty">Não falta nada — não há nada para comprar aqui.</p></section>`;
+      ${wlSeletorHTML(nivel)}
+      <p class="empty">Não falta nada${nivel ? ` até ${nivel} de cada` : ''} —
+        não há nada para comprar aqui.</p></section>`;
   }
   return `<section class="wl-bloco" id="${id}">
     <h2 class="section-head wl-head">${titulo}
       <span>${itens.length} impress${itens.length === 1 ? 'ão' : 'ões'} ·
         ${copias} cópia${copias === 1 ? '' : 's'} · ${eur(cents)}${
         semPreco ? ` · ${semPreco} sem preço no CardTrader` : ''}</span></h2>
+    ${wlSeletorHTML(nivel)}
     <p class="note">${nota}</p>
     ${cmZonaHTML(id + '-cm')}</section>`;
 }

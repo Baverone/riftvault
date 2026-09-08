@@ -223,12 +223,21 @@ def resumo_fora(saem: dict[str, dict], fora) -> dict:
 
 
 def em_falta(con: sqlite3.Connection, escopo: dict[str, dict],
-             regra: str = "master") -> dict[str, dict]:
+             regra: str = "master", nivel: int | None = None) -> dict[str, dict]:
     """Do âmbito, o que ele ainda não tem — com o que vem a caminho descontado.
 
     `regra`:
       "master"  — falta enquanto `cópias + a caminho < alvo` (o filtro Faltas).
       "nenhuma" — só as que estão a zero cópias.
+
+    `nivel` é o degrau da contagem por níveis (André, 2026-09-08): com `nivel=1`
+    o alvo de cada impressão passa a `min(1, alvo)` — uma de cada —, com
+    `nivel=2` a `min(2, alvo)`, e sem `nivel` fica o alvo inteiro (o playset da
+    sequência). É o MESMO `min(k, alvo)` do `metrics.niveis`, para a wantlist do
+    nível k pedir exactamente as cópias que essa contagem diz que faltam.
+
+    O `target` que sai é o do nível — é o que a linha «tem 1 de 2» quer dizer —
+    e o alvo inteiro vai no `full_target`, para não se perder.
     """
     tenho = {r["printing_id"]: r["qty"] for r in
              con.execute("SELECT printing_id, qty FROM copies WHERE qty > 0")}
@@ -238,10 +247,12 @@ def em_falta(con: sqlite3.Connection, escopo: dict[str, dict],
     out: dict[str, dict] = {}
     for pid, info in escopo.items():
         n = tenho.get(pid, 0)
-        falta = info["target"] - n if regra == "master" else (info["target"] if n == 0 else 0)
+        alvo = min(int(nivel), info["target"]) if nivel else info["target"]
+        falta = alvo - n if regra == "master" else (alvo if n == 0 else 0)
         if falta <= 0:
             continue
-        out[pid] = {**info, "have": tenho.get(pid, 0), "missing": falta}
+        out[pid] = {**info, "have": tenho.get(pid, 0), "missing": falta,
+                    "target": alvo, "full_target": info["target"]}
     return out
 
 
@@ -448,7 +459,8 @@ def calcular(con: sqlite3.Connection, hoje: date | None = None) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def master_faltas(con: sqlite3.Connection, cfg: dict | None = None) -> dict:
+def master_faltas(con: sqlite3.Connection, cfg: dict | None = None,
+                  nivel: int | None = None) -> dict:
     """Tudo o que falta do master set, para ele comprar de uma vez se quiser.
 
     A aba «A subir» responde a "o que é que me está a fugir de preço"; esta
@@ -459,13 +471,17 @@ def master_faltas(con: sqlite3.Connection, cfg: dict | None = None) -> dict:
     é a ordem por que as cartas estão no binder e nas páginas de venda, não a do
     preço.
 
+    `nivel` corta os alvos por `min(nivel, alvo)` — é a wantlist "até 1 de cada"
+    e "até 2 de cada" da contagem por níveis. Sem ele é a lista inteira, com o
+    playset na sequência, que é o que sempre foi.
+
     Sem imagens de propósito: são centenas de linhas e o `faltas.json` é
     descarregado inteiro a cada visita.
     """
     cfg = cfg or config.load()
     o = opcoes(cfg)
     escopo, excluidas = excluir(masterset(con, cfg), o["excluir"])
-    falta = em_falta(con, escopo, str(o["regra_falta"]))
+    falta = em_falta(con, escopo, str(o["regra_falta"]), nivel)
     mercado = cardmarket.versoes(con)
     precos = {r["printing_id"]: r["price_cents"] for r in con.execute(
         "SELECT printing_id, price_cents FROM catalog.price_latest "
@@ -490,6 +506,10 @@ def master_faltas(con: sqlite3.Connection, cfg: dict | None = None) -> dict:
             "kind": info["variant_kind"], "label": info["variant_label"],
             "rarity": info["base_rarity"] or "?",
             "have": info["have"], "target": info["target"],
+            # O alvo inteiro, quando a lista vem cortada por nível: o `target`
+            # é o do nível («tem 1 de 2») e este continua a dizer o playset.
+            **({"full_target": info["full_target"]}
+               if info.get("full_target") != info["target"] else {}),
             "missing": info["missing"],
             "price": preco, "total": (preco or 0) * info["missing"],
             # Os mesmos campos de mercado que os itens da aba «A subir», para o
@@ -518,6 +538,7 @@ def master_faltas(con: sqlite3.Connection, cfg: dict | None = None) -> dict:
         "cents": sum(d["cents"] for d in sets),
         "no_price": sem_preco,
         "rule": str(o["regra_falta"]),
+        "level": nivel,
         "scope": {
             "printings": len(escopo),
             **resumo_fora(excluidas, o["excluir"]),
@@ -532,7 +553,8 @@ def master_faltas(con: sqlite3.Connection, cfg: dict | None = None) -> dict:
 
 
 def wantlist(con: sqlite3.Connection, set_id: str | None = None,
-             com_codigo: bool = False, cfg: dict | None = None) -> dict:
+             com_codigo: bool = False, cfg: dict | None = None,
+             nivel: int | None = None) -> dict:
     """As faltas do master set no formato do Cardmarket, PARTIDAS POR EDIÇÃO.
 
     André, 2026-09-08: *"Quero também que no fim de cada edição me dês uma
@@ -554,8 +576,15 @@ def wantlist(con: sqlite3.Connection, set_id: str | None = None,
     no topo vai o mesmo para as edições escolhidas todas juntas. O total em
     euros fica SEMPRE fora do texto: uma linha de total colada na wantlist era
     importada como se fosse uma carta.
+
+    `nivel` é o degrau da contagem por níveis (André, 2026-09-08): `1` dá a
+    lista para ter **uma de cada**, `2` para ter **duas**, e sem ele a lista
+    inteira, com o playset na sequência. Não é uma lista nova nem outros alvos —
+    é o mesmo `metrics.master_target` cortado por `min(nivel, alvo)`, por isso
+    as impressões de alvo 1 (runas, Legends, runas especiais, artes
+    alternativas) saem iguais em todos os níveis.
     """
-    p = master_faltas(con, cfg)
+    p = master_faltas(con, cfg, nivel)
     alvo = set_id.upper() if set_id else None
     sets = [d for d in p["sets"] if alvo is None or d["set"] == alvo]
     for d in sets:
@@ -563,6 +592,7 @@ def wantlist(con: sqlite3.Connection, set_id: str | None = None,
     itens = [x for d in sets for x in d["items"]]
     return {
         "set": alvo,
+        "level": nivel,
         "sets": sets,
         "items": itens,
         "no_price": sum(1 for x in itens if x["price"] is None),

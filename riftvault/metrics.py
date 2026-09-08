@@ -323,6 +323,120 @@ def rotulo(bloco_id: str, cfg: dict | None = None) -> str | None:
 
 
 # --------------------------------------------------------------------------
+# Contagem por NÍVEIS: 1 de cada, 2 de cada, o playset
+# --------------------------------------------------------------------------
+#
+# André, 2026-09-08: *"Para a coleção de master set, gostava que fizesses também
+# uma contagem: quantas cartas faltam para ter 1 de cada, quantas faltam para
+# ter 2 de cada, quantas faltam para ter o playset de cada — do género 1/3 Z % ·
+# 2/3 X % · 3/3 Y %."*
+#
+# A barra do master set responde a "quanto falta para estar tudo completo"; isto
+# parte a mesma pergunta em degraus, que é como se compra: primeiro uma de cada,
+# depois a segunda, e só no fim a terceira.
+#
+# O ÂMBITO É O MESMO DA BARRA — as impressões que `conta_bloco` deixa contar
+# (os três blocos da Coleção), pelo alvo do `master_target`. Não é um âmbito
+# novo: se fosse, a percentagem do último nível não batia certo com a barra por
+# cima da qual ela aparece. As impressões de alvo 1 — as runas, os Legends, os
+# Battlefields, as runas especiais e as artes alternativas — só podem faltar no
+# nível 1; do nível 2 em diante contam como feitas, porque `min(k, alvo)` nunca
+# lhes pede mais do que 1. É por isso que a percentagem do nível mais alto é
+# EXACTAMENTE a da barra do master set.
+#
+# CONTA CÓPIAS, NÃO O QUE VEM A CAMINHO. É a regra da Coleção — o `pending` fica
+# fora do `copies` de propósito, e as barras não mexem enquanto a encomenda vem
+# (ver CLAUDE.md, "Encomendas a caminho"). As wantlists por nível descontam o
+# pendente, porque aí a pergunta é o que ainda há a COMPRAR; aqui é o que está
+# na caixa.
+
+
+def niveis(itens, n: int | None = None) -> list[dict]:
+    """A contagem por níveis de uma lista de `(alvo, tem, preço|None)`.
+
+    Para cada nível k, o alvo é `min(k, alvo)`:
+
+      `missing` = Σ max(0, min(k, alvo) − tem)   — cópias que faltam
+      `done`    = quantas impressões já lá chegaram
+      `cents`   = o que custam essas cópias ao preço de hoje
+
+    `n` é quantos níveis se fazem; por omissão, o maior alvo que lá está. O
+    denominador é o mesmo em todos os níveis (as impressões todas do âmbito),
+    senão as percentagens não eram comparáveis entre si.
+    """
+    itens = [(a, t, p) for a, t, p in itens if a > 0]
+    if n is None:
+        n = max((a for a, _, _ in itens), default=0)
+    saida = []
+    for k in range(1, int(n) + 1):
+        done = total = missing = cents = 0
+        for alvo, tem, preco in itens:
+            total += 1
+            falta = max(0, min(k, alvo) - tem)
+            missing += falta
+            cents += falta * (preco or 0)
+            if not falta:
+                done += 1
+        saida.append({"k": k, "done": done, "total": total,
+                      "missing": missing, "cents": cents,
+                      "pct": round(done / total * 100, 1) if total else 0.0})
+    return saida
+
+
+def itens_da_colecao(con: sqlite3.Connection, cfg: dict | None = None) -> list[tuple]:
+    """`(set_id, alvo, cópias, preço)` das impressões que contam para a barra."""
+    cfg = cfg or config.load()
+    qty = {r["printing_id"]: r["qty"] for r in
+           con.execute("SELECT printing_id, qty FROM copies")}
+    price = prices_map(con)
+    out = []
+    for r in con.execute(
+        "SELECT printing_id, set_id, variant_kind, type, is_token "
+        "FROM catalog.printings"
+    ):
+        pid = r["printing_id"]
+        alvo = master_target(pid, r["variant_kind"], r["type"], bool(r["is_token"]), cfg)
+        if alvo <= 0 or not conta_bloco(bloco(r, cfg), cfg):
+            continue
+        out.append((r["set_id"], alvo, qty.get(pid, 0), price.get(pid)))
+    return out
+
+
+def niveis_max(con: sqlite3.Connection, cfg: dict | None = None) -> int:
+    """Quantos níveis há: o maior alvo do master set em TODO o catálogo.
+
+    Vem do catálogo inteiro e não de cada edição para as cinco mostrarem os
+    mesmos degraus — uma edição só de Legends daria um nível só, e o `1/3` de
+    uma deixava de ser comparável com o `1/1` da outra.
+
+    Hoje são **3** (o playset das Units/Spells/Gears). Se as runas voltarem ao
+    playset — `runas_especiais.tipos: []` — passam a ser 12, e é isso que se vê:
+    o número de degraus é o maior alvo, não um valor escrito à mão.
+    """
+    return max((a for _, a, _, _ in itens_da_colecao(con, cfg)), default=0)
+
+
+def niveis_payload(con: sqlite3.Connection, cfg: dict | None = None) -> dict:
+    """A contagem por níveis GLOBAL e por edição, com os mesmos degraus.
+
+    O `by_set` vai para o cliente para ele poder trocar a edição aberta pelos
+    números locais (otimistas) sem perder as outras quatro: os campos são todos
+    somas, por isso o global é a soma das edições.
+    """
+    cfg = cfg or config.load()
+    itens = itens_da_colecao(con, cfg)
+    n = max((a for _, a, _, _ in itens), default=0)
+    por_set: dict[str, list] = {}
+    for s, alvo, tem, preco in itens:
+        por_set.setdefault(s, []).append((alvo, tem, preco))
+    return {
+        "max": n,
+        "levels": niveis([(a, t, p) for _, a, t, p in itens], n),
+        "by_set": {s: niveis(v, n) for s, v in por_set.items()},
+    }
+
+
+# --------------------------------------------------------------------------
 # Payloads
 # --------------------------------------------------------------------------
 
@@ -449,6 +563,11 @@ def set_payload(con: sqlite3.Connection, set_id: str, editable: bool = True,
 
     master_done = master_total = 0
     by_rarity: dict[str, list[int]] = {}
+    # `(alvo, cópias, preço)` do que conta para a barra — a matéria-prima da
+    # contagem por níveis (1 de cada, 2 de cada, playset). Sai do mesmo ciclo
+    # da barra de propósito: é o mesmo âmbito, e a percentagem do último nível
+    # tem de dar exactamente a da barra.
+    para_niveis: list[tuple] = []
     # TODOS os blocos têm contador próprio ("tens N de M"); os três da coleção
     # somam-se ainda na percentagem global, e os de fora não — é o ponto todo
     # de estarem fora.
@@ -465,6 +584,7 @@ def set_payload(con: sqlite3.Connection, set_id: str, editable: bool = True,
                 continue
             master_total += 1
             master_done += 1 if complete else 0
+            para_niveis.append((p["target"], p["qty"], p["price"]))
             # Pela raridade da BASE do grupo, como sempre: a `showcase` não é
             # raridade de jogo. A soma dos chips é o denominador da barra.
             slot = by_rarity.setdefault(g["rarity"] or "?", [0, 0])
@@ -514,6 +634,12 @@ def set_payload(con: sqlite3.Connection, set_id: str, editable: bool = True,
             "value": {"owned": value_owned, "full": value_full,
                       "currency": "EUR", "has_prices": bool(price)},
             "rarities": rarities,
+            # 1 de cada, 2 de cada, o playset — DESTA edição. Os degraus são os
+            # do catálogo inteiro (`niveis_max`) para as cinco edições se
+            # poderem comparar; o cliente recalcula os números a partir do
+            # estado local, como faz com as barras, mas o número de degraus vem
+            # daqui para não haver duas regras.
+            "levels": niveis(para_niveis, niveis_max(con, cfg)),
         },
         # A ordem dos blocos da grelha, e o rótulo de cada um. Vem do servidor
         # para o cliente não ter uma segunda cópia da regra.
@@ -558,4 +684,8 @@ def index_payload(con: sqlite3.Connection, editable: bool = True,
         "sets": sets_payload(con),
         "totals": collection.totals(con),
         "value": value,
+        # A contagem por níveis das cinco edições juntas, e a de cada uma. A
+        # Coleção mostra a global por baixo da barra e troca a edição aberta
+        # pelos números locais — ver `renderNiveis` no app.js.
+        "levels": niveis_payload(con),
     }
