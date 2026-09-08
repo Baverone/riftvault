@@ -909,6 +909,18 @@ function renderFaltas() {
    A ordem das duas vem do servidor (`rank_pct` e `rank_valor`), para os
    critérios de desempate viverem num sítio só.                             */
 
+/* O que o `a_subir.excluir` tirou, por critério — o mesmo texto nas duas listas
+   de compra. Por critério porque as signatures também são de raridade showcase:
+   um número só não dizia quantas saíram por serem uma coisa ou a outra. */
+function foraTexto(scope) {
+  if (!scope.excluded) return '';
+  const motivos = (scope.excluded_by || [])
+    .map(c => `${c.n} ${escapeHTML(c.criterio)}`).join(' + ');
+  return `<br>Fora da lista: <b>${scope.excluded}</b> impressões
+    (${motivos}) — continuam a contar na percentagem de master set,
+    só não entram nas listas de compra.`;
+}
+
 function renderASubir() {
   const sp = state.faltas.a_subir;
 
@@ -964,9 +976,7 @@ function renderASubir() {
       ${parciais ? `<br><b>${parciais}</b> ainda não têm ${sp.window_days} dias
         de histórico — nessas a comparação é <i>desde</i> a data indicada, não
         da janela toda.` : ''}
-      ${sp.scope.excluded ? `<br>Fora da lista: <b>${sp.scope.excluded}</b> impressões
-        ${sp.scope.excluded_kinds.join(', ')} — continuam a contar na percentagem
-        de master set, só não entram nas listas de compra.` : ''}</p>
+      ${foraTexto(sp.scope)}</p>
 
     <div class="chips subir-rar">
       <button class="chip-b ${rar === 'all' ? 'is-on' : ''}" data-srar="all">
@@ -1238,9 +1248,7 @@ function renderMasterFaltas() {
       barra de progresso da Coleção, com a mesma regra do filtro <i>Faltas</i>
       da grelha: conta enquanto <b>cópias + a caminho &lt; alvo</b>.
       Por edição e número de coleção.
-      ${m.scope.excluded ? `<br>Fora da lista: <b>${m.scope.excluded}</b> impressões
-        ${m.scope.excluded_kinds.join(', ')} — continuam a contar na percentagem
-        de set completo, só não entram nas listas de compra.` : ''}
+      ${foraTexto(m.scope)}
       ${semPreco ? `<br>${semPreco} não têm oferta no CardTrader: entram na lista
         mas não no total, por isso o custo é <i>pelo menos</i> isto.` : ''}</p>
 
