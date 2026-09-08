@@ -61,6 +61,17 @@
   "pimp_ignorar_impressoes": ["unl-238-219"],
   "_pimp_nota": "Tipos que a aba Pimp decks não mostra (decisão do André, 2026-09-01): as signatures ficam de fora. Nas runas a versão a pimpar é a arte alternativa, não a promo do VEN. Valores possíveis: base, alt_art, signature, token, rune_promo, special. O `pimp_ignorar_impressoes` é uma lista de `printing_id` a nunca oferecer — serve para as sobrenumeradas de topo que ele não compra; a carta continua no Pimp pelas outras versões (André, 2026-09-05: `unl-238-219`, Baron Nashor a 2400 €, trocado pela arte alternativa `unl-147a-219` a 20 €).",
 
+  "a_subir": {
+    "janela_dias": 30,
+    "janela_curta_dias": 7,
+    "subida_minima_pct": 10,
+    "preco_minimo_cents": 50,
+    "regra_falta": "master",
+    "urgencia": false,
+    "urgencia_pesos": { "janela": 0.5, "curto": 1.0, "preco_relativo": 10.0 }
+  },
+  "_a_subir_nota": "Aba 'A subir' (André, 2026-09-08): só o que ele AINDA NÃO TEM do master set e subiu pelo menos `subida_minima_pct` na janela. O âmbito é a métrica de master set (o mesmo que conta para a percentagem de set completo), não os decks. `regra_falta`: 'master' = falta enquanto cópias + a caminho < alvo (a regra do filtro Faltas da grelha); 'nenhuma' = só as que estão a zero. `janela_curta_dias` é a coluna Δ 7 d. A `urgencia` está DESLIGADA de propósito — é uma proposta para ele avaliar, não uma decisão: urgência = Δ%_janela × janela + Δ%_curto × curto + (preço_hoje / preço_mediano_da_raridade) × preco_relativo. Os defaults e os endereços dos links estão em `riftvault/a_subir.py` (DEFAULTS).",
+
   "price_badge_min_cents": 100,
   "_price_badge_nota": "Mostra o preço por cima da carta a partir deste valor (100 = 1 euro). As mais baratas continuam a ter o preço na linha de baixo do tile.",
 

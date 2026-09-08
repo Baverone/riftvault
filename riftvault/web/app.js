@@ -32,6 +32,9 @@ const state = {
   prefs: { view: 'all', stateFilter: 'all',
            kinds: ['base', 'alt_art', 'signature', 'other'],
            set: null, deck: null, falta: 'staples', faltaDeck: 0, pimpDeck: 'todos',
+           // "A subir": qual das duas abas (por % / por valor) e o filtro de
+           // raridade, ambos guardados como o resto das escolhas.
+           subirOrd: 'pct', subirRar: 'all',
            section: 'colecao' },
 };
 
@@ -773,7 +776,7 @@ function showSection(name) {
 const FALTA_TABS = [
   { id: 'staples', label: 'Staples', sub: 'pedidas por vários decks' },
   { id: 'deck', label: 'Por deck', sub: 'o que falta a cada um' },
-  { id: 'spike', label: 'A subir', sub: 'comprar antes que suba mais' },
+  { id: 'spike', label: 'A subir', sub: 'do master set, o que ainda não tens' },
   { id: 'pimp', label: 'Pimp decks', sub: 'versões alteradas das cartas dos decks' },
   { id: 'caminho', label: 'A caminho', sub: 'comprado, ainda não chegou' },
 ];
@@ -794,7 +797,7 @@ function renderFaltaTabs() {
     let n = '';
     if (t.id === 'staples') n = `${f.staples.length} cartas`;
     if (t.id === 'deck') n = `${f.por_deck.reduce((s, d) => s + d.copies, 0)} cópias`;
-    if (t.id === 'spike') n = f.spiking.ready ? `${f.spiking.items.length} cartas` : 'sem histórico';
+    if (t.id === 'spike') n = f.a_subir.ready ? `${f.a_subir.items.length} cartas` : 'sem histórico';
     if (t.id === 'pimp') n = `${f.pimp.by_deck.reduce((s, d) => s + d.printings, 0)} versões`;
     if (t.id === 'caminho') n = f.pending.copies ? `${f.pending.copies} cópias` : 'nada';
     b.innerHTML = `${t.label}<small>${n}</small>`;
@@ -848,33 +851,149 @@ function renderFaltas() {
     return;
   }
 
-  const sp = f.spiking;
+  renderASubir();
+}
+
+
+/* ------------------------------------------------------- "A subir"
+
+   O que ainda FALTA do master set e está a ficar mais caro. Duas abas sobre a
+   mesma lista — por % e por valor — porque são duas perguntas diferentes: uma
+   é "o que está a disparar", a outra "o que me vai custar caro se esperar".
+
+   A ordem das duas vem do servidor (`rank_pct` e `rank_valor`), para os
+   critérios de desempate viverem num sítio só.                             */
+
+function renderASubir() {
+  const sp = state.faltas.a_subir;
+
   if (!sp.ready) {
     $('#falta-body').innerHTML = `<div class="aviso">
       <b>Ainda não há com que comparar.</b>
       <p>${sp.days_recorded
         ? `Já há ${sp.days_recorded === 1 ? 'um dia' : `${sp.days_recorded} dias`} de preços
-           gravados${sp.first ? ` (desde ${sp.first})` : ''}, mas <b>nenhuma carta tem duas
-           leituras</b> ainda — sem duas, não há subida para medir.`
+           gravados${sp.first ? ` (desde ${sp.first})` : ''}, mas <b>nenhuma</b> das cartas
+           seguidas tem preço com que comparar.`
         : 'Ainda não há preços gravados.'}</p>
       <p>O histórico só escreve quando o preço <em>muda</em>, por isso é normal
       demorar uns dias a encher. Corre <code>riftvault prices</code> de vez em
       quando e esta aba começa a dizer alguma coisa.</p>
-      <p>São seguidas <b>${sp.tracked || 0} impressões</b> — o Riftbound
-      inteiro, não só a tua coleção.</p>
+      <p>São seguidas <b>${sp.tracked || 0} impressões</b> — as do master set
+      que ainda te faltam.</p>
     </div>`;
     return;
   }
-  const meus = sp.items.filter(x => x.missing || x.have).length;
-  $('#falta-body').innerHTML = sp.items.length ? `
-    <p class="note">Todo o Riftbound, não só a tua coleção: impressões que
-      subiram mais de ${sp.min_pct}% nos últimos ${sp.window_days} dias.
-      ${meus ? `<b>${meus}</b> ${meus === 1 ? 'toca-te' : 'tocam-te'} —
-      moldura verde já tens, vermelha faz-te falta.` : 'Nenhuma delas te toca.'}
-      Seguidas ${sp.tracked} impressões.</p>
-    <div class="grid deck-grid">${sp.items.map(spikeTile).join('')}</div>`
-    : `<p class="empty">Nenhuma impressão subiu mais de ${sp.min_pct}% nos
-       últimos ${sp.window_days} dias.</p>`;
+
+  const rar = state.prefs.subirRar;
+  const lista = sp.items.filter(x => rar === 'all' || x.rarity === rar);
+  const ord = state.prefs.subirOrd === 'valor' ? 'valor' : 'pct';
+  lista.sort((a, b) => (ord === 'valor' ? a.rank_valor - b.rank_valor
+                                        : a.rank_pct - b.rank_pct));
+
+  const cents = lista.reduce((s, x) => s + x.buy_cents, 0);
+  const copias = lista.reduce((s, x) => s + x.missing, 0);
+  // Quantas ainda não têm histórico que cubra a janela inteira. Enquanto o
+  // `prices.db` for novo são todas, e a página tem de o dizer.
+  const parciais = lista.filter(x => !x.full_window).length;
+
+  $('#falta-body').innerHTML = `
+    <div class="seg seg-wrap">
+      <button class="seg-btn ${ord === 'pct' ? 'is-on' : ''}" data-subir="pct">
+        Por % <b>${sp.items.length}</b></button>
+      <button class="seg-btn ${ord === 'valor' ? 'is-on' : ''}" data-subir="valor">
+        Por valor <b>${eurShort(sp.totals.cents)}</b></button>
+    </div>
+
+    <div class="deck-card resumo">
+      <b>${lista.length} carta${lista.length === 1 ? '' : 's'} a subir</b>
+      <span>${copias} cópia${copias === 1 ? '' : 's'} · ${eur(cents)} para as comprar
+        hoje · ${eur(lista.reduce((s, x) => s + x.extra_cents, 0))} do que já subiu</span>
+    </div>
+
+    <p class="note">Do <b>master set</b> (${sp.scope.printings} impressões nas
+      ${sp.scope.sets.length} edições), só o que <b>ainda te falta</b>:
+      ${sp.tracked} impressões seguidas, das quais ${sp.comparable} já têm preço
+      com que comparar. Mostram-se as que subiram
+      <b>${sp.min_pct}%</b> ou mais nos últimos <b>${sp.window_days} dias</b>.
+      Assim que compras a carta, ela sai daqui.
+      ${parciais ? `<br><b>${parciais}</b> ainda não têm ${sp.window_days} dias
+        de histórico — nessas a comparação é <i>desde</i> a data indicada, não
+        da janela toda.` : ''}</p>
+
+    <div class="chips subir-rar">
+      <button class="chip-b ${rar === 'all' ? 'is-on' : ''}" data-srar="all">
+        todas <b>${sp.items.length}</b></button>
+      ${sp.rarities.map(r => `
+        <button class="chip-b ${rar === r.rarity ? 'is-on' : ''}" data-srar="${escapeAttr(r.rarity)}">
+          ${escapeHTML(r.rarity)} <b>${r.n}</b></button>`).join('')}
+    </div>
+
+    ${lista.length ? `<div class="subir-lista">${lista.map(subirLinha).join('')}</div>`
+      : `<p class="empty">Nenhuma carta desta raridade subiu ${sp.min_pct}% ou
+         mais nos últimos ${sp.window_days} dias.</p>`}`;
+
+  for (const b of document.querySelectorAll('[data-subir]')) {
+    b.onclick = () => {
+      state.prefs.subirOrd = b.dataset.subir; savePrefs(); renderASubir();
+    };
+  }
+  for (const b of document.querySelectorAll('[data-srar]')) {
+    b.onclick = () => {
+      state.prefs.subirRar = b.dataset.srar; savePrefs(); renderASubir();
+    };
+  }
+}
+
+function subirLinha(x) {
+  const sp = state.faltas.a_subir;
+  const src = state.imageMode === 'remote' ? (x.cdn || x.img) : (x.img || x.cdn);
+  const alt = state.imageMode === 'remote' ? (x.img || '') : (x.cdn || '');
+  // Δ da janela curta: pode não haver leitura anterior ao limite dela, e aí a
+  // percentagem é desde a data que houver — vai marcada com ~.
+  const curto = x.pct_short == null ? ''
+    : `<small class="d7" title="${x.short_full ? `últimos ${sp.short_days} dias`
+        : `desde ${x.short_since}`}">${sp.short_days} d ${
+        x.short_full ? '' : '~'}${fmtPct(x.pct_short)}</small>`;
+
+  return `<div class="subir-row">
+    <div class="subir-art${x.landscape ? ' landscape' : ''}">
+      ${src ? `<img src="${src}" alt="${escapeAttr(x.name)}" loading="lazy" decoding="async"
+         ${alt ? `data-fallback="${escapeAttr(alt)}"` : ''}>` : ''}
+    </div>
+
+    <div class="subir-main">
+      <div class="subir-nome">${escapeHTML(x.name)}
+        ${x.label && x.label !== 'Base' ? `<i class="var">${escapeHTML(x.label)}</i>` : ''}</div>
+      <div class="codigo">${escapeHTML((x.code || '').split('/')[0])} ·
+        ${escapeHTML(x.set_name)} · ${escapeHTML(x.rarity)}</div>
+      <div class="subir-nums">
+        <span class="preco-antes">${eur(x.from_cents)}</span>
+        <span class="seta">→</span>
+        <b class="preco-hoje">${eur(x.to_cents)}</b>
+        <span class="desde" title="preço em vigor a ${x.since}">${
+          x.full_window ? `há ${sp.window_days} d` : `desde ${x.since}`}</span>
+        <span class="falta-n">faltam ${x.missing}× · ${eur(x.buy_cents)}</span>
+      </div>
+      <div class="subir-links">
+        ${x.url_cardtrader ? `<a href="${escapeAttr(x.url_cardtrader)}" target="_blank"
+           rel="noreferrer noopener">CardTrader</a>` : ''}
+        ${x.url_riftscribe ? `<a href="${escapeAttr(x.url_riftscribe)}" target="_blank"
+           rel="noreferrer noopener">RiftScribe</a>` : ''}
+      </div>
+    </div>
+
+    <div class="subir-delta">
+      <b class="up">${x.full_window ? '' : '~'}${fmtPct(x.pct)}</b>
+      ${curto}
+      ${sp.urgencia ? `<small class="urg" title="Δ%${sp.window_days}d × ${
+        sp.pesos.janela} + Δ%${sp.short_days}d × ${sp.pesos.curto} + preço/mediana × ${
+        sp.pesos.preco_relativo}">urg. ${x.urgency}</small>` : ''}
+    </div>
+  </div>`;
+}
+
+function fmtPct(v) {
+  return `${v > 0 ? '+' : ''}${v.toLocaleString('pt-PT', { maximumFractionDigits: 1 })}%`;
 }
 
 
@@ -1225,19 +1344,6 @@ function staplTile(x) {
   </div>`;
 }
 
-function spikeTile(x) {
-  // Marca as que lhe tocam: tem, ou faz-lhe falta. As outras são só o mercado.
-  const meu = x.missing ? 'falta' : (x.have ? 'tenho' : '');
-  return `<div class="dtile ${x.missing ? 'gone' : (x.have ? 'ok' : 'neutro')}">
-    ${artHTML(x, `${meu === 'falta' ? `<span class="need">${x.missing}×</span>` : ''}
-      ${meu === 'tenho' ? `<span class="need have">${x.have}×</span>` : ''}
-      <span class="spike">+${x.pct}%</span>`)}
-    <div class="tname" title="${escapeAttr(x.name)}">${escapeHTML(x.name)}
-      ${x.label !== 'Base' ? `<i class="var">${escapeHTML(x.label)}</i>` : ''}</div>
-    <div class="onde spike-nota">${eur(x.from_cents)} → <b>${eur(x.to_cents)}</b></div>
-    ${x.missing ? `<div class="onde falta">custou-te ${eur(x.extra_cents)} esperar</div>` : ''}
-  </div>`;
-}
 
 /* ------------------------------------------------------------------ utils */
 
