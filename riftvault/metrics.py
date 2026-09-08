@@ -23,15 +23,37 @@ KIND_ORDER = {"base": 0, "alt_art": 1, "signature": 2,
 RARITY_ORDER = ["common", "uncommon", "rare", "epic", "showcase"]
 
 # Os blocos da grelha, por esta ordem: primeiro a sequência do master set, e só
-# depois o que está fora dela. Ver `bloco()`.
+# depois o que está fora dela. Ver `bloco()`. Há um bloco por variante, e não só
+# para as duas que o André nomeou: assim quem acrescentar uma variante ao
+# `master_set.fora` recebe um cabeçalho a dizer o que é, em vez do «outras».
+# Os blocos vazios não aparecem, por isso hoje só se veem três.
 BLOCO_MASTER = "master"
 BLOCOS = [
     (BLOCO_MASTER, None),
     ("token", "Fora do master set — tokens"),
     ("alt_art", "Fora do master set — artes alternativas"),
+    ("signature", "Fora do master set — signatures"),
+    ("rune_promo", "Fora do master set — runas promo"),
+    ("special", "Fora do master set — promos especiais"),
+    ("base", "Fora do master set — impressões base"),
     ("outras", "Fora do master set — outras"),
 ]
 BLOCO_LABEL = dict(BLOCOS)
+
+# O sufixo do CÓDIGO IMPRESSO -> o `variant_kind` que ele dá no catálogo. É a
+# escrita do André ("sigla-T", "a no fim"), e o `master_set.fora` aceita-a a par
+# do nome da variante — as duas dizem a mesma coisa. Ver `kinds_fora`.
+SUFIXO_KIND = {
+    "-t": "token",          # UNL-T03
+    "a": "alt_art",         # UNL-228a
+    "*": "signature",       # OGN-299*
+    "-r": "rune_promo",     # VEN-R01
+    "-sp": "special",       # VEN-SP4
+}
+
+# Memo do `kinds_fora`: a lista do config não muda dentro de uma corrida, e a
+# pergunta é feita uma vez por impressão (1180) por payload.
+_FORA_MEMO: dict[tuple, frozenset] = {}
 
 
 # --------------------------------------------------------------------------
@@ -71,6 +93,42 @@ def master_target(printing_id: str, kind: str, card_type: str | None, is_token: 
     return int(by_variant.get(kind, 1))
 
 
+def kinds_fora(cfg: dict | None = None) -> frozenset[str]:
+    """Os `variant_kind` que ficam FORA do master set, lidos do config.
+
+    A lista vive em `master_set.fora` e escreve-se como o André fala — pelo
+    sufixo do código impresso (`["-T", "a"]`) — ou pelo nome da variante
+    (`["token", "alt_art"]`). São a mesma coisa; ver `SUFIXO_KIND`.
+
+    Para tirar também as signatures da sequência acrescenta-se `"signature"`
+    (ou `"*"`). **Hoje está desligado de propósito**: o André nomeou os `-T` e
+    os `a`, não as signatures, e elas contam no denominador da percentagem.
+    Ligar tira-as das duas coisas — é a mesma pergunta.
+
+    Um valor que não se reconheça REBENTA, e de propósito: uma variante nova
+    (um `b`? um `sp7`?) tem de aparecer, não de ser ignorada em silêncio —
+    ver CLAUDE.md, "Superfícies NÃO validadas".
+    """
+    cfg = cfg or config.load()
+    bruto = tuple((cfg.get("master_set") or {}).get("fora") or ())
+    memo = _FORA_MEMO.get(bruto)
+    if memo is not None:
+        return memo
+    kinds = set()
+    for valor in bruto:
+        chave = str(valor).strip().lower()
+        if chave in SUFIXO_KIND:
+            kinds.add(SUFIXO_KIND[chave])
+        elif chave in KIND_ORDER:
+            kinds.add(chave)
+        else:
+            aceites = ", ".join(sorted(set(SUFIXO_KIND) | set(KIND_ORDER)))
+            raise ValueError(
+                f"master_set.fora: nao reconheco {valor!r}. Aceita: {aceites}")
+    _FORA_MEMO[bruto] = out = frozenset(kinds)
+    return out
+
+
 def e_master(printing, cfg: dict | None = None) -> bool:
     """Esta impressão faz parte do MASTER SET?
 
@@ -88,9 +146,10 @@ def e_master(printing, cfg: dict | None = None) -> bool:
       `UNL-T03`   -> variant `t03` -> kind `token`
       `UNL-228a`  -> variant `a`   -> kind `alt_art`
 
-    Muda-se em `master_ignorar_variantes`. Fica de propósito de FORA da regra
-    tudo o que ele não nomeou: as signatures (`OGN-299*`), as runas promo
-    (`VEN-R01`) e as promos especiais (`VEN-SP4`) continuam no master set.
+    Muda-se em `master_set.fora`, que se escreve pelos sufixos (`["-T", "a"]`)
+    — ver `kinds_fora`. Fica de propósito de FORA da regra tudo o que ele não
+    nomeou: as signatures (`OGN-299*`), as runas promo (`VEN-R01`) e as promos
+    especiais (`VEN-SP4`) continuam no master set.
 
     Não confundir com o ALVO (`master_target`): o alvo é o que o tile mostra
     ("6/12"), isto é o que entra no denominador. São duas perguntas diferentes e
@@ -101,7 +160,7 @@ def e_master(printing, cfg: dict | None = None) -> bool:
     `variant_kind` e `is_token`.
     """
     cfg = cfg or config.load()
-    if printing["variant_kind"] in set(cfg.get("master_ignorar_variantes", [])):
+    if printing["variant_kind"] in kinds_fora(cfg):
         return False
     # Os tokens com número de coleção próprio (`OGN-271/298`, o Recruit) não têm
     # sufixo nenhum e por isso ficam: estão numerados dentro da edição.

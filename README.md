@@ -239,7 +239,45 @@ próprios depois da sequência. As signatures (`OGN-299*`), as runas promo
 `0/3`, um de Rune mostra `0/12` — porque o alvo e a percentagem são perguntas
 diferentes. São três ajustes: `master_targets_by_variant` é o alvo fixo,
 `master_variantes_playset` diz quais as variantes que seguem o playset em vez
-desse alvo fixo, e `master_ignorar_variantes` é o que fica fora do master set.
+desse alvo fixo, e `master_set.fora` é o que fica fora do master set.
+
+### O que fica fora: `master_set.fora`
+
+A lista escreve-se pelos **sufixos do código impresso**, no
+`riftvault_config.json`:
+
+```json
+"master_set": { "fora": ["-T", "a"] }
+```
+
+| escreves | tira | exemplo |
+|---|---|---|
+| `-T` | tokens | `UNL-T03` |
+| `a` | artes alternativas | `UNL-228a` |
+| `*` | signatures | `OGN-299*` |
+| `-R` | runas promo | `VEN-R01` |
+| `-SP` | promos especiais | `VEN-SP4` |
+
+Também aceita os nomes das variantes (`token`, `alt_art`, `signature`,
+`rune_promo`, `special`, `base`) — dá o mesmo. Um valor que não seja nenhum
+destes **dá erro**, de propósito: se uma edição nova trouxer um sufixo que o
+riftvault não conhece, é melhor rebentar do que contá-lo em silêncio.
+
+**Para tirar as signatures da sequência** basta acrescentar `"*"`:
+
+```json
+"master_set": { "fora": ["-T", "a", "*"] }
+```
+
+Ficam num bloco próprio no fim da grelha, como os tokens. **Atenção:** isso
+tira-as *também* do denominador da percentagem (1068 → 1032 impressões) —
+sair da sequência e sair da conta são a mesma pergunta. Hoje está **desligado**,
+à espera de decisão: elas continuam a contar para o set estar completo. Nas
+*listas de compra* já não aparecem desde 2026-09-08, mas isso é outro ajuste
+(`a_subir.excluir_tipos`).
+
+O nome antigo desta lista era `master_ignorar_variantes`; um config que ainda
+o traga continua a funcionar.
 
 Não se distingue foil de normal: uma cópia é uma cópia.
 

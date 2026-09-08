@@ -315,8 +315,9 @@ com dois campos:
 - `master_targets_by_variant` -> o alvo fixo por variante.
 - `master_variantes_playset` -> as variantes cujo alvo segue o playset do tipo
   em vez do alvo fixo (`["alt_art"]`, ver a secção abaixo).
-- `master_ignorar_variantes` -> o que fica fora do master set (era `["alt_art"]`,
-  desde 2026-09-08 é `["alt_art", "token"]`), via `metrics.e_master()`.
+- `master_set.fora` -> o que fica fora do master set (era
+  `master_ignorar_variantes: ["alt_art"]`, desde 2026-09-08 é `["-T", "a"]`),
+  via `metrics.e_master()`.
 
 O payload leva `block` por impressão e o `renderProgress` respeita-o — a
 percentagem é recalculada no cliente, por isso não bastava mudar o servidor.
@@ -340,7 +341,7 @@ Ficam **dentro** do master set tudo o que ele não nomeou: as signatures
 punha-as na sequência, e os tokens contavam para a percentagem. Agora a métrica,
 a grelha, o «A subir», a lista do master set e a Venda perguntam todos à mesma
 função. O `metrics.master_counts` foi **removido**. Configura-se em
-`master_ignorar_variantes`, agora `["alt_art", "token"]`.
+`master_set.fora`, hoje `["-T", "a"]` (ver a secção a seguir).
 
 **O que mudou nos números** (medido a 2026-09-08, só os tokens saem — as artes
 alternativas já estavam fora):
@@ -378,9 +379,41 @@ a mostrar `0/3` e um token `0/1` — ALVO e CONTA são campos diferentes desde
 
 **O VEN continua a intercalar as runas promo e as promos especiais**
 (`VEN-001, VEN-R01, VEN-SP1, VEN-002, ...`). Ele não as nomeou e ficaram como
-estavam. Se quiser, é acrescentar `"rune_promo"` e `"special"` ao
-`master_ignorar_variantes` — mas isso tira-as **também** da percentagem, porque
-é a mesma pergunta.
+estavam. Se quiser, é acrescentar `"-R"` e `"-SP"` ao `master_set.fora` — mas
+isso tira-as **também** da percentagem, porque é a mesma pergunta.
+
+### A lista escreve-se pelos sufixos: `master_set.fora` (2026-09-08)
+
+A regra é o código impresso, mas a lista escrevia-se pelo nome interno da
+variante — duas escritas para a mesma coisa. Passou a ser
+`"master_set": { "fora": ["-T", "a"] }`, que é como ele fala. O
+`metrics.kinds_fora()` traduz para `variant_kind`:
+
+| escreve-se | tira | exemplo |
+|---|---|---|
+| `-T` | tokens | `UNL-T03` |
+| `a` | artes alternativas | `UNL-228a` |
+| `*` | signatures | `OGN-299*` |
+| `-R` | runas promo | `VEN-R01` |
+| `-SP` | promos especiais | `VEN-SP4` |
+
+Aceita também os nomes das variantes (`token`, `alt_art`, ...) — dão o mesmo.
+`master_ignorar_variantes` é o nome antigo da lista e continua a ser lido:
+a tradução está no `config._migrar_master_set`, para haver uma leitura só do
+config. Um ficheiro com os dois nomes usa o novo.
+
+**Um valor desconhecido rebenta (`ValueError`), de propósito.** É o ponto 6 das
+"Superfícies não validadas": uma edição nova pode trazer um sufixo novo, e isso
+tem de aparecer em vez de ser contado em silêncio.
+
+**As signatures ficam preparadas e DESLIGADAS.** Acrescentar `"*"` manda-as
+para um bloco próprio no fim da grelha («Fora do master set — signatures») —
+o `metrics.BLOCOS` passou a ter um bloco com rótulo por variante, para nada
+cair no genérico «outras»; os vazios não aparecem, por isso hoje continuam a
+ver-se três. Fica desligado porque **é decisão dele e ele não a tomou**: nomeou
+os `-T` e os `a`, não estas. Medido: ligar baixa o denominador de **1068 para
+1032**. Não confundir com o `a_subir.excluir_tipos`, que já as tira das listas
+de compra sem lhes mexer na percentagem.
 
 ## Secção «Venda» (2026-09-08)
 
@@ -575,7 +608,7 @@ set chamado assim; o que o riftvault chama master set é o alvo por IMPRESSÃO.
 O âmbito são por isso as impressões que entram na **percentagem de set
 completo** (`metrics.master_target > 0` e `metrics.e_master`), nas cinco
 edições: eram **1078 das 1180**, e desde 2026-09-08 são **1068**. Ficam de fora
-as 102 artes alternativas e os 10 tokens `-T`, por `master_ignorar_variantes`.
+as 102 artes alternativas e os 10 tokens `-T`, por `master_set.fora`.
 Seguir cartas que não contam para o master set seria medir outra coisa que não a
 barra que ele vê na Coleção.
 
@@ -626,7 +659,7 @@ e `riftscribe.gg/cards/<printing_id>`) são presunção, e estão em
 `variant_kind`. **Não mexe na métrica**: as 36 signatures continuam no
 denominador da percentagem de set completo (`metrics.e_master` diz que sim) —
 o que mudou é a página, e a página diz quantas tirou (`scope.excluded`).
-Não confundir com o `master_ignorar_variantes`, que tira mesmo do master set.
+Não confundir com o `master_set.fora`, que tira mesmo do master set.
 
 **Vale também para a lista do master set**, e isso é uma extensão minha do que
 ele disse: ele falou da aba "A subir", mas as duas são listas de compra e ele
