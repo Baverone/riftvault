@@ -88,16 +88,83 @@ class TestClassificacao(Base):
 
     def test_variante_desconhecida_cai_num_bloco_visivel(self):
         """Um `b` ou um `sp7` novos não podem desaparecer da grelha."""
-        self.com_config({"master_ignorar_variantes": ["unknown"]})
+        self.com_config({"master_set": {"fora": ["unknown"]}})
         self.assertEqual(self.metrics.bloco({"variant_kind": "unknown", "is_token": 0}),
                          "outras")
 
     def test_config_manda__lista_vazia_poe_todos_no_master(self):
-        self.com_config({"master_ignorar_variantes": []})
+        self.com_config({"master_set": {"fora": []}})
         self.assertTrue(self.metrics.e_master(
             {"variant_kind": "alt_art", "is_token": 0}))
         self.assertEqual(self.metrics.bloco({"variant_kind": "token", "is_token": 1}),
                          "master")
+
+
+class TestConfigDosSufixos(Base):
+    """`master_set.fora` escreve-se pelos sufixos do código, como o André fala."""
+
+    def test_os_sufixos_do_default_dao_os_kinds_certos(self):
+        self.assertEqual(self.metrics.kinds_fora(), frozenset({"token", "alt_art"}))
+
+    def test_sufixo_e_nome_da_variante_dizem_o_mesmo(self):
+        self.com_config({"master_set": {"fora": ["-T", "a"]}})
+        por_sufixo = self.metrics.kinds_fora()
+        self.com_config({"master_set": {"fora": ["token", "alt_art"]}})
+        self.assertEqual(por_sufixo, self.metrics.kinds_fora())
+
+    def test_maiusculas_e_espacos_nao_contam(self):
+        self.com_config({"master_set": {"fora": [" -t ", "A"]}})
+        self.assertEqual(self.metrics.kinds_fora(), frozenset({"token", "alt_art"}))
+
+    def test_valor_desconhecido_rebenta_em_vez_de_ser_ignorado(self):
+        """Uma variante nova tem de aparecer, não de sumir em silêncio."""
+        self.com_config({"master_set": {"fora": ["-T", "b"]}})
+        with self.assertRaises(ValueError) as erro:
+            self.metrics.kinds_fora()
+        self.assertIn("'b'", str(erro.exception))
+
+    def test_nome_antigo_da_lista_continua_a_mandar(self):
+        """Um config escrito antes de 2026-09-08 não muda de comportamento."""
+        self.com_config({"master_ignorar_variantes": ["alt_art"]})
+        self.assertEqual(self.metrics.kinds_fora(), frozenset({"alt_art"}))
+        self.assertTrue(self.metrics.e_master({"variant_kind": "token", "is_token": 1}))
+
+    def test_com_os_dois_nomes_ganha_o_novo(self):
+        self.com_config({"master_ignorar_variantes": ["alt_art"],
+                         "master_set": {"fora": ["-T"]}})
+        self.assertEqual(self.metrics.kinds_fora(), frozenset({"token"}))
+
+
+class TestSignaturesPreparadas(Base):
+    """`"*"` no `master_set.fora` tira as signatures. DESLIGADO à espera dele."""
+
+    def test_por_omissao_a_signature_esta_no_master_set(self):
+        con = self.edicao()
+        p = self.metrics.set_payload(con, "TST")
+        blocos = {pr["id"]: pr["block"] for g in p["groups"] for pr in g["printings"]}
+        self.assertEqual(blocos["tst-003-star-100"], "master")
+        self.assertEqual(p["progress"]["master"]["total"], 3)
+        con.close()
+
+    def test_ligar_manda_a_signature_para_um_bloco_no_fim(self):
+        self.com_config({"master_set": {"fora": ["-T", "a", "*"]}})
+        con = self.edicao()
+        p = self.metrics.set_payload(con, "TST")
+        self.assertEqual([b["id"] for b in p["blocks"]],
+                         ["master", "token", "alt_art", "signature"])
+        # E leva rótulo próprio, não cai no «outras».
+        self.assertIn("signature", p["blocks"][3]["label"])
+        ordem = self.metrics.ordem_da_grelha(p)
+        self.assertEqual(ordem[-1], ("signature", "tst-003-star-100"))
+        con.close()
+
+    def test_ligar_tira_a_signature_da_percentagem(self):
+        """É a mesma pergunta: sair da sequência é sair do denominador."""
+        self.com_config({"master_set": {"fora": ["-T", "a", "*"]}})
+        con = self.edicao()
+        p = self.metrics.set_payload(con, "TST")
+        self.assertEqual(p["progress"]["master"]["total"], 2)   # eram 3
+        con.close()
 
 
 class TestOrdem(Base):

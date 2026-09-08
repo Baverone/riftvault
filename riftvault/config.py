@@ -45,8 +45,9 @@ DEFAULTS: dict = {
     },
     "token_target": 1,
     # Fora do master set (André, 2026-09-08): o que tem sufixo no código — `-T`
-    # nos tokens, `a` nas artes alternativas. Ver `metrics.e_master`.
-    "master_ignorar_variantes": ["alt_art", "token"],
+    # nos tokens, `a` nas artes alternativas. Escreve-se pelo sufixo, que é como
+    # ele fala. Ver `metrics.kinds_fora` e `metrics.e_master`.
+    "master_set": {"fora": ["-T", "a"]},
     "master_variantes_playset": ["alt_art"],
     "master_base_follows_type": True,
     "master_target_overrides": {},
@@ -67,7 +68,22 @@ def load() -> dict:
         raw = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
         # As chaves "_..." são notas para humanos; não são configuração.
         cfg.update({k: v for k, v in raw.items() if not k.startswith("_")})
+        _migrar_master_set(raw, cfg)
     return cfg
+
+
+def _migrar_master_set(raw: dict, cfg: dict) -> None:
+    """`master_ignorar_variantes` era o nome antigo do `master_set.fora`.
+
+    Um ficheiro escrito antes de 2026-09-08 continua a mandar — a lista só se
+    traduz para o nome novo. Se o ficheiro trouxer os dois, o novo ganha: é o
+    que lá está escrito por último. A tradução vive aqui e não no `metrics`
+    para haver uma leitura só do config.
+    """
+    antigo = raw.get("master_ignorar_variantes")
+    if antigo is None or (raw.get("master_set") or {}).get("fora") is not None:
+        return
+    cfg["master_set"] = {**(cfg.get("master_set") or {}), "fora": list(antigo)}
 
 
 def reload() -> dict:
