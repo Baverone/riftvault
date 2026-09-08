@@ -55,6 +55,9 @@
         <small id="value-sub">preço mais baixo no CardTrader</small>
       </div>
       <div id="rarities" class="rarities"></div>
+      <!-- «faltam N cópias · X €» desta edição, a ligar ao bloco da wantlist
+           lá em baixo (André, 2026-09-08). -->
+      <p id="falta-linha" class="falta-linha" hidden></p>
     </div>
 
     <div id="controls" class="controls">
@@ -81,6 +84,11 @@
     <p id="count-line" class="count-line"></p>
     <div id="grid" class="grid"></div>
     <p id="empty" class="empty" hidden>Nada corresponde a estes filtros.</p>
+
+    <!-- No fim da edição, a wantlist do Cardmarket dela; e no fim de tudo, a
+         de todas as edições. São as mesmas faltas da aba «Master set», pelo
+         mesmo gerador — ver `renderWantlists` no app.js. -->
+    <div id="wantlists"></div>
 
   </section>
 

@@ -175,9 +175,20 @@ responde a outra pergunta: quem fica com o quê.
 Há listas em três sítios, todas com o mesmo formato porque saem do mesmo
 gerador (`riftvault/cardmarket.py`):
 
+- **Coleção**, no fim de cada edição: **Wantlist Cardmarket — <edição>**, com
+  as faltas dessa edição já escritas na caixa, e a seguir **Wantlist — tudo**
+  com as cinco edições seguidas. O cabeçalho da edição diz *faltam N cópias ·
+  X €* e leva-te ao bloco.
 - **Faltas → A subir** e **Faltas → Master set**, com três botões:
   **Copiar para o Cardmarket**, **Copiar com código** e **Descarregar CSV**.
 - **Faltas → Por deck** e **Pimp decks**, com o botão de sempre.
+
+As wantlists da Coleção são a **mesma lista** da aba *Master set*, cortada por
+edição: os mesmos alvos dos três blocos (playset na sequência, 1 por runa, 1 por
+runa especial, 1 por arte alternativa), a mesma regra *cópias + a caminho <
+alvo* e as mesmas exclusões (signatures e showcases). Em modo edição, um `+` ou
+um `−` marca-as como desatualizadas e aparece um botão **Atualizar** — não se
+volta a pedir o ficheiro sozinho.
 
 As listas saem sempre do que está **no ecrã** — respeitam a aba, a edição e a
 raridade que tiveres escolhidas. A quantidade de cada linha é o que **falta
@@ -192,11 +203,21 @@ py -m riftvault a-subir --cardmarket --codigos
 py -m riftvault a-subir --todas             # tudo o que falta do master set
 py -m riftvault a-subir --todas --csv faltas.csv
 
+py -m riftvault wantlist --edicao OGN       # as faltas do master set do OGN
+py -m riftvault wantlist --cardmarket       # as cinco edições seguidas
+py -m riftvault wantlist --edicao unl --codigos
+
 py -m riftvault wantlist                    # tudo, um deck de cada vez
 py -m riftvault wantlist --deck ornn        # só um deck
 py -m riftvault wantlist --todos            # todos montados ao mesmo tempo
 py -m riftvault wantlist --out faltas.txt
 ```
+
+O `wantlist` responde a duas perguntas diferentes com o mesmo formato: sem
+`--edicao`/`--cardmarket` é o que falta aos **decks**; com um deles é o que
+falta ao **master set** de cada edição — o mesmo que a Coleção mostra no fim.
+O corte por edição e os totais saem no `stderr`, para o `stdout` ficar colável
+tal e qual.
 
 O formato é `3 Nome da Carta (V.n) (Edição)`, com o nome **como o mercado o
 escreve** — `Darius - Trifarian`, não `Darius, Trifarian` como está na

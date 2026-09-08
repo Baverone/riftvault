@@ -38,6 +38,9 @@ const state = {
   // Default: TODAS as impressões (decisão do André). O botão "Só artes base"
   // continua lá, mas não é o que se vê ao abrir.
   decks: null, deckId: null, deck: null, faltas: null, venda: null,
+  // O `faltas.json` a caminho (as wantlists da Coleção e a secção Faltas comem
+  // o mesmo ficheiro), e se as contagens já mudaram desde que ele chegou.
+  faltasP: null, wlStale: false,
   prefs: { view: 'all', stateFilter: 'all',
            kinds: ['base', 'alt_art', 'signature', 'other'],
            set: null, deck: null, falta: 'staples', faltaDeck: 0, pimpDeck: 'todos',
@@ -126,6 +129,10 @@ async function loadSet(setId) {
     }
   }
   render();
+  // Fora do `render()` de propósito: as wantlists são da EDIÇÃO, não do que
+  // está no ecrã, e o `render()` corre a cada tecla da caixa de procura.
+  renderWantlists();
+  renderFaltaLinha();
 }
 
 /* --------------------------------------------------------------- separadores */
@@ -371,6 +378,158 @@ function renderProgress() {
   ).join('');
 }
 
+
+/* ============================ wantlists do Cardmarket, no fim de cada edição
+
+   André, 2026-09-08: *"Quero também que no fim de cada edição me dês uma
+   wantlist para eu colocar no Cardmarket."*
+
+   NÃO É UMA LISTA NOVA. São as mesmas faltas do master set que a aba «Master
+   set» mostra — o `api/faltas.json`, chave `master` —, cortadas por edição e
+   escritas pelo MESMO gerador (`cmLinha`). Por isso a Coleção passou a pedir
+   também o `faltas.json`: é mais barato descarregar um ficheiro que já existe
+   do que gerar um segundo com os mesmos dados dentro (medido no relatório).
+
+   Os alvos são os dos três blocos da Coleção — playset na sequência, 1 por
+   runa, 1 por runa especial, 1 por arte alternativa — porque vêm do mesmo
+   `metrics.master_target` de tudo o resto.
+
+   Dois blocos: o da edição aberta e, a seguir, o de todas as edições pela
+   ordem dos separadores.                                                    */
+
+/* Os itens de uma edição (ou de todas, com `setId` a nulo). */
+function wlItens(setId) {
+  const m = state.faltas && state.faltas.master;
+  if (!m) return [];
+  return m.sets.filter(s => !setId || s.set === setId).flatMap(s => s.items);
+}
+
+/* O `faltas.json` é grande e não se pede duas vezes: as wantlists da Coleção e
+   a secção Faltas comem o mesmo ficheiro, e quem chegar segundo espera pelo
+   pedido que já vai a caminho.
+
+   Só BUSCA — desenhar a secção Faltas é o `loadFaltas`. Se desenhasse aqui, uma
+   visita à Coleção montava também os tiles do Pimp e das Staples, com as
+   imagens todas, para uma secção que ele pode nunca abrir. */
+function garanteFaltas(forcar = false) {
+  if (state.faltas && !forcar) return Promise.resolve(state.faltas);
+  if (!state.faltasP) {
+    state.faltasP = getJSON('api/faltas.json')
+      .then(p => { state.faltas = p; return p; })
+      .finally(() => { state.faltasP = null; });
+  }
+  return state.faltasP;
+}
+
+/* Volta a pedir o ficheiro e redesenha o que já estiver no ecrã. */
+function wlAtualizar(zona) {
+  state.wlStale = false;
+  zona.innerHTML = '<p class="empty">a atualizar…</p>';
+  garanteFaltas(true)
+    .then(() => {
+      renderWantlists();
+      renderFaltaLinha();
+      // A secção Faltas vive do mesmo ficheiro; se já foi desenhada uma vez,
+      // ficava com os números velhos.
+      if ($('#falta-tabs').children.length) { renderFaltaTabs(); renderFaltas(); }
+    })
+    .catch(err => { zona.innerHTML = `<p class="empty">${escapeHTML(err.message)}</p>`; });
+}
+
+function renderWantlists() {
+  const zona = $('#wantlists');
+  if (!zona) return;
+
+  if (!state.faltas) {
+    zona.innerHTML = '<p class="empty">a preparar a wantlist…</p>';
+    garanteFaltas()
+      .then(() => { renderWantlists(); renderFaltaLinha(); })
+      .catch(err => { zona.innerHTML = `<p class="empty">${escapeHTML(err.message)}</p>`; });
+    return;
+  }
+  const m = state.faltas.master;
+  if (!m) { zona.innerHTML = ''; return; }   // payload antigo, sem a lista
+
+  const nome = state.payload?.set?.name || state.setId || '';
+  const daEdicao = wlItens(state.setId);
+  const todas = wlItens(null);
+
+  zona.innerHTML = `
+    ${state.wlStale ? `<p class="note wl-stale">As contagens mudaram desde que
+      esta lista foi feita. <button class="btn ghost" id="wl-refresh">Atualizar</button></p>` : ''}
+
+    ${wlBloco('wl-edicao', `Wantlist Cardmarket — ${escapeHTML(nome)}`, daEdicao,
+      `Tudo o que falta desta edição ao <b>master set</b>, pelos alvos dos três
+       blocos da Coleção: <b>playset</b> na sequência, <b>1</b> por runa,
+       <b>1</b> por runa especial e <b>1</b> por arte alternativa. Conta
+       enquanto <b>cópias + a caminho &lt; alvo</b>, e vai por número de
+       coleção.${foraTexto(m.scope)}`)}
+
+    ${wlBloco('wl-tudo', 'Wantlist — tudo', todas,
+      `As cinco edições seguidas, na ordem dos separadores. É a mesma lista da
+       aba <b>Faltas → Master set</b>, sem o filtro de edição.`)}`;
+
+  const rf = $('#wl-refresh');
+  if (rf) rf.onclick = () => wlAtualizar(zona);
+
+  wlLigar('wl-edicao', () => wlItens(state.setId),
+          `riftvault-wantlist-${state.setId}-${hojeISO()}.csv`);
+  wlLigar('wl-tudo', () => wlItens(null), `riftvault-wantlist-tudo-${hojeISO()}.csv`);
+}
+
+function wlBloco(id, titulo, itens, nota) {
+  const copias = itens.reduce((s, x) => s + cmQtd(x), 0);
+  const cents = itens.reduce((s, x) => s + (x.total || 0), 0);
+  const semPreco = itens.filter(x => x.price == null).length;
+  if (!itens.length) {
+    return `<section class="wl-bloco" id="${id}">
+      <h2 class="section-head wl-head">${titulo}</h2>
+      <p class="empty">Não falta nada — não há nada para comprar aqui.</p></section>`;
+  }
+  return `<section class="wl-bloco" id="${id}">
+    <h2 class="section-head wl-head">${titulo}
+      <span>${itens.length} impress${itens.length === 1 ? 'ão' : 'ões'} ·
+        ${copias} cópia${copias === 1 ? '' : 's'} · ${eur(cents)}${
+        semPreco ? ` · ${semPreco} sem preço no CardTrader` : ''}</span></h2>
+    <p class="note">${nota}</p>
+    ${cmZonaHTML(id + '-cm')}</section>`;
+}
+
+/* Os mesmos três botões das outras listas — e a caixa já vem preenchida, que é
+   o ponto do pedido dele: a wantlist está ali, pronta a copiar, sem ter de
+   carregar em nada primeiro. */
+function wlLigar(id, getItens, ficheiro) {
+  const zid = id + '-cm';
+  if (!$(`#${zid}-txt`)) return;
+  cmLigar(zid, getItens, ficheiro);
+  cmMostrar(zid, getItens(), false, 'wantlist', { foco: false, copiar: false });
+}
+
+/* A linha no cabeçalho da edição, a ligar ao bloco. Os números são os do
+   bloco — não os da barra de progresso —, senão o que ele lê em cima não batia
+   certo com a lista para onde a linha o manda. */
+function renderFaltaLinha() {
+  const el = $('#falta-linha');
+  if (!el) return;
+  const m = state.faltas && state.faltas.master;
+  const d = m && m.sets.find(s => s.set === state.setId);
+  el.hidden = !d;
+  if (!d) return;
+  el.innerHTML = `Faltam <b>${d.copies}</b> cópia${d.copies === 1 ? '' : 's'}
+    desta edição · <b>${eur(d.cents)}</b> ao preço de hoje —
+    <a href="#wl-edicao">wantlist para o Cardmarket</a>`;
+}
+
+/* Um `+` ou um `−` desatualiza as duas listas, que vieram do servidor. Não se
+   volta a pedir o `faltas.json` sozinho — são centenas de KB e ele pode estar a
+   marcar uma caixa inteira de cartas. Diz-se que está velha e ele atualiza
+   quando quiser. */
+function wlDesatualizar() {
+  if (state.wlStale || !state.faltas) return;
+  state.wlStale = true;
+  renderWantlists();
+}
+
 /* Atualiza no sítio os tiles afetados, sem voltar a desenhar a grelha toda —
    redesenhar 352 tiles a cada clique dava lag no telemóvel. */
 function refreshTiles(pid, cardKey) {
@@ -440,6 +599,7 @@ async function adjust(pid, delta) {
       refreshTiles(pid, ck);
     }
     if (res.op_id) toastUndo(pid, delta, res.op_id);
+    wlDesatualizar();
   } catch (err) {
     state.pending.set(ck, Math.max(0, (state.pending.get(ck) || 1) - 1));
     applyLocal(pid, -delta);                    // falhou: reverte e avisa
@@ -460,6 +620,7 @@ async function undo(opId, pid, delta) {
     const ck = state.meta.get(pid)?.card_key;
     if (res.playset) state.play.set(ck, { owned: res.playset.owned, target: res.playset.target });
     refreshTiles(pid, ck);
+    wlDesatualizar();
   } catch (err) {
     toast(`Não deu para anular: ${err.message}`, { error: true });
   }
@@ -828,6 +989,8 @@ function showSection(name) {
   }
   if (name === 'decks' && !state.decks) loadDecks().catch(err =>
     $('#deck-body').innerHTML = `<p class="empty">${escapeHTML(err.message)}</p>`);
+  // O `loadFaltas` passa pelo `garanteFaltas`: a Coleção já pode ter pedido o
+  // mesmo ficheiro para as wantlists do fim da página, e não se pede duas vezes.
   if (name === 'faltas' && !state.faltas) loadFaltas().catch(err =>
     $('#falta-body').innerHTML = `<p class="empty">${escapeHTML(err.message)}</p>`);
   if (name === 'venda' && !state.venda) loadVenda().catch(err =>
@@ -851,7 +1014,7 @@ const FALTA_TABS = [
 ];
 
 async function loadFaltas() {
-  state.faltas = await getJSON('api/faltas.json');
+  await garanteFaltas();
   renderFaltaTabs();
   renderFaltas();
 }
@@ -1181,14 +1344,20 @@ function cmLigar(id, getItens, nomeFicheiro, onde = 'wantlist') {
 
 /* `onde` é só o texto da nota: nas listas de compra a lista vai para a
    wantlist, na de venda não — dizer-lhe "cola na wantlist" seria mandá-lo
-   comprar o que quer vender. */
-function cmMostrar(id, itens, comCodigo, onde = 'wantlist') {
+   comprar o que quer vender.
+
+   `foco` e `copiar` só se desligam nas wantlists da Coleção, que já vêm
+   preenchidas sem ninguém carregar em nada: aí roubar o foco atirava a página
+   para o fim, e escrever no clipboard sem ele pedir apagava-lhe o que lá
+   tivesse. Nos botões continuam ligados, que é o que se espera de um clique. */
+function cmMostrar(id, itens, comCodigo, onde = 'wantlist',
+                   { foco = true, copiar = true } = {}) {
   const linhas = itens.map(it => cmLinha(it, comCodigo));
   const txt = $(`#${id}-txt`), nota = $(`#${id}-nota`), fnota = $(`#${id}-foil`);
   txt.value = linhas.join('\n');
   txt.rows = Math.min(16, Math.max(4, linhas.length));
   txt.hidden = false; nota.hidden = false;
-  txt.focus(); txt.select();
+  if (foco) { txt.focus(); txt.select(); }
 
   const copias = itens.reduce((s, x) => s + cmQtd(x), 0);
   const cents = itens.reduce((s, x) => s + (x.total || 0), 0);
@@ -1199,7 +1368,9 @@ function cmMostrar(id, itens, comCodigo, onde = 'wantlist') {
 
   const destino = onde === 'wantlist' ? 'Cola na wantlist do Cardmarket.'
                                       : 'É a lista das cartas, para levares para onde vendes.';
-  if (navigator.clipboard && window.isSecureContext) {
+  if (!copiar) {
+    nota.textContent = `${resumo} — carrega em copiar, ou seleciona e copia à mão.`;
+  } else if (navigator.clipboard && window.isSecureContext) {
     navigator.clipboard.writeText(txt.value)
       .then(() => { nota.textContent = `${resumo} — copiadas. ${destino}`; })
       .catch(() => { nota.textContent = `${resumo} — já selecionadas, copia com Ctrl+C.`; });
