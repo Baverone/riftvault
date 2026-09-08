@@ -12,6 +12,7 @@
     riftvault find "sett"
     riftvault a-subir [--cardmarket] [--todas] [--csv f.csv]
     riftvault venda [--cardmarket] [--csv f.csv]
+    riftvault wantlist [--edicao OGN] --cardmarket
 """
 
 from __future__ import annotations
@@ -370,7 +371,65 @@ def cmd_shopping(args) -> int:
     return 0
 
 
+def cmd_wantlist_edicao(args) -> int:
+    """A wantlist das faltas do MASTER SET, por edição.
+
+    André, 2026-09-08: *"Quero também que no fim de cada edição me dês uma
+    wantlist para eu colocar no Cardmarket."* É o gémeo em consola dos dois
+    blocos do fim da Coleção, e sai do mesmo sítio (`a_subir.wantlist`) — sem
+    `--edicao` dá todas as edições seguidas, que é o bloco «Wantlist — tudo».
+
+    O stdout fica COLÁVEL tal e qual: os totais, o corte por edição e o aviso
+    do foil vão todos para o stderr. Uma linha de total colada na wantlist era
+    importada como se fosse uma carta.
+    """
+    con = db.connect()
+    if db.catalog_is_empty(con):
+        print("catálogo vazio — corre `riftvault sync`.", file=sys.stderr)
+        con.close()
+        return 1
+
+    alvo = args.edicao.upper() if args.edicao else None
+    if alvo:
+        conhecidas = [r["set_id"] for r in con.execute(
+            "SELECT DISTINCT set_id FROM catalog.printings ORDER BY set_id")]
+        if alvo not in conhecidas:
+            print(f"erro: não há edição {alvo!r}. Há: {', '.join(conhecidas)}",
+                  file=sys.stderr)
+            con.close()
+            return 1
+
+    p = a_subir_mod.wantlist(con, alvo, com_codigo=args.codigos)
+    saida = p["text"] + ("\n" if p["text"] else "")
+    if args.out:
+        open(args.out, "w", encoding="utf-8").write(saida)
+        print(f"{p['lines']} linhas escritas em {args.out}")
+    else:
+        sys.stdout.write(saida)
+
+    for d in p["sets"]:
+        w = d["wantlist"]
+        print(f"# {d['name']}: {w['lines']} linhas · {w['copies']} cópias · "
+              f"{prices.eur(w['cents'])}", file=sys.stderr)
+    print(f"#\n# total: {p['lines']} linhas · {p['copies']} cópias · "
+          f"{prices.eur(p['cents'])}"
+          + (f" ({p['no_price']} sem preço no CardTrader)" if p["no_price"] else ""),
+          file=sys.stderr)
+    if p["foil"]:
+        print(f"# {len(p['foil'])} destas só têm oferta foil no mercado. O texto da "
+              f"wantlist não\n# leva marca de foil: liga o filtro Foil nestas "
+              f"entradas depois de colares.", file=sys.stderr)
+    con.close()
+    return 0
+
+
 def cmd_wantlist(args) -> int:
+    # `--edicao`/`--cardmarket` trocam a pergunta: em vez do que falta aos
+    # DECKS, o que falta ao master set de cada EDIÇÃO. São duas listas
+    # diferentes com o mesmo formato — e o mesmo gerador.
+    if args.edicao or args.cardmarket:
+        return cmd_wantlist_edicao(args)
+
     con = db.connect()
     decks_mod.import_all(con, log=lambda *_: None)
 
@@ -679,6 +738,14 @@ def main(argv: list[str] | None = None) -> int:
     p.set_defaults(func=cmd_value)
 
     p = sub.add_parser("wantlist", help="lista de texto para a wantlist do Cardmarket")
+    p.add_argument("--edicao", help="as faltas do master set desta edição (OGN, SFD, …) "
+                                    "em vez das listas dos decks")
+    p.add_argument("--cardmarket", action="store_true",
+                   help="as faltas do master set de TODAS as edições, na ordem "
+                        "dos separadores")
+    p.add_argument("--codigos", action="store_true",
+                   help="com --edicao/--cardmarket: 'N Nome [OGN-007]' em vez da "
+                        "versão e da edição, para desambiguar variantes à mão")
     p.add_argument("--deck", help="só deste deck (slug)")
     p.add_argument("--todos", action="store_true",
                    help="cenário de ter os decks todos montados ao mesmo tempo")

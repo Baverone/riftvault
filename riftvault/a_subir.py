@@ -524,3 +524,49 @@ def master_faltas(con: sqlite3.Connection, cfg: dict | None = None) -> dict:
         },
         "sets": sets,
     }
+
+
+# ---------------------------------------------------------------------------
+# A wantlist por edição
+# ---------------------------------------------------------------------------
+
+
+def wantlist(con: sqlite3.Connection, set_id: str | None = None,
+             com_codigo: bool = False, cfg: dict | None = None) -> dict:
+    """As faltas do master set no formato do Cardmarket, PARTIDAS POR EDIÇÃO.
+
+    André, 2026-09-08: *"Quero também que no fim de cada edição me dês uma
+    wantlist para eu colocar no Cardmarket."*
+
+    **Não é uma lista nova.** É a do «Master set» (`master_faltas`), cortada por
+    edição — mesmo âmbito (os três blocos da Coleção), mesmos alvos (playset na
+    sequência, 1 nas runas, 1 nas runas especiais, 1 nas artes alternativas),
+    mesma regra de carência e as mesmas exclusões. As linhas saem do gerador
+    único (`cardmarket.gerar`), que é o mesmo do «A subir», do «Master set», da
+    Venda e das listas dos decks; o gémeo em JavaScript é o `cmLinha`. Uma
+    segunda implementação era uma segunda resposta à mesma pergunta.
+
+    `set_id=None` devolve todas as edições, pela ordem do config — é o bloco
+    «Wantlist — tudo» do fim da página e o `riftvault wantlist --cardmarket` sem
+    `--edicao`.
+
+    Cada edição leva o seu `wantlist` (texto, linhas, cópias, cêntimos, foil) e
+    no topo vai o mesmo para as edições escolhidas todas juntas. O total em
+    euros fica SEMPRE fora do texto: uma linha de total colada na wantlist era
+    importada como se fosse uma carta.
+    """
+    p = master_faltas(con, cfg)
+    alvo = set_id.upper() if set_id else None
+    sets = [d for d in p["sets"] if alvo is None or d["set"] == alvo]
+    for d in sets:
+        d["wantlist"] = cardmarket.gerar(d["items"], com_codigo)
+    itens = [x for d in sets for x in d["items"]]
+    return {
+        "set": alvo,
+        "sets": sets,
+        "items": itens,
+        "no_price": sum(1 for x in itens if x["price"] is None),
+        "rule": p["rule"],
+        "scope": p["scope"],
+        **cardmarket.gerar(itens, com_codigo),
+    }

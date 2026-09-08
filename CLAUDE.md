@@ -869,6 +869,60 @@ ele disse: ele falou da aba "A subir", mas as duas são listas de compra e ele
 não compra signatures. É uma linha de config para separar as duas, se ele
 quiser a lista completa com elas.
 
+## A wantlist no fim de cada edição, na Coleção (2026-09-08)
+
+*"Quero também que no fim de cada edição me dês uma wantlist para eu colocar no
+Cardmarket."*
+
+Dois blocos no fim da secção Coleção, a seguir à grelha: **«Wantlist Cardmarket
+— <edição>»** com as faltas da edição aberta, e **«Wantlist — tudo»** com as
+cinco seguidas, pela ordem dos separadores. A caixa já vem **preenchida** — a
+wantlist está ali, não é preciso carregar em nada primeiro — e por baixo dela
+ficam os três botões de sempre (copiar, copiar com código, CSV) e o total em €.
+No cabeçalho da edição há uma linha «faltam N cópias · X €» que liga ao bloco.
+
+**NÃO É UMA LISTA NOVA — é a do «Master set», cortada por edição.** Mesmo
+âmbito (os três blocos da Coleção), mesmos alvos (playset na sequência, 1 nas
+runas, 1 nas runas especiais, 1 nas artes alternativas, tudo por
+`metrics.master_target`), mesma regra `cópias + a caminho < alvo`, e as mesmas
+exclusões de `a_subir.excluir` — é a terceira lista de compra e ele não compra
+signatures nem showcases. Uma segunda implementação era uma segunda resposta à
+mesma pergunta.
+
+**Por isso a Coleção passou a pedir o `api/faltas.json`.** É de onde a aba
+«Master set» já vive (chave `master`), e gerar um segundo ficheiro com os
+mesmos dados custava os mesmos ~200 KB duas vezes. Custo medido: o
+`faltas.json` **não cresceu** (267 KB) e nenhum payload de edição cresceu
+(`api/set/OGN.json` continua nos 196 KB); o que muda é que uma visita só à
+Coleção passa a descarregá-lo. O `garanteFaltas()` só BUSCA — desenhar a secção
+Faltas continua a ser do `loadFaltas`, senão uma visita à Coleção montava
+também os tiles do Pimp, com as imagens todas.
+
+`a_subir.wantlist(con, set_id=None)` do lado do Python (CLI e testes) e
+`renderWantlists()` do lado do browser; as linhas saem as duas do gerador único
+(`cardmarket.linha` / `cmLinha`). Há smoke test que compara os dois texto a
+texto nas cinco edições.
+
+**Em modo edição a lista fica velha, e diz-se.** Um `+` marca-a como
+desatualizada (`wlDesatualizar`) e aparece um botão **Atualizar**; não se volta
+a pedir o ficheiro sozinho porque ele pode estar a marcar uma caixa inteira de
+cartas e são centenas de KB de cada vez.
+
+**A pergunta que fica:** as exclusões. Ele nunca falou delas neste pedido, e
+aplicá-las aqui é **extensão minha** — a mesma que já se tinha feito ao
+«Master set». Se ele quiser a wantlist da edição com tudo lá dentro, é
+`a_subir.excluir.tipos`/`raridades` a vazio — medido: sobe de **614 para 689
+linhas** e de **21 567,33 € para 81 202,46 €**, quase tudo nas 36 signatures.
+
+Medido a 2026-09-08 contra o `data/` real: **614 linhas, 1118 cópias,
+21 567,33 €**, os mesmos números da aba «Master set» — OGN 204, OGS 14, SFD 93,
+UNL 117, VEN 186. **307 das 614** só têm oferta foil no CardTrader.
+
+No CLI: `riftvault wantlist --edicao OGN` (uma edição) e
+`riftvault wantlist --cardmarket` (todas). Sem nenhum dos dois, o `wantlist`
+continua a ser o dos decks — são duas perguntas com o mesmo formato. O corte
+por edição e os totais vão para o `stderr`, para o `stdout` ficar colável.
+
 ## Listas para o Cardmarket (2026-09-08)
 
 "No final dá-me uma lista para o Cardmarket para eu conseguir comprar as
@@ -1236,6 +1290,9 @@ oficiais**. Se estiver errado, é uma linha no config.
   global e por bloco, e a Venda a mostrar só o excedente.
 - **Feito também:** as runas do master set a 1 de cada — base ou especial —,
   com o playset jogável a continuar nos 12 para os decks.
+- **Feito também:** a wantlist do Cardmarket no fim de cada edição da Coleção
+  (e uma de tudo no fim da página), com a linha «faltam N cópias · X €» no
+  cabeçalho, e o `riftvault wantlist --edicao X`.
 - **Por fazer:** vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck,
   com as partilhadas assinaladas); e apagar decks pela interface (hoje apaga-se
   o `.txt`).

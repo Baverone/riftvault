@@ -439,6 +439,24 @@ body.readonly .deck-actions .btn[data-act="descer"] { display: none; }
   font-size: 12px; line-height: 1.6; resize: vertical;
 }
 
+/* As wantlists do fim da Coleção (André, 2026-09-08). Separador grosso como os
+   blocos da grelha: o que vem a seguir já não é a coleção, é o que falta dela. */
+.wl-bloco { margin-top: 30px; }
+.wl-head {
+  padding-top: 14px; border-top: 2px solid var(--accent-2);
+  text-transform: none;
+}
+.wl-bloco .note { font-size: 12px; color: var(--dim); line-height: 1.6; margin: 8px 0 0; }
+.wl-stale { font-size: 12px; color: var(--accent-2); }
+.wl-stale .btn { margin-left: 8px; }
+
+/* A linha do cabeçalho da edição que manda para o bloco lá em baixo. */
+.falta-linha {
+  grid-column: 1 / -1; margin: 4px 0 0; font-size: 12px; color: var(--dim);
+}
+.falta-linha b { color: var(--text); font-variant-numeric: tabular-nums; }
+.falta-linha a { color: var(--accent); }
+
 .total-linha { margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--line); }
 .total-linha b { color: var(--text); }
 
