@@ -11,12 +11,13 @@ passou a ser só *o que é que me está a fugir de preço antes de eu o comprar*
 
 ÂMBITO — "masterset"
     O "masterset" não é uma edição: no riftvault é a **métrica 2**, o alvo por
-    IMPRESSÃO (ver `metrics.master_target` / `master_counts`). O âmbito desta
+    IMPRESSÃO (ver `metrics.master_target` / `metrics.e_master`). O âmbito desta
     aba são exatamente as impressões que entram na percentagem de set completo
     da Coleção, nas cinco edições. Fica de fora o mesmo que já ficava fora
-    dela: as artes alternativas (`master_ignorar_variantes`) e tudo o que tenha
-    alvo 0. Assim a página mede a mesma coisa que as barras de progresso —
-    seguir cartas que não contam para o master set seria seguir outra coisa.
+    dela: as artes alternativas e os tokens (`master_ignorar_variantes`, ver
+    `metrics.e_master`) e tudo o que tenha alvo 0. Assim a página mede a mesma
+    coisa que as barras de progresso — seguir cartas que não contam para o
+    master set seria seguir outra coisa.
 
 O QUE É "AINDA NÃO TENHO"
     A regra do master set, que é a mesma do filtro **Faltas** da grelha: a
@@ -34,7 +35,7 @@ AS SIGNATURES FICAM DE FORA (André, 2026-09-08)
     lista completa do master set — são as duas listas para ele comprar, e o que
     ele não compra não tem lugar em nenhuma delas.
 
-    Isto é filtro DESTA página, não da métrica: `metrics.master_counts` não
+    Isto é filtro DESTA página, não da métrica: o `metrics.e_master` não
     mexeu, por isso a percentagem de set completo da Coleção continua a contar
     as 36 signatures no denominador. Muda-se em `a_subir.excluir_tipos` — a
     lista aceita qualquer `variant_kind` (base, alt_art, signature, token,
@@ -102,7 +103,9 @@ def opcoes(cfg: dict | None = None) -> dict:
 def masterset(con: sqlite3.Connection, cfg: dict | None = None) -> dict[str, dict]:
     """printing_id -> impressão, para as que contam para o master set.
 
-    O mesmo critério de `metrics.set_payload`: alvo > 0 e entra na percentagem.
+    O mesmo critério de `metrics.set_payload`, pela mesma função: alvo > 0 e
+    `metrics.e_master`. Desde 2026-09-08 isso deixa de fora as artes
+    alternativas E os tokens — o que está fora do master set não se compra.
     """
     cfg = cfg or config.load()
     out: dict[str, dict] = {}
@@ -114,7 +117,7 @@ def masterset(con: sqlite3.Connection, cfg: dict | None = None) -> dict[str, dic
     ):
         alvo = metrics.master_target(r["printing_id"], r["variant_kind"], r["type"],
                                      bool(r["is_token"]), cfg)
-        if alvo <= 0 or not metrics.master_counts(r["variant_kind"], bool(r["is_token"]), cfg):
+        if alvo <= 0 or not metrics.e_master(r, cfg):
             continue
         out[r["printing_id"]] = {**dict(r), "target": alvo}
     return out

@@ -44,7 +44,9 @@ DEFAULTS: dict = {
         "special": 1,
     },
     "token_target": 1,
-    "master_ignorar_variantes": ["alt_art"],
+    # Fora do master set (André, 2026-09-08): o que tem sufixo no código — `-T`
+    # nos tokens, `a` nas artes alternativas. Ver `metrics.e_master`.
+    "master_ignorar_variantes": ["alt_art", "token"],
     "master_variantes_playset": ["alt_art"],
     "master_base_follows_type": True,
     "master_target_overrides": {},

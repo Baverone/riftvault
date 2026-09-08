@@ -11,7 +11,7 @@ import json
 import shutil
 from pathlib import Path
 
-from . import config, db, decks, faltas, metrics
+from . import config, db, decks, faltas, metrics, venda
 
 
 def build(out_dir: Path | str | None = None, log=print) -> dict:
@@ -68,8 +68,15 @@ def build(out_dir: Path | str | None = None, log=print) -> dict:
     (out / "api" / "faltas.json").write_text(
         json.dumps(faltas.payload(con), ensure_ascii=False, separators=(",", ":")),
         encoding="utf-8")
+    # A lista de venda é um ficheiro à parte de propósito: o `faltas.json` já é
+    # descarregado inteiro a cada visita e esta secção pode nunca ser aberta.
+    lista_venda = venda.payload(con, editable=False)
+    (out / "api" / "venda.json").write_text(
+        json.dumps(lista_venda, ensure_ascii=False, separators=(",", ":")),
+        encoding="utf-8")
     con.close()
-    log(f"  api/decks.json  ({len(index_decks)} decks) + api/faltas.json")
+    log(f"  api/decks.json  ({len(index_decks)} decks) + api/faltas.json"
+        f" + api/venda.json ({lista_venda['printings']} impressões)")
 
     n_img = 0
     if image_mode == "local" and config.IMAGES_DIR.exists():

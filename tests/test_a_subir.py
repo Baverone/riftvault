@@ -65,7 +65,12 @@ class Base(unittest.TestCase):
 class TestAmbito(Base):
     """O "masterset" é a métrica 2, não uma edição."""
 
-    def test_alt_art_fica_de_fora_e_a_base_e_o_token_ficam(self):
+    def test_so_a_base_fica__a_alt_art_e_o_token_ficam_de_fora(self):
+        """André, 2026-09-08: os `-T` e os `a` estão fora do master set.
+
+        Estavam os dois casos separados — a arte alternativa já saía, o token
+        ficava. Agora é a mesma regra e a mesma função (`metrics.e_master`).
+        """
         con = self.v.connect()
         self.v.add_printing(con, "tst-001-100", "TST", 1, "Defy")
         self.v.add_printing(con, "tst-001a-100", "TST", 1, "Defy",
@@ -76,12 +81,25 @@ class TestAmbito(Base):
 
         escopo = self.a_subir.masterset(con)
         self.assertIn("tst-001-100", escopo)
-        self.assertIn("tst-t01-100", escopo)
-        # `master_ignorar_variantes: ["alt_art"]` — as artes alternativas não
-        # contam para a percentagem de set completo, logo também não se seguem.
         self.assertNotIn("tst-001a-100", escopo)
+        self.assertNotIn("tst-t01-100", escopo)
         # O alvo é o do master set: uma Unit base segue o playset do tipo.
         self.assertEqual(escopo["tst-001-100"]["target"], 3)
+        con.close()
+
+    def test_o_token_com_numero_de_colecao_proprio_fica(self):
+        """`OGN-271/298` (o Recruit) não leva sufixo — está na sequência.
+
+        A regra dele é o CÓDIGO. Estes são tokens por natureza (é o que o
+        `token_card_keys` marca) mas estão numerados dentro da edição, por isso
+        continuam no master set.
+        """
+        con = self.v.connect()
+        self.v.add_printing(con, "tst-271-100", "TST", 271, "Recruit (DE)")
+        self.v.rebuild(con)
+        con.execute("UPDATE catalog.printings SET is_token = 1")
+
+        self.assertIn("tst-271-100", self.a_subir.masterset(con))
         con.close()
 
 

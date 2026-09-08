@@ -2,7 +2,9 @@
 
   1) PLAYSET JOGÁVEL — alvo por CARTA LÓGICA (o nome). Qualquer impressão de
      qualquer edição conta. É a métrica de "consigo montar decks com isto".
-  2) MASTER SET — alvo por IMPRESSÃO. É a métrica de colecionador.
+  2) MASTER SET — alvo por IMPRESSÃO. É a métrica de colecionador, e é a
+     SEQUÊNCIA NUMERADA da edição: o que tem sufixo no código (os `-T` e os
+     `a`) está fora dela. Ver `e_master`.
 
 São sempre calculadas e mostradas em paralelo. Nenhuma substitui a outra.
 """
@@ -20,6 +22,17 @@ KIND_ORDER = {"base": 0, "alt_art": 1, "signature": 2,
 
 RARITY_ORDER = ["common", "uncommon", "rare", "epic", "showcase"]
 
+# Os blocos da grelha, por esta ordem: primeiro a sequência do master set, e só
+# depois o que está fora dela. Ver `bloco()`.
+BLOCO_MASTER = "master"
+BLOCOS = [
+    (BLOCO_MASTER, None),
+    ("token", "Fora do master set — tokens"),
+    ("alt_art", "Fora do master set — artes alternativas"),
+    ("outras", "Fora do master set — outras"),
+]
+BLOCO_LABEL = dict(BLOCOS)
+
 
 # --------------------------------------------------------------------------
 # Alvos
@@ -28,8 +41,9 @@ RARITY_ORDER = ["common", "uncommon", "rare", "epic", "showcase"]
 
 def playset_target(card_type: str | None, is_token: bool, cfg: dict | None = None) -> int:
     cfg = cfg or config.load()
-    # Tokens: 1 de cada (decisão do André). Não são cartas de deck, mas contam
-    # para a coleção estar completa, por isso entram nas duas métricas.
+    # Tokens: 1 de cada (decisão do André). É o ALVO — desde 2026-09-08 os que
+    # têm código `-T` já não entram na percentagem de master set (`e_master`),
+    # mas o tile continua a dizer-lhe quantos lhe faltam.
     if is_token:
         return int(cfg.get("token_target", 1))
     targets = cfg.get("playset_targets_by_type", {})
@@ -52,23 +66,61 @@ def master_target(printing_id: str, kind: str, card_type: str | None, is_token: 
     if kind in set(cfg.get("master_variantes_playset", [])):
         # O André quer contagem de playset nas artes alternativas (2026-09-05):
         # se decide colecionar a alt art, quer as 3 na mesma, não uma. Isto é
-        # só o alvo do tile — continuam fora da percentagem (`master_counts`).
+        # só o alvo do tile — continuam fora da percentagem (`e_master`).
         return playset_target(card_type, is_token, cfg)
     return int(by_variant.get(kind, 1))
 
 
-def master_counts(kind: str, is_token: bool, cfg: dict | None = None) -> bool:
-    """Esta impressão entra na PERCENTAGEM de set completo?
+def e_master(printing, cfg: dict | None = None) -> bool:
+    """Esta impressão faz parte do MASTER SET?
 
-    É diferente do alvo: o alvo é o que aparece no tile ("0/1"), isto é o que
-    entra no denominador. O André quer ver quantas artes alternativas lhe
-    faltam, mas não quer que elas baixem a percentagem do set — são duas
-    perguntas diferentes e passaram a ter dois campos.
+    É a única resposta a esta pergunta em todo o riftvault: usam-na a métrica
+    (o denominador da percentagem), a grelha da Coleção (a ordem dos blocos), a
+    aba «A subir», a lista completa do master set e a lista de venda. Havia duas
+    leituras a divergir — a percentagem já ignorava as artes alternativas mas a
+    grelha punha-as na sequência — e passou a haver uma.
+
+    A REGRA É O CÓDIGO IMPRESSO (André, 2026-09-08): *"as cartas que forem
+    'sigla-T' ou 'a' no fim (de arte alternativa) não as quero na sequência do
+    master set"*. No catálogo isso lê-se pelo `variant_kind`, que é derivado do
+    mesmo sufixo:
+
+      `UNL-T03`   -> variant `t03` -> kind `token`
+      `UNL-228a`  -> variant `a`   -> kind `alt_art`
+
+    Muda-se em `master_ignorar_variantes`. Fica de propósito de FORA da regra
+    tudo o que ele não nomeou: as signatures (`OGN-299*`), as runas promo
+    (`VEN-R01`) e as promos especiais (`VEN-SP4`) continuam no master set.
+
+    Não confundir com o ALVO (`master_target`): o alvo é o que o tile mostra
+    ("6/12"), isto é o que entra no denominador. São duas perguntas diferentes e
+    têm dois campos desde 2026-09-02 — ele quer ver quantas artes alternativas
+    lhe faltam, só não quer que elas lhe baixem a percentagem.
+
+    Aceita uma linha do `catalog.printings` ou qualquer dicionário com
+    `variant_kind` e `is_token`.
     """
     cfg = cfg or config.load()
-    if kind in set(cfg.get("master_ignorar_variantes", [])):
+    if printing["variant_kind"] in set(cfg.get("master_ignorar_variantes", [])):
         return False
-    return not is_token or int(cfg.get("token_target", 1)) > 0
+    # Os tokens com número de coleção próprio (`OGN-271/298`, o Recruit) não têm
+    # sufixo nenhum e por isso ficam: estão numerados dentro da edição.
+    return not printing["is_token"] or int(cfg.get("token_target", 1)) > 0
+
+
+def bloco(printing, cfg: dict | None = None) -> str:
+    """Em que bloco da grelha é que esta impressão cai.
+
+    `master` é a sequência normal, por número de coleção. O que está fora dela
+    vai para um bloco próprio, com cabeçalho, a seguir a toda a sequência —
+    nunca intercalado (André, 2026-09-08). Ver `BLOCOS` para a ordem.
+    """
+    if e_master(printing, cfg):
+        return BLOCO_MASTER
+    kind = printing["variant_kind"]
+    # Uma variante nova (um `b`? um `sp7`?) tem de cair num sítio visível em vez
+    # de desaparecer — ver CLAUDE.md, "Superfícies não validadas".
+    return kind if kind in BLOCO_LABEL else "outras"
 
 
 # --------------------------------------------------------------------------
@@ -167,7 +219,9 @@ def set_payload(con: sqlite3.Connection, set_id: str, editable: bool = True,
             "qty": qty.get(r["printing_id"], 0),
             "target": master_target(r["printing_id"], r["variant_kind"], r["type"],
                                     bool(r["is_token"]), cfg),
-            "counts": master_counts(r["variant_kind"], bool(r["is_token"]), cfg),
+            # `master` é o bloco da sequência normal; é também o que entra na
+            # percentagem de set completo. Um campo só para as duas coisas.
+            "block": bloco(r, cfg),
             "img": f"img/{r['printing_id']}.webp",
             "cdn": r["image_medium"] or r["image_large"] or r["image_url"],
             "banned": bool(r["is_banned"]),
@@ -195,12 +249,20 @@ def set_payload(con: sqlite3.Connection, set_id: str, editable: bool = True,
 
     master_done = master_total = 0
     by_rarity: dict[str, list[int]] = {}
+    # Os blocos de fora do master set têm contador próprio ("tens N de M") mas
+    # NÃO entram na percentagem — é o ponto todo de estarem fora.
+    by_block: dict[str, list[int]] = {}
     for g in ordered:
         for p in g["printings"]:
-            if p["target"] <= 0 or not p["counts"]:
+            if p["target"] <= 0:
+                continue
+            complete = p["qty"] >= p["target"]
+            if p["block"] != BLOCO_MASTER:
+                slot = by_block.setdefault(p["block"], [0, 0])
+                slot[1] += 1
+                slot[0] += 1 if complete else 0
                 continue
             master_total += 1
-            complete = p["qty"] >= p["target"]
             master_done += 1 if complete else 0
             slot = by_rarity.setdefault(g["rarity"] or "?", [0, 0])
             slot[1] += 1
@@ -223,8 +285,17 @@ def set_payload(con: sqlite3.Connection, set_id: str, editable: bool = True,
             value_owned += p["qty"] * p["price"]
             # "se estivesse completa" é sobre o SET: as variantes que não
             # entram na percentagem também não entram no preço dele.
-            if p["counts"]:
+            if p["block"] == BLOCO_MASTER:
                 value_full += p["target"] * p["price"]
+
+    # O bloco do master set leva os números da barra; os outros o contador
+    # próprio ("tens N de M"), que não entra na percentagem.
+    by_block[BLOCO_MASTER] = [master_done, master_total]
+    blocks = [
+        {"id": bid, "label": label,
+         "done": by_block[bid][0], "total": by_block[bid][1]}
+        for bid, label in BLOCOS if bid in by_block
+    ]
 
     return {
         "editable": editable,
@@ -240,8 +311,30 @@ def set_payload(con: sqlite3.Connection, set_id: str, editable: bool = True,
                       "currency": "EUR", "has_prices": bool(price)},
             "rarities": rarities,
         },
+        # A ordem dos blocos da grelha, e o rótulo de cada um. Vem do servidor
+        # para o cliente não ter uma segunda cópia da regra.
+        "blocks": blocks,
         "groups": ordered,
     }
+
+
+def ordem_da_grelha(payload: dict) -> list[tuple[str, str]]:
+    """(bloco, printing_id) pela ordem em que a grelha desenha os tiles.
+
+    O `groups` do payload continua a vir por número de coleção — é a ordem da
+    API e é a que a sequência do master set precisa. O que a grelha faz é
+    percorrê-lo uma vez POR BLOCO: primeiro o master set inteiro, depois os
+    tokens, depois as artes alternativas (André, 2026-09-08). O `render()` do
+    `app.js` faz exatamente estes dois ciclos; isto é a mesma ordem em Python,
+    para dar para testar sem browser.
+    """
+    fora = []
+    for b in payload.get("blocks") or [{"id": BLOCO_MASTER}]:
+        for g in payload["groups"]:
+            for p in g["printings"]:
+                if p["block"] == b["id"]:
+                    fora.append((b["id"], p["id"]))
+    return fora
 
 
 def index_payload(con: sqlite3.Connection, editable: bool = True,

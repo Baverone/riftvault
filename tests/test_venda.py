@@ -1,0 +1,213 @@
+"""«Venda»: o que ele tem fora do master set e não está a jogar.
+
+*"A Coleção é de master set. O resto provavelmente vai para venda ou jogar nos
+decks seleccionados"* (André, 2026-09-08).
+"""
+
+from __future__ import annotations
+
+import importlib
+import sys
+import unittest
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from tests.fixture import Vault
+
+
+class Base(unittest.TestCase):
+    def setUp(self):
+        self.v = Vault()
+        self.addCleanup(self.v.close)
+        from riftvault import cardmarket, metrics, venda
+        importlib.reload(metrics)
+        importlib.reload(venda)
+        self.venda, self.cardmarket = venda, cardmarket
+
+    def catalogo(self):
+        con = self.v.connect()
+        self.v.add_printing(con, "tst-001-100", "TST", 1, "Defy", api_sort=1)
+        self.v.add_printing(con, "tst-001a-100", "TST", 1, "Defy",
+                            variant="a", kind="alt_art", api_sort=2)
+        self.v.add_printing(con, "tst-002-100", "TST", 2, "Brutalizer", api_sort=3)
+        self.v.add_printing(con, "tst-002a-100", "TST", 2, "Brutalizer",
+                            variant="a", kind="alt_art", api_sort=4)
+        self.v.add_printing(con, "tst-t01-100", "TST", 3, "Sprite",
+                            variant="t01", kind="token", api_sort=5)
+        self.v.rebuild(con)
+        for pid, cents in (("tst-001a-100", 2000), ("tst-002a-100", 500),
+                           ("tst-t01-100", 100)):
+            con.execute("INSERT INTO catalog.price_latest (printing_id, price_cents) "
+                        "VALUES (?,?)", (pid, cents))
+        return con
+
+
+class TestAmbito(Base):
+    def test_so_entra_o_que_esta_fora_do_master_set(self):
+        from riftvault import collection
+        con = self.catalogo()
+        collection.adjust(con, "tst-001-100", 9, source="test")    # base, a mais
+        collection.adjust(con, "tst-001a-100", 1, source="test")
+        collection.adjust(con, "tst-t01-100", 2, source="test")
+
+        ids = [x["printing_id"] for x in self.venda.listar(con)["items"]]
+        # A base fica de fora por muitas que ele tenha: é master set.
+        self.assertNotIn("tst-001-100", ids)
+        self.assertEqual(sorted(ids), ["tst-001a-100", "tst-t01-100"])
+        con.close()
+
+    def test_o_que_nao_tem_nao_aparece(self):
+        con = self.catalogo()
+        self.assertEqual(self.venda.listar(con)["items"], [])
+        con.close()
+
+    def test_soma_e_ordem_pelo_valor(self):
+        from riftvault import collection
+        con = self.catalogo()
+        collection.adjust(con, "tst-001a-100", 1, source="test")   # 20,00 €
+        collection.adjust(con, "tst-002a-100", 3, source="test")   # 15,00 €
+        v = self.venda.listar(con)
+
+        self.assertEqual(v["printings"], 2)
+        self.assertEqual(v["copies"], 4)
+        self.assertEqual(v["cents"], 2000 + 1500)
+        self.assertEqual([x["printing_id"] for x in v["items"]],
+                         ["tst-001a-100", "tst-002a-100"])
+        con.close()
+
+    def test_blocos_separam_tokens_de_artes_alternativas(self):
+        from riftvault import collection
+        con = self.catalogo()
+        collection.adjust(con, "tst-001a-100", 1, source="test")
+        collection.adjust(con, "tst-t01-100", 2, source="test")
+
+        blocos = {b["id"]: b for b in self.venda.listar(con)["blocks"]}
+        self.assertEqual(blocos["token"]["copies"], 2)
+        self.assertEqual(blocos["alt_art"]["copies"], 1)
+        con.close()
+
+    def test_sem_preco_entra_na_lista_mas_nao_no_total(self):
+        from riftvault import collection
+        con = self.catalogo()
+        con.execute("DELETE FROM catalog.price_latest WHERE printing_id = 'tst-001a-100'")
+        collection.adjust(con, "tst-001a-100", 2, source="test")
+
+        v = self.venda.listar(con)
+        self.assertEqual(v["printings"], 1)
+        self.assertEqual(v["no_price"], 1)
+        self.assertEqual(v["cents"], 0)
+        con.close()
+
+
+class TestDecks(Base):
+    """Uma cópia que está num deck não é candidata a venda."""
+
+    def montar(self, lista: str):
+        from riftvault import collection, decks
+        con = self.catalogo()
+        self.v.write_deck("azir", lista)
+        decks.import_all(con, log=lambda *_: None)
+        return con, collection, decks
+
+    def test_alt_art_usada_num_deck_sai_da_lista(self):
+        con, collection, _ = self.montar(
+            "Legend:\n1 Emperor of the Sands\nMainDeck:\n3 Defy\n")
+        # Só tem a arte alternativa: é ela que vai para o deck.
+        collection.adjust(con, "tst-001a-100", 3, source="test")
+
+        v = self.venda.listar(con)
+        self.assertEqual(v["items"], [])
+        self.assertEqual(v["in_decks"], 1)
+        self.assertEqual(v["in_decks_copies"], 3)
+        self.assertEqual(v["kept"][0]["state"], "deck")
+        con.close()
+
+    def test_a_base_serve_primeiro__a_alt_art_sobra(self):
+        """`printing_allocation` escolhe artes base: a alternativa fica no binder."""
+        con, collection, _ = self.montar(
+            "Legend:\n1 Emperor of the Sands\nMainDeck:\n3 Defy\n")
+        collection.adjust(con, "tst-001-100", 3, source="test")
+        collection.adjust(con, "tst-001a-100", 1, source="test")
+
+        v = self.venda.listar(con)
+        self.assertEqual([x["printing_id"] for x in v["items"]], ["tst-001a-100"])
+        self.assertEqual(v["items"][0]["state"], "venda")
+        self.assertEqual(v["in_decks"], 0)
+        con.close()
+
+    def test_so_o_excedente_e_que_se_vende(self):
+        """2 num deck, 1 a mais: a linha aparece só com a que sobra."""
+        con, collection, _ = self.montar(
+            "Legend:\n1 Emperor of the Sands\nMainDeck:\n2 Defy\n")
+        collection.adjust(con, "tst-001a-100", 3, source="test")
+
+        v = self.venda.listar(con)
+        item = v["items"][0]
+        self.assertEqual(item["have"], 3)
+        self.assertEqual(item["used"], 2)
+        self.assertEqual(item["qty"], 1)
+        self.assertEqual(item["state"], "deck")   # está num deck E sobra
+        self.assertEqual(v["copies"], 1)
+        con.close()
+
+    def test_nao_mexe_na_colecao(self):
+        con, collection, _ = self.montar(
+            "Legend:\n1 Emperor of the Sands\nMainDeck:\n3 Defy\n")
+        collection.adjust(con, "tst-001a-100", 2, source="test")
+        antes = con.execute("SELECT printing_id, qty FROM copies").fetchall()
+
+        self.venda.listar(con)
+        depois = con.execute("SELECT printing_id, qty FROM copies").fetchall()
+        self.assertEqual([tuple(r) for r in antes], [tuple(r) for r in depois])
+        self.assertEqual(con.execute("SELECT COUNT(*) FROM ops").fetchone()[0], 1)
+        con.close()
+
+
+class TestLista(Base):
+    """A lista sai pelo mesmo gerador das de compra."""
+
+    def test_a_quantidade_da_linha_e_o_excedente(self):
+        from riftvault import collection
+        con = self.catalogo()
+        collection.adjust(con, "tst-001a-100", 2, source="test")
+
+        itens = self.venda.listar(con)["items"]
+        res = self.cardmarket.gerar(itens)
+        self.assertEqual(res["copies"], 2)
+        self.assertTrue(res["text"].startswith("2 Defy"))
+        con.close()
+
+    def test_com_codigo(self):
+        from riftvault import collection
+        con = self.catalogo()
+        collection.adjust(con, "tst-001a-100", 1, source="test")
+
+        itens = self.venda.listar(con)["items"]
+        self.assertEqual(self.cardmarket.linha(itens[0], com_codigo=True),
+                         "1 Defy [TST-001a]")
+        con.close()
+
+    def test_csv_leva_a_mesma_quantidade(self):
+        from riftvault import collection
+        con = self.catalogo()
+        collection.adjust(con, "tst-002a-100", 3, source="test")
+
+        linhas = self.cardmarket.csv_texto(self.venda.listar(con)["items"]).splitlines()
+        self.assertEqual(linhas[0].split(",")[0], "quantidade")
+        self.assertTrue(linhas[1].startswith("3,Brutalizer,TST-002a"))
+        con.close()
+
+    def test_as_listas_de_compra_continuam_a_usar_missing(self):
+        """O gerador é o mesmo: `missing` nas de compra, `qty` na de venda."""
+        self.assertEqual(self.cardmarket.linha({"missing": 3, "name": "Defy"}),
+                         "3 Defy")
+        self.assertEqual(self.cardmarket.linha({"qty": 2, "name": "Defy"}),
+                         "2 Defy")
+        # Se vierem os dois, manda o das listas de compra.
+        self.assertEqual(self.cardmarket.linha({"missing": 3, "qty": 9, "name": "Defy"}),
+                         "3 Defy")
+
+
+if __name__ == "__main__":
+    unittest.main()

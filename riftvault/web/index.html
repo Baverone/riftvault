@@ -17,6 +17,7 @@
       <button class="tab is-on" data-section="colecao">Coleção</button>
       <button class="tab" data-section="decks">Decks</button>
       <button class="tab" data-section="faltas">Faltas</button>
+      <button class="tab" data-section="venda">Venda</button>
     </nav>
   </div>
 
@@ -44,7 +45,7 @@
       <div class="bar-block">
         <div class="bar-label"><span>Master set</span><b id="master-num">–</b></div>
         <div class="bar bar-alt"><i id="master-bar" style="width:0"></i></div>
-        <small id="master-sub">alvo próprio por impressão · sem artes alt.</small>
+        <small id="master-sub">alvo próprio por impressão · sem artes alt. nem tokens</small>
       </div>
       <div class="bar-block" id="value-block" hidden>
         <div class="bar-label"><span>Valor nesta edição</span><b id="value-num">–</b></div>
@@ -89,6 +90,10 @@
   <section id="faltas" hidden>
     <div id="falta-head"></div>
     <div id="falta-body"></div>
+  </section>
+
+  <section id="venda" hidden>
+    <div id="venda-body"></div>
   </section>
 </main>
 

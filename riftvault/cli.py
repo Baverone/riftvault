@@ -11,6 +11,7 @@
     riftvault stats
     riftvault find "sett"
     riftvault a-subir [--cardmarket] [--todas] [--csv f.csv]
+    riftvault venda [--cardmarket] [--csv f.csv]
 """
 
 from __future__ import annotations
@@ -24,6 +25,7 @@ from . import build as build_mod
 from . import cardmarket, catalog, collection, config, db, decks as decks_mod
 from . import faltas as faltas_mod
 from . import metrics, pending as pending_mod, prices, server
+from . import venda as venda_mod
 
 
 def _qty(raw: str | None) -> int:
@@ -489,6 +491,59 @@ def cmd_a_subir(args) -> int:
     return 0
 
 
+def cmd_venda(args) -> int:
+    """O que ele tem fora do master set: o que está num deck e o que sobra.
+
+    Não mexe em nada — é uma sugestão. A lista sai pelo mesmo gerador das de
+    compra (`cardmarket.linha`), com a quantidade a ser o excedente.
+    """
+    con = db.connect()
+    if db.catalog_is_empty(con):
+        print("catálogo vazio — corre `riftvault sync`.", file=sys.stderr)
+        return 1
+
+    v = venda_mod.listar(con)
+    itens = v["items"]
+
+    if args.csv:
+        open(args.csv, "w", encoding="utf-8-sig", newline="").write(
+            cardmarket.csv_texto(itens))
+        print(f"{len(itens)} linhas escritas em {args.csv}  (candidatas a venda)")
+        con.close()
+        return 0
+
+    if args.cardmarket:
+        res = cardmarket.gerar(itens, com_codigo=args.codigos)
+        saida = res["text"] + ("\n" if res["text"] else "")
+        if args.out:
+            open(args.out, "w", encoding="utf-8").write(saida)
+            print(f"{res['lines']} linhas escritas em {args.out}")
+        else:
+            sys.stdout.write(saida)
+        # Como nas listas de compra: o total fora do texto, para o stdout ficar
+        # colável tal e qual.
+        print(f"\n# {res['lines']} linhas · {res['copies']} cópias · "
+              f"{prices.eur(res['cents'])}  (candidatas a venda)", file=sys.stderr)
+        con.close()
+        return 0
+
+    print(f"Fora do master set e na caixa: {v['printings']} impressões · "
+          f"{v['copies']} cópias · {prices.eur(v['cents'])}"
+          + (f" ({v['no_price']} sem oferta no CardTrader)" if v["no_price"] else ""))
+    if v["in_decks"]:
+        print(f"Em uso nos decks (não entram na lista): {v['in_decks']} impressões, "
+              f"{v['in_decks_copies']} cópias.")
+    print("Nada disto mexe na coleção — é sugestão.\n")
+    for x in itens:
+        onde = ", ".join(f"{d['qty']}x {d['deck'].split(' · ')[0]}"
+                         for d in x["in_decks"]) or "candidata a venda"
+        print(f"  {x['qty']:>2}x {cardmarket.codigo(x['code']):<12} "
+              f"{x['name'][:30]:<30} {prices.eur(x['price']):>10} "
+              f"= {prices.eur(x['total']):>10}  {onde}")
+    con.close()
+    return 0
+
+
 def cmd_pending(args) -> int:
     con = db.connect()
     if args.chegou is not None:
@@ -641,6 +696,15 @@ def main(argv: list[str] | None = None) -> int:
                    help="tudo o que falta do master set, não só o que sobe")
     p.add_argument("--out", help="com --cardmarket: escrever para ficheiro")
     p.set_defaults(func=cmd_a_subir)
+
+    p = sub.add_parser("venda", help="o que tens fora do master set e sobra dos decks")
+    p.add_argument("--cardmarket", action="store_true",
+                   help="escreve as linhas no formato do Cardmarket")
+    p.add_argument("--codigos", action="store_true",
+                   help="com --cardmarket: 'N Nome [UNL-228a]'")
+    p.add_argument("--csv", help="escreve um CSV com as mesmas colunas das listas de compra")
+    p.add_argument("--out", help="com --cardmarket: escrever para ficheiro")
+    p.set_defaults(func=cmd_venda)
 
     p = sub.add_parser("pending", help="encomendas a caminho")
     p.add_argument("--chegou", nargs="?", type=int, const=0, default=None,
