@@ -483,7 +483,9 @@ def cmd_a_subir(args) -> int:
         motivos = ", ".join(f"{c['n']} {c['criterio']}"
                             for c in fora.get("excluded_by") or ())
         print(f"fora: {fora['excluded']} impressões ({motivos}) "
-              f"— continuam a contar na percentagem de master set.")
+              f"— continuam a contar na percentagem de master set. "
+              f"A exclusão é da sequência: as runas especiais e as artes "
+              f"alternativas entram na mesma, 1 de cada.")
     print()
     for x in itens:
         pct = "" if x.get("pct") is None else f"{x['pct']:+7.1f}%"
@@ -496,7 +498,7 @@ def cmd_a_subir(args) -> int:
 
 
 def cmd_venda(args) -> int:
-    """O que ele tem fora do master set: o que está num deck e o que sobra.
+    """O que ele tem a mais da sequência: o que está num deck e o que sobra.
 
     Não mexe em nada — é uma sugestão. A lista sai pelo mesmo gerador das de
     compra (`cardmarket.linha`), com a quantidade a ser o excedente.
@@ -531,7 +533,7 @@ def cmd_venda(args) -> int:
         con.close()
         return 0
 
-    print(f"Fora do master set e na caixa: {v['printings']} impressões · "
+    print(f"A mais da sequência do master set e na caixa: {v['printings']} impressões · "
           f"{v['copies']} cópias · {prices.eur(v['cents'])}"
           + (f" ({v['no_price']} sem oferta no CardTrader)" if v["no_price"] else ""))
     if v["in_decks"]:
@@ -701,7 +703,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--out", help="com --cardmarket: escrever para ficheiro")
     p.set_defaults(func=cmd_a_subir)
 
-    p = sub.add_parser("venda", help="o que tens fora do master set e sobra dos decks")
+    p = sub.add_parser("venda", help="o que tens a mais da sequência e sobra dos decks")
     p.add_argument("--cardmarket", action="store_true",
                    help="escreve as linhas no formato do Cardmarket")
     p.add_argument("--codigos", action="store_true",

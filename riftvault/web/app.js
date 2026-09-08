@@ -21,9 +21,15 @@ const state = {
   qty: new Map(),              // printing_id -> quantidade (verdade local, otimista)
   play: new Map(),             // card_key -> {owned, target}
   targets: new Map(),          // printing_id -> alvo do master (o do tile)
-  // printing_id -> bloco da grelha. 'master' é a sequência do master set (e é
-  // o que entra na percentagem); o resto vai para blocos próprios no fim.
+  // printing_id -> bloco da grelha. A Coleção são três blocos seguidos —
+  // 'master' (a sequência, em playset), 'rune_special' (1 de cada) e 'alt_art'
+  // (1 de cada) — e os três contam para a percentagem. O que ficou fora da
+  // coleção vai para blocos próprios no fim. Ver `metrics.BLOCOS`.
   blocks: new Map(),
+  // Os ids de bloco que entram na percentagem, ditos pelo payload (`counts`).
+  // A regra vive no servidor; aqui só se recalcula para as barras andarem ao
+  // mesmo tempo que os +/-.
+  counting: new Set(),
   meta: new Map(),             // printing_id -> {name, card_key, rarity}
   pending: new Map(),          // card_key -> pedidos por responder
   tiles: [],                   // impressões visíveis, pela ordem do ecrã
@@ -106,7 +112,9 @@ async function loadSet(setId) {
   state.imageMode = p.image_mode || state.imageMode;
 
   state.qty.clear(); state.play.clear(); state.targets.clear();
-  state.blocks.clear(); state.meta.clear();
+  state.blocks.clear(); state.meta.clear(); state.counting.clear();
+  for (const b of p.blocks || []) if (b.counts) state.counting.add(b.id);
+  if (!(p.blocks || []).length) state.counting.add('master');
   for (const g of p.groups) {
     state.play.set(g.card_key, { owned: g.playset.owned, target: g.playset.target });
     for (const pr of g.printings) {
@@ -220,10 +228,11 @@ function deckLine(p) {
     ${onde}${livre > 0 ? ` · ${livre} no binder` : ''}</div>`;
 }
 
-/* A grelha em blocos (André, 2026-09-08): primeiro a sequência do master set,
-   por número de coleção, e SÓ DEPOIS o que está fora dela — os tokens (`-T`) e
-   as artes alternativas (`a`), cada um no seu bloco com cabeçalho. Nunca
-   intercalados: a Coleção é de master set, e o resto vem a seguir.
+/* A grelha em blocos (André, 2026-09-08): *"master set playset todo seguido; 1
+   runa especial de cada para cada set; no fim 1 alt art de cada"*. Primeiro a
+   sequência do master set, por número de coleção; depois as runas especiais;
+   depois as artes alternativas; e só no fim o que ficou FORA da coleção (hoje
+   os tokens). Nunca intercalados.
 
    Os blocos e os rótulos vêm do payload (`metrics.BLOCOS`), para a regra viver
    num sítio só; o contador de cada um é recalculado aqui, como as barras, para
@@ -257,12 +266,13 @@ function render() {
     if (!pedacos.length) continue;
     mostrados++;
     if (b.label) {
-      // "tens N de M" — o contador do bloco. Fica à parte de propósito: estas
-      // impressões não entram na percentagem de master set. O cabeçalho ocupa
-      // a linha inteira da grelha (`.section-head`), sem grelha aninhada.
-      parts.push(`<h2 class="section-head fora">${escapeHTML(b.label)}
-        <span>tens <b>${feitas}</b> de <b>${total}</b> — não contam para a
-        percentagem de master set</span></h2>`);
+      // "tens N de M" — o contador do bloco. O cabeçalho ocupa a linha inteira
+      // da grelha (`.section-head`), sem grelha aninhada. Os blocos da coleção
+      // dizem que contam para a percentagem; os de fora dizem que não — é a
+      // diferença toda entre eles e tem de se ler no ecrã.
+      parts.push(`<h2 class="section-head ${b.counts ? 'cauda' : 'fora'}">${escapeHTML(b.label)}
+        <span>tens <b>${feitas}</b> de <b>${total}</b> — ${b.counts ? '' : 'não '}
+        contam para a percentagem de master set</span></h2>`);
     }
     parts.push(pedacos.join(''));
   }
@@ -283,6 +293,7 @@ function renderProgress() {
   let pDone = 0, pTotal = 0, mDone = 0, mTotal = 0;
   const seen = new Set();
   const rar = new Map();
+  const porBloco = new Map();
 
   for (const g of state.payload.groups) {
     const play = state.play.get(g.card_key);
@@ -293,11 +304,16 @@ function renderProgress() {
     }
     for (const p of g.printings) {
       const t = state.targets.get(p.id) || 0;
-      // O alvo é o que se mostra no tile; o bloco é o que entra na conta. As
-      // artes alternativas e os tokens têm alvo (ele quer ver quantos lhe
-      // faltam) mas ficam fora da percentagem.
-      if (t <= 0 || (state.blocks.get(p.id) || 'master') !== 'master') continue;
+      // O alvo é o que se mostra no tile; o bloco é o que entra na conta. Os
+      // tokens têm alvo (ele quer ver quantos lhe faltam) mas ficam fora da
+      // percentagem; os três blocos da coleção contam todos.
+      if (t <= 0) continue;
+      const bloco = state.blocks.get(p.id) || 'master';
       const ok = (state.qty.get(p.id) || 0) >= t;
+      const bslot = porBloco.get(bloco) || [0, 0];
+      bslot[1]++; if (ok) bslot[0]++;
+      porBloco.set(bloco, bslot);
+      if (!state.counting.has(bloco)) continue;
       mTotal++; if (ok) mDone++;
       const key = g.rarity || '?';
       const slot = rar.get(key) || [0, 0];
@@ -310,6 +326,19 @@ function renderProgress() {
   $('#play-bar').style.width = pTotal ? `${(pDone / pTotal) * 100}%` : '0';
   $('#master-num').textContent = `${mDone}/${mTotal}`;
   $('#master-bar').style.width = mTotal ? `${(mDone / mTotal) * 100}%` : '0';
+
+  // A percentagem de cada bloco, por baixo da barra global: a barra soma os
+  // três blocos da coleção e ele quer ver de onde vem cada pedaço (e como está
+  // o dos tokens, que não entra). Mesma ordem do payload.
+  const chips = (state.payload.blocks || []).filter(b => porBloco.has(b.id)).map(b => {
+    const [d, t] = porBloco.get(b.id);
+    const nome = b.short || b.id;
+    const pct = t ? Math.round((d / t) * 100) : 0;
+    return `<span class="rarity ${d >= t ? 'is-done' : ''}${b.counts ? '' : ' is-out'}"
+      title="${b.counts ? 'conta' : 'não conta'} para a percentagem de master set"
+      >${escapeHTML(nome)} <b>${d}/${t}</b> · ${pct}%</span>`;
+  });
+  $('#master-blocks').innerHTML = chips.length > 1 ? chips.join('') : '';
 
   // Valor: recalculado localmente pela mesma razão que as barras — para andar
   // ao mesmo tempo que os +/-. A barra compara o que tenho com o que a edição
@@ -918,7 +947,8 @@ function foraTexto(scope) {
     .map(c => `${c.n} ${escapeHTML(c.criterio)}`).join(' + ');
   return `<br>Fora da lista: <b>${scope.excluded}</b> impressões
     (${motivos}) — continuam a contar na percentagem de master set,
-    só não entram nas listas de compra.`;
+    só não entram nas listas de compra. A exclusão é da <b>sequência</b>: as
+    runas especiais e as artes alternativas entram na mesma, 1 de cada.`;
 }
 
 function renderASubir() {
@@ -1642,7 +1672,9 @@ function staplTile(x) {
 
    "A Coleção é de master set. O resto provavelmente vai para venda ou jogar nos
    decks seleccionados" (André, 2026-09-08). Isto é a segunda metade da frase: o
-   que ele TEM e está fora do master set, partido em "está num deck" e "sobra".
+   que ele TEM a mais da sequência do master set, partido em "está num deck" e
+   "sobra". Desde a decisão da tarde ("1 alt art de cada") a cauda da coleção só
+   entra no EXCEDENTE — a primeira arte alternativa é coleção, a sexta é venda.
 
    NADA SAI DA BASE. É uma sugestão — não há botão de vender, não se mexe no
    `copies`. A lista sai em texto, como as de compra.                        */
@@ -1657,9 +1689,9 @@ function renderVenda() {
   const corpo = $('#venda-body');
 
   if (!v.printings && !v.in_decks) {
-    corpo.innerHTML = `<p class="empty">Não tens nenhuma impressão fora do
-      master set — nem tokens (<code>-T</code>) nem artes alternativas
-      (<code>a</code>).</p>`;
+    corpo.innerHTML = `<p class="empty">Não tens nada a mais do que a coleção
+      pede — nem tokens (<code>-T</code>), que estão fora dela, nem cópias
+      repetidas das runas especiais ou das artes alternativas.</p>`;
     return;
   }
 
@@ -1670,14 +1702,16 @@ function renderVenda() {
         de hoje${v.no_price ? ` · ${v.no_price} sem oferta no CardTrader` : ''}</span>
     </div>
 
-    <p class="note">Só o que está <b>fora do master set</b> — os tokens
-      (<code>-T</code>) e as artes alternativas (<code>a</code>) — e que
-      <b>tens na caixa</b>. O que algum deck usa fica de fora da lista e aparece
+    <p class="note">Só o que <b>tens na caixa</b> e a <b>sequência do master
+      set</b> não pede: os tokens (<code>-T</code>), que estão fora da coleção,
+      e as cópias a mais das runas especiais e das artes alternativas — dessas
+      guarda-se <b>1 de cada</b>, que é o que a coleção pede, e só sobra o
+      resto. O que algum deck usa fica de fora da lista e aparece
       em baixo${v.in_decks ? `: são <b>${v.in_decks}</b> impressões,
       ${v.in_decks_copies} cópias` : ''}.
       <br>Isto é uma <b>sugestão</b>: não mexe na coleção, não há nada a
-      confirmar. As impressões do master set nunca entram aqui, por muitas que
-      tenhas a mais.
+      confirmar. As impressões da sequência do master set nunca entram aqui,
+      por muitas que tenhas a mais.
       ${v.no_price ? `<br><b>${v.no_price}</b> não têm oferta no CardTrader:
         entram na lista, não entram no total.` : ''}</p>
 
@@ -1686,7 +1720,7 @@ function renderVenda() {
         <b>${b.copies}</b> · ${eurShort(b.cents)}</span>`).join('')}</div>` : ''}
 
     ${v.items.length ? `<div class="grid deck-grid">${v.items.map(vendaTile).join('')}</div>`
-      : '<p class="empty">Tudo o que tens fora do master set está a ser usado nos decks.</p>'}
+      : '<p class="empty">Tudo o que tens a mais está a ser usado nos decks.</p>'}
 
     ${v.items.length ? cmZonaHTML('venda') : ''}
     ${v.items.length ? `<small class="nota">A lista sai no formato do Cardmarket
@@ -1695,7 +1729,7 @@ function renderVenda() {
       para saberes o que tens para vender, não para o carregar lá.</small>` : ''}
 
     ${v.kept.length ? `
-      <h3 class="section-head sub">Fora do master set, mas em uso
+      <h3 class="section-head sub">A mais da sequência, mas em uso
         <span>${v.in_decks_copies} cópias em decks — não estão para venda</span></h3>
       <div class="grid deck-grid">${v.kept.map(vendaTile).join('')}</div>` : ''}`;
 
