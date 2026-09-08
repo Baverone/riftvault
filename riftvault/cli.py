@@ -478,7 +478,11 @@ def cmd_a_subir(args) -> int:
 
     print(f"{resumo}\n({rotulo})")
     if fora.get("excluded"):
-        print(f"fora: {fora['excluded']} impressões {', '.join(fora['excluded_kinds'])} "
+        # Por critério: as signatures também são de raridade showcase, e um
+        # número só não dizia quantas saíram por serem uma coisa ou a outra.
+        motivos = ", ".join(f"{c['n']} {c['criterio']}"
+                            for c in fora.get("excluded_by") or ())
+        print(f"fora: {fora['excluded']} impressões ({motivos}) "
               f"— continuam a contar na percentagem de master set.")
     print()
     for x in itens:

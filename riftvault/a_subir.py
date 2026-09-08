@@ -29,17 +29,30 @@ O QUE É "AINDA NÃO TENHO"
     Põe-se `a_subir.regra_falta: "nenhuma"` para seguir só as que estão mesmo
     a zero cópias.
 
-AS SIGNATURES FICAM DE FORA (André, 2026-09-08)
-    *"No 'a subir', estás a pôr uma carta signed — não quero."* As impressões
-    `signature` deixaram de entrar nas listas de compra, tanto aqui como na
-    lista completa do master set — são as duas listas para ele comprar, e o que
-    ele não compra não tem lugar em nenhuma delas.
+AS SIGNATURES E OS SHOWCASES FICAM DE FORA (André, 2026-09-08)
+    *"No 'a subir', estás a pôr uma carta signed — não quero."* e, no mesmo
+    dia, *"tira também os showcases"*. Nem umas nem outros entram nas listas de
+    compra, tanto aqui como na lista completa do master set — são as duas
+    listas para ele comprar, e o que ele não compra não tem lugar em nenhuma
+    delas.
+
+    **São dois critérios diferentes, e é por isso que a config tem dois
+    campos.** A `signature` é um `variant_kind` — o sufixo `*` do código
+    impresso. O `showcase` **não é**: é uma RARIDADE (`rarity`), e as 42 que
+    saem daqui têm todas `variant_kind = base` — são as reimpressões showcase
+    com número de coleção próprio (a ARMADILHA 2 do CLAUDE.md: `SFD-232/221`
+    tem código de carta normal e raridade `showcase`). Filtrar showcases pelo
+    tipo de impressão não apanharia nenhuma delas.
+
+    `a_subir.excluir: {"tipos": ["signature"], "raridades": ["showcase"]}`.
+    O `excluir_tipos` é o nome antigo e continua a ser lido (traduzido em
+    `config._migrar_a_subir`, para haver uma leitura só do config).
 
     Isto é filtro DESTA página, não da métrica: o `metrics.e_master` não
     mexeu, por isso a percentagem de set completo da Coleção continua a contar
-    as 36 signatures no denominador. Muda-se em `a_subir.excluir_tipos` — a
-    lista aceita qualquer `variant_kind` (base, alt_art, signature, token,
-    rune_promo, special) e a página diz sempre quantas impressões tirou.
+    as 36 signatures e os 42 showcases no denominador. A página diz sempre
+    quantas impressões tirou **e por que critério** — uma lista que encolhe sem
+    explicação parece um erro de contagem.
 
 O PREÇO DE HÁ N DIAS
     O `price_history` só grava quando o preço MUDA. O preço em vigor no dia D
@@ -68,10 +81,12 @@ DEFAULTS: dict = {
     # uma carta a valorizar. É o mesmo limiar da versão antiga desta aba.
     "preco_minimo_cents": 50,
     "regra_falta": "master",
-    # Variantes que não entram nas listas de compra (André, 2026-09-08: "estás
-    # a pôr uma carta signed — não quero"). Não mexe na percentagem de master
-    # set, que continua a contá-las.
-    "excluir_tipos": ["signature"],
+    # O que não entra nas listas de compra (André, 2026-09-08: "estás a pôr uma
+    # carta signed — não quero" e "tira também os showcases"). Dois campos
+    # porque são duas perguntas: `tipos` é o `variant_kind` (o sufixo do código)
+    # e `raridades` é a `rarity` da impressão — o showcase é raridade, não
+    # variante. Não mexe na percentagem de master set, que continua a contá-las.
+    "excluir": {"tipos": ["signature"], "raridades": ["showcase"]},
     "urgencia": False,
     "urgencia_pesos": {"janela": 0.5, "curto": 1.0, "preco_relativo": 10.0},
     # NÃO VALIDADOS: nem a API da RiftScribe nem a do CardTrader dão o endereço
@@ -92,6 +107,11 @@ def opcoes(cfg: dict | None = None) -> dict:
     pesos = dict(DEFAULTS["urgencia_pesos"])
     pesos.update(bruto.get("urgencia_pesos") or {})
     out["urgencia_pesos"] = pesos
+    # O mesmo para o `excluir`: escrever só `{"raridades": []}` no config não
+    # pode apagar em silêncio a exclusão das signatures.
+    fora = dict(DEFAULTS["excluir"])
+    fora.update(bruto.get("excluir") or {})
+    out["excluir"] = fora
     return out
 
 
@@ -123,16 +143,57 @@ def masterset(con: sqlite3.Connection, cfg: dict | None = None) -> dict[str, dic
     return out
 
 
-def excluir(escopo: dict[str, dict], tipos) -> tuple[dict[str, dict], dict[str, dict]]:
-    """Parte o âmbito em (o que fica, o que sai) pelo `variant_kind`.
+def criterios(fora) -> tuple[list[str], list[str]]:
+    """`a_subir.excluir` -> (tipos, raridades), sem repetidos e pela ordem escrita.
+
+    A ordem importa: é por ela que se atribui o motivo a cada impressão que sai.
+    """
+    fora = fora or {}
+    tipos = list(dict.fromkeys(fora.get("tipos") or ()))
+    raridades = list(dict.fromkeys(fora.get("raridades") or ()))
+    return tipos, raridades
+
+
+def excluir(escopo: dict[str, dict], fora) -> tuple[dict[str, dict], dict[str, dict]]:
+    """Parte o âmbito em (o que fica, o que sai), por `variant_kind` E `rarity`.
+
+    São dois critérios porque a `signature` é uma variante (o sufixo `*` do
+    código) e o `showcase` é uma raridade — as 42 reimpressões showcase são
+    `variant_kind = base` e nenhuma lista de variantes lhes tocava.
 
     Devolve as duas metades porque quem mostra tem de dizer quantas tirou: uma
-    lista que encolhe sem explicação parece um erro de contagem.
+    lista que encolhe sem explicação parece um erro de contagem. Cada impressão
+    que sai leva o `excluded_by` — o PRIMEIRO critério que lhe bateu, tipos
+    antes de raridades. É preciso escolher um: as 36 signatures também têm
+    raridade `showcase`, e contá-las nos dois dava uma soma maior que o total.
     """
-    fora = set(tipos or ())
-    ficam = {k: v for k, v in escopo.items() if v["variant_kind"] not in fora}
-    saem = {k: v for k, v in escopo.items() if v["variant_kind"] in fora}
+    tipos, raridades = criterios(fora)
+    ficam, saem = {}, {}
+    for pid, v in escopo.items():
+        if v["variant_kind"] in tipos:
+            saem[pid] = {**v, "excluded_by": v["variant_kind"]}
+        elif (v["rarity"] or "") in raridades:
+            saem[pid] = {**v, "excluded_by": v["rarity"]}
+        else:
+            ficam[pid] = v
     return ficam, saem
+
+
+def resumo_fora(saem: dict[str, dict], fora) -> dict:
+    """O bloco que a página e o CLI mostram: quantas saíram, e por que critério."""
+    tipos, raridades = criterios(fora)
+    contagem: dict[str, int] = {}
+    for v in saem.values():
+        contagem[v["excluded_by"]] = contagem.get(v["excluded_by"], 0) + 1
+    return {
+        "excluded": len(saem),
+        # `excluded_kinds` é o nome antigo e continua a ser só os tipos, para
+        # não mudar o que já lê o payload.
+        "excluded_kinds": sorted(tipos),
+        "excluded_rarities": sorted(raridades),
+        "excluded_by": [{"criterio": c, "n": contagem[c]}
+                        for c in tipos + raridades if contagem.get(c)],
+    }
 
 
 def em_falta(con: sqlite3.Connection, escopo: dict[str, dict],
@@ -215,7 +276,7 @@ def calcular(con: sqlite3.Connection, hoje: date | None = None) -> dict:
     min_pct, min_cents = float(o["subida_minima_pct"]), int(o["preco_minimo_cents"])
     pesos = o["urgencia_pesos"]
 
-    escopo, excluidas = excluir(masterset(con, cfg), o["excluir_tipos"])
+    escopo, excluidas = excluir(masterset(con, cfg), o["excluir"])
     falta = em_falta(con, escopo, str(o["regra_falta"]))
     mercado = cardmarket.versoes(con)
 
@@ -328,11 +389,10 @@ def calcular(con: sqlite3.Connection, hoje: date | None = None) -> dict:
         "scope": {
             "printings": len(escopo),
             "sets": sorted({v["set_id"] for v in escopo.values()}),
-            # Quantas impressões o `excluir_tipos` tirou do master set, e de que
-            # tipo. A página diz o número — uma lista que encolhe sem explicação
-            # parece um erro de contagem.
-            "excluded": len(excluidas),
-            "excluded_kinds": sorted(set(o["excluir_tipos"] or ())),
+            # Quantas impressões o `excluir` tirou do master set, e por que
+            # critério. A página diz os números — uma lista que encolhe sem
+            # explicação parece um erro de contagem.
+            **resumo_fora(excluidas, o["excluir"]),
         },
         # Quantas segue (em falta, dentro do âmbito) e de quantas há com que
         # comparar. A diferença é histórico que ainda não existe.
@@ -378,7 +438,7 @@ def master_faltas(con: sqlite3.Connection, cfg: dict | None = None) -> dict:
     """
     cfg = cfg or config.load()
     o = opcoes(cfg)
-    escopo, excluidas = excluir(masterset(con, cfg), o["excluir_tipos"])
+    escopo, excluidas = excluir(masterset(con, cfg), o["excluir"])
     falta = em_falta(con, escopo, str(o["regra_falta"]))
     mercado = cardmarket.versoes(con)
     precos = {r["printing_id"]: r["price_cents"] for r in con.execute(
@@ -434,8 +494,7 @@ def master_faltas(con: sqlite3.Connection, cfg: dict | None = None) -> dict:
         "rule": str(o["regra_falta"]),
         "scope": {
             "printings": len(escopo),
-            "excluded": len(excluidas),
-            "excluded_kinds": sorted(set(o["excluir_tipos"] or ())),
+            **resumo_fora(excluidas, o["excluir"]),
         },
         "sets": sets,
     }

@@ -1,14 +1,16 @@
-"""As listas para o Cardmarket, e as signatures fora das listas de compra.
+"""As listas para o Cardmarket, e o que fica fora das listas de compra.
 
-Duas decisões do André a 2026-09-08:
+Três decisões do André a 2026-09-08:
 
   1. *"No 'a subir', estás a pôr uma carta signed — não quero."*
-  2. *"No final dá-me uma lista para o Cardmarket para eu conseguir comprar
+  2. *"No riftvault, 'a subir', tira também os showcases."*
+  3. *"No final dá-me uma lista para o Cardmarket para eu conseguir comprar
      as coisas."*
 
-O que se testa aqui: que as signatures saem das listas mas NÃO da percentagem
-de master set, que a quantidade de cada linha é o que falta (não o alvo nem o
-que ele tem), o formato das duas variantes de linha, e o CSV com cabeçalho.
+O que se testa aqui: que as signatures e os showcases saem das listas mas NÃO
+da percentagem de master set, que os dois são critérios diferentes (variante
+contra raridade), que a quantidade de cada linha é o que falta (não o alvo nem
+o que ele tem), o formato das duas variantes de linha, e o CSV com cabeçalho.
 """
 
 from __future__ import annotations
@@ -129,12 +131,111 @@ class TestSignaturesFora(Base):
         con.close()
 
     def test_lista_vazia_no_config_traz_a_signature_de_volta(self):
+        """O nome ANTIGO da lista, e a valer o que valia.
+
+        `excluir_tipos: []` é um ficheiro escrito antes de 2026-09-08: não
+        excluía raridade nenhuma, por isso a migração não lhe pode acrescentar
+        os showcases — e a signature, que é de raridade showcase, volta.
+        """
         self.com_config({"a_subir": {"excluir_tipos": []}})
         con = self.montar()
         p = self.a_subir.calcular(con, hoje=HOJE)
         self.assertEqual(sorted(i["printing_id"] for i in p["items"]),
                          ["tst-002-100", "tst-002-star-100"])
         self.assertEqual(p["scope"]["excluded"], 0)
+        con.close()
+
+
+class TestShowcasesFora(Base):
+    """André, 2026-09-08: *"no 'a subir', tira também os showcases"*.
+
+    O showcase é uma RARIDADE, não uma variante: a `tst-232-100` é a
+    reimpressão showcase com número de coleção próprio (a `SFD-232/221` do
+    catálogo real), `variant_kind = base`. Uma lista de variantes não lhe tocava
+    — é por isso que o `excluir` tem dois campos.
+    """
+
+    def montar(self):
+        con = self.v.connect()
+        self.v.add_printing(con, "tst-002-100", "TST", 2, "Sett, Brawler")
+        # A reimpressão showcase: código de carta normal, raridade showcase.
+        self.v.add_printing(con, "tst-232-100", "TST", 232, "Sett, Brawler",
+                            rarity="showcase")
+        self.v.add_printing(con, "tst-232-star-100", "TST", 232, "Sett, Brawler",
+                            variant="star", kind="signature", rarity="showcase")
+        self.v.rebuild(con)
+        for pid, p0, p1 in (("tst-002-100", 1000, 2000),
+                            ("tst-232-100", 4000, 8000),
+                            ("tst-232-star-100", 50000, 200000)):
+            self.historico(con, pid, {dia(40): p0, dia(2): p1})
+            self.preco(con, pid, p1)
+        return con
+
+    def test_a_reimpressao_showcase_nao_entra_no_a_subir(self):
+        con = self.montar()
+        p = self.a_subir.calcular(con, hoje=HOJE)
+        self.assertEqual([i["printing_id"] for i in p["items"]], ["tst-002-100"])
+        con.close()
+
+    def test_a_reimpressao_showcase_nao_entra_na_lista_do_master_set(self):
+        con = self.montar()
+        m = self.a_subir.master_faltas(con)
+        codigos = [x["printing_id"] for s in m["sets"] for x in s["items"]]
+        self.assertEqual(codigos, ["tst-002-100"])
+        con.close()
+
+    def test_a_pagina_diz_quantas_tirou_por_criterio(self):
+        """A signature é das duas coisas — conta-se uma vez, pelo tipo.
+
+        Sem isto a soma dos critérios dava 3 numa lista que tirou 2 impressões.
+        """
+        con = self.montar()
+        fora = self.a_subir.calcular(con, hoje=HOJE)["scope"]
+        self.assertEqual(fora["excluded"], 2)
+        self.assertEqual(fora["excluded_by"], [{"criterio": "signature", "n": 1},
+                                               {"criterio": "showcase", "n": 1}])
+        self.assertEqual(sum(c["n"] for c in fora["excluded_by"]), fora["excluded"])
+        self.assertEqual(fora["excluded_kinds"], ["signature"])
+        self.assertEqual(fora["excluded_rarities"], ["showcase"])
+        con.close()
+
+    def test_o_showcase_continua_a_contar_para_a_percentagem_de_set(self):
+        """O filtro é da página. A barra da Coleção não pode mexer."""
+        con = self.montar()
+        prog = self.metrics.set_payload(con, "TST")["progress"]["master"]
+        self.assertEqual(prog["total"], 3)   # base + showcase + signature
+        self.assertEqual(self.a_subir.calcular(con, hoje=HOJE)["scope"]["printings"], 1)
+        con.close()
+
+    def test_o_nome_antigo_da_lista_nao_tira_os_showcases(self):
+        """Migração: `excluir_tipos` vale o que valia — só tipos."""
+        self.com_config({"a_subir": {"excluir_tipos": ["signature"]}})
+        self.assertEqual(self.config.load()["a_subir"]["excluir"],
+                         {"tipos": ["signature"], "raridades": []})
+        con = self.montar()
+        p = self.a_subir.calcular(con, hoje=HOJE)
+        self.assertEqual(sorted(i["printing_id"] for i in p["items"]),
+                         ["tst-002-100", "tst-232-100"])
+        con.close()
+
+    def test_o_nome_novo_ganha_ao_antigo(self):
+        """Um ficheiro com os dois usa o novo — é o que lá está escrito hoje."""
+        self.com_config({"a_subir": {"excluir_tipos": [],
+                                     "excluir": {"raridades": ["showcase"]}}})
+        con = self.montar()
+        p = self.a_subir.calcular(con, hoje=HOJE)
+        # `tipos` não foi escrito: mantém o default (signature), como os pesos
+        # da urgência — mexer num campo não apaga o outro.
+        self.assertEqual([i["printing_id"] for i in p["items"]], ["tst-002-100"])
+        con.close()
+
+    def test_listas_vazias_trazem_tudo_de_volta(self):
+        self.com_config({"a_subir": {"excluir": {"tipos": [], "raridades": []}}})
+        con = self.montar()
+        p = self.a_subir.calcular(con, hoje=HOJE)
+        self.assertEqual(len(p["items"]), 3)
+        self.assertEqual(p["scope"]["excluded"], 0)
+        self.assertEqual(p["scope"]["excluded_by"], [])
         con.close()
 
 

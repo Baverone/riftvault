@@ -114,7 +114,8 @@ Terceira secção, com seis abas:
 - **Master set** — a lista **completa** do que falta à coleção, não só o que
   está a subir: para comprares tudo de uma vez se te apetecer. Mesmo âmbito e
   mesma regra da aba anterior (conta enquanto *cópias + a caminho < alvo*), sem
-  o filtro de subida e sem as signatures. Por **edição e número de coleção**,
+  o filtro de subida e sem as signatures nem os showcases. Por **edição e
+  número de coleção**,
   que é a ordem do binder. Filtro por edição, e os mesmos três botões de lista
   para o Cardmarket.
 - **A caminho** — o que já compraste e ainda não chegou. Não conta na Coleção
@@ -132,9 +133,14 @@ Terceira secção, com seis abas:
   hoje, o Δ da janela e o Δ de 7 dias, com links para o CardTrader e para a
   RiftScribe. Há um filtro rápido por raridade.
 
-  **As signatures não entram** (`a_subir.excluir_tipos`, decisão tua a
-  2026-09-08). Continuam a contar na percentagem de set completo da Coleção —
-  o que muda é só esta página e as listas de compra que saem dela.
+  **As signatures e os showcases não entram** (`a_subir.excluir`, decisões tuas
+  a 2026-09-08: *"estás a pôr uma carta signed — não quero"* e *"tira também os
+  showcases"*). São dois critérios porque são duas coisas: a signature é uma
+  **variante** (o `*` do código) e o showcase é uma **raridade** — as 42 que
+  saem daqui são reimpressões com número de coleção normal, como a
+  `SFD-232/221`. A nota por baixo do resumo diz quantas saíram por cada
+  critério. Continuam todas a contar na percentagem de set completo da
+  Coleção — o que muda é só esta página e as listas de compra que saem dela.
 
   No fim há os três botões das **listas para o Cardmarket** (ver abaixo).
 
@@ -274,7 +280,7 @@ tira-as *também* do denominador da percentagem (1068 → 1032 impressões) —
 sair da sequência e sair da conta são a mesma pergunta. Hoje está **desligado**,
 à espera de decisão: elas continuam a contar para o set estar completo. Nas
 *listas de compra* já não aparecem desde 2026-09-08, mas isso é outro ajuste
-(`a_subir.excluir_tipos`).
+(`a_subir.excluir`).
 
 O nome antigo desta lista era `master_ignorar_variantes`; um config que ainda
 o traga continua a funcionar.

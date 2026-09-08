@@ -412,7 +412,7 @@ o `metrics.BLOCOS` passou a ter um bloco com rótulo por variante, para nada
 cair no genérico «outras»; os vazios não aparecem, por isso hoje continuam a
 ver-se três. Fica desligado porque **é decisão dele e ele não a tomou**: nomeou
 os `-T` e os `a`, não estas. Medido: ligar baixa o denominador de **1068 para
-1032**. Não confundir com o `a_subir.excluir_tipos`, que já as tira das listas
+1032**. Não confundir com o `a_subir.excluir`, que já as tira das listas
 de compra sem lhes mexer na percentagem.
 
 ## Secção «Venda» (2026-09-08)
@@ -646,17 +646,72 @@ rede para experimentar. Os dois formatos (`cardtrader.com/cards/<blueprint_id>`
 e `riftscribe.gg/cards/<printing_id>`) são presunção, e estão em
 `a_subir.DEFAULTS` para se corrigirem numa linha se abrirem em 404.
 
+### Showcases fora das listas de compra (2026-09-08)
+
+*"No riftvault, 'a subir', tira também os showcases."* Segunda exclusão do
+mesmo dia, e a que obrigou a config a mudar de forma.
+
+**O showcase NÃO é um `variant_kind`, é uma `rarity`.** As 42 que saem têm
+todas `variant_kind = base`: são as reimpressões showcase com número de coleção
+próprio da ARMADILHA 2 (`SFD-232/221`, `OGN-299/298`). O `excluir_tipos`, que
+só lia variantes, não lhes tocava — por isso passou a haver dois campos:
+
+```json
+"a_subir": { "excluir": { "tipos": ["signature"], "raridades": ["showcase"] } }
+```
+
+`excluir_tipos` é o nome antigo e continua a ser lido, **a valer o que valia**:
+`config._migrar_a_subir` traduz para `{"tipos": [...], "raridades": []}`, com as
+raridades vazias de propósito — um ficheiro escrito antes de hoje não excluía
+raridade nenhuma e não é a migração que lhe muda a resposta. Um ficheiro com os
+dois nomes usa o novo. Como nos pesos da urgência, escrever só um dos campos não
+apaga o outro.
+
+**A página diz quantas tirou POR CRITÉRIO**, e cada impressão conta uma vez só,
+pelo primeiro que lhe bate (tipos antes de raridades). É preciso escolher:
+**as 36 signatures também têm raridade `showcase`**, e contá-las nas duas dava
+uma soma maior que o total. Hoje lê-se «78 impressões (36 signature + 42
+showcase)». O `a_subir.resumo_fora` é quem faz esta conta, e o `foraTexto` do
+`app.js` escreve o mesmo texto nas duas abas.
+
+**Medido a 2026-09-08:** «A subir» passou de 53 para **49 cartas**, de 122 para
+114 cópias e de 3405,14 € para **2858,02 €**. As quatro que saíram são todas do
+SFD: `SFD-228` Bard (55,64 € ×3), `SFD-232` Sett (69,64 € ×3), `SFD-242`
+Glorious Executioner (85,64 €) e `SFD-243` Void Burrower (85,64 €). O chip de
+raridade «showcase» desapareceu da barra de filtros. A lista do «Master set»
+passou de 686 para **647 impressões**, de 1411 para 1337 cópias e de 29 440,08 €
+para **21 056,34 €** — e ficou sem nenhuma impressão sem preço.
+
+**Não mexe na métrica**, como as signatures: `metrics.e_master` não sabe desta
+lista e os 42 showcases continuam no denominador da percentagem de set completo
+(1068). O âmbito das listas de compra é que baixou de 1032 para **990**.
+
+**A LEITURA QUE FICA POR CONFIRMAR — «showcase» pode querer dizer outra coisa.**
+Só o OGN (12) e o SFD (30) têm impressões de raridade `showcase`; as
+reimpressões de topo do UNL e do VEN têm raridade de jogo (`rare`, `common`) e
+**ficam na lista**. São 48 das 647 do master set, mas valem **18 342,81 € dos
+21 056,34 €** — `UNL-221` Lonely Poro a 245,64 €, `VEN-184` Leona a 90,64 €,
+`UNL-228` Bloodharbor Ripper a 133,58 €. Se o que ele quis dizer foi *"as
+reimpressões caras de topo de set"* e não *"a raridade showcase"*, o filtro
+certo é o `collector_number > tamanho nominal da edição` (a classe das 128 já
+descrita em «Impressões vetadas no Pimp»), não a raridade. **É pergunta para
+ele**; implementou-se o que ele disse à letra.
+
 ### Signatures fora das listas de compra (2026-09-08)
 
 "No 'a subir', estás a pôr uma carta signed — não quero." Eram quatro, e valiam
 **8 729,69 € dos 12 134,83 €** da lista: `SFD-224*` Aphelios (2000,64 €),
 `UNL-234*` Scorn of the Moon (3198,76 €), `OGN-308*` Herald of the Arcane
 (1850,64 €) e `OGN-305*` Unforgiven (1679,65 €). A lista passou de 57 para
-**53 cartas** e de 12 134,83 € para **3 405,14 €**.
+**53 cartas** e de 12 134,83 € para **3 405,14 €**. (Nesse mesmo dia os
+showcases levaram-na de 53 para 49 e de 3405,14 € para 2858,02 € — secção
+acima.)
 
-`a_subir.excluir_tipos`, default `["signature"]`, aplicado por
+`a_subir.excluir.tipos`, default `["signature"]`, aplicado por
 `a_subir.excluir()` logo a seguir ao `masterset()`. Aceita qualquer
-`variant_kind`. **Não mexe na métrica**: as 36 signatures continuam no
+`variant_kind`. (A chave chamava-se `excluir_tipos` até nesse mesmo dia os
+showcases se lhe juntarem — ver a secção acima.)
+**Não mexe na métrica**: as 36 signatures continuam no
 denominador da percentagem de set completo (`metrics.e_master` diz que sim) —
 o que mudou é a página, e a página diz quantas tirou (`scope.excluded`).
 Não confundir com o `master_set.fora`, que tira mesmo do master set.
@@ -721,6 +776,11 @@ impressões, 1411 cópias, 29 440,08 €**, uma sem oferta no CardTrader (entra 
 lista, não entra no total). Por edição: OGN 252, VEN 170, SFD 145, UNL 105,
 OGS 14. (Antes dessa decisão eram 695 / 1420 / 29 441,06 €, com UNL 113 e
 VEN 171 — a diferença são os 10 tokens.)
+
+**E depois de os showcases saírem das listas de compra**, no mesmo dia: **647
+impressões, 1337 cópias, 21 056,34 €**, nenhuma sem oferta no CardTrader. Por
+edição: OGN 241, VEN 170, SFD 117, UNL 105, OGS 14 — só o OGN e o SFD mexem,
+que são as duas edições com raridade `showcase`.
 
 **Sem imagens de propósito.** São centenas de linhas e o `faltas.json` é
 descarregado inteiro a cada visita. Mesmo assim o ficheiro passou de **89 KB

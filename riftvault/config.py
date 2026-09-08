@@ -69,6 +69,7 @@ def load() -> dict:
         # As chaves "_..." são notas para humanos; não são configuração.
         cfg.update({k: v for k, v in raw.items() if not k.startswith("_")})
         _migrar_master_set(raw, cfg)
+        _migrar_a_subir(raw, cfg)
     return cfg
 
 
@@ -84,6 +85,25 @@ def _migrar_master_set(raw: dict, cfg: dict) -> None:
     if antigo is None or (raw.get("master_set") or {}).get("fora") is not None:
         return
     cfg["master_set"] = {**(cfg.get("master_set") or {}), "fora": list(antigo)}
+
+
+def _migrar_a_subir(raw: dict, cfg: dict) -> None:
+    """`a_subir.excluir_tipos` era o nome antigo do `a_subir.excluir.tipos`.
+
+    Passou a haver dois critérios a 2026-09-08, quando o André mandou tirar
+    também os showcases: a signature é uma VARIANTE e o showcase é uma
+    RARIDADE, e uma lista só não dizia as duas coisas.
+
+    Um ficheiro escrito antes disso continua a mandar, **e a valer exatamente o
+    que valia**: `raridades` fica vazia de propósito, porque o ficheiro antigo
+    não excluía raridade nenhuma. Quem quiser os showcases fora escreve a chave
+    nova. Se o ficheiro trouxer as duas, a nova ganha.
+    """
+    bruto = raw.get("a_subir") or {}
+    antigo = bruto.get("excluir_tipos")
+    if antigo is None or bruto.get("excluir") is not None:
+        return
+    cfg["a_subir"] = {**bruto, "excluir": {"tipos": list(antigo), "raridades": []}}
 
 
 def reload() -> dict:
