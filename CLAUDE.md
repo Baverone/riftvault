@@ -298,6 +298,10 @@ Se um dia isto mudar: acrescentar `finish TEXT NOT NULL DEFAULT 'normal'` a
 
 ## Artes alternativas fora do master set
 
+**REVOGADO a 2026-09-08, à tarde:** voltaram para dentro da percentagem, com
+alvo 1, no bloco próprio delas — ver "A Coleção em três blocos". O que se segue
+é história.
+
 `master_targets_by_variant.alt_art = 0` (André, 2026-09-02). A percentagem de
 set completo passa a medir só a impressão base e as signatures; as artes
 alternativas continuam na grelha, contam para o playset jogável e para o
@@ -324,7 +328,92 @@ percentagem é recalculada no cliente, por isso não bastava mudar o servidor.
 (O campo chamava-se `counts` até 2026-09-08; passou a ser o bloco da grelha,
 porque é a mesma pergunta.)
 
+## A Coleção em três blocos: playset, 1 runa especial, 1 alt art (2026-09-08)
+
+Palavras dele, **na mesma tarde e depois da secção a seguir**: *"Para o
+riftvault faz: master set playset todo seguido; 1 runa especial de cada para
+cada set; no fim 1 alt art de cada."*
+
+Isto **revoga em parte** a decisão de manhã: as artes alternativas voltaram
+para dentro da percentagem — continuam a ser a cauda da grelha, mas com alvo
+**1**, e a contar. Os tokens `-T` continuam fora.
+
+| # | bloco | o que é | alvo por impressão |
+|---|---|---|---|
+| 1 | `master` | a sequência do master set, por número de coleção | **playset do tipo** (Unit/Spell/Gear 3, Rune 12, Legend e Battlefield 1) |
+| 2 | `rune_special` | as runas especiais, por edição | **1** |
+| 3 | `alt_art` | as artes alternativas | **1** |
+| — | `token` | os `-T` | 1 no tile, **fora** da percentagem |
+
+**«Runa especial» = impressão de runa que não é a base** (`runas_especiais`:
+`{"tipos": ["Rune"], "excepto": ["base"], "alvo": 1}`). A runa BASE fica no
+bloco 1 e continua a pedir 12 — é a que se joga. São **6 no OGN** (as artes
+alternativas `OGN-007a`..`214a`) e **6 no VEN** (as promo `VEN-R01`..`R06`).
+No SFD e no UNL dão zero: é o BURACO NO CATÁLOGO (a RiftScribe não tem runas
+nessas edições; as do CardTrader vivem no `market_only`, fora das métricas).
+Assim que ela as tiver, entram sozinhas — o critério é por tipo e variante.
+
+**A runa especial ganha à arte alternativa.** A alt art de uma runa é as duas
+coisas; ele nomeou-a como runa, por isso vai para o bloco 2.
+
+**Três funções, uma pergunta cada:** `metrics.e_master` (conta?),
+`metrics.bloco` (em que bloco?), `metrics.conta_bloco` (este bloco entra na
+percentagem?). O payload leva `block`, `counts` e `short` por bloco; o
+`renderProgress` recalcula no cliente, como sempre.
+
+**O que mudou nos números** (medido a 2026-09-08 contra o `data/` real):
+
+| | antes | depois |
+|---|---|---|
+| denominador da percentagem | 1068 | **1170** |
+| percentagem global | 445/1068 = 41,7% | **472/1170 = 40,3%** |
+| OGN / OGS / SFD / UNL / VEN | 322 / 24 / 263 / 250 / 209 | **352 / 24 / 287 / 280 / 227** |
+| soma dos alvos das alt arts | 360 (playset) | **96** (1 de cada) |
+| lista do «Master set» | 546 impressões, 1103 cópias, 21 121,86 € | **620, 1177, 21 574,21 €** |
+| «A subir» | 42 cartas, 93 cópias, 2 908,41 € | **57, 108, 2 951,57 €** |
+| «Venda» | 26 impressões, 31 cópias, 118,30 € | **2, 6, 4,10 €** |
+
+A percentagem desce 1,4 pontos porque o denominador cresce 102 e o numerador
+só 27 — das 108 impressões que entraram ele já tem 27 completas.
+`api/faltas.json` passou de 234 KB para 269 KB.
+
+**`master_variantes_playset` ficou a `[]`** — revoga o playset das alt arts de
+2026-09-05. ALVO e CONTA continuam a ser campos diferentes; o que mudou é que
+agora dizem os dois a mesma coisa nas alt arts.
+
+### A Venda passou a ser o EXCEDENTE
+
+Com as alt arts dentro da coleção, a Venda esvaziava-se. A frase dele resolve a
+tensão que o CLAUDE.md já tinha anotada: se «1 alt art de cada» é coleção, a
+sexta é venda. `venda.listar` passou a `sobra = qty - max(usadas, alvo)` nos
+blocos que contam, e mantém `qty - usadas` nos tokens, que estão fora da
+coleção. O âmbito é agora "não é o bloco `master`" em vez de "não é master
+set" — a sequência nunca entra na venda, por muitas cópias que ele tenha.
+
+Ficam hoje `UNL-059a` Master Yi ×1 (tem 2, alvo 1) e `SFD-T03` Gold ×5.
+
+### As exclusões do «A subir» valem só na SEQUÊNCIA (`so_no_master`)
+
+**Extensão minha, por confirmar com ele.** De manhã ele mandou tirar das listas
+de compra as signatures e os showcases; o `showcase` é uma RARIDADE e as 42 que
+saíam eram todas `variant_kind = base`, porque as alt arts nem estavam no
+âmbito. À tarde elas voltaram — e **54 das 102 têm raridade `showcase`**.
+Deixar a exclusão global apagava em silêncio a decisão nova.
+
+`a_subir.excluir.so_no_master: true` (default) limita as duas exclusões ao
+bloco `master`. As contas não mexeram: continuam **78 (36 signature + 42
+showcase)**, as mesmas de antes. `false` volta ao global, e aí saem também 54
+alt arts e 3 runas.
+
+Fica de pé a pergunta que já estava anotada: quando ele disse «tira também os
+showcases», falava da raridade ou das reimpressões caras de topo de set?
+
 ## A Coleção é o master set: os `-T` e os `a` vão para o fim (2026-09-08)
+
+**REVOGADO EM PARTE na mesma tarde** — as artes alternativas voltaram para
+dentro da percentagem, com alvo 1. Ver a secção acima. O que se segue é a
+decisão de manhã, e continua a valer para os tokens.
+
 
 Palavras dele: *"As cartas que forem 'sigla-T' ou 'a' no fim (de arte
 alternativa) não as quero na sequência do master set; quero-as ordenadas depois
@@ -482,6 +571,9 @@ ele só falou desta. Se um dia pedir, a regra existe e é `collector_number >
 tamanho do set`.
 
 ### Alt arts com contagem de playset (2026-09-05)
+
+**REVOGADO a 2026-09-08, à tarde:** *"no fim 1 alt art de cada"*. O alvo voltou
+a 1 e o `master_variantes_playset` ficou vazio. O que se segue é história.
 
 O alvo fixo de 1 não chegava: "para as Alt Art tbm quero a contagem de playset,
 elas contam na ordenação, contam para os decks, mas não contam para a % de
@@ -1083,6 +1175,9 @@ oficiais**. Se estiver errado, é uma linha no config.
 - **Feito também:** a Coleção em blocos (master set primeiro, `-T` e `a`
   depois), com uma só `metrics.e_master`, e a secção "Venda" com o
   `riftvault venda`.
+- **Feito também:** a Coleção em três blocos — master set em playset, 1 runa
+  especial de cada por edição, 1 arte alternativa de cada — com percentagem
+  global e por bloco, e a Venda a mostrar só o excedente.
 - **Por fazer:** vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck,
   com as partilhadas assinaladas); e apagar decks pela interface (hoje apaga-se
   o `.txt`).

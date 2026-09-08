@@ -193,15 +193,26 @@ main { padding: 12px; max-width: 1500px; margin: 0 auto; }
   font-size: 11px; font-weight: 400; color: var(--dim); text-transform: none;
 }
 
-/* Os blocos que ficam DEPOIS da sequência do master set — os tokens e as artes
-   alternativas (André, 2026-09-08). Separador grosso, para se ver de longe que
-   a sequência acabou e o que vem a seguir é outra coisa. */
+/* Os blocos que ficam DEPOIS da sequência do master set (André, 2026-09-08).
+   Separador grosso, para se ver de longe que a sequência acabou e o que vem a
+   seguir é outra coisa.
+
+   `.cauda` é a cauda da COLEÇÃO — as runas especiais e as artes alternativas,
+   1 de cada, que contam para a percentagem. `.fora` é o que não conta (os
+   tokens): mesmo separador, mas apagado, porque é informação e não meta. */
+.section-head.cauda,
 .section-head.fora {
   margin-top: 26px; padding-top: 14px;
   border-top: 2px solid var(--line);
-  text-transform: none; color: var(--dim);
+  text-transform: none;
 }
+.section-head.cauda { border-top-color: var(--accent-2); }
+.section-head.fora { color: var(--dim); }
 .section-head.fora b { color: var(--text); }
+
+/* Os chips da percentagem por bloco, debaixo da barra do master set. */
+.rarities.blocos { margin-top: 6px; }
+.rarity.is-out { opacity: .55; }
 
 .chip-b.is-static { cursor: default; }
 

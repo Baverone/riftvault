@@ -13,11 +13,12 @@ passou a ser só *o que é que me está a fugir de preço antes de eu o comprar*
     O "masterset" não é uma edição: no riftvault é a **métrica 2**, o alvo por
     IMPRESSÃO (ver `metrics.master_target` / `metrics.e_master`). O âmbito desta
     aba são exatamente as impressões que entram na percentagem de set completo
-    da Coleção, nas cinco edições. Fica de fora o mesmo que já ficava fora
-    dela: as artes alternativas e os tokens (`master_ignorar_variantes`, ver
-    `metrics.e_master`) e tudo o que tenha alvo 0. Assim a página mede a mesma
-    coisa que as barras de progresso — seguir cartas que não contam para o
-    master set seria seguir outra coisa.
+    da Coleção, nas cinco edições. Desde a segunda decisão de 2026-09-08 são os
+    três blocos dela — a sequência do master set em playset, as runas especiais
+    a 1 e as artes alternativas a 1 — e fica de fora o mesmo que fica fora da
+    percentagem: os tokens (`master_set.fora`) e tudo o que tenha alvo 0. Assim
+    a página mede a mesma coisa que as barras de progresso — seguir cartas que
+    não contam para a coleção seria seguir outra coisa.
 
 O QUE É "AINDA NÃO TENHO"
     A regra do master set, que é a mesma do filtro **Faltas** da grelha: a
@@ -47,6 +48,12 @@ AS SIGNATURES E OS SHOWCASES FICAM DE FORA (André, 2026-09-08)
     `a_subir.excluir: {"tipos": ["signature"], "raridades": ["showcase"]}`.
     O `excluir_tipos` é o nome antigo e continua a ser lido (traduzido em
     `config._migrar_a_subir`, para haver uma leitura só do config).
+
+    **As duas exclusões valem só na SEQUÊNCIA do master set** (`so_no_master`,
+    ligado — ver `excluir`). Foram decididas de manhã, quando as artes
+    alternativas estavam fora da coleção; à tarde ele pediu-as de volta, 1 de
+    cada, e 54 das 102 têm raridade `showcase`. Deixá-las cair na exclusão
+    apagava em silêncio a decisão nova.
 
     Isto é filtro DESTA página, não da métrica: o `metrics.e_master` não
     mexeu, por isso a percentagem de set completo da Coleção continua a contar
@@ -86,7 +93,10 @@ DEFAULTS: dict = {
     # porque são duas perguntas: `tipos` é o `variant_kind` (o sufixo do código)
     # e `raridades` é a `rarity` da impressão — o showcase é raridade, não
     # variante. Não mexe na percentagem de master set, que continua a contá-las.
-    "excluir": {"tipos": ["signature"], "raridades": ["showcase"]},
+    # O `so_no_master` limita as duas exclusões à SEQUÊNCIA do master set — ver
+    # `excluir()`.
+    "excluir": {"tipos": ["signature"], "raridades": ["showcase"],
+                "so_no_master": True},
     "urgencia": False,
     "urgencia_pesos": {"janela": 0.5, "curto": 1.0, "preco_relativo": 10.0},
     # NÃO VALIDADOS: nem a API da RiftScribe nem a do CardTrader dão o endereço
@@ -121,11 +131,13 @@ def opcoes(cfg: dict | None = None) -> dict:
 
 
 def masterset(con: sqlite3.Connection, cfg: dict | None = None) -> dict[str, dict]:
-    """printing_id -> impressão, para as que contam para o master set.
+    """printing_id -> impressão, para as que contam para a coleção.
 
     O mesmo critério de `metrics.set_payload`, pela mesma função: alvo > 0 e
-    `metrics.e_master`. Desde 2026-09-08 isso deixa de fora as artes
-    alternativas E os tokens — o que está fora do master set não se compra.
+    `metrics.e_master`. Desde 2026-09-08 isso são os TRÊS blocos da Coleção —
+    a sequência do master set em playset, as runas especiais a 1 e as artes
+    alternativas a 1 — e deixa de fora os tokens. Cada impressão leva o `block`
+    a que pertence, porque o `excluir()` a seguir pergunta por ele.
     """
     cfg = cfg or config.load()
     out: dict[str, dict] = {}
@@ -139,7 +151,8 @@ def masterset(con: sqlite3.Connection, cfg: dict | None = None) -> dict[str, dic
                                      bool(r["is_token"]), cfg)
         if alvo <= 0 or not metrics.e_master(r, cfg):
             continue
-        out[r["printing_id"]] = {**dict(r), "target": alvo}
+        out[r["printing_id"]] = {**dict(r), "target": alvo,
+                                 "block": metrics.bloco(r, cfg)}
     return out
 
 
@@ -161,6 +174,16 @@ def excluir(escopo: dict[str, dict], fora) -> tuple[dict[str, dict], dict[str, d
     código) e o `showcase` é uma raridade — as 42 reimpressões showcase são
     `variant_kind = base` e nenhuma lista de variantes lhes tocava.
 
+    **Só se aplicam à SEQUÊNCIA do master set** (`so_no_master`, ligado). As
+    duas exclusões são de 2026-09-08 de manhã, quando as artes alternativas
+    ainda estavam fora da coleção e as 42 que saíam eram todas reimpressões
+    `variant_kind = base`. Na mesma tarde ele pediu-as de volta a 1 de cada —
+    e 54 das 102 alt arts têm raridade `showcase`, por isso deixá-las cair
+    aqui apagaria em silêncio a decisão nova. Os blocos das runas especiais e
+    das artes alternativas são "1 de cada" e entram inteiros nas listas de
+    compra. Põe-se `so_no_master: false` para as exclusões voltarem a valer em
+    toda a coleção.
+
     Devolve as duas metades porque quem mostra tem de dizer quantas tirou: uma
     lista que encolhe sem explicação parece um erro de contagem. Cada impressão
     que sai leva o `excluded_by` — o PRIMEIRO critério que lhe bateu, tipos
@@ -168,9 +191,12 @@ def excluir(escopo: dict[str, dict], fora) -> tuple[dict[str, dict], dict[str, d
     raridade `showcase`, e contá-las nos dois dava uma soma maior que o total.
     """
     tipos, raridades = criterios(fora)
+    so_master = bool((fora or {}).get("so_no_master", True))
     ficam, saem = {}, {}
     for pid, v in escopo.items():
-        if v["variant_kind"] in tipos:
+        if so_master and v.get("block", metrics.BLOCO_MASTER) != metrics.BLOCO_MASTER:
+            ficam[pid] = v
+        elif v["variant_kind"] in tipos:
             saem[pid] = {**v, "excluded_by": v["variant_kind"]}
         elif (v["rarity"] or "") in raridades:
             saem[pid] = {**v, "excluded_by": v["rarity"]}

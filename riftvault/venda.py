@@ -1,14 +1,24 @@
-"""«Venda»: o que ele TEM e está fora do master set.
+"""«Venda»: o que ele TEM e a sequência do master set não pede.
 
 Palavras do André (2026-09-08): *"A Coleção é de master set. O resto
 provavelmente vai para venda ou jogar nos decks seleccionados."*
 
-Esta secção responde à segunda metade da frase. Pega no que ficou fora do
-master set (`metrics.e_master` — os `-T` e os `a`) e que ele tem na caixa, e
-parte em duas:
+Esta secção responde à segunda metade da frase. Pega no que ele tem e não
+pertence à SEQUÊNCIA do master set (`metrics.bloco` != `master`) e parte em
+duas:
 
   USADA NUM DECK   — a cópia está alocada a um deck da secção Decks. Fica.
   CANDIDATA A VENDA — nenhum deck a usa. É o que sobra.
+
+O QUE A COLEÇÃO AINDA PEDE NÃO ENTRA (2026-09-08, tarde)
+    Os blocos das runas especiais e das artes alternativas voltaram a contar,
+    com alvo **1 de cada** — *"1 runa especial de cada para cada set; no fim 1
+    alt art de cada"*. Por isso a venda passou a ser só o EXCEDENTE: uma alt
+    art que ele tem uma vez é coleção, a sexta é venda. Os tokens, que
+    continuam fora da coleção, sobram inteiros como antes.
+
+    Era exatamente a tensão que estava anotada no CLAUDE.md ("a lista mostra a
+    impressão inteira, não só o que passa do alvo"); a frase dele decidiu-a.
 
 **Nada sai da base.** Isto é uma sugestão, não uma operação: não há botão de
 vender, não se mexe no `copies` nem no `ops`. Ele copia a lista e decide.
@@ -60,11 +70,21 @@ def listar(con: sqlite3.Connection, cfg: dict | None = None) -> dict:
         "FROM copies c JOIN catalog.printings p ON p.printing_id = c.printing_id "
         "WHERE c.qty > 0 ORDER BY p.set_id, p.api_sort"
     ):
-        if metrics.e_master(r, cfg):
+        bloco = metrics.bloco(r, cfg)
+        if bloco == metrics.BLOCO_MASTER:
             continue
         nos_decks = alocacao.get(r["printing_id"], [])
         usadas = sum(d["qty"] for d in nos_decks)
-        sobra = r["qty"] - usadas
+        # O que a coleção ainda pede fica: nos blocos que contam (runas
+        # especiais e artes alternativas, 1 de cada desde 2026-09-08) só sobra
+        # o que passa do alvo. Nos que não contam — os tokens — sobra tudo o
+        # que os decks não usam, como antes. Era a tensão que o CLAUDE.md tinha
+        # anotada, e a frase dele ("1 alt art de cada") resolveu-a: uma alt art
+        # que ele tem uma vez é coleção, a sexta é venda.
+        alvo = (metrics.master_target(r["printing_id"], r["variant_kind"], r["type"],
+                                      bool(r["is_token"]), cfg)
+                if metrics.conta_bloco(bloco, cfg) else 0)
+        sobra = r["qty"] - max(usadas, alvo)
         preco = precos.get(r["printing_id"])
         mkt = mercado.get(r["printing_id"]) or {}
         itens.append({
@@ -72,7 +92,8 @@ def listar(con: sqlite3.Connection, cfg: dict | None = None) -> dict:
             "name": r["name"], "code": r["public_code"],
             "set": r["set_id"], "set_name": config.set_name(r["set_id"]),
             "cn": r["collector_number"],
-            "block": metrics.bloco(r, cfg),
+            "block": bloco,
+            "target": alvo,
             "kind": r["variant_kind"], "label": r["variant_label"],
             "rarity": r["base_rarity"] or "?",
             "landscape": (r["orientation"] or "").lower() == "landscape",
@@ -101,7 +122,7 @@ def listar(con: sqlite3.Connection, cfg: dict | None = None) -> dict:
     blocos: dict[str, dict] = {}
     for x in venda:
         b = blocos.setdefault(x["block"], {"id": x["block"],
-                                           "label": metrics.BLOCO_LABEL.get(x["block"]),
+                                           "label": metrics.rotulo(x["block"], cfg),
                                            "printings": 0, "copies": 0, "cents": 0})
         b["printings"] += 1
         b["copies"] += x["qty"]
