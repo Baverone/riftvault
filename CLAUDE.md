@@ -992,11 +992,43 @@ do `app.js` foi comparado linha a linha com o Python nos três níveis.
 O «A subir», a Venda e a aba «Master set» **não mudaram**: ele falou da contagem
 e das wantlists da Coleção.
 
-**POR MEDIR contra o `data/` real.** Esta corrida não teve acesso às bases de
-dados dele (nem por caminho, nem por cópia, nem pelo `serve` — ver o relatório
-em `work/revisao/riftvault-niveis.md`), por isso, ao contrário das outras
-secções, **não há aqui a tabela de hoje**. A conta está fixada em testes com um
-catálogo de brincar; os números reais tiram-se com `riftvault stats`.
+### Os números de hoje
+
+Medido a 2026-09-08 contra o `data/` real (`riftvault stats`):
+
+| | 1 de cada | 2 de cada | playset |
+|---|---|---|---|
+| OGN | 243/352 = 69,0 % · faltam 109 · 28 139,40 € | 179/352 = 50,9 % · faltam 219 · 28 568,76 € | 125/352 = 35,5 % · faltam 383 · 29 024,12 € |
+| OGS | 23/24 = 95,8 % · faltam 1 · 5,92 € | 23/24 = 95,8 % · faltam 1 · 5,92 € | 10/24 = 41,7 % · faltam 14 · 19,31 € |
+| SFD | 209/287 = 72,8 % · faltam 78 · 18 701,81 € | 190/287 = 66,2 % · faltam 134 · 21 090,39 € | 151/287 = 52,6 % · faltam 229 · 23 519,73 € |
+| UNL | 212/280 = 75,7 % · faltam 68 · 13 556,50 € | 193/280 = 68,9 % · faltam 99 · 17 008,58 € | 151/280 = 53,9 % · faltam 172 · 20 507,33 € |
+| VEN | 63/227 = 27,8 % · faltam 164 · 3 985,81 € | 51/227 = 22,5 % · faltam 294 · 6 154,17 € | 41/227 = 18,1 % · faltam 434 · 8 327,08 € |
+| **total** | **750/1170 = 64,1 % · faltam 420 · 64 389,44 €** | **636/1170 = 54,4 % · faltam 747 · 72 827,82 €** | **478/1170 = 40,9 % · faltam 1232 · 81 397,57 €** |
+
+O último nível é a barra do master set, como tem de ser: **478/1170 = 40,9 %**.
+O OGS é o caso que se lê de relance — 95,8 % com uma de cada e 41,7 % em
+playset: falta-lhe **uma** carta, mas faltam-lhe as segundas e terceiras cópias
+de quase tudo.
+
+**Os euros do nível 3 (81 397,57 €) NÃO são os da wantlist (21 567,33 €)**, e é
+de propósito: a contagem é a métrica — conta as 36 signatures e os 42 showcases
+(que valem quase tudo isto) e não desconta o que vem a caminho —, a wantlist é
+lista de compra e tira-lhes as duas coisas.
+
+Wantlists por nível, hoje (`riftvault wantlist --cardmarket --nivel N`):
+
+| degrau | linhas | cópias | € | só foil |
+|---|---|---|---|---|
+| até 1 de cada | 344 | 344 | 8 983,34 € | 211 |
+| até 2 de cada | 456 | 652 | 15 222,29 € | 269 |
+| playset (omissão) | 614 | 1118 | 21 567,33 € | 307 |
+
+A linha do playset é **exactamente** a de antes desta ordem — a lista por
+omissão não mexeu.
+
+**Custo em disco:** `api/index.json` passou de 572 para **1922 bytes** (é onde
+vive a contagem das cinco edições), `api/set/OGN.json` cresceu **227 bytes** e o
+`api/faltas.json` **13**.
 
 ## Listas para o Cardmarket (2026-09-08)
 
@@ -1370,8 +1402,7 @@ oficiais**. Se estiver errado, é uma linha no config.
   cabeçalho, e o `riftvault wantlist --edicao X`.
 - **Feito também:** a contagem por níveis do master set — 1 de cada, 2 de cada,
   o playset —, global e por edição, com o degrau também nas wantlists da
-  Coleção e a tabela no `riftvault stats`. **Os números de hoje ficaram por
-  medir**: esta corrida não teve acesso ao `data/` real.
+  Coleção e a tabela no `riftvault stats`.
 - **Por fazer:** vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck,
   com as partilhadas assinaladas); e apagar decks pela interface (hoje apaga-se
   o `.txt`).
