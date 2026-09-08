@@ -113,15 +113,32 @@ Terceira secção, com cinco abas:
   não comprares duas vezes. Quando chegar, carrega em **Chegou** na carta (ou em "Chegou tudo") e ela
   passa para a Coleção. Também dá pela linha de comandos:
   `py -m riftvault pending --chegou [ID]`.
-- **A subir** — **todo o Riftbound**, não só a tua coleção: impressões que
-  subiram mais de 15% nos últimos 30 dias. As que já tens ficam com moldura
-  verde, as que te faltam com moldura vermelha e o que custou esperar. Serve
-  para apanhar cartas a valorizar antes de entrarem num deck teu. O GitHub
-  Actions atualiza os preços sozinho todos os dias.
+- **A subir** — do **master set**, só o que **ainda não tens** e subiu 10% ou
+  mais nos últimos 30 dias. Assim que compras a carta ela sai daqui: isto é
+  uma lista de vigia de compras, não um índice de mercado.
 
-**As runas não entram nesta secção** — são baratas e compram-se a granel, e a
-12 por deck enchiam os staples. Continuam a contar na secção Decks e na
-Coleção. O que fica de fora está em `faltas_ignorar_tipos`, no config.
+  Duas abas sobre a mesma lista: **por %** (o que está a disparar) e **por
+  valor** (o que te vai custar caro se esperares). Cada linha leva a arte
+  pequena, o nome, a edição e o número, a raridade, o preço de então, o de
+  hoje, o Δ da janela e o Δ de 7 dias, com links para o CardTrader e para a
+  RiftScribe. Há um filtro rápido por raridade.
+
+  O histórico só grava quando o preço **muda**, por isso o preço "de há 30
+  dias" é o que estava em vigor nessa data, mesmo que o registo seja mais
+  antigo. Enquanto o `prices.db` não tiver 30 dias, a comparação é *desde* a
+  data mais antiga que houver e a linha diz isso — nunca finge a janela toda.
+  O GitHub Actions atualiza os preços sozinho todos os dias.
+
+  A janela, o limiar e a regra de "ainda não tenho" mexem-se em `a_subir`, no
+  `riftvault_config.json`. Há ainda uma coluna de **urgência**, desligada de
+  propósito (`a_subir.urgencia: false`) — é uma proposta de fórmula à espera
+  de veredito, não uma decisão.
+
+**As runas não entram nas abas dos decks** (Staples, Por deck e as wantlists)
+— são baratas e compram-se a granel, e a 12 por deck enchiam os staples.
+Continuam a contar na secção Decks, na Coleção e na aba **A subir**, que mede
+o master set e não os decks. O que fica de fora está em
+`faltas_ignorar_tipos`, no config.
 
 **Nunca se compra mais do que um playset da mesma carta.** Cinco decks a pedir
 3 Defy não são 15 Defy — são 3, e trocam-se entre decks. O teto é o alvo de

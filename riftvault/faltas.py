@@ -5,10 +5,8 @@ Cinco vistas da mesma pergunta:
   STAPLES    — cartas que faltam e que MAIS DO QUE UM deck pede. São as que
                rendem mais por euro: uma compra serve vários decks.
   POR DECK   — o que falta a cada deck, por edição.
-  A SUBIR    — cartas em falta cujo preço subiu. Precisa de histórico: o
-               `price_history` só ganha uma linha por dia em que o preço mude,
-               por isso isto só diz alguma coisa depois de o `riftvault prices`
-               correr algumas vezes.
+  A SUBIR    — o que falta do MASTER SET e está a subir de preço. Vive no
+               `a_subir.py`: o âmbito é a métrica de master set, não os decks.
   PIMP DECKS — as versões alteradas das cartas dos decks, também como lista de
                compras (ver `pimp`).
   A CAMINHO  — o que já comprou e ainda não chegou (ver `pending`).
@@ -21,14 +19,8 @@ diz quem fica com o quê — aqui a pergunta é quanto falta comprar ao todo.
 from __future__ import annotations
 
 import sqlite3
-from datetime import date, timedelta
 
-from . import config, decks, metrics, pending
-
-# Abaixo disto o "subiu X%" é ruído de mercado, não um spike.
-SPIKE_MIN_CENTS = 50
-SPIKE_MIN_PCT = 15.0
-SPIKE_DAYS = 30
+from . import a_subir, config, decks, metrics, pending
 
 
 def _wanted(con: sqlite3.Connection) -> dict[str, dict]:
@@ -376,90 +368,13 @@ def todos_juntos(con: sqlite3.Connection) -> dict:
     }
 
 
-def spiking(con: sqlite3.Connection, days: int = SPIKE_DAYS,
-            min_pct: float = SPIKE_MIN_PCT) -> dict:
-    """Impressões cujo preço subiu na janela — **do Riftbound inteiro**.
-
-    Não se limita à coleção nem aos decks (decisão do André, 2026-09-01): a
-    ideia é apanhar cartas a valorizar antes de entrarem num deck. As que ele
-    tem, ou de que precisa, vêm marcadas para saltarem à vista.
-
-    Precisa de histórico. O `price_history` só grava quando o preço muda, por
-    isso é normal haver vários dias gravados e nenhuma carta comparável — e
-    nesse caso diz-se isso, em vez de inventar uma tendência.
-    """
-    desde = (date.today() - timedelta(days=days)).isoformat()
-    dias = [r["day"] for r in con.execute(
-        "SELECT DISTINCT day FROM prices.price_history ORDER BY day")]
-
-    comparaveis = con.execute(
-        "SELECT COUNT(*) AS n FROM (SELECT printing_id FROM prices.price_history "
-        "WHERE day >= ? GROUP BY printing_id HAVING COUNT(DISTINCT day) > 1)",
-        (desde,)).fetchone()["n"]
-    base = {"days_recorded": len(dias), "first": dias[0] if dias else None,
-            "comparable": comparaveis, "window_days": days, "min_pct": min_pct,
-            "tracked": con.execute(
-                "SELECT COUNT(DISTINCT printing_id) AS n FROM prices.price_history"
-            ).fetchone()["n"]}
-    if comparaveis == 0:
-        return {**base, "ready": False, "items": []}
-
-    preciso = {x["card_key"]: x["missing"] for x in shortfall(con)}
-    tenho = {r["printing_id"]: r["qty"] for r in
-             con.execute("SELECT printing_id, qty FROM copies WHERE qty > 0")}
-
-    # Primeiro e último preço de cada impressão dentro da janela.
-    linhas = con.execute(
-        "SELECT h.printing_id, h.day, h.price_cents, p.card_key, p.name, "
-        "       p.public_code, p.set_id, p.variant_label, p.orientation, "
-        "       p.image_medium, p.image_large, p.image_url "
-        "FROM prices.price_history h JOIN catalog.printings p "
-        "ON p.printing_id = h.printing_id "
-        "WHERE h.day >= ? ORDER BY h.printing_id, h.day", (desde,)).fetchall()
-
-    janela: dict[str, dict] = {}
-    for r in linhas:
-        e = janela.get(r["printing_id"])
-        if e is None:
-            e = janela[r["printing_id"]] = {"row": r, "first": None, "last": None}
-        if e["first"] is None:
-            e["first"] = (r["day"], r["price_cents"])
-        e["last"] = (r["day"], r["price_cents"])
-
-    itens = []
-    for pid, e in janela.items():
-        antes, agora = e["first"][1], e["last"][1]
-        if antes <= 0 or agora < SPIKE_MIN_CENTS:
-            continue
-        pct = (agora - antes) / antes * 100
-        if pct < min_pct:
-            continue
-        r = e["row"]
-        falta = preciso.get(r["card_key"], 0)
-        itens.append({
-            "printing_id": pid, "name": r["name"], "code": r["public_code"],
-            "set": r["set_id"], "label": r["variant_label"],
-            "landscape": (r["orientation"] or "").lower() == "landscape",
-            "img": f"img/{pid}.webp",
-            "cdn": r["image_medium"] or r["image_large"] or r["image_url"],
-            "from_cents": antes, "to_cents": agora, "pct": round(pct, 1),
-            "since": e["first"][0], "until": e["last"][0],
-            "have": tenho.get(pid, 0),
-            "missing": falta,
-            # O que já custou esperar, nas cópias que ainda lhe faltam.
-            "extra_cents": (agora - antes) * falta,
-        })
-    itens.sort(key=lambda i: (-i["pct"], -i["to_cents"]))
-    return {**base, "ready": True, "items": itens}
-
-
 def payload(con: sqlite3.Connection) -> dict:
     todas = shortfall(con)
     return {
         "staples": staples(con),
         "por_deck": por_deck(con),
         "todos_juntos": todos_juntos(con),
-        "spiking": spiking(con),
+        "a_subir": a_subir.calcular(con),
         "pimp": pimp(con),
         "ignored_types": sorted(config.load().get("faltas_ignorar_tipos", [])),
         "pending": {**pending.totals(con), "items": pending.listar(con)},

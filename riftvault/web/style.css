@@ -443,14 +443,6 @@ body.readonly .deck-actions .btn[data-act="descer"] { display: none; }
   border-radius: 5px; padding: 2px 6px;
 }
 
-.spike {
-  position: absolute; right: 4px; top: 4px;
-  font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums;
-  background: rgba(255, 107, 107, .95); color: #2a0d0d;
-  border-radius: 5px; padding: 2px 6px;
-}
-.spike-nota { color: var(--bad); }
-
 /* Encomendas: nem verde (tenho) nem vermelho (falta) — a chegar. */
 .dtile.a-caminho .art { border-color: rgba(124, 140, 255, .55); border-style: dashed; }
 .dtile.a-caminho .art img { filter: none; opacity: .92; }
@@ -465,9 +457,70 @@ body.readonly .btn.chegou { display: none; }
 /* Impressões que não são dele: sobem na mesma, mas sem alarme de cor. */
 .dtile.neutro .art { border-color: var(--line); }
 .dtile.neutro .art img { filter: none; }
-.need.have { background: rgba(62, 207, 142, .92); color: #04231a; }
 .tname .var { font-style: normal; opacity: .65; }
-.spike-nota b { color: var(--bad); }
+
+/* ------------------------------------------------------------- "A subir"
+
+   Lista, não grelha: aqui olha-se para números (preço de então, preço de
+   agora, Δ), e numa grelha de artes eles não cabiam. A arte fica pequena, só
+   para reconhecer a carta.                                                */
+
+.subir-lista { display: flex; flex-direction: column; gap: 0; }
+
+.subir-row {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) auto;
+  gap: 10px; align-items: center;
+  padding: 9px 4px;
+  border-bottom: 1px solid var(--line);
+}
+.subir-row:last-child { border-bottom: 0; }
+
+.subir-art {
+  width: 46px; aspect-ratio: 5 / 7; overflow: hidden;
+  border: 1px solid var(--line); border-radius: 5px; background: var(--panel-2);
+}
+.subir-art.landscape { aspect-ratio: 7 / 5; }
+.subir-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.subir-main { min-width: 0; }
+.subir-nome {
+  font-size: 13px; font-weight: 600; line-height: 1.25;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.subir-nome .var { font-style: normal; opacity: .6; font-weight: 400; }
+
+.subir-nums {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 6px;
+  margin-top: 3px; font-size: 12px; font-variant-numeric: tabular-nums;
+}
+.subir-nums .preco-antes { color: var(--dim); text-decoration: line-through; }
+.subir-nums .seta { color: var(--dim); }
+.subir-nums .preco-hoje { color: var(--text); }
+.subir-nums .desde { color: var(--dim); font-size: 11px; }
+.subir-nums .falta-n { color: var(--accent-2); font-size: 11px; }
+
+.subir-links { display: flex; gap: 10px; margin-top: 3px; }
+.subir-links a { font-size: 11px; color: var(--dim); text-decoration: none; }
+.subir-links a:hover { color: var(--accent); text-decoration: underline; }
+
+.subir-delta {
+  display: flex; flex-direction: column; align-items: flex-end; gap: 1px;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.subir-delta .up { color: var(--bad); font-size: 14px; }
+.subir-delta .d7, .subir-delta .urg { font-size: 10px; color: var(--dim); }
+.subir-delta .urg { color: var(--accent-2); }
+
+/* Filtro de raridade: botões, não checkboxes — só um de cada vez. */
+.subir-rar { margin: 10px 0 6px; }
+.chip-b {
+  background: var(--panel); color: var(--dim);
+  border: 1px solid var(--line); border-radius: 99px;
+  padding: 5px 11px; font: inherit; font-size: 12px; cursor: pointer;
+}
+.chip-b b { color: var(--text); margin-left: 4px; font-variant-numeric: tabular-nums; }
+.chip-b.is-on { color: var(--text); border-color: var(--accent); }
 
 .aviso {
   background: var(--panel); border: 1px solid var(--line);

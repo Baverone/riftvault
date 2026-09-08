@@ -275,6 +275,11 @@ Se algo vier errado, é aqui:
 6. **Sets futuros.** A descoberta é dinâmica por `/api/cards/filters`, mas uma
    edição nova pode trazer um `variant` novo (`b`? `sp7`?). O parser de
    `variant` tem de falhar de forma visível, não silenciosa.
+7. **Endereço da página da carta**, no CardTrader e na RiftScribe. Nenhuma das
+   duas APIs o dá, e a aba "A subir" precisa de um link. Os formatos usados
+   (`cardtrader.com/cards/<blueprint_id>`, `riftscribe.gg/cards/<printing_id>`)
+   são **presunção minha, por abrir e confirmar**. Ficam em `a_subir.DEFAULTS`
+   e mudam-se numa linha.
 
 ---
 
@@ -422,24 +427,73 @@ desconta-se o que ele tem. A alocação por prioridade responde a outra coisa
   medido: 88 -> 85 cartas, 262 -> 210 cópias, 919,94 € -> 848,01 €.
 - **Runas fora da conta (André, 2026-09-01):** `faltas_ignorar_tipos` no
   config, default `["Rune"]`. São baratas e compram-se a granel, e a 12 por
-  deck enchiam os staples. **Só afeta a secção Faltas** — na secção Decks e na
-  Coleção continuam a contar, porque aí a pergunta é outra.
+  deck enchiam os staples. **Só afeta as abas dos decks** (Staples, Por deck e
+  as wantlists) — na secção Decks, na Coleção e na aba A subir continuam a
+  contar, porque aí a pergunta é outra.
 - **Staples** = carência > 0 e pedida por >= 2 decks. É o critério de "rende
   mais por euro".
-- **A subir** = **todo o Riftbound**, não só a coleção (André, 2026-09-01):
-  serve para apanhar cartas a valorizar antes de entrarem num deck dele. As
-  que ele tem ou de que precisa vêm marcadas. O `prices.sync_prices` grava
-  histórico das **1178** impressões com preço, não só das de interesse.
-- A prontidão mede-se em **impressões com duas leituras**, não em dias
-  gravados: o histórico só escreve quando o preço muda, por isso é normal ter
-  vários dias e nada comparável. Enquanto não houver, a aba diz isso — não
-  inventa tendência.
-- O `pct` é **primeiro -> último** dentro da janela, com sinal. Uma carta que
-  desceu não aparece; verificado com dados reais (o `Not So Fast` foi de 2,10
-  para 0,70 e ficou de fora, como devia).
+- **A subir** mudou de âmbito a 2026-09-08 e mudou de casa: vive agora no
+  `a_subir.py` e já não depende dos decks. Ver a secção própria abaixo.
 - Custo em disco medido: o `prices.db` passou de 52 KB para 140 KB ao alargar
   de 290 para 1178 impressões. Cresce só com o que muda. Se um dia incomodar,
   o sítio para podar é aqui.
+
+## "A subir": só o master set, só o que ainda não tem (2026-09-08)
+
+Palavras dele: *"confere todas as cartas de Riftbound de masterset e as que
+subirem pelo menos 10% assinalas; na página ordenas por % de um lado e por
+valor no outro (duas abas); quando já tenho as cartas, deixas de seguir — isto
+vai servir só para o que eu ainda não tenho. Depois arranjamos um valor métrico
+para dar 'urgência' a comprar."*
+
+Isto **revoga a decisão de 2026-09-01** de a aba ser o Riftbound inteiro. O
+`prices.sync_prices` continua a gravar as 1178 — o histórico é barato e serve
+de base — mas a **vista** passou a ser uma lista de vigia de compras.
+
+`riftvault/a_subir.py`, chamado pelo `faltas.payload()` na chave `a_subir` (era
+`spiking`). O `faltas.py` ficou sem a função e sem as constantes `SPIKE_*`.
+
+**"Masterset" é a métrica 2, não uma edição.** Ele não tem no catálogo nenhum
+set chamado assim; o que o riftvault chama master set é o alvo por IMPRESSÃO.
+O âmbito são por isso as impressões que entram na **percentagem de set
+completo** (`metrics.master_target > 0` e `metrics.master_counts`), nas cinco
+edições: **1078 das 1180**. Ficam de fora as 102 artes alternativas, que já
+estavam fora do denominador por `master_ignorar_variantes`. Seguir cartas que
+não contam para o master set seria medir outra coisa que não a barra que ele vê
+na Coleção.
+
+**"Ainda não tenho" = a regra do filtro Faltas da grelha**, `cópias + a caminho
+< alvo do master`. Uma Unit com 1 de 3 ainda o obriga a comprar 2, logo o preço
+ainda lhe interessa. O que vem a caminho conta como tido, como em toda a secção
+Faltas. Muda-se em `a_subir.regra_falta`: `"nenhuma"` segue só as que estão a
+zero cópias. Medido a 2026-09-08: **731 seguidas** com a regra `master`, 397
+com a regra `nenhuma`.
+
+**O preço de há N dias é o que estava EM VIGOR nessa data**, não o primeiro
+registo dentro da janela. O `price_history` só grava quando o preço muda: uma
+carta que valia 1 € há 90 dias e subiu para 2 € há 3 dias tem um único registo
+na janela, e comparar com ele dava 0%. A versão antiga fazia isso e media
+subidas a menos. Quando não há registo nenhum antes do início da janela usa-se
+o mais antigo que existe e a linha diz **"desde <data>"** — hoje é o caso das
+57, porque o histórico só começa a 2026-08-31.
+
+**As duas ordens saem do servidor** (`rank_pct`, `rank_valor`) e não do
+cliente, para os desempates viverem num sítio só e serem testáveis. O filtro de
+raridade usa a raridade da **base**, como os contadores da Coleção.
+
+**A urgência está DESLIGADA de propósito** (`a_subir.urgencia: false`). A
+fórmula proposta é `Δ%_janela × 0,5 + Δ%_curto × 1,0 + (preço_hoje /
+preço_mediano_da_raridade) × 10`, com os pesos no config. Está calculada em
+todos os itens (`urgency`) mas a coluna não aparece — é uma proposta à espera
+do veredito dele, não uma decisão minha. Nota medida: o terceiro termo domina
+os outros dois nas cartas caras (o `Bloodharbor Ripper` a 133 € dá 7983 contra
+466 do topo por %), por isso ou o peso baixa ou o preço relativo entra em log.
+
+**NÃO VALIDADO — os links das cartas.** Nem a RiftScribe nem o CardTrader dão o
+endereço da página da carta em lado nenhum da API, e nesta corrida não houve
+rede para experimentar. Os dois formatos (`cardtrader.com/cards/<blueprint_id>`
+e `riftscribe.gg/cards/<printing_id>`) são presunção, e estão em
+`a_subir.DEFAULTS` para se corrigirem numa linha se abrirem em 404.
 
 ## "Pimp decks"
 
