@@ -67,10 +67,11 @@
     "subida_minima_pct": 10,
     "preco_minimo_cents": 50,
     "regra_falta": "master",
+    "excluir_tipos": ["signature"],
     "urgencia": false,
     "urgencia_pesos": { "janela": 0.5, "curto": 1.0, "preco_relativo": 10.0 }
   },
-  "_a_subir_nota": "Aba 'A subir' (André, 2026-09-08): só o que ele AINDA NÃO TEM do master set e subiu pelo menos `subida_minima_pct` na janela. O âmbito é a métrica de master set (o mesmo que conta para a percentagem de set completo), não os decks. `regra_falta`: 'master' = falta enquanto cópias + a caminho < alvo (a regra do filtro Faltas da grelha); 'nenhuma' = só as que estão a zero. `janela_curta_dias` é a coluna Δ 7 d. A `urgencia` está DESLIGADA de propósito — é uma proposta para ele avaliar, não uma decisão: urgência = Δ%_janela × janela + Δ%_curto × curto + (preço_hoje / preço_mediano_da_raridade) × preco_relativo. Os defaults e os endereços dos links estão em `riftvault/a_subir.py` (DEFAULTS).",
+  "_a_subir_nota": "Aba 'A subir' (André, 2026-09-08): só o que ele AINDA NÃO TEM do master set e subiu pelo menos `subida_minima_pct` na janela. O âmbito é a métrica de master set (o mesmo que conta para a percentagem de set completo), não os decks. `regra_falta`: 'master' = falta enquanto cópias + a caminho < alvo (a regra do filtro Faltas da grelha); 'nenhuma' = só as que estão a zero. `janela_curta_dias` é a coluna Δ 7 d. `excluir_tipos` são as variantes que NÃO entram nas listas de compra — 'signature' por decisão dele a 2026-09-08 ('estás a pôr uma carta signed, não quero'); vale para 'A subir' e para 'Master set', e NÃO mexe na percentagem de set completo, que continua a contar as 36 signatures. A `urgencia` está DESLIGADA de propósito — é uma proposta para ele avaliar, não uma decisão: urgência = Δ%_janela × janela + Δ%_curto × curto + (preço_hoje / preço_mediano_da_raridade) × preco_relativo. Os defaults e os endereços dos links estão em `riftvault/a_subir.py` (DEFAULTS).",
 
   "price_badge_min_cents": 100,
   "_price_badge_nota": "Mostra o preço por cima da carta a partir deste valor (100 = 1 euro). As mais baratas continuam a ter o preço na linha de baixo do tile.",

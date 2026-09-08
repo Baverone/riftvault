@@ -35,6 +35,8 @@ const state = {
            // "A subir": qual das duas abas (por % / por valor) e o filtro de
            // raridade, ambos guardados como o resto das escolhas.
            subirOrd: 'pct', subirRar: 'all',
+           // "Master set": qual a edição escolhida no filtro da lista de faltas.
+           masterSet: 'all',
            section: 'colecao' },
 };
 
@@ -777,6 +779,7 @@ const FALTA_TABS = [
   { id: 'staples', label: 'Staples', sub: 'pedidas por vários decks' },
   { id: 'deck', label: 'Por deck', sub: 'o que falta a cada um' },
   { id: 'spike', label: 'A subir', sub: 'do master set, o que ainda não tens' },
+  { id: 'master', label: 'Master set', sub: 'tudo o que falta à coleção' },
   { id: 'pimp', label: 'Pimp decks', sub: 'versões alteradas das cartas dos decks' },
   { id: 'caminho', label: 'A caminho', sub: 'comprado, ainda não chegou' },
 ];
@@ -798,6 +801,7 @@ function renderFaltaTabs() {
     if (t.id === 'staples') n = `${f.staples.length} cartas`;
     if (t.id === 'deck') n = `${f.por_deck.reduce((s, d) => s + d.copies, 0)} cópias`;
     if (t.id === 'spike') n = f.a_subir.ready ? `${f.a_subir.items.length} cartas` : 'sem histórico';
+    if (t.id === 'master') n = `${f.master.copies} cópias`;
     if (t.id === 'pimp') n = `${f.pimp.by_deck.reduce((s, d) => s + d.printings, 0)} versões`;
     if (t.id === 'caminho') n = f.pending.copies ? `${f.pending.copies} cópias` : 'nada';
     b.innerHTML = `${t.label}<small>${n}</small>`;
@@ -838,6 +842,11 @@ function renderFaltas() {
 
   if (which === 'deck') {
     renderPorDeck();
+    return;
+  }
+
+  if (which === 'master') {
+    renderMasterFaltas();
     return;
   }
 
@@ -918,7 +927,10 @@ function renderASubir() {
       Assim que compras a carta, ela sai daqui.
       ${parciais ? `<br><b>${parciais}</b> ainda não têm ${sp.window_days} dias
         de histórico — nessas a comparação é <i>desde</i> a data indicada, não
-        da janela toda.` : ''}</p>
+        da janela toda.` : ''}
+      ${sp.scope.excluded ? `<br>Fora da lista: <b>${sp.scope.excluded}</b> impressões
+        ${sp.scope.excluded_kinds.join(', ')} — continuam a contar na percentagem
+        de master set, só não entram nas listas de compra.` : ''}</p>
 
     <div class="chips subir-rar">
       <button class="chip-b ${rar === 'all' ? 'is-on' : ''}" data-srar="all">
@@ -930,7 +942,11 @@ function renderASubir() {
 
     ${lista.length ? `<div class="subir-lista">${lista.map(subirLinha).join('')}</div>`
       : `<p class="empty">Nenhuma carta desta raridade subiu ${sp.min_pct}% ou
-         mais nos últimos ${sp.window_days} dias.</p>`}`;
+         mais nos últimos ${sp.window_days} dias.</p>`}
+    ${lista.length ? cmZonaHTML('subir') : ''}`;
+
+  // As listas saem do que está à vista: a raridade escolhida e a ordem da aba.
+  if (lista.length) cmLigar('subir', () => lista, `riftvault-a-subir-${hojeISO()}.csv`);
 
   for (const b of document.querySelectorAll('[data-subir]')) {
     b.onclick = () => {
@@ -994,6 +1010,223 @@ function subirLinha(x) {
 
 function fmtPct(v) {
   return `${v > 0 ? '+' : ''}${v.toLocaleString('pt-PT', { maximumFractionDigits: 1 })}%`;
+}
+
+
+/* --------------------------------------------- listas para o Cardmarket
+
+   UM gerador, dois sítios (pedido do André, 2026-09-08): a aba «A subir» e a
+   aba «Master set». O gémeo em Python é o `cardmarket.py` — escreve exactamente
+   a mesma linha, e há teste que compara os dois.
+
+   As listas saem sempre do que está NO ECRÃ, com o filtro e a ordem que
+   estiverem activos: é isso que ele está a olhar quando carrega no botão.
+
+   O nome é o DO MERCADO ("Darius - Trifarian"), não o da RiftScribe
+   ("Darius, Trifarian"), senão não casa lá nada.
+
+   A caixa de texto é o mecanismo principal, não um fallback: o
+   `navigator.clipboard` só existe em contexto seguro, e no telemóvel isto abre
+   por http num IP da rede local — ou seja, lá nunca funcionaria.           */
+
+function cmLinha(it, comCodigo) {
+  const nome = it.market_name || it.name || '';
+  if (comCodigo) {
+    const c = (it.code || '').split('/')[0];
+    return `${it.missing} ${nome}${c ? ` [${c}]` : ''}`;
+  }
+  let l = `${it.missing} ${nome}`;
+  if (it.v && (it.n_versions || 1) > 1) l += ` (V.${it.v})`;   // só quando há mais que uma
+  if (it.market_set) l += ` (${it.market_set})`;
+  return l;
+}
+
+const CM_CABECALHO = ['quantidade', 'nome', 'codigo', 'edicao', 'raridade',
+                      'preco_hoje_eur', 'delta_pct', 'custo_eur'];
+
+function cmCSV(itens) {
+  const campo = v => {
+    const s = String(v ?? '');
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const cents = c => (c == null ? '' : (c / 100).toFixed(2));
+  const linhas = [CM_CABECALHO.join(',')];
+  for (const it of itens) {
+    linhas.push([
+      it.missing,
+      it.market_name || it.name || '',
+      (it.code || '').split('/')[0],
+      it.market_set || it.set_name || it.set || '',
+      it.rarity || '',
+      cents(it.price),
+      it.pct == null ? '' : it.pct.toFixed(1),
+      cents(it.total),
+    ].map(campo).join(','));
+  }
+  return linhas.join('\n') + '\n';
+}
+
+/* Os três botões e a caixa. `id` prefixa os elementos para as duas abas
+   poderem coexistir sem colidir. */
+function cmZonaHTML(id) {
+  return `<div class="wl-zona cm-zona">
+    <div class="cm-botoes">
+      <button class="btn" data-cm="${id}" data-cm-modo="normal">Copiar para o Cardmarket</button>
+      <button class="btn ghost" data-cm="${id}" data-cm-modo="codigo">Copiar com código</button>
+      <button class="btn ghost" data-cm="${id}" data-cm-modo="csv">Descarregar CSV</button>
+    </div>
+    <textarea id="${id}-txt" class="wl-txt" readonly hidden></textarea>
+    <small class="nota" id="${id}-nota" hidden></small>
+    <small class="nota aviso-foil" id="${id}-foil" hidden></small>
+  </div>`;
+}
+
+/* `getItens` é uma função, não uma lista: assim os botões apanham sempre o
+   filtro que estiver activo no momento do clique, e não o que estava quando a
+   página foi desenhada. */
+function cmLigar(id, getItens, nomeFicheiro) {
+  for (const b of document.querySelectorAll(`[data-cm="${id}"]`)) {
+    b.onclick = () => {
+      const itens = getItens();
+      if (b.dataset.cmModo === 'csv') { cmDescarregar(itens, nomeFicheiro, id); return; }
+      cmMostrar(id, itens, b.dataset.cmModo === 'codigo');
+    };
+  }
+}
+
+function cmMostrar(id, itens, comCodigo) {
+  const linhas = itens.map(it => cmLinha(it, comCodigo));
+  const txt = $(`#${id}-txt`), nota = $(`#${id}-nota`), fnota = $(`#${id}-foil`);
+  txt.value = linhas.join('\n');
+  txt.rows = Math.min(16, Math.max(4, linhas.length));
+  txt.hidden = false; nota.hidden = false;
+  txt.focus(); txt.select();
+
+  const copias = itens.reduce((s, x) => s + x.missing, 0);
+  const cents = itens.reduce((s, x) => s + (x.total || 0), 0);
+  // O total NÃO vai no texto: uma linha de total colada na wantlist seria
+  // importada como se fosse uma carta.
+  const resumo = `${linhas.length} linhas · ${copias} cópias · ${eur(cents)}`
+    + (comCodigo ? ' · com código, para desambiguar à mão (o Cardmarket não lê os [ ])' : '');
+
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(txt.value)
+      .then(() => { nota.textContent = `${resumo} — copiadas. Cola na wantlist do Cardmarket.`; })
+      .catch(() => { nota.textContent = `${resumo} — já selecionadas, copia com Ctrl+C.`; });
+  } else {
+    nota.textContent = `${resumo} — já selecionadas, copia com Ctrl+C `
+      + `(no telemóvel, toca e mantém).`;
+  }
+
+  // O foil NÃO se pode marcar no texto — é um filtro por entrada, posto na
+  // interface deles. Aqui só se diz em que linhas é preciso ligá-lo.
+  const foil = linhas.filter((_, i) => itens[i].foil_only);
+  fnota.hidden = !foil.length;
+  if (foil.length) {
+    fnota.innerHTML = `<b>${foil.length} destas só têm oferta foil no mercado.</b>
+      O texto da wantlist não leva marca de foil — depois de colares, liga o
+      filtro <i>Foil</i> nestas entradas:<br>${foil.map(escapeHTML).join('<br>')}`;
+  }
+}
+
+function cmDescarregar(itens, nomeFicheiro, id) {
+  // O BOM é para o Excel em português abrir os acentos direitos.
+  const blob = new Blob(['﻿' + cmCSV(itens)], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = nomeFicheiro;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  const nota = $(`#${id}-nota`);
+  if (nota) {
+    nota.hidden = false;
+    nota.textContent = `${itens.length} linhas em ${nomeFicheiro}.`;
+  }
+}
+
+function hojeISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+
+/* ------------------------------------------------- "Master set": tudo o que falta
+
+   A aba «A subir» responde a "o que me está a fugir de preço"; esta responde a
+   "e se eu quisesse fechar isto tudo". Mesmo âmbito e mesma regra de carência,
+   sem o filtro de subida — e por EDIÇÃO e NÚMERO, que é a ordem por que as
+   cartas estão no binder e nas páginas de venda (pedido do André).
+
+   Sem imagens de propósito: são centenas de linhas, e o `faltas.json` é
+   descarregado inteiro a cada visita.                                        */
+
+function renderMasterFaltas() {
+  const m = state.faltas.master;
+  if (!m.copies) {
+    $('#falta-body').innerHTML = `<p class="empty">Não falta nada ao master set.</p>`;
+    return;
+  }
+
+  const sel = state.prefs.masterSet || 'all';
+  const sets = m.sets.filter(s => sel === 'all' || s.set === sel);
+  const itens = sets.flatMap(s => s.items);
+  const copias = itens.reduce((a, x) => a + x.missing, 0);
+  const cents = itens.reduce((a, x) => a + (x.total || 0), 0);
+  const semPreco = itens.filter(x => x.price == null).length;
+
+  $('#falta-body').innerHTML = `
+    <div class="deck-card resumo">
+      <b>${itens.length} impressões em falta</b>
+      <span>${copias} cópia${copias === 1 ? '' : 's'} · ${eur(cents)} para as comprar hoje${
+        semPreco ? ` · ${semPreco} sem preço no CardTrader` : ''}</span>
+    </div>
+
+    <p class="note">Tudo o que falta ao <b>master set</b> — o mesmo âmbito da
+      barra de progresso da Coleção, com a mesma regra do filtro <i>Faltas</i>
+      da grelha: conta enquanto <b>cópias + a caminho &lt; alvo</b>.
+      Por edição e número de coleção.
+      ${m.scope.excluded ? `<br>Fora da lista: <b>${m.scope.excluded}</b> impressões
+        ${m.scope.excluded_kinds.join(', ')} — continuam a contar na percentagem
+        de set completo, só não entram nas listas de compra.` : ''}
+      ${semPreco ? `<br>${semPreco} não têm oferta no CardTrader: entram na lista
+        mas não no total, por isso o custo é <i>pelo menos</i> isto.` : ''}</p>
+
+    <div class="chips subir-rar">
+      <button class="chip-b ${sel === 'all' ? 'is-on' : ''}" data-mset="all">
+        todas <b>${m.copies}</b></button>
+      ${m.sets.map(s => `
+        <button class="chip-b ${sel === s.set ? 'is-on' : ''}" data-mset="${escapeAttr(s.set)}">
+          ${escapeHTML(s.name)} <b>${s.copies}</b></button>`).join('')}
+    </div>
+
+    ${sets.map(s => `
+      <h3 class="section-head sub">${escapeHTML(s.name)}
+        <span>${s.copies} cópia${s.copies === 1 ? '' : 's'} de ${s.cards}
+          impress${s.cards === 1 ? 'ão' : 'ões'} · ${eur(s.cents)}</span></h3>
+      <div class="mf-lista">${s.items.map(mfLinha).join('')}</div>`).join('')}
+
+    ${cmZonaHTML('mfalta')}`;
+
+  for (const b of document.querySelectorAll('[data-mset]')) {
+    b.onclick = () => {
+      state.prefs.masterSet = b.dataset.mset; savePrefs(); renderMasterFaltas();
+    };
+  }
+  // A lista sai com o filtro de edição que estiver activo.
+  cmLigar('mfalta', () => itens, `riftvault-master-faltas-${hojeISO()}.csv`);
+}
+
+function mfLinha(x) {
+  return `<div class="mf-row">
+    <span class="mf-code">${escapeHTML((x.code || '').split('/')[0])}</span>
+    <span class="mf-nome" title="${escapeAttr(x.name)}">${escapeHTML(x.name)}${
+      x.label && x.label !== 'Base' ? ` <i class="var">${escapeHTML(x.label)}</i>` : ''}</span>
+    <span class="mf-tem">${x.have}/${x.target}</span>
+    <span class="mf-falta">${x.missing}×</span>
+    <span class="mf-preco">${x.price == null ? '—' : eur(x.price)}</span>
+    <span class="mf-total">${x.price == null ? '' : eur(x.total)}</span>
+  </div>`;
 }
 
 

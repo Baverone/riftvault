@@ -10,6 +10,7 @@
     riftvault log [-n 20]
     riftvault stats
     riftvault find "sett"
+    riftvault a-subir [--cardmarket] [--todas] [--csv f.csv]
 """
 
 from __future__ import annotations
@@ -18,8 +19,9 @@ import argparse
 import re
 import sys
 
+from . import a_subir as a_subir_mod
 from . import build as build_mod
-from . import catalog, collection, config, db, decks as decks_mod
+from . import cardmarket, catalog, collection, config, db, decks as decks_mod
 from . import faltas as faltas_mod
 from . import metrics, pending as pending_mod, prices, server
 
@@ -407,6 +409,86 @@ def cmd_wantlist(args) -> int:
     return 0
 
 
+def cmd_a_subir(args) -> int:
+    """A aba «A subir» na consola, e a lista para o Cardmarket que sai dela.
+
+    Sem opções mostra a tabela. Com `--cardmarket` escreve as linhas para colar
+    na wantlist deles — as mesmas que os botões da página dão, pelo mesmo
+    gerador (`cardmarket.linha`).
+
+    `--todas` troca o âmbito: em vez do que está a subir, tudo o que falta do
+    master set, por edição e número. É a lista de "comprar isto de uma vez".
+    """
+    con = db.connect()
+    if db.catalog_is_empty(con):
+        print("catálogo vazio — corre `riftvault sync`.", file=sys.stderr)
+        return 1
+
+    if args.todas:
+        p = a_subir_mod.master_faltas(con)
+        itens = [x for d in p["sets"] for x in d["items"]]
+        rotulo = "tudo o que falta do master set"
+        resumo = (f"{p['cards']} impressões · {p['copies']} cópias · "
+                  f"{prices.eur(p['cents'])}"
+                  + (f" ({p['no_price']} sem preço no CardTrader)" if p["no_price"] else ""))
+        fora = p["scope"]
+    else:
+        p = a_subir_mod.calcular(con)
+        itens = p["items"]
+        rotulo = (f"a subir {p['min_pct']:.0f}% ou mais em {p['window_days']} dias, "
+                  f"do que ainda te falta do master set")
+        resumo = (f"{p['totals']['cards']} cartas · {p['totals']['copies']} cópias · "
+                  f"{prices.eur(p['totals']['cents'])} "
+                  f"({prices.eur(p['totals']['extra_cents'])} do que já subiu)")
+        fora = p["scope"]
+        if not p["ready"]:
+            print("ainda não há histórico de preços com que comparar — corre "
+                  "`riftvault prices` uns dias.", file=sys.stderr)
+
+    if args.csv:
+        open(args.csv, "w", encoding="utf-8-sig", newline="").write(
+            cardmarket.csv_texto(itens))
+        print(f"{len(itens)} linhas escritas em {args.csv}  ({rotulo})")
+        con.close()
+        return 0
+
+    if args.cardmarket:
+        res = cardmarket.gerar(itens, com_codigo=args.codigos)
+        saida = res["text"] + ("\n" if res["text"] else "")
+        if args.out:
+            open(args.out, "w", encoding="utf-8").write(saida)
+            print(f"{res['lines']} linhas escritas em {args.out}  ({rotulo})")
+        else:
+            sys.stdout.write(saida)
+        # O total e o aviso do foil vão para o stderr, para o stdout ficar
+        # colável tal e qual: uma linha de total importada como carta seria
+        # uma carta a mais na wantlist dele.
+        print(f"\n# {res['lines']} linhas · {res['copies']} cópias · "
+              f"{prices.eur(res['cents'])}  ({rotulo})", file=sys.stderr)
+        if res["foil"]:
+            print(f"# {len(res['foil'])} destas só têm oferta foil no mercado. O texto "
+                  f"da wantlist não\n# leva marca de foil: liga o filtro Foil nestas "
+                  f"entradas depois de colares.", file=sys.stderr)
+            for l in res["foil"]:
+                print(f"#   {l}", file=sys.stderr)
+        con.close()
+        return 0
+
+    print(f"{resumo}\n({rotulo})")
+    if fora.get("excluded"):
+        print(f"fora: {fora['excluded']} impressões {', '.join(fora['excluded_kinds'])} "
+              f"— continuam a contar na percentagem de master set.")
+    print()
+    for x in itens:
+        pct = "" if x.get("pct") is None else f"{x['pct']:+7.1f}%"
+        print(f"  {x['missing']:>2}x {cardmarket.codigo(x['code']):<12} "
+              f"{(x.get('name') or '')[:32]:<32} "
+              f"{prices.eur(x.get('price')):>10} {pct:>8}  "
+              f"= {prices.eur(x.get('total')):>11}")
+    con.close()
+    return 0
+
+
 def cmd_pending(args) -> int:
     con = db.connect()
     if args.chegou is not None:
@@ -545,6 +627,20 @@ def main(argv: list[str] | None = None) -> int:
                    help="não escrever a edição entre parênteses")
     p.add_argument("--out", help="escrever para ficheiro em vez do ecrã")
     p.set_defaults(func=cmd_wantlist)
+
+    p = sub.add_parser("a-subir", help="o que falta do master set e está a subir")
+    p.add_argument("--cardmarket", action="store_true",
+                   help="escreve as linhas para colar na wantlist do Cardmarket")
+    p.add_argument("--codigos", action="store_true",
+                   help="com --cardmarket: 'N Nome [UNL-228]' em vez da versão "
+                        "e da edição, para desambiguar variantes à mão")
+    # O argparse trata o help como uma string de formato: '%' tem de vir dobrado.
+    p.add_argument("--csv", help="escreve um CSV com quantidade, nome, código, "
+                                 "edição, raridade, preço, Δ%% e custo")
+    p.add_argument("--todas", action="store_true",
+                   help="tudo o que falta do master set, não só o que sobe")
+    p.add_argument("--out", help="com --cardmarket: escrever para ficheiro")
+    p.set_defaults(func=cmd_a_subir)
 
     p = sub.add_parser("pending", help="encomendas a caminho")
     p.add_argument("--chegou", nargs="?", type=int, const=0, default=None,

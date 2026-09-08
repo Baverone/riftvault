@@ -28,6 +28,18 @@ O QUE É "AINDA NÃO TENHO"
     Põe-se `a_subir.regra_falta: "nenhuma"` para seguir só as que estão mesmo
     a zero cópias.
 
+AS SIGNATURES FICAM DE FORA (André, 2026-09-08)
+    *"No 'a subir', estás a pôr uma carta signed — não quero."* As impressões
+    `signature` deixaram de entrar nas listas de compra, tanto aqui como na
+    lista completa do master set — são as duas listas para ele comprar, e o que
+    ele não compra não tem lugar em nenhuma delas.
+
+    Isto é filtro DESTA página, não da métrica: `metrics.master_counts` não
+    mexeu, por isso a percentagem de set completo da Coleção continua a contar
+    as 36 signatures no denominador. Muda-se em `a_subir.excluir_tipos` — a
+    lista aceita qualquer `variant_kind` (base, alt_art, signature, token,
+    rune_promo, special) e a página diz sempre quantas impressões tirou.
+
 O PREÇO DE HÁ N DIAS
     O `price_history` só grava quando o preço MUDA. O preço em vigor no dia D
     é por isso o último registo com `day <= D`, e esse registo pode ser
@@ -44,7 +56,7 @@ from __future__ import annotations
 import sqlite3
 from datetime import date, timedelta
 
-from . import config, metrics, pending
+from . import cardmarket, config, metrics, pending
 
 # Tudo isto se muda no `riftvault_config.json`, bloco "a_subir".
 DEFAULTS: dict = {
@@ -55,6 +67,10 @@ DEFAULTS: dict = {
     # uma carta a valorizar. É o mesmo limiar da versão antiga desta aba.
     "preco_minimo_cents": 50,
     "regra_falta": "master",
+    # Variantes que não entram nas listas de compra (André, 2026-09-08: "estás
+    # a pôr uma carta signed — não quero"). Não mexe na percentagem de master
+    # set, que continua a contá-las.
+    "excluir_tipos": ["signature"],
     "urgencia": False,
     "urgencia_pesos": {"janela": 0.5, "curto": 1.0, "preco_relativo": 10.0},
     # NÃO VALIDADOS: nem a API da RiftScribe nem a do CardTrader dão o endereço
@@ -102,6 +118,18 @@ def masterset(con: sqlite3.Connection, cfg: dict | None = None) -> dict[str, dic
             continue
         out[r["printing_id"]] = {**dict(r), "target": alvo}
     return out
+
+
+def excluir(escopo: dict[str, dict], tipos) -> tuple[dict[str, dict], dict[str, dict]]:
+    """Parte o âmbito em (o que fica, o que sai) pelo `variant_kind`.
+
+    Devolve as duas metades porque quem mostra tem de dizer quantas tirou: uma
+    lista que encolhe sem explicação parece um erro de contagem.
+    """
+    fora = set(tipos or ())
+    ficam = {k: v for k, v in escopo.items() if v["variant_kind"] not in fora}
+    saem = {k: v for k, v in escopo.items() if v["variant_kind"] in fora}
+    return ficam, saem
 
 
 def em_falta(con: sqlite3.Connection, escopo: dict[str, dict],
@@ -184,8 +212,9 @@ def calcular(con: sqlite3.Connection, hoje: date | None = None) -> dict:
     min_pct, min_cents = float(o["subida_minima_pct"]), int(o["preco_minimo_cents"])
     pesos = o["urgencia_pesos"]
 
-    escopo = masterset(con, cfg)
+    escopo, excluidas = excluir(masterset(con, cfg), o["excluir_tipos"])
     falta = em_falta(con, escopo, str(o["regra_falta"]))
+    mercado = cardmarket.versoes(con)
 
     dias = [r["day"] for r in con.execute(
         "SELECT DISTINCT day FROM prices.price_history ORDER BY day")]
@@ -235,6 +264,7 @@ def calcular(con: sqlite3.Connection, hoje: date | None = None) -> dict:
                     + (pct7 or 0.0) * float(pesos["curto"])
                     + (agora / mediana) * float(pesos["preco_relativo"]))
 
+        mkt = mercado.get(pid) or {}
         itens.append({
             "printing_id": pid,
             "name": info["name"],
@@ -258,6 +288,16 @@ def calcular(con: sqlite3.Connection, hoje: date | None = None) -> dict:
             # O que já custou esperar, nas cópias que ainda lhe faltam.
             "extra_cents": (agora - antes) * info["missing"],
             "buy_cents": agora * info["missing"],
+            # Os campos que a lista do Cardmarket precisa. São os MESMOS nomes
+            # que a lista do master set usa, para o gerador ser um só — em
+            # Python (`cardmarket.linha`) e em JavaScript (`cmLinha`).
+            "price": agora, "total": agora * info["missing"],
+            # Só vai quando é MESMO diferente do nosso ("Darius - Trifarian" vs
+            # "Darius, Trifarian"); o gerador cai no `name` quando falta.
+            "market_name": mkt.get("name") if mkt.get("name") != info["name"] else None,
+            "market_set": mkt.get("set"),
+            "v": mkt.get("v"), "n_versions": mkt.get("n", 1),
+            "foil_only": bool(mkt.get("foil_only")),
             "urgency": round(urgencia, 1),
             "url_cardtrader": (o["link_cardtrader"].format(blueprint_id=blueprints[pid])
                                if pid in blueprints and o.get("link_cardtrader") else None),
@@ -285,6 +325,11 @@ def calcular(con: sqlite3.Connection, hoje: date | None = None) -> dict:
         "scope": {
             "printings": len(escopo),
             "sets": sorted({v["set_id"] for v in escopo.values()}),
+            # Quantas impressões o `excluir_tipos` tirou do master set, e de que
+            # tipo. A página diz o número — uma lista que encolhe sem explicação
+            # parece um erro de contagem.
+            "excluded": len(excluidas),
+            "excluded_kinds": sorted(set(o["excluir_tipos"] or ())),
         },
         # Quantas segue (em falta, dentro do âmbito) e de quantas há com que
         # comparar. A diferença é histórico que ainda não existe.
@@ -306,4 +351,88 @@ def calcular(con: sqlite3.Connection, hoje: date | None = None) -> dict:
             "extra_cents": sum(i["extra_cents"] for i in itens),
         },
         "items": itens,
+    }
+
+
+# ---------------------------------------------------------------------------
+# A lista completa: tudo o que falta do master set
+# ---------------------------------------------------------------------------
+
+
+def master_faltas(con: sqlite3.Connection, cfg: dict | None = None) -> dict:
+    """Tudo o que falta do master set, para ele comprar de uma vez se quiser.
+
+    A aba «A subir» responde a "o que é que me está a fugir de preço"; esta
+    responde a "e se eu quisesse fechar isto tudo". Mesmo âmbito, mesma regra de
+    carência e as mesmas exclusões — só não há filtro de subida.
+
+    Sai ordenada por EDIÇÃO e NÚMERO DE COLEÇÃO (pedido do André, 2026-09-08):
+    é a ordem por que as cartas estão no binder e nas páginas de venda, não a do
+    preço.
+
+    Sem imagens de propósito: são centenas de linhas e o `faltas.json` é
+    descarregado inteiro a cada visita.
+    """
+    cfg = cfg or config.load()
+    o = opcoes(cfg)
+    escopo, excluidas = excluir(masterset(con, cfg), o["excluir_tipos"])
+    falta = em_falta(con, escopo, str(o["regra_falta"]))
+    mercado = cardmarket.versoes(con)
+    precos = {r["printing_id"]: r["price_cents"] for r in con.execute(
+        "SELECT printing_id, price_cents FROM catalog.price_latest "
+        "WHERE price_cents IS NOT NULL")}
+
+    por_set: dict[str, dict] = {}
+    for pid, info in falta.items():
+        mkt = mercado.get(pid) or {}
+        preco = precos.get(pid)
+        d = por_set.setdefault(info["set_id"], {
+            "set": info["set_id"], "name": config.set_name(info["set_id"]),
+            "cards": 0, "copies": 0, "cents": 0, "items": []})
+        # O nome de mercado só vai quando é MESMO diferente do nosso ("Darius -
+        # Trifarian" vs "Darius, Trifarian"). São 695 linhas e o `faltas.json`
+        # é descarregado inteiro a cada visita; o `cardmarket.linha` já cai no
+        # `name` quando este falta.
+        nome_mercado = mkt.get("name") if mkt.get("name") != info["name"] else None
+        item = {
+            "printing_id": pid, "name": info["name"],
+            "code": info["public_code"], "set": info["set_id"],
+            "cn": info["collector_number"],
+            "kind": info["variant_kind"], "label": info["variant_label"],
+            "rarity": info["base_rarity"] or "?",
+            "have": info["have"], "target": info["target"],
+            "missing": info["missing"],
+            "price": preco, "total": (preco or 0) * info["missing"],
+            # Os mesmos campos de mercado que os itens da aba «A subir», para o
+            # gerador do Cardmarket ser um só.
+            "market_name": nome_mercado, "market_set": mkt.get("set"),
+            "v": mkt.get("v"), "n_versions": mkt.get("n", 1),
+            "foil_only": bool(mkt.get("foil_only")),
+            # Não há Δ nesta lista: não é sobre preço a subir.
+            "pct": None,
+        }
+        d["items"].append(item)
+        d["cards"] += 1
+        d["copies"] += info["missing"]
+        d["cents"] += item["total"]
+
+    sets = sorted(por_set.values(), key=lambda d: (config.set_order(d["set"]), d["set"]))
+    for d in sets:
+        d["items"].sort(key=lambda x: (x["cn"], x["code"]))
+
+    # Quantas não têm preço no CardTrader: o total é sobre as outras, e dizê-lo
+    # é a diferença entre "custa isto" e "custa pelo menos isto".
+    sem_preco = sum(1 for d in sets for x in d["items"] if x["price"] is None)
+    return {
+        "cards": sum(d["cards"] for d in sets),
+        "copies": sum(d["copies"] for d in sets),
+        "cents": sum(d["cents"] for d in sets),
+        "no_price": sem_preco,
+        "rule": str(o["regra_falta"]),
+        "scope": {
+            "printings": len(escopo),
+            "excluded": len(excluidas),
+            "excluded_kinds": sorted(set(o["excluir_tipos"] or ())),
+        },
+        "sets": sets,
     }
