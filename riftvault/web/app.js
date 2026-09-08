@@ -21,14 +21,16 @@ const state = {
   qty: new Map(),              // printing_id -> quantidade (verdade local, otimista)
   play: new Map(),             // card_key -> {owned, target}
   targets: new Map(),          // printing_id -> alvo do master (o do tile)
-  counts: new Map(),           // printing_id -> entra na % de set?
+  // printing_id -> bloco da grelha. 'master' é a sequência do master set (e é
+  // o que entra na percentagem); o resto vai para blocos próprios no fim.
+  blocks: new Map(),
   meta: new Map(),             // printing_id -> {name, card_key, rarity}
   pending: new Map(),          // card_key -> pedidos por responder
   tiles: [],                   // impressões visíveis, pela ordem do ecrã
   focus: -1,
   // Default: TODAS as impressões (decisão do André). O botão "Só artes base"
   // continua lá, mas não é o que se vê ao abrir.
-  decks: null, deckId: null, deck: null, faltas: null,
+  decks: null, deckId: null, deck: null, faltas: null, venda: null,
   prefs: { view: 'all', stateFilter: 'all',
            kinds: ['base', 'alt_art', 'signature', 'other'],
            set: null, deck: null, falta: 'staples', faltaDeck: 0, pimpDeck: 'todos',
@@ -88,7 +90,7 @@ async function boot() {
   const first = state.index.sets[0];
   const wanted = state.index.sets.some(s => s.id === state.prefs.set) ? state.prefs.set : (first && first.id);
   if (wanted) await loadSet(wanted);
-  showSection(['decks', 'faltas'].includes(state.prefs.section)
+  showSection(['decks', 'faltas', 'venda'].includes(state.prefs.section)
     ? state.prefs.section : 'colecao');
 }
 
@@ -104,13 +106,13 @@ async function loadSet(setId) {
   state.imageMode = p.image_mode || state.imageMode;
 
   state.qty.clear(); state.play.clear(); state.targets.clear();
-  state.counts.clear(); state.meta.clear();
+  state.blocks.clear(); state.meta.clear();
   for (const g of p.groups) {
     state.play.set(g.card_key, { owned: g.playset.owned, target: g.playset.target });
     for (const pr of g.printings) {
       state.qty.set(pr.id, pr.qty);
       state.targets.set(pr.id, pr.target);
-      state.counts.set(pr.id, pr.counts !== false);
+      state.blocks.set(pr.id, pr.block || 'master');
       state.meta.set(pr.id, { name: pr.name, card_key: g.card_key, rarity: g.rarity, cn: g.cn });
     }
   }
@@ -218,25 +220,55 @@ function deckLine(p) {
     ${onde}${livre > 0 ? ` · ${livre} no binder` : ''}</div>`;
 }
 
+/* A grelha em blocos (André, 2026-09-08): primeiro a sequência do master set,
+   por número de coleção, e SÓ DEPOIS o que está fora dela — os tokens (`-T`) e
+   as artes alternativas (`a`), cada um no seu bloco com cabeçalho. Nunca
+   intercalados: a Coleção é de master set, e o resto vem a seguir.
+
+   Os blocos e os rótulos vêm do payload (`metrics.BLOCOS`), para a regra viver
+   num sítio só; o contador de cada um é recalculado aqui, como as barras, para
+   andar ao mesmo tempo que os +/-. */
 function render() {
   const grid = $('#grid');
   const parts = [];
   state.tiles = [];
 
-  // Ordem única: número de coleção (a mesma que a API devolve, que já põe
-  // cada variante logo a seguir à sua base).
-  for (const g of (state.payload?.groups || [])) {
-    const list = visiblePrintings(g);
-    if (!list.length) continue;
-    const multi = list.length > 1;
-    const inner = list.map(p => { state.tiles.push(p.id); return tileHTML(g, p); }).join('');
-    parts.push(multi
-      ? `<div class="group multi" style="--span:${list.length}">${inner}</div>`
-      : `<div class="group">${inner}</div>`);
+  const grupos = state.payload?.groups || [];
+  const blocos = state.payload?.blocks || [{ id: 'master', label: null }];
+  let mostrados = 0;
+
+  for (const b of blocos) {
+    const pedacos = [];
+    let feitas = 0, total = 0;
+    for (const g of grupos) {
+      const list = visiblePrintings(g).filter(p => (p.block || 'master') === b.id);
+      if (!list.length) continue;
+      for (const p of list) {
+        const t = state.targets.get(p.id) || 0;
+        if (t <= 0) continue;
+        total++;
+        if ((state.qty.get(p.id) || 0) >= t) feitas++;
+      }
+      const inner = list.map(p => { state.tiles.push(p.id); return tileHTML(g, p); }).join('');
+      pedacos.push(list.length > 1
+        ? `<div class="group multi" style="--span:${list.length}">${inner}</div>`
+        : `<div class="group">${inner}</div>`);
+    }
+    if (!pedacos.length) continue;
+    mostrados++;
+    if (b.label) {
+      // "tens N de M" — o contador do bloco. Fica à parte de propósito: estas
+      // impressões não entram na percentagem de master set. O cabeçalho ocupa
+      // a linha inteira da grelha (`.section-head`), sem grelha aninhada.
+      parts.push(`<h2 class="section-head fora">${escapeHTML(b.label)}
+        <span>tens <b>${feitas}</b> de <b>${total}</b> — não contam para a
+        percentagem de master set</span></h2>`);
+    }
+    parts.push(pedacos.join(''));
   }
 
   grid.innerHTML = parts.join('');
-  $('#empty').hidden = parts.length > 0;
+  $('#empty').hidden = mostrados > 0;
   $('#count-line').textContent = `${state.tiles.length} impressões a mostrar`
     + (state.payload ? ` · ${state.payload.groups.length} cartas na edição` : '');
   renderProgress();
@@ -261,8 +293,10 @@ function renderProgress() {
     }
     for (const p of g.printings) {
       const t = state.targets.get(p.id) || 0;
-      // O alvo é o que se mostra no tile; `counts` é o que entra na conta.
-      if (t <= 0 || !state.counts.get(p.id)) continue;
+      // O alvo é o que se mostra no tile; o bloco é o que entra na conta. As
+      // artes alternativas e os tokens têm alvo (ele quer ver quantos lhe
+      // faltam) mas ficam fora da percentagem.
+      if (t <= 0 || (state.blocks.get(p.id) || 'master') !== 'master') continue;
       const ok = (state.qty.get(p.id) || 0) >= t;
       mTotal++; if (ok) mDone++;
       const key = g.rarity || '?';
@@ -755,7 +789,7 @@ function exportCSV() {
 function showSection(name) {
   state.prefs.section = name;
   savePrefs();
-  for (const s of ['colecao', 'decks', 'faltas']) $('#' + s).hidden = s !== name;
+  for (const s of ['colecao', 'decks', 'faltas', 'venda']) $('#' + s).hidden = s !== name;
   $('#set-tabs').hidden = name !== 'colecao';
   $('#deck-tabs').hidden = name !== 'decks';
   $('#falta-tabs').hidden = name !== 'faltas';
@@ -766,6 +800,8 @@ function showSection(name) {
     $('#deck-body').innerHTML = `<p class="empty">${escapeHTML(err.message)}</p>`);
   if (name === 'faltas' && !state.faltas) loadFaltas().catch(err =>
     $('#falta-body').innerHTML = `<p class="empty">${escapeHTML(err.message)}</p>`);
+  if (name === 'venda' && !state.venda) loadVenda().catch(err =>
+    $('#venda-body').innerHTML = `<p class="empty">${escapeHTML(err.message)}</p>`);
 }
 
 
@@ -1029,13 +1065,21 @@ function fmtPct(v) {
    `navigator.clipboard` só existe em contexto seguro, e no telemóvel isto abre
    por http num IP da rede local — ou seja, lá nunca funcionaria.           */
 
+/* Quantas cópias vão na linha. Nas listas de compra o campo chama-se `missing`
+   (o que falta comprar); na lista de venda chama-se `qty` (o que sobra dos
+   decks). Gémeo do `cardmarket.quantidade` em Python. */
+function cmQtd(it) {
+  return it.missing != null ? it.missing : (it.qty || 0);
+}
+
 function cmLinha(it, comCodigo) {
   const nome = it.market_name || it.name || '';
+  const n = cmQtd(it);
   if (comCodigo) {
     const c = (it.code || '').split('/')[0];
-    return `${it.missing} ${nome}${c ? ` [${c}]` : ''}`;
+    return `${n} ${nome}${c ? ` [${c}]` : ''}`;
   }
-  let l = `${it.missing} ${nome}`;
+  let l = `${n} ${nome}`;
   if (it.v && (it.n_versions || 1) > 1) l += ` (V.${it.v})`;   // só quando há mais que uma
   if (it.market_set) l += ` (${it.market_set})`;
   return l;
@@ -1053,7 +1097,7 @@ function cmCSV(itens) {
   const linhas = [CM_CABECALHO.join(',')];
   for (const it of itens) {
     linhas.push([
-      it.missing,
+      cmQtd(it),
       it.market_name || it.name || '',
       (it.code || '').split('/')[0],
       it.market_set || it.set_name || it.set || '',
@@ -1084,17 +1128,20 @@ function cmZonaHTML(id) {
 /* `getItens` é uma função, não uma lista: assim os botões apanham sempre o
    filtro que estiver activo no momento do clique, e não o que estava quando a
    página foi desenhada. */
-function cmLigar(id, getItens, nomeFicheiro) {
+function cmLigar(id, getItens, nomeFicheiro, onde = 'wantlist') {
   for (const b of document.querySelectorAll(`[data-cm="${id}"]`)) {
     b.onclick = () => {
       const itens = getItens();
       if (b.dataset.cmModo === 'csv') { cmDescarregar(itens, nomeFicheiro, id); return; }
-      cmMostrar(id, itens, b.dataset.cmModo === 'codigo');
+      cmMostrar(id, itens, b.dataset.cmModo === 'codigo', onde);
     };
   }
 }
 
-function cmMostrar(id, itens, comCodigo) {
+/* `onde` é só o texto da nota: nas listas de compra a lista vai para a
+   wantlist, na de venda não — dizer-lhe "cola na wantlist" seria mandá-lo
+   comprar o que quer vender. */
+function cmMostrar(id, itens, comCodigo, onde = 'wantlist') {
   const linhas = itens.map(it => cmLinha(it, comCodigo));
   const txt = $(`#${id}-txt`), nota = $(`#${id}-nota`), fnota = $(`#${id}-foil`);
   txt.value = linhas.join('\n');
@@ -1102,16 +1149,18 @@ function cmMostrar(id, itens, comCodigo) {
   txt.hidden = false; nota.hidden = false;
   txt.focus(); txt.select();
 
-  const copias = itens.reduce((s, x) => s + x.missing, 0);
+  const copias = itens.reduce((s, x) => s + cmQtd(x), 0);
   const cents = itens.reduce((s, x) => s + (x.total || 0), 0);
   // O total NÃO vai no texto: uma linha de total colada na wantlist seria
   // importada como se fosse uma carta.
   const resumo = `${linhas.length} linhas · ${copias} cópias · ${eur(cents)}`
     + (comCodigo ? ' · com código, para desambiguar à mão (o Cardmarket não lê os [ ])' : '');
 
+  const destino = onde === 'wantlist' ? 'Cola na wantlist do Cardmarket.'
+                                      : 'É a lista das cartas, para levares para onde vendes.';
   if (navigator.clipboard && window.isSecureContext) {
     navigator.clipboard.writeText(txt.value)
-      .then(() => { nota.textContent = `${resumo} — copiadas. Cola na wantlist do Cardmarket.`; })
+      .then(() => { nota.textContent = `${resumo} — copiadas. ${destino}`; })
       .catch(() => { nota.textContent = `${resumo} — já selecionadas, copia com Ctrl+C.`; });
   } else {
     nota.textContent = `${resumo} — já selecionadas, copia com Ctrl+C `
@@ -1124,8 +1173,11 @@ function cmMostrar(id, itens, comCodigo) {
   fnota.hidden = !foil.length;
   if (foil.length) {
     fnota.innerHTML = `<b>${foil.length} destas só têm oferta foil no mercado.</b>
-      O texto da wantlist não leva marca de foil — depois de colares, liga o
-      filtro <i>Foil</i> nestas entradas:<br>${foil.map(escapeHTML).join('<br>')}`;
+      ${onde === 'wantlist'
+        ? `O texto da wantlist não leva marca de foil — depois de colares, liga o
+           filtro <i>Foil</i> nestas entradas:`
+        : `O preço que está aqui é o da oferta foil, que pode não ser o da tua
+           cópia:`}<br>${foil.map(escapeHTML).join('<br>')}`;
   }
 }
 
@@ -1574,6 +1626,88 @@ function staplTile(x) {
     <div class="tname" title="${escapeAttr(x.name)}">${escapeHTML(x.name)}</div>
     <div class="onde tenho">${x.decks.map(d =>
       `${d.qty}× ${escapeHTML(d.deck.split(' · ')[0])}`).join('<br>')}</div>
+  </div>`;
+}
+
+
+/* ========================================================== SECÇÃO VENDA
+
+   "A Coleção é de master set. O resto provavelmente vai para venda ou jogar nos
+   decks seleccionados" (André, 2026-09-08). Isto é a segunda metade da frase: o
+   que ele TEM e está fora do master set, partido em "está num deck" e "sobra".
+
+   NADA SAI DA BASE. É uma sugestão — não há botão de vender, não se mexe no
+   `copies`. A lista sai em texto, como as de compra.                        */
+
+async function loadVenda() {
+  state.venda = await getJSON('api/venda.json');
+  renderVenda();
+}
+
+function renderVenda() {
+  const v = state.venda;
+  const corpo = $('#venda-body');
+
+  if (!v.printings && !v.in_decks) {
+    corpo.innerHTML = `<p class="empty">Não tens nenhuma impressão fora do
+      master set — nem tokens (<code>-T</code>) nem artes alternativas
+      (<code>a</code>).</p>`;
+    return;
+  }
+
+  corpo.innerHTML = `
+    <div class="deck-card resumo">
+      <b>${v.printings} impressão${v.printings === 1 ? '' : 'ões'} a mais</b>
+      <span>${v.copies} cópia${v.copies === 1 ? '' : 's'} · ${eur(v.cents)} ao preço
+        de hoje${v.no_price ? ` · ${v.no_price} sem oferta no CardTrader` : ''}</span>
+    </div>
+
+    <p class="note">Só o que está <b>fora do master set</b> — os tokens
+      (<code>-T</code>) e as artes alternativas (<code>a</code>) — e que
+      <b>tens na caixa</b>. O que algum deck usa fica de fora da lista e aparece
+      em baixo${v.in_decks ? `: são <b>${v.in_decks}</b> impressões,
+      ${v.in_decks_copies} cópias` : ''}.
+      <br>Isto é uma <b>sugestão</b>: não mexe na coleção, não há nada a
+      confirmar. As impressões do master set nunca entram aqui, por muitas que
+      tenhas a mais.
+      ${v.no_price ? `<br><b>${v.no_price}</b> não têm oferta no CardTrader:
+        entram na lista, não entram no total.` : ''}</p>
+
+    ${v.blocks.length ? `<div class="chips venda-blocos">${v.blocks.map(b => `
+      <span class="chip-b is-static">${escapeHTML(b.label || b.id)}
+        <b>${b.copies}</b> · ${eurShort(b.cents)}</span>`).join('')}</div>` : ''}
+
+    ${v.items.length ? `<div class="grid deck-grid">${v.items.map(vendaTile).join('')}</div>`
+      : '<p class="empty">Tudo o que tens fora do master set está a ser usado nos decks.</p>'}
+
+    ${v.items.length ? cmZonaHTML('venda') : ''}
+    ${v.items.length ? `<small class="nota">A lista sai no formato do Cardmarket
+      (<code>N Nome (V.n) (Edição)</code>), o mesmo das listas de compra — é um
+      formato de <i>wantlist</i>, não de importação de stock de vendedor. Serve
+      para saberes o que tens para vender, não para o carregar lá.</small>` : ''}
+
+    ${v.kept.length ? `
+      <h3 class="section-head sub">Fora do master set, mas em uso
+        <span>${v.in_decks_copies} cópias em decks — não estão para venda</span></h3>
+      <div class="grid deck-grid">${v.kept.map(vendaTile).join('')}</div>` : ''}`;
+
+  if (v.items.length) {
+    cmLigar('venda', () => v.items, `riftvault-venda-${hojeISO()}.csv`, 'venda');
+  }
+}
+
+function vendaTile(x) {
+  const onde = (x.in_decks || []).map(d =>
+    `${d.qty}× ${escapeHTML(d.deck.split(' · ')[0])}`).join(', ');
+  return `<div class="dtile ${x.state === 'deck' ? 'neutro' : 'gone'}">
+    ${artHTML(x, `<span class="need">${x.qty || x.have}×</span>
+      ${x.price != null ? `<span class="price">${eurShort(x.total || x.price)}</span>` : ''}`)}
+    <div class="tname" title="${escapeAttr(x.name)}">${escapeHTML(x.name)}</div>
+    <div class="codigo">${escapeHTML((x.code || '').split('/')[0])} ·
+      ${escapeHTML(x.label)}${x.price != null ? ` · ${eur(x.price)}` : ''}</div>
+    <div class="onde ${x.state === 'deck' ? 'tenho' : ''}">${
+      onde ? `usada num deck: ${onde}` : 'candidata a venda'}${
+      x.state === 'deck' && x.qty > 0 ? ` · ${x.qty} a mais` : ''}</div>
   </div>`;
 }
 

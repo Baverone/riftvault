@@ -77,8 +77,11 @@ GitHub Actions publica no GitHub Pages (`.github/workflows/pages.yml`).
 
 ## Ordenar e filtrar a grelha
 
-- **Ordem:** número de coleção, com as artes alternativas e signatures logo a
-  seguir à carta base.
+- **Ordem:** primeiro a **sequência do master set**, por número de coleção, com
+  as signatures logo a seguir à carta base. Depois, em blocos próprios no fim,
+  o que está **fora do master set**: os tokens (código `-T`) e as artes
+  alternativas (número acabado em `a`). Nunca intercalados. Cada bloco tem o
+  seu contador — "tens N de M" — que **não** entra na percentagem de master set.
 - **Filtros:** Tudo / Faltas, e por tipo de impressão (Base, Arte alt.,
   Signature, Tokens/Promos). "Faltas" mostra tudo o que não está completo,
   tanto faz faltarem 3, 2 ou 1.
@@ -224,14 +227,43 @@ de qualquer edição, conta. Alvos por tipo, em `riftvault_config.json`:
 Unit/Spell/Gear 3, Battlefield 1, Legend 1, Rune 12, tokens 1.
 
 **2. Master set** — alvo por *impressão*. A base segue o alvo de jogo e cada
-signature 1. **As artes alternativas pedem playset na mesma** — um alt art de
-Unit mostra `0/3`, um de Rune mostra `0/12` — mas **não contam** para a
-percentagem. São três ajustes diferentes: `master_targets_by_variant` é o alvo
-fixo, `master_variantes_playset` diz quais as variantes que seguem o playset em
-vez desse alvo fixo, e `master_ignorar_variantes` é o que fica fora do
-denominador.
+signature 1.
+
+**O master set é a sequência numerada da edição.** Ficam de fora as impressões
+com sufixo no código: os tokens (`UNL-T03`) e as artes alternativas
+(`UNL-228a`). Não entram na percentagem, e na grelha aparecem em blocos
+próprios depois da sequência. As signatures (`OGN-299*`), as runas promo
+(`VEN-R01`) e as promos especiais (`VEN-SP4`) **continuam dentro**.
+
+**As artes alternativas pedem playset na mesma** — um alt art de Unit mostra
+`0/3`, um de Rune mostra `0/12` — porque o alvo e a percentagem são perguntas
+diferentes. São três ajustes: `master_targets_by_variant` é o alvo fixo,
+`master_variantes_playset` diz quais as variantes que seguem o playset em vez
+desse alvo fixo, e `master_ignorar_variantes` é o que fica fora do master set.
 
 Não se distingue foil de normal: uma cópia é uma cópia.
+
+## Venda
+
+Quarta secção. O que tens **fora do master set** — os `-T` e os `a` — partido em
+duas leituras:
+
+- **usada num deck seleccionado** — a cópia está alocada a um deck da secção
+  Decks. Fica onde está e não entra na lista.
+- **candidata a venda** — nenhum deck a usa. Nome, código, quantidade, preço de
+  hoje e total, mais o botão para copiar a lista no formato do Cardmarket.
+
+Uma impressão pode estar nas duas: 2 cópias num deck e 1 a mais vende só 1.
+
+**Nada sai da base.** É uma sugestão — não há botão de vender e a coleção não
+mexe. As impressões do master set nunca entram aqui, por muitas que tenhas a
+mais.
+
+```bash
+py -m riftvault venda                # a tabela
+py -m riftvault venda --cardmarket   # as linhas para copiar
+py -m riftvault venda --csv venda.csv
+```
 
 ## Valor da coleção
 
@@ -323,6 +355,8 @@ riftvault find "sett"                            # procurar impressões
 riftvault decks [--order azir,ornn]               # decks e alocação
 riftvault deck azir [--onde]                      # detalhe de um deck
 riftvault shopping [--deck azir] [--csv f.csv]    # o que falta comprar
+riftvault a-subir [--cardmarket] [--todas]        # master set: a subir / tudo
+riftvault venda [--cardmarket] [--csv f.csv]      # fora do master set, a sobrar
 riftvault map / prices / value                    # CardTrader
 ```
 
@@ -336,7 +370,9 @@ riftvault/
   riftscribe.py   cliente da API
   catalog.py      constrói o catalog.db (impressões + cartas lógicas + aliases)
   collection.py   escrita na coleção, log e undo
-  metrics.py      as duas métricas e os payloads do frontend
+  metrics.py      as duas métricas, os blocos da grelha e os payloads
+  a_subir.py      o que falta do master set (a subir, e a lista completa)
+  venda.py        o que está fora do master set e sobra dos decks
   server.py       modo edição (Flask)
   build.py        modo publicado (estático)
   cli.py          linha de comandos

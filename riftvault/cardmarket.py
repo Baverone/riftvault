@@ -109,19 +109,31 @@ def versoes(con: sqlite3.Connection) -> dict[str, dict]:
 # ---------------------------------------------------------------------------
 
 
+def quantidade(it: dict) -> int:
+    """Quantas cópias vão na linha.
+
+    Nas listas de compra o campo chama-se `missing` (o que falta comprar); na
+    lista de venda chama-se `qty` (o que sobra dos decks). O gerador é o mesmo
+    e lê os dois — o gémeo em JavaScript faz a mesma leitura.
+    """
+    n = it.get("missing")
+    return int(n if n is not None else it.get("qty") or 0)
+
+
 def linha(it: dict, com_codigo: bool = False) -> str:
     """Uma linha da wantlist, a partir de um item já preparado.
 
-    Os itens vêm da aba «A subir» ou da lista do master set; as duas trazem os
-    mesmos campos de mercado (`market_name`, `market_set`, `v`, `n_versions`)
-    de propósito, para não haver dois formatos.
+    Os itens vêm da aba «A subir», da lista do master set ou da lista de venda;
+    todas trazem os mesmos campos de mercado (`market_name`, `market_set`, `v`,
+    `n_versions`) de propósito, para não haver dois formatos.
     """
     nome = it.get("market_name") or it.get("name") or ""
+    n = quantidade(it)
     if com_codigo:
         c = codigo(it.get("code"))
-        return f"{it['missing']} {nome}" + (f" [{c}]" if c else "")
+        return f"{n} {nome}" + (f" [{c}]" if c else "")
 
-    partes = [f"{it['missing']} {nome}"]
+    partes = [f"{n} {nome}"]
     # Só faz sentido numerar quando há mais do que uma versão.
     if it.get("v") and (it.get("n_versions") or 1) > 1:
         partes.append(f"(V.{it['v']})")
@@ -142,7 +154,7 @@ def gerar(itens: list[dict], com_codigo: bool = False) -> dict:
     return {
         "text": "\n".join(linhas),
         "lines": len(linhas),
-        "copies": sum(int(it["missing"]) for it in itens),
+        "copies": sum(quantidade(it) for it in itens),
         "cents": sum(int(it.get("total") or 0) for it in itens),
         "foil": [l for l, it in zip(linhas, itens) if it.get("foil_only")],
     }
@@ -156,7 +168,7 @@ def csv_texto(itens: list[dict]) -> str:
     for it in itens:
         preco, total, pct = it.get("price"), it.get("total"), it.get("pct")
         w.writerow([
-            it["missing"],
+            quantidade(it),
             it.get("market_name") or it.get("name") or "",
             codigo(it.get("code")),
             it.get("market_set") or it.get("set_name") or it.get("set") or "",

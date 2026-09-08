@@ -116,7 +116,8 @@ class TestSignaturesFora(Base):
     def test_a_signature_continua_a_contar_para_a_percentagem_de_set(self):
         """O filtro é da página. A barra da Coleção não pode mexer."""
         con = self.montar()
-        self.assertTrue(self.metrics.master_counts("signature", False))
+        self.assertTrue(self.metrics.e_master(
+            {"variant_kind": "signature", "is_token": 0}))
         alvo = self.metrics.master_target("tst-002-star-100", "signature", "Unit", False)
         self.assertEqual(alvo, 1)
         # O denominador do set (uma unidade por impressão que conta) continua a

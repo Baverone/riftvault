@@ -8,7 +8,7 @@ Gestor pessoal da coleção de **Riftbound** (TCG da Riot), do André. Python +
 SQLite, mesma arquitetura do `mtgvault`. Objetivo: ter **playsets**, incluindo
 artes normais **e** alternativas.
 
-Duas secções apenas: **Coleção** e **Decks**.
+Secções: **Coleção**, **Decks**, **Faltas** e **Venda**.
 
 ## Regras de trabalho
 
@@ -304,6 +304,8 @@ alternativas continuam na grelha, contam para o playset jogável e para o
 valor da coleção, mas **não entram no denominador**.
 
 Denominadores: OGN 352 -> 322, SFD 288 -> 264, UNL 288 -> 258, VEN 228 -> 210.
+(**A 2026-09-08 os tokens juntaram-se-lhes** e estes números baixaram outra vez
+— SFD 263, UNL 250, VEN 209. Ver a secção "A Coleção é o master set".)
 
 **ALVO e CONTA são campos diferentes** (2026-09-02). A primeira versão pôs o
 alvo da arte alternativa a 0, e o tile perdeu o `0/1` — ele quer ver quantas
@@ -313,11 +315,120 @@ com dois campos:
 - `master_targets_by_variant` -> o alvo fixo por variante.
 - `master_variantes_playset` -> as variantes cujo alvo segue o playset do tipo
   em vez do alvo fixo (`["alt_art"]`, ver a secção abaixo).
-- `master_ignorar_variantes` -> o que fica fora do denominador (`["alt_art"]`),
-  via `metrics.master_counts()`.
+- `master_ignorar_variantes` -> o que fica fora do master set (era `["alt_art"]`,
+  desde 2026-09-08 é `["alt_art", "token"]`), via `metrics.e_master()`.
 
-O payload leva `counts` por impressão e o `renderProgress` respeita-o — a
+O payload leva `block` por impressão e o `renderProgress` respeita-o — a
 percentagem é recalculada no cliente, por isso não bastava mudar o servidor.
+(O campo chamava-se `counts` até 2026-09-08; passou a ser o bloco da grelha,
+porque é a mesma pergunta.)
+
+## A Coleção é o master set: os `-T` e os `a` vão para o fim (2026-09-08)
+
+Palavras dele: *"As cartas que forem 'sigla-T' ou 'a' no fim (de arte
+alternativa) não as quero na sequência do master set; quero-as ordenadas depois
+do master set. A Coleção é de master set. O resto provavelmente vai para venda
+ou jogar nos decks seleccionados."*
+
+**A regra é o CÓDIGO IMPRESSO**, e no catálogo lê-se pelo `variant_kind`, que é
+derivado do mesmo sufixo: `UNL-T03` -> `token`, `UNL-228a` -> `alt_art`.
+Ficam **dentro** do master set tudo o que ele não nomeou: as signatures
+(`OGN-299*`), as runas promo (`VEN-R01`) e as promos especiais (`VEN-SP4`).
+
+**Uma função só: `metrics.e_master(printing)`.** Havia duas leituras a divergir
+— a percentagem já ignorava as artes alternativas (2026-09-02) mas a grelha
+punha-as na sequência, e os tokens contavam para a percentagem. Agora a métrica,
+a grelha, o «A subir», a lista do master set e a Venda perguntam todos à mesma
+função. O `metrics.master_counts` foi **removido**. Configura-se em
+`master_ignorar_variantes`, agora `["alt_art", "token"]`.
+
+**O que mudou nos números** (medido a 2026-09-08, só os tokens saem — as artes
+alternativas já estavam fora):
+
+| | antes | agora |
+|---|---|---|
+| denominador do master set | 1078 | **1068** |
+| SFD / UNL / VEN | 264 / 258 / 210 | **263 / 250 / 209** |
+| âmbito do «A subir» | 1042 | **1032** |
+| lista do master set | 695 impressões, 29 441,06 € | **686, 29 440,08 €** |
+
+O OGN e o OGS não mexem: não têm tokens com sufixo `-T`.
+
+**Os tokens com número de coleção próprio ficam.** `OGN-271/298` (o Recruit) e
+`SFD-003` (o Gold) são tokens por natureza — é o que o `token_card_keys` marca —
+mas o código deles não leva sufixo nenhum: estão numerados dentro da edição, por
+isso continuam na sequência. A regra é o código, não a natureza da carta.
+
+### Ordem: blocos, nunca intercalados
+
+A grelha percorre os grupos **uma vez por bloco**: primeiro o master set
+inteiro, por número de coleção; depois «Fora do master set — tokens»; depois
+«Fora do master set — artes alternativas». O `metrics.BLOCOS` manda na ordem e
+nos rótulos, o payload leva `block` em cada impressão e a lista `blocks` do
+set, e o `render()` do `app.js` faz os dois ciclos. O `metrics.ordem_da_grelha`
+diz a mesma ordem em Python, para dar para testar sem browser.
+
+Isto era mesmo visível: em UNL a sequência era `UNL-001, UNL-T01, UNL-002,
+UNL-T02, ...` — um token entre cada duas cartas.
+
+**Cada bloco de fora tem contador próprio** ("tens N de M"), recalculado no
+cliente como as barras. O alvo dos tiles não mexeu: uma alt art de Unit continua
+a mostrar `0/3` e um token `0/1` — ALVO e CONTA são campos diferentes desde
+2026-09-02.
+
+**O VEN continua a intercalar as runas promo e as promos especiais**
+(`VEN-001, VEN-R01, VEN-SP1, VEN-002, ...`). Ele não as nomeou e ficaram como
+estavam. Se quiser, é acrescentar `"rune_promo"` e `"special"` ao
+`master_ignorar_variantes` — mas isso tira-as **também** da percentagem, porque
+é a mesma pergunta.
+
+## Secção «Venda» (2026-09-08)
+
+A segunda metade da frase dele: *"o resto provavelmente vai para venda ou jogar
+nos decks seleccionados"*. `riftvault/venda.py`, `api/venda.json`, quarta secção
+no frontend e `riftvault venda` no CLI.
+
+Pega no que está fora do master set e ele **tem na caixa**, e parte em duas:
+**usada num deck seleccionado** (a cópia está alocada a um deck) e **candidata
+a venda**. Uma impressão pode ser as duas: 2 cópias num deck e 1 a mais vende
+só 1.
+
+**Quem decide o que está num deck é o `decks.printing_allocation`** — a mesma
+função do "2× Ornn · 1 no binder" do tile. Ela escolhe **artes base primeiro**,
+de propósito, por isso uma arte alternativa só aparece alocada quando não há
+cópias base que cheguem. É a resposta certa aqui: essa alt art está a ser jogada
+porque faz falta.
+
+**NADA SAI DA BASE.** Não há botão de vender, não se mexe no `copies` nem no
+`ops` — é uma sugestão. Há teste que confirma que o `listar()` não escreve.
+
+Medido a 2026-09-08: **23 impressões, 28 cópias, 106,18 €** (22 artes
+alternativas + 5 cópias do `SFD-T03` Gold). Duas ficam de fora por estarem em
+decks: `OGN-042a` Calm Rune ×6 (Azir) e `OGN-089a` Mind Rune ×1 (Ornn).
+
+**A ressalva:** a lista sai no formato de **wantlist** do Cardmarket
+(`N Nome (V.n) (Edição)`), o mesmo das listas de compra — foi o que ele pediu.
+**Não é o formato de importação de stock de vendedor**, que não foi validado e
+não se inventou.
+
+**Tensão conhecida, por decidir com ele:** a lista mostra a impressão inteira,
+não só o que passa do alvo. Uma alt art com 1 cópia e alvo 3 aparece na mesma
+como candidata a venda, e as 5 cópias do Gold também (alvo 1). É o que a frase
+dele diz — o que está fora do master set vai para venda ou para os decks — mas
+choca com o alvo de playset das alt arts de 2026-09-05. Se ele quiser guardar o
+alvo, muda-se numa linha em `venda.listar`: `sobra = qty - max(usadas, alvo)`.
+
+**O gerador do Cardmarket é o mesmo.** A quantidade da linha passou a sair do
+`cardmarket.quantidade()`: `missing` nas listas de compra, `qty` na de venda.
+O gémeo em JavaScript é o `cmQtd`, e há smoke test que compara os dois texto a
+texto.
+
+**O Pimp NÃO foi tocado**, de propósito. Ele é uma lista de compra de artes
+alternativas — precisamente do que está fora do master set — mas a pergunta
+dele é de DECK, não de coleção: "que versão da carta que já jogo é que quero
+mais bonita". Tirar-lhe as alt arts era apagar a aba. As listas que passaram a
+ignorar o que está fora do master set são as que medem a coleção: «A subir» e
+«Master set».
 
 ## Impressões vetadas no Pimp (2026-09-05)
 
@@ -344,9 +455,10 @@ elas contam na ordenação, contam para os decks, mas não contam para a % de
 faltas". O alvo da arte alternativa passou a seguir `playset_targets_by_type`,
 como já fazia a base — Unit/Spell/Gear 3, Rune 12, Legend e Battlefield 1.
 
-Configura-se em `master_variantes_playset`. O `master_counts()` não mexeu, por
-isso os denominadores da percentagem são exatamente os mesmos (OGN 322, SFD 264,
-UNL 258). O que muda é o badge do tile e, por consequência, o filtro "Faltas" da
+Configura-se em `master_variantes_playset`. O que decide a percentagem não
+mexeu, por isso os denominadores foram exatamente os mesmos (OGN 322, SFD 264,
+UNL 258 — a 2026-09-08 os tokens baixaram os dois últimos, ver adiante).
+O que muda é o badge do tile e, por consequência, o filtro "Faltas" da
 grelha: uma `Calm Rune` alt art com 6 cópias lia-se 6/1 (completa) e agora lê-se
 6/12 (parcial), que é o ponto — ele quer ver quantas lhe faltam.
 
@@ -406,6 +518,11 @@ e batem certo com os cinco códigos:
 **Decidido (André, 2026-08-31): `token_target: 1`**, nas duas métricas. Os
 tokens não são cartas de deck, mas contam para a coleção estar completa.
 
+**REVOGADO EM PARTE a 2026-09-08.** O `token_target: 1` continua a ser o ALVO —
+o tile diz `0/1` e ele vê quantos lhe faltam — mas os tokens com código `-T`
+deixaram de entrar na **percentagem** de master set e passaram para um bloco no
+fim da grelha. Ver "A Coleção é o master set".
+
 `token_card_keys` no config marca como token as cartas que a API imprime como
 base mas que o são: `Recruit (DE/NX/ZN)` e `Sprite` (OGN-271..274), `Gold`
 (SFD-003), e os nomes que só existem como token noutras edições. **A lista é
@@ -456,18 +573,19 @@ de base — mas a **vista** passou a ser uma lista de vigia de compras.
 **"Masterset" é a métrica 2, não uma edição.** Ele não tem no catálogo nenhum
 set chamado assim; o que o riftvault chama master set é o alvo por IMPRESSÃO.
 O âmbito são por isso as impressões que entram na **percentagem de set
-completo** (`metrics.master_target > 0` e `metrics.master_counts`), nas cinco
-edições: **1078 das 1180**. Ficam de fora as 102 artes alternativas, que já
-estavam fora do denominador por `master_ignorar_variantes`. Seguir cartas que
-não contam para o master set seria medir outra coisa que não a barra que ele vê
-na Coleção.
+completo** (`metrics.master_target > 0` e `metrics.e_master`), nas cinco
+edições: eram **1078 das 1180**, e desde 2026-09-08 são **1068**. Ficam de fora
+as 102 artes alternativas e os 10 tokens `-T`, por `master_ignorar_variantes`.
+Seguir cartas que não contam para o master set seria medir outra coisa que não a
+barra que ele vê na Coleção.
 
 **"Ainda não tenho" = a regra do filtro Faltas da grelha**, `cópias + a caminho
 < alvo do master`. Uma Unit com 1 de 3 ainda o obriga a comprar 2, logo o preço
 ainda lhe interessa. O que vem a caminho conta como tido, como em toda a secção
 Faltas. Muda-se em `a_subir.regra_falta`: `"nenhuma"` segue só as que estão a
-zero cópias. Medido a 2026-09-08: **731 seguidas** com a regra `master`, 397
-com a regra `nenhuma`.
+zero cópias. Medido a 2026-09-08: **686 seguidas** com a regra `master` (eram
+731 antes de os tokens saírem do master set, e 695 depois de as signatures
+saírem das listas de compra).
 
 **O preço de há N dias é o que estava EM VIGOR nessa data**, não o primeiro
 registo dentro da janela. O `price_history` só grava quando o preço muda: uma
@@ -505,9 +623,10 @@ e `riftscribe.gg/cards/<printing_id>`) são presunção, e estão em
 
 `a_subir.excluir_tipos`, default `["signature"]`, aplicado por
 `a_subir.excluir()` logo a seguir ao `masterset()`. Aceita qualquer
-`variant_kind`. **Não mexe na métrica**: o `metrics.master_counts` está intacto
-e as 36 signatures continuam no denominador da percentagem de set completo —
+`variant_kind`. **Não mexe na métrica**: as 36 signatures continuam no
+denominador da percentagem de set completo (`metrics.e_master` diz que sim) —
 o que mudou é a página, e a página diz quantas tirou (`scope.excluded`).
+Não confundir com o `master_ignorar_variantes`, que tira mesmo do master set.
 
 **Vale também para a lista do master set**, e isso é uma extensão minha do que
 ele disse: ele falou da aba "A subir", mas as duas são listas de compra e ele
@@ -551,7 +670,7 @@ Riftbound do Cardmarket aceita a edição escrita como o CardTrader a escreve
 
 **Medida que interessa:** hoje **as 53 linhas de "A subir" são todas de
 impressões que o CardTrader só lista em foil**, e no master set são 371 das
-695. O aviso do foil por baixo da caixa deixa de ser uma nota de rodapé e passa
+686. O aviso do foil por baixo da caixa deixa de ser uma nota de rodapé e passa
 a ser a lista inteira — ver a ressalva do `from_foil` na secção dos preços.
 
 ## "Master set": a lista completa das faltas (2026-09-08)
@@ -564,9 +683,11 @@ exclusões da aba "A subir", sem o filtro de subida.
 Ordenada por **edição e número de coleção** (pedido dele), que é a ordem do
 binder e das páginas de venda — não pelo preço.
 
-Medido a 2026-09-08: **695 impressões, 1420 cópias, 29 441,06 €**, uma sem
-oferta no CardTrader (entra na lista, não entra no total). Por edição: OGN 252,
-VEN 171, SFD 145, UNL 113, OGS 14.
+Medido a 2026-09-08, **depois de os tokens saírem do master set**: **686
+impressões, 1411 cópias, 29 440,08 €**, uma sem oferta no CardTrader (entra na
+lista, não entra no total). Por edição: OGN 252, VEN 170, SFD 145, UNL 105,
+OGS 14. (Antes dessa decisão eram 695 / 1420 / 29 441,06 €, com UNL 113 e
+VEN 171 — a diferença são os 10 tokens.)
 
 **Sem imagens de propósito.** São centenas de linhas e o `faltas.json` é
 descarregado inteiro a cada visita. Mesmo assim o ficheiro passou de **89 KB
@@ -866,6 +987,9 @@ oficiais**. Se estiver errado, é uma linha no config.
   por prioridade, validação de legalidade e lista de compras.
 - **Feito também:** as abas "A subir" e "Master set", com as listas para o
   Cardmarket (copiar, copiar com código, CSV) e o `riftvault a-subir`.
+- **Feito também:** a Coleção em blocos (master set primeiro, `-T` e `a`
+  depois), com uma só `metrics.e_master`, e a secção "Venda" com o
+  `riftvault venda`.
 - **Por fazer:** vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck,
   com as partilhadas assinaladas); e apagar decks pela interface (hoje apaga-se
   o `.txt`).

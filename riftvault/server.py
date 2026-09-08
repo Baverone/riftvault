@@ -18,7 +18,7 @@ from datetime import datetime, timezone
 
 from flask import Flask, g, jsonify, redirect, request, send_from_directory
 
-from . import collection, config, db, decks, faltas, metrics, pending
+from . import collection, config, db, decks, faltas, metrics, pending, venda
 
 app = Flask(__name__, static_folder=None)
 
@@ -125,6 +125,15 @@ def api_faltas():
     con = get_con()
     _reimport_if_changed(con)
     return jsonify(faltas.payload(con))
+
+
+@app.get("/api/venda.json")
+def api_venda():
+    con = get_con()
+    # A lista depende de quem está em que deck: sem reler, uma carta tirada de
+    # um deck ficava a dizer "usada num deck" até alguém abrir a secção Decks.
+    _reimport_if_changed(con)
+    return jsonify(venda.payload(con, editable=True))
 
 
 @app.get("/api/deck/<int:deck_id>.json")

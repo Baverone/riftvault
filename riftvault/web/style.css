@@ -193,6 +193,18 @@ main { padding: 12px; max-width: 1500px; margin: 0 auto; }
   font-size: 11px; font-weight: 400; color: var(--dim); text-transform: none;
 }
 
+/* Os blocos que ficam DEPOIS da sequência do master set — os tokens e as artes
+   alternativas (André, 2026-09-08). Separador grosso, para se ver de longe que
+   a sequência acabou e o que vem a seguir é outra coisa. */
+.section-head.fora {
+  margin-top: 26px; padding-top: 14px;
+  border-top: 2px solid var(--line);
+  text-transform: none; color: var(--dim);
+}
+.section-head.fora b { color: var(--text); }
+
+.chip-b.is-static { cursor: default; }
+
 .tile { position: relative; display: flex; flex-direction: column; gap: 5px; }
 
 .art {
