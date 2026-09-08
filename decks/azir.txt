@@ -6,7 +6,6 @@ Champion:
 
 MainDeck:
 3 Defy
-2 En Garde
 3 Discipline
 3 Hidden Blade
 3 Doran's Shield
@@ -14,26 +13,27 @@ MainDeck:
 3 Eye of the Herald
 3 Guards!
 3 B.F. Sword
-2 Deathgrip
 3 Arise!
 3 Soul Sword
 3 Back Off
+2 En Garde
+2 Deathgrip
 1 Hand Hammer
-1 Kennen, Keeper of Balance
+1 Vi, Peacekeeper
 
 Battlefields:
 1 Trifarian War Camp
-1 Seat of Power
 1 Hall of Legends
+1 Seat of Power
 
 Rune Pool:
-5 Order Rune
 7 Calm Rune
+5 Order Rune
 
 Sideboard:
+3 Decree of Unity
 2 Salvage
 2 Decree of Focus
-3 Decree of Unity
+1 Ornn, Blacksmith
 1 Ashe, Focused
-1 Vi, Peacekeeper
 1 Tomb-Raider Barbara

@@ -5,40 +5,42 @@ Champion:
 1 Kennen, Storm of Shuriken
 
 MainDeck:
-3 Ride the Wind
-3 Stacked Deck
-3 Traveling Merchant
 3 Rhasa the Sunderer
-3 Seal of Discord
-3 Treasure Hunter
-3 Lightning Rush
-2 Switcheroo
-2 Last Rites
-2 Up from the Deep
-1 The Harrowing
+3 Nocturne, Horrifying
+1 Fizz, Trickster
+3 Traveling Merchant
 1 Tideturner
+3 Treasure Hunter
+2 Shadow Order Disciple
+1 Star-Crossed
+1 Up from the Deep
+3 Ride the Wind
+1 Salvage
 1 Flash
 1 Hard Bargain
-1 Star-Crossed
-1 Baron Nashor
-1 Shadow Order Disciple
-3 Nocturne, Horrifying
-2 Fizz, Trickster
+2 Switcheroo
+2 Gust
+3 Stacked Deck
+3 Lightning Rush
+2 Last Rites
+3 Seal of Discord
 
 Battlefields:
+1 Zaun Warrens
 1 Minefield
 1 Sandswept Tomb
-1 Zaun Warrens
 
 Rune Pool:
 3 Order Rune
 9 Chaos Rune
 
 Sideboard:
-2 Gust
-2 Ravenbloom Prefect
+1 Rebuke
 2 Decree of Unity
-1 Invert Timelines
-1 Salvage
-1 Star-Crossed
 1 Abandon
+1 Fizz, Trickster
+1 Ravenbloom Prefect
+1 Star-Crossed
+1 Tail-Cloaked Matriarch
+1 Divine Judgment
+1 Salvage

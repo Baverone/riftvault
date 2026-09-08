@@ -33,3 +33,11 @@ Battlefields:
 Rune Pool:
 4 Mind Rune
 8 Order Rune
+
+Sideboard:
+2 Salvage
+2 Decree of Insight
+3 Decree of Unity
+1 Time Warp
+1 LeBlanc, Everywhere at Once
+1 Black Rose Dignitary
