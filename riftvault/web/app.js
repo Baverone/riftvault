@@ -22,8 +22,9 @@ const state = {
   play: new Map(),             // card_key -> {owned, target}
   targets: new Map(),          // printing_id -> alvo do master (o do tile)
   // printing_id -> bloco da grelha. A Coleção são três blocos seguidos —
-  // 'master' (a sequência, em playset), 'rune_special' (1 de cada) e 'alt_art'
-  // (1 de cada) — e os três contam para a percentagem. O que ficou fora da
+  // 'master' (a sequência, em playset — mas as runas a 1), 'rune_special'
+  // (1 de cada) e 'alt_art' (1 de cada) — e os três contam para a
+  // percentagem. O que ficou fora da
   // coleção vai para blocos próprios no fim. Ver `metrics.BLOCOS`.
   blocks: new Map(),
   // Os ids de bloco que entram na percentagem, ditos pelo payload (`counts`).

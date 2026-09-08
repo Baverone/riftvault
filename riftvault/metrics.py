@@ -5,7 +5,8 @@
   2) MASTER SET — alvo por IMPRESSÃO. É a métrica de colecionador, e desde
      2026-09-08 a Coleção são TRÊS BLOCOS por esta ordem (ver `BLOCOS`):
 
-       1. a sequência do master set, em PLAYSET (o alvo do tipo da carta);
+       1. a sequência do master set, em PLAYSET (o alvo do tipo da carta),
+          **exceto as runas, que são 1 de cada** — ver `e_runa`;
        2. as runas especiais, **1 de cada** e por edição;
        3. no fim, as artes alternativas, **1 de cada**.
 
@@ -73,10 +74,19 @@ BLOCO_CURTO = {
     "outras": "outras",
 }
 
-# As «runas especiais» do bloco 2: uma impressão de runa que não seja a base.
-# No catálogo de hoje são as artes alternativas do OGN e as runas promo do VEN
-# (a RiftScribe não tem runas no SFD nem no UNL — ver "BURACO NO CATÁLOGO" no
-# CLAUDE.md). Muda-se em `runas_especiais` no config.
+# As runas. Três campos, e cada um responde a uma pergunta diferente:
+#
+#   `tipos`   — o que É uma runa. Decide o ALVO de TODAS elas (`e_runa`), desde
+#               que ele disse *"as runas normais, quando têm número de set,
+#               apenas 1 de cada também"* (2026-09-08, à noite).
+#   `alvo`    — esse alvo: 1 por impressão, base ou especial.
+#   `excepto` — quais é que ficam na SEQUÊNCIA (só a base). O resto vai para o
+#               bloco 2, «runas especiais» (`e_runa_especial`) — hoje as artes
+#               alternativas do OGN e as promo do VEN (a RiftScribe não tem
+#               runas no SFD nem no UNL — ver "BURACO NO CATÁLOGO" no CLAUDE.md).
+#
+# Muda-se em `runas_especiais` no config. `tipos: []` desliga as três coisas e
+# as runas voltam a seguir o playset, como qualquer outra carta.
 RUNA_ESPECIAL: dict = {"tipos": ["Rune"], "excepto": ["base"], "alvo": 1}
 
 # O sufixo do CÓDIGO IMPRESSO -> o `variant_kind` que ele dá no catálogo. É a
@@ -124,19 +134,35 @@ def opcoes_runa(cfg: dict | None = None) -> dict:
     return out
 
 
+def e_runa(printing, cfg: dict | None = None) -> bool:
+    """Esta impressão é de uma RUNA — a pergunta do ALVO do master set.
+
+    André, 2026-09-08, à noite: *"as runas normais, quando têm número de set,
+    apenas 1 de cada também, em vez de 12 (playset)"*. Passou a haver **uma
+    regra só** para as runas todas: base ou especial, o alvo do master é 1
+    (`runas_especiais.alvo`). Ver `master_target`.
+
+    O que continua a distinguir a base da especial é só o BLOCO da grelha —
+    a base fica na sequência, o resto vai para o bloco 2. Ver `e_runa_especial`.
+    """
+    return campo(printing, "type") in (opcoes_runa(cfg).get("tipos") or ())
+
+
 def e_runa_especial(printing, cfg: dict | None = None) -> bool:
     """Esta impressão é uma «runa especial» — o bloco 2 da Coleção?
 
     André, 2026-09-08: *"1 runa especial de cada para cada set"*. A runa base
-    fica no bloco 1 e pede o playset (12); as outras impressões da runa — a
-    arte alternativa e a promo — pedem **1** e vão para um bloco próprio, por
-    edição, antes da cauda das artes alternativas.
+    fica no bloco 1 (a sequência) e as outras impressões da runa — a arte
+    alternativa e a promo — vão para um bloco próprio, por edição, antes da
+    cauda das artes alternativas.
+
+    **É só sobre o bloco, já não sobre o alvo.** O alvo das duas é o mesmo (1)
+    desde a segunda frase dele nesse dia — ver `e_runa`.
     """
-    o = opcoes_runa(cfg)
-    tipos = o.get("tipos") or ()
-    if campo(printing, "type") not in tipos:
+    if not e_runa(printing, cfg):
         return False
-    return campo(printing, "variant_kind") not in (o.get("excepto") or ())
+    excepto = opcoes_runa(cfg).get("excepto") or ()
+    return campo(printing, "variant_kind") not in excepto
 
 
 def playset_target(card_type: str | None, is_token: bool, cfg: dict | None = None) -> int:
@@ -159,9 +185,15 @@ def master_target(printing_id: str, kind: str, card_type: str | None, is_token: 
     if is_token:
         return int(cfg.get("token_target", 1))
     by_variant = cfg.get("master_targets_by_variant", {})
-    if e_runa_especial({"type": card_type, "variant_kind": kind}, cfg):
-        # *"1 runa especial de cada para cada set"* — antes do alvo da variante,
-        # senão a arte alternativa de uma runa pedia o playset da runa (12).
+    if e_runa({"type": card_type}, cfg):
+        # *"As runas normais, quando têm número de set, apenas 1 de cada também,
+        # em vez de 12 (playset)"* (André, 2026-09-08, à noite). UMA regra para
+        # as runas todas — base ou especial, o alvo do MASTER é 1 —, e antes do
+        # `master_base_follows_type`, que é quem lhes dava o playset.
+        #
+        # O playset JOGÁVEL da runa continua 12 (`playset_targets_by_type`): é o
+        # Rune Pool de cada deck, e quem responde a isso é a métrica 1. São duas
+        # perguntas diferentes — colecionar e jogar.
         return int(opcoes_runa(cfg).get("alvo", 1))
     if kind == "base" and cfg.get("master_base_follows_type", True):
         # Senão uma Rune base pediria 3 em vez de 12, e um Legend pediria 3
