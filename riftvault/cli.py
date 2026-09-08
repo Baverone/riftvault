@@ -189,6 +189,28 @@ def cmd_stats(args) -> int:
         pl, ms = p["playset"], p["master"]
         print(f"{s['name']:<{w}} {pl['done']:>8}/{pl['total']:<11} "
               f"{ms['done']:>7}/{ms['total']:<8}")
+
+    # A contagem por níveis do master set (André, 2026-09-08): quantas faltam
+    # para ter 1 de cada, 2 de cada, o playset de cada. O último nível dá
+    # exactamente a coluna "master set" acima — é a mesma conta, por degraus.
+    niv = metrics.niveis_payload(con)
+    if niv["max"] > 1:
+        n = niv["max"]
+        linhas = [(s["name"], niv["by_set"].get(s["id"], [])) for s in sets]
+        linhas.append(("TOTAL", niv["levels"]))
+
+        def celula(lv):
+            pct = f"{lv['pct']:.1f}".replace(".", ",")
+            return (f"{pct:>5}% · faltam {lv['missing']:>4} · "
+                    f"{prices.eur(lv['cents']):>11}")
+
+        larg = max((len(celula(lv)) for _, ls in linhas for lv in ls), default=0)
+        print("\nContagem por níveis do master set "
+              "(cópias, não o que vem a caminho):")
+        print(f"{'edição':<{w}} "
+              + " ".join(f"{f'{k}/{n}':^{larg}}" for k in range(1, n + 1)))
+        for nome, ls in linhas:
+            print(f"{nome:<{w}} " + " ".join(celula(lv).ljust(larg) for lv in ls))
     con.close()
     return 0
 
@@ -399,7 +421,13 @@ def cmd_wantlist_edicao(args) -> int:
             con.close()
             return 1
 
-    p = a_subir_mod.wantlist(con, alvo, com_codigo=args.codigos)
+    nivel = getattr(args, "nivel", None)
+    if nivel is not None and nivel < 1:
+        print("erro: --nivel tem de ser 1 ou mais.", file=sys.stderr)
+        con.close()
+        return 1
+
+    p = a_subir_mod.wantlist(con, alvo, com_codigo=args.codigos, nivel=nivel)
     saida = p["text"] + ("\n" if p["text"] else "")
     if args.out:
         open(args.out, "w", encoding="utf-8").write(saida)
@@ -411,7 +439,8 @@ def cmd_wantlist_edicao(args) -> int:
         w = d["wantlist"]
         print(f"# {d['name']}: {w['lines']} linhas · {w['copies']} cópias · "
               f"{prices.eur(w['cents'])}", file=sys.stderr)
-    print(f"#\n# total: {p['lines']} linhas · {p['copies']} cópias · "
+    print(f"#\n# total{f' (até {nivel} de cada)' if nivel else ''}: "
+          f"{p['lines']} linhas · {p['copies']} cópias · "
           f"{prices.eur(p['cents'])}"
           + (f" ({p['no_price']} sem preço no CardTrader)" if p["no_price"] else ""),
           file=sys.stderr)
@@ -746,6 +775,9 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--codigos", action="store_true",
                    help="com --edicao/--cardmarket: 'N Nome [OGN-007]' em vez da "
                         "versão e da edição, para desambiguar variantes à mão")
+    p.add_argument("--nivel", type=int,
+                   help="com --edicao/--cardmarket: só até N de cada (1 = uma de "
+                        "cada, 2 = duas); sem isto, o playset da sequência")
     p.add_argument("--deck", help="só deste deck (slug)")
     p.add_argument("--todos", action="store_true",
                    help="cenário de ter os decks todos montados ao mesmo tempo")

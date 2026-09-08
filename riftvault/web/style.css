@@ -214,6 +214,19 @@ main { padding: 12px; max-width: 1500px; margin: 0 auto; }
 .rarities.blocos { margin-top: 6px; }
 .rarity.is-out { opacity: .55; }
 
+/* A contagem por níveis (1 de cada · 2 de cada · playset), por baixo da barra
+   do master set. Ocupa a linha toda mesmo no ecrã largo, onde as três barras
+   ficam lado a lado: são seis chips com números e ao terço da largura partiam-se
+   todos. */
+.niveis { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 5px; }
+.niveis-linha { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; }
+.niveis-rot {
+  font-size: 10px; color: var(--dim); text-transform: uppercase;
+  letter-spacing: .04em; min-width: 92px;
+}
+.rarity.nivel b:first-child { color: var(--accent-2); }
+.rarity.nivel.is-done b:first-child { color: var(--ok); }
+
 .chip-b.is-static { cursor: default; }
 
 .tile { position: relative; display: flex; flex-direction: column; gap: 5px; }
@@ -449,6 +462,10 @@ body.readonly .deck-actions .btn[data-act="descer"] { display: none; }
 .wl-bloco .note { font-size: 12px; color: var(--dim); line-height: 1.6; margin: 8px 0 0; }
 .wl-stale { font-size: 12px; color: var(--accent-2); }
 .wl-stale .btn { margin-left: 8px; }
+
+/* O degrau da lista: até 1 de cada, até 2, o playset inteiro. Os dois blocos
+   partilham a escolha, por isso ficam sempre com o mesmo chip aceso. */
+.wl-niveis { margin-top: 10px; }
 
 /* A linha do cabeçalho da edição que manda para o bloco lá em baixo. */
 .falta-linha {
