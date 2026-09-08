@@ -340,14 +340,16 @@ para dentro da percentagem — continuam a ser a cauda da grelha, mas com alvo
 
 | # | bloco | o que é | alvo por impressão |
 |---|---|---|---|
-| 1 | `master` | a sequência do master set, por número de coleção | **playset do tipo** (Unit/Spell/Gear 3, Rune 12, Legend e Battlefield 1) |
+| 1 | `master` | a sequência do master set, por número de coleção | **playset do tipo** (Unit/Spell/Gear 3, Legend e Battlefield 1) — **menos as runas, que são 1 desde a noite desse dia** (ver a secção a seguir) |
 | 2 | `rune_special` | as runas especiais, por edição | **1** |
 | 3 | `alt_art` | as artes alternativas | **1** |
 | — | `token` | os `-T` | 1 no tile, **fora** da percentagem |
 
 **«Runa especial» = impressão de runa que não é a base** (`runas_especiais`:
 `{"tipos": ["Rune"], "excepto": ["base"], "alvo": 1}`). A runa BASE fica no
-bloco 1 e continua a pedir 12 — é a que se joga. São **6 no OGN** (as artes
+bloco 1 — **e desde a noite de 2026-09-08 pede 1 como as outras**, ver a secção
+a seguir; o que ainda distingue a base da especial é só o bloco. São **6 no
+OGN** (as artes
 alternativas `OGN-007a`..`214a`) e **6 no VEN** (as promo `VEN-R01`..`R06`).
 No SFD e no UNL dão zero: é o BURACO NO CATÁLOGO (a RiftScribe não tem runas
 nessas edições; as do CardTrader vivem no `market_only`, fora das métricas).
@@ -380,6 +382,57 @@ só 27 — das 108 impressões que entraram ele já tem 27 completas.
 **`master_variantes_playset` ficou a `[]`** — revoga o playset das alt arts de
 2026-09-05. ALVO e CONTA continuam a ser campos diferentes; o que mudou é que
 agora dizem os dois a mesma coisa nas alt arts.
+
+## As runas do master set são 1 de cada, não 12 (2026-09-08, à noite)
+
+Palavras dele, horas depois da secção acima: *"As runas normais, quando têm
+número de set, apenas 1 de cada também, em vez de 12 (playset)."*
+
+Isto **revoga o playset das runas no bloco 1**. Passou a haver **uma regra só
+para as runas**, em `metrics.master_target`: tipo runa -> alvo do master **1**,
+base ou especial. O que ainda distingue a base da especial é o BLOCO — a base
+fica na sequência, as outras vão para o bloco 2 —, já não o alvo.
+
+**O playset JOGÁVEL da runa continua 12** (`playset_targets_by_type`), e é de
+propósito: colecionar e jogar são duas perguntas diferentes, e é a métrica 1 que
+responde ao Rune Pool dos decks. A secção Faltas, a alocação e as listas de
+compra dos decks não mexeram — usam `playset_target` por carta lógica, nunca o
+alvo do master.
+
+**Três campos, três perguntas** (`runas_especiais`, o mesmo bloco de config):
+`tipos` diz o que é uma runa e por isso decide o ALVO de todas (`metrics.e_runa`),
+`alvo` é esse alvo, e `excepto` diz quais ficam na sequência
+(`metrics.e_runa_especial`, que passou a ser só sobre o bloco). `tipos: []`
+desliga a regra toda e as runas voltam aos 12.
+
+**São só as 6 runas base do OGN.** É o BURACO NO CATÁLOGO outra vez: a
+RiftScribe não tem runas no SFD nem no UNL, e as do VEN são todas promo
+(`VEN-R01`..`R06`, que já pediam 1). Por isso só o OGN mexe.
+
+**O que mudou nos números** (medido a 2026-09-08 contra o `data/` real):
+
+| | antes | depois |
+|---|---|---|
+| percentagem global | 472/1170 = 40,3% | **478/1170 = 40,9%** |
+| OGN | 119/352 = 33,8% | **125/352 = 35,5%** |
+| bloco `master` do OGN | 114/322 | **120/322** |
+| soma dos alvos do bloco `master` | 2832 | **2766** |
+| lista do «Master set» | 620 impressões, 1177 cópias, 21 574,21 € | **614, 1118, 21 567,33 €** |
+| «A subir» | 57 cartas, 108 cópias, 2 951,57 € | igual (seguidas 620 -> **614**) |
+| «Venda» | 2 impressões, 6 cópias, 4,10 € | igual |
+
+O denominador **não mexe** — as runas já contavam, o que mudou foi o alvo. As 6
+runas base do OGN passam de `1/12`, `1/12`, `3/12`, `3/12`, `3/12`, `2/12` a
+completas, e saem das listas de compra: **−6 impressões, −59 cópias, −6,88 €**.
+O «A subir» não mexe porque nenhuma delas subia (são cêntimos, abaixo do
+`preco_minimo_cents`). `api/faltas.json` passou de 269 KB para **266 KB**.
+
+**A Venda não mexe, e é por decisão anterior.** O âmbito dela é "não é o bloco
+`master`", e a runa base está na sequência — *"a sequência nunca entra na venda,
+por muitas cópias que ele tenha"*. Medido: se um dia essa regra mudar, o alvo
+novo põe à venda **2 cópias** — `OGN-126` Body Rune, que ele tem 3 vezes e
+nenhum deck usa. Todas as outras estão alocadas a decks e o `max(usadas, alvo)`
+protege-as. **É pergunta para ele**, e vale 2 cópias de uma runa.
 
 ### A Venda passou a ser o EXCEDENTE
 
@@ -597,10 +650,13 @@ não faz parte do set, não faz parte do preço de o completar.
 ## Alvo do master da impressão base
 
 `master_base_follows_type: true` no config. O André pediu "base 3, alt art 1,
-signature 1", mas 3 fixo daria Rune base = 3 (quando o playset são 12) e Legend
-base = 3 (quando basta 1). Por isso o alvo do master da **base** segue
-`playset_targets_by_type`; as variantes mantêm o 1. Põe-se `false` para voltar
-ao 3 fixo.
+signature 1", mas 3 fixo daria Legend base = 3 (quando basta 1). Por isso o
+alvo do master da **base** segue `playset_targets_by_type`; as variantes mantêm
+o 1. Põe-se `false` para voltar ao 3 fixo.
+
+**As runas não passam por aqui desde 2026-09-08 à noite** — o `runas_especiais`
+responde antes e dá-lhes 1, base ou especial (ver "As runas do master set são 1
+de cada"). Era este flag que lhes dava os 12.
 
 ## Cliques rápidos: deltas idempotentes, não debounce
 
@@ -1178,6 +1234,8 @@ oficiais**. Se estiver errado, é uma linha no config.
 - **Feito também:** a Coleção em três blocos — master set em playset, 1 runa
   especial de cada por edição, 1 arte alternativa de cada — com percentagem
   global e por bloco, e a Venda a mostrar só o excedente.
+- **Feito também:** as runas do master set a 1 de cada — base ou especial —,
+  com o playset jogável a continuar nos 12 para os decks.
 - **Por fazer:** vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck,
   com as partilhadas assinaladas); e apagar decks pela interface (hoje apaga-se
   o `.txt`).

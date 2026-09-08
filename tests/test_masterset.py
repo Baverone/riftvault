@@ -176,6 +176,61 @@ class TestConfigDosSufixos(Base):
         self.assertEqual(self.metrics.kinds_fora(), frozenset({"token"}))
 
 
+class TestAlvoDasRunas(Base):
+    """*"As runas normais, quando têm número de set, apenas 1 de cada também,
+    em vez de 12 (playset)"* — André, 2026-09-08 à noite.
+
+    UMA regra: tipo runa -> alvo do master 1, seja base ou especial. O playset
+    JOGÁVEL não mexeu — continua 12, que é o Rune Pool de cada deck.
+    """
+
+    def test_a_runa_base_com_numero_de_set_pede_1(self):
+        self.assertEqual(self.metrics.master_target("tst-005-100", "base", "Rune", False), 1)
+
+    def test_a_runa_especial_pede_1_como_ja_pedia(self):
+        for kind in ("alt_art", "rune_promo", "signature"):
+            with self.subTest(kind=kind):
+                self.assertEqual(
+                    self.metrics.master_target("x", kind, "Rune", False), 1)
+
+    def test_as_outras_cartas_nao_mexeram(self):
+        """A Unit continua em playset e o Legend continua a 1."""
+        self.assertEqual(self.metrics.master_target("x", "base", "Unit", False), 3)
+        self.assertEqual(self.metrics.master_target("x", "base", "Legend", False), 1)
+        self.assertEqual(self.metrics.master_target("x", "alt_art", "Unit", False), 1)
+
+    def test_o_playset_jogavel_da_runa_continua_12(self):
+        """Colecionar e jogar são duas perguntas: os decks pedem as 12 na mesma."""
+        self.assertEqual(self.metrics.playset_target("Rune", False), 12)
+
+    def test_a_runa_base_continua_na_sequencia(self):
+        """Só o ALVO mudou. O bloco é o mesmo: a base fica no master set."""
+        self.assertEqual(self.metrics.bloco(
+            {"variant_kind": "base", "is_token": 0, "type": "Rune"}), "master")
+
+    def test_o_override_por_impressao_continua_a_ganhar(self):
+        self.com_config({"master_target_overrides": {"tst-005-100": 12}})
+        self.assertEqual(self.metrics.master_target("tst-005-100", "base", "Rune", False), 12)
+
+    def test_desligar_as_runas_devolve_lhes_o_playset(self):
+        """`tipos: []` tira a regra toda e a runa base volta aos 12."""
+        self.com_config({"runas_especiais": {"tipos": []}})
+        self.assertEqual(self.metrics.master_target("x", "base", "Rune", False), 12)
+
+    def test_o_alvo_da_runa_base_segue_a_percentagem_e_o_valor(self):
+        """Uma cópia da runa base passa a fechar o tile — e a barra."""
+        from riftvault import collection
+        con = self.edicao(com_runas=True)
+        collection.adjust(con, "tst-005-100", 1, source="test")
+        con.execute("INSERT INTO catalog.price_latest (printing_id, price_cents) "
+                    "VALUES ('tst-005-100', 100)")
+        p = self.metrics.set_payload(con, "TST")
+        self.assertEqual(p["progress"]["master"]["done"], 1)
+        # "se estivesse completa" também: 1 cópia da runa, não 12.
+        self.assertEqual(p["progress"]["value"]["full"], 100)
+        con.close()
+
+
 class TestRunasEspeciais(Base):
     """`runas_especiais` — o critério do bloco 2, escrito no config."""
 
@@ -183,11 +238,14 @@ class TestRunasEspeciais(Base):
         o = self.metrics.opcoes_runa()
         self.assertEqual((o["tipos"], o["excepto"], o["alvo"]), (["Rune"], ["base"], 1))
 
-    def test_o_alvo_do_bloco_muda_no_config(self):
+    def test_o_alvo_das_runas_muda_no_config(self):
+        """O `alvo` vale para as runas TODAS desde 2026-09-08 à noite."""
         self.com_config({"runas_especiais": {"tipos": ["Rune"], "excepto": ["base"],
                                              "alvo": 3}})
         self.assertEqual(
             self.metrics.master_target("x", "alt_art", "Rune", False), 3)
+        self.assertEqual(
+            self.metrics.master_target("x", "base", "Rune", False), 3)
 
     def test_lista_vazia_desliga_o_bloco(self):
         """Sem runas especiais, a alt art da runa volta para a cauda das alt arts."""
@@ -344,12 +402,12 @@ class TestPercentagem(Base):
         con.close()
 
     def test_os_alvos_de_cada_bloco(self):
-        """Bloco 1 em playset; runas especiais e alt arts a 1."""
+        """Bloco 1 em playset; as runas, as especiais e as alt arts a 1."""
         con = self.edicao(com_runas=True)
         p = self.metrics.set_payload(con, "TST")
         alvos = {pr["id"]: pr["target"] for g in p["groups"] for pr in g["printings"]}
         self.assertEqual(alvos["tst-001-100"], 3)    # Unit base: playset
-        self.assertEqual(alvos["tst-005-100"], 12)   # Rune base: playset da runa
+        self.assertEqual(alvos["tst-005-100"], 1)    # Rune base: 1 de cada
         self.assertEqual(alvos["tst-005a-100"], 1)   # runa especial
         self.assertEqual(alvos["tst-r01-100"], 1)    # runa especial
         self.assertEqual(alvos["tst-001a-100"], 1)   # "1 alt art de cada"
@@ -387,7 +445,9 @@ class TestListasDeCompra(Base):
         self.assertEqual(itens["tst-001a-100"]["missing"], 1)
         self.assertEqual(itens["tst-005a-100"]["missing"], 1)
         self.assertEqual(itens["tst-r01-100"]["missing"], 1)
-        self.assertEqual(itens["tst-005-100"]["missing"], 12)   # a runa base
+        # E a runa BASE também: *"as runas normais, quando têm número de set,
+        # apenas 1 de cada também, em vez de 12 (playset)"* (2026-09-08, à noite).
+        self.assertEqual(itens["tst-005-100"]["missing"], 1)
         self.assertNotIn("tst-t01-100", itens)
         con.close()
 
