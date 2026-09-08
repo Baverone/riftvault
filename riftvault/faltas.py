@@ -1,12 +1,16 @@
 """A secção "Faltas": o que comprar, e por que ordem.
 
-Cinco vistas da mesma pergunta:
+Seis vistas da mesma pergunta:
 
   STAPLES    — cartas que faltam e que MAIS DO QUE UM deck pede. São as que
                rendem mais por euro: uma compra serve vários decks.
   POR DECK   — o que falta a cada deck, por edição.
   A SUBIR    — o que falta do MASTER SET e está a subir de preço. Vive no
                `a_subir.py`: o âmbito é a métrica de master set, não os decks.
+  MASTER SET — a lista completa do que falta ao master set, por edição e
+               número, para comprar tudo de uma vez se lhe apetecer. Mesmo
+               âmbito da anterior, sem o filtro de subida
+               (`a_subir.master_faltas`).
   PIMP DECKS — as versões alteradas das cartas dos decks, também como lista de
                compras (ver `pimp`).
   A CAMINHO  — o que já comprou e ainda não chegou (ver `pending`).
@@ -20,7 +24,7 @@ from __future__ import annotations
 
 import sqlite3
 
-from . import a_subir, config, decks, metrics, pending
+from . import a_subir, cardmarket, config, decks, metrics, pending
 
 
 def _wanted(con: sqlite3.Connection) -> dict[str, dict]:
@@ -36,62 +40,6 @@ def _wanted(con: sqlite3.Connection) -> dict[str, dict]:
         e["decks"][nome] = e["decks"].get(nome, 0) + r["qty"]
     return out
 
-
-
-def _versoes(con: sqlite3.Connection) -> dict[str, dict]:
-    """printing_id -> {v, n, foil_only}: o número de versão no Cardmarket.
-
-    O Cardmarket distingue impressões com o mesmo nome na mesma edição por
-    `(V.1)`, `(V.2)`... e a ordem é a do número de coleção. Aqui calcula-se
-    esse índice a partir do nosso catálogo.
-
-    NÃO VALIDADO contra o Cardmarket — a numeração deles é inferida, não lida.
-    Se sair trocada, o sítio para corrigir é esta função.
-    """
-    rows = con.execute(
-        "SELECT m.printing_id, m.market_name, m.market_set, p.group_key, "
-        "       p.collector_number, p.variant, p.variant_label, p.public_code, "
-        "       pl.from_foil "
-        "FROM catalog.cardtrader_map m "
-        "JOIN catalog.printings p ON p.printing_id = m.printing_id "
-        "LEFT JOIN catalog.price_latest pl ON pl.printing_id = m.printing_id "
-        "WHERE m.market_name IS NOT NULL"
-    ).fetchall()
-
-    # Agrupar pelo NÚMERO DE COLEÇÃO (o `group_key`), não pela carta lógica
-    # nem pelo nome de mercado.
-    #
-    # Foi o André que corrigiu isto (2026-09-01): "as signatures são
-    # normalmente as V.2". Agrupando por carta, a `Daughter of the Void` do
-    # OGN dava três versões — a base 247, a reimpressão showcase 299 e a
-    # signature 299* — e a signature saía V.3. Se lá é V.2, então o Cardmarket
-    # trata a 247 e a 299 como PRODUTOS DIFERENTES, e junta só as impressões
-    # que partilham número de coleção. Com este agrupamento as 36 signatures
-    # ficam todas em V.2, como ele descreve.
-    #
-    # Também resolve o problema do nome: o CardTrader escreve a arte
-    # alternativa de 3 cartas com vírgula e a base com hífen, e agrupar por
-    # nome partia-as em dois grupos de um.
-    grupos: dict[tuple, list] = {}
-    for r in rows:
-        grupos.setdefault(r["group_key"], []).append(r)
-
-    out: dict[str, dict] = {}
-    for _, lst in grupos.items():
-        lst.sort(key=lambda r: (r["collector_number"], r["variant"]))
-        # No Cardmarket as versões vivem sob UM nome de produto; usa-se o da
-        # impressão base para todas.
-        canonico = lst[0]["market_name"]
-        for i, r in enumerate(lst, 1):
-            out[r["printing_id"]] = {
-                "v": i, "n": len(lst), "name": canonico,
-                "label": r["variant_label"], "code": r["public_code"],
-                # O mercado só tem oferta foil desta impressão. O texto da
-                # wantlist não leva flag de foil — isto serve para lhe dizer
-                # em que linhas tem de ligar o filtro à mão.
-                "foil_only": bool(r["from_foil"]),
-            }
-    return out
 
 
 def _cheapest(con: sqlite3.Connection, keys: list[str]) -> dict[str, dict]:
@@ -228,7 +176,7 @@ def _agrupar(con: sqlite3.Connection, falta: dict[str, int]) -> list[dict]:
     ordens = {s: config.set_order(s) for s in
               (r["set_id"] for r in con.execute("SELECT DISTINCT set_id FROM catalog.printings"))}
 
-    versoes = _versoes(con)
+    versoes = cardmarket.versoes(con)
     # Todas as impressões de cada carta, para poder oferecer as alternativas.
     ph2 = ",".join("?" * len(falta))
     irmas: dict[str, list] = {}
@@ -375,6 +323,7 @@ def payload(con: sqlite3.Connection) -> dict:
         "por_deck": por_deck(con),
         "todos_juntos": todos_juntos(con),
         "a_subir": a_subir.calcular(con),
+        "master": a_subir.master_faltas(con),
         "pimp": pimp(con),
         "ignored_types": sorted(config.load().get("faltas_ignorar_tipos", [])),
         "pending": {**pending.totals(con), "items": pending.listar(con)},
@@ -393,29 +342,20 @@ def payload(con: sqlite3.Connection) -> dict:
 
 def wantlist(grupos: list[dict], com_edicao: bool = True,
              com_versao: bool = True, com_variantes: bool = False) -> dict:
-    """Texto para colar na wantlist do Cardmarket.
+    """Texto para colar na wantlist do Cardmarket, a partir das listas dos decks.
 
-    Formato documentado por eles: `4x High Tide (V.1) (Fallen Empires)` — a
-    quantidade, o nome, a versão opcional e a edição opcional.
-
-    O nome é o DO MERCADO ("Darius - Trifarian"), não o da RiftScribe
-    ("Darius, Trifarian"): 414 das 1179 impressões diferem.
-
-    **O foil não se pode marcar no texto.** Está confirmado na ajuda deles: o
-    foil é um filtro por entrada, posto na interface depois de a carta entrar
-    na lista. Por isso devolve-se também `foil` — as linhas onde o mercado só
-    tem oferta foil — para ele saber onde ligar o filtro.
+    A linha é escrita pelo `cardmarket.linha`, o mesmo gerador das abas «A
+    subir» e «Master set» — o formato vive num sítio só. Ver lá o porquê do
+    formato e do foil.
     """
     linhas, foil = [], []
 
     def escreve(qtd, nome, v, n, edicao, ehfoil):
-        partes = [f"{qtd} {nome}"]
-        # Só faz sentido numerar quando há mais do que uma versão.
-        if com_versao and v and n > 1:
-            partes.append(f"(V.{v})")
-        if com_edicao and edicao:
-            partes.append(f"({edicao})")
-        linha = " ".join(partes)
+        linha = cardmarket.linha({
+            "missing": qtd, "market_name": nome,
+            "v": v if com_versao else None, "n_versions": n,
+            "market_set": edicao if com_edicao else None,
+        })
         linhas.append(linha)
         if ehfoil:
             foil.append(linha)
@@ -469,7 +409,7 @@ def pimp(con: sqlite3.Connection) -> dict:
     tenho_carta = decks.owned_by_card(con)
     ordens = {s: config.set_order(s) for s in
               (r["set_id"] for r in con.execute("SELECT DISTINCT set_id FROM catalog.printings"))}
-    versoes = _versoes(con)
+    versoes = cardmarket.versoes(con)
     # O que já está tratado: o que tem na caixa mais o que vem a caminho.
     # Estas saem da lista — ele pediu para ver só o que ainda tem de comprar.
     copias = {r["printing_id"]: r["qty"] for r in

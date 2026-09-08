@@ -495,6 +495,86 @@ rede para experimentar. Os dois formatos (`cardtrader.com/cards/<blueprint_id>`
 e `riftscribe.gg/cards/<printing_id>`) são presunção, e estão em
 `a_subir.DEFAULTS` para se corrigirem numa linha se abrirem em 404.
 
+### Signatures fora das listas de compra (2026-09-08)
+
+"No 'a subir', estás a pôr uma carta signed — não quero." Eram quatro, e valiam
+**8 729,69 € dos 12 134,83 €** da lista: `SFD-224*` Aphelios (2000,64 €),
+`UNL-234*` Scorn of the Moon (3198,76 €), `OGN-308*` Herald of the Arcane
+(1850,64 €) e `OGN-305*` Unforgiven (1679,65 €). A lista passou de 57 para
+**53 cartas** e de 12 134,83 € para **3 405,14 €**.
+
+`a_subir.excluir_tipos`, default `["signature"]`, aplicado por
+`a_subir.excluir()` logo a seguir ao `masterset()`. Aceita qualquer
+`variant_kind`. **Não mexe na métrica**: o `metrics.master_counts` está intacto
+e as 36 signatures continuam no denominador da percentagem de set completo —
+o que mudou é a página, e a página diz quantas tirou (`scope.excluded`).
+
+**Vale também para a lista do master set**, e isso é uma extensão minha do que
+ele disse: ele falou da aba "A subir", mas as duas são listas de compra e ele
+não compra signatures. É uma linha de config para separar as duas, se ele
+quiser a lista completa com elas.
+
+## Listas para o Cardmarket (2026-09-08)
+
+"No final dá-me uma lista para o Cardmarket para eu conseguir comprar as
+coisas." Três botões no fim da aba "A subir" e da aba "Master set":
+
+- **Copiar para o Cardmarket** — `N Nome (V.n) (Edição)`, o formato da ajuda
+  deles (`4x High Tide (V.1) (Fallen Empires)`).
+- **Copiar com código** — `N Nome [UNL-228]`. **Os `[ ]` não são sintaxe do
+  Cardmarket** e o importador não os lê: é para ele desambiguar à mão qual das
+  versões quer. Está escrito na nota por baixo da caixa.
+- **Descarregar CSV** — as oito colunas que ele pediu, com cabeçalho.
+
+**O gerador é UM.** `riftvault/cardmarket.py` em Python (`linha`, `gerar`,
+`csv_texto`) e `cmLinha`/`cmCSV` no `app.js`, com smoke test que compara os dois
+contra o mesmo payload. O `faltas._versoes` mudou-se para `cardmarket.versoes`
+e o `faltas.wantlist` passou a escrever pelo `cardmarket.linha`, para não
+haver três formatos a divergir.
+
+**As listas saem do que está no ecrã**, com o filtro activo — a raridade em "A
+subir", a edição no "Master set". O `cmLigar` recebe uma *função*, não uma
+lista, para o botão apanhar o filtro no momento do clique.
+
+**O total em euros fica FORA do texto** (por baixo da caixa, e no `stderr` do
+CLI). Uma linha de total colada na wantlist era importada como se fosse uma
+carta.
+
+**NÃO REVALIDADO nesta corrida.** Não houve rede daqui (o `WebFetch` e o
+`WebSearch` foram negados pelo modo em que a sessão corria), por isso o formato
+é o que já estava registado no CLAUDE.md como confirmado na ajuda deles, e o
+mesmo que o `wantlist()` dos decks usa desde 2026-09-01. Não inventei variação
+nenhuma. Se algum dia houver rede, o que falta confirmar é se a secção de
+Riftbound do Cardmarket aceita a edição escrita como o CardTrader a escreve
+("Origins", "Spiritforged", "Unleashed", "Vendetta") — é daí que vem o
+`market_set`.
+
+**Medida que interessa:** hoje **as 53 linhas de "A subir" são todas de
+impressões que o CardTrader só lista em foil**, e no master set são 371 das
+695. O aviso do foil por baixo da caixa deixa de ser uma nota de rodapé e passa
+a ser a lista inteira — ver a ressalva do `from_foil` na secção dos preços.
+
+## "Master set": a lista completa das faltas (2026-09-08)
+
+"Lista completa das faltas do master set, não só as que sobem — para ele
+comprar tudo o que falta de uma vez se quiser." Aba nova em Faltas,
+`a_subir.master_faltas()`: mesmo âmbito, mesma regra de carência e as mesmas
+exclusões da aba "A subir", sem o filtro de subida.
+
+Ordenada por **edição e número de coleção** (pedido dele), que é a ordem do
+binder e das páginas de venda — não pelo preço.
+
+Medido a 2026-09-08: **695 impressões, 1420 cópias, 29 441,06 €**, uma sem
+oferta no CardTrader (entra na lista, não entra no total). Por edição: OGN 252,
+VEN 171, SFD 145, UNL 113, OGS 14.
+
+**Sem imagens de propósito.** São centenas de linhas e o `faltas.json` é
+descarregado inteiro a cada visita. Mesmo assim o ficheiro passou de **89 KB
+para 296 KB** — é o custo desta aba, medido. Duas podas já feitas: sem
+`set_name` por item (a edição já vem no grupo) e o `market_name` só quando
+difere mesmo do nosso (poupou 18 KB). Se voltar a incomodar, o sítio para
+podar é este — a seguir sairiam o `have`/`target` e o `printing_id`.
+
 ## "Pimp decks"
 
 `faltas.pimp()` — quarta aba das Faltas. Todas as impressões **alteradas** das
@@ -580,8 +660,11 @@ alternativas do SFD (`SFD-R02`, `SFD-R03a`, `SFD-R06a`) em vez das do OGN.
 
 ## Wantlist do Cardmarket
 
-`faltas.wantlist()` gera `qtd Nome (Edição)` por linha. Botão na secção
-Faltas → Por deck, e `riftvault wantlist [--deck X] [--todos] [--out f.txt]`.
+O formato vive no `cardmarket.linha` desde 2026-09-08 — o `faltas.wantlist()`
+escreve por lá, e o `_versoes` mudou-se para `cardmarket.versoes`. Botão na
+secção Faltas → Por deck, e `riftvault wantlist [--deck X] [--todos]
+[--out f.txt]`. As abas "A subir" e "Master set" têm listas próprias, do mesmo
+gerador (ver a secção acima).
 
 **O nome tem de ser o DO MERCADO, não o da RiftScribe.** Lá é
 "Darius, Trifarian", no Cardmarket/CardTrader é "Darius - Trifarian" —
@@ -781,6 +864,8 @@ oficiais**. Se estiver errado, é uma linha no config.
   publicado, workflow do Pages, e a vista de Coleção com variantes e `+`/`-`.
 - **Feito também:** preços/valor (CardTrader) e a secção Decks com alocação
   por prioridade, validação de legalidade e lista de compras.
+- **Feito também:** as abas "A subir" e "Master set", com as listas para o
+  Cardmarket (copiar, copiar com código, CSV) e o `riftvault a-subir`.
 - **Por fazer:** vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck,
   com as partilhadas assinaladas); e apagar decks pela interface (hoje apaga-se
   o `.txt`).

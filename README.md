@@ -88,7 +88,7 @@ As escolhas ficam guardadas no browser.
 
 ## Faltas
 
-Terceira secção, com cinco abas:
+Terceira secção, com seis abas:
 
 - **Staples** — cartas que **mais do que um deck** pede e que não tens em
   número suficiente. São as que rendem mais por euro: uma compra serve vários
@@ -108,6 +108,12 @@ Terceira secção, com cinco abas:
   Arrumado **por deck**, nunca por edição: a vista **Todas** tem uma
   secção por deck, e há sub-abas para veres um de cada vez com a quantidade
   que esse deck usa. Cada sub-aba tem a sua lista para a wantlist.
+- **Master set** — a lista **completa** do que falta à coleção, não só o que
+  está a subir: para comprares tudo de uma vez se te apetecer. Mesmo âmbito e
+  mesma regra da aba anterior (conta enquanto *cópias + a caminho < alvo*), sem
+  o filtro de subida e sem as signatures. Por **edição e número de coleção**,
+  que é a ordem do binder. Filtro por edição, e os mesmos três botões de lista
+  para o Cardmarket.
 - **A caminho** — o que já compraste e ainda não chegou. Não conta na Coleção
   (essa mede o que tens na caixa) mas já sai das faltas e das wantlists, para
   não comprares duas vezes. Quando chegar, carrega em **Chegou** na carta (ou em "Chegou tudo") e ela
@@ -122,6 +128,12 @@ Terceira secção, com cinco abas:
   pequena, o nome, a edição e o número, a raridade, o preço de então, o de
   hoje, o Δ da janela e o Δ de 7 dias, com links para o CardTrader e para a
   RiftScribe. Há um filtro rápido por raridade.
+
+  **As signatures não entram** (`a_subir.excluir_tipos`, decisão tua a
+  2026-09-08). Continuam a contar na percentagem de set completo da Coleção —
+  o que muda é só esta página e as listas de compra que saem dela.
+
+  No fim há os três botões das **listas para o Cardmarket** (ver abaixo).
 
   O histórico só grava quando o preço **muda**, por isso o preço "de há 30
   dias" é o que estava em vigor nessa data, mesmo que o registo seja mais
@@ -151,20 +163,46 @@ responde a outra pergunta: quem fica com o quê.
 
 ## Wantlist do Cardmarket
 
-Na secção Faltas → Por deck há um botão **Lista para a wantlist do
-Cardmarket**, que dá o texto da aba que estiveres a ver. Ou pela linha de
-comandos:
+Há listas em três sítios, todas com o mesmo formato porque saem do mesmo
+gerador (`riftvault/cardmarket.py`):
+
+- **Faltas → A subir** e **Faltas → Master set**, com três botões:
+  **Copiar para o Cardmarket**, **Copiar com código** e **Descarregar CSV**.
+- **Faltas → Por deck** e **Pimp decks**, com o botão de sempre.
+
+As listas saem sempre do que está **no ecrã** — respeitam a aba, a edição e a
+raridade que tiveres escolhidas. A quantidade de cada linha é o que **falta
+comprar**: alvo menos o que tens menos o que vem a caminho.
+
+Pela linha de comandos:
 
 ```bash
+py -m riftvault a-subir                     # a tabela do que está a subir
+py -m riftvault a-subir --cardmarket        # as linhas para colar
+py -m riftvault a-subir --cardmarket --codigos
+py -m riftvault a-subir --todas             # tudo o que falta do master set
+py -m riftvault a-subir --todas --csv faltas.csv
+
 py -m riftvault wantlist                    # tudo, um deck de cada vez
 py -m riftvault wantlist --deck ornn        # só um deck
 py -m riftvault wantlist --todos            # todos montados ao mesmo tempo
 py -m riftvault wantlist --out faltas.txt
 ```
 
-O formato é `3 Nome da Carta (Edição)`, com o nome **como o mercado o
+O formato é `3 Nome da Carta (V.n) (Edição)`, com o nome **como o mercado o
 escreve** — `Darius - Trifarian`, não `Darius, Trifarian` como está na
 RiftScribe. Sem isso o Cardmarket não casa as cartas.
+
+O **Copiar com código** dá `3 Nome da Carta [UNL-228]`. Os `[ ]` **não** são
+sintaxe do Cardmarket: é para desambiguares à mão qual das versões queres,
+quando o nome sozinho não chega. Para colar, usa o primeiro botão.
+
+O **CSV** leva cabeçalho e oito colunas — quantidade, nome, código, edição,
+raridade, preço de hoje, Δ % e custo. Na lista do master set a coluna do Δ vem
+vazia: essa lista não é sobre preço a subir.
+
+**O total em euros aparece por baixo da caixa, não dentro dela** — uma linha de
+total colada na wantlist era importada como se fosse uma carta.
 
 A lista dos decks leva sempre a **versão mais barata** de cada carta. As
 versões bonitas vivem na aba **Pimp decks**, que tem lista própria.
