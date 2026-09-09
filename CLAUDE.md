@@ -328,6 +328,84 @@ percentagem é recalculada no cliente, por isso não bastava mudar o servidor.
 (O campo chamava-se `counts` até 2026-09-08; passou a ser o bloco da grelha,
 porque é a mesma pergunta.)
 
+## As signatures saem da Coleção (2026-09-09)
+
+Palavras dele: *"no riftvault, das coleções tira as signatures, fazemos 1 Alt
+Art de cada mas as signature não"*.
+
+Uma frase, duas metades: as **artes alternativas** ficam como estão (bloco 3,
+alvo 1) e as **signatures** saem da Coleção inteira. Não entram na sequência,
+não entram no bloco das runas especiais, não entram no bloco das artes
+alternativas, e saem do denominador da percentagem, das contagens por níveis e
+das wantlists. Continuam na grelha, num bloco próprio no fim («Fora da coleção —
+signatures»), com alvo 1 — as que ele tenha continuam visíveis e contadas.
+
+**Isto era a decisão que estava anotada como DESLIGADA desde 2026-09-08.** O
+mecanismo já lá estava: é o `"*"` no `master_set.fora`, hoje `["-T", "*"]`. Uma
+pergunta, uma função — `metrics.e_master` —, e é o **mesmo critério**
+(`variant_kind == "signature"`, o sufixo `*` do código impresso) que o
+`a_subir.excluir` já usava para as tirar das listas de compra. Não há segunda
+definição de "isto é uma signature". O `config.DEFAULTS` levou o `"*"` também,
+para um riftvault sem ficheiro de config não medir outra coisa.
+
+**As duas decisões continuam a viver em sítios diferentes, de propósito.** A de
+2026-09-08 (*"estás a pôr uma carta signed — não quero"*) é das listas de
+compra e fica em `a_subir.excluir.tipos`; esta é da coleção e fica em
+`master_set.fora`. Hoje a primeira já não tira nenhuma — as signatures nem
+chegam ao âmbito —, e é por isso que a página passou a dizer «42 impressões (42
+showcase)» em vez de «78 (36 signature + 42 showcase)». Fica lá para o caso de
+elas voltarem.
+
+**São 36, e ele não tem nenhuma.** OGN 12, SFD 12, UNL 12; o VEN não tem
+signatures no catálogo da RiftScribe. Medido a 2026-09-09: **zero cópias** na
+`copies`. Por isso o numerador não mexe em lado nenhum e a percentagem SOBE.
+
+**O que mudou nos números** (medido a 2026-09-09 contra o `data/` real):
+
+| | antes | depois |
+|---|---|---|
+| denominador da percentagem | 1170 | **1134** |
+| percentagem global | 479/1170 = 40,9% | **479/1134 = 42,2%** |
+| OGN / OGS / SFD / UNL / VEN | 352 / 24 / 287 / 280 / 227 | **340 / 24 / 275 / 268 / 227** |
+| níveis (1 de cada / 2 / playset) | 64,2% / 54,4% / 40,9% | **66,2% / 56,2% / 42,2%** |
+| faltam, por nível | 419 / 746 / 1231 | **383 / 710 / 1195** |
+| € por nível | 64 366,17 / 72 793,82 / 81 352,88 € | **13 112,90 / 21 540,55 / 30 099,61 €** |
+| «A subir» | 56 cartas, 106 cópias, 2 963,73 € | igual |
+| «Master set» / wantlists | 613 impressões, 1 117 cópias, 21 551,64 € | igual |
+| «Venda» | 2 impressões, 6 cópias, 4,10 € | igual |
+
+O numerador não mexe (ele não tem nenhuma), o denominador encolhe 36 e a
+percentagem sobe 1,3 pontos. **Os degraus perdem 36 cópias cada um e 51 253,27 €
+em qualquer deles** — como o alvo delas é 1, faltavam inteiras nos três níveis e
+custavam o mesmo nos três. Era quase dois terços do «custo de fechar a coleção»,
+e vinha todo de cartas que ele não compra. As listas de compra não mexem **em
+nada**: já não as levavam desde 2026-09-08. O que muda na página do «A subir» é
+o texto do resumo — «42 impressões (42 showcase)» em vez de «78 (36 signature +
+42 showcase)».
+
+Por edição, o bloco novo: OGN 0/12, SFD 0/12, UNL 0/12; OGS e VEN não têm
+signatures e não ganham bloco nenhum.
+
+A contagem por níveis, medida a 2026-09-09 (`riftvault stats`):
+
+| | 1 de cada | 2 de cada | playset |
+|---|---|---|---|
+| OGN | 243/340 = 71,5 % · faltam 97 · 1 564,47 € | 179/340 = 52,6 % · faltam 207 · 1 993,83 € | 125/340 = 36,8 % · faltam 371 · 2 449,19 € |
+| OGS | 24/24 = 100 % · faltam 0 | 24/24 = 100 % · faltam 0 | 11/24 = 45,8 % · faltam 13 · 13,39 € |
+| SFD | 209/275 = 76,0 % · faltam 66 · 3 182,59 € | 190/275 = 69,1 % · faltam 122 · 5 560,44 € | 151/275 = 54,9 % · faltam 217 · 7 979,09 € |
+| UNL | 212/268 = 79,1 % · faltam 56 · 4 380,03 € | 193/268 = 72,0 % · faltam 87 · 7 832,11 € | 151/268 = 56,3 % · faltam 160 · 11 330,86 € |
+| VEN | 63/227 = 27,8 % · faltam 164 · 3 985,81 € | 51/227 = 22,5 % · faltam 294 · 6 154,17 € | 41/227 = 18,1 % · faltam 434 · 8 327,08 € |
+| **total** | **751/1134 = 66,2 % · faltam 383 · 13 112,90 €** | **637/1134 = 56,2 % · faltam 710 · 21 540,55 €** | **479/1134 = 42,2 % · faltam 1195 · 30 099,61 €** |
+
+O VEN não mexe em linha nenhuma: é a única edição sem signatures no catálogo.
+O OGN é o que mais mexe em euros — as 12 dele valiam 26 574,93 € do nível 3.
+
+**A consequência que ele não pediu: a Venda.** O âmbito da Venda é "não é o
+bloco `master`", e as signatures passaram a estar nesse caso — uma que ele
+tenha e nenhum deck use aparece como candidata, como já acontecia com os
+tokens. Hoje não muda nada (zero na caixa) e há teste que fixa o
+comportamento. **É pergunta para ele**, e vale zero cópias hoje.
+
 ## A Coleção em três blocos: playset, 1 runa especial, 1 alt art (2026-09-08)
 
 Palavras dele, **na mesma tarde e depois da secção a seguir**: *"Para o
@@ -548,7 +626,11 @@ config. Um ficheiro com os dois nomes usa o novo.
 "Superfícies não validadas": uma edição nova pode trazer um sufixo novo, e isso
 tem de aparecer em vez de ser contado em silêncio.
 
-**As signatures ficam preparadas e DESLIGADAS.** Acrescentar `"*"` manda-as
+**As signatures ficaram preparadas e DESLIGADAS — e foram LIGADAS a
+2026-09-09**, quando ele as nomeou (*"das coleções tira as signatures"*). Ver a
+secção "As signatures saem da Coleção". O que se segue é como estava até lá.
+
+Acrescentar `"*"` manda-as
 para um bloco próprio no fim da grelha («Fora do master set — signatures») —
 o `metrics.BLOCOS` passou a ter um bloco com rótulo por variante, para nada
 cair no genérico «outras»; os vazios não aparecem, por isso hoje continuam a
@@ -859,10 +941,14 @@ acima.)
 `a_subir.excluir()` logo a seguir ao `masterset()`. Aceita qualquer
 `variant_kind`. (A chave chamava-se `excluir_tipos` até nesse mesmo dia os
 showcases se lhe juntarem — ver a secção acima.)
-**Não mexe na métrica**: as 36 signatures continuam no
-denominador da percentagem de set completo (`metrics.e_master` diz que sim) —
-o que mudou é a página, e a página diz quantas tirou (`scope.excluded`).
-Não confundir com o `master_set.fora`, que tira mesmo do master set.
+**Não mexia na métrica**: as 36 signatures continuavam no
+denominador da percentagem de set completo (`metrics.e_master` dizia que sim) —
+o que mudou aqui foi a página, e a página diz quantas tirou (`scope.excluded`).
+Não confundir com o `master_set.fora`, que tira mesmo do master set — **e que
+a 2026-09-09 passou a tirá-las também**, por outra frase dele. Desde então esta
+exclusão já não tira nenhuma (elas nem chegam ao âmbito) e fica no config para o
+caso de voltarem à coleção: são duas perguntas, e continuam a ter duas
+respostas.
 
 **Vale também para a lista do master set**, e isso é uma extensão minha do que
 ele disse: ele falou da aba "A subir", mas as duas são listas de compra e ele
@@ -955,9 +1041,11 @@ barra.
 **Conta CÓPIAS, não o que vem a caminho.** É a regra da Coleção: o `pending`
 fica fora do `copies` e as barras não mexem enquanto a encomenda vem. As
 wantlists por nível é que descontam o pendente, como sempre fizeram — ali a
-pergunta é o que há a COMPRAR. O mesmo vale para as exclusões: as signatures e
-os showcases contam nestas percentagens (como na barra) e ficam de fora das
-listas de compra (como nas outras duas).
+pergunta é o que há a COMPRAR. O mesmo vale para as exclusões: os showcases
+contam nestas percentagens (como na barra) e ficam de fora das listas de compra
+(como nas outras duas). **As signatures deixaram de contar nas duas coisas a
+2026-09-09**, quando saíram da coleção — os números desta secção são de
+2026-09-08 e por isso ainda as levam.
 
 **Quantos degraus há: o maior alvo do catálogo** (`metrics.niveis_max`), hoje
 **3**. Vem do catálogo inteiro e não de cada edição para as cinco mostrarem os
@@ -994,7 +1082,10 @@ e das wantlists da Coleção.
 
 ### Os números de hoje
 
-Medido a 2026-09-08 contra o `data/` real (`riftvault stats`):
+Medido a 2026-09-08 contra o `data/` real (`riftvault stats`). **Os números
+mudaram a 2026-09-09**, quando as signatures saíram da coleção: os denominadores
+perderam 36 e cada degrau perdeu 36 cópias e 51 253,27 € — ver "As signatures
+saem da Coleção" para a tabela nova. O que se segue é o de 2026-09-08.
 
 | | 1 de cada | 2 de cada | playset |
 |---|---|---|---|
@@ -1011,9 +1102,11 @@ playset: falta-lhe **uma** carta, mas faltam-lhe as segundas e terceiras cópias
 de quase tudo.
 
 **Os euros do nível 3 (81 397,57 €) NÃO são os da wantlist (21 567,33 €)**, e é
-de propósito: a contagem é a métrica — conta as 36 signatures e os 42 showcases
-(que valem quase tudo isto) e não desconta o que vem a caminho —, a wantlist é
-lista de compra e tira-lhes as duas coisas.
+de propósito: a contagem é a métrica — contava as 36 signatures e conta os 42
+showcases (que valem quase tudo isto) e não desconta o que vem a caminho —, a
+wantlist é lista de compra e tira-lhes as duas coisas. A 2026-09-09, com as
+signatures fora da métrica, a diferença encolheu para 30 099,61 € contra
+21 551,64 € — o que sobra são os showcases e o pendente.
 
 Wantlists por nível, hoje (`riftvault wantlist --cardmarket --nivel N`):
 
@@ -1408,8 +1501,11 @@ nas Staples e em nenhuma aba de deck.
 **A linha «faltam N cópias» da Coleção estava encostada a outro número
 diferente.** Por cima dela, o chip do playset da contagem por níveis diz «faltam
 383 · 29 024,12 €» (OGN) e ela dizia «Faltam 360 cópias · 1 306,14 €». São a
-MÉTRICA e a LISTA DE COMPRA — a métrica conta as signatures e os showcases e não
-desconta o pendente —, mas lado a lado liam-se como erro de contagem. A linha
+MÉTRICA e a LISTA DE COMPRA — a métrica contava as signatures, conta os
+showcases e não desconta o pendente —, mas lado a lado liam-se como erro de
+contagem. (Mais tarde nesse mesmo dia as signatures saíram da métrica e a frase do ecrã
+passou a dizer só «showcases»; o chip do OGN é agora «faltam 371 · 2 449,19 €».)
+A linha
 passou a «**360** cópias **a comprar** nesta edição» e a explicar a diferença
 quando ela existe. O `tests/test_coerencia.py` fixa o que essa frase promete: a
 lista nunca pede mais do que a contagem, e sem exclusões nem pendente os dois
@@ -1468,6 +1564,9 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   Coleção e a tabela no `riftvault stats`.
 - **Feito também:** a revisão do site de 2026-09-09 — textos, plurais, imagens
   da Venda, o cabeçalho das Faltas com o âmbito certo e o favicon.
+- **Feito também:** as signatures fora da Coleção (2026-09-09) — bloco próprio
+  no fim da grelha, fora da percentagem, das contagens por níveis e das
+  wantlists; as artes alternativas continuam a 1 de cada.
 - **Por fazer:** vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck,
   com as partilhadas assinaladas); e apagar decks pela interface (hoje apaga-se
   o `.txt`).
