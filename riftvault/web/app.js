@@ -227,8 +227,9 @@ function tileHTML(g, p) {
     </div>
     <div class="tname" title="${escapeAttr(p.name)}">${escapeHTML(p.name)}</div>
     <div class="steppers">
-      <button class="step minus" data-act="-1" aria-label="menos uma" ${q <= 0 ? 'disabled' : ''}>−</button>
-      <button class="step plus" data-act="1" aria-label="mais uma">+</button>
+      <button class="step minus" data-act="-1" aria-label="menos uma de ${escapeAttr(p.name)}"
+              ${q <= 0 ? 'disabled' : ''}>−</button>
+      <button class="step plus" data-act="1" aria-label="mais uma de ${escapeAttr(p.name)}">+</button>
     </div>
     <div class="playset ${play.target > 0 && play.owned >= play.target ? 'is-done' : ''}"
          data-kind="${g.is_token ? 'token' : 'jogável'}"
@@ -681,9 +682,19 @@ function renderFaltaLinha() {
   const d = m && m.sets.find(s => s.set === state.setId);
   el.hidden = !d;
   if (!d) return;
-  el.innerHTML = `Faltam <b>${d.copies}</b> cópia${d.copies === 1 ? '' : 's'}
-    desta edição · <b>${eur(d.cents)}</b> ao preço de hoje —
-    <a href="#wl-edicao">wantlist para o Cardmarket</a>`;
+  // Esta linha fica logo por baixo dos chips dos níveis, e os dois números não
+  // são o mesmo: o chip é a MÉTRICA (conta as signatures e os showcases, e não
+  // desconta o que vem a caminho) e esta linha é a LISTA DE COMPRA. Vistos lado
+  // a lado sem explicação — «faltam 383» em cima, «faltam 360» em baixo — liam-
+  // se como erro de contagem. Diz-se a diferença, e só quando ela existe.
+  const nv = (state.levels.get(state.setId) || []).slice(-1)[0];
+  const difere = nv && nv.missing > d.copies;
+  el.innerHTML = `<b>${d.copies}</b> cópia${d.copies === 1 ? '' : 's'}
+    <b>a comprar</b> nesta edição · <b>${eur(d.cents)}</b> ao preço de hoje —
+    <a href="#wl-edicao">wantlist para o Cardmarket</a>${difere
+      ? `<br><small>São menos do que as <b>${nv.missing}</b> do playset aqui em
+         cima: a lista de compra não leva signatures nem showcases e já desconta
+         o que vem a caminho.</small>` : ''}`;
 }
 
 /* Um `+` ou um `−` desatualiza as duas listas, que vieram do servidor. Não se
@@ -838,16 +849,11 @@ function wireControls() {
   });
 
   // Imagem local em falta cai para o CDN (e vice-versa no modo publicado).
-  for (const alvo of ['#grid', '#deck-body', '#falta-body']) {
+  // A Venda também tem artes, e ficava de fora desta lista: uma imagem que o
+  // cache local ainda não tivesse aparecia partida e não caía para o CDN.
+  for (const alvo of ['#grid', '#deck-body', '#falta-body', '#venda-body']) {
     $(alvo).addEventListener('error', imgFallback, true);
   }
-
-  $('#grid').addEventListener('error', (e) => {
-    const img = e.target;
-    if (img.tagName !== 'IMG' || !img.dataset.fallback) return;
-    img.src = img.dataset.fallback;
-    delete img.dataset.fallback;
-  }, true);
 
   for (const b of document.querySelectorAll('.seg-btn[data-view]')) {
     b.classList.toggle('is-on', b.dataset.view === state.prefs.view);
@@ -1193,37 +1199,53 @@ function renderFaltaTabs() {
     const b = document.createElement('button');
     b.className = 'tab' + (t.id === state.prefs.falta ? ' is-on' : '');
     let n = '';
-    if (t.id === 'staples') n = `${f.staples.length} cartas`;
-    if (t.id === 'deck') n = `${f.por_deck.reduce((s, d) => s + d.copies, 0)} cópias`;
-    if (t.id === 'spike') n = f.a_subir.ready ? `${f.a_subir.items.length} cartas` : 'sem histórico';
-    if (t.id === 'master') n = `${f.master.copies} cópias`;
-    if (t.id === 'pimp') n = `${f.pimp.by_deck.reduce((s, d) => s + d.printings, 0)} versões`;
-    if (t.id === 'caminho') n = f.pending.copies ? `${f.pending.copies} cópias` : 'nada';
+    if (t.id === 'staples') n = plural(f.staples.length, 'carta', 'cartas');
+    if (t.id === 'deck') n = plural(f.por_deck.reduce((s, d) => s + d.copies, 0), 'cópia', 'cópias');
+    if (t.id === 'spike') n = f.a_subir.ready
+      ? plural(f.a_subir.items.length, 'carta', 'cartas') : 'sem histórico';
+    if (t.id === 'master') n = plural(f.master.copies, 'cópia', 'cópias');
+    if (t.id === 'pimp') n = plural(f.pimp.by_deck.reduce((s, d) => s + d.printings, 0),
+                                    'versão', 'versões');
+    if (t.id === 'caminho') n = f.pending.copies
+      ? plural(f.pending.copies, 'cópia', 'cópias') : 'nada';
     b.innerHTML = `${t.label}<small>${n}</small>`;
     b.onclick = () => { state.prefs.falta = t.id; savePrefs(); renderFaltaTabs(); renderFaltas(); };
     nav.appendChild(b);
   }
 }
 
+/* O cabeçalho é a carência GLOBAL DOS DECKS (`faltas.shortfall`): tudo o que
+   os decks pedem, com o teto do playset, menos o que ele tem e o que vem a
+   caminho. Só descreve duas das seis abas — as Staples e o Por deck — e nas
+   outras estava a mentir: por cima de «614 impressões em falta · 21 567,33 €»
+   do master set lia-se «Falta comprar 25 cartas · 34 cópias · 356,91 €», que é
+   outra pergunta. Por isso passou a ter o âmbito no título e a aparecer só
+   onde é a conta da página (ver `FALTA_HEAD`). */
+const FALTA_HEAD = ['staples', 'deck'];
+
 function faltaHead() {
   const f = state.faltas;
   const t = f.totals;
   return `<div class="deck-card">
-    <div class="deck-title"><b>Falta comprar</b>
-      <span class="prio">${t.cards} cartas · ${t.copies} cópias</span></div>
+    <div class="deck-title"><b>Falta comprar aos decks</b>
+      <span class="prio">${plural(t.cards, 'carta', 'cartas')} · ${
+        plural(t.copies, 'cópia', 'cópias')}</span></div>
     <div class="deck-meta">
       <span><i>Custo estimado</i>${eur(t.cents)}</span>
       <span><i>Critério</i>preço mais baixo no CardTrader, edição mais barata</span>
       ${f.ignored_types.length ? `<span><i>Fora da conta</i>${
         f.ignored_types.join(', ')} — compram-se a granel</span>` : ''}
     </div>
+    <small class="nota">Soma o que <b>todos</b> os decks pedem, até ao playset
+      de cada carta. A aba <i>Por deck</i> pode dar menos: aí uma carta que dois
+      decks peçam compra-se uma vez e troca-se entre eles.</small>
   </div>`;
 }
 
 function renderFaltas() {
   const f = state.faltas;
-  $('#falta-head').innerHTML = faltaHead();
   const which = state.prefs.falta;
+  $('#falta-head').innerHTML = FALTA_HEAD.includes(which) ? faltaHead() : '';
 
   if (which === 'staples') {
     $('#falta-body').innerHTML = f.staples.length ? `
@@ -1547,15 +1569,26 @@ function cmMostrar(id, itens, comCodigo, onde = 'wantlist',
 
   // O foil NÃO se pode marcar no texto — é um filtro por entrada, posto na
   // interface deles. Aqui só se diz em que linhas é preciso ligá-lo.
+  //
+  // A lista vai dentro de um <details>: na wantlist de tudo são 307 linhas e na
+  // do OGN 90, e como as duas caixas da Coleção já vêm preenchidas, a página
+  // acabava em várias centenas de linhas de texto monoespaçado — no telemóvel é
+  // um scroll sem fim. Fica aberta quando é curta, que é quando se lê de
+  // relance. O <details> é do próprio browser: não precisa de JavaScript e o
+  // texto continua todo lá para copiar.
   const foil = linhas.filter((_, i) => itens[i].foil_only);
   fnota.hidden = !foil.length;
   if (foil.length) {
-    fnota.innerHTML = `<b>${foil.length} destas só têm oferta foil no mercado.</b>
-      ${onde === 'wantlist'
-        ? `O texto da wantlist não leva marca de foil — depois de colares, liga o
-           filtro <i>Foil</i> nestas entradas:`
-        : `O preço que está aqui é o da oferta foil, que pode não ser o da tua
-           cópia:`}<br>${foil.map(escapeHTML).join('<br>')}`;
+    const porque = onde === 'wantlist'
+      ? `O texto da wantlist não leva marca de foil — depois de colares, liga o
+         filtro <i>Foil</i> nestas entradas.`
+      : `O preço que está aqui é o da oferta foil, que pode não ser o da tua
+         cópia.`;
+    fnota.innerHTML = `<b>${foil.length} ${foil.length === 1 ? 'destas só tem'
+      : 'destas só têm'} oferta foil no mercado.</b> ${porque}
+      <details class="foil-lista"${foil.length <= 8 ? ' open' : ''}>
+        <summary>ver ${plural(foil.length, 'linha', 'linhas')}</summary>
+        ${foil.map(escapeHTML).join('<br>')}</details>`;
   }
 }
 
@@ -1684,10 +1717,11 @@ function renderPorDeck() {
 
   const alvo = sel === 'todos' ? tj : f.por_deck[sel];
   const intro = sel === 'todos'
-    ? `<p class="note">O que custaria ter os cinco decks montados
-       <b>ao mesmo tempo</b>, com cópias para cada um — sem trocar cartas de
-       deck. São <b>${eur(tj.cents - um)}</b> e <b>${tj.copies - copias}</b>
-       cópias a mais do que montá-los um de cada vez.</p>`
+    ? `<p class="note">O que custaria ter os <b>${f.por_deck.length}</b> decks
+       montados <b>ao mesmo tempo</b>, com cópias para cada um — sem trocar
+       cartas de deck. São <b>${eur(tj.cents - um)}</b> e
+       <b>${tj.copies - copias}</b> cópias a mais do que montá-los um de cada
+       vez.</p>`
     : `<p class="note">O que falta a este deck <b>depois</b> de comprares as
        listas dos anteriores. ${sel > 0
          ? 'As cartas que os decks de cima já obrigam a comprar não voltam a contar aqui.'
@@ -1819,8 +1853,10 @@ function renderPimp() {
     <div class="deck-card resumo">
       <b>${sel === 'todos' ? 'Todas as versões alteradas' : escapeHTML(p.by_deck[sel].name)}</b>
       <span>${sel === 'todos'
-        ? `${somaDecks} versões · ${eur(p.by_deck.reduce((s, d) => s + d.cents, 0))}`
-        : `${alvo.cards} cartas · ${alvo.printings} versões · ${eur(alvo.cents)}`}${
+        ? `${plural(somaDecks, 'versão', 'versões')} · ${
+            eur(p.by_deck.reduce((s, d) => s + d.cents, 0))}`
+        : `${plural(alvo.cards, 'carta', 'cartas')} · ${
+            plural(alvo.printings, 'versão', 'versões')} · ${eur(alvo.cents)}`}${
         alvo.done ? ` · ${alvo.done} já feitas` : ''}</span>
     </div>
     <p class="note">${sel === 'todos'
@@ -1832,7 +1868,7 @@ function renderPimp() {
     ${sel === 'todos'
       ? p.by_deck.map(d => `
           <h3 class="section-head sub">${d.priority}. ${escapeHTML(d.name)}
-            <span>${d.printings} versões · ${eur(d.cents)}${
+            <span>${plural(d.printings, 'versão', 'versões')} · ${eur(d.cents)}${
               d.owned ? ` · já tens ${d.owned}` : ''}</span></h3>
           <div class="grid deck-grid">${
             achata(d).map(x => pimpTile(x, false)).join('')}</div>`).join('')
@@ -2035,7 +2071,7 @@ function renderVenda() {
 
   corpo.innerHTML = `
     <div class="deck-card resumo">
-      <b>${v.printings} impressão${v.printings === 1 ? '' : 'ões'} a mais</b>
+      <b>${v.printings} impress${v.printings === 1 ? 'ão' : 'ões'} a mais</b>
       <span>${v.copies} cópia${v.copies === 1 ? '' : 's'} · ${eur(v.cents)} ao preço
         de hoje${v.no_price ? ` · ${v.no_price} sem oferta no CardTrader` : ''}</span>
     </div>
@@ -2067,7 +2103,7 @@ function renderVenda() {
       para saberes o que tens para vender, não para o carregar lá.</small>` : ''}
 
     ${v.kept.length ? `
-      <h3 class="section-head sub">A mais da sequência, mas em uso
+      <h3 class="section-head sub">Fora da sequência, mas em uso nos decks
         <span>${v.in_decks_copies} cópias em decks — não estão para venda</span></h3>
       <div class="grid deck-grid">${v.kept.map(vendaTile).join('')}</div>` : ''}`;
 
@@ -2112,6 +2148,13 @@ function eurShort(cents) {
     minimumFractionDigits: v >= 100 ? 0 : 2,
     maximumFractionDigits: v >= 100 ? 0 : 2,
   });
+}
+
+/* «1 versão» / «2 versões». Havia meia dúzia de sítios a escrever sempre o
+   plural — «1 versões», «1 cartas» —, e uma lista de um item lida assim parece
+   um contador partido. */
+function plural(n, um, muitos) {
+  return `${n} ${n === 1 ? um : muitos}`;
 }
 
 function escapeHTML(s) {

@@ -444,6 +444,14 @@ body.readonly .deck-actions .btn[data-act="descer"] { display: none; }
 .aviso-foil b { font-family: inherit; color: var(--accent-2); display: block; margin-bottom: 4px; }
 .aviso-foil i { font-style: normal; color: var(--text); }
 
+/* As linhas de foil podem ser centenas (307 na wantlist de tudo). Ficam
+   dobradas num <details> para a página não acabar num muro de texto. */
+.foil-lista { margin-top: 6px; }
+.foil-lista > summary {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: var(--accent); cursor: pointer; margin-bottom: 4px;
+}
+
 .wl-zona { display: flex; flex-direction: column; gap: 8px; margin-top: 18px; align-items: flex-start; }
 .wl-txt {
   width: 100%; background: var(--panel-2); color: var(--text);
