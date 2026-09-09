@@ -77,11 +77,12 @@ GitHub Actions publica no GitHub Pages (`.github/workflows/pages.yml`).
 
 ## Ordenar e filtrar a grelha
 
-- **Ordem:** primeiro a **sequência do master set**, por número de coleção, com
-  as signatures logo a seguir à carta base. Depois, em blocos próprios no fim,
-  o que está **fora do master set**: os tokens (código `-T`) e as artes
-  alternativas (número acabado em `a`). Nunca intercalados. Cada bloco tem o
-  seu contador — "tens N de M" — que **não** entra na percentagem de master set.
+- **Ordem:** três blocos seguidos, nunca intercalados. Primeiro a **sequência
+  do master set**, por número de coleção, com as signatures logo a seguir à
+  carta base; depois **as runas especiais, 1 de cada**; depois **as artes
+  alternativas, 1 de cada**. Os três contam para a percentagem. Só no fim vem o
+  que está **fora da coleção** — hoje os tokens (código `-T`) —, com o seu
+  contador "tens N de M" e a dizer que **não** entra na percentagem.
 - **Filtros:** Tudo / Faltas, e por tipo de impressão (Base, Arte alt.,
   Signature, Tokens/Promos). "Faltas" mostra tudo o que não está completo,
   tanto faz faltarem 3, 2 ou 1.
@@ -177,8 +178,8 @@ gerador (`riftvault/cardmarket.py`):
 
 - **Coleção**, no fim de cada edição: **Wantlist Cardmarket — <edição>**, com
   as faltas dessa edição já escritas na caixa, e a seguir **Wantlist — tudo**
-  com as cinco edições seguidas. O cabeçalho da edição diz *faltam N cópias ·
-  X €* e leva-te ao bloco.
+  com as cinco edições seguidas. O cabeçalho da edição diz *N cópias a comprar
+  nesta edição · X €* e leva-te ao bloco.
 - **Faltas → A subir** e **Faltas → Master set**, com três botões:
   **Copiar para o Cardmarket**, **Copiar com código** e **Descarregar CSV**.
 - **Faltas → Por deck** e **Pimp decks**, com o botão de sempre.
@@ -189,6 +190,10 @@ runa especial, 1 por arte alternativa), a mesma regra *cópias + a caminho <
 alvo* e as mesmas exclusões (signatures e showcases). Em modo edição, um `+` ou
 um `−` marca-as como desatualizadas e aparece um botão **Atualizar** — não se
 volta a pedir o ficheiro sozinho.
+
+Os dois blocos partilham um **degrau**: *até 1 de cada · até 2 de cada ·
+playset*. É a mesma lista com `min(k, alvo)` no lugar do alvo, e o que ela pede
+são exatamente as cópias que os chips da contagem por níveis dizem que faltam.
 
 As listas saem sempre do que está **no ecrã** — respeitam a aba, a edição e a
 raridade que tiveres escolhidas. A quantidade de cada linha é o que **falta
@@ -206,6 +211,7 @@ py -m riftvault a-subir --todas --csv faltas.csv
 py -m riftvault wantlist --edicao OGN       # as faltas do master set do OGN
 py -m riftvault wantlist --cardmarket       # as cinco edições seguidas
 py -m riftvault wantlist --edicao unl --codigos
+py -m riftvault wantlist --cardmarket --nivel 1   # só uma de cada
 
 py -m riftvault wantlist                    # tudo, um deck de cada vez
 py -m riftvault wantlist --deck ornn        # só um deck
@@ -253,20 +259,44 @@ São mostradas sempre lado a lado, nunca uma em vez da outra.
 de qualquer edição, conta. Alvos por tipo, em `riftvault_config.json`:
 Unit/Spell/Gear 3, Battlefield 1, Legend 1, Rune 12, tokens 1.
 
-**2. Master set** — alvo por *impressão*. A base segue o alvo de jogo e cada
-signature 1.
+**2. Master set** — alvo por *impressão*, e a **Coleção são três blocos**
+(decisões tuas de 2026-09-08):
 
-**O master set é a sequência numerada da edição.** Ficam de fora as impressões
-com sufixo no código: os tokens (`UNL-T03`) e as artes alternativas
-(`UNL-228a`). Não entram na percentagem, e na grelha aparecem em blocos
-próprios depois da sequência. As signatures (`OGN-299*`), as runas promo
-(`VEN-R01`) e as promos especiais (`VEN-SP4`) **continuam dentro**.
+| bloco | o que é | alvo por impressão |
+|---|---|---|
+| 1 | a sequência do master set, por número de coleção | o **playset do tipo** (Unit/Spell/Gear 3, Legend e Battlefield 1) — **menos as runas, que são 1** |
+| 2 | as runas especiais (a runa que não é a base), por edição | **1** |
+| 3 | as artes alternativas | **1** |
 
-**As artes alternativas pedem playset na mesma** — um alt art de Unit mostra
-`0/3`, um de Rune mostra `0/12` — porque o alvo e a percentagem são perguntas
-diferentes. São três ajustes: `master_targets_by_variant` é o alvo fixo,
-`master_variantes_playset` diz quais as variantes que seguem o playset em vez
-desse alvo fixo, e `master_set.fora` é o que fica fora do master set.
+Os três contam para a percentagem: hoje são **1170 impressões** no denominador.
+As signatures (`OGN-299*`), as runas promo (`VEN-R01`) e as promos especiais
+(`VEN-SP4`) estão na sequência. Fica de fora só o que o `master_set.fora`
+disser — hoje os tokens (`UNL-T03`), que aparecem num bloco informativo no fim
+da grelha, com alvo mas sem entrar na conta.
+
+**O playset jogável da runa continua 12**: colecionar e jogar são perguntas
+diferentes, e são as 12 que enchem o Rune Pool de um deck.
+
+Os ajustes: `master_targets_by_variant` é o alvo fixo por variante,
+`runas_especiais` é a regra das runas (o que é runa, que alvo tem, e quais
+ficam na sequência), `master_variantes_playset` diz quais as variantes que
+seguem o playset em vez do alvo fixo (está **vazio**), e `master_set.fora` é o
+que fica fora da coleção.
+
+### Contagem por níveis: 1 de cada, 2 de cada, o playset
+
+Por baixo das barras, uma linha de chips para a edição aberta e outra para as
+cinco: `1/3 · 64 % · faltam 420 · …`, `2/3 · …`, `playset (3/3) · …`. O alvo do
+nível *k* é `min(k, alvo)`, por isso as impressões de alvo 1 só podem faltar no
+primeiro degrau — e a percentagem do **último** degrau é exatamente a da barra
+do master set.
+
+Conta **cópias**, não o que vem a caminho (é a regra da Coleção), e conta tudo
+o que está no denominador, signatures e showcases incluídos. As wantlists do
+fim da página é que descontam o pendente e tiram essas duas — ali a pergunta é
+o que há a **comprar**, e é por isso que os dois números não são iguais.
+
+Na linha de comandos, `riftvault stats` imprime a tabela por edição.
 
 ### O que fica fora: `master_set.fora`
 
@@ -274,7 +304,7 @@ A lista escreve-se pelos **sufixos do código impresso**, no
 `riftvault_config.json`:
 
 ```json
-"master_set": { "fora": ["-T", "a"] }
+"master_set": { "fora": ["-T"] }
 ```
 
 | escreves | tira | exemplo |
@@ -293,11 +323,11 @@ riftvault não conhece, é melhor rebentar do que contá-lo em silêncio.
 **Para tirar as signatures da sequência** basta acrescentar `"*"`:
 
 ```json
-"master_set": { "fora": ["-T", "a", "*"] }
+"master_set": { "fora": ["-T", "*"] }
 ```
 
 Ficam num bloco próprio no fim da grelha, como os tokens. **Atenção:** isso
-tira-as *também* do denominador da percentagem (1068 → 1032 impressões) —
+tira-as *também* do denominador da percentagem (1170 → 1134 impressões) —
 sair da sequência e sair da conta são a mesma pergunta. Hoje está **desligado**,
 à espera de decisão: elas continuam a contar para o set estar completo. Nas
 *listas de compra* já não aparecem desde 2026-09-08, mas isso é outro ajuste
@@ -310,8 +340,8 @@ Não se distingue foil de normal: uma cópia é uma cópia.
 
 ## Venda
 
-Quarta secção. O que tens **fora do master set** — os `-T` e os `a` — partido em
-duas leituras:
+Quarta secção. O que tens **fora da sequência do master set** — os tokens
+(`-T`), as runas especiais e as artes alternativas —, partido em duas leituras:
 
 - **usada num deck seleccionado** — a cópia está alocada a um deck da secção
   Decks. Fica onde está e não entra na lista.
@@ -320,9 +350,14 @@ duas leituras:
 
 Uma impressão pode estar nas duas: 2 cópias num deck e 1 a mais vende só 1.
 
+**É só o EXCEDENTE.** Nos blocos que contam para a coleção — as runas especiais
+e as artes alternativas — guarda-se **1 de cada**, que é o que a coleção pede, e
+só sobra o resto; a primeira arte alternativa é coleção, a sexta é venda. Os
+tokens, que estão fora da coleção, sobram inteiros.
+
 **Nada sai da base.** É uma sugestão — não há botão de vender e a coleção não
-mexe. As impressões do master set nunca entram aqui, por muitas que tenhas a
-mais.
+mexe. As impressões da sequência do master set nunca entram aqui, por muitas
+que tenhas a mais.
 
 ```bash
 py -m riftvault venda                # a tabela

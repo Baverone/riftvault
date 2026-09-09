@@ -1381,6 +1381,60 @@ battlefields 3, máximo 3 cópias, identidade de domínio pelo Legend.
 têm 39 no MainDeck + 1 Champion = 40 — **não validado contra as regras
 oficiais**. Se estiver errado, é uma linha no config.
 
+## Revisão do site (2026-09-09)
+
+Ordem dele a 2026-09-08: *"Revê também os meus sites de MTG, Riftbound e Tibia
+à procura de melhorias."* O que se corrigiu foi só o de **baixo risco** — texto
+que mentia, plurais, imagens sem alternativa e um cabeçalho fora de âmbito. As
+regras de negócio não foram tocadas; as propostas ficaram no relatório
+`ai-pc/work/revisao/melhorias-riftvault.md`, para ele decidir.
+
+**O cabeçalho da secção Faltas mentia em quatro das seis abas.** O
+`#falta-head` mostra o `faltas.totals` — a carência GLOBAL DOS DECKS
+(`faltas.shortfall`) — e estava em todas as abas. Na aba «Master set» lia-se
+*«Falta comprar 25 cartas · 34 cópias · 356,91 €»* por cima de *«614 impressões
+em falta · 1118 cópias · 21 567,33 €»*, que é outra pergunta. Passou a chamar-se
+**«Falta comprar aos decks»** e a aparecer só onde é a conta da página
+(`FALTA_HEAD = ['staples', 'deck']` no `app.js`). Pôr lá as outras abas é
+acrescentar o id à lista.
+
+**Os dois totais dos decks diferem de propósito, e agora está escrito.** O
+cabeçalho soma o que TODOS os decks pedem com o teto do playset (34 cópias); a
+aba «Por deck» conta o que sobra depois dos decks anteriores (33). Hoje a
+diferença é a `Salvage`: três decks pedem 2 cada, ele tem 2, e nenhum deck
+sozinho fica a faltar — mas ao todo ainda lhe falta 1 para o playset. Aparece
+nas Staples e em nenhuma aba de deck.
+
+**A linha «faltam N cópias» da Coleção estava encostada a outro número
+diferente.** Por cima dela, o chip do playset da contagem por níveis diz «faltam
+383 · 29 024,12 €» (OGN) e ela dizia «Faltam 360 cópias · 1 306,14 €». São a
+MÉTRICA e a LISTA DE COMPRA — a métrica conta as signatures e os showcases e não
+desconta o pendente —, mas lado a lado liam-se como erro de contagem. A linha
+passou a «**360** cópias **a comprar** nesta edição» e a explicar a diferença
+quando ela existe. O `tests/test_coerencia.py` fixa o que essa frase promete: a
+lista nunca pede mais do que a contagem, e sem exclusões nem pendente os dois
+números são o mesmo.
+
+**Corrigido também:** «2 impressãoões a mais» na Venda (plural partido), «os
+cinco decks montados ao mesmo tempo» quando são quatro (passou a contar os
+decks), «1 versões»/«1 cartas» nos contadores das Faltas e do Pimp, a Venda sem
+o `imgFallback` ligado (uma imagem que o cache local não tivesse ficava partida
+em vez de cair para o CDN), um segundo `addEventListener('error')` no `#grid`
+que era cópia do primeiro, os `aria-label` dos `+`/`−` sem o nome da carta, e o
+`/favicon.ico` — o único 404 em 1870 pedidos do `data/serve.log`, agora servido
+por um ícone embutido em `data:` no `index.html`.
+
+**O README tinha decisões revogadas.** Dizia que as artes alternativas estavam
+fora do master set e pediam playset (`0/3`, `0/12`), que o `master_set.fora` era
+`["-T", "a"]` e que o denominador era 1068. Hoje são três blocos, alt art 1,
+`["-T"]` e **1170** — medido, com `["-T","*"]` a dar 1134. Ganhou também a
+secção da contagem por níveis, que não estava lá.
+
+**Sem rede nesta sessão:** o `WebFetch` e o `curl` foram negados pelo modo em
+que a sessão corria, por isso os links do «A subir»
+(`cardtrader.com/cards/<blueprint_id>` e `riftscribe.gg/cards/<printing_id>`)
+continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
+
 ## Estado
 
 - **Feito:** catálogo, as duas métricas, CLI completo, modo edição, modo
@@ -1403,6 +1457,10 @@ oficiais**. Se estiver errado, é uma linha no config.
 - **Feito também:** a contagem por níveis do master set — 1 de cada, 2 de cada,
   o playset —, global e por edição, com o degrau também nas wantlists da
   Coleção e a tabela no `riftvault stats`.
+- **Feito também:** a revisão do site de 2026-09-09 — textos, plurais, imagens
+  da Venda, o cabeçalho das Faltas com o âmbito certo e o favicon.
 - **Por fazer:** vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck,
   com as partilhadas assinaladas); e apagar decks pela interface (hoje apaga-se
   o `.txt`).
+- **Por fazer, da revisão:** registar uma encomenda («a caminho») pela
+  interface — hoje só pelo `riftvault pending`, e ele compra no telemóvel.
