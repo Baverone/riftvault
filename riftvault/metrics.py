@@ -11,8 +11,8 @@
        3. no fim, as artes alternativas, **1 de cada**.
 
      Os três contam para a percentagem; o que fica de fora (`master_set.fora`,
-     hoje só os tokens `-T`) vai para blocos informativos no fim. Ver
-     `e_master`, `bloco` e `conta_bloco`.
+     hoje os tokens `-T` e as signatures `*`) vai para blocos informativos no
+     fim. Ver `e_master`, `bloco` e `conta_bloco`.
 
 São sempre calculadas e mostradas em paralelo. Nenhuma substitui a outra.
 """
@@ -33,7 +33,9 @@ RARITY_ORDER = ["common", "uncommon", "rare", "epic", "showcase"]
 # Os blocos da grelha, por esta ordem (André, 2026-09-08): *"master set playset
 # todo seguido; 1 runa especial de cada para cada set; no fim 1 alt art de
 # cada"*. Os três primeiros são a COLEÇÃO — contam para a percentagem; os
-# outros são o que ficou fora dela (`master_set.fora`, hoje só os tokens).
+# outros são o que ficou fora dela (`master_set.fora`, hoje os tokens e as
+# signatures — *"das coleções tira as signatures, fazemos 1 Alt Art de cada mas
+# as signature não"*, André, 2026-09-09).
 #
 # Há um bloco por variante, e não só para as que ele nomeou: assim quem
 # acrescentar uma variante ao `master_set.fora` recebe um cabeçalho a dizer o
@@ -214,10 +216,11 @@ def kinds_fora(cfg: dict | None = None) -> frozenset[str]:
     sufixo do código impresso (`["-T", "a"]`) — ou pelo nome da variante
     (`["token", "alt_art"]`). São a mesma coisa; ver `SUFIXO_KIND`.
 
-    Para tirar também as signatures da sequência acrescenta-se `"signature"`
-    (ou `"*"`). **Hoje está desligado de propósito**: o André nomeou os `-T` e
-    os `a`, não as signatures, e elas contam no denominador da percentagem.
-    Ligar tira-as das duas coisas — é a mesma pergunta.
+    As signatures saíram a 2026-09-09 (*"das coleções tira as signatures,
+    fazemos 1 Alt Art de cada mas as signature não"*): o `"*"` da lista tira-as
+    da sequência **e** do denominador da percentagem — é a mesma pergunta. Não
+    saem da grelha: ficam num bloco próprio no fim, com alvo, para as que ele
+    tenha continuarem visíveis. Tira-se o `"*"` para as pôr de volta.
 
     Um valor que não se reconheça REBENTA, e de propósito: uma variante nova
     (um `b`? um `sp7`?) tem de aparecer, não de ser ignorada em silêncio —
@@ -259,10 +262,13 @@ def e_master(printing, cfg: dict | None = None) -> bool:
       `UNL-T03`   -> variant `t03` -> kind `token`
       `UNL-228a`  -> variant `a`   -> kind `alt_art`
 
-    Muda-se em `master_set.fora`, hoje `["-T"]` — só os tokens. **As artes
-    alternativas voltaram para dentro a 2026-09-08**, na segunda frase dele
-    (*"no fim 1 alt art de cada"*): continuam a ser a cauda da grelha, num
-    bloco próprio, mas agora contam com alvo 1. Ver `bloco` e `conta_bloco`.
+    Muda-se em `master_set.fora`, hoje `["-T", "*"]` — os tokens e as
+    signatures. **As artes alternativas voltaram para dentro a 2026-09-08**, na
+    segunda frase dele (*"no fim 1 alt art de cada"*): continuam a ser a cauda
+    da grelha, num bloco próprio, mas agora contam com alvo 1. **As signatures
+    saíram a 2026-09-09**: *"das coleções tira as signatures, fazemos 1 Alt Art
+    de cada mas as signature não"* — as duas coisas na mesma frase, e é esta
+    função que as separa. Ver `bloco` e `conta_bloco`.
 
     Não confundir com o ALVO (`master_target`): o alvo é o que o tile mostra
     ("6/12"), isto é o que entra no denominador. São duas perguntas diferentes

@@ -328,18 +328,22 @@ class TestExclusoes(Base):
         p = self.a_subir.wantlist(con, "TST")
         self.assertEqual([x["printing_id"] for x in p["items"]], ["tst-002-100"])
         # E diz-se quantas saíram, por critério: uma lista que encolhe sem
-        # explicação parece um erro de contagem.
-        self.assertEqual(p["scope"]["excluded"], 2)
+        # explicação parece um erro de contagem. Desde 2026-09-09 a signature
+        # já nem chega às exclusões — saiu da coleção, que é o âmbito.
+        self.assertEqual(p["scope"]["excluded"], 1)
         self.assertEqual(p["scope"]["excluded_by"],
-                         [{"criterio": "signature", "n": 1},
-                          {"criterio": "showcase", "n": 1}])
+                         [{"criterio": "showcase", "n": 1}])
         con.close()
 
-    def test_a_percentagem_de_master_set_nao_mexe(self):
-        """O filtro é da lista de compra. A barra da Coleção conta as três."""
+    def test_a_percentagem_de_master_set_so_mexe_com_a_signature(self):
+        """O filtro das listas não mexe na barra; o `master_set.fora` mexe.
+
+        A reimpressão showcase sai da wantlist e continua no denominador; a
+        signature saiu dos dois, por decisão dele a 2026-09-09.
+        """
         con = self.montar()
         prog = self.metrics.set_payload(con, "TST")["progress"]["master"]
-        self.assertEqual(prog["total"], 3)
+        self.assertEqual(prog["total"], 2)
         con.close()
 
     def test_a_alt_art_entra_na_mesma_apesar_da_raridade_showcase(self):

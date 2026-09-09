@@ -30,6 +30,16 @@ O QUE É "AINDA NÃO TENHO"
     Põe-se `a_subir.regra_falta: "nenhuma"` para seguir só as que estão mesmo
     a zero cópias.
 
+AS SIGNATURES JÁ NEM CHEGAM AQUI (André, 2026-09-09)
+    *"Das coleções tira as signatures, fazemos 1 Alt Art de cada mas as
+    signature não."* As signatures saíram da COLEÇÃO — `master_set.fora` levou
+    o `"*"` — e por isso deixaram de estar no âmbito desta página: o `masterset`
+    abaixo pergunta ao `metrics.e_master`, como sempre perguntou. A exclusão que
+    se segue continua a listá-las de propósito (é a mesma frase dele de
+    2026-09-08, e vale se um dia elas voltarem à coleção), mas hoje já não tira
+    nenhuma — o `resumo_fora` conta o que saiu mesmo, por isso a página passa a
+    dizer «42 impressões (42 showcase)» em vez de 78.
+
 AS SIGNATURES E OS SHOWCASES FICAM DE FORA (André, 2026-09-08)
     *"No 'a subir', estás a pôr uma carta signed — não quero."* e, no mesmo
     dia, *"tira também os showcases"*. Nem umas nem outros entram nas listas de
@@ -55,9 +65,9 @@ AS SIGNATURES E OS SHOWCASES FICAM DE FORA (André, 2026-09-08)
     cada, e 54 das 102 têm raridade `showcase`. Deixá-las cair na exclusão
     apagava em silêncio a decisão nova.
 
-    Isto é filtro DESTA página, não da métrica: o `metrics.e_master` não
-    mexeu, por isso a percentagem de set completo da Coleção continua a contar
-    as 36 signatures e os 42 showcases no denominador. A página diz sempre
+    Isto é filtro DESTA página, não da métrica: a percentagem de set completo
+    da Coleção continua a contar os 42 showcases no denominador (as signatures
+    é que saíram dele a 2026-09-09, e por outra decisão — ver acima). A página diz sempre
     quantas impressões tirou **e por que critério** — uma lista que encolhe sem
     explicação parece um erro de contagem.
 
@@ -136,8 +146,9 @@ def masterset(con: sqlite3.Connection, cfg: dict | None = None) -> dict[str, dic
     O mesmo critério de `metrics.set_payload`, pela mesma função: alvo > 0 e
     `metrics.e_master`. Desde 2026-09-08 isso são os TRÊS blocos da Coleção —
     a sequência do master set em playset, as runas especiais a 1 e as artes
-    alternativas a 1 — e deixa de fora os tokens. Cada impressão leva o `block`
-    a que pertence, porque o `excluir()` a seguir pergunta por ele.
+    alternativas a 1 — e deixa de fora os tokens e, desde 2026-09-09, as
+    signatures. Cada impressão leva o `block` a que pertence, porque o
+    `excluir()` a seguir pergunta por ele.
     """
     cfg = cfg or config.load()
     out: dict[str, dict] = {}

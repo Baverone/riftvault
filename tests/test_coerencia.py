@@ -93,9 +93,10 @@ class TestAListaNuncaPedeMaisDoQueAContagem(Base):
         from riftvault import pending
         con = self.montar()
         pending.add(con, "tst-001-100", 2)
-        # signature 1 + showcase 3 (o playset da Unit) = 4 cópias excluídas
-        # das listas de compra, mais as 2 que já vêm a caminho.
-        self.assertEqual(self.faltam_no_playset(con) - self.a_comprar(con), 4 + 2)
+        # showcase 3 (o playset da Unit) = 3 cópias excluídas das listas de
+        # compra, mais as 2 que já vêm a caminho. A signature não entra na
+        # conta de nenhum dos lados desde 2026-09-09: saiu da coleção.
+        self.assertEqual(self.faltam_no_playset(con) - self.a_comprar(con), 3 + 2)
         con.close()
 
     def test_sem_exclusoes_nem_pendente_sao_o_mesmo_numero(self):
@@ -104,13 +105,18 @@ class TestAListaNuncaPedeMaisDoQueAContagem(Base):
         con.close()
 
     def test_a_contagem_conta_o_que_a_lista_de_compra_exclui(self):
-        """A métrica não sabe do `a_subir.excluir` — e não pode passar a saber."""
+        """A métrica não sabe do `a_subir.excluir` — e não pode passar a saber.
+
+        A reimpressão showcase conta na barra e não se compra. A signature já
+        não faz nem uma coisa nem outra: saiu da coleção a 2026-09-09, e isso é
+        outra decisão — a que o `master_set.fora` responde.
+        """
         con = self.montar()
         p = self.metrics.set_payload(con, "TST")
         contadas = {pr["id"] for g in p["groups"] for pr in g["printings"]
                     if self.metrics.conta_bloco(pr["block"])}
-        self.assertIn("tst-004-star-100", contadas)
         self.assertIn("tst-005-100", contadas)
+        self.assertNotIn("tst-004-star-100", contadas)
         # E nenhuma delas aparece na lista de compra.
         na_lista = {x["printing_id"] for x in self.a_subir.wantlist(con, "TST")["items"]}
         self.assertNotIn("tst-004-star-100", na_lista)

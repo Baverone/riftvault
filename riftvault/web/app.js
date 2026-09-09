@@ -683,8 +683,8 @@ function renderFaltaLinha() {
   el.hidden = !d;
   if (!d) return;
   // Esta linha fica logo por baixo dos chips dos níveis, e os dois números não
-  // são o mesmo: o chip é a MÉTRICA (conta as signatures e os showcases, e não
-  // desconta o que vem a caminho) e esta linha é a LISTA DE COMPRA. Vistos lado
+  // são o mesmo: o chip é a MÉTRICA (conta os showcases, e não desconta o que
+  // vem a caminho) e esta linha é a LISTA DE COMPRA. Vistos lado
   // a lado sem explicação — «faltam 383» em cima, «faltam 360» em baixo — liam-
   // se como erro de contagem. Diz-se a diferença, e só quando ela existe.
   const nv = (state.levels.get(state.setId) || []).slice(-1)[0];
@@ -693,8 +693,8 @@ function renderFaltaLinha() {
     <b>a comprar</b> nesta edição · <b>${eur(d.cents)}</b> ao preço de hoje —
     <a href="#wl-edicao">wantlist para o Cardmarket</a>${difere
       ? `<br><small>São menos do que as <b>${nv.missing}</b> do playset aqui em
-         cima: a lista de compra não leva signatures nem showcases e já desconta
-         o que vem a caminho.</small>` : ''}`;
+         cima: a lista de compra não leva showcases e já desconta o que vem a
+         caminho.</small>` : ''}`;
 }
 
 /* Um `+` ou um `−` desatualiza as duas listas, que vieram do servidor. Não se

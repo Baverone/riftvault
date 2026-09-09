@@ -78,11 +78,11 @@ GitHub Actions publica no GitHub Pages (`.github/workflows/pages.yml`).
 ## Ordenar e filtrar a grelha
 
 - **Ordem:** três blocos seguidos, nunca intercalados. Primeiro a **sequência
-  do master set**, por número de coleção, com as signatures logo a seguir à
-  carta base; depois **as runas especiais, 1 de cada**; depois **as artes
-  alternativas, 1 de cada**. Os três contam para a percentagem. Só no fim vem o
-  que está **fora da coleção** — hoje os tokens (código `-T`) —, com o seu
-  contador "tens N de M" e a dizer que **não** entra na percentagem.
+  do master set**, por número de coleção; depois **as runas especiais, 1 de
+  cada**; depois **as artes alternativas, 1 de cada**. Os três contam para a
+  percentagem. Só no fim vem o que está **fora da coleção** — os tokens (código
+  `-T`) e as signatures (código `*`) —, cada um com o seu contador "tens N de M"
+  e a dizer que **não** entra na percentagem.
 - **Filtros:** Tudo / Faltas, e por tipo de impressão (Base, Arte alt.,
   Signature, Tokens/Promos). "Faltas" mostra tudo o que não está completo,
   tanto faz faltarem 3, 2 ou 1.
@@ -115,8 +115,8 @@ Terceira secção, com seis abas:
 - **Master set** — a lista **completa** do que falta à coleção, não só o que
   está a subir: para comprares tudo de uma vez se te apetecer. Mesmo âmbito e
   mesma regra da aba anterior (conta enquanto *cópias + a caminho < alvo*), sem
-  o filtro de subida e sem as signatures nem os showcases. Por **edição e
-  número de coleção**,
+  o filtro de subida e sem os showcases — as signatures já nem estão na coleção.
+  Por **edição e número de coleção**,
   que é a ordem do binder. Filtro por edição, e os mesmos três botões de lista
   para o Cardmarket.
 - **A caminho** — o que já compraste e ainda não chegou. Não conta na Coleção
@@ -134,14 +134,18 @@ Terceira secção, com seis abas:
   hoje, o Δ da janela e o Δ de 7 dias, com links para o CardTrader e para a
   RiftScribe. Há um filtro rápido por raridade.
 
-  **As signatures e os showcases não entram** (`a_subir.excluir`, decisões tuas
-  a 2026-09-08: *"estás a pôr uma carta signed — não quero"* e *"tira também os
-  showcases"*). São dois critérios porque são duas coisas: a signature é uma
-  **variante** (o `*` do código) e o showcase é uma **raridade** — as 42 que
-  saem daqui são reimpressões com número de coleção normal, como a
-  `SFD-232/221`. A nota por baixo do resumo diz quantas saíram por cada
-  critério. Continuam todas a contar na percentagem de set completo da
-  Coleção — o que muda é só esta página e as listas de compra que saem dela.
+  **Os showcases não entram** (`a_subir.excluir`, decisão tua a 2026-09-08:
+  *"tira também os showcases"*). O showcase é uma **raridade**, não uma
+  variante: as 42 que saem daqui são reimpressões com número de coleção normal,
+  como a `SFD-232/221`, e continuam a contar na percentagem de set completo — o
+  que muda é só esta página e as listas de compra que saem dela. A nota por
+  baixo do resumo diz quantas saíram e por que critério.
+
+  **As signatures também não**, mas por outro motivo desde 2026-09-09: saíram da
+  Coleção inteira, que é o âmbito desta página, por isso já nem chegam à
+  exclusão (o resumo passou de «78 impressões (36 signature + 42 showcase)» a
+  «42 (42 showcase)»). A exclusão delas fica no config na mesma, para o caso de
+  voltarem.
 
   No fim há os três botões das **listas para o Cardmarket** (ver abaixo).
 
@@ -187,7 +191,7 @@ gerador (`riftvault/cardmarket.py`):
 As wantlists da Coleção são a **mesma lista** da aba *Master set*, cortada por
 edição: os mesmos alvos dos três blocos (playset na sequência, 1 por runa, 1 por
 runa especial, 1 por arte alternativa), a mesma regra *cópias + a caminho <
-alvo* e as mesmas exclusões (signatures e showcases). Em modo edição, um `+` ou
+alvo* e a mesma exclusão dos showcases. Em modo edição, um `+` ou
 um `−` marca-as como desatualizadas e aparece um botão **Atualizar** — não se
 volta a pedir o ficheiro sozinho.
 
@@ -268,11 +272,12 @@ Unit/Spell/Gear 3, Battlefield 1, Legend 1, Rune 12, tokens 1.
 | 2 | as runas especiais (a runa que não é a base), por edição | **1** |
 | 3 | as artes alternativas | **1** |
 
-Os três contam para a percentagem: hoje são **1170 impressões** no denominador.
-As signatures (`OGN-299*`), as runas promo (`VEN-R01`) e as promos especiais
-(`VEN-SP4`) estão na sequência. Fica de fora só o que o `master_set.fora`
-disser — hoje os tokens (`UNL-T03`), que aparecem num bloco informativo no fim
-da grelha, com alvo mas sem entrar na conta.
+Os três contam para a percentagem: hoje são **1134 impressões** no denominador.
+As runas promo (`VEN-R01`) e as promos especiais (`VEN-SP4`) estão na sequência.
+Fica de fora o que o `master_set.fora` disser — hoje os tokens (`UNL-T03`) e as
+**signatures** (`OGN-299*`, decisão tua de 2026-09-09: *"das coleções tira as
+signatures, fazemos 1 Alt Art de cada mas as signature não"*), que aparecem em
+blocos informativos no fim da grelha, com alvo mas sem entrar na conta.
 
 **O playset jogável da runa continua 12**: colecionar e jogar são perguntas
 diferentes, e são as 12 que enchem o Rune Pool de um deck.
@@ -292,9 +297,10 @@ primeiro degrau — e a percentagem do **último** degrau é exatamente a da bar
 do master set.
 
 Conta **cópias**, não o que vem a caminho (é a regra da Coleção), e conta tudo
-o que está no denominador, signatures e showcases incluídos. As wantlists do
-fim da página é que descontam o pendente e tiram essas duas — ali a pergunta é
-o que há a **comprar**, e é por isso que os dois números não são iguais.
+o que está no denominador — o que inclui os showcases (as signatures saíram da
+conta com a decisão de 2026-09-09). As wantlists do fim da página é que
+descontam o pendente e tiram os showcases — ali a pergunta é o que há a
+**comprar**, e é por isso que os dois números não são iguais.
 
 Na linha de comandos, `riftvault stats` imprime a tabela por edição.
 
@@ -304,7 +310,7 @@ A lista escreve-se pelos **sufixos do código impresso**, no
 `riftvault_config.json`:
 
 ```json
-"master_set": { "fora": ["-T"] }
+"master_set": { "fora": ["-T", "*"] }
 ```
 
 | escreves | tira | exemplo |
@@ -320,18 +326,15 @@ Também aceita os nomes das variantes (`token`, `alt_art`, `signature`,
 destes **dá erro**, de propósito: se uma edição nova trouxer um sufixo que o
 riftvault não conhece, é melhor rebentar do que contá-lo em silêncio.
 
-**Para tirar as signatures da sequência** basta acrescentar `"*"`:
-
-```json
-"master_set": { "fora": ["-T", "*"] }
-```
-
-Ficam num bloco próprio no fim da grelha, como os tokens. **Atenção:** isso
-tira-as *também* do denominador da percentagem (1170 → 1134 impressões) —
-sair da sequência e sair da conta são a mesma pergunta. Hoje está **desligado**,
-à espera de decisão: elas continuam a contar para o set estar completo. Nas
-*listas de compra* já não aparecem desde 2026-09-08, mas isso é outro ajuste
-(`a_subir.excluir`).
+**As signatures saíram a 2026-09-09** (*"das coleções tira as signatures,
+fazemos 1 Alt Art de cada mas as signature não"*): é o `"*"` da lista. Ficam num
+bloco próprio no fim da grelha, como os tokens — com alvo 1, para veres as que
+tens —, e saem do denominador da percentagem (1170 → **1134** impressões), das
+contagens por níveis e das wantlists. Sair da sequência e sair da conta são a
+mesma pergunta, respondida uma vez só. Para as pôr de volta tira-se o `"*"`.
+Nas *listas de compra* já não apareciam desde 2026-09-08, por outro ajuste
+(`a_subir.excluir`), que fica de pé: se um dia voltarem à coleção, continuam a
+não ser para comprar.
 
 O nome antigo desta lista era `master_ignorar_variantes`; um config que ainda
 o traga continua a funcionar.
@@ -341,7 +344,8 @@ Não se distingue foil de normal: uma cópia é uma cópia.
 ## Venda
 
 Quarta secção. O que tens **fora da sequência do master set** — os tokens
-(`-T`), as runas especiais e as artes alternativas —, partido em duas leituras:
+(`-T`), as signatures (`*`), as runas especiais e as artes alternativas —,
+partido em duas leituras:
 
 - **usada num deck seleccionado** — a cópia está alocada a um deck da secção
   Decks. Fica onde está e não entra na lista.
@@ -353,7 +357,12 @@ Uma impressão pode estar nas duas: 2 cópias num deck e 1 a mais vende só 1.
 **É só o EXCEDENTE.** Nos blocos que contam para a coleção — as runas especiais
 e as artes alternativas — guarda-se **1 de cada**, que é o que a coleção pede, e
 só sobra o resto; a primeira arte alternativa é coleção, a sexta é venda. Os
-tokens, que estão fora da coleção, sobram inteiros.
+tokens e as signatures, que estão fora da coleção, sobram inteiros.
+
+**Sobre as signatures:** desde que saíram da coleção (2026-09-09), uma signature
+que tenhas e nenhum deck use aparece aqui como candidata — é a regra de sempre,
+aplicada ao bloco novo. Hoje não tens nenhuma na caixa, por isso a lista não
+mexeu; **diz se preferes que fiquem sempre de fora da venda.**
 
 **Nada sai da base.** É uma sugestão — não há botão de vender e a coleção não
 mexe. As impressões da sequência do master set nunca entram aqui, por muitas

@@ -81,7 +81,14 @@ class Base(unittest.TestCase):
 
 
 class TestSignaturesFora(Base):
-    """A signature sai das listas de compra, não da métrica."""
+    """A signature sai das listas de compra — e, desde 2026-09-09, da coleção.
+
+    A ordem dele de 2026-09-08 era só sobre as listas ("estás a pôr uma carta
+    signed — não quero"); a de 2026-09-09 tirou-as da Coleção inteira, e por
+    isso elas já nem chegam ao `excluir()`. As duas decisões vivem em sítios
+    diferentes de propósito: se um dia voltarem à coleção, continuam a não ser
+    para comprar.
+    """
 
     def montar(self):
         con = self.v.connect()
@@ -101,10 +108,10 @@ class TestSignaturesFora(Base):
         con = self.montar()
         p = self.a_subir.calcular(con, hoje=HOJE)
         self.assertEqual([i["printing_id"] for i in p["items"]], ["tst-002-100"])
-        # E diz-se quantas saíram: uma lista que encolhe sem explicação parece
-        # um erro de contagem.
-        self.assertEqual(p["scope"]["excluded"], 1)
-        self.assertEqual(p["scope"]["excluded_kinds"], ["signature"])
+        # Já não sai pela exclusão: sai antes, com a coleção. O âmbito da página
+        # é a coleção, e a signature deixou de estar lá.
+        self.assertEqual(p["scope"]["printings"], 1)
+        self.assertEqual(p["scope"]["excluded"], 0)
         con.close()
 
     def test_a_signature_nao_entra_na_lista_do_master_set(self):
@@ -112,22 +119,19 @@ class TestSignaturesFora(Base):
         m = self.a_subir.master_faltas(con)
         codigos = [x["printing_id"] for s in m["sets"] for x in s["items"]]
         self.assertEqual(codigos, ["tst-002-100"])
-        self.assertEqual(m["scope"]["excluded"], 1)
+        self.assertEqual(m["scope"]["excluded"], 0)
         con.close()
 
-    def test_a_signature_continua_a_contar_para_a_percentagem_de_set(self):
-        """O filtro é da página. A barra da Coleção não pode mexer."""
+    def test_a_signature_saiu_tambem_da_percentagem_de_set(self):
+        """2026-09-09: *"das coleções tira as signatures"*. Sai das duas."""
         con = self.montar()
-        self.assertTrue(self.metrics.e_master(
+        self.assertFalse(self.metrics.e_master(
             {"variant_kind": "signature", "is_token": 0}))
+        # O ALVO não mexeu — o tile continua a dizer-lhe 0/1 no bloco de fora.
         alvo = self.metrics.master_target("tst-002-star-100", "signature", "Unit", False)
         self.assertEqual(alvo, 1)
-        # O denominador do set (uma unidade por impressão que conta) continua a
-        # contar as duas: a base e a signature.
         prog = self.metrics.set_payload(con, "TST")["progress"]["master"]
-        self.assertEqual(prog["total"], 2)
-        # E a aba segue só uma delas — é aí, e só aí, que a signature sai.
-        self.assertEqual(self.a_subir.calcular(con, hoje=HOJE)["scope"]["printings"], 1)
+        self.assertEqual(prog["total"], 1)      # só a base
         con.close()
 
     def test_lista_vazia_no_config_traz_a_signature_de_volta(self):
@@ -136,8 +140,12 @@ class TestSignaturesFora(Base):
         `excluir_tipos: []` é um ficheiro escrito antes de 2026-09-08: não
         excluía raridade nenhuma, por isso a migração não lhe pode acrescentar
         os showcases — e a signature, que é de raridade showcase, volta.
+
+        O `master_set.fora` vai sem o `*` de propósito: este teste é sobre a
+        migração do nome antigo da exclusão, não sobre a decisão de 2026-09-09.
         """
-        self.com_config({"a_subir": {"excluir_tipos": []}})
+        self.com_config({"a_subir": {"excluir_tipos": []},
+                         "master_set": {"fora": ["-T"]}})
         con = self.montar()
         p = self.a_subir.calcular(con, hoje=HOJE)
         self.assertEqual(sorted(i["printing_id"] for i in p["items"]),
@@ -185,25 +193,46 @@ class TestShowcasesFora(Base):
         con.close()
 
     def test_a_pagina_diz_quantas_tirou_por_criterio(self):
+        """Hoje só sai a reimpressão showcase: a signature saiu com a coleção.
+
+        Os dois critérios continuam configurados, e o resumo conta o que saiu
+        MESMO — é o que a página escreve, e desde 2026-09-09 diz «1 showcase»
+        em vez de «1 signature + 1 showcase».
+        """
+        con = self.montar()
+        fora = self.a_subir.calcular(con, hoje=HOJE)["scope"]
+        self.assertEqual(fora["excluded"], 1)
+        self.assertEqual(fora["excluded_by"], [{"criterio": "showcase", "n": 1}])
+        self.assertEqual(sum(c["n"] for c in fora["excluded_by"]), fora["excluded"])
+        self.assertEqual(fora["excluded_kinds"], ["signature"])
+        self.assertEqual(fora["excluded_rarities"], ["showcase"])
+        con.close()
+
+    def test_com_as_signatures_de_volta_conta_se_uma_vez_por_criterio(self):
         """A signature é das duas coisas — conta-se uma vez, pelo tipo.
 
         Sem isto a soma dos critérios dava 3 numa lista que tirou 2 impressões.
+        Fixa-se com o `master_set.fora` sem o `*`, que é o mundo em que a
+        signature ainda chega às exclusões.
         """
+        self.com_config({"master_set": {"fora": ["-T"]}})
         con = self.montar()
         fora = self.a_subir.calcular(con, hoje=HOJE)["scope"]
         self.assertEqual(fora["excluded"], 2)
         self.assertEqual(fora["excluded_by"], [{"criterio": "signature", "n": 1},
                                                {"criterio": "showcase", "n": 1}])
         self.assertEqual(sum(c["n"] for c in fora["excluded_by"]), fora["excluded"])
-        self.assertEqual(fora["excluded_kinds"], ["signature"])
-        self.assertEqual(fora["excluded_rarities"], ["showcase"])
         con.close()
 
     def test_o_showcase_continua_a_contar_para_a_percentagem_de_set(self):
-        """O filtro é da página. A barra da Coleção não pode mexer."""
+        """O filtro é da página. A barra da Coleção não pode mexer.
+
+        A signature já não está no denominador, mas por outra decisão (a de
+        2026-09-09) e por outro caminho — o `master_set.fora`, não este filtro.
+        """
         con = self.montar()
         prog = self.metrics.set_payload(con, "TST")["progress"]["master"]
-        self.assertEqual(prog["total"], 3)   # base + showcase + signature
+        self.assertEqual(prog["total"], 2)   # base + showcase
         self.assertEqual(self.a_subir.calcular(con, hoje=HOJE)["scope"]["printings"], 1)
         con.close()
 
@@ -230,7 +259,10 @@ class TestShowcasesFora(Base):
         con.close()
 
     def test_listas_vazias_trazem_tudo_de_volta(self):
-        self.com_config({"a_subir": {"excluir": {"tipos": [], "raridades": []}}})
+        # Com o `*` fora da lista da coleção, senão a signature não voltava —
+        # são dois filtros, e este teste é sobre o das listas de compra.
+        self.com_config({"a_subir": {"excluir": {"tipos": [], "raridades": []}},
+                         "master_set": {"fora": ["-T"]}})
         con = self.montar()
         p = self.a_subir.calcular(con, hoje=HOJE)
         self.assertEqual(len(p["items"]), 3)
