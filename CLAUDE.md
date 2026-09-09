@@ -1430,6 +1430,15 @@ fora do master set e pediam playset (`0/3`, `0/12`), que o `master_set.fora` era
 `["-T"]` e **1170** — medido, com `["-T","*"]` a dar 1134. Ganhou também a
 secção da contagem por níveis, que não estava lá.
 
+**Uma mudança só de frontend NÃO precisa de reiniciar o `serve` do 8770.** O
+`server.web_asset` serve o `app.js`, o `index.html` e o `style.css` com
+`send_from_directory` a cada pedido, e sem cache (`_sem_cache`) — quem estiver
+com a página aberta só tem de recarregar. O que fica preso num processo antigo
+são os **módulos Python** (foi o caso da contagem por níveis, a 2026-09-08): aí
+sim é preciso matar o 8770 e deixar o vigia `riftvault-serve` relançar.
+Confirmado a 2026-09-09 pedindo os três ficheiros ao servidor que já estava a
+correr.
+
 **Sem rede nesta sessão:** o `WebFetch` e o `curl` foram negados pelo modo em
 que a sessão corria, por isso os links do «A subir»
 (`cardtrader.com/cards/<blueprint_id>` e `riftscribe.gg/cards/<printing_id>`)
