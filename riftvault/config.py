@@ -45,10 +45,12 @@ DEFAULTS: dict = {
     },
     "token_target": 1,
     # Fora da coleção (André, 2026-09-08): escreve-se pelo sufixo do código, que
-    # é como ele fala. Hoje é só o `-T` dos tokens — as artes alternativas
-    # voltaram para dentro com alvo 1 ("no fim 1 alt art de cada"), no bloco
-    # próprio delas. Ver `metrics.kinds_fora` e `metrics.e_master`.
-    "master_set": {"fora": ["-T"]},
+    # é como ele fala. Hoje o `-T` dos tokens e o `*` das signatures — as artes
+    # alternativas voltaram para dentro com alvo 1 ("no fim 1 alt art de cada")
+    # e as signatures saíram a 2026-09-09 ("das coleções tira as signatures,
+    # fazemos 1 Alt Art de cada mas as signature não"). Ver `metrics.kinds_fora`
+    # e `metrics.e_master`.
+    "master_set": {"fora": ["-T", "*"]},
     # O bloco 2 da Coleção: "1 runa especial de cada para cada set".
     "runas_especiais": {"tipos": ["Rune"], "excepto": ["base"], "alvo": 1},
     # Vazio desde 2026-09-08: as artes alternativas pedem 1, não o playset.

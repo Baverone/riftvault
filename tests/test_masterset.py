@@ -80,12 +80,12 @@ class Base(unittest.TestCase):
 
 
 class TestClassificacao(Base):
-    """Só o `-T` fica fora da coleção; o resto conta, em três blocos."""
+    """O `-T` e o `*` ficam fora da coleção; o resto conta, em três blocos."""
 
-    def test_so_o_token_fica_fora_da_colecao(self):
+    def test_o_token_e_a_signature_ficam_fora_da_colecao(self):
         casos = {
             "base": True,
-            "signature": True,       # `OGN-299*` — ele não a nomeou
+            "signature": False,      # `OGN-299*` — saiu a 2026-09-09
             "rune_promo": True,      # `VEN-R01`
             "special": True,         # `VEN-SP4`
             "alt_art": True,         # `UNL-228a` — 1 de cada, na cauda
@@ -106,7 +106,7 @@ class TestClassificacao(Base):
 
     def test_a_runa_que_nao_e_base_vai_para_o_bloco_das_runas(self):
         """*"1 runa especial de cada para cada set"* — antes da cauda das alt arts."""
-        for kind in ("alt_art", "rune_promo", "signature"):
+        for kind in ("alt_art", "rune_promo"):
             with self.subTest(kind=kind):
                 self.assertEqual(self.metrics.bloco(
                     {"variant_kind": kind, "is_token": 0, "type": "Rune"}),
@@ -114,6 +114,16 @@ class TestClassificacao(Base):
         # A runa BASE fica na sequência: é ela que leva o playset (12).
         self.assertEqual(self.metrics.bloco(
             {"variant_kind": "base", "is_token": 0, "type": "Rune"}), "master")
+
+    def test_a_signature_de_runa_sai_da_colecao_como_as_outras(self):
+        """Não existe nenhuma hoje, mas a ordem é clara: a signature sai de tudo.
+
+        A runa especial ganha à arte alternativa (2026-09-08), mas nenhuma das
+        duas ganha à saída das signatures — o `e_master` responde primeiro.
+        """
+        self.assertEqual(self.metrics.bloco(
+            {"variant_kind": "signature", "is_token": 0, "type": "Rune"}),
+            "signature")
 
     def test_so_conta_para_a_percentagem_o_que_esta_na_colecao(self):
         for bloco in ("master", "rune_special", "alt_art"):
@@ -145,7 +155,8 @@ class TestConfigDosSufixos(Base):
     """`master_set.fora` escreve-se pelos sufixos do código, como o André fala."""
 
     def test_os_sufixos_do_default_dao_os_kinds_certos(self):
-        self.assertEqual(self.metrics.kinds_fora(), frozenset({"token"}))
+        self.assertEqual(self.metrics.kinds_fora(),
+                         frozenset({"token", "signature"}))
 
     def test_sufixo_e_nome_da_variante_dizem_o_mesmo(self):
         self.com_config({"master_set": {"fora": ["-T", "a"]}})
@@ -261,20 +272,16 @@ class TestRunasEspeciais(Base):
                          "master")
 
 
-class TestSignaturesPreparadas(Base):
-    """`"*"` no `master_set.fora` tira as signatures. DESLIGADO à espera dele."""
+class TestSignaturesFora(Base):
+    """*"Das coleções tira as signatures"* (André, 2026-09-09).
 
-    def test_por_omissao_a_signature_esta_no_master_set(self):
-        con = self.edicao()
-        p = self.metrics.set_payload(con, "TST")
-        blocos = {pr["id"]: pr["block"] for g in p["groups"] for pr in g["printings"]}
-        self.assertEqual(blocos["tst-003-star-100"], "master")
-        # 4 impressões na percentagem: 2 bases, a signature e a alt art (a 1).
-        self.assertEqual(p["progress"]["master"]["total"], 4)
-        con.close()
+    O `"*"` do `master_set.fora` manda-as para um bloco no fim da grelha E
+    tira-as do denominador — é a mesma pergunta, respondida uma vez pelo
+    `e_master`. O que ele tem continua visível e contado no bloco. A regra
+    inteira, nos quatro sítios que a consomem, está no `test_signatures.py`.
+    """
 
-    def test_ligar_manda_a_signature_para_um_bloco_no_fim(self):
-        self.com_config({"master_set": {"fora": ["-T", "*"]}})
+    def test_a_signature_vai_para_um_bloco_no_fim(self):
         con = self.edicao()
         p = self.metrics.set_payload(con, "TST")
         self.assertEqual([b["id"] for b in p["blocks"]],
@@ -285,12 +292,22 @@ class TestSignaturesPreparadas(Base):
         self.assertEqual(ordem[-1], ("signature", "tst-003-star-100"))
         con.close()
 
-    def test_ligar_tira_a_signature_da_percentagem(self):
+    def test_a_signature_esta_fora_da_percentagem(self):
         """É a mesma pergunta: sair da coleção é sair do denominador."""
-        self.com_config({"master_set": {"fora": ["-T", "*"]}})
         con = self.edicao()
         p = self.metrics.set_payload(con, "TST")
-        self.assertEqual(p["progress"]["master"]["total"], 3)   # eram 4
+        # 3 na percentagem: 2 bases e a alt art (a 1). A signature não conta.
+        self.assertEqual(p["progress"]["master"]["total"], 3)
+        con.close()
+
+    def test_tirar_o_asterisco_poe_as_de_volta(self):
+        """A decisão fica a uma linha de config de distância, como as outras."""
+        self.com_config({"master_set": {"fora": ["-T"]}})
+        con = self.edicao()
+        p = self.metrics.set_payload(con, "TST")
+        blocos = {pr["id"]: pr["block"] for g in p["groups"] for pr in g["printings"]}
+        self.assertEqual(blocos["tst-003-star-100"], "master")
+        self.assertEqual(p["progress"]["master"]["total"], 4)
         con.close()
 
 
@@ -303,7 +320,7 @@ class TestOrdem(Base):
         blocos = {pr["id"]: pr["block"] for g in p["groups"] for pr in g["printings"]}
         self.assertEqual(blocos["tst-001-100"], "master")
         self.assertEqual(blocos["tst-002-100"], "master")
-        self.assertEqual(blocos["tst-003-star-100"], "master")
+        self.assertEqual(blocos["tst-003-star-100"], "signature")
         self.assertEqual(blocos["tst-001a-100"], "alt_art")
         self.assertEqual(blocos["tst-t01-100"], "token")
         con.close()
@@ -312,15 +329,16 @@ class TestOrdem(Base):
         con = self.edicao(com_runas=True)
         p = self.metrics.set_payload(con, "TST")
         self.assertEqual([b["id"] for b in p["blocks"]],
-                         ["master", "rune_special", "alt_art", "token"])
+                         ["master", "rune_special", "alt_art", "token", "signature"])
         # O primeiro não leva rótulo: é a sequência normal, sem cabeçalho.
         self.assertIsNone(p["blocks"][0]["label"])
         self.assertIn("Runas especiais", p["blocks"][1]["label"])
         self.assertIn("Artes alternativas", p["blocks"][2]["label"])
         self.assertIn("tokens", p["blocks"][3]["label"])
+        self.assertIn("signatures", p["blocks"][4]["label"])
         # E o payload diz quais é que contam para a percentagem.
         self.assertEqual([b["counts"] for b in p["blocks"]],
-                         [True, True, True, False])
+                         [True, True, True, False, False])
         con.close()
 
     def test_o_bloco_das_runas_leva_as_duas_especiais_e_deixa_a_base(self):
@@ -338,7 +356,7 @@ class TestOrdem(Base):
         p = self.metrics.set_payload(con, "TST")
         seq = [pr["code"] for g in p["groups"] for pr in g["printings"]
                if pr["block"] == "master"]
-        self.assertEqual(seq, ["TST-001", "TST-002", "TST-004star"])
+        self.assertEqual(seq, ["TST-001", "TST-002"])
         con.close()
 
     def test_a_ordem_da_grelha_nao_intercala(self):
@@ -348,12 +366,12 @@ class TestOrdem(Base):
         self.assertEqual(ordem, [
             ("master", "tst-001-100"),
             ("master", "tst-002-100"),
-            ("master", "tst-003-star-100"),
             ("master", "tst-005-100"),
             ("rune_special", "tst-005a-100"),
             ("rune_special", "tst-r01-100"),
             ("alt_art", "tst-001a-100"),
             ("token", "tst-t01-100"),
+            ("signature", "tst-003-star-100"),
         ])
         con.close()
 
@@ -372,9 +390,10 @@ class TestPercentagem(Base):
     def test_denominador_conta_os_tres_blocos_e_ignora_o_token(self):
         con = self.edicao(com_runas=True)
         prog = self.metrics.set_payload(con, "TST")["progress"]["master"]
-        # 8 impressões: 3 bases + signature + runa base (master), a alt art da
-        # runa e a promo (runas especiais), a alt art da Unit. O token fica fora.
-        self.assertEqual(prog["total"], 7)
+        # 8 impressões: 2 bases + runa base (master), a alt art da runa e a
+        # promo (runas especiais), a alt art da Unit. O token e a signature
+        # ficam fora.
+        self.assertEqual(prog["total"], 6)
         con.close()
 
     def test_cada_bloco_tem_contador_proprio_e_diz_se_conta(self):
@@ -428,13 +447,14 @@ class TestPercentagem(Base):
 class TestListasDeCompra(Base):
     """O que está fora da coleção não se compra; a cauda passou a comprar-se."""
 
-    def test_o_ambito_e_a_colecao_inteira_menos_os_tokens(self):
+    def test_o_ambito_e_a_colecao_inteira_menos_os_tokens_e_as_signatures(self):
         con = self.edicao(com_runas=True)
         escopo = self.a_subir.masterset(con)
         self.assertEqual(sorted(escopo), [
-            "tst-001-100", "tst-001a-100", "tst-002-100", "tst-003-star-100",
+            "tst-001-100", "tst-001a-100", "tst-002-100",
             "tst-005-100", "tst-005a-100", "tst-r01-100"])
         self.assertNotIn("tst-t01-100", escopo)
+        self.assertNotIn("tst-003-star-100", escopo)
         con.close()
 
     def test_faltam_1_de_cada_alt_art_e_1_de_cada_runa_especial(self):
@@ -457,8 +477,10 @@ class TestListasDeCompra(Base):
         escopo, saem = self.a_subir.excluir(
             self.a_subir.masterset(con), self.a_subir.opcoes()["excluir"])
         self.assertIn("tst-001a-100", escopo)
-        # A signature, essa, está na sequência e sai.
-        self.assertIn("tst-003-star-100", saem)
+        # A signature já nem chega aqui: saiu da coleção a 2026-09-09, e o
+        # âmbito destas listas é a coleção.
+        self.assertNotIn("tst-003-star-100", escopo)
+        self.assertNotIn("tst-003-star-100", saem)
         con.close()
 
     def test_desligar_o_so_no_master_poe_a_cauda_debaixo_das_exclusoes(self):
