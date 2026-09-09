@@ -1569,15 +1569,26 @@ function cmMostrar(id, itens, comCodigo, onde = 'wantlist',
 
   // O foil NÃO se pode marcar no texto — é um filtro por entrada, posto na
   // interface deles. Aqui só se diz em que linhas é preciso ligá-lo.
+  //
+  // A lista vai dentro de um <details>: na wantlist de tudo são 307 linhas e na
+  // do OGN 90, e como as duas caixas da Coleção já vêm preenchidas, a página
+  // acabava em várias centenas de linhas de texto monoespaçado — no telemóvel é
+  // um scroll sem fim. Fica aberta quando é curta, que é quando se lê de
+  // relance. O <details> é do próprio browser: não precisa de JavaScript e o
+  // texto continua todo lá para copiar.
   const foil = linhas.filter((_, i) => itens[i].foil_only);
   fnota.hidden = !foil.length;
   if (foil.length) {
-    fnota.innerHTML = `<b>${foil.length} destas só têm oferta foil no mercado.</b>
-      ${onde === 'wantlist'
-        ? `O texto da wantlist não leva marca de foil — depois de colares, liga o
-           filtro <i>Foil</i> nestas entradas:`
-        : `O preço que está aqui é o da oferta foil, que pode não ser o da tua
-           cópia:`}<br>${foil.map(escapeHTML).join('<br>')}`;
+    const porque = onde === 'wantlist'
+      ? `O texto da wantlist não leva marca de foil — depois de colares, liga o
+         filtro <i>Foil</i> nestas entradas.`
+      : `O preço que está aqui é o da oferta foil, que pode não ser o da tua
+         cópia.`;
+    fnota.innerHTML = `<b>${foil.length} ${foil.length === 1 ? 'destas só tem'
+      : 'destas só têm'} oferta foil no mercado.</b> ${porque}
+      <details class="foil-lista"${foil.length <= 8 ? ' open' : ''}>
+        <summary>ver ${plural(foil.length, 'linha', 'linhas')}</summary>
+        ${foil.map(escapeHTML).join('<br>')}</details>`;
   }
 }
 
