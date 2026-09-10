@@ -886,10 +886,11 @@ cópias, e 20 delas a 11 cêntimos, que é o preço mínimo do CardTrader. Metad
 tokens do UNL. Fazer o trabalho valeu na mesma, porque a lista das caras diz-lhe
 o que **não** deitar para o saldo, mas o número é este e não convém arredondá-lo.
 
-O dinheiro do excedente dele está noutro lado, e já estava na página: **695,48 €
-ao todo, e 675 € disso em seis impressões** que saíram da Coleção esta semana
-(`OGN-303` Nine-Tailed Fox a 385,64 €, `UNL-235` Deceiver, `SFD-244`, `SFD-224`,
-`UNL-231` e a `VEN-SP5`). Comuns e incomuns são o resto.
+O dinheiro do excedente dele está noutro lado, e já estava na página: **713,26 €
+ao todo, e 690,74 € disso em seis impressões** que saíram da Coleção esta semana
+(`OGN-303` Nine-Tailed Fox a 385,64 €, `UNL-235` Deceiver a 118,64 €, `SFD-244`
+a 80,64 €, `SFD-224` a 55,64 €, `UNL-231` a 31,41 € e a `VEN-SP5` a 18,77 €).
+Comuns e incomuns são 3,83 € dos 713,26 €.
 
 ### VOLUME DE VENDAS NÃO EXISTE — e é isso que ele perguntou
 
