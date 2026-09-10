@@ -131,7 +131,13 @@ class TestAmbito(Base):
 
 
 class TestDecks(Base):
-    """Uma cópia que está num deck não é candidata a venda."""
+    """Uma cópia que está num deck não é candidata a venda.
+
+    Desde 2026-09-10 «estar num deck» é um FACTO gravado, não uma dedução: o
+    André marca a cópia como estando no deck (`locais.mover`) e é isso que a
+    venda lê. Antes a alocação por prioridade adivinhava-o a partir das listas —
+    por isso estes casos passaram a marcar as cópias primeiro.
+    """
 
     def montar(self, lista: str):
         from riftvault import collection, decks
@@ -140,11 +146,14 @@ class TestDecks(Base):
         decks.import_all(con, log=lambda *_: None)
         return con, collection, decks
 
-    def test_alt_art_usada_num_deck_sai_da_lista(self):
+    def test_alt_art_marcada_no_deck_sai_da_lista(self):
+        from riftvault import locais
         con, collection, _ = self.montar(
             "Legend:\n1 Emperor of the Sands\nMainDeck:\n3 Defy\n")
-        # Só tem a arte alternativa: é ela que vai para o deck.
+        # Só tem a arte alternativa, e marcou-a como estando no deck.
         collection.adjust(con, "tst-001a-100", 3, source="test")
+        locais.mover(con, "tst-001a-100", 3, locais.COLECAO,
+                     locais.deck_local("azir"), source="test")
 
         v = self.venda.listar(con)
         self.assertEqual(v["items"], [])
@@ -153,32 +162,58 @@ class TestDecks(Base):
         self.assertEqual(v["kept"][0]["state"], "deck")
         con.close()
 
-    def test_a_base_serve_primeiro__a_alt_art_sobra(self):
-        """`printing_allocation` escolhe artes base: a alternativa fica no binder."""
+    def test_a_base_serve_primeiro__a_alt_art_do_binder_sobra(self):
+        """No binder Decks/Venda, o deck leva a base e a alternativa sobra."""
+        from riftvault import locais
         con, collection, _ = self.montar(
             "Legend:\n1 Emperor of the Sands\nMainDeck:\n3 Defy\n")
         collection.adjust(con, "tst-001-100", 3, source="test")
-        collection.adjust(con, "tst-001a-100", 2, source="test")
+        collection.adjust(con, "tst-001a-100", 3, source="test")
+        for pid in ("tst-001-100", "tst-001a-100"):
+            locais.mover(con, pid, 3, locais.COLECAO, locais.BINDER, source="test")
 
         v = self.venda.listar(con)
-        self.assertEqual([x["printing_id"] for x in v["items"]], ["tst-001a-100"])
-        self.assertEqual(v["items"][0]["state"], "venda")
-        self.assertEqual(v["in_decks"], 0)
+        # A base está no binder e o deck pede 3: fica toda comprometida. A alt
+        # art não é precisa e sai inteira — vem do binder, não da Coleção.
+        item = next(x for x in v["items"] if x["printing_id"] == "tst-001a-100")
+        self.assertEqual(item["from_binder"], 3)
+        self.assertEqual(item["from_colecao"], 0)
+        self.assertEqual(item["origem"], "binder")
+        self.assertNotIn("tst-001-100", [x["printing_id"] for x in v["items"]])
         con.close()
 
     def test_so_o_excedente_e_que_se_vende(self):
-        """2 num deck, 1 a mais: a linha aparece só com a que sobra."""
+        """4 cópias: 2 no deck, 2 na Coleção que só pede 1 — vende-se 1."""
+        from riftvault import locais
         con, collection, _ = self.montar(
             "Legend:\n1 Emperor of the Sands\nMainDeck:\n2 Defy\n")
-        collection.adjust(con, "tst-001a-100", 3, source="test")
+        collection.adjust(con, "tst-001a-100", 4, source="test")
+        locais.mover(con, "tst-001a-100", 2, locais.COLECAO,
+                     locais.deck_local("azir"), source="test")
 
         v = self.venda.listar(con)
         item = v["items"][0]
-        self.assertEqual(item["have"], 3)
-        self.assertEqual(item["used"], 2)
+        self.assertEqual(item["have"], 4)
+        self.assertEqual(item["used"], 2)          # as do deck nunca se vendem
+        self.assertEqual(item["in_colecao"], 2)
+        self.assertEqual(item["from_colecao"], 1)  # o alvo da alt art é 1
         self.assertEqual(item["qty"], 1)
-        self.assertEqual(item["state"], "deck")   # está num deck E sobra
+        self.assertEqual(item["state"], "deck")    # está num deck E sobra
         self.assertEqual(v["copies"], 1)
+        con.close()
+
+    def test_a_colecao_fica_com_a_dela(self):
+        """3 cópias, 2 no deck: a que fica na Coleção é o alvo e não se vende."""
+        from riftvault import locais
+        con, collection, _ = self.montar(
+            "Legend:\n1 Emperor of the Sands\nMainDeck:\n2 Defy\n")
+        collection.adjust(con, "tst-001a-100", 3, source="test")
+        locais.mover(con, "tst-001a-100", 2, locais.COLECAO,
+                     locais.deck_local("azir"), source="test")
+
+        v = self.venda.listar(con)
+        self.assertEqual(v["items"], [])
+        self.assertEqual(v["in_decks_copies"], 2)
         con.close()
 
     def test_nao_mexe_na_colecao(self):

@@ -18,7 +18,11 @@ const state = {
   payload: null,
   editable: false,
   imageMode: 'local',
-  qty: new Map(),              // printing_id -> quantidade (verdade local, otimista)
+  // printing_id -> cópias nos binders de COLEÇÃO (verdade local, otimista).
+  // Desde 2026-09-10 não é o total físico: as que estão num deck ou no binder
+  // Decks/Venda não contam para a Coleção. O total vive no `locs`.
+  qty: new Map(),
+  locs: new Map(),             // printing_id -> [{loc, label, qty}]
   play: new Map(),             // card_key -> {owned, target}
   targets: new Map(),          // printing_id -> alvo do master (o do tile)
   // printing_id -> bloco da grelha. A Coleção são três blocos seguidos —
@@ -132,12 +136,14 @@ async function loadSet(setId) {
 
   state.qty.clear(); state.play.clear(); state.targets.clear();
   state.blocks.clear(); state.meta.clear(); state.counting.clear();
+  state.locs.clear();
   for (const b of p.blocks || []) if (b.counts) state.counting.add(b.id);
   if (!(p.blocks || []).length) state.counting.add('master');
   for (const g of p.groups) {
     state.play.set(g.card_key, { owned: g.playset.owned, target: g.playset.target });
     for (const pr of g.printings) {
       state.qty.set(pr.id, pr.qty);
+      state.locs.set(pr.id, pr.locations || []);
       state.targets.set(pr.id, pr.target);
       state.blocks.set(pr.id, pr.block || 'master');
       state.meta.set(pr.id, { name: pr.name, card_key: g.card_key, rarity: g.rarity, cn: g.cn });
@@ -236,20 +242,34 @@ function tileHTML(g, p) {
          ${p.price != null ? `data-price="${p.price}"` : ''}>
       ${g.is_token ? 'token' : 'jogável'} ${play.owned}/${play.target}${p.price != null ? ` · ${eur(p.price)}` : ''}
     </div>
-    ${deckLine(p)}
+    ${deckLine(p.id)}
   </div>`;
 }
 
-/* Se a carta não está no binder é porque saiu para um deck. Esta linha diz
-   qual — é o que ele vai à Coleção procurar quando não a encontra no binder. */
-function deckLine(p) {
-  const n = (p.in_decks || []).reduce((s, x) => s + x.qty, 0);
-  if (!n) return '';
-  const livre = (p.qty || 0) - n;
-  const onde = p.in_decks
-    .map(x => `${x.qty}× ${escapeHTML(x.deck.split(' · ')[0])}`).join(', ');
-  return `<div class="indeck" title="${escapeAttr(p.in_decks.map(x => x.deck).join(' / '))}">
-    ${onde}${livre > 0 ? ` · ${livre} no binder` : ''}</div>`;
+/* ONDE estão as cópias (André, 2026-09-10): *"a coleção fica em Binders de
+   coleção; as cartas dos decks ficam em decks, e haverá um Binder que será
+   apenas e exclusivamente para Decks/Venda"*.
+
+   A `badge` do tile conta só as que estão nos binders de COLEÇÃO — é ela que
+   manda na percentagem. Esta linha diz onde estão as outras, e é o que ele vai
+   ler quando não encontrar a carta no binder. Só aparece quando há alguma fora
+   da Coleção: com tudo arrumado, o tile fica como sempre esteve. */
+function deckLine(pid) {
+  const locs = state.locs.get(pid) || [];
+  const fora = locs.filter(x => x.loc !== 'colecao');
+  if (!fora.length) return '<div class="indeck" hidden></div>';
+  const naCol = locs.find(x => x.loc === 'colecao');
+  const onde = fora.map(x => `${x.qty}× ${escapeHTML(curtoLocal(x.label))}`).join(', ');
+  return `<div class="indeck" title="${escapeAttr(fora.map(x => x.label).join(' / '))}">
+    ${onde}${naCol ? ` · ${naCol.qty} na Coleção` : ''}</div>`;
+}
+
+/* «Deck Azir · Brutalizer» -> «Azir»; «Binder Decks/Venda» -> «Decks/Venda». */
+function curtoLocal(label) {
+  if (!label) return '';
+  if (label.startsWith('Deck ')) return label.slice(5).split(' · ')[0];
+  if (label.startsWith('Binder ')) return label.slice(7);
+  return label;
 }
 
 /* A grelha em blocos (André, 2026-09-08): *"master set playset todo seguido; 1
@@ -717,6 +737,8 @@ function refreshTiles(pid, cardKey) {
     el.className = `tile ${tileState(pid)}${focused ? ' focus' : ''} flash`;
     el.querySelector('.badge').textContent = t > 0 ? `${q}/${t}` : `${q}`;
     el.querySelector('.step.minus').disabled = q <= 0;
+    const linha = el.querySelector('.indeck');
+    if (linha) linha.outerHTML = deckLine(pid);
     setTimeout(() => el.classList.remove('flash'), 400);
   }
   // A métrica de playset é da carta lógica: mexe em todos os tiles dela.
@@ -738,6 +760,13 @@ function refreshTiles(pid, cardKey) {
 function applyLocal(pid, delta) {
   const ck = state.meta.get(pid)?.card_key;
   state.qty.set(pid, Math.max(0, (state.qty.get(pid) || 0) + delta));
+  // O `+`/`-` mexe nos binders de COLEÇÃO — é a grelha da Coleção. As cópias
+  // que estão num deck ou no binder Decks/Venda não mexem daqui.
+  const locs = (state.locs.get(pid) || []).slice();
+  const i = locs.findIndex(x => x.loc === 'colecao');
+  if (i >= 0) locs[i] = { ...locs[i], qty: Math.max(0, locs[i].qty + delta) };
+  else if (delta > 0) locs.unshift({ loc: 'colecao', label: 'Coleção', qty: delta });
+  state.locs.set(pid, locs.filter(x => x.qty > 0));
   const play = state.play.get(ck);
   if (play) play.owned = Math.max(0, play.owned + delta);
   refreshTiles(pid, ck);
@@ -771,7 +800,9 @@ async function adjust(pid, delta) {
     const left = (state.pending.get(ck) || 1) - 1;
     state.pending.set(ck, left);
     if (left === 0) {
-      state.qty.set(pid, res.qty);
+      // `res.qty` é o total FÍSICO; a grelha da Coleção mostra o `qty_colecao`.
+      state.qty.set(pid, res.qty_colecao != null ? res.qty_colecao : res.qty);
+      if (res.locations) state.locs.set(pid, res.locations);
       if (res.playset) state.play.set(ck, { owned: res.playset.owned, target: res.playset.target });
       refreshTiles(pid, ck);
     }
@@ -793,7 +824,8 @@ async function undo(opId, pid, delta) {
     });
     if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `HTTP ${r.status}`);
     const res = await r.json();
-    state.qty.set(pid, res.qty);
+    state.qty.set(pid, res.qty_colecao != null ? res.qty_colecao : res.qty);
+    if (res.locations) state.locs.set(pid, res.locations);
     const ck = state.meta.get(pid)?.card_key;
     if (res.playset) state.play.set(ck, { owned: res.playset.owned, target: res.playset.target });
     refreshTiles(pid, ck);
@@ -1019,6 +1051,7 @@ function renderDeck() {
         ? '<small class="nota">O Champion conta para as 40 do main.</small>' : ''}
       ${p.unresolved.length ? `<small class="nota bad">Não casaram no catálogo:
         ${p.unresolved.map(u => escapeHTML(u.name)).join(', ')}</small>` : ''}
+      ${deckLocais(p)}
       <div class="deck-actions">
         ${state.editable && p.priority !== 1
           ? `<button class="btn" data-act="principal">Tornar principal</button>` : ''}
@@ -1045,15 +1078,170 @@ function renderDeck() {
 
   $('#deck-body').innerHTML = listas + faltas;
 
-  for (const b of document.querySelectorAll('#deck-head .btn')) {
+  for (const b of document.querySelectorAll('#deck-head .btn[data-act]')) {
     b.onclick = () => deckAction(b.dataset.act);
   }
+  for (const b of document.querySelectorAll('#deck-head .btn[data-loc]')) {
+    b.onclick = () => locaisAction(b.dataset.loc);
+  }
+}
+
+/* ONDE estão as cartas deste deck (André, 2026-09-10). São quatro respostas
+   diferentes e cada uma pede uma acção diferente: as do deck já lá estão, as
+   do binder Decks/Venda são para ir buscar, as da Coleção são duplicado a
+   comprar ou a decidir, e as que faltam compram-se. */
+function deckLocais(p) {
+  const l = p.locais || {};
+  const chip = (mau, txt) => `<span class="chip-l ${mau ? 'bad' : 'ok'}">${txt}</span>`;
+  return `<div class="locais-deck">
+    <div class="bar-label"><span>Onde estão as cartas deste deck</span></div>
+    <div class="chips-l">
+      ${chip(false, `no deck ${l.no_deck || 0}`)}
+      ${chip(false, `no binder Decks/Venda ${l.no_binder || 0}`)}
+      ${chip(l.na_colecao, `na Coleção ${l.na_colecao || 0}`)}
+      ${chip(l.missing, `a comprar ${l.missing || 0}`)}
+      ${l.extra ? chip(true, `a mais neste deck ${l.extra}`) : ''}
+    </div>
+    ${l.na_colecao ? `<small class="nota">As <b>${l.na_colecao}</b> que estão nos
+      binders de coleção não montam este deck — são duplicado a comprar ou a
+      decidir. Marca as que estão mesmo no deck.</small>` : ''}
+    ${l.extra ? `<small class="nota bad">${l.extra} cópias estão marcadas neste
+      deck e a lista já não as pede.</small>` : ''}
+    ${state.editable ? `<div class="deck-actions">
+      <button class="btn" data-loc="propor">Marcar o que este deck usa…</button>
+      ${l.no_deck ? '<button class="btn" data-loc="desfazer">Desfazer deck</button>' : ''}
+    </div>` : ''}
+    <div id="propor-zona"></div>
+  </div>`;
+}
+
+async function locaisAction(act) {
+  if (act === 'propor') return proporDeck();
+  if (act === 'desfazer') return desfazerDeck();
+}
+
+/* A PROPOSTA. O servidor calcula, o ecrã mostra, e **grava-se só o que ele
+   marcar**. Nunca a lista calculada: a 2026-09-09 o mtgvault gravou uma
+   alocação inteira de uma vez, com duas cartas que ele tinha dito não ter, e a
+   lição foi esta. O «marcar tudo» só liga as checkboxes — visível e
+   reversível — e não grava nada por si. */
+async function proporDeck() {
+  const zona = $('#propor-zona');
+  zona.innerHTML = '<p class="empty">a calcular…</p>';
+  let p;
+  try {
+    p = await getJSON(`api/local/propor/${encodeURIComponent(state.deck.slug)}.json`);
+  } catch (err) {
+    zona.innerHTML = '';
+    return toast(`Não deu para calcular: ${err.message}`, { error: true });
+  }
+  if (!p.items.length) {
+    zona.innerHTML = '<p class="empty">Nada do que este deck pede está na Coleção.</p>';
+    return;
+  }
+  zona.innerHTML = `<div class="propor">
+    <h3>Estas ${p.copies} cópias estão na Coleção e este deck pede-as.
+      <span>Marca as que estão mesmo dentro do deck. Só se grava o que marcares.</span></h3>
+    <div class="propor-lista">${p.items.map(proporLinha).join('')}</div>
+    <div class="propor-acoes">
+      <button class="btn" id="propor-todas">Marcar tudo</button>
+      <button class="btn" id="propor-nenhuma">Desmarcar tudo</button>
+      <button class="btn primary" id="propor-gravar">Gravar as marcadas (0)</button>
+    </div>
+    <small class="nota">Cada cópia que mude de sítio deixa uma linha em
+      <code>data/locais.log</code>.</small>
+  </div>`;
+
+  const caixas = () => [...zona.querySelectorAll('input[type=checkbox]')];
+  const contar = () => {
+    const n = caixas().filter(c => c.checked)
+      .reduce((s, c) => s + Number(c.dataset.qty), 0);
+    $('#propor-gravar').textContent = `Gravar as marcadas (${n})`;
+    $('#propor-gravar').disabled = n === 0;
+  };
+  for (const c of caixas()) c.onchange = contar;
+  $('#propor-todas').onclick = () => { caixas().forEach(c => { c.checked = true; }); contar(); };
+  $('#propor-nenhuma').onclick = () => { caixas().forEach(c => { c.checked = false; }); contar(); };
+  $('#propor-gravar').onclick = () => gravarMarcadas(p, caixas());
+  contar();
+}
+
+function proporLinha(x) {
+  const src = state.imageMode === 'remote' ? (x.cdn || x.img) : (x.img || x.cdn);
+  return `<label class="propor-item">
+    <input type="checkbox" data-pid="${escapeAttr(x.printing_id)}" data-qty="${x.qty}">
+    ${src ? `<img src="${src}" alt="" loading="lazy" decoding="async">` : ''}
+    <span class="pn"><b>${x.qty}×</b> ${escapeHTML(x.name)}</span>
+    <span class="pc">${escapeHTML((x.code || '').split('/')[0])}</span>
+    <span class="pl">tens ${x.na_colecao} na Coleção</span>
+  </label>`;
+}
+
+async function gravarMarcadas(p, caixas) {
+  const linhas = caixas.filter(c => c.checked).map(c => ({
+    printing_id: c.dataset.pid, qty: Number(c.dataset.qty),
+  }));
+  // Lista vazia é um erro, não um sucesso silencioso — o servidor recusa na
+  // mesma, com 400. Aqui só se evita o pedido.
+  if (!linhas.length) return toast('Não marcaste nenhuma.', { error: true });
+  const porMarcar = p.items.length - linhas.length;
+  if (porMarcar && !confirm(
+    `Vais registar ${linhas.length} de ${p.items.length} linhas neste deck.\n`
+    + `As outras ${porMarcar} ficam na Coleção, como estão.\n\nGravar?`)) return;
+  try {
+    const r = await fetch('api/local/marcar', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ para: p.para, de: p.de, linhas }),
+    });
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `HTTP ${r.status}`);
+    const res = await r.json();
+    toast(`${res.copies} cópias marcadas no deck.`);
+    for (const f of res.falhadas || []) toast(`${f.printing_id}: ${f.erro}`, { error: true });
+    await recarregarDepoisDeMover();
+  } catch (err) {
+    toast(`Não gravou: ${err.message}`, { error: true });
+  }
+}
+
+async function desfazerDeck() {
+  if (!confirm(`Desfazer «${state.deck.name}»?\n\n`
+    + 'Todas as cópias que estão neste deck passam ao binder Decks/Venda e '
+    + 'ficam disponíveis para outro deck. Nada volta à Coleção.')) return;
+  try {
+    const r = await fetch('api/local/desfazer-deck', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slug: state.deck.slug }),
+    });
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `HTTP ${r.status}`);
+    const res = await r.json();
+    toast(`${res.copies} cópias passaram ao binder Decks/Venda.`);
+    await recarregarDepoisDeMover();
+  } catch (err) {
+    toast(`Não deu para desfazer: ${err.message}`, { error: true });
+  }
+}
+
+/* Mover cópias mexe na Coleção, nos decks todos e na Venda: as três leituras
+   vêm dos mesmos locais. Recarrega-se o que está no ecrã e marca-se o resto
+   como velho. */
+async function recarregarDepoisDeMover() {
+  state.decks = (await getJSON('api/decks.json')).decks;
+  renderDeckTabs();
+  await loadDeck(state.deckId);
+  state.venda = null;
+  if (state.setId) await loadSet(state.setId);
+  // Depois do `loadSet`: as wantlists vêm do `faltas.json`, que não se volta a
+  // pedir sozinho — são centenas de KB. Fica marcado como velho, com o botão.
+  wlDesatualizar();
 }
 
 /* Tile de deck: a mesma linguagem visual da Coleção, mas o que interessa aqui
    é quantas o deck pede e quantas estão de facto alocadas. */
 function deckTile(c) {
-  const st = c.missing ? (c.shared ? 'shared' : 'gone') : 'ok';
+  // «na Coleção» é um estado próprio desde 2026-09-10: a carta existe, mas
+  // está nos binders de coleção e não monta este deck. Não é o mesmo que não a
+  // ter, nem o mesmo que estar noutro deck.
+  const st = c.missing ? (c.shared ? 'shared' : (c.na_colecao ? 'shared' : 'gone')) : 'ok';
   const src = state.imageMode === 'remote' ? (c.cdn || c.img) : (c.img || c.cdn);
   const alt = state.imageMode === 'remote' ? (c.img || '') : (c.cdn || '');
 
@@ -1061,8 +1249,15 @@ function deckTile(c) {
   if (c.shared) {
     nota = `<div class="onde shared">falta ${c.missing} — ${c.shared.em
       .map(h => `${h.qty}× em «${escapeHTML(h.deck.split(' · ')[0])}»`).join(', ')}</div>`;
+  } else if (c.na_colecao) {
+    const comprar = c.missing - c.na_colecao;
+    nota = `<div class="onde shared">${c.na_colecao} na Coleção — mover ou comprar${
+      comprar > 0 ? ` · ${comprar} a comprar` : ''}</div>`;
   } else if (c.missing) {
     nota = `<div class="onde falta">faltam ${c.missing}</div>`;
+  } else if (c.no_binder) {
+    nota = `<div class="onde tenho">${c.no_binder} por ir buscar ao binder
+      Decks/Venda${c.no_deck ? ` · ${c.no_deck} já no deck` : ''}</div>`;
   } else if (c.printings.length) {
     nota = `<div class="onde tenho">${c.printings
       .map(x => `${x.qty}× ${escapeHTML(x.code || x.id)}`).join(' · ')}</div>`;
@@ -2085,11 +2280,20 @@ function renderVenda() {
       resto. O que algum deck usa fica de fora da lista e aparece
       em baixo${v.in_decks ? `: são <b>${v.in_decks}</b> impressões,
       ${v.in_decks_copies} cópias` : ''}.
+      <br>Desde 10/09 a lista tem <b>duas origens</b> e cada linha diz a sua: o
+      <b>binder Decks/Venda</b> (cópias que tiraste da Coleção e que nenhum deck
+      pede) e a <b>Coleção</b> (o que passa do alvo). O que está <b>dentro</b>
+      de um deck nunca aparece.
       <br>Isto é uma <b>sugestão</b>: não mexe na coleção, não há nada a
-      confirmar. As impressões da sequência do master set nunca entram aqui,
-      por muitas que tenhas a mais.
+      confirmar. As impressões da sequência do master set que estão na Coleção
+      nunca entram aqui, por muitas que tenhas a mais — mas as que puseste no
+      binder Decks/Venda entram, porque já não são coleção.
       ${v.no_price ? `<br><b>${v.no_price}</b> não têm oferta no CardTrader:
         entram na lista, não entram no total.` : ''}</p>
+
+    ${(v.origins || []).length ? `<div class="chips venda-blocos">${v.origins.map(o => `
+      <span class="chip-b is-static">${escapeHTML(o.label)}
+        <b>${o.copies}</b> · ${eurShort(o.cents)}</span>`).join('')}</div>` : ''}
 
     ${v.blocks.length ? `<div class="chips venda-blocos">${v.blocks.map(b => `
       <span class="chip-b is-static">${escapeHTML(b.label || b.id)}
@@ -2105,8 +2309,8 @@ function renderVenda() {
       para saberes o que tens para vender, não para o carregar lá.</small>` : ''}
 
     ${v.kept.length ? `
-      <h3 class="section-head sub">Fora da sequência, mas em uso nos decks
-        <span>${v.in_decks_copies} cópias em decks — não estão para venda</span></h3>
+      <h3 class="section-head sub">Dentro de um deck — não estão para venda
+        <span>${v.in_decks_copies} cópias marcadas em decks</span></h3>
       <div class="grid deck-grid">${v.kept.map(vendaTile).join('')}</div>` : ''}
 
     ${comunsHTML(v.comuns)}`;
@@ -2226,7 +2430,18 @@ function vendaTile(x) {
     <div class="onde ${x.state === 'deck' ? 'tenho' : ''}">${
       onde ? `usada num deck: ${onde}` : 'candidata a venda'}${
       x.state === 'deck' && x.qty > 0 ? ` · ${x.qty} a mais` : ''}</div>
+    ${vendaOrigem(x)}
   </div>`;
+}
+
+/* DE ONDE vem cada cópia da linha (André, 2026-09-10): *"cada linha a dizer de
+   onde vem"*. Tirar do binder Decks/Venda é arrumação; tirar da Coleção é
+   vender coleção, e isso lê-se de outra maneira. */
+function vendaOrigem(x) {
+  const p = [];
+  if (x.from_binder) p.push(`${x.from_binder} do binder Decks/Venda`);
+  if (x.from_colecao) p.push(`${x.from_colecao} da Coleção (acima do alvo)`);
+  return p.length ? `<div class="onde origem">${p.join(' · ')}</div>` : '';
 }
 
 

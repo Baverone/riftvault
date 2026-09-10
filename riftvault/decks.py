@@ -210,14 +210,67 @@ def import_all(con: sqlite3.Connection, log=print) -> dict:
 
 
 def owned_by_card(con: sqlite3.Connection) -> dict[str, int]:
+    """card_key -> cópias FÍSICAS, de todos os locais.
+
+    Continua a ser o total: é o "quantas destas cartas tenho ao todo" que o
+    Pimp e a métrica de playset jogável perguntam. Quem quer saber o que está
+    DISPONÍVEL para montar decks chama o `pool_dos_decks` — desde 2026-09-10
+    são duas perguntas diferentes.
+    """
     return {r["k"]: r["n"] for r in con.execute(
         "SELECT p.card_key AS k, SUM(c.qty) AS n FROM copies c "
         "JOIN catalog.printings p ON p.printing_id = c.printing_id "
         "WHERE c.qty > 0 GROUP BY p.card_key")}
 
 
-def owned_printings(con: sqlite3.Connection) -> dict[str, list[dict]]:
-    """card_key -> impressões que tenho, para saber quais tirar da caixa."""
+def _por_carta(con: sqlite3.Connection, mapa: dict[str, int]) -> dict[str, int]:
+    """{printing_id: qty} -> {card_key: qty}, somando as impressões."""
+    chaves = {r["printing_id"]: r["card_key"] for r in con.execute(
+        "SELECT printing_id, card_key FROM catalog.printings")}
+    out: dict[str, int] = {}
+    for pid, n in mapa.items():
+        ck = chaves.get(pid)
+        if ck:
+            out[ck] = out.get(ck, 0) + n
+    return out
+
+
+def pool_dos_decks(con: sqlite3.Connection) -> dict:
+    """O que está DISPONÍVEL para montar decks (André, 2026-09-10).
+
+    *"As cartas dos decks ficam em decks, e haverá um Binder que será apenas e
+    exclusivamente para Decks/Venda."* Os decks montam-se com duas coisas:
+
+      `fixo[slug][card_key]` — o que já está sleevado NAQUELE deck. Não anda:
+                               é daquele deck e de mais nenhum.
+      `binder[card_key]`     — o binder Decks/Venda, que é o stock livre. É este
+                               que se distribui por prioridade.
+
+    A COLEÇÃO NÃO ENTRA. Uma cópia que esteja nos binders de coleção não se
+    usa para montar um deck — é a metade da frase dele que dá nome a isto tudo.
+    Ela aparece na mesma na página do deck, em `na_colecao`, para ele decidir se
+    a move ou se compra outra.
+    """
+    from . import locais
+
+    fixo = {slug: _por_carta(con, mapa) for slug, mapa in locais.por_deck(con).items()}
+    return {
+        "fixo": fixo,
+        "binder": _por_carta(con, locais.em(con, locais.BINDER)),
+        "colecao": _por_carta(con, locais.na_colecao(con)),
+    }
+
+
+def owned_printings(con: sqlite3.Connection,
+                    locais_ok: set[str] | None = None) -> dict[str, list[dict]]:
+    """card_key -> impressões que tenho, para saber quais tirar da caixa.
+
+    `locais_ok` limita a resposta a locais concretos (ex.: só o deck e o binder
+    Decks/Venda). Sem ele são as cópias todas, esteja onde estiverem.
+    """
+    from . import locais as locais_mod
+
+    onde = locais_mod.por_local(con) if locais_ok is not None else {}
     out: dict[str, list[dict]] = {}
     for r in con.execute(
         "SELECT p.card_key AS k, p.printing_id, p.public_code, p.set_id, "
@@ -225,41 +278,76 @@ def owned_printings(con: sqlite3.Connection) -> dict[str, list[dict]]:
         "FROM copies c JOIN catalog.printings p ON p.printing_id = c.printing_id "
         "WHERE c.qty > 0 ORDER BY p.set_id, p.api_sort"
     ):
+        qty = r["qty"]
+        if locais_ok is not None:
+            qty = sum(n for loc, n in (onde.get(r["printing_id"]) or {}).items()
+                      if loc in locais_ok)
+            if qty <= 0:
+                continue
         out.setdefault(r["k"], []).append(
             {"id": r["printing_id"], "code": r["public_code"], "set": r["set_id"],
-             "label": r["variant_label"], "qty": r["qty"]})
+             "label": r["variant_label"], "qty": qty})
     return out
 
 
 def printing_allocation(con: sqlite3.Connection) -> dict[str, list[dict]]:
     """printing_id -> [{deck, qty}]: que cópias FÍSICAS estão em cada deck.
 
-    A alocação por prioridade é por carta lógica — diz "o Azir leva 3
-    Brutalizer", não de que impressão. Aqui escolhe-se a impressão, e a regra é
-    **artes base primeiro**: assim as alternativas e as signatures ficam no
-    binder e o que sai para os decks são as cópias comuns.
+    Desde 2026-09-10 isto **lê-se, não se adivinha**: o local de cada cópia está
+    na `copy_locations` e é ele que responde. Antes era uma heurística (a
+    alocação por prioridade, com artes base primeiro) porque não havia onde
+    guardar a verdade; agora há, e a heurística passou a viver só na PROPOSTA
+    que ele confirma (`locais.propor_deck`).
 
     É isto que responde a "não encontro a carta no binder, onde está?".
     """
-    alloc = allocate(con)
+    from . import locais
 
-    livre: dict[str, int] = {}
-    por_carta: dict[str, list[str]] = {}
+    nomes = locais.nomes_dos_decks(con)
+    prios = {r["name"]: r["priority"] for r in deck_rows(con)}
+    out: dict[str, list[dict]] = {}
+    for slug, mapa in sorted(locais.por_deck(con).items(),
+                             key=lambda kv: (prios.get(kv[0], 999), kv[0])):
+        for pid, n in mapa.items():
+            out.setdefault(pid, []).append(
+                {"deck": nomes.get(slug) or slug, "slug": slug, "qty": n,
+                 "priority": prios.get(slug, 999)})
+    return out
+
+
+def binder_allocation(con: sqlite3.Connection) -> dict[str, list[dict]]:
+    """printing_id -> [{deck, qty}] das cópias do BINDER Decks/Venda que os
+    decks pedem.
+
+    A alocação é por carta lógica; aqui escolhe-se a impressão, com **artes base
+    primeiro** — a mesma regra de sempre, e a certa: se ele tem a base e a alt
+    art no binder e um deck só precisa de uma, é a base que vai jogar e a alt
+    art que fica para venda.
+
+    O que sobra depois disto é o que a Venda propõe: *cópias no binder que
+    nenhum deck pede* (André, 2026-09-10).
+    """
+    from . import locais
+
+    alloc = allocate(con)
+    livre = locais.em(con, locais.BINDER)
     ordens = {s: config.set_order(s) for s in
-              (r["set_id"] for r in con.execute("SELECT DISTINCT set_id FROM catalog.printings"))}
-    rows = con.execute(
-        "SELECT c.printing_id, c.qty, p.card_key, p.variant_kind, p.set_id, p.api_sort "
-        "FROM copies c JOIN catalog.printings p ON p.printing_id = c.printing_id "
-        "WHERE c.qty > 0").fetchall()
-    for r in sorted(rows, key=lambda r: (0 if r["variant_kind"] == "base" else 1,
-                                         ordens.get(r["set_id"], 999), r["api_sort"])):
-        livre[r["printing_id"]] = r["qty"]
-        por_carta.setdefault(r["card_key"], []).append(r["printing_id"])
+              (r["set_id"] for r in con.execute(
+                  "SELECT DISTINCT set_id FROM catalog.printings"))}
+    por_carta: dict[str, list[str]] = {}
+    for r in sorted(con.execute(
+        "SELECT printing_id, card_key, variant_kind, set_id, api_sort "
+        "FROM catalog.printings").fetchall(),
+        key=lambda r: (0 if r["variant_kind"] == "base" else 1,
+                       ordens.get(r["set_id"], 999), r["api_sort"])
+    ):
+        if livre.get(r["printing_id"], 0) > 0:
+            por_carta.setdefault(r["card_key"], []).append(r["printing_id"])
 
     out: dict[str, list[dict]] = {}
     for d in deck_rows(con):
         nome = d["display_name"] or d["name"]
-        for ck, n in alloc[d["deck_id"]]["alloc"].items():
+        for ck, n in alloc[d["deck_id"]]["no_binder"].items():
             falta = n
             for pid in por_carta.get(ck, []):
                 if falta <= 0:
@@ -268,8 +356,9 @@ def printing_allocation(con: sqlite3.Connection) -> dict[str, list[dict]]:
                 if tira:
                     livre[pid] -= tira
                     falta -= tira
-                    out.setdefault(pid, []).append({"deck": nome, "qty": tira,
-                                                    "priority": d["priority"]})
+                    out.setdefault(pid, []).append(
+                        {"deck": nome, "slug": d["name"], "qty": tira,
+                         "priority": d["priority"]})
     return out
 
 
@@ -282,15 +371,30 @@ def deck_rows(con: sqlite3.Connection) -> list[sqlite3.Row]:
 def allocate(con: sqlite3.Connection) -> dict:
     """Distribui as cópias pelos decks, por ordem de prioridade.
 
-    Devolve, por deck e por carta: quanto pede, quanto ficou alocado, quanto
-    falta, e — quando falta por estar noutro deck — em que deck está.
+    Desde 2026-09-10 há DOIS montes, e só eles (ver `pool_dos_decks`):
+
+      1. o que já está sleevado NESTE deck (`no_deck`) — não anda, é dele;
+      2. o binder Decks/Venda (`no_binder`) — o stock livre, distribuído por
+         prioridade, exactamente como antes.
+
+    **A Coleção não entra.** Uma cópia nos binders de coleção não monta deck
+    nenhum; aparece em `na_colecao` para ele decidir se a move ou se compra
+    outra — *"duplicado a comprar ou a decidir"*.
+
+    Devolve, por deck e por carta: quanto ficou alocado (e de onde), quanto está
+    noutro deck, quanto está na Coleção, quanto falta comprar, e o que está
+    marcado neste deck mas o deck já não pede (`extra`).
     """
-    pool = owned_by_card(con)
+    p = pool_dos_decks(con)
+    binder = dict(p["binder"])
+    colecao = dict(p["colecao"])
     decks = deck_rows(con)
     held: dict[str, list[dict]] = {}     # card_key -> decks que já a levaram
     out = {}
 
     for d in decks:
+        nome = d["display_name"] or d["name"]
+        fixo = dict(p["fixo"].get(d["name"]) or {})
         # A alocação é por carta lógica, não por papel: uma carta que esteja no
         # main e no sideboard disputa o mesmo stock.
         need: dict[str, int] = {}
@@ -300,24 +404,49 @@ def allocate(con: sqlite3.Connection) -> dict:
         ):
             need[r["card_key"]] = r["q"]
 
-        alloc, shared, missing = {}, {}, {}
+        alloc, no_deck, no_binder = {}, {}, {}
+        shared, na_colecao, missing = {}, {}, {}
         for ck, qty in need.items():
-            take = min(qty, pool.get(ck, 0))
+            do_deck = min(qty, fixo.get(ck, 0))
+            fixo[ck] = fixo.get(ck, 0) - do_deck
+            do_binder = min(qty - do_deck, binder.get(ck, 0))
+            binder[ck] = binder.get(ck, 0) - do_binder
+
+            take = do_deck + do_binder
             if take:
-                pool[ck] = pool.get(ck, 0) - take
                 alloc[ck] = take
+                if do_deck:
+                    no_deck[ck] = do_deck
+                if do_binder:
+                    no_binder[ck] = do_binder
                 held.setdefault(ck, []).append(
-                    {"deck": d["display_name"] or d["name"], "qty": take,
-                     "priority": d["priority"]})
+                    {"deck": nome, "qty": take, "priority": d["priority"]})
+
             falta = qty - take
-            if falta:
-                # Está noutro deck, ou não a tenho de todo?
-                noutro = [h for h in held.get(ck, []) if h["deck"] != (d["display_name"] or d["name"])]
-                if noutro:
-                    shared[ck] = {"qty": falta, "em": noutro}
-                else:
-                    missing[ck] = falta
-        out[d["deck_id"]] = {"alloc": alloc, "shared": shared, "missing": missing}
+            if not falta:
+                continue
+            # Está noutro deck? (é a leitura de sempre: existe, mas está
+            # comprometida noutro sítio)
+            noutro = [h for h in held.get(ck, []) if h["deck"] != nome]
+            if noutro:
+                shared[ck] = {"qty": falta, "em": noutro}
+                continue
+            # Está na Coleção? Existe, mas é coleção — não conta para o deck.
+            # Consome-se para dois decks não a reclamarem os dois.
+            tem = min(falta, colecao.get(ck, 0))
+            if tem:
+                colecao[ck] = colecao.get(ck, 0) - tem
+                na_colecao[ck] = tem
+            if falta - tem:
+                missing[ck] = falta - tem
+
+        # O que está marcado neste deck e o deck já não pede — a lista mudou,
+        # a carta continua na caixa dele. Aparece para não desaparecer do ecrã.
+        extra = {ck: n for ck, n in fixo.items() if n > 0}
+        out[d["deck_id"]] = {"alloc": alloc, "no_deck": no_deck,
+                             "no_binder": no_binder, "shared": shared,
+                             "na_colecao": na_colecao, "missing": missing,
+                             "extra": extra}
 
     return out
 
@@ -425,6 +554,11 @@ def decks_index(con: sqlite3.Connection) -> list[dict]:
             "legend": d["legend"], "champion": d["champion"],
             "priority": d["priority"],
             "wanted": pedidas, "have": tenho,
+            # De onde vem o que está alocado, e o que existe mas não conta.
+            "no_deck": sum(a["no_deck"].values()),
+            "no_binder": sum(a["no_binder"].values()),
+            "na_colecao": sum(a["na_colecao"].values()),
+            "extra": sum(a["extra"].values()),
             "missing": sum(a["missing"].values()),
             "shared": sum(v["qty"] for v in a["shared"].values()),
         })
@@ -435,8 +569,13 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
     d = con.execute("SELECT * FROM decks WHERE deck_id = ?", (deck_id,)).fetchone()
     if not d:
         return None
+    from . import locais
+
     a = allocate(con)[deck_id]
-    prints = owned_printings(con)
+    # As impressões que ESTE deck pode usar: as que estão nele e as do binder
+    # Decks/Venda. As da Coleção não aparecem aqui de propósito — não são para
+    # montar deck nenhum (André, 2026-09-10); vão em `na_colecao`.
+    prints = owned_printings(con, {locais.deck_local(d["name"]), locais.BINDER})
     names = {r["card_key"]: r for r in con.execute(
         "SELECT card_key, name, type, domains_json FROM catalog.cards")}
 
@@ -474,6 +613,8 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
     # Quanto de cada carta já foi consumido por papéis anteriores deste deck:
     # a alocação é por carta, mas mostra-se por papel.
     usado: dict[str, int] = {}
+    usado_deck: dict[str, int] = {}
+    usado_col: dict[str, int] = {}
     sections = []
     for role in ROLE_ORDER:
         rows = con.execute(
@@ -487,7 +628,15 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
             disponivel = max(0, a["alloc"].get(ck, 0) - usado.get(ck, 0))
             tenho = min(r["qty"], disponivel)
             usado[ck] = usado.get(ck, 0) + tenho
+            # De onde vem: já sleevada no deck, ou por ir buscar ao binder
+            # Decks/Venda. São duas acções diferentes para ele.
+            no_deck = min(tenho, max(0, a["no_deck"].get(ck, 0) - usado_deck.get(ck, 0)))
+            usado_deck[ck] = usado_deck.get(ck, 0) + no_deck
             falta = r["qty"] - tenho
+            # E o que existe mas está na COLEÇÃO: não conta para o deck, e é
+            # decisão dele — mover ou comprar outra.
+            na_col = min(falta, max(0, a["na_colecao"].get(ck, 0) - usado_col.get(ck, 0)))
+            usado_col[ck] = usado_col.get(ck, 0) + na_col
             info = names.get(ck) or {}
             cards.append({
                 "card_key": ck,
@@ -495,13 +644,18 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
                 "raw": r["raw_line"],
                 "type": info["type"] if info else None,
                 "wanted": r["qty"], "have": tenho, "missing": falta,
+                "no_deck": no_deck, "no_binder": tenho - no_deck,
+                "na_colecao": na_col,
                 "shared": a["shared"].get(ck) if falta else None,
                 "printings": prints.get(ck, []),
                 **imagem(ck),
             })
         sections.append({"role": role, "label": ROLE_LABEL[role], "cards": cards,
                          "wanted": sum(c["wanted"] for c in cards),
-                         "have": sum(c["have"] for c in cards)})
+                         "have": sum(c["have"] for c in cards),
+                         "no_deck": sum(c["no_deck"] for c in cards),
+                         "no_binder": sum(c["no_binder"] for c in cards),
+                         "na_colecao": sum(c["na_colecao"] for c in cards)})
 
     return {
         "id": deck_id, "slug": d["name"], "name": d["display_name"] or d["name"],
@@ -510,6 +664,17 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
         "missing_by_set": missing_by_set(con, deck_id),
         "legality": legality(con, deck_id),
         "unresolved": json.loads(d["missing_json"] or "[]"),
+        # De onde vêm as cartas deste deck, e o que existe mas não conta
+        # (André, 2026-09-10). O `extra` é o que está marcado neste deck e o
+        # deck já não pede — a lista mudou, a carta continua na caixa.
+        "locais": {
+            "local": locais.deck_local(d["name"]),
+            "no_deck": sum(a["no_deck"].values()),
+            "no_binder": sum(a["no_binder"].values()),
+            "na_colecao": sum(a["na_colecao"].values()),
+            "extra": sum(a["extra"].values()),
+            "missing": sum(a["missing"].values()),
+        },
     }
 
 

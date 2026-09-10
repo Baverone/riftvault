@@ -10,6 +10,12 @@ data/catalog.db-shm
 # Cache local das imagens (~70 MB nas 5 edições).
 data/images/
 
+# Rasto dos movimentos de local (Coleção -> deck -> binder Decks/Venda). É uma
+# cópia legível, para ele abrir no Excel; o registo a sério é a tabela
+# `location_ops` DENTRO do vault.db, que vai para o Git.
+data/locais.log
+data/serve.log
+
 # Build estático do modo publicado.
 site/
 

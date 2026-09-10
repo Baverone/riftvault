@@ -365,9 +365,39 @@ body.readonly .steppers { display: none; }
   padding: 8px 12px; font: inherit; font-size: 12px; cursor: pointer;
 }
 .btn:active { background: var(--accent); color: #0f1016; }
+.btn.primary { border-color: var(--accent); color: var(--accent); }
+.btn:disabled { opacity: .45; cursor: default; }
 body.readonly .deck-actions .btn[data-act="principal"],
 body.readonly .deck-actions .btn[data-act="subir"],
-body.readonly .deck-actions .btn[data-act="descer"] { display: none; }
+body.readonly .deck-actions .btn[data-act="descer"],
+body.readonly .deck-actions .btn[data-loc] { display: none; }
+
+/* ONDE estão as cartas do deck (André, 2026-09-10): no deck, no binder
+   Decks/Venda, na Coleção (não conta) ou por comprar. */
+.locais-deck {
+  margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--line);
+}
+
+/* A proposta de marcação. Grava-se SÓ o que ele marcar — o «marcar tudo» liga
+   as checkboxes e mais nada. */
+.propor { margin-top: 12px; }
+.propor h3 { font-size: 13px; margin: 0 0 8px; }
+.propor h3 span { display: block; font-weight: 400; font-size: 11px; color: var(--dim); }
+.propor-lista {
+  max-height: 340px; overflow: auto; border: 1px solid var(--line);
+  border-radius: 9px; background: var(--panel-2);
+}
+.propor-item {
+  display: flex; align-items: center; gap: 10px; padding: 6px 10px;
+  border-bottom: 1px solid var(--line); font-size: 12px; cursor: pointer;
+}
+.propor-item:last-child { border-bottom: 0; }
+.propor-item input { width: 18px; height: 18px; flex: 0 0 auto; }
+.propor-item img { width: 26px; border-radius: 3px; flex: 0 0 auto; }
+.propor-item .pn { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.propor-item .pc { color: var(--dim); font-variant-numeric: tabular-nums; }
+.propor-item .pl { color: var(--dim); font-size: 10px; }
+.propor-acoes { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 
 /* A grelha dos decks fala a mesma língua da Coleção: mesmo tamanho de tile,
    mesma moldura. O que muda é o que o badge conta — aqui é o que o deck pede
@@ -420,6 +450,8 @@ body.readonly .deck-actions .btn[data-act="descer"] { display: none; }
 .onde.falta { color: var(--bad); }
 .onde.shared { color: var(--accent-2); }
 .onde.tenho { color: var(--dim); opacity: .8; }
+/* De onde vem cada cópia da lista de venda (André, 2026-09-10). */
+.onde.origem { color: var(--dim); opacity: .75; font-style: italic; }
 
 
 /* ------------------------------------------------------------------ faltas */

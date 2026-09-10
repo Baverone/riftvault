@@ -560,9 +560,14 @@ def niveis(itens, n: int | None = None) -> list[dict]:
 
 def itens_da_colecao(con: sqlite3.Connection, cfg: dict | None = None) -> list[tuple]:
     """`(set_id, alvo, cópias, preço)` das impressões que contam para a barra."""
+    from . import locais
+
     cfg = cfg or config.load()
-    qty = {r["printing_id"]: r["qty"] for r in
-           con.execute("SELECT printing_id, qty FROM copies")}
+    # SÓ as cópias que estão nos binders de COLEÇÃO (André, 2026-09-10): *"vou
+    # querer ter as cartas da coleção apenas alocadas à coleção e as cartas dos
+    # decks apenas alocadas a Decks"*. Uma cópia que esteja num deck ou no
+    # binder Decks/Venda deixou de contar aqui, mesmo sendo a mesma impressão.
+    qty = locais.na_colecao(con)
     price = prices_map(con)
     out = []
     for r in con.execute(
@@ -660,13 +665,19 @@ def prices_map(con: sqlite3.Connection) -> dict[str, int]:
 
 def set_payload(con: sqlite3.Connection, set_id: str, editable: bool = True,
                 image_mode: str = "local") -> dict:
-    from . import decks
+    from . import decks, locais
 
     cfg = config.load()
-    qty = {r["printing_id"]: r["qty"] for r in con.execute("SELECT printing_id, qty FROM copies")}
+    # `qty` é o que a COLEÇÃO tem — é ele que manda nas barras, no filtro
+    # "Faltas" e na contagem por níveis. O total físico vai à parte em
+    # `qty_total`, e o `locations` diz onde estão as outras.
+    qty = locais.na_colecao(con)
+    totais = locais.totais(con)
+    locais_por_pid = locais.por_local(con)
+    nomes_decks = locais.nomes_dos_decks(con)
     owned_cards = owned_by_card(con)
     price = prices_map(con)
-    # Onde estão as cópias que não estão no binder: nos decks.
+    # Onde estão as cópias que não estão no binder de coleção: nos decks.
     try:
         nos_decks = decks.printing_allocation(con)
     except sqlite3.OperationalError:
@@ -708,6 +719,15 @@ def set_payload(con: sqlite3.Connection, set_id: str, editable: bool = True,
             "price": price.get(r["printing_id"]),   # cêntimos, ou None
             "in_decks": nos_decks.get(r["printing_id"], []),
             "qty": qty.get(r["printing_id"], 0),
+            # Cópias FÍSICAS (todos os locais) e onde estão. A barra mede o
+            # `qty`; isto é o que a linha do tile lê para dizer «2 na Coleção ·
+            # 1 no deck Azir». São dois números diferentes de propósito.
+            "qty_total": totais.get(r["printing_id"], 0),
+            "locations": [
+                {"loc": loc, "label": locais.rotulo(loc, nomes_decks), "qty": n}
+                for loc, n in sorted(
+                    (locais_por_pid.get(r["printing_id"]) or {}).items(),
+                    key=lambda kv: (kv[0] != locais.COLECAO, kv[0]))],
             "target": alvo(r, cfg),
             # O bloco da grelha: `master`, `rune_special` ou `alt_art` dentro da
             # coleção, e um bloco próprio para o que ficou de fora. É o mesmo
@@ -782,7 +802,10 @@ def set_payload(con: sqlite3.Connection, set_id: str, editable: bool = True,
         for p in g["printings"]:
             if p["price"] is None:
                 continue
-            value_owned += p["qty"] * p["price"]
+            # O valor é do que ele TEM, esteja onde estiver: uma carta num deck
+            # não vale menos por estar sleevada. Por isso o total físico, e não
+            # o `qty` da Coleção.
+            value_owned += p["qty_total"] * p["price"]
             # "se estivesse completa" é sobre a COLEÇÃO: o que não entra na
             # percentagem também não entra no preço de a fechar. Desde
             # 2026-09-08 isso inclui 1 de cada runa especial e 1 de cada alt art.

@@ -113,8 +113,19 @@ def adjust(con: sqlite3.Connection, ref: str, delta: int, source: str = "cli",
         con.execute("ROLLBACK")
         raise
 
+    saidas = []
+    if applied < 0:
+        # Uma cópia que desaparece tem de desaparecer de algum LOCAL (André,
+        # 2026-09-10). Se estavam todas num deck e ele tira uma, é do deck que
+        # ela sai — senão a Coleção ficava com contagem negativa. Fora da
+        # transação de propósito: o rasto do movimento é escrito à parte, e uma
+        # falha a escrever o log não pode desfazer a remoção da cópia.
+        from . import locais
+        saidas = locais.ajustar_ao_total(con, printing_id, source=source)
+
     return {"printing_id": printing_id, "qty": new_qty, "applied": applied,
-            "op_id": op_id, "duplicate": False}
+            "op_id": op_id, "duplicate": False,
+            **({"saidas": saidas} if saidas else {})}
 
 
 def set_qty(con: sqlite3.Connection, ref: str, qty: int, source: str = "cli") -> dict:
