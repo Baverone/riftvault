@@ -522,6 +522,111 @@ caso. Entraram **5 impressões, 5 cópias, 653,95 €** — `OGN-303` Nine-Taile
 caixa passou de 4,11 € para 658,06 €. **É pergunta para ele** — nada saiu da
 base, é uma sugestão —, e há teste que fixa o comportamento.
 
+## As promos VEN-SP saem da Coleção (2026-09-10)
+
+Palavras dele, horas depois da secção acima: *"no riftvault, Vendetta,
+deparei-me com as VEN-SP (promos). Quero que as promos fiquem também à parte,
+tal como as signature e as overnumbered"*.
+
+**Terceira categoria pelo mesmo mecanismo**, e a mais simples das três: as
+promos SÃO uma variante (`variant_kind = "special"`, o sufixo `-SP` do código
+impresso), por isso bastou uma palavra na lista `master_set.fora`, que passou a
+`["-T", "*", "overnumbered", "promo"]`. O `metrics.e_master` (a percentagem), o
+`bloco` (a grelha) e o âmbito das listas de compra continuam a perguntar todos
+ao `metrics.fora_da_colecao`. Não houve função nova — só uma entrada de config e
+o `PALAVRA_KIND`.
+
+**A palavra é dele, e por isso é aceite a par do sufixo.** Ele nomeou-as
+«promos», não `-SP`: `metrics.PALAVRA_KIND` traduz `promo -> special`, como o
+`SUFIXO_KIND` traduz `-sp -> special`. As três escritas (`promo`, `-SP`,
+`special`) dão o mesmo kind, e há teste que o fixa. Um valor desconhecido
+continua a rebentar.
+
+### O que o catálogo tem, e em que edições
+
+**São 6 no catálogo inteiro, todas no VEN.** Varridas as lanes todas das cinco
+edições (a `lane` é o prefixo alfabético do `variant` — ver ARMADILHA 1):
+
+| lane | o que é | OGN | OGS | SFD | UNL | VEN |
+|---|---|---|---|---|---|---|
+| `main` | a numeração da edição (base, `a`, `star`) | 352 | 24 | 287 | 280 | 215 |
+| `t` | tokens `-T` | — | — | 1 | 8 | 1 |
+| `r` | runas promo `VEN-R01..R06` | — | — | — | — | 6 |
+| `sp` | **promos `VEN-SP1..SP6`** | — | — | — | — | **6** |
+
+Fora da lane principal e dos tokens só há estas duas famílias, e as duas só
+existem no Vendetta. **Uma edição nova que traga uma lane nova rebenta** no
+`_fora` se alguém a escrever, mas passa despercebida se ninguém a escrever — é o
+ponto 6 das "Superfícies não validadas", e continua de pé.
+
+As 6, todas `Unit` de raridade `epic`, com `public_code` `VEN-SPn/006`:
+`VEN-SP1` Kai'Sa, Survivor (60,82 €), `VEN-SP2` Sona, Harmonious (28,00 €),
+`VEN-SP3` Ahri, Inquisitive (110,38 €), `VEN-SP4` Sett, Brawler (16,25 €),
+`VEN-SP5` Ezreal, Prodigy (18,87 €) e `VEN-SP6` Lux, Crownguard (30,39 €) —
+**264,71 €**. **Ele tem uma**, a `VEN-SP5`.
+
+**Precisavam de entrada própria porque NENHUMA é sobrenumerada.** O
+`VEN-SP4/006` é a 4 de uma série de 6, e o critério de ontem lê o denominador do
+próprio código: a série delas é outra, e o código diz isso. Já estava anotado no
+relatório das sobrenumeradas — é exactamente por isso que esta decisão não vinha
+de graça com aquela.
+
+### As runas promo `VEN-R01..R06` NÃO saem
+
+São `rune_promo`, não `special`, e ficam **dentro** da Coleção, no bloco «1 runa
+especial de cada» — decisão dele de 2026-09-08. **No VEN são elas que enchem
+esse bloco**: sem elas o bloco 2 do Vendetta ficava vazio (a RiftScribe não tem
+runas alternativas no VEN — ver BURACO NO CATÁLOGO). Ele nomeou as `VEN-SP`;
+tirar as `VEN-R` com elas era apagar a outra decisão, e a lição das signatures
+de ontem é essa mesma — variante primeiro, e só o que ele nomeou.
+
+Quem as quiser fora escreve `"-R"` na lista, e aí saem também da percentagem
+(são as mesmas 6, valem 73 cêntimos ao todo).
+
+### O que mudou nos números
+
+Medido a 2026-09-10 no `main`, depois do merge, contra o `data/` real. O «antes»
+foi medido na mesma corrida, com o config sem a palavra — não são os números do
+relatório das sobrenumeradas, que já estão velhos na coleção e nos preços.
+
+| | antes | depois |
+|---|---|---|
+| denominador da percentagem | 1042 | **1036** |
+| OGN / OGS / SFD / UNL / VEN | 328 / 24 / 245 / 249 / 196 | 328 / 24 / 245 / 249 / **190** |
+| master set do VEN | 41/196 = 20,9 % | **40/190 = 21,1 %** |
+| percentagem global (playset) | 573/1042 = 55,0 % | **572/1036 = 55,2 %** |
+| níveis (1 de cada / 2 / playset) | 74,1 % / 65,0 % / 55,0 % | **74,4 % / 65,3 % / 55,2 %** |
+| faltam, por nível | 270 / 527 / 888 | **265 / 522 / 883** |
+| € por nível | 1 138,24 / 1 982,83 / 2 965,06 € | **892,40 / 1 736,99 / 2 719,22 €** |
+| «Master set» / wantlist playset | 467 impressões, 885 cópias, 2 926,23 € | **462, 880, 2 680,39 €** |
+| wantlist até 1 de cada | 269 linhas, 1 134,13 € | **264, 888,29 €** |
+| wantlist até 2 de cada | 363 linhas, 1 974,00 € | **358, 1 728,16 €** |
+| «A subir» | 54 cartas, 100 cópias, 361,29 € | igual |
+| «Venda» | 15 impressões, 19 cópias, 659,04 € | **16, 20, 677,91 €** |
+
+**Os três degraus perdem exactamente o mesmo: 5 cópias e 245,84 €.** O alvo
+delas é 1, por isso as 5 que lhe faltam custavam o mesmo nos três níveis — é a
+mesma aritmética das signatures. O numerador perde 1 (a `VEN-SP5`, que ele tem
+completa) e o denominador 6, e a percentagem sobe 0,2 pontos. **É a mais pequena
+das três decisões desta semana** — as signatures valiam 51 mil euros e as
+sobrenumeradas 27 mil; estas valem 246 €.
+
+**O «A subir» não mexe em nada.** Nenhuma das 5 subia 10 % na janela, por isso
+não estava na lista — o que baixou foi só o âmbito de partida, de 1042 para
+1036.
+
+**A consequência que ele não pediu: a Venda, outra vez.** O âmbito dela é "não é
+o bloco `master`", e as promos passaram a estar nesse caso: a `VEN-SP5` Ezreal,
+Prodigy que ele tem entrou como candidata, **1 impressão, 1 cópia, 18,87 €**. A
+caixa passou de 659,04 € para 677,91 €. **É pergunta para ele** — nada saiu da
+base —, e há teste que fixa o comportamento.
+
+**O bloco novo:** «Fora da coleção — promos», alvo 1, só no VEN (0/6 nas
+outras quatro edições não aparece, porque os blocos vazios não se mostram).
+Hoje lê-se **1/6**. O rótulo do bloco `special` passou de «promos especiais» a
+«promos», que é como ele lhes chama e como o catálogo as etiqueta
+(`variant_label: "Promo"`).
+
 ## A Coleção em três blocos: playset, 1 runa especial, 1 alt art (2026-09-08)
 
 Palavras dele, **na mesma tarde e depois da secção a seguir**: *"Para o
@@ -1697,6 +1802,10 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   «300/298», pelo denominador do próprio código impresso; mesmo mecanismo das
   signatures, denominador 1134 -> 1042, e a pergunta dos «showcases» de
   2026-09-08 fica respondida.
+- **Feito também:** as promos `VEN-SP` fora da Coleção (2026-09-10) — terceira
+  categoria pelo mesmo mecanismo, e a mais barata (246 €); são 6, só no VEN, e
+  nenhuma é sobrenumerada. Denominador 1042 -> 1036. As runas promo `VEN-R01`
+  ficaram dentro, no bloco das runas especiais.
 - **Por fazer:** vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck,
   com as partilhadas assinaladas); e apagar decks pela interface (hoje apaga-se
   o `.txt`).
