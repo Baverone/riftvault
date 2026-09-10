@@ -97,6 +97,36 @@ class TestSiteDoPC(unittest.TestCase):
                         "sem `generated_at` ninguém consegue verificar de fora "
                         "se o site publicado é o que foi gerado no PC")
 
+    # -- 4. e não é só o site: a base também não pode ser tocada ----------
+    def test_gerar_o_site_nao_escreve_no_vault_db(self):
+        """O `build` importa as listas antes de gerar (ver test_build.py), e o
+        `import_all` reescrevia o `imported_at` sempre. Resultado: o vault.db
+        ficava «alterado» a cada geração e a tarefa das meias horas commitava a
+        colecção — e gastava uma build do Pages — sem o André ter tocado em
+        nada. Um site em dia tem de deixar o disco em paz.
+        """
+        self.v.write_deck("azir", "Legend:\n1 Emperor of the Sands\n\n"
+                                  "MainDeck:\n3 Defy\n")
+        self._build()
+        vault = (self.v.data / "vault.db").read_bytes()
+        self._build(so_se_mudou=True)
+        self.assertEqual(vault, (self.v.data / "vault.db").read_bytes(),
+                         "a geração do site reescreveu o vault.db sem nada mudar")
+
+    def test_uma_lista_editada_entra_na_mesma(self):
+        """Não escrever quando nada muda não pode virar não escrever nunca."""
+        self.v.write_deck("azir", "Legend:\n1 Emperor of the Sands\n\n"
+                                  "MainDeck:\n3 Defy\n")
+        self._build()
+        self.v.write_deck("azir", "Legend:\n1 Emperor of the Sands\n\n"
+                                  "MainDeck:\n3 Brutalizer\n")
+        self._build(so_se_mudou=True)
+        deck = json.loads((self.out / "api" / "deck" / "1.json").read_text(
+            encoding="utf-8"))
+        nomes = {c["name"] for s in deck["sections"] for c in s["cards"]}
+        self.assertIn("Brutalizer", nomes)
+        self.assertNotIn("Defy", nomes, "o site ficou com a lista antiga")
+
     def test_um_payload_orfao_desaparece(self):
         """Uma edição que saia do catálogo tem de sair do site.
 

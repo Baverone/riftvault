@@ -158,6 +158,42 @@ def import_all(con: sqlite3.Connection, log=print) -> dict:
         if str(path) not in known:
             next_pri += 1
 
+        # Uma carta pode repetir-se no mesmo papel (raro, mas soma-se).
+        agg: dict[tuple[str, str], list] = {}
+        for role, ck, qty, raw in rows:
+            slot = agg.setdefault((role, ck), [0, raw])
+            slot[0] += qty
+        cartas = sorted((ck, role, v[0], v[1]) for (role, ck), v in agg.items())
+
+        # NÃO ESCREVER QUANDO NADA MUDOU (2026-09-10). O `imported_at` sozinho
+        # fazia esta função reescrever o vault.db a CADA importação — e o
+        # `build` importa sempre, antes de gerar os payloads. Com o site a ser
+        # gerado de 30 em 30 minutos no PC, isso dava um vault.db "alterado"
+        # (e um commit, e uma build do Pages) todas as meias horas sem o André
+        # ter tocado em nada. Compara-se o resultado e só se escreve se ele
+        # diferir — é a mesma regra do `riftvault build --se-mudou`.
+        #
+        # Compara-se tudo o que se ia gravar, não só o `content_hash` do
+        # ficheiro: o que uma linha resolve depende também do CATÁLOGO, e uma
+        # carta que ontem faltava e hoje existe tem de entrar sem o .txt mexer.
+        igual = con.execute(
+            "SELECT deck_id FROM decks WHERE name=? AND content_hash=? AND path=? "
+            "AND legend IS ? AND champion IS ? AND display_name=? AND missing_json=?",
+            (d["slug"], d["content_hash"], str(path), legend, champion, display,
+             json.dumps(missing, ensure_ascii=False))).fetchone()
+        if igual is not None:
+            atuais = sorted(
+                (r["card_key"], r["role"], r["qty"], r["raw_line"]) for r in
+                con.execute("SELECT card_key, role, qty, raw_line FROM deck_cards "
+                            "WHERE deck_id=?", (igual["deck_id"],)))
+            if atuais == cartas:
+                seen.append(d["slug"])
+                results.append({"slug": d["slug"], "display": display,
+                                "priority": pri, "cards": len(rows),
+                                "missing": missing})
+                log(f"  {display}  (sem alterações)")
+                continue
+
         con.execute("BEGIN")
         con.execute(
             "INSERT INTO decks (name, path, content_hash, format, imported_at, "
@@ -172,14 +208,9 @@ def import_all(con: sqlite3.Connection, log=print) -> dict:
         deck_id = con.execute("SELECT deck_id FROM decks WHERE name = ?",
                               (d["slug"],)).fetchone()["deck_id"]
         con.execute("DELETE FROM deck_cards WHERE deck_id = ?", (deck_id,))
-        # Uma carta pode repetir-se no mesmo papel (raro, mas soma-se).
-        agg: dict[tuple[str, str], list] = {}
-        for role, ck, qty, raw in rows:
-            slot = agg.setdefault((role, ck), [0, raw])
-            slot[0] += qty
         con.executemany(
             "INSERT INTO deck_cards (deck_id, card_key, role, qty, raw_line) VALUES (?,?,?,?,?)",
-            [(deck_id, ck, role, v[0], v[1]) for (role, ck), v in agg.items()])
+            [(deck_id, ck, role, qty, raw) for ck, role, qty, raw in cartas])
         con.execute("COMMIT")
 
         seen.append(d["slug"])
