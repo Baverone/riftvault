@@ -11,8 +11,9 @@
        3. no fim, as artes alternativas, **1 de cada**.
 
      Os três contam para a percentagem; o que fica de fora (`master_set.fora`,
-     hoje os tokens `-T` e as signatures `*`) vai para blocos informativos no
-     fim. Ver `e_master`, `bloco` e `conta_bloco`.
+     hoje os tokens `-T`, as signatures `*` e as sobrenumeradas) vai para blocos
+     informativos no fim. Ver `fora_da_colecao`, `e_master`, `bloco` e
+     `conta_bloco`.
 
 São sempre calculadas e mostradas em paralelo. Nenhuma substitui a outra.
 """
@@ -33,21 +34,28 @@ RARITY_ORDER = ["common", "uncommon", "rare", "epic", "showcase"]
 # Os blocos da grelha, por esta ordem (André, 2026-09-08): *"master set playset
 # todo seguido; 1 runa especial de cada para cada set; no fim 1 alt art de
 # cada"*. Os três primeiros são a COLEÇÃO — contam para a percentagem; os
-# outros são o que ficou fora dela (`master_set.fora`, hoje os tokens e as
+# outros são o que ficou fora dela (`master_set.fora`, hoje os tokens, as
 # signatures — *"das coleções tira as signatures, fazemos 1 Alt Art de cada mas
-# as signature não"*, André, 2026-09-09).
+# as signature não"*, André, 2026-09-09 — e as sobrenumeradas — *"também não
+# quero para a coleção as overnumbered"*, André, 2026-09-10).
 #
 # Há um bloco por variante, e não só para as que ele nomeou: assim quem
 # acrescentar uma variante ao `master_set.fora` recebe um cabeçalho a dizer o
 # que é, em vez do «outras». Os blocos vazios não aparecem.
 BLOCO_MASTER = "master"
 BLOCO_RUNA = "rune_special"
+# As sobrenumeradas (André, 2026-09-10: *"também não quero para a coleção as
+# overnumbered"*) — as «300/298». Não são uma variante: é o NÚMERO que passa o
+# tamanho da edição, por isso têm bloco próprio em vez de caírem no da variante
+# delas. Ver `e_overnumbered`.
+BLOCO_OVER = "overnumbered"
 BLOCOS = [
     (BLOCO_MASTER, None),
     (BLOCO_RUNA, "Runas especiais — 1 de cada"),
     ("alt_art", "Artes alternativas — 1 de cada"),
     ("token", "Fora da coleção — tokens"),
     ("signature", "Fora da coleção — signatures"),
+    (BLOCO_OVER, "Fora da coleção — sobrenumeradas"),
     ("rune_promo", "Fora da coleção — runas promo"),
     ("special", "Fora da coleção — promos especiais"),
     ("base", "Fora da coleção — impressões base"),
@@ -70,6 +78,7 @@ BLOCO_CURTO = {
     "alt_art": "artes alternativas",
     "token": "tokens",
     "signature": "signatures",
+    BLOCO_OVER: "sobrenumeradas",
     "rune_promo": "runas promo",
     "special": "promos especiais",
     "base": "impressões base",
@@ -102,9 +111,22 @@ SUFIXO_KIND = {
     "-sp": "special",       # VEN-SP4
 }
 
-# Memo do `kinds_fora`: a lista do config não muda dentro de uma corrida, e a
+# O valor do `master_set.fora` que NÃO é uma variante. As sobrenumeradas são um
+# critério de NÚMERO — como o `showcase` do `a_subir.excluir` é um critério de
+# raridade —, mas escrevem-se na mesma lista de propósito: a pergunta é uma só
+# ("o que é que não é a Coleção") e tem de ter uma resposta só.
+FORA_OVERNUMBERED = "overnumbered"
+
+# Memo do `_fora`: a lista do config não muda dentro de uma corrida, e a
 # pergunta é feita uma vez por impressão (1180) por payload.
-_FORA_MEMO: dict[tuple, frozenset] = {}
+_FORA_MEMO: dict[tuple, tuple] = {}
+
+# Alvo das sobrenumeradas depois de saírem: **1 de cada**, como as signatures e
+# os tokens que já estavam fora. Elas continuam na grelha e o tile continua a
+# dizer quantas ele tem — mas pedir o playset de uma carta que já não se
+# coleciona era ler o número ao contrário. ALVO e CONTA são campos diferentes
+# desde 2026-09-02; isto é o alvo.
+ALVO_OVERNUMBERED = 1
 
 
 # --------------------------------------------------------------------------
@@ -179,11 +201,21 @@ def playset_target(card_type: str | None, is_token: bool, cfg: dict | None = Non
 
 
 def master_target(printing_id: str, kind: str, card_type: str | None, is_token: bool,
-                  cfg: dict | None = None) -> int:
+                  cfg: dict | None = None, printing=None) -> int:
+    """O alvo do master set de uma impressão.
+
+    Quem tem a LINHA do catálogo na mão deve chamar o `alvo()`, não isto: o alvo
+    das sobrenumeradas depende do código impresso, e daqui só se vê a variante.
+    Os quatro escalares ficam para quem não tem a linha (e para os testes).
+    """
     cfg = cfg or config.load()
     override = cfg.get("master_target_overrides", {}).get(printing_id)
     if override is not None:
         return int(override)
+    if printing is not None and fora_da_colecao(printing, cfg) == BLOCO_OVER:
+        # Saiu da Coleção por ser sobrenumerada (André, 2026-09-10): fica na
+        # grelha com 1 de cada, como as signatures e os tokens que já lá estão.
+        return ALVO_OVERNUMBERED
     if is_token:
         return int(cfg.get("token_target", 1))
     by_variant = cfg.get("master_targets_by_variant", {})
@@ -209,18 +241,25 @@ def master_target(printing_id: str, kind: str, card_type: str | None, is_token: 
     return int(by_variant.get(kind, 1))
 
 
-def kinds_fora(cfg: dict | None = None) -> frozenset[str]:
-    """Os `variant_kind` que ficam FORA do master set, lidos do config.
+def alvo(printing, cfg: dict | None = None) -> int:
+    """O alvo do master set de uma LINHA do catálogo — a porta de entrada.
 
-    A lista vive em `master_set.fora` e escreve-se como o André fala — pelo
-    sufixo do código impresso (`["-T", "a"]`) — ou pelo nome da variante
-    (`["token", "alt_art"]`). São a mesma coisa; ver `SUFIXO_KIND`.
+    É o `master_target` com o contexto que o número de coleccionador precisa.
+    Toda a produção passa por aqui (a grelha, os níveis, as listas de compra e a
+    Venda) para não haver duas contas do mesmo alvo.
+    """
+    return master_target(printing["printing_id"], printing["variant_kind"],
+                         campo(printing, "type"), bool(campo(printing, "is_token")),
+                         cfg, printing=printing)
 
-    As signatures saíram a 2026-09-09 (*"das coleções tira as signatures,
-    fazemos 1 Alt Art de cada mas as signature não"*): o `"*"` da lista tira-as
-    da sequência **e** do denominador da percentagem — é a mesma pergunta. Não
-    saem da grelha: ficam num bloco próprio no fim, com alvo, para as que ele
-    tenha continuarem visíveis. Tira-se o `"*"` para as pôr de volta.
+
+def _fora(cfg: dict | None = None) -> tuple[frozenset[str], bool]:
+    """O `master_set.fora` lido: (variantes que saem, as sobrenumeradas saem?).
+
+    A lista escreve-se como o André fala — pelo sufixo do código impresso
+    (`["-T", "*"]`), pelo nome da variante (`["token", "signature"]`) ou pela
+    palavra dele para o que não é variante nenhuma (`"overnumbered"`). Uma
+    leitura só, para os dois critérios não se separarem.
 
     Um valor que não se reconheça REBENTA, e de propósito: uma variante nova
     (um `b`? um `sp7`?) tem de aparecer, não de ser ignorada em silêncio —
@@ -231,19 +270,116 @@ def kinds_fora(cfg: dict | None = None) -> frozenset[str]:
     memo = _FORA_MEMO.get(bruto)
     if memo is not None:
         return memo
-    kinds = set()
+    kinds, over = set(), False
     for valor in bruto:
         chave = str(valor).strip().lower()
-        if chave in SUFIXO_KIND:
+        if chave == FORA_OVERNUMBERED:
+            over = True
+        elif chave in SUFIXO_KIND:
             kinds.add(SUFIXO_KIND[chave])
         elif chave in KIND_ORDER:
             kinds.add(chave)
         else:
-            aceites = ", ".join(sorted(set(SUFIXO_KIND) | set(KIND_ORDER)))
+            aceites = ", ".join(sorted(set(SUFIXO_KIND) | set(KIND_ORDER)
+                                       | {FORA_OVERNUMBERED}))
             raise ValueError(
                 f"master_set.fora: nao reconheco {valor!r}. Aceita: {aceites}")
-    _FORA_MEMO[bruto] = out = frozenset(kinds)
+    _FORA_MEMO[bruto] = out = (frozenset(kinds), over)
     return out
+
+
+def kinds_fora(cfg: dict | None = None) -> frozenset[str]:
+    """Os `variant_kind` que ficam FORA da Coleção — metade do `master_set.fora`.
+
+    As signatures saíram a 2026-09-09 (*"das coleções tira as signatures,
+    fazemos 1 Alt Art de cada mas as signature não"*): o `"*"` da lista tira-as
+    da sequência **e** do denominador da percentagem — é a mesma pergunta. Não
+    saem da grelha: ficam num bloco próprio no fim, com alvo, para as que ele
+    tenha continuarem visíveis. Tira-se o `"*"` para as pôr de volta.
+
+    A outra metade da lista é o `fora_overnumbered`, que não é por variante.
+    """
+    return _fora(cfg)[0]
+
+
+def fora_overnumbered(cfg: dict | None = None) -> bool:
+    """As sobrenumeradas ficam fora da Coleção? — a outra metade da lista.
+
+    André, 2026-09-10: *"no riftvault, também não quero para a coleção as
+    overnumbered"*. Escreve-se `"overnumbered"` no `master_set.fora`, a par dos
+    sufixos; tira-se de lá para as pôr de volta. Ver `e_overnumbered`.
+    """
+    return _fora(cfg)[1]
+
+
+def tamanho_do_set(printing) -> int | None:
+    """O tamanho nominal da edição, lido do CÓDIGO IMPRESSO desta impressão.
+
+    O `public_code` traz os dois números — `OGN-299*/298` é a 299 de um set de
+    298 —, por isso o tamanho não é um número escrito à mão nem uma segunda
+    consulta: vem da mesma linha do catálogo, do mesmo sítio de onde vem o
+    número da carta. Confirmado no catálogo real: o denominador é o mesmo em
+    todas as impressões da lane principal de cada edição (OGN 298, OGS 24,
+    SFD 221, UNL 219, VEN 166).
+
+    `None` quando o código não traz denominador nenhum. São 16 no catálogo de
+    hoje — os tokens `-T` e as runas promo `VEN-R01..R06` —, e é a resposta
+    certa: essas são numeradas numa série própria, fora da numeração da edição,
+    e por isso nunca a podem passar.
+    """
+    code = campo(printing, "public_code", "")
+    if "/" not in code:
+        return None
+    try:
+        return int(code.rsplit("/", 1)[1])
+    except ValueError:
+        return None
+
+
+def e_overnumbered(printing) -> bool:
+    """O número desta impressão passa o tamanho da edição — é uma «300/298»?
+
+    São as reimpressões showcase de topo de set e as signatures que se lhes
+    agarram (ARMADILHA 2 do CLAUDE.md): a mesma carta lógica reaparece na mesma
+    edição com número de coleção PRÓPRIO, acima do tamanho nominal.
+
+    O critério é o CÓDIGO IMPRESSO, como todas as decisões dele sobre a Coleção:
+    `collector_number > tamanho_do_set`. O `VEN-SP4/006` é a 4 de uma série de
+    6 e por isso não é sobrenumerada — a série dela é outra, e o código diz isso.
+    """
+    tamanho = tamanho_do_set(printing)
+    cn = campo(printing, "collector_number")
+    return tamanho is not None and cn is not None and int(cn) > tamanho
+
+
+def fora_da_colecao(printing, cfg: dict | None = None) -> str | None:
+    """PORQUE é que esta impressão está fora da Coleção — o bloco, ou `None`.
+
+    Uma pergunta, uma função: quem quer saber se conta chama o `e_master`, quem
+    quer saber onde é que ela vai parar na grelha chama o `bloco`, e os dois
+    saem daqui. O motivo é o bloco porque é isso que ele lê no cabeçalho —
+    «Fora da coleção — signatures» é diferente de «— sobrenumeradas».
+
+    A ordem é a das decisões dele: primeiro a VARIANTE que ele nomeou (o sufixo
+    do código), depois o NÚMERO. É por isso que as 36 signatures continuam no
+    bloco das signatures — são todas sobrenumeradas, mas o que as tirou foi a
+    frase de 2026-09-09, e mudá-las de bloco agora era apagar essa decisão do
+    ecrã.
+    """
+    cfg = cfg or config.load()
+    kinds, over = _fora(cfg)
+    kind = campo(printing, "variant_kind", "unknown")
+    if kind in kinds:
+        # Uma variante nova (um `b`? um `sp7`?) tem de cair num sítio visível em
+        # vez de desaparecer — ver CLAUDE.md, "Superfícies não validadas".
+        return kind if kind in BLOCO_LABEL else "outras"
+    if over and e_overnumbered(printing):
+        return BLOCO_OVER
+    # Os tokens com número de coleção próprio (`OGN-271/298`, o Recruit) não têm
+    # sufixo nenhum e por isso ficam: estão numerados dentro da edição.
+    if campo(printing, "is_token") and int(cfg.get("token_target", 1)) <= 0:
+        return "token"
+    return None
 
 
 def e_master(printing, cfg: dict | None = None) -> bool:
@@ -262,27 +398,26 @@ def e_master(printing, cfg: dict | None = None) -> bool:
       `UNL-T03`   -> variant `t03` -> kind `token`
       `UNL-228a`  -> variant `a`   -> kind `alt_art`
 
-    Muda-se em `master_set.fora`, hoje `["-T", "*"]` — os tokens e as
-    signatures. **As artes alternativas voltaram para dentro a 2026-09-08**, na
-    segunda frase dele (*"no fim 1 alt art de cada"*): continuam a ser a cauda
-    da grelha, num bloco próprio, mas agora contam com alvo 1. **As signatures
-    saíram a 2026-09-09**: *"das coleções tira as signatures, fazemos 1 Alt Art
-    de cada mas as signature não"* — as duas coisas na mesma frase, e é esta
-    função que as separa. Ver `bloco` e `conta_bloco`.
+    Muda-se em `master_set.fora`, hoje `["-T", "*", "overnumbered"]` — os
+    tokens, as signatures e as sobrenumeradas. **As artes alternativas voltaram
+    para dentro a 2026-09-08**, na segunda frase dele (*"no fim 1 alt art de
+    cada"*): continuam a ser a cauda da grelha, num bloco próprio, mas agora
+    contam com alvo 1. **As signatures saíram a 2026-09-09**: *"das coleções
+    tira as signatures, fazemos 1 Alt Art de cada mas as signature não"* — as
+    duas coisas na mesma frase, e é esta função que as separa. **As
+    sobrenumeradas saíram a 2026-09-10**: *"também não quero para a coleção as
+    overnumbered"* — e essas não são uma variante, são um número (ver
+    `e_overnumbered`). Ver `fora_da_colecao`, `bloco` e `conta_bloco`.
 
     Não confundir com o ALVO (`master_target`): o alvo é o que o tile mostra
     ("6/12"), isto é o que entra no denominador. São duas perguntas diferentes
     e têm dois campos desde 2026-09-02.
 
     Aceita uma linha do `catalog.printings` ou qualquer dicionário com
-    `variant_kind` e `is_token`.
+    `variant_kind` e `is_token` — as sobrenumeradas precisam também do
+    `public_code` e do `collector_number`, e sem eles a resposta é "não é".
     """
-    cfg = cfg or config.load()
-    if printing["variant_kind"] in kinds_fora(cfg):
-        return False
-    # Os tokens com número de coleção próprio (`OGN-271/298`, o Recruit) não têm
-    # sufixo nenhum e por isso ficam: estão numerados dentro da edição.
-    return not printing["is_token"] or int(cfg.get("token_target", 1)) > 0
+    return fora_da_colecao(printing, cfg) is None
 
 
 def bloco(printing, cfg: dict | None = None) -> str:
@@ -293,11 +428,9 @@ def bloco(printing, cfg: dict | None = None) -> str:
     alternativas a 1. O que está fora da coleção vai para um bloco próprio a
     seguir a tudo — nunca intercalado. Ver `BLOCOS` para a ordem.
     """
-    if not e_master(printing, cfg):
-        kind = printing["variant_kind"]
-        # Uma variante nova (um `b`? um `sp7`?) tem de cair num sítio visível em
-        # vez de desaparecer — ver CLAUDE.md, "Superfícies não validadas".
-        return kind if kind in BLOCO_LABEL else "outras"
+    fora = fora_da_colecao(printing, cfg)
+    if fora is not None:
+        return fora
     # A runa especial ganha à arte alternativa: a arte alternativa de uma runa é
     # das duas coisas, e ele pediu-a no bloco das runas ("1 runa especial de
     # cada para cada set"), antes da cauda das alt arts.
@@ -397,14 +530,17 @@ def itens_da_colecao(con: sqlite3.Connection, cfg: dict | None = None) -> list[t
     price = prices_map(con)
     out = []
     for r in con.execute(
-        "SELECT printing_id, set_id, variant_kind, type, is_token "
+        # O `public_code` e o `collector_number` são o que o `e_overnumbered`
+        # precisa — sem eles as sobrenumeradas entravam por aqui na contagem.
+        "SELECT printing_id, set_id, collector_number, public_code, "
+        "       variant_kind, type, is_token "
         "FROM catalog.printings"
     ):
         pid = r["printing_id"]
-        alvo = master_target(pid, r["variant_kind"], r["type"], bool(r["is_token"]), cfg)
-        if alvo <= 0 or not conta_bloco(bloco(r, cfg), cfg):
+        n = alvo(r, cfg)
+        if n <= 0 or not conta_bloco(bloco(r, cfg), cfg):
             continue
-        out.append((r["set_id"], alvo, qty.get(pid, 0), price.get(pid)))
+        out.append((r["set_id"], n, qty.get(pid, 0), price.get(pid)))
     return out
 
 
@@ -536,8 +672,7 @@ def set_payload(con: sqlite3.Connection, set_id: str, editable: bool = True,
             "price": price.get(r["printing_id"]),   # cêntimos, ou None
             "in_decks": nos_decks.get(r["printing_id"], []),
             "qty": qty.get(r["printing_id"], 0),
-            "target": master_target(r["printing_id"], r["variant_kind"], r["type"],
-                                    bool(r["is_token"]), cfg),
+            "target": alvo(r, cfg),
             # O bloco da grelha: `master`, `rune_special` ou `alt_art` dentro da
             # coleção, e um bloco próprio para o que ficou de fora. É o mesmo
             # campo que diz se entra na percentagem (ver `conta_bloco`).
