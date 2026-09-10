@@ -731,12 +731,17 @@ variante — duas escritas para a mesma coisa. Passou a ser
 | `a` | artes alternativas | `UNL-228a` |
 | `*` | signatures | `OGN-299*` |
 | `-R` | runas promo | `VEN-R01` |
-| `-SP` | promos especiais | `VEN-SP4` |
+| `-SP` ou `promo` | promos | `VEN-SP4` |
 | `overnumbered` | as sobrenumeradas | `SFD-244/221` |
 
 A última entrada não é um sufixo nem uma variante: é o NÚMERO acima do tamanho
 da edição (2026-09-10 — ver a secção própria). Vive na mesma lista porque é a
 mesma pergunta.
+
+A penúltima tem duas escritas porque ele nomeou-as pela PALAVRA e não pelo
+sufixo (*"as VEN-SP (promos)"*, 2026-09-10). O `metrics.PALAVRA_KIND` traduz
+`promo -> special`, a par do `SUFIXO_KIND`. **«Promo» é só a `special`** — as
+runas promo do VEN escrevem-se `-R` e são outra decisão (ver a secção própria).
 
 Aceita também os nomes das variantes (`token`, `alt_art`, ...) — dão o mesmo.
 `master_ignorar_variantes` é o nome antigo da lista e continua a ser lido:

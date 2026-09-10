@@ -81,9 +81,9 @@ GitHub Actions publica no GitHub Pages (`.github/workflows/pages.yml`).
   do master set**, por número de coleção; depois **as runas especiais, 1 de
   cada**; depois **as artes alternativas, 1 de cada**. Os três contam para a
   percentagem. Só no fim vem o que está **fora da coleção** — os tokens (código
-  `-T`), as signatures (código `*`) e as **sobrenumeradas** (as «300/298») —,
-  cada um com o seu contador "tens N de M" e a dizer que **não** entra na
-  percentagem.
+  `-T`), as signatures (código `*`), as **sobrenumeradas** (as «300/298») e as
+  **promos** (`VEN-SP4`) —, cada um com o seu contador "tens N de M" e a dizer
+  que **não** entra na percentagem.
 - **Filtros:** Tudo / Faltas, e por tipo de impressão (Base, Arte alt.,
   Signature, Tokens/Promos). "Faltas" mostra tudo o que não está completo,
   tanto faz faltarem 3, 2 ou 1.
@@ -275,14 +275,16 @@ Unit/Spell/Gear 3, Battlefield 1, Legend 1, Rune 12, tokens 1.
 | 2 | as runas especiais (a runa que não é a base), por edição | **1** |
 | 3 | as artes alternativas | **1** |
 
-Os três contam para a percentagem: hoje são **1042 impressões** no denominador.
-As runas promo (`VEN-R01`) e as promos especiais (`VEN-SP4`) estão na sequência.
+Os três contam para a percentagem: hoje são **1036 impressões** no denominador.
+As runas promo (`VEN-R01`) estão no bloco 2, com as outras runas especiais.
 Fica de fora o que o `master_set.fora` disser — hoje os tokens (`UNL-T03`), as
 **signatures** (`OGN-299*`, decisão tua de 2026-09-09: *"das coleções tira as
-signatures, fazemos 1 Alt Art de cada mas as signature não"*) e as
+signatures, fazemos 1 Alt Art de cada mas as signature não"*), as
 **sobrenumeradas** (`SFD-244/221`, decisão tua de 2026-09-10: *"também não quero
-para a coleção as overnumbered"*), que aparecem em blocos informativos no fim da
-grelha, com alvo 1 mas sem entrar na conta.
+para a coleção as overnumbered"*) e as **promos** (`VEN-SP4`, do mesmo dia:
+*"quero que as promos fiquem também à parte, tal como as signature e as
+overnumbered"*), que aparecem em blocos informativos no fim da grelha, com alvo
+1 mas sem entrar na conta.
 
 **O playset jogável da runa continua 12**: colecionar e jogar são perguntas
 diferentes, e são as 12 que enchem o Rune Pool de um deck.
@@ -302,8 +304,8 @@ primeiro degrau — e a percentagem do **último** degrau é exatamente a da bar
 do master set.
 
 Conta **cópias**, não o que vem a caminho (é a regra da Coleção), e conta tudo
-o que está no denominador — que desde 2026-09-10 já não tem signatures nem
-sobrenumeradas. As wantlists do fim da página é que descontam o pendente — ali a
+o que está no denominador — que desde 2026-09-10 já não tem signatures, nem
+sobrenumeradas, nem promos. As wantlists do fim da página é que descontam o pendente — ali a
 pergunta é o que há a **comprar** —, e é só por isso que os dois números ainda
 não são iguais.
 
@@ -315,7 +317,7 @@ A lista escreve-se pelos **sufixos do código impresso**, no
 `riftvault_config.json`:
 
 ```json
-"master_set": { "fora": ["-T", "*", "overnumbered"] }
+"master_set": { "fora": ["-T", "*", "overnumbered", "promo"] }
 ```
 
 | escreves | tira | exemplo |
@@ -324,7 +326,7 @@ A lista escreve-se pelos **sufixos do código impresso**, no
 | `a` | artes alternativas | `UNL-228a` |
 | `*` | signatures | `OGN-299*` |
 | `-R` | runas promo | `VEN-R01` |
-| `-SP` | promos especiais | `VEN-SP4` |
+| `-SP` ou `promo` | promos | `VEN-SP4` |
 | `overnumbered` | as sobrenumeradas | `SFD-244/221` |
 
 Também aceita os nomes das variantes (`token`, `alt_art`, `signature`,
@@ -357,6 +359,20 @@ alternativa é sobrenumerada** — elas partilham o número da base —, por iss
 as cinco que tens continuam visíveis no bloco «Fora da coleção —
 sobrenumeradas», com alvo 1.
 
+**As promos saíram no mesmo dia** (*"deparei-me com as VEN-SP (promos). Quero
+que as promos fiquem também à parte, tal como as signature e as overnumbered"*):
+escreve-se `"promo"` na lista, e são as **6** `VEN-SP1..SP6` — as únicas do
+catálogo inteiro, todas no Vendetta. Precisavam de entrada própria porque
+**nenhuma delas é sobrenumerada**: o `VEN-SP4/006` é a 4 de uma série de 6, e o
+critério de ontem lê o código como ele está escrito. O denominador passou de 1042
+para **1036** (VEN 196 → 190) e a que tens (`VEN-SP5` Ezreal, Prodigy) continua
+visível no bloco «Fora da coleção — promos», com alvo 1.
+
+**As runas promo do VEN (`VEN-R01..R06`) NÃO saíram com elas.** São outra
+categoria (`rune_promo`) e são elas que enchem o bloco «1 runa especial de cada»
+no Vendetta — a tua decisão de 2026-09-08. Se as quiseres fora também, é
+acrescentar `"-R"` à lista.
+
 O nome antigo desta lista era `master_ignorar_variantes`; um config que ainda
 o traga continua a funcionar.
 
@@ -365,8 +381,8 @@ Não se distingue foil de normal: uma cópia é uma cópia.
 ## Venda
 
 Quarta secção. O que tens **fora da sequência do master set** — os tokens
-(`-T`), as signatures (`*`), as sobrenumeradas, as runas especiais e as artes
-alternativas —, partido em duas leituras:
+(`-T`), as signatures (`*`), as sobrenumeradas, as promos (`VEN-SP`), as runas
+especiais e as artes alternativas —, partido em duas leituras:
 
 - **usada num deck seleccionado** — a cópia está alocada a um deck da secção
   Decks. Fica onde está e não entra na lista.
@@ -391,6 +407,9 @@ decisão de 2026-09-10 entraram na Venda as **5** que tens e nenhum deck usa:
 Mountain, `UNL-231` Wuju Master e `UNL-235` Deceiver — **654 €**, e a caixa
 passou de 4,11 € para 658,06 €. Não vendi nada nem mexi na coleção: é uma
 sugestão. **Diz se as queres aí ou se preferes guardá-las.**
+
+**E com as promos, outra vez o mesmo:** a `VEN-SP5` Ezreal, Prodigy que tens
+(**18,87 €**) passou a candidata a venda. É a mesma pergunta das duas de cima.
 
 **Nada sai da base.** É uma sugestão — não há botão de vender e a coleção não
 mexe. As impressões da sequência do master set nunca entram aqui, por muitas

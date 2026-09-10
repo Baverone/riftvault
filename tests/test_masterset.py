@@ -86,8 +86,8 @@ class TestClassificacao(Base):
         casos = {
             "base": True,
             "signature": False,      # `OGN-299*` — saiu a 2026-09-09
-            "rune_promo": True,      # `VEN-R01`
-            "special": True,         # `VEN-SP4`
+            "rune_promo": True,      # `VEN-R01` — o bloco das runas especiais
+            "special": False,        # `VEN-SP4` — saiu a 2026-09-10
             "alt_art": True,         # `UNL-228a` — 1 de cada, na cauda
             "token": False,          # `UNL-T03`
         }
@@ -156,7 +156,7 @@ class TestConfigDosSufixos(Base):
 
     def test_os_sufixos_do_default_dao_os_kinds_certos(self):
         self.assertEqual(self.metrics.kinds_fora(),
-                         frozenset({"token", "signature"}))
+                         frozenset({"token", "signature", "special"}))
 
     def test_sufixo_e_nome_da_variante_dizem_o_mesmo(self):
         self.com_config({"master_set": {"fora": ["-T", "a"]}})

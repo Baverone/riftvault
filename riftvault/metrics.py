@@ -11,9 +11,9 @@
        3. no fim, as artes alternativas, **1 de cada**.
 
      Os três contam para a percentagem; o que fica de fora (`master_set.fora`,
-     hoje os tokens `-T`, as signatures `*` e as sobrenumeradas) vai para blocos
-     informativos no fim. Ver `fora_da_colecao`, `e_master`, `bloco` e
-     `conta_bloco`.
+     hoje os tokens `-T`, as signatures `*`, as sobrenumeradas e as promos
+     `VEN-SP`) vai para blocos informativos no fim. Ver `fora_da_colecao`,
+     `e_master`, `bloco` e `conta_bloco`.
 
 São sempre calculadas e mostradas em paralelo. Nenhuma substitui a outra.
 """
@@ -36,8 +36,10 @@ RARITY_ORDER = ["common", "uncommon", "rare", "epic", "showcase"]
 # cada"*. Os três primeiros são a COLEÇÃO — contam para a percentagem; os
 # outros são o que ficou fora dela (`master_set.fora`, hoje os tokens, as
 # signatures — *"das coleções tira as signatures, fazemos 1 Alt Art de cada mas
-# as signature não"*, André, 2026-09-09 — e as sobrenumeradas — *"também não
-# quero para a coleção as overnumbered"*, André, 2026-09-10).
+# as signature não"*, André, 2026-09-09 —, as sobrenumeradas — *"também não
+# quero para a coleção as overnumbered"*, André, 2026-09-10 — e as promos —
+# *"deparei-me com as VEN-SP (promos). Quero que as promos fiquem também à
+# parte, tal como as signature e as overnumbered"*, André, 2026-09-10).
 #
 # Há um bloco por variante, e não só para as que ele nomeou: assim quem
 # acrescentar uma variante ao `master_set.fora` recebe um cabeçalho a dizer o
@@ -57,7 +59,10 @@ BLOCOS = [
     ("signature", "Fora da coleção — signatures"),
     (BLOCO_OVER, "Fora da coleção — sobrenumeradas"),
     ("rune_promo", "Fora da coleção — runas promo"),
-    ("special", "Fora da coleção — promos especiais"),
+    # As `VEN-SP` (André, 2026-09-10). Chamam-se «promos» porque é o nome que
+    # ele lhes deu e o que o catálogo lhes chama (`variant_label: "Promo"`); as
+    # runas promo do VEN são outra coisa e têm bloco próprio, acima.
+    ("special", "Fora da coleção — promos"),
     ("base", "Fora da coleção — impressões base"),
     ("outras", "Fora da coleção — outras"),
 ]
@@ -80,7 +85,7 @@ BLOCO_CURTO = {
     "signature": "signatures",
     BLOCO_OVER: "sobrenumeradas",
     "rune_promo": "runas promo",
-    "special": "promos especiais",
+    "special": "promos",
     "base": "impressões base",
     "outras": "outras",
 }
@@ -109,6 +114,19 @@ SUFIXO_KIND = {
     "*": "signature",       # OGN-299*
     "-r": "rune_promo",     # VEN-R01
     "-sp": "special",       # VEN-SP4
+}
+
+# A PALAVRA dele para uma variante, a par do sufixo e do nome interno. Ele
+# nomeou as `VEN-SP` pelo nome que o catálogo lhes dá (`variant_label: "Promo"`)
+# e não pelo sufixo: *"deparei-me com as VEN-SP (promos). Quero que as promos
+# fiquem também à parte"* (2026-09-10). As três escritas dão o mesmo kind.
+#
+# «Promo» aqui é SÓ a `special`. As runas promo do VEN (`VEN-R01..R06`) são
+# outra categoria — escrevem-se `-R`/`rune_promo` — e ficam dentro da Coleção,
+# no bloco das runas especiais, por decisão dele de 2026-09-08 (*"1 runa
+# especial de cada para cada set"*). Ver o `fora_da_colecao`.
+PALAVRA_KIND = {
+    "promo": "special",     # VEN-SP4
 }
 
 # O valor do `master_set.fora` que NÃO é uma variante. As sobrenumeradas são um
@@ -257,9 +275,10 @@ def _fora(cfg: dict | None = None) -> tuple[frozenset[str], bool]:
     """O `master_set.fora` lido: (variantes que saem, as sobrenumeradas saem?).
 
     A lista escreve-se como o André fala — pelo sufixo do código impresso
-    (`["-T", "*"]`), pelo nome da variante (`["token", "signature"]`) ou pela
-    palavra dele para o que não é variante nenhuma (`"overnumbered"`). Uma
-    leitura só, para os dois critérios não se separarem.
+    (`["-T", "*"]`), pela palavra dele para a variante (`"promo"`), pelo nome
+    interno dela (`["token", "signature"]`) ou pela palavra do que não é
+    variante nenhuma (`"overnumbered"`). Uma leitura só, para os dois critérios
+    não se separarem.
 
     Um valor que não se reconheça REBENTA, e de propósito: uma variante nova
     (um `b`? um `sp7`?) tem de aparecer, não de ser ignorada em silêncio —
@@ -277,11 +296,13 @@ def _fora(cfg: dict | None = None) -> tuple[frozenset[str], bool]:
             over = True
         elif chave in SUFIXO_KIND:
             kinds.add(SUFIXO_KIND[chave])
+        elif chave in PALAVRA_KIND:
+            kinds.add(PALAVRA_KIND[chave])
         elif chave in KIND_ORDER:
             kinds.add(chave)
         else:
-            aceites = ", ".join(sorted(set(SUFIXO_KIND) | set(KIND_ORDER)
-                                       | {FORA_OVERNUMBERED}))
+            aceites = ", ".join(sorted(set(SUFIXO_KIND) | set(PALAVRA_KIND)
+                                       | set(KIND_ORDER) | {FORA_OVERNUMBERED}))
             raise ValueError(
                 f"master_set.fora: nao reconheco {valor!r}. Aceita: {aceites}")
     _FORA_MEMO[bruto] = out = (frozenset(kinds), over)
@@ -296,6 +317,11 @@ def kinds_fora(cfg: dict | None = None) -> frozenset[str]:
     da sequência **e** do denominador da percentagem — é a mesma pergunta. Não
     saem da grelha: ficam num bloco próprio no fim, com alvo, para as que ele
     tenha continuarem visíveis. Tira-se o `"*"` para as pôr de volta.
+
+    As promos `VEN-SP` saíram a 2026-09-10, pela mesma lista e pelo mesmo
+    mecanismo (*"quero que as promos fiquem também à parte, tal como as
+    signature e as overnumbered"*): é o `"promo"` do config, que o
+    `PALAVRA_KIND` traduz para `variant_kind = "special"`.
 
     A outra metade da lista é o `fora_overnumbered`, que não é por variante.
     """
@@ -365,6 +391,12 @@ def fora_da_colecao(printing, cfg: dict | None = None) -> str | None:
     bloco das signatures — são todas sobrenumeradas, mas o que as tirou foi a
     frase de 2026-09-09, e mudá-las de bloco agora era apagar essa decisão do
     ecrã.
+
+    **As runas promo do VEN (`VEN-R01..R06`) NÃO saem por aqui.** São
+    `rune_promo`, não `special`, e continuam dentro da Coleção, no bloco das
+    runas especiais: é a decisão dele de 2026-09-08 (*"1 runa especial de cada
+    para cada set"*) e são elas que enchem esse bloco no VEN. Ele nomeou as
+    `VEN-SP`; tirar as `VEN-R` com elas era apagar a outra decisão.
     """
     cfg = cfg or config.load()
     kinds, over = _fora(cfg)
@@ -398,8 +430,9 @@ def e_master(printing, cfg: dict | None = None) -> bool:
       `UNL-T03`   -> variant `t03` -> kind `token`
       `UNL-228a`  -> variant `a`   -> kind `alt_art`
 
-    Muda-se em `master_set.fora`, hoje `["-T", "*", "overnumbered"]` — os
-    tokens, as signatures e as sobrenumeradas. **As artes alternativas voltaram
+    Muda-se em `master_set.fora`, hoje `["-T", "*", "overnumbered", "promo"]` —
+    os tokens, as signatures, as sobrenumeradas e as promos `VEN-SP`. **As
+    artes alternativas voltaram
     para dentro a 2026-09-08**, na segunda frase dele (*"no fim 1 alt art de
     cada"*): continuam a ser a cauda da grelha, num bloco próprio, mas agora
     contam com alvo 1. **As signatures saíram a 2026-09-09**: *"das coleções
@@ -407,7 +440,10 @@ def e_master(printing, cfg: dict | None = None) -> bool:
     duas coisas na mesma frase, e é esta função que as separa. **As
     sobrenumeradas saíram a 2026-09-10**: *"também não quero para a coleção as
     overnumbered"* — e essas não são uma variante, são um número (ver
-    `e_overnumbered`). Ver `fora_da_colecao`, `bloco` e `conta_bloco`.
+    `e_overnumbered`). **As promos `VEN-SP` saíram no mesmo dia**: *"quero que
+    as promos fiquem também à parte, tal como as signature e as overnumbered"* —
+    essas são outra vez uma variante (`special`), e por isso só precisaram de
+    uma palavra na lista. Ver `fora_da_colecao`, `bloco` e `conta_bloco`.
 
     Não confundir com o ALVO (`master_target`): o alvo é o que o tile mostra
     ("6/12"), isto é o que entra no denominador. São duas perguntas diferentes

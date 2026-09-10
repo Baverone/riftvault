@@ -59,12 +59,19 @@ class Vault:
 
     def add_printing(self, con, printing_id, set_id, cn, name, *, variant="",
                      kind="base", card_type="Unit", api_sort=None, rarity="common",
-                     domains=("Order",), size=None):
+                     domains=("Order",), size=None, lane="main", codigo=None):
         # `size` é o TAMANHO NOMINAL da edição, e vai para o denominador do
         # código impresso (`TST-300/298`), como a API o dá. Só quem testa as
         # sobrenumeradas precisa dele — ver `metrics.e_overnumbered`; sem ele o
         # código sai sem denominador, como sempre saiu.
-        codigo = f"{set_id}-{cn:03d}{variant}" + (f"/{size:03d}" if size else "")
+        #
+        # O `codigo` escreve-se à mão quando a série não segue a numeração da
+        # edição: as promos são `VEN-SP4/006` (a 4 de 6), não `VEN-004sp4`.
+        if codigo is None:
+            codigo = f"{set_id}-{cn:03d}{variant}" + (f"/{size:03d}" if size else "")
+        # A `lane` é o prefixo alfabético do variante (ARMADILHA 1 do CLAUDE.md):
+        # é ela que impede o `VEN-SP4` e o `VEN-004` de caírem no mesmo grupo por
+        # partilharem o número. Por omissão `main`, que é o caso de quase tudo.
         # `domains=None` deixa a coluna a NULL, que é o que o schema permite.
         con.execute(
             "INSERT INTO catalog.printings (printing_id, set_id, collector_number, "
@@ -72,7 +79,7 @@ class Vault:
             "public_code, name, rarity, base_rarity, type, orientation, is_banned, "
             "is_token, api_sort, domains_json) "
             "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,0,?,?)",
-            (printing_id, set_id, cn, variant, "main", f"{set_id}|{cn}|main", kind,
+            (printing_id, set_id, cn, variant, lane, f"{set_id}|{cn}|{lane}", kind,
              kind, name.strip().casefold(), codigo, name,
              rarity, rarity, card_type, "portrait",
              api_sort if api_sort is not None else cn,
