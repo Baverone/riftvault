@@ -50,32 +50,45 @@ from . import cardmarket, config, decks, metrics
 
 def excedente(con: sqlite3.Connection, cfg: dict | None = None,
               incluir_master: bool = False) -> list[dict]:
-    """O que ele tem a mais: `cópias − max(usadas nos decks, alvo da coleção)`.
+    """O que sobra, e DE ONDE (André, 2026-09-10).
 
-    É a conta do excedente, num sítio só. Uma cópia só sobra quando **nem a
-    Coleção nem um deck** a pedem:
+    Desde que cada cópia tem um local, a venda tem duas origens e cada linha diz
+    qual — *"venda = cópias no binder Decks/Venda que nenhum deck pede, mais o
+    excedente da Coleção acima dos alvos, cada linha a dizer de onde vem"*:
 
-      `alvo`   — o que a Coleção pede desta impressão (`metrics.alvo`), nos
-                 blocos que contam; zero nos que estão fora dela (tokens,
-                 signatures, sobrenumeradas, promos), que a Coleção não pede.
-      `usadas` — o que os decks lhe alocaram (`decks.printing_allocation`).
+      `from_binder`  — está no binder Decks/Venda e **nenhum deck a pede**. Ele
+                       próprio a tirou da Coleção; se nenhum deck a quer, é
+                       venda, seja qual for o bloco.
+      `from_colecao` — está nos binders de coleção e passa do alvo
+                       (`metrics.alvo`). É o excedente de 2026-09-08.
 
-    `incluir_master=False` (omissão) tira a SEQUÊNCIA do master set, que é o
-    âmbito do `listar()` desde 2026-09-08: *"a sequência nunca entra na venda,
-    por muitas cópias que ele tenha"*.
+    **O que está DENTRO de um deck nunca aparece.** Não é candidata a nada: está
+    sleevada e a jogar. Era o que o `max(usadas, alvo)` fazia por conta própria
+    quando não havia locais; agora lê-se.
 
-    `incluir_master=True` traz a sequência também, com o mesmo alvo e a mesma
-    subtração — é o que a lista das comuns e incomuns precisa (André,
-    2026-09-10), porque as comuns vivem quase todas na sequência e uma quarta
-    cópia de uma Unit de playset 3 não faz falta a ninguém. **Não é um critério
-    novo de excedente**: é o mesmo, sem o corte de âmbito.
+    `incluir_master=False` (omissão) tira a SEQUÊNCIA do master set **da origem
+    Coleção**, que é o âmbito do `listar()` desde 2026-09-08: *"a sequência
+    nunca entra na venda, por muitas cópias que ele tenha"*. A origem BINDER não
+    tem esse corte, e de propósito: uma carta da sequência que ele tenha posto
+    no binder Decks/Venda já não é coleção — foi ele que a tirou de lá.
+
+    `incluir_master=True` traz a sequência da Coleção também — é o que a lista
+    das comuns e incomuns precisa (André, 2026-09-10), porque as comuns vivem
+    quase todas na sequência e uma quarta cópia de uma Unit de playset 3 não faz
+    falta a ninguém. **Não é um critério novo de excedente**: é o mesmo, sem o
+    corte de âmbito.
     """
+    from . import locais
+
     cfg = cfg or config.load()
 
     try:
         alocacao = decks.printing_allocation(con)
+        binder_usado = decks.binder_allocation(con)
     except sqlite3.OperationalError:
-        alocacao = {}               # base sem as tabelas dos decks ainda
+        alocacao, binder_usado = {}, {}     # base sem as tabelas dos decks ainda
+    no_binder = locais.em(con, locais.BINDER)
+    na_colecao = locais.na_colecao(con)
     mercado = cardmarket.versoes(con)
     precos = {r["printing_id"]: r["price_cents"] for r in con.execute(
         "SELECT printing_id, price_cents FROM catalog.price_latest "
@@ -90,20 +103,27 @@ def excedente(con: sqlite3.Connection, cfg: dict | None = None,
         "FROM copies c JOIN catalog.printings p ON p.printing_id = c.printing_id "
         "WHERE c.qty > 0 ORDER BY p.set_id, p.api_sort"
     ):
+        pid = r["printing_id"]
         bloco = metrics.bloco(r, cfg)
-        if bloco == metrics.BLOCO_MASTER and not incluir_master:
-            continue
-        nos_decks = alocacao.get(r["printing_id"], [])
+        nos_decks = alocacao.get(pid, [])
         usadas = sum(d["qty"] for d in nos_decks)
-        # O que a coleção ainda pede fica: nos blocos que contam (runas
-        # especiais e artes alternativas, 1 de cada desde 2026-09-08) só sobra
-        # o que passa do alvo. Nos que não contam — os tokens — sobra tudo o
-        # que os decks não usam, como antes. Era a tensão que o CLAUDE.md tinha
-        # anotada, e a frase dele ("1 alt art de cada") resolveu-a: uma alt art
-        # que ele tem uma vez é coleção, a sexta é venda.
+
+        # ORIGEM 1 — o binder Decks/Venda, menos o que os decks lhe pedem.
+        do_binder = max(0, no_binder.get(pid, 0)
+                        - sum(x["qty"] for x in binder_usado.get(pid, [])))
+
+        # ORIGEM 2 — a Coleção, acima do alvo. Zero nos blocos que estão fora
+        # dela (tokens, signatures, sobrenumeradas, promos), que a Coleção não
+        # pede; e zero na sequência quando o âmbito é o estreito de 2026-09-08.
         alvo = metrics.alvo(r, cfg) if metrics.conta_bloco(bloco, cfg) else 0
-        sobra = r["qty"] - max(usadas, alvo)
-        preco = precos.get(r["printing_id"])
+        da_colecao = max(0, na_colecao.get(pid, 0) - alvo)
+        if bloco == metrics.BLOCO_MASTER and not incluir_master:
+            da_colecao = 0
+
+        sobra = do_binder + da_colecao
+        if sobra <= 0 and usadas <= 0:
+            continue
+        preco = precos.get(pid)
         mkt = mercado.get(r["printing_id"]) or {}
         itens.append({
             "printing_id": r["printing_id"],
@@ -124,10 +144,20 @@ def excedente(con: sqlite3.Connection, cfg: dict | None = None,
             "cdn": r["image_medium"] or r["image_large"] or r["image_url"],
             "have": r["qty"],
             "in_decks": nos_decks, "used": usadas,
+            # DE ONDE vem cada cópia da linha (André, 2026-09-10). Somam o
+            # `qty`; separam-se porque são duas decisões diferentes: tirar do
+            # binder Decks/Venda é arrumação, tirar da Coleção é vender coleção.
+            "from_binder": do_binder,
+            "from_colecao": da_colecao,
+            "in_colecao": na_colecao.get(pid, 0),
+            "in_binder": no_binder.get(pid, 0),
             # `qty` é a quantidade DESTA linha: o que sobra depois dos decks.
             # É o que o gerador do Cardmarket lê (ver `cardmarket.linha`).
             "qty": sobra,
             "state": "deck" if usadas else "venda",
+            "origem": ("binder" if do_binder and not da_colecao else
+                       "colecao" if da_colecao and not do_binder else
+                       "ambos" if sobra else "deck"),
             "price": preco,
             "total": (preco or 0) * sobra,
             "market_name": mkt.get("name") if mkt.get("name") != r["name"] else None,
@@ -159,10 +189,24 @@ def listar(con: sqlite3.Connection, cfg: dict | None = None) -> dict:
         b["copies"] += x["qty"]
         b["cents"] += x["total"]
 
+    # E o mesmo por ORIGEM, que é a leitura nova: quanto vem do binder
+    # Decks/Venda (arrumação) e quanto vem da Coleção (vender coleção).
+    origens = [
+        {"id": "binder", "label": "Do binder Decks/Venda — nenhum deck as pede",
+         "printings": sum(1 for x in venda if x["from_binder"]),
+         "copies": sum(x["from_binder"] for x in venda),
+         "cents": sum(x["from_binder"] * (x["price"] or 0) for x in venda)},
+        {"id": "colecao", "label": "Da Coleção — acima do alvo",
+         "printings": sum(1 for x in venda if x["from_colecao"]),
+         "copies": sum(x["from_colecao"] for x in venda),
+         "cents": sum(x["from_colecao"] * (x["price"] or 0) for x in venda)},
+    ]
+
     return {
         "printings": len(venda),
         "copies": sum(x["qty"] for x in venda),
         "cents": sum(x["total"] for x in venda),
+        "origins": [o for o in origens if o["copies"]],
         # Quantas não têm oferta no CardTrader: entram na lista, não no total.
         "no_price": sum(1 for x in venda if x["price"] is None),
         "in_decks": len(nos_decks),

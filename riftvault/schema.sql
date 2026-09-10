@@ -14,6 +14,48 @@ CREATE TABLE IF NOT EXISTS copies (
     updated_at  TEXT    NOT NULL
 );
 
+-- ONDE está cada cópia (André, 2026-09-10): *"a coleção fica em Binders de
+-- coleção; as cartas dos decks ficam em decks, e haverá um Binder que será
+-- apenas e exclusivamente para Decks/Venda"*.
+--
+-- Guarda SÓ o que não está na Coleção — `deck:<slug>` e `binder`. A Coleção é
+-- `copies.qty` menos a soma disto, e por isso:
+--
+--   * a migração não escreve nada (tabela vazia = tudo na Coleção, que é o
+--     default que ele pediu) e nenhuma cópia se pode perder no caminho;
+--   * o `copies` continua a ser a única verdade sobre QUANTAS cópias existem,
+--     e os `+`/`-` da grelha não têm de saber de locais.
+--
+-- A invariante `SUM(qty) <= copies.qty` é garantida no código
+-- (`locais.ajustar_ao_total`), como toda a integridade entre bases aqui.
+CREATE TABLE IF NOT EXISTS copy_locations (
+    printing_id TEXT    NOT NULL,
+    location    TEXT    NOT NULL,   -- 'binder' | 'deck:<slug>'
+    qty         INTEGER NOT NULL CHECK (qty > 0),
+    updated_at  TEXT    NOT NULL,
+    PRIMARY KEY (printing_id, location)
+);
+
+-- O log dos movimentos de local, e a base do `riftvault local --undo`. É o
+-- gémeo da `ops`, para a outra pergunta: a `ops` diz quantas cópias existem,
+-- esta diz onde é que elas estão. O rasto legível para o André é o
+-- `data/locais.log`, escrito ao mesmo tempo.
+CREATE TABLE IF NOT EXISTS location_ops (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts          TEXT    NOT NULL,
+    printing_id TEXT    NOT NULL,
+    qty         INTEGER NOT NULL,
+    from_loc    TEXT    NOT NULL,
+    to_loc      TEXT    NOT NULL,
+    source      TEXT    NOT NULL,   -- 'web' | 'cli' | 'desfazer'
+    request_id  TEXT    UNIQUE,     -- idempotência, como na `ops`
+    undone_at   TEXT,
+    undo_of     INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS ix_location_ops_ts ON location_ops(ts DESC);
+CREATE INDEX IF NOT EXISTS ix_copy_locations_loc ON copy_locations(location);
+
 -- Log de TUDO o que mexeu na coleção, e a base do `undo`.
 CREATE TABLE IF NOT EXISTS ops (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,

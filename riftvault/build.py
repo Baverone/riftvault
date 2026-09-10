@@ -28,12 +28,14 @@ def build(out_dir: Path | str | None = None, log=print) -> dict:
     image_mode = "local" if cfg.get("static_images") == "local" else "remote"
 
     con = db.connect()  # não readonly: garante o schema num clone fresco
-    # As listas TÊM de ser relidas antes dos payloads da Coleção: o `in_decks`
-    # de cada tile ("2× Ornn · 1 no binder") vem de `decks.printing_allocation`,
-    # que lê as tabelas do vault.db. O vault.db que vem do Git tem os decks como
-    # estavam da última vez que o André correu isto em casa, por isso importar
-    # só a seguir deixava a Coleção uma edição de deck atrasada em relação à
-    # secção Decks do MESMO site.
+    # As listas TÊM de ser relidas antes dos payloads da Coleção: o nome do deck
+    # que aparece em cada tile ("2× Ornn · 1 na Coleção") sai da tabela `decks`
+    # do vault.db, e a alocação por prioridade da secção Decks sai das listas. O
+    # vault.db que vem do Git tem os decks como estavam da última vez que o
+    # André correu isto em casa, por isso importar só a seguir deixava a Coleção
+    # uma edição de deck atrasada em relação à secção Decks do MESMO site.
+    # (Desde 2026-09-10 o LOCAL de cada cópia já não vem daqui — está gravado na
+    # `copy_locations` —, mas o nome de mostrar continua a vir.)
     decks.import_all(con, log=lambda *_: None)
     api_dir = out / "api" / "set"
     api_dir.mkdir(parents=True, exist_ok=True)

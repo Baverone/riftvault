@@ -13,6 +13,7 @@
     riftvault a-subir [--cardmarket] [--todas] [--csv f.csv]
     riftvault venda [--comuns] [--cardmarket] [--csv f.csv]
     riftvault wantlist [--edicao OGN] --cardmarket
+    riftvault local [REF N --para deck:azir] [--deck azir --propor|--marcar ...]
 """
 
 from __future__ import annotations
@@ -25,6 +26,7 @@ from . import a_subir as a_subir_mod
 from . import build as build_mod
 from . import cardmarket, catalog, collection, config, db, decks as decks_mod
 from . import faltas as faltas_mod
+from . import locais as locais_mod
 from . import metrics, pending as pending_mod, prices, server
 from . import venda as venda_mod
 
@@ -305,10 +307,26 @@ def cmd_decks(args) -> int:
         decks_mod.set_order(con, ids)
         print("ordem alterada.\n")
 
-    print(f"{'#':<3} {'deck':<48} {'tenho':>12} {'falta':>7} {'noutro':>7}")
-    for d in decks_mod.decks_index(con):
-        print(f"{d['priority']:<3} {d['name'][:48]:<48} "
-              f"{d['have']:>5}/{d['wanted']:<6} {d['missing']:>7} {d['shared']:>7}")
+    # Desde 2026-09-10 o "tenho" só conta cópias marcadas NO deck ou no binder
+    # Decks/Venda: a Coleção não monta decks. A coluna "coleção" é o que existe
+    # mas está nos binders de coleção — decisão dele, mover ou comprar outra.
+    print(f"{'#':<3} {'deck':<40} {'tenho':>12} {'deck':>5} {'binder':>7} "
+          f"{'coleção':>8} {'falta':>6} {'noutro':>7}")
+    idx = decks_mod.decks_index(con)
+    for d in idx:
+        print(f"{d['priority']:<3} {d['name'][:40]:<40} "
+              f"{d['have']:>5}/{d['wanted']:<6} {d['no_deck']:>5} "
+              f"{d['no_binder']:>7} {d['na_colecao']:>8} {d['missing']:>6} "
+              f"{d['shared']:>7}")
+    na_col = sum(d["na_colecao"] for d in idx)
+    if na_col:
+        print(f"\n{na_col} cópias que os decks pedem estão nos binders de COLEÇÃO "
+              f"e não contam.\nMarca-as com `riftvault local --deck <slug> "
+              f"--propor` (e depois `--marcar`).")
+    extra = sum(d["extra"] for d in idx)
+    if extra:
+        print(f"{extra} cópias estão marcadas num deck que já não as pede — "
+              f"a lista mudou.")
     con.close()
     return 0
 
@@ -333,6 +351,19 @@ def cmd_deck(args) -> int:
         print("  por casar no catálogo: "
               + ", ".join(u["name"] for u in p["unresolved"]))
 
+    # De onde vêm as cartas (André, 2026-09-10). São quatro respostas
+    # diferentes e cada uma pede uma acção diferente.
+    lc = p["locais"]
+    print(f"  no deck {lc['no_deck']} · no binder Decks/Venda {lc['no_binder']}"
+          f" (ir buscar) · na Coleção {lc['na_colecao']} (não conta) · "
+          f"a comprar {lc['missing']}")
+    if lc["na_colecao"]:
+        print(f"  as {lc['na_colecao']} da Coleção são duplicado a comprar ou a "
+              f"decidir: `riftvault local --deck {p['slug']} --propor`")
+    if lc["extra"]:
+        print(f"  {lc['extra']} cópias estão marcadas neste deck e ele já não "
+              f"as pede.")
+
     if p["missing_by_set"]:
         print("\nFalta comprar, por edição:")
         pl = lambda n, s, p_: f"{s if n == 1 else p_}"
@@ -346,13 +377,26 @@ def cmd_deck(args) -> int:
         print(f"\n{s['label']}  ({s['have']}/{s['wanted']})")
         for c in s["cards"]:
             if c["shared"]:
-                onde = ", ".join(f"{h['qty']}x em «{h['deck']}»" for h in c["shared"]["em"])
+                onde = ", ".join(
+                    f"{h['qty']}x em «{h['deck']}»"
+                    + (" (na Coleção)" if h.get("onde") == "colecao" else "")
+                    for h in c["shared"]["em"])
                 marca, extra = "~", f"  -> {onde}"
+            elif c["na_colecao"]:
+                # Existe, mas está nos binders de COLEÇÃO: não monta o deck.
+                marca = "c"
+                extra = (f"  ({c['na_colecao']} na Coleção — mover ou comprar)"
+                         + (f", falta{'m' if c['missing'] - c['na_colecao'] > 1 else ''} "
+                            f"{c['missing'] - c['na_colecao']} a comprar"
+                            if c["missing"] > c["na_colecao"] else ""))
             elif c["missing"]:
                 # "não tenho" só quando é mesmo zero; com 1 de 2 é "falta 1".
                 marca = "x"
                 extra = ("  (não tenho)" if c["have"] == 0
                          else f"  (falta{'m' if c['missing'] > 1 else ''} {c['missing']})")
+            elif c["no_binder"]:
+                marca = "b"
+                extra = f"  ({c['no_binder']} por ir buscar ao binder Decks/Venda)"
             else:
                 marca = "."
                 extra = ("  " + " · ".join(f"{x['qty']}x {x['code']}" for x in c["printings"])
@@ -727,6 +771,133 @@ def cmd_pending(args) -> int:
     return 0
 
 
+def cmd_local(args) -> int:
+    """Onde está cada cópia: Coleção, um deck, ou o binder Decks/Venda.
+
+    André, 2026-09-10: *"a coleção fica em Binders de coleção; as cartas dos
+    decks ficam em decks, e haverá um Binder que será apenas e exclusivamente
+    para Decks/Venda"*.
+
+    Sem argumentos mostra o resumo. As marcações em lote (`--propor` /
+    `--marcar`) são dois passos de propósito: o `--propor` calcula e **não
+    grava**, e o `--marcar` grava **só** as linhas que ele escrever. É a lição
+    do mtgvault de 2026-09-09 — a lista que o vault calcula nunca é a lista que
+    se grava.
+    """
+    con = db.connect()
+    decks_mod.import_all(con, log=lambda *_: None)
+    nomes = locais_mod.nomes_dos_decks(con)
+
+    if args.undo:
+        res = locais_mod.undo_last(con, source="cli")
+        if not res:
+            print("não havia movimentos de local para desfazer.")
+            return 1
+        print(f"desfeito o movimento #{res['undone_op']}: {res['qty']}x "
+              f"{_describe(con, res['printing_id'])} voltou a "
+              f"{locais_mod.rotulo(res['para'], nomes)}")
+        con.close()
+        return 0
+
+    if args.desfazer_deck:
+        slug = args.desfazer_deck
+        if slug not in locais_mod.slugs(con):
+            print(f"erro: não há deck chamado {slug!r}", file=sys.stderr)
+            return 1
+        res = locais_mod.desfazer_deck(con, slug, source="cli")
+        print(f"Deck «{slug}» desfeito: {res['copies']} cópias de "
+              f"{res['printings']} impressões passaram ao binder Decks/Venda.")
+        print("Ficam disponíveis para outro deck. Nada voltou à Coleção — "
+              "isso é decisão tua (`riftvault local <ref> N --para colecao`).")
+        con.close()
+        return 0
+
+    if args.propor:
+        if not args.deck:
+            print("erro: --propor precisa de --deck <slug>.", file=sys.stderr)
+            return 1
+        p = locais_mod.propor_deck(con, args.deck)
+        if p.get("erro"):
+            print(f"erro: {p['erro']}", file=sys.stderr)
+            return 1
+        if not p["items"]:
+            print(f"O deck «{args.deck}» não precisa de nada que esteja na Coleção.")
+            con.close()
+            return 0
+        print(f"PROPOSTA para o deck «{args.deck}» — {p['copies']} cópias que "
+              f"estão na Coleção e o deck pede.")
+        exemplo = ",".join("{}:{}".format(x["printing_id"], x["qty"])
+                           for x in p["items"][:3])
+        print("Nada disto foi gravado. Confirma o que quiseres com:")
+        print(f'  riftvault local --deck {args.deck} --marcar "{exemplo}"\n')
+        for x in p["items"]:
+            print(f"  {x['qty']}x {x['printing_id']:<22} {x['code']:<16} "
+                  f"{x['name'][:30]:<30} (tens {x['na_colecao']} na Coleção)")
+        con.close()
+        return 0
+
+    if args.marcar:
+        if not args.deck and not args.para:
+            print("erro: --marcar precisa de --deck <slug> ou --para <local>.",
+                  file=sys.stderr)
+            return 1
+        destino = args.para or locais_mod.deck_local(args.deck)
+        linhas = []
+        for pedaco in args.marcar.split(","):
+            pedaco = pedaco.strip()
+            if not pedaco:
+                continue
+            ref, _, q = pedaco.partition(":")
+            linhas.append({"printing_id": ref.strip(), "qty": int(q or 1)})
+        try:
+            res = locais_mod.marcar(con, linhas, destino,
+                                    de=args.de or locais_mod.COLECAO, source="cli")
+        except (locais_mod.LocalInvalido, locais_mod.SemCopias) as exc:
+            print(f"erro: {exc}", file=sys.stderr)
+            return 1
+        for x in res["movidas"]:
+            print(f"  {x['qty']}x {_describe(con, x['printing_id'])} -> "
+                  f"{locais_mod.rotulo(x['para'], nomes)}")
+        for x in res["falhadas"]:
+            print(f"  X {x['printing_id']}: {x['erro']}", file=sys.stderr)
+        print(f"\n{res['copies']} cópias marcadas. Rasto em "
+              f"data/{locais_mod.LOG_NAME}.")
+        con.close()
+        return 0 if not res["falhadas"] else 1
+
+    if args.ref:
+        if not args.para:
+            print("erro: falta --para <colecao|binder|deck:slug>.", file=sys.stderr)
+            return 1
+        try:
+            res = locais_mod.mover(con, args.ref, _qty(args.qty),
+                                   args.de or locais_mod.COLECAO, args.para,
+                                   source="cli")
+        except (locais_mod.LocalInvalido, locais_mod.SemCopias) as exc:
+            print(f"erro: {exc}", file=sys.stderr)
+            return 1
+        except collection.UnknownPrinting as exc:
+            print(f"erro: {exc}", file=sys.stderr)
+            return 1
+        print(f"{res['qty']}x {_describe(con, res['printing_id'])}: "
+              f"{locais_mod.rotulo(res['de'], nomes)} -> "
+              f"{locais_mod.rotulo(res['para'], nomes)}")
+        con.close()
+        return 0
+
+    linhas = locais_mod.resumo(con)
+    total = sum(x["copies"] for x in linhas)
+    print(f"Onde estão as {total} cópias:\n")
+    for x in linhas:
+        print(f"  {x['copies']:>5} cópias  {x['printings']:>4} impressões  "
+              f"{x['label']}")
+    if len(linhas) <= 1:
+        print("\n(ainda não marcaste nada: por omissão está tudo na Coleção)")
+    print(f"\nMarcar: riftvault local --deck <slug> --propor  e depois --marcar")
+    con.close()
+    return 0
+
+
 def cmd_find(args) -> int:
     con = db.connect()
     rows = con.execute(
@@ -878,6 +1049,24 @@ def main(argv: list[str] | None = None) -> int:
                    metavar="ID",
                    help="dá entrada na coleção: sem ID, tudo o que está aberto")
     p.set_defaults(func=cmd_pending)
+
+    p = sub.add_parser("local", help="onde está cada cópia: Coleção, deck, "
+                                     "binder Decks/Venda")
+    p.add_argument("ref", nargs="?", help="OGN-100a, ogn-100a-298, UNL-T03")
+    p.add_argument("qty", nargs="?", default="1", help="3 ou x3 (default 1)")
+    p.add_argument("--para", help="destino: colecao | binder | deck:<slug>")
+    p.add_argument("--de", help="origem (por omissão: colecao)")
+    p.add_argument("--deck", help="o deck a que se referem --propor/--marcar")
+    p.add_argument("--propor", action="store_true",
+                   help="com --deck: lista o que este deck usaria da Coleção. "
+                        "NÃO grava nada.")
+    p.add_argument("--marcar", metavar="LINHAS",
+                   help="grava SÓ estas linhas: 'pid:qty,pid:qty'")
+    p.add_argument("--desfazer-deck", dest="desfazer_deck", metavar="SLUG",
+                   help="passa tudo o que está neste deck para o binder Decks/Venda")
+    p.add_argument("--undo", action="store_true",
+                   help="desfaz o último movimento de local")
+    p.set_defaults(func=cmd_local)
 
     p = sub.add_parser("find", help="procura impressões por nome ou código")
     p.add_argument("query")

@@ -85,6 +85,115 @@ não tem FK declarada, a integridade é garantida no código.
 
 ---
 
+# Onde está cada cópia: três locais (2026-09-10)
+
+Palavras dele: *"vou querer ter as cartas da coleção apenas alocadas à coleção e
+as cartas dos decks apenas alocadas a Decks. Ou seja: a coleção fica em Binders
+de coleção; as cartas dos decks ficam em decks, e haverá um Binder que será
+apenas e exclusivamente para Decks/Venda — caso um deck seja desfeito, as cartas
+ficam para outro deck ou nesse binder."*
+
+**Isto é a mudança mais funda desde o início.** Até aqui uma cópia era um número
+(`copies.qty`) e "estar num deck" era uma DEDUÇÃO — a alocação por prioridade
+adivinhava-o a partir das listas, com artes base primeiro. Agora é um FACTO
+gravado, e a mesma cópia já não pode contar duas vezes.
+
+| local | escreve-se | o que é | conta para |
+|---|---|---|---|
+| Coleção | `colecao` | os binders de coleção | a percentagem, os níveis, as wantlists |
+| Deck | `deck:<slug>` | sleevada num dos `decks/*.txt` | só esse deck |
+| Binder Decks/Venda | `binder` | o stock livre | qualquer deck por prioridade; o que sobra é venda |
+
+## A COLEÇÃO NÃO SE GRAVA, CALCULA-SE
+
+A `copy_locations` guarda **só** o que NÃO está na Coleção. A Coleção é
+`copies.qty − Σ(o resto)`. Duas coisas de uma vez:
+
+- **a migração não escreve linha nenhuma.** *"Onde não se sabe o local, fica
+  Coleção por omissão"* sai de graça de uma tabela vazia, e por isso a contagem
+  de cópias antes e depois é a mesma **por construção** — não há um passo de
+  cópia de dados que possa perder uma cópia pelo caminho. Não foi preciso backup
+  nenhum: a migração é um `CREATE TABLE IF NOT EXISTS`.
+- **o `copies` continua a ser a única verdade sobre QUANTAS cópias existem.** Os
+  `+`/`−` da grelha não sabem de locais: somam ao total, e o que sobe é a
+  Coleção.
+
+O preço é a invariante `Σ(fora) <= total`, garantida em
+`locais.ajustar_ao_total`, chamado pelo `collection.adjust` quando o total
+desce. Um `−` numa impressão que está toda num deck tira-a **do deck** (binder
+primeiro, decks depois) e deixa rasto `-> (saiu da coleção)`. Sem isto a Coleção
+ficava com contagem negativa.
+
+## As três regras, e onde vivem
+
+1. **A Coleção só conta cópias com local = Coleção.** `locais.na_colecao` é a
+   única resposta, e é ela que o `metrics.set_payload`, o
+   `metrics.itens_da_colecao` (níveis) e o `a_subir.em_falta` (as três listas de
+   compra) leem. Uma cópia num deck **volta a aparecer como falta** — é a
+   consequência que ele pediu.
+2. **Os decks só se montam com Deck + Binder Decks/Venda.** `decks.pool_dos_decks`
+   dá os dois montes; o que está sleevado num deck é DAQUELE deck e não anda, o
+   binder distribui-se por prioridade como sempre. Uma carta que o deck pede e
+   está na Coleção sai em `na_colecao`: **não é «tenho» nem é «a comprar»**.
+3. **Desfazer um deck manda tudo para o binder** (`locais.desfazer_deck`), onde
+   fica disponível para outro deck. **Nada volta à Coleção**: quem as tirou de
+   lá foi ele.
+
+## A marcação: propor é do vault, gravar é dele
+
+`locais.propor_deck` calcula o que o deck usaria da Coleção (artes base
+primeiro) e **não grava nada**. `locais.marcar` grava **só as linhas que vierem
+na lista** — uma lista vazia levanta `SemCopias`, e o `/api/local/marcar`
+devolve 400 com a razão escrita. É a lição do mtgvault de 2026-09-09: lá o
+registo gravou uma alocação calculada inteira, incluindo duas cartas que ele
+tinha dito não ter. **O «Marcar tudo» só liga as checkboxes.**
+
+Rasto duplo: `location_ops` (que é o que o `--undo` lê) e `data/locais.log`, um
+CSV com quando, cópia, de → para e a origem do clique. **Se uma cópia aparecer
+num deck sem linha no log, é bug.**
+
+## O que mudou nas leituras
+
+- `decks.printing_allocation` passou a **ler** os locais em vez de os adivinhar.
+  A heurística "artes base primeiro" sobrevive em dois sítios onde continua a
+  ser a pergunta certa: a PROPOSTA (`propor_deck`) e o `binder_allocation` (que
+  cópia do binder é que o deck leva).
+- O tile da Coleção mostra o `qty` da **Coleção** no badge e o `locations` na
+  linha de baixo (`3× Azir · 1 na Coleção`). O `/api/adjust` passou a devolver
+  `qty_colecao` e `locations` a par do `qty` (que continua a ser o total
+  físico) — trocá-los punha a barra a contar cartas que estão em decks.
+- A **Venda** tem duas origens e cada linha diz a sua: `from_binder` (nenhum
+  deck a pede) e `from_colecao` (acima do alvo). O que está DENTRO de um deck
+  nunca aparece. A sequência do master set **na Coleção** continua fora
+  (2026-09-08), mas a que está no binder Decks/Venda entra: foi ele que a tirou
+  de lá.
+- O **valor** da coleção continua a ser o total físico: uma carta não vale menos
+  por estar sleevada.
+
+## O que NÃO mudou, de propósito
+
+- **A secção Faltas (`faltas.py`) continua a contar as cópias todas**, esteja
+  onde estiverem (`decks.owned_by_card`). Ela responde a "o que comprar primeiro
+  para os decks", com o teto do playset; passá-la a cega para a Coleção fazia-a
+  dizer, no dia da migração, que ele tem de comprar quase tudo outra vez.
+  **É pergunta para ele** — ver o relatório `riftvault-binders.md`.
+- **O playset JOGÁVEL** (`metrics.owned_by_card`, a métrica 1) também é o total
+  físico. É o "quantas destas cartas tenho ao todo", e é a mesma pergunta do
+  Pimp.
+- **O `−` do tile tira da Coleção.** Com a Coleção a zero fica desligado, mesmo
+  que ele tenha cópias em decks — a grelha é dos binders de coleção. Tira-se
+  pelo `riftvault remove` ou move-se primeiro.
+
+## Efeito medido no `data/` real
+
+Ver a tabela do relatório. **Na prática: a percentagem de master set NÃO desce**
+(a migração deixa tudo na Coleção) e os **decks passam a 0 alocadas** até ele
+marcar — o que estava a contar como "no deck" era uma dedução, e ela
+desapareceu. É o passo que a frase dele obriga: ele é que sabe o que está
+fisicamente em cada caixa.
+
+---
+
 # A API da RiftScribe — o que foi VALIDADO (2026-08-31)
 
 Base: `https://riftscribe.gg/api`. Pública, sem autenticação.
@@ -1947,6 +2056,11 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   vendas não existe em fonte pública**, e a página diz isso; o CardTrader passou
   a dar vendedores e cópias à venda, com histórico novo no `listings_history`.
   O excedente dele em comuns e incomuns vale **3,83 €**.
+- **Feito também:** os locais das cópias (2026-09-10) — Coleção, `deck:<slug>` e
+  binder Decks/Venda, com a Coleção a contar só o que está nela, os decks a não
+  tirarem de lá, o desfazer-deck a mandar tudo para o binder, a venda por origem,
+  a marcação em dois passos (propor / confirmar linha a linha) e o rasto em
+  `data/locais.log`. `riftvault local` no CLI.
 - **Por fazer:** vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck,
   com as partilhadas assinaladas); e apagar decks pela interface (hoje apaga-se
   o `.txt`).

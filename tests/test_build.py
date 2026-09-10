@@ -59,13 +59,27 @@ class TestBuildReleDecks(unittest.TestCase):
         self.fail(f"{printing_id} não apareceu no payload")
 
     def test_coleccao_e_decks_concordam_depois_de_editar_a_lista(self):
-        # Duas publicações com a lista completa: a segunda já parte de um
-        # vault.db com os decks lá dentro, como o que vem do Git.
+        """A Coleção diz onde a cópia ESTÁ, e a lista do deck é outra coisa.
+
+        Desde 2026-09-10 o `in_decks` do tile lê-se da `copy_locations` — é um
+        facto que o André marcou —, já não é deduzido da lista do deck. Por
+        isso a cópia continua no deck depois de a lista mudar: ela está mesmo
+        lá dentro. O que o build tem de garantir é que RELÊ as listas antes de
+        gerar os payloads da Coleção, senão a secção Decks e a Coleção do MESMO
+        site falavam de listas diferentes.
+        """
+        from riftvault import db, locais
         self.v.write_deck("azir", DECK)
         self._build()
+
+        con = db.connect()
+        locais.mover(con, "tst-001-100", 3, locais.COLECAO,
+                     locais.deck_local("azir"), source="test")
+        con.close()
+
         out = self._build()
-        self.assertTrue(self._in_decks(out, "tst-001-100"),
-                        "o Defy devia aparecer alocado ao deck")
+        self.assertEqual([x["qty"] for x in self._in_decks(out, "tst-001-100")], [3],
+                         "o Defy devia aparecer marcado no deck")
 
         # O André tira o Defy da lista e volta a publicar.
         self.v.write_deck("azir", DECK_SEM_DEFY)
@@ -75,9 +89,10 @@ class TestBuildReleDecks(unittest.TestCase):
         nomes = {c["name"] for s in deck["sections"] for c in s["cards"]}
         self.assertNotIn("Defy", nomes, "o payload do deck já não devia ter o Defy")
 
-        self.assertEqual(
-            self._in_decks(out, "tst-001-100"), [],
-            "a Coleção continuou a dizer que o Defy está num deck que já não o usa")
+        # A cópia continua fisicamente na caixa do deck — e o deck diz que tem
+        # 3 cópias a mais que já não pede. É o `extra`.
+        self.assertEqual([x["qty"] for x in self._in_decks(out, "tst-001-100")], [3])
+        self.assertEqual(deck["locais"]["extra"], 3)
 
 
 if __name__ == "__main__":

@@ -87,7 +87,7 @@ from __future__ import annotations
 import sqlite3
 from datetime import date, timedelta
 
-from . import cardmarket, config, metrics, pending
+from . import cardmarket, config, locais, metrics, pending
 
 # Tudo isto se muda no `riftvault_config.json`, bloco "a_subir".
 DEFAULTS: dict = {
@@ -249,8 +249,10 @@ def em_falta(con: sqlite3.Connection, escopo: dict[str, dict],
     O `target` que sai é o do nível — é o que a linha «tem 1 de 2» quer dizer —
     e o alvo inteiro vai no `full_target`, para não se perder.
     """
-    tenho = {r["printing_id"]: r["qty"] for r in
-             con.execute("SELECT printing_id, qty FROM copies WHERE qty > 0")}
+    # SÓ as cópias que estão nos binders de COLEÇÃO (André, 2026-09-10). As
+    # listas de compra da Coleção medem a Coleção: uma cópia que está num deck
+    # não fecha a página do binder, e por isso a impressão continua em falta.
+    tenho = dict(locais.na_colecao(con))
     for pid, q in pending.open_qty(con).items():
         tenho[pid] = tenho.get(pid, 0) + q
 

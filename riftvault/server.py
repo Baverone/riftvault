@@ -18,7 +18,7 @@ from datetime import datetime, timezone
 
 from flask import Flask, g, jsonify, redirect, request, send_from_directory
 
-from . import collection, config, db, decks, faltas, metrics, pending, venda
+from . import collection, config, db, decks, faltas, locais, metrics, pending, venda
 
 app = Flask(__name__, static_folder=None)
 
@@ -160,6 +160,87 @@ def api_pending_arrive():
     return jsonify({"arrived": feitas, "pending": pending.totals(con)})
 
 
+# --------------------------------------------------------------------------
+# Locais das cópias (André, 2026-09-10): Coleção, deck, binder Decks/Venda
+# --------------------------------------------------------------------------
+
+
+@app.get("/api/local.json")
+def api_local():
+    con = get_con()
+    _reimport_if_changed(con)
+    return jsonify({"editable": True, "locais": locais.resumo(con)})
+
+
+@app.get("/api/local/propor/<slug>.json")
+def api_local_propor(slug: str):
+    """A PROPOSTA de marcação de um deck. Não escreve nada — é para o ecrã.
+
+    O que se grava é o que ele confirmar linha a linha, pelo `/api/local/marcar`.
+    """
+    con = get_con()
+    _reimport_if_changed(con)
+    return jsonify(locais.propor_deck(con, slug))
+
+
+@app.post("/api/local/mover")
+def api_local_mover():
+    data = request.get_json(silent=True) or {}
+    if not data.get("printing_id"):
+        return jsonify({"error": "falta printing_id"}), 400
+    try:
+        res = locais.mover(get_con(), data["printing_id"], int(data.get("qty", 1)),
+                           data.get("de") or locais.COLECAO, data.get("para") or "",
+                           source="web", request_id=data.get("request_id"))
+    except (locais.LocalInvalido, locais.SemCopias) as exc:
+        return jsonify({"error": str(exc)}), 400
+    except collection.UnknownPrinting as exc:
+        return jsonify({"error": str(exc)}), 404
+    return jsonify(res)
+
+
+@app.post("/api/local/marcar")
+def api_local_marcar():
+    """Marca VÁRIAS cópias de uma vez — mas só as que vierem na lista.
+
+    Um pedido sem `linhas` é 400 com a razão escrita, e não escreve nada. Lista
+    vazia e lista ausente são a mesma coisa: não há nada confirmado. É a defesa
+    do mtgvault de 2026-09-09, onde o registo gravou uma alocação calculada
+    inteira — incluindo cartas que ele tinha dito não ter.
+    """
+    data = request.get_json(silent=True) or {}
+    linhas = data.get("linhas")
+    if not isinstance(linhas, list) or not linhas:
+        return jsonify({"error": "o marcador só grava as linhas que confirmaste; "
+                                 "esta lista veio vazia"}), 400
+    try:
+        res = locais.marcar(get_con(), linhas, data.get("para") or "",
+                            de=data.get("de") or locais.COLECAO, source="web")
+    except (locais.LocalInvalido, locais.SemCopias) as exc:
+        return jsonify({"error": str(exc)}), 400
+    return jsonify(res)
+
+
+@app.post("/api/local/desfazer-deck")
+def api_local_desfazer_deck():
+    """Desfaz um deck: tudo o que estava nele passa ao binder Decks/Venda."""
+    slug = (request.get_json(silent=True) or {}).get("slug")
+    if not slug:
+        return jsonify({"error": "falta o slug do deck"}), 400
+    con = get_con()
+    if not con.execute("SELECT 1 FROM decks WHERE name = ?", (slug,)).fetchone():
+        return jsonify({"error": f"não há deck chamado {slug!r}"}), 404
+    return jsonify(locais.desfazer_deck(con, slug, source="web"))
+
+
+@app.post("/api/local/undo")
+def api_local_undo():
+    res = locais.undo_last(get_con(), source="web")
+    if not res:
+        return jsonify({"error": "não havia movimentos para desfazer"}), 404
+    return jsonify(res)
+
+
 @app.post("/api/decks/order")
 def api_decks_order():
     """Reordena. O primeiro id da lista passa a ser o deck principal."""
@@ -211,6 +292,7 @@ def api_adjust():
         return jsonify({"error": str(exc)}), 404
 
     res["playset"] = _playset_for(printing_id)
+    res.update(_locais_de(printing_id))
     return jsonify(res)
 
 
@@ -224,7 +306,29 @@ def api_undo():
     if not res:
         return jsonify({"error": "não havia nada para desfazer"}), 404
     res["playset"] = _playset_for(res["printing_id"])
+    res.update(_locais_de(res["printing_id"]))
     return jsonify(res)
+
+
+def _locais_de(printing_id: str) -> dict:
+    """Quantas desta impressão estão na COLEÇÃO, e onde estão as outras.
+
+    O `qty` da resposta é o total físico — é o que o `copies` guarda. A grelha
+    da Coleção mostra outra coisa desde 2026-09-10 (só as que estão nos binders
+    de coleção), por isso o número dela vai à parte e não como `qty`: são duas
+    perguntas e trocá-las era pôr a barra a contar cartas que estão em decks.
+    """
+    from . import locais
+    con = get_con()
+    onde = (locais.por_local(con)).get(printing_id) or {}
+    nomes = locais.nomes_dos_decks(con)
+    return {
+        "qty_colecao": onde.get(locais.COLECAO, 0),
+        "locations": [{"loc": loc, "label": locais.rotulo(loc, nomes), "qty": n}
+                      for loc, n in sorted(onde.items(),
+                                           key=lambda kv: (kv[0] != locais.COLECAO,
+                                                           kv[0]))],
+    }
 
 
 def _playset_for(printing_id: str) -> dict | None:

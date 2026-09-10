@@ -411,9 +411,20 @@ sugestão. **Diz se as queres aí ou se preferes guardá-las.**
 **E com as promos, outra vez o mesmo:** a `VEN-SP5` Ezreal, Prodigy que tens
 (**18,87 €**) passou a candidata a venda. É a mesma pergunta das duas de cima.
 
+**Duas origens desde 2026-09-10, e cada linha diz a sua:**
+
+- **do binder Decks/Venda** — cópias que tiraste da Coleção e que **nenhum deck
+  pede**. Entram seja qual for o bloco, incluindo a sequência do master set:
+  foste tu que as tiraste da coleção.
+- **da Coleção** — o que passa do alvo, como sempre. Aqui a sequência do master
+  set continua a **não** entrar, por muitas que tenhas a mais (decisão de
+  2026-09-08).
+
+O que está **dentro** de um deck nunca aparece na lista — está sleevado e a
+jogar.
+
 **Nada sai da base.** É uma sugestão — não há botão de vender e a coleção não
-mexe. As impressões da sequência do master set nunca entram aqui, por muitas
-que tenhas a mais.
+mexe.
 
 ```bash
 py -m riftvault venda                # a tabela
@@ -506,9 +517,46 @@ deck pede, e o badge quantas lhe estão alocadas.
 
 Ao contrário, na **Coleção** cada carta que saiu para um deck diz para qual —
 para quando a procuras no binder e ela não lá está. Quando só parte saiu, diz
-quantas ficaram (`2× Ornn, Fire Below the Mountain · 1 no binder`). As cópias
-que vão para os decks são as **artes base primeiro**, para as alternativas e
-signatures ficarem no binder.
+quantas ficaram (`3× Azir · 1 na Coleção`).
+
+### Onde está cada cópia (2026-09-10)
+
+Cada cópia tem **um local**, e só um:
+
+| local | o que é | conta para |
+|---|---|---|
+| **Coleção** | os binders de coleção | a percentagem de master set, os níveis, as wantlists |
+| **Deck `<slug>`** | sleevada dentro de um dos `decks/*.txt` | só esse deck |
+| **Binder Decks/Venda** | o stock livre | qualquer deck, por prioridade; o que sobra é venda |
+
+- **A Coleção só conta o que está na Coleção.** Uma cópia que esteja num deck
+  deixa de contar para a barra, mesmo sendo a mesma impressão — a impressão
+  volta a aparecer como falta.
+- **Os decks nunca tiram da Coleção.** Uma carta que o deck pede e que está nos
+  binders de coleção aparece como **«na Coleção — mover ou comprar»**: não é
+  «tenho» nem é «a comprar», é decisão tua.
+- **Desfazer um deck** manda tudo o que estava nele para o binder Decks/Venda,
+  onde fica disponível para outro deck. Nada volta à Coleção sozinho.
+
+**Por omissão está tudo na Coleção.** A marcação faz-se em dois passos, e o
+segundo só grava o que confirmares:
+
+```bash
+py -m riftvault local                                   # onde está o quê
+py -m riftvault local --deck azir --propor              # a proposta (não grava)
+py -m riftvault local --deck azir --marcar "ogn-045-298:3,ogn-102-298:2"
+py -m riftvault local OGN-100a 2 --para binder          # mover à mão
+py -m riftvault local --desfazer-deck azir              # tudo para o binder
+py -m riftvault local --undo                            # desfazer o último
+```
+
+No site, em modo edição, é o botão **«Marcar o que este deck usa…»** no
+cabeçalho do deck: mostra a proposta com checkboxes e grava **só as marcadas**.
+O «Marcar tudo» liga as caixas e mais nada.
+
+Cada movimento deixa uma linha em **`data/locais.log`** (CSV: quando, cópia,
+de → para, de onde veio o clique). Se uma cópia aparecer num deck sem linha
+aí, é bug.
 
 O cabeçalho valida main 40 (o Champion conta), 12 runas, 3 battlefields,
 máximo 3 cópias e a identidade de domínio do Legend, e mostra **quantas cópias
@@ -544,6 +592,7 @@ riftvault shopping [--deck azir] [--csv f.csv]    # o que falta comprar
 riftvault a-subir [--cardmarket] [--todas]        # master set: a subir / tudo
 riftvault venda [--cardmarket] [--csv f.csv]      # fora do master set, a sobrar
 riftvault venda --comuns                          # comuns e incomuns: as caras
+riftvault local [...]                             # onde está cada cópia
 riftvault map / prices / value                    # CardTrader
 ```
 
@@ -557,6 +606,7 @@ riftvault/
   riftscribe.py   cliente da API
   catalog.py      constrói o catalog.db (impressões + cartas lógicas + aliases)
   collection.py   escrita na coleção, log e undo
+  locais.py       onde está cada cópia: Coleção, deck, binder Decks/Venda
   metrics.py      as duas métricas, os blocos da grelha e os payloads
   a_subir.py      o que falta do master set (a subir, e a lista completa)
   venda.py        o que está fora do master set e sobra dos decks
