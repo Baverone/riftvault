@@ -44,14 +44,16 @@ DEFAULTS: dict = {
         "special": 1,
     },
     "token_target": 1,
-    # Fora da coleção (André, 2026-09-08): escreve-se pelo sufixo do código, que
-    # é como ele fala. Hoje o `-T` dos tokens, o `*` das signatures e as
-    # `overnumbered` — as artes alternativas voltaram para dentro com alvo 1
-    # ("no fim 1 alt art de cada"), as signatures saíram a 2026-09-09 ("das
-    # coleções tira as signatures, fazemos 1 Alt Art de cada mas as signature
-    # não") e as sobrenumeradas a 2026-09-10 ("também não quero para a coleção
-    # as overnumbered"). Ver `metrics._fora` e `metrics.e_master`.
-    "master_set": {"fora": ["-T", "*", "overnumbered"]},
+    # Fora da coleção (André, 2026-09-08): escreve-se como ele fala — pelo
+    # sufixo do código ou pela palavra dele. Hoje o `-T` dos tokens, o `*` das
+    # signatures, as `overnumbered` e as `promo` (as `VEN-SP`) — as artes
+    # alternativas voltaram para dentro com alvo 1 ("no fim 1 alt art de cada"),
+    # as signatures saíram a 2026-09-09 ("das coleções tira as signatures,
+    # fazemos 1 Alt Art de cada mas as signature não"), as sobrenumeradas a
+    # 2026-09-10 ("também não quero para a coleção as overnumbered") e as promos
+    # no mesmo dia ("quero que as promos fiquem também à parte, tal como as
+    # signature e as overnumbered"). Ver `metrics._fora` e `metrics.e_master`.
+    "master_set": {"fora": ["-T", "*", "overnumbered", "promo"]},
     # O bloco 2 da Coleção: "1 runa especial de cada para cada set".
     "runas_especiais": {"tipos": ["Rune"], "excepto": ["base"], "alvo": 1},
     # Vazio desde 2026-09-08: as artes alternativas pedem 1, não o playset.
