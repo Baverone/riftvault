@@ -2,7 +2,7 @@
 
     riftvault sync [--set OGN] [--images]
     riftvault serve [--port 8770]
-    riftvault build [--out site]
+    riftvault build [--out site] [--se-mudou]
     riftvault add OGN-100a x1
     riftvault remove OGN-100a x1
     riftvault set OGN-100a 3
@@ -101,7 +101,10 @@ def cmd_serve(args) -> int:
 
 
 def cmd_build(args) -> int:
-    res = build_mod.build(args.out)
+    res = build_mod.build(args.out, so_se_mudou=getattr(args, "se_mudou", False))
+    if not res["mudou"]:
+        print(f"\nSite em dia em {res['out']} — nada para regenerar.")
+        return 0
     print(f"\nSite gerado em {res['out']} ({res['sets']} edições, "
           f"imagens: {res['image_mode']}).")
     return 0
@@ -942,6 +945,9 @@ def main(argv: list[str] | None = None) -> int:
 
     p = sub.add_parser("build", help="modo publicado: gera o site estático")
     p.add_argument("--out", default=None)
+    p.add_argument("--se-mudou", dest="se_mudou", action="store_true",
+                   help="só reescreve o site se o conteúdo mudou mesmo "
+                        "(ignora o relógio) — é o que a tarefa de 30 em 30 min usa")
     p.set_defaults(func=cmd_build)
 
     p = sub.add_parser("add", help="soma cópias a uma impressão")

@@ -4,8 +4,9 @@ data/catalog.db-journal
 data/catalog.db-wal
 data/catalog.db-shm
 
-# NOTA: data/prices.db NÃO entra aqui — é o histórico de preços, vai para o
-# Git, e é o único ficheiro de dados que o GitHub Actions escreve.
+# NOTA: data/prices.db NÃO entra aqui — é o histórico de preços, e vai para o
+# Git. Desde 2026-09-10 quem o escreve é só o PC (`riftvault-daily`): o
+# GitHub Actions deixou de ir à rede e já não commita nada.
 
 # Cache local das imagens (~70 MB nas 5 edições).
 data/images/
@@ -16,8 +17,19 @@ data/images/
 data/locais.log
 data/serve.log
 
-# Build estático do modo publicado.
-site/
+# O `site/` (build estático do modo publicado) NÃO entra aqui desde 2026-09-10:
+# é gerado no PC e commitado, e é ele que o GitHub Pages publica. Com o site a
+# vir do Git, o workflow deixou de precisar da RiftScribe — que esteve em baixo
+# a tarde inteira desse dia e deixou o site parado. As imagens continuam de
+# fora (`static_images: "remote"`, o browser vai ao CDN).
+
+# A pasta de prova do `riftvault build --se-mudou` (gera para aqui, compara com
+# o site publicado, apaga).
+site-prova/
+
+# ... mas as imagens copiadas para dentro do site continuam fora do Git: são
+# ~88 MB e o `static_images` está em "remote".
+site/img/
 
 __pycache__/
 *.pyc
