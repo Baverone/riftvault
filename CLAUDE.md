@@ -341,7 +341,8 @@ das wantlists. Continuam na grelha, num bloco próprio no fim («Fora da coleç�
 signatures»), com alvo 1 — as que ele tenha continuam visíveis e contadas.
 
 **Isto era a decisão que estava anotada como DESLIGADA desde 2026-09-08.** O
-mecanismo já lá estava: é o `"*"` no `master_set.fora`, hoje `["-T", "*"]`. Uma
+mecanismo já lá estava: é o `"*"` no `master_set.fora`, que nesse dia ficou
+`["-T", "*"]` (a 2026-09-10 ganhou o `"overnumbered"`). Uma
 pergunta, uma função — `metrics.e_master` —, e é o **mesmo critério**
 (`variant_kind == "signature"`, o sufixo `*` do código impresso) que o
 `a_subir.excluir` já usava para as tirar das listas de compra. Não há segunda
@@ -405,6 +406,121 @@ bloco `master`", e as signatures passaram a estar nesse caso — uma que ele
 tenha e nenhum deck use aparece como candidata, como já acontecia com os
 tokens. Hoje não muda nada (zero na caixa) e há teste que fixa o
 comportamento. **É pergunta para ele**, e vale zero cópias hoje.
+
+## As sobrenumeradas saem da Coleção (2026-09-10)
+
+Palavras dele: *"no riftvault, também não quero para a coleção as
+overnumbered"*.
+
+**Sobrenumerada = o número de coleccionador passa o tamanho da edição** — as
+«300/298». São as reimpressões de topo de set da ARMADILHA 2: a mesma carta
+lógica reaparece na MESMA edição com número de coleção próprio (OGN 299–310,
+SFD 222–251, UNL 220–238, VEN 167–197). É a classe das 128 que já estava
+descrita em «Impressões vetadas no Pimp», e agora tem nome e regra.
+
+**O critério é o CÓDIGO IMPRESSO, e o tamanho da edição vem de lá.** O
+`public_code` traz os dois números — `SFD-244/221` é a 244 de um set de 221 —,
+por isso `metrics.tamanho_do_set` lê o denominador da própria linha do catálogo:
+não é um número escrito à mão, não é uma segunda consulta, e uma edição nova
+traz o seu tamanho sozinha. Confirmado no catálogo real: o denominador é o mesmo
+em todas as impressões da lane principal de cada edição (OGN 298, OGS 24,
+SFD 221, UNL 219, VEN 166).
+
+**As 16 sem denominador nunca são sobrenumeradas**, e é a resposta certa: os
+tokens `-T` e as runas promo `VEN-R01..R06` não trazem `/tamanho` porque são
+numerados numa série própria, fora da numeração da edição. O `VEN-SP4/006` é a
+4 de uma série de 6 — o código diz que série é, e por isso também não conta.
+
+**Um ponto de verdade só, partilhado com o «A subir»:**
+`metrics.fora_da_colecao`, pela mesma lista `master_set.fora`, que passou a
+`["-T", "*", "overnumbered"]`. O `e_master` (a percentagem), o `bloco` (a
+grelha) e o âmbito das listas de compra perguntam todos à mesma função — é a
+arquitetura das signatures de 2026-09-09, para outra categoria. O
+`tests/test_overnumbered.py` fixa a partilha e parte se alguma das páginas
+passar a responder sozinha.
+
+**`overnumbered` é a única entrada da lista que não é uma variante.** É um
+critério de NÚMERO, como o `showcase` do `a_subir.excluir` é um critério de
+raridade. Fica na mesma lista de propósito: a pergunta é uma só («o que é que
+não é a Coleção») e tem de ter uma resposta só. O `metrics._fora` lê as duas
+metades de uma vez, e um valor desconhecido continua a rebentar.
+
+**A ordem dos critérios é variante primeiro, número depois.** As 36 signatures
+são TODAS sobrenumeradas, e mesmo assim continuam no bloco «Fora da coleção —
+signatures»: o que as tirou foi a frase de 2026-09-09, e mudá-las de cabeçalho
+agora era apagar essa decisão do ecrã.
+
+**Nenhuma arte alternativa é sobrenumerada** — elas partilham o número da base
+(`OGN-007a/298` é a 7) —, por isso o «1 alt art de cada» de 2026-09-08 fica
+intacto. Medido: 0 das 102.
+
+**São 92 as que saem hoje**, das 128 (as outras 36 são as signatures, já fora):
+
+| edição | sobrenumeradas | signatures (já fora) | saem agora | que ele tem |
+|---|---|---|---|---|
+| OGN | 24 | 12 | **12** | 1 |
+| OGS | 0 | — | 0 | 0 |
+| SFD | 42 | 12 | **30** | 2 |
+| UNL | 31 | 12 | **19** | 2 |
+| VEN | 31 | — | **31** | 0 |
+| **total** | **128** | 36 | **92** | **5** |
+
+**Alvo 1 no bloco de fora.** Uma Unit sobrenumerada pediria o playset (3) pelo
+`master_base_follows_type`; fora da coleção pede 1, como as signatures e os
+tokens (`metrics.ALVO_OVERNUMBERED`). Pedir o playset de uma carta que já não se
+coleciona era ler o número ao contrário. ALVO e CONTA continuam a ser campos
+diferentes — quem tem a linha do catálogo na mão chama o `metrics.alvo`, que é a
+porta de entrada nova; o `master_target` dos quatro escalares fica para quem não
+a tem.
+
+**O que mudou nos números** (medido a 2026-09-10 no `main`, depois do merge,
+contra o `data/` real; o «antes» foi medido na mesma corrida, com o config sem a
+palavra — não são os números de 09-09, que já estão velhos nos preços e na
+coleção):
+
+| | antes | depois |
+|---|---|---|
+| denominador da percentagem | 1134 | **1042** |
+| OGN / OGS / SFD / UNL / VEN | 340 / 24 / 275 / 268 / 227 | **328 / 24 / 245 / 249 / 196** |
+| percentagem global (playset) | 525/1134 = 46,3 % | **521/1042 = 50,0 %** |
+| níveis (1 de cada / 2 / playset) | 66,8 % / 57,8 % / 46,3 % | **72,3 % / 62,5 % / 50,0 %** |
+| faltam, por nível | 376 / 687 / 1128 | **289 / 553 / 947** |
+| € por nível | 13 071,43 / 21 485,89 / 30 041,03 € | **1 140,33 / 1 985,69 / 2 971,73 €** |
+| «Master set» / wantlist playset | 567 impressões, 1050 cópias, 21 426,15 € | **519, 944, 2 932,90 €** |
+| wantlist até 1 de cada | 336 linhas, 8 924,39 € | **288, 1 136,22 €** |
+| wantlist até 2 de cada | 437 linhas, 15 117,57 € | **389, 1 976,86 €** |
+| «A subir» | 63 cartas, 119 cópias, 3 300,25 € | **54, 100, 809,45 €** |
+| «Venda» | 2 impressões, 6 cópias, 4,11 € | **7, 11, 658,06 €** |
+
+**O número que salta à vista é o euro: fechar a coleção deixou de custar 30 mil
+euros e passa a custar 2 972 €.** É a mesma leitura das signatures de ontem —
+saiu do denominador o que ele nunca ia comprar. O numerador quase não mexe (ele
+tem 5 destas): perde 5 no nível 1 e 4 nos outros dois, e a percentagem sobe
+3,7 pontos.
+
+**Isto FECHA a pergunta que estava anotada em «Showcases fora das listas de
+compra».** Lá ficou escrito que as 48 reimpressões de topo do UNL e do VEN
+tinham raridade de jogo (`rare`, `common`), escapavam ao filtro de raridade e
+valiam quase todo o dinheiro da lista — e que a dúvida era se «showcase» queria
+dizer a raridade ou as reimpressões caras de topo de set. **Queria dizer as
+reimpressões**, e ele disse-o pelo nome certo: as 48 são exactamente a
+diferença do «Master set» no UNL (117 → 100) e no VEN (186 → 155), e valem os
+18 493 € que a lista perdeu.
+
+**A consequência: o `a_subir.excluir` ficou a tirar ZERO.** As 42 impressões de
+raridade `showcase` que ele excluía eram todas sobrenumeradas e saem agora antes,
+com a coleção. A página passa a dizer «0 impressões» em vez de «42 (42
+showcase)». **Fica no config na mesma**, como a das signatures: são decisões
+diferentes e, se um dia estas voltarem à coleção, continuam a não ser para
+comprar.
+
+**A consequência que ele não pediu: a Venda, e desta vez tem efeito.** O âmbito
+dela é "não é o bloco `master`", e as sobrenumeradas passaram a estar nesse
+caso. Entraram **5 impressões, 5 cópias, 653,95 €** — `OGN-303` Nine-Tailed Fox
+(385,64 €), `SFD-224` Aphelios (55,64 €), `SFD-244` Fire Below the Mountain
+(80,64 €), `UNL-231` Wuju Master (31,41 €) e `UNL-235` Deceiver (100,62 €). A
+caixa passou de 4,11 € para 658,06 €. **É pergunta para ele** — nada saiu da
+base, é uma sugestão —, e há teste que fixa o comportamento.
 
 ## A Coleção em três blocos: playset, 1 runa especial, 1 alt art (2026-09-08)
 
@@ -616,6 +732,11 @@ variante — duas escritas para a mesma coisa. Passou a ser
 | `*` | signatures | `OGN-299*` |
 | `-R` | runas promo | `VEN-R01` |
 | `-SP` | promos especiais | `VEN-SP4` |
+| `overnumbered` | as sobrenumeradas | `SFD-244/221` |
+
+A última entrada não é um sufixo nem uma variante: é o NÚMERO acima do tamanho
+da edição (2026-09-10 — ver a secção própria). Vive na mesma lista porque é a
+mesma pergunta.
 
 Aceita também os nomes das variantes (`token`, `alt_art`, ...) — dão o mesmo.
 `master_ignorar_variantes` é o nome antigo da lista e continua a ser lido:
@@ -1567,6 +1688,10 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
 - **Feito também:** as signatures fora da Coleção (2026-09-09) — bloco próprio
   no fim da grelha, fora da percentagem, das contagens por níveis e das
   wantlists; as artes alternativas continuam a 1 de cada.
+- **Feito também:** as sobrenumeradas fora da Coleção (2026-09-10) — as
+  «300/298», pelo denominador do próprio código impresso; mesmo mecanismo das
+  signatures, denominador 1134 -> 1042, e a pergunta dos «showcases» de
+  2026-09-08 fica respondida.
 - **Por fazer:** vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck,
   com as partilhadas assinaladas); e apagar decks pela interface (hoje apaga-se
   o `.txt`).
