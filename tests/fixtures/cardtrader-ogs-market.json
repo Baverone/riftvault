@@ -1,0 +1,2288 @@
+{
+ "344333": [
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 75,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "006",
+    "condition": "Moderately Played",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Rare",
+    "signed": false
+   },
+   "quantity": 2,
+   "user": {
+    "id": 40665
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 82,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "006",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Rare",
+    "signed": false
+   },
+   "quantity": 2,
+   "user": {
+    "id": 75199
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 82,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "006",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Rare",
+    "signed": false
+   },
+   "quantity": 4,
+   "user": {
+    "id": 320374
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 82,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "006",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Rare",
+    "signed": false
+   },
+   "quantity": 1,
+   "user": {
+    "id": 531788
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 83,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "006",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Rare",
+    "signed": false
+   },
+   "quantity": 1,
+   "user": {
+    "id": 557562
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 83,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "006",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Rare",
+    "signed": false
+   },
+   "quantity": 1,
+   "user": {
+    "id": 90218
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 84,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "006",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "fr",
+    "riftbound_rarity": "Rare",
+    "signed": false
+   },
+   "quantity": 11,
+   "user": {
+    "id": 90218
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 87,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "006",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Rare",
+    "signed": false
+   },
+   "quantity": 3,
+   "user": {
+    "id": 57
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 88,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "006",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Rare",
+    "signed": false
+   },
+   "quantity": 5,
+   "user": {
+    "id": 81
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 92,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "006",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Rare",
+    "signed": false
+   },
+   "quantity": 1,
+   "user": {
+    "id": 113435
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 100,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "006",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Rare",
+    "signed": false
+   },
+   "quantity": 1,
+   "user": {
+    "id": 91912
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 107,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "006",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Rare",
+    "signed": false
+   },
+   "quantity": 1,
+   "user": {
+    "id": 61607
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 108,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "006",
+    "condition": "Slightly Played",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Rare",
+    "signed": false
+   },
+   "quantity": 2,
+   "user": {
+    "id": 68448
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 109,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "006",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Rare",
+    "signed": false
+   },
+   "quantity": 1,
+   "user": {
+    "id": 7977
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 110,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "006",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "fr",
+    "riftbound_rarity": "Rare",
+    "signed": false
+   },
+   "quantity": 10,
+   "user": {
+    "id": 371643
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 110,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "006",
+    "condition": "Slightly Played",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Rare",
+    "signed": false
+   },
+   "quantity": 1,
+   "user": {
+    "id": 13918
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 110,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "006",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Rare",
+    "signed": false
+   },
+   "quantity": 1,
+   "user": {
+    "id": 48389
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 111,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "006",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Rare",
+    "signed": false
+   },
+   "quantity": 19,
+   "user": {
+    "id": 308308
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 116,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "006",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Rare",
+    "signed": false
+   },
+   "quantity": 3,
+   "user": {
+    "id": 378715
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 118,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "006",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Rare",
+    "signed": false
+   },
+   "quantity": 5,
+   "user": {
+    "id": 182271
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 118,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "006",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Rare",
+    "signed": false
+   },
+   "quantity": 2,
+   "user": {
+    "id": 435368
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 120,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "006",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Rare",
+    "signed": false
+   },
+   "quantity": 1,
+   "user": {
+    "id": 79482
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 120,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "006",
+    "condition": "Slightly Played",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Rare",
+    "signed": false
+   },
+   "quantity": 1,
+   "user": {
+    "id": 505364
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 124,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "006",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Rare",
+    "signed": false
+   },
+   "quantity": 4,
+   "user": {
+    "id": 80209
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 124,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "006",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Rare",
+    "signed": false
+   },
+   "quantity": 13,
+   "user": {
+    "id": 133878
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 125,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "006",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Rare",
+    "signed": false
+   },
+   "quantity": 1,
+   "user": {
+    "id": 192472
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 128,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "006",
+    "condition": "Slightly Played",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Rare",
+    "signed": false
+   },
+   "quantity": 2,
+   "user": {
+    "id": 305011
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 128,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "006",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Rare",
+    "signed": false
+   },
+   "quantity": 11,
+   "user": {
+    "id": 400930
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 130,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "006",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Rare",
+    "signed": false
+   },
+   "quantity": 3,
+   "user": {
+    "id": 428437
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 131,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "006",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Rare",
+    "signed": false
+   },
+   "quantity": 9,
+   "user": {
+    "id": 431562
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 132,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "006",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Rare",
+    "signed": false
+   },
+   "quantity": 1,
+   "user": {
+    "id": 166028
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 134,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "006",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Rare",
+    "signed": false
+   },
+   "quantity": 2,
+   "user": {
+    "id": 63138
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 136,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "006",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Rare",
+    "signed": false
+   },
+   "quantity": 1,
+   "user": {
+    "id": 48675
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 138,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "006",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Rare",
+    "signed": false
+   },
+   "quantity": 6,
+   "user": {
+    "id": 21929
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 155,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "006",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Rare",
+    "signed": false
+   },
+   "quantity": 3,
+   "user": {
+    "id": 3972
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 155,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "006",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Rare",
+    "signed": false
+   },
+   "quantity": 1,
+   "user": {
+    "id": 49706
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 160,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "006",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Rare",
+    "signed": false
+   },
+   "quantity": 4,
+   "user": {
+    "id": 367316
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 168,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "006",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Rare",
+    "signed": false
+   },
+   "quantity": 9,
+   "user": {
+    "id": 61195
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 170,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "006",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Rare",
+    "signed": false
+   },
+   "quantity": 2,
+   "user": {
+    "id": 404205
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 171,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "006",
+    "condition": "Near Mint",
+    "riftbound_foil": true,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Rare",
+    "signed": false
+   },
+   "quantity": 2,
+   "user": {
+    "id": 239829
+   }
+  }
+ ],
+ "344335": [
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 18,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "008",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "zh-CN",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 3,
+   "user": {
+    "id": 148842
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 24,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "008",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 6,
+   "user": {
+    "id": 90218
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 26,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "008",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 1,
+   "user": {
+    "id": 196361
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 27,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "008",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "fr",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 18,
+   "user": {
+    "id": 90218
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 29,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "008",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 5,
+   "user": {
+    "id": 563060
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 31,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "008",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 3,
+   "user": {
+    "id": 404205
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 31,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "008",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 3,
+   "user": {
+    "id": 207672
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 33,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "008",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 3,
+   "user": {
+    "id": 10916
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 33,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "008",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 3,
+   "user": {
+    "id": 7977
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 33,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "008",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 3,
+   "user": {
+    "id": 517573
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 34,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "008",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 3,
+   "user": {
+    "id": 19506
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 34,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "008",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 6,
+   "user": {
+    "id": 57
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 34,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "008",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 3,
+   "user": {
+    "id": 393764
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 36,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "008",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 2,
+   "user": {
+    "id": 63550
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 38,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "008",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 3,
+   "user": {
+    "id": 203590
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 38,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "008",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 3,
+   "user": {
+    "id": 532662
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 40,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "008",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "fr",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 10,
+   "user": {
+    "id": 371643
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 40,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "008",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 2,
+   "user": {
+    "id": 475181
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 40,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "008",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 3,
+   "user": {
+    "id": 553788
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 40,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "008",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 6,
+   "user": {
+    "id": 54361
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 44,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "008",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 10,
+   "user": {
+    "id": 63138
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 45,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "008",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 5,
+   "user": {
+    "id": 533288
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 53,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "008",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 6,
+   "user": {
+    "id": 7514
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 55,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "008",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 3,
+   "user": {
+    "id": 49706
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 55,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "008",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 9,
+   "user": {
+    "id": 222013
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 56,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "008",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 51,
+   "user": {
+    "id": 308308
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 56,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "008",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 3,
+   "user": {
+    "id": 284663
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 56,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "008",
+    "condition": "Slightly Played",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 2,
+   "user": {
+    "id": 61483
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 56,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "008",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 2,
+   "user": {
+    "id": 466384
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 56,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "008",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 12,
+   "user": {
+    "id": 61195
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 58,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "008",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 26,
+   "user": {
+    "id": 68689
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 59,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "008",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 6,
+   "user": {
+    "id": 21929
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 59,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "008",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 2,
+   "user": {
+    "id": 56485
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 59,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "008",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 23,
+   "user": {
+    "id": 431562
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 59,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "008",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 3,
+   "user": {
+    "id": 56485
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 60,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "008",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 15,
+   "user": {
+    "id": 81
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 61,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "008",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 3,
+   "user": {
+    "id": 435368
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 61,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "008",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 6,
+   "user": {
+    "id": 318576
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 63,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "008",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 35,
+   "user": {
+    "id": 80209
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 63,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "008",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 3,
+   "user": {
+    "id": 440120
+   }
+  }
+ ],
+ "344344": [
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 18,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "016",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "zh-CN",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 3,
+   "user": {
+    "id": 148842
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 19,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "016",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 4,
+   "user": {
+    "id": 196361
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 19,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "016",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 3,
+   "user": {
+    "id": 47445
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 19,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "016",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 2,
+   "user": {
+    "id": 193309
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 19,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "016",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 1,
+   "user": {
+    "id": 586440
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 20,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "016",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 3,
+   "user": {
+    "id": 87582
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 20,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "016",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 3,
+   "user": {
+    "id": 2935
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 20,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "016",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 3,
+   "user": {
+    "id": 185705
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 20,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "016",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 6,
+   "user": {
+    "id": 56852
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 21,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "016",
+    "condition": "Slightly Played",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 3,
+   "user": {
+    "id": 14997
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 22,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "016",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 5,
+   "user": {
+    "id": 40842
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 23,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "016",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 6,
+   "user": {
+    "id": 7977
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 24,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "016",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "fr",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 36,
+   "user": {
+    "id": 90218
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 24,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "016",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 14,
+   "user": {
+    "id": 90218
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 24,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "016",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 6,
+   "user": {
+    "id": 553788
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 25,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "016",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 6,
+   "user": {
+    "id": 517573
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 29,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "016",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 2,
+   "user": {
+    "id": 502849
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 29,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "016",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 3,
+   "user": {
+    "id": 10916
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 29,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "016",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 2,
+   "user": {
+    "id": 563060
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 30,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "016",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 3,
+   "user": {
+    "id": 63550
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 31,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "016",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 3,
+   "user": {
+    "id": 404205
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 33,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "016",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 6,
+   "user": {
+    "id": 11531
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 33,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "016",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 42,
+   "user": {
+    "id": 68689
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 33,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "016",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 18,
+   "user": {
+    "id": 63138
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 34,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "016",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 6,
+   "user": {
+    "id": 54361
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 34,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "016",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 4,
+   "user": {
+    "id": 49706
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 34,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "016",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 15,
+   "user": {
+    "id": 533288
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 34,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "016",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 6,
+   "user": {
+    "id": 57
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 34,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "016",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 8,
+   "user": {
+    "id": 222013
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 34,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "016",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 3,
+   "user": {
+    "id": 393764
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 38,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "016",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 3,
+   "user": {
+    "id": 532662
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 38,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "016",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 17,
+   "user": {
+    "id": 203590
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 39,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "016",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 3,
+   "user": {
+    "id": 56485
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 40,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "016",
+    "condition": "Slightly Played",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 20,
+   "user": {
+    "id": 61483
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 40,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "016",
+    "condition": "Slightly Played",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 3,
+   "user": {
+    "id": 68448
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 40,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "016",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "fr",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 10,
+   "user": {
+    "id": 371643
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 42,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "016",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 41,
+   "user": {
+    "id": 431562
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 42,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "016",
+    "condition": "Slightly Played",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 3,
+   "user": {
+    "id": 431023
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 42,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "016",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 12,
+   "user": {
+    "id": 318576
+   }
+  },
+  {
+   "graded": false,
+   "on_vacation": false,
+   "price_cents": 42,
+   "price_currency": "EUR",
+   "properties_hash": {
+    "altered": false,
+    "collector_number": "016",
+    "condition": "Near Mint",
+    "riftbound_foil": false,
+    "riftbound_language": "en",
+    "riftbound_rarity": "Common",
+    "signed": false
+   },
+   "quantity": 6,
+   "user": {
+    "id": 466384
+   }
+  }
+ ]
+}

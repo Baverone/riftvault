@@ -11,7 +11,7 @@
     riftvault stats
     riftvault find "sett"
     riftvault a-subir [--cardmarket] [--todas] [--csv f.csv]
-    riftvault venda [--cardmarket] [--csv f.csv]
+    riftvault venda [--comuns] [--cardmarket] [--csv f.csv]
     riftvault wantlist [--edicao OGN] --cardmarket
 """
 
@@ -246,7 +246,8 @@ def cmd_prices(args) -> int:
     v = res["valor"]
     print(f"\n{res['printings']} impressões com preço atualizado "
           f"({res['sem_preco']} sem oferta utilizável).")
-    print(f"{res['historico_gravado']} entradas novas no histórico.")
+    print(f"{res['historico_gravado']} entradas novas no histórico"
+          f" · {res.get('oferta_gravada', 0)} no tamanho da oferta.")
     print(f"\nValor da coleção: {prices.eur(v['cents'])}")
     return 0
 
@@ -585,6 +586,62 @@ def cmd_a_subir(args) -> int:
     return 0
 
 
+def _venda_comuns(con, args) -> int:
+    """`riftvault venda --comuns`: as comuns e incomuns caras, e o que vender.
+
+    Pergunta do André, 2026-09-10. As três listas saem do `comuns.analise`, que
+    é a mesma coisa que a página mostra — não há segunda conta aqui.
+    """
+    from . import comuns as comuns_mod
+    a = comuns_mod.analise(con)
+    u, m = a["universe"], a["medians"]
+
+    print(f"Comuns e incomuns: {u['printings']} impressões, {u['priced']} com preço"
+          + (f" ({u['no_price']} sem oferta no CardTrader)" if u["no_price"] else ""))
+    print("Mediana: " + " · ".join(f"{k} {prices.eur(m[k])}"
+                                   for k in a["rarities"] if k in m))
+    print(f"Fonte: CardTrader ({a['day']}). Cardmarket: "
+          f"{a['sources']['cardmarket']['why']}.")
+    print("Volume de vendas NÃO existe em fonte pública — a coluna 'procura' é o "
+          "preço a dividir pela mediana da raridade, não vendas.\n")
+
+    def tabela(titulo, itens):
+        print(titulo)
+        print(f"  {'preço':>9} {'proc':>6} {'anún':>5} {'vend':>5} {'Δ%':>7}  "
+              f"{'código':<14}{'nome':<28}tem")
+        for x in itens:
+            pct = "—" if x["pct"] is None else f"{x['pct']:+.1f}"
+            print(f"  {prices.eur(x['price']):>9} {x['demand']:>6.1f} "
+                  f"{x['n_listings']:>5} {x['n_sellers']:>5} {pct:>7}  "
+                  f"{cardmarket.codigo(x['code']):<14}{x['name'][:27]:<28}"
+                  f"{x['have']}" + (f" (+{x['qty']})" if x["qty"] else ""))
+        print()
+
+    tabela(f"AS MAIS CARAS (top {a['top']})", a["by_price"])
+    tabela(f"AS DE SINAL DE PROCURA MAIS ALTO (top {a['top']})", a["by_demand"])
+
+    s = a["sell"]
+    print(f"O QUE VENDER — excedente teu, {s['printings']} impressões · "
+          f"{s['copies']} cópias · {prices.eur(s['cents'])}")
+    for x in s["items"]:
+        print(f"  {x['qty']:>2}x {cardmarket.codigo(x['code']):<14}"
+              f"{x['name'][:28]:<29}{prices.eur(x['price']):>9} = "
+              f"{prices.eur(x['total']):>9}")
+    if args.cardmarket and s["text"]:
+        print("\n# formato Cardmarket:", file=sys.stderr)
+        sys.stdout.write("\n" + s["text"] + "\n")
+    k = a["keep"]
+    if k["printings"]:
+        print(f"\nGUARDAR — barato mas a subir: {k['printings']} impressões · "
+              f"{k['copies']} cópias")
+        for x in k["items"]:
+            print(f"  {x['qty']:>2}x {cardmarket.codigo(x['code']):<14}"
+                  f"{x['name'][:28]:<29}{prices.eur(x['price']):>9} "
+                  f"({x['pct']:+.1f}% em {a['window_days']} dias)")
+    con.close()
+    return 0
+
+
 def cmd_venda(args) -> int:
     """O que ele tem a mais da sequência: o que está num deck e o que sobra.
 
@@ -595,6 +652,9 @@ def cmd_venda(args) -> int:
     if db.catalog_is_empty(con):
         print("catálogo vazio — corre `riftvault sync`.", file=sys.stderr)
         return 1
+
+    if args.comuns:
+        return _venda_comuns(con, args)
 
     v = venda_mod.listar(con)
     itens = v["items"]
@@ -803,6 +863,8 @@ def main(argv: list[str] | None = None) -> int:
     p.set_defaults(func=cmd_a_subir)
 
     p = sub.add_parser("venda", help="o que tens a mais da sequência e sobra dos decks")
+    p.add_argument("--comuns", action="store_true",
+                   help="as comuns e incomuns mais caras e o excedente delas")
     p.add_argument("--cardmarket", action="store_true",
                    help="escreve as linhas no formato do Cardmarket")
     p.add_argument("--codigos", action="store_true",

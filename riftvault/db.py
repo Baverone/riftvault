@@ -26,9 +26,9 @@ def _apply_schema(con: sqlite3.Connection, sql_file: str, schema: str = "main") 
     con.executescript(sql)
 
 
-def _columns(con: sqlite3.Connection, table: str) -> set[str]:
+def _columns(con: sqlite3.Connection, table: str, schema: str = "main") -> set[str]:
     try:
-        return {r[1] for r in con.execute(f"PRAGMA table_info({table})")}
+        return {r[1] for r in con.execute(f"PRAGMA {schema}.table_info({table})")}
     except sqlite3.OperationalError:
         return set()
 
@@ -49,6 +49,16 @@ def _migrate(con: sqlite3.Connection) -> None:
         ):
             if name not in cols:
                 con.execute(f"ALTER TABLE decks ADD COLUMN {name} {decl}")
+
+    # O tamanho da oferta (2026-09-10): quantos vendedores e quantas cópias
+    # estão à venda, a par do número de anúncios que já lá estava. É o mais
+    # perto que há de "quais é que se vendem mais" — ver o `comuns.py`.
+    cols = _columns(con, "price_latest", "catalog")
+    if cols:
+        for name in ("n_sellers", "n_copies"):
+            if name not in cols:
+                con.execute(f"ALTER TABLE catalog.price_latest "
+                            f"ADD COLUMN {name} INTEGER NOT NULL DEFAULT 0")
 
     # O histórico de preços mudou de casa: era do vault.db, passou a ser do
     # prices.db, para o robô do GitHub Actions poder fazer commit dele sem

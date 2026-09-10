@@ -870,6 +870,134 @@ os `-T` e os `a`, não estas. Medido: ligar baixa o denominador de **1068 para
 1032**. Não confundir com o `a_subir.excluir`, que já as tira das listas
 de compra sem lhes mexer na percentagem.
 
+## Comuns e incomuns: o que vender (2026-09-10)
+
+Palavras dele: *"se puderes, vê no Cardmarket e CardTrader quais as comuns e
+incomuns que costumam vender-se mais, e quais as mais caras, para eu saber o que
+vender"*.
+
+`riftvault/comuns.py`, secção **dobrada** no fim da página Venda (vai no mesmo
+`api/venda.json`) e `riftvault venda --comuns` no CLI.
+
+### A resposta curta: não há nada para vender
+
+**O excedente dele em comuns e incomuns vale 3,83 €** — 22 impressões, 33
+cópias, e 20 delas a 11 cêntimos, que é o preço mínimo do CardTrader. Metade são
+tokens do UNL. Fazer o trabalho valeu na mesma, porque a lista das caras diz-lhe
+o que **não** deitar para o saldo, mas o número é este e não convém arredondá-lo.
+
+O dinheiro do excedente dele está noutro lado, e já estava na página: **695,48 €
+ao todo, e 675 € disso em seis impressões** que saíram da Coleção esta semana
+(`OGN-303` Nine-Tailed Fox a 385,64 €, `UNL-235` Deceiver, `SFD-244`, `SFD-224`,
+`UNL-231` e a `VEN-SP5`). Comuns e incomuns são o resto.
+
+### VOLUME DE VENDAS NÃO EXISTE — e é isso que ele perguntou
+
+*"Quais as que costumam vender-se mais"* não tem resposta em fonte pública
+nenhuma. Medido a 2026-09-10, da máquina dele:
+
+| fonte | resposta |
+|---|---|
+| `cardmarket.com/en/Riftbound` | **403** a pedidos automáticos (já estava no CLAUDE.md) |
+| `api.cardmarket.com/ws/v2.0/.../games` | **410 Gone** — a API pública deles morreu |
+| `api.cardtrader.com/api/v2` | **200**, com o token que já lá estava |
+
+O que resta no Cardmarket seria uma app registada com chave própria, e a regra
+dele é *só a subscrição*. **Não há nada do Cardmarket nesta secção**, e a página
+diz isso em vez de mostrar uma coluna vazia.
+
+Do CardTrader vem o lado da **OFERTA**: preço mínimo, quantos anúncios, quantos
+vendedores distintos e quantas cópias estão à venda. **Oferta não é procura** —
+uma comum com 300 anúncios a 11 cêntimos tem muita oferta, e isso é o contrário
+de se vender. Por isso a secção **não tem lista de "as que se vendem mais"**:
+tem as caras, e um sinal de procura que diz o que é.
+
+### O sinal de procura, e o que ele mede
+
+    procura = (preço ÷ mediana da raridade)
+              × (1 + max(0, Δ% do preço na janela) ÷ 100)
+              × (1 + max(0, queda % dos anúncios na janela) ÷ 100)
+
+O primeiro factor é o que o mercado pede **acima do saldo da raridade**; é a
+coisa mais próxima de procura que se mede sem volume. O segundo vem do
+`price_history`. O terceiro é o único que fala de movimento — oferta a encolher
+com o preço a subir é gente a comprar — e **vale zero hoje**, porque o histórico
+da oferta nasceu nesta ordem e tem um dia só.
+
+**Hoje as duas listas saem quase iguais, e não é erro.** A mediana das comuns e
+a das incomuns são as duas **11 cêntimos**, o mínimo do CardTrader; com o mesmo
+denominador para toda a gente, o preço relativo *é* o preço. Está escrito no
+ecrã e na docstring do `comuns.procura`.
+
+### As 6 «comuns» que valem dinheiro são os Poros do UNL
+
+| código | carta | preço | anúncios | vendedores | tem? |
+|---|---|---|---|---|---|
+| `UNL-221` | Lonely Poro | 285,64 € | 6 | 6 | — |
+| `UNL-222` | Plundering Poro | 141,24 € | 13 | 13 | — |
+| `UNL-220` | Pouty Poro | 140,64 € | 11 | 11 | — |
+| `UNL-224` | Mystic Poro | 135,61 € | 9 | 9 | — |
+| `UNL-225` | Daring Poro | 109,87 € | 16 | 16 | — |
+| `UNL-223` | Veteran Poro | 100,64 € | 22 | 21 | — |
+
+São comuns de raridade e **sobrenumeradas** (`UNL-220..225` num set de 219) —
+saíram da Coleção a 2026-09-10 —, e o CardTrader **só as lista em foil**
+(`from_foil`), por isso o preço pode estar sobreavaliado, como sempre. **Ele não
+tem nenhuma.** A sétima carta da lista já é a `OGN-183` Stacked Deck a **4,91 €**
+(tem 3, e a coleção pede 3) e a partir daí é tudo abaixo de 2,50 €.
+
+### O excedente é o que já existia, com um âmbito mais largo
+
+**Não há critério novo.** A conta é a do `venda.excedente`, extraída do
+`venda.listar` para ser uma só:
+
+    sobra = cópias − max(usadas nos decks, alvo da Coleção)
+
+A única diferença é o `incluir_master=True`: aqui a **sequência do master set
+entra**, porque é lá que as comuns vivem e uma quinta cópia de uma Unit de
+playset 3 não faz falta a ninguém. A secção Venda continua com o âmbito estreito
+de 2026-09-08 (*"a sequência nunca entra na venda"*) e os números dela **não
+mexeram**. **Nada sai da base**, como sempre: é sugestão.
+
+### A raridade exige-se nas DUAS colunas
+
+`rarity` (a impressa) **e** `base_rarity` (a do grupo) têm as duas de ser comum
+ou incomum. As seis runas de arte alternativa do OGN são o caso: base `common`,
+impressão `showcase`. O mercado paga-lhes preço de showcase, e numa lista de
+cartas de saldo isso responde a outra pergunta. Há teste.
+
+### O que passou a ser gravado
+
+O `prices.oferta` (era `lowest`, que continua a responder) passou a contar
+**vendedores distintos** e **cópias à venda**, a par dos anúncios. Duas colunas
+novas no `catalog.price_latest` — com migração, porque o `CREATE TABLE IF NOT
+EXISTS` não acrescenta colunas — e uma tabela nova no **prices.db**:
+
+    listings_history (printing_id, day, n_listings, n_sellers, n_copies)
+
+**Porque é que isto nasce agora.** Uma fotografia da oferta não diz nada; uma
+série diz. É o único caminho para responder mesmo à pergunta dele, e só começa a
+valer ao fim de umas semanas de `riftvault prices`. Medido no primeiro dia:
+**1179 linhas, 163 230 anúncios, 1 259 890 cópias à venda** no Riftbound inteiro.
+
+**Só grava quando mexe mesmo** (`prices._guardar_oferta`): pelo menos 3 anúncios
+ou 10% de diferença face ao último registo. O `prices.db` vai para o Git e cada
+commit guarda o ficheiro inteiro — gravar 1200 linhas por dia era engordá-lo com
+o ruído de uma ou duas listagens.
+
+**Custo medido:** `api/venda.json` passou de **10 618 para 53 360 bytes**. É a
+secção inteira num ficheiro que já era descarregado — não há pedido novo, e a
+secção vem dobrada.
+
+### O que fica por decidir
+
+1. **A lista das caras é para NÃO vender, não para vender.** Ele não tem
+   nenhuma das seis; se um dia abrir um Poro, o que a página lhe diz é que
+   aquilo não é saldo. Fica assim até ele dizer o contrário.
+2. **A pergunta da Venda continua aberta, pela quarta vez.** Ver as secções das
+   signatures, das sobrenumeradas e das promos: ele nunca disse se o que sai da
+   Coleção deve ser sugerido para venda.
+
 ## Secção «Venda» (2026-09-08)
 
 A segunda metade da frase dele: *"o resto provavelmente vai para venda ou jogar
@@ -1656,6 +1784,13 @@ percentagem do total vem daí — não escondas esse número num total limpo.
 no `vault.db` (só as que ele TEM, e só quando o preço muda — o vault.db vai
 para o Git e cada commit guarda o ficheiro inteiro).
 
+**Desde 2026-09-10 grava-se também o TAMANHO da oferta** (`prices.oferta`, que
+substituiu o `lowest` sem o apagar): quantos anúncios, quantos **vendedores
+distintos** e quantas **cópias à venda**. As contagens seguem o acabamento do
+preço — se o preço vem da foil, contam-se só as foil, senão o número não
+correspondia ao preço mostrado. Vai para o `price_latest` e, ao longo do tempo,
+para o `prices.listings_history` — ver «Comuns e incomuns: o que vender».
+
 ## Vista por omissão: todas as impressões
 
 **Decidido (André, 2026-08-31):** a grelha abre em "Todas as impressões", não
@@ -1806,6 +1941,11 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   categoria pelo mesmo mecanismo, e a mais barata (246 €); são 6, só no VEN, e
   nenhuma é sobrenumerada. Denominador 1042 -> 1036. As runas promo `VEN-R01`
   ficaram dentro, no bloco das runas especiais.
+- **Feito também:** as comuns e incomuns (2026-09-10) — as mais caras e o sinal
+  de procura, secção dobrada na Venda e `riftvault venda --comuns`. **Volume de
+  vendas não existe em fonte pública**, e a página diz isso; o CardTrader passou
+  a dar vendedores e cópias à venda, com histórico novo no `listings_history`.
+  O excedente dele em comuns e incomuns vale **3,83 €**.
 - **Por fazer:** vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck,
   com as partilhadas assinaladas); e apagar decks pela interface (hoje apaga-se
   o `.txt`).

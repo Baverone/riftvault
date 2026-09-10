@@ -421,6 +421,36 @@ py -m riftvault venda --cardmarket   # as linhas para copiar
 py -m riftvault venda --csv venda.csv
 ```
 
+### Comuns e incomuns: o que vender
+
+*"Vê no Cardmarket e CardTrader quais as comuns e incomuns que costumam
+vender-se mais, e quais as mais caras, para eu saber o que vender."* É a secção
+dobrada no fim da página Venda, e o `py -m riftvault venda --comuns`.
+
+**A resposta curta: não tens nada para vender aí.** O teu excedente em comuns e
+incomuns são **22 impressões, 33 cópias, 3,83 €** — vinte delas ao preço mínimo
+do CardTrader (11 cêntimos) e metade são tokens do UNL. O dinheiro do que te
+sobra está nas seis que já aparecem em cima na Venda (**675 € dos 695 €**), e
+essas não são comuns.
+
+**Não existe "quais se vendem mais".** Ninguém publica volume de vendas:
+o Cardmarket responde **403** ao site e **410** à API pública, e a alternativa
+era registar uma app com chave própria — que a regra de só usar a subscrição não
+permite. Do CardTrader vem o lado da **oferta**: preço mínimo, quantos anúncios,
+quantos vendedores e quantas cópias estão à venda. A coluna **procura** é o
+preço a dividir pela mediana da raridade, reforçado pela subida do preço; mede
+quanto o mercado pede **acima do saldo**, não quantas se venderam. Hoje as duas
+medianas são as duas 11 cêntimos, por isso as duas listas saem quase iguais.
+
+**A lista das caras é para NÃO venderes.** As seis comuns caras do Riftbound são
+os Poros do UNL (`UNL-220` a `UNL-225`, de 100 a 286 €) — não tens nenhuma. A
+sétima já é a `OGN-183` Stacked Deck a 4,91 €.
+
+Passou também a guardar-se o número de anúncios ao longo do tempo
+(`listings_history` no `prices.db`). Com um dia não diz nada; ao fim de umas
+semanas, anúncios a cair com o preço a subir é o sinal mais próximo de procura
+que dá para ter.
+
 ## Valor da coleção
 
 Preços do [CardTrader](https://www.cardtrader.com). Precisas de um token da
@@ -513,6 +543,7 @@ riftvault deck azir [--onde]                      # detalhe de um deck
 riftvault shopping [--deck azir] [--csv f.csv]    # o que falta comprar
 riftvault a-subir [--cardmarket] [--todas]        # master set: a subir / tudo
 riftvault venda [--cardmarket] [--csv f.csv]      # fora do master set, a sobrar
+riftvault venda --comuns                          # comuns e incomuns: as caras
 riftvault map / prices / value                    # CardTrader
 ```
 
@@ -529,6 +560,7 @@ riftvault/
   metrics.py      as duas métricas, os blocos da grelha e os payloads
   a_subir.py      o que falta do master set (a subir, e a lista completa)
   venda.py        o que está fora do master set e sobra dos decks
+  comuns.py       comuns e incomuns: as mais caras e o que tens a mais
   server.py       modo edição (Flask)
   build.py        modo publicado (estático)
   cli.py          linha de comandos
