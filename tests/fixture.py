@@ -59,7 +59,12 @@ class Vault:
 
     def add_printing(self, con, printing_id, set_id, cn, name, *, variant="",
                      kind="base", card_type="Unit", api_sort=None, rarity="common",
-                     domains=("Order",)):
+                     domains=("Order",), size=None):
+        # `size` é o TAMANHO NOMINAL da edição, e vai para o denominador do
+        # código impresso (`TST-300/298`), como a API o dá. Só quem testa as
+        # sobrenumeradas precisa dele — ver `metrics.e_overnumbered`; sem ele o
+        # código sai sem denominador, como sempre saiu.
+        codigo = f"{set_id}-{cn:03d}{variant}" + (f"/{size:03d}" if size else "")
         # `domains=None` deixa a coluna a NULL, que é o que o schema permite.
         con.execute(
             "INSERT INTO catalog.printings (printing_id, set_id, collector_number, "
@@ -68,7 +73,7 @@ class Vault:
             "is_token, api_sort, domains_json) "
             "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,0,?,?)",
             (printing_id, set_id, cn, variant, "main", f"{set_id}|{cn}|main", kind,
-             kind, name.strip().casefold(), f"{set_id}-{cn:03d}{variant}", name,
+             kind, name.strip().casefold(), codigo, name,
              rarity, rarity, card_type, "portrait",
              api_sort if api_sort is not None else cn,
              None if domains is None else json.dumps(list(domains))))

@@ -158,8 +158,7 @@ def masterset(con: sqlite3.Connection, cfg: dict | None = None) -> dict[str, dic
         "       is_token, orientation, image_medium, image_large, image_url "
         "FROM catalog.printings"
     ):
-        alvo = metrics.master_target(r["printing_id"], r["variant_kind"], r["type"],
-                                     bool(r["is_token"]), cfg)
+        alvo = metrics.alvo(r, cfg)
         if alvo <= 0 or not metrics.e_master(r, cfg):
             continue
         out[r["printing_id"]] = {**dict(r), "target": alvo,

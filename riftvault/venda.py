@@ -81,9 +81,7 @@ def listar(con: sqlite3.Connection, cfg: dict | None = None) -> dict:
         # que os decks não usam, como antes. Era a tensão que o CLAUDE.md tinha
         # anotada, e a frase dele ("1 alt art de cada") resolveu-a: uma alt art
         # que ele tem uma vez é coleção, a sexta é venda.
-        alvo = (metrics.master_target(r["printing_id"], r["variant_kind"], r["type"],
-                                      bool(r["is_token"]), cfg)
-                if metrics.conta_bloco(bloco, cfg) else 0)
+        alvo = metrics.alvo(r, cfg) if metrics.conta_bloco(bloco, cfg) else 0
         sobra = r["qty"] - max(usadas, alvo)
         preco = precos.get(r["printing_id"])
         mkt = mercado.get(r["printing_id"]) or {}
