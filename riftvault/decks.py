@@ -420,25 +420,33 @@ def allocate(con: sqlite3.Connection) -> dict:
                 if do_binder:
                     no_binder[ck] = do_binder
                 held.setdefault(ck, []).append(
-                    {"deck": nome, "qty": take, "priority": d["priority"]})
+                    {"deck": nome, "qty": take, "priority": d["priority"],
+                     "onde": "deck"})
 
             falta = qty - take
             if not falta:
                 continue
-            # Está noutro deck? (é a leitura de sempre: existe, mas está
-            # comprometida noutro sítio)
-            noutro = [h for h in held.get(ck, []) if h["deck"] != nome]
-            if noutro:
-                shared[ck] = {"qty": falta, "em": noutro}
-                continue
-            # Está na Coleção? Existe, mas é coleção — não conta para o deck.
-            # Consome-se para dois decks não a reclamarem os dois.
+            # Está na Coleção? Existe, mas é coleção — não monta o deck. Vai
+            # para o balde próprio e CONSOME-SE, senão dois decks reclamavam a
+            # mesma cópia; e entra no `held`, para o deck seguinte ver que ela
+            # já está reservada em vez de a mandar comprar.
             tem = min(falta, colecao.get(ck, 0))
             if tem:
                 colecao[ck] = colecao.get(ck, 0) - tem
                 na_colecao[ck] = tem
-            if falta - tem:
-                missing[ck] = falta - tem
+                held.setdefault(ck, []).append(
+                    {"deck": nome, "qty": tem, "priority": d["priority"],
+                     "onde": "colecao"})
+            resto = falta - tem
+            if not resto:
+                continue
+            # Está noutro deck (ou reservada por ele)? É a leitura de sempre:
+            # existe, mas está comprometida noutro sítio — não se compra.
+            noutro = [h for h in held.get(ck, []) if h["deck"] != nome]
+            if noutro:
+                shared[ck] = {"qty": resto, "em": noutro}
+            else:
+                missing[ck] = resto
 
         # O que está marcado neste deck e o deck já não pede — a lista mudou,
         # a carta continua na caixa dele. Aparece para não desaparecer do ecrã.

@@ -1248,7 +1248,8 @@ function deckTile(c) {
   let nota = '';
   if (c.shared) {
     nota = `<div class="onde shared">falta ${c.missing} — ${c.shared.em
-      .map(h => `${h.qty}× em «${escapeHTML(h.deck.split(' · ')[0])}»`).join(', ')}</div>`;
+      .map(h => `${h.qty}× em «${escapeHTML(h.deck.split(' · ')[0])}»`
+        + (h.onde === 'colecao' ? ' (na Coleção)' : '')).join(', ')}</div>`;
   } else if (c.na_colecao) {
     const comprar = c.missing - c.na_colecao;
     nota = `<div class="onde shared">${c.na_colecao} na Coleção — mover ou comprar${

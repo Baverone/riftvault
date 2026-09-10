@@ -212,7 +212,28 @@ class TestDecksNaoTiramDaColecao(Base):
         idx = {d["slug"]: d for d in self.decks.decks_index(con)}
         self.assertEqual(idx["azir"]["no_binder"], 3)
         self.assertEqual(idx["ornn"]["no_binder"], 0)
-        self.assertEqual(idx["ornn"]["shared"], 3, "está no deck de cima")
+        # 3 Brutalizer (o azir levou-as do binder) + 1 Legend (o azir reservou-a
+        # na Coleção). As duas são «está no deck de cima», não «a comprar».
+        self.assertEqual(idx["ornn"]["shared"], 4)
+        self.assertEqual(idx["ornn"]["missing"], 1, "só a Spirit Blade, que não tem")
+        con.close()
+
+    def test_uma_copia_da_colecao_reservada_pelo_deck_de_cima_nao_se_compra(self):
+        """Sem isto, o segundo deck mandava comprar o que o primeiro reservou."""
+        con = self.catalogo()
+        self.v.write_deck("ornn", "Legend:\n1 Emperor of the Sands\n"
+                                  "Champion:\n1 Spirit Blade\n"
+                                  "MainDeck:\n3 Brutalizer\n")
+        self.decks.import_all(con, log=lambda *_: None)
+        idx = {d["slug"]: d for d in self.decks.decks_index(con)}
+        self.assertEqual(idx["azir"]["na_colecao"], 7)
+        self.assertEqual(idx["ornn"]["na_colecao"], 0)
+        self.assertEqual(idx["ornn"]["shared"], 4, "reservadas pelo azir")
+        self.assertEqual(idx["ornn"]["missing"], 1, "a Spirit Blade, que não tem")
+        p = self.decks.deck_payload(con, idx["ornn"]["id"])
+        brut = next(c for s in p["sections"] for c in s["cards"]
+                    if c["name"] == "Brutalizer")
+        self.assertEqual([h["onde"] for h in brut["shared"]["em"]], ["colecao"])
         con.close()
 
     def test_a_pagina_do_deck_separa_as_quatro_respostas(self):

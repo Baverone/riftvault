@@ -377,7 +377,10 @@ def cmd_deck(args) -> int:
         print(f"\n{s['label']}  ({s['have']}/{s['wanted']})")
         for c in s["cards"]:
             if c["shared"]:
-                onde = ", ".join(f"{h['qty']}x em «{h['deck']}»" for h in c["shared"]["em"])
+                onde = ", ".join(
+                    f"{h['qty']}x em «{h['deck']}»"
+                    + (" (na Coleção)" if h.get("onde") == "colecao" else "")
+                    for h in c["shared"]["em"])
                 marca, extra = "~", f"  -> {onde}"
             elif c["na_colecao"]:
                 # Existe, mas está nos binders de COLEÇÃO: não monta o deck.
