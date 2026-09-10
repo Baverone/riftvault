@@ -59,7 +59,8 @@ class Vault:
 
     def add_printing(self, con, printing_id, set_id, cn, name, *, variant="",
                      kind="base", card_type="Unit", api_sort=None, rarity="common",
-                     domains=("Order",), size=None, lane="main", codigo=None):
+                     domains=("Order",), size=None, lane="main", codigo=None,
+                     base_rarity=None):
         # `size` é o TAMANHO NOMINAL da edição, e vai para o denominador do
         # código impresso (`TST-300/298`), como a API o dá. Só quem testa as
         # sobrenumeradas precisa dele — ver `metrics.e_overnumbered`; sem ele o
@@ -81,7 +82,10 @@ class Vault:
             "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,0,?,?)",
             (printing_id, set_id, cn, variant, lane, f"{set_id}|{cn}|{lane}", kind,
              kind, name.strip().casefold(), codigo, name,
-             rarity, rarity, card_type, "portrait",
+             # A raridade IMPRESSA e a da BASE são a mesma na esmagadora
+             # maioria; separam-se nas seis runas de arte alternativa do OGN
+             # (base `common`, impressa `showcase`) — ver `comuns.e_comum`.
+             rarity, base_rarity or rarity, card_type, "portrait",
              api_sort if api_sort is not None else cn,
              None if domains is None else json.dumps(list(domains))))
 

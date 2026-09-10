@@ -278,19 +278,59 @@ def _usable(p: dict) -> bool:
             and (p.get("price_cents") or 0) > 0)
 
 
-def lowest(products: list[dict]) -> tuple[int | None, bool, int]:
-    """(preço em cêntimos, veio_de_foil, nº de ofertas utilizáveis)."""
+def oferta(products: list[dict]) -> dict:
+    """O que o mercado tem desta impressão: preço mínimo e TAMANHO da oferta.
+
+    Devolve `cents`, `from_foil` e três contagens que medem coisas diferentes:
+
+      `n_listings` — quantas ofertas utilizáveis há (uma por anúncio).
+      `n_sellers`  — quantos vendedores DISTINTOS as põem. Um vendedor com dez
+                     cópias são dez listagens e um só vendedor; é este número
+                     que diz se a oferta é de muita gente ou de um armazém.
+      `n_copies`   — quantas cópias estão à venda ao todo (o `quantity` de cada
+                     anúncio somado). É a oferta a sério.
+
+    **Isto é OFERTA, não procura** (André, 2026-09-10: *"quais as comuns e
+    incomuns que costumam vender-se mais"*). Nem o CardTrader nem o Cardmarket
+    publicam volume de vendas — ver o cabeçalho do `comuns.py`. Guarda-se na
+    mesma porque é o mais perto que há: uma carta com trezentas listagens a 11
+    cêntimos não se vende, e sabê-lo poupa-lhe o trabalho.
+
+    As contagens seguem o mesmo acabamento que o preço: quando não há oferta
+    normal nenhuma e o preço vem da foil, contam-se só as foil. Contar as duas
+    dava um número que não corresponde ao preço mostrado.
+    """
     normal, foil = [], []
     for p in products:
         if not _usable(p):
             continue
         h = p.get("properties_hash") or {}
-        (foil if h.get("riftbound_foil") else normal).append(p["price_cents"])
-    if normal:
-        return min(normal), False, len(normal) + len(foil)
-    if foil:
-        return min(foil), True, len(foil)
-    return None, False, 0
+        (foil if h.get("riftbound_foil") else normal).append(p)
+
+    escolhidos, from_foil = (normal, False) if normal else (foil, True)
+    if not escolhidos:
+        return {"cents": None, "from_foil": False,
+                "n_listings": 0, "n_sellers": 0, "n_copies": 0}
+    vendedores = {(p.get("user") or {}).get("id") for p in escolhidos}
+    vendedores.discard(None)
+    return {
+        "cents": min(p["price_cents"] for p in escolhidos),
+        "from_foil": from_foil,
+        # Quando o preço vem da foil, as normais não existem — mas quando vem
+        # das normais, o total de anúncios inclui as foil, como sempre incluiu.
+        "n_listings": len(normal) + len(foil) if normal else len(foil),
+        "n_sellers": len(vendedores),
+        "n_copies": sum(int(p.get("quantity") or 1) for p in escolhidos),
+    }
+
+
+def lowest(products: list[dict]) -> tuple[int | None, bool, int]:
+    """(preço em cêntimos, veio_de_foil, nº de ofertas utilizáveis).
+
+    A forma antiga do `oferta()`, mantida para quem só quer o preço.
+    """
+    o = oferta(products)
+    return o["cents"], o["from_foil"], o["n_listings"]
 
 
 def sync_prices(ct: CardTrader | None = None, log=print) -> dict:
@@ -334,11 +374,13 @@ def sync_prices(ct: CardTrader | None = None, log=print) -> dict:
         market = ct.marketplace(expansion_id)
         for bid in exps[expansion_id]:
             products = market.get(str(bid)) or market.get(bid) or []
-            cents, from_foil, n = lowest(products)
-            if cents is None:
+            o = oferta(products)
+            if o["cents"] is None:
                 sem_preco += 1
             for pid in bp_to_printings[bid]:
-                rows.append((pid, cents, "EUR", 1 if from_foil else 0, n, today, "cardtrader"))
+                rows.append((pid, o["cents"], "EUR", 1 if o["from_foil"] else 0,
+                             o["n_listings"], o["n_sellers"], o["n_copies"],
+                             today, "cardtrader"))
         del market              # 45 MB por expansão; liberta antes da próxima
         log(f"  expansão {expansion_id}: {len(exps[expansion_id])} blueprints")
         time.sleep(1.0)
@@ -346,35 +388,73 @@ def sync_prices(ct: CardTrader | None = None, log=print) -> dict:
     con.execute("BEGIN")
     con.executemany(
         "INSERT INTO catalog.price_latest (printing_id, price_cents, currency, "
-        "from_foil, n_listings, day, source) VALUES (?,?,?,?,?,?,?) "
+        "from_foil, n_listings, n_sellers, n_copies, day, source) "
+        "VALUES (?,?,?,?,?,?,?,?,?) "
         "ON CONFLICT(printing_id) DO UPDATE SET price_cents=excluded.price_cents, "
         "currency=excluded.currency, from_foil=excluded.from_foil, "
-        "n_listings=excluded.n_listings, day=excluded.day, source=excluded.source",
+        "n_listings=excluded.n_listings, n_sellers=excluded.n_sellers, "
+        "n_copies=excluded.n_copies, day=excluded.day, source=excluded.source",
         rows)
 
     # Histórico: de tudo o que está no catálogo (as `market_only` ficam de
     # fora, não têm impressão nossa), e só quando o valor muda face ao último
     # registo. Assim o prices.db não cresce em dias em que nada mexeu.
-    gravadas = 0
-    for pid, cents, cur, *_ in rows:
-        if cents is None or pid not in catalogadas:
+    gravadas, gravadas_of = 0, 0
+    for pid, cents, cur, _foil, n_list, n_sell, n_cop, *_ in rows:
+        if pid not in catalogadas:
             continue
-        last = con.execute(
-            "SELECT price_cents FROM prices.price_history WHERE printing_id = ? "
-            "ORDER BY day DESC LIMIT 1", (pid,)).fetchone()
-        if last and last["price_cents"] == cents:
-            continue
-        con.execute(
-            "INSERT INTO prices.price_history (printing_id, day, price_cents, currency) "
-            "VALUES (?,?,?,?) ON CONFLICT(printing_id, day) DO UPDATE SET "
-            "price_cents=excluded.price_cents", (pid, today, cents, cur))
-        gravadas += 1
+        if cents is not None:
+            last = con.execute(
+                "SELECT price_cents FROM prices.price_history WHERE printing_id = ? "
+                "ORDER BY day DESC LIMIT 1", (pid,)).fetchone()
+            if not (last and last["price_cents"] == cents):
+                con.execute(
+                    "INSERT INTO prices.price_history (printing_id, day, price_cents, currency) "
+                    "VALUES (?,?,?,?) ON CONFLICT(printing_id, day) DO UPDATE SET "
+                    "price_cents=excluded.price_cents", (pid, today, cents, cur))
+                gravadas += 1
+        if _guardar_oferta(con, pid, today, n_list, n_sell, n_cop):
+            gravadas_of += 1
     con.execute("COMMIT")
 
     val = collection_value(con)
     con.close()
     return {"printings": len(rows), "sem_preco": sem_preco,
-            "historico_gravado": gravadas, "valor": val}
+            "historico_gravado": gravadas, "oferta_gravada": gravadas_of,
+            "valor": val}
+
+
+# Só se grava a oferta quando ela MEXE mesmo. O `prices.db` vai para o Git e
+# cada commit guarda o ficheiro binário inteiro: gravar as ~1200 impressões
+# todos os dias engordava-o sem dizer nada de novo, porque o número de anúncios
+# oscila uma ou duas unidades por dia sozinho. Com o degrau abaixo fica só o
+# que é sinal — uma carta a ser comprada perde listagens depressa.
+OFERTA_DEGRAU_MIN = 3           # em anúncios
+OFERTA_DEGRAU_PCT = 10.0        # ou em percentagem do último registo
+
+
+def _guardar_oferta(con: sqlite3.Connection, pid: str, day: str,
+                    n_listings: int, n_sellers: int, n_copies: int) -> bool:
+    """Grava o tamanho da oferta em `listings_history`, se mudou o suficiente.
+
+    O primeiro registo de cada impressão grava-se sempre — é a linha de base
+    contra a qual as seguintes se comparam.
+    """
+    last = con.execute(
+        "SELECT n_listings FROM prices.listings_history WHERE printing_id = ? "
+        "ORDER BY day DESC LIMIT 1", (pid,)).fetchone()
+    if last is not None:
+        antes = last["n_listings"]
+        delta = abs(n_listings - antes)
+        if delta < max(OFERTA_DEGRAU_MIN, antes * OFERTA_DEGRAU_PCT / 100):
+            return False
+    con.execute(
+        "INSERT INTO prices.listings_history (printing_id, day, n_listings, "
+        "n_sellers, n_copies) VALUES (?,?,?,?,?) "
+        "ON CONFLICT(printing_id, day) DO UPDATE SET n_listings=excluded.n_listings, "
+        "n_sellers=excluded.n_sellers, n_copies=excluded.n_copies",
+        (pid, day, n_listings, n_sellers, n_copies))
+    return True
 
 
 # ---------------------------------------------------------------------------

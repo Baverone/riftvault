@@ -48,8 +48,28 @@ import sqlite3
 from . import cardmarket, config, decks, metrics
 
 
-def listar(con: sqlite3.Connection, cfg: dict | None = None) -> dict:
-    """As impressões fora do master set que ele tem, e o que fazer com elas."""
+def excedente(con: sqlite3.Connection, cfg: dict | None = None,
+              incluir_master: bool = False) -> list[dict]:
+    """O que ele tem a mais: `cópias − max(usadas nos decks, alvo da coleção)`.
+
+    É a conta do excedente, num sítio só. Uma cópia só sobra quando **nem a
+    Coleção nem um deck** a pedem:
+
+      `alvo`   — o que a Coleção pede desta impressão (`metrics.alvo`), nos
+                 blocos que contam; zero nos que estão fora dela (tokens,
+                 signatures, sobrenumeradas, promos), que a Coleção não pede.
+      `usadas` — o que os decks lhe alocaram (`decks.printing_allocation`).
+
+    `incluir_master=False` (omissão) tira a SEQUÊNCIA do master set, que é o
+    âmbito do `listar()` desde 2026-09-08: *"a sequência nunca entra na venda,
+    por muitas cópias que ele tenha"*.
+
+    `incluir_master=True` traz a sequência também, com o mesmo alvo e a mesma
+    subtração — é o que a lista das comuns e incomuns precisa (André,
+    2026-09-10), porque as comuns vivem quase todas na sequência e uma quarta
+    cópia de uma Unit de playset 3 não faz falta a ninguém. **Não é um critério
+    novo de excedente**: é o mesmo, sem o corte de âmbito.
+    """
     cfg = cfg or config.load()
 
     try:
@@ -64,14 +84,14 @@ def listar(con: sqlite3.Connection, cfg: dict | None = None) -> dict:
     itens: list[dict] = []
     for r in con.execute(
         "SELECT p.printing_id, p.set_id, p.collector_number, p.public_code, "
-        "       p.name, p.variant_kind, p.variant_label, p.base_rarity, p.type, "
+        "       p.name, p.variant_kind, p.variant_label, p.rarity, p.base_rarity, p.type, "
         "       p.is_token, p.orientation, p.api_sort, "
         "       p.image_medium, p.image_large, p.image_url, c.qty "
         "FROM copies c JOIN catalog.printings p ON p.printing_id = c.printing_id "
         "WHERE c.qty > 0 ORDER BY p.set_id, p.api_sort"
     ):
         bloco = metrics.bloco(r, cfg)
-        if bloco == metrics.BLOCO_MASTER:
+        if bloco == metrics.BLOCO_MASTER and not incluir_master:
             continue
         nos_decks = alocacao.get(r["printing_id"], [])
         usadas = sum(d["qty"] for d in nos_decks)
@@ -94,6 +114,11 @@ def listar(con: sqlite3.Connection, cfg: dict | None = None) -> dict:
             "target": alvo,
             "kind": r["variant_kind"], "label": r["variant_label"],
             "rarity": r["base_rarity"] or "?",
+            # A raridade IMPRESSA, a par da raridade da base. As duas só
+            # diferem nas seis runas de arte alternativa do OGN (base `common`,
+            # impressa `showcase`), e o `comuns.py` exige as duas para nenhum
+            # tratamento showcase entrar na lista das comuns.
+            "printed_rarity": r["rarity"] or "?",
             "landscape": (r["orientation"] or "").lower() == "landscape",
             "img": f"img/{r['printing_id']}.webp",
             "cdn": r["image_medium"] or r["image_large"] or r["image_url"],
@@ -110,6 +135,14 @@ def listar(con: sqlite3.Connection, cfg: dict | None = None) -> dict:
             "v": mkt.get("v"), "n_versions": mkt.get("n", 1),
             "foil_only": bool(mkt.get("foil_only")),
         })
+
+    return itens
+
+
+def listar(con: sqlite3.Connection, cfg: dict | None = None) -> dict:
+    """As impressões fora do master set que ele tem, e o que fazer com elas."""
+    cfg = cfg or config.load()
+    itens = excedente(con, cfg, incluir_master=False)
 
     # Só as que têm excedente é que se vendem; as que estão inteiras num deck
     # ficam à parte, para ele ver que não desapareceram — foram para um deck.
@@ -141,5 +174,10 @@ def listar(con: sqlite3.Connection, cfg: dict | None = None) -> dict:
 
 
 def payload(con: sqlite3.Connection, editable: bool = True) -> dict:
+    # A análise das comuns e incomuns (André, 2026-09-10) vai no MESMO ficheiro:
+    # é a mesma página, e um segundo `api/*.json` obrigava a segunda visita ao
+    # servidor para desenhar uma secção que está dobrada por omissão.
+    from . import comuns
     from .metrics import _now
-    return {"editable": editable, "generated_at": _now(), **listar(con)}
+    return {"editable": editable, "generated_at": _now(), **listar(con),
+            "comuns": comuns.analise(con)}

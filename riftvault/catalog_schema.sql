@@ -101,7 +101,11 @@ CREATE TABLE IF NOT EXISTS price_latest (
     price_cents INTEGER,
     currency    TEXT NOT NULL DEFAULT 'EUR',
     from_foil   INTEGER NOT NULL DEFAULT 0,  -- 1: não havia oferta normal
-    n_listings  INTEGER NOT NULL DEFAULT 0,
+    -- O TAMANHO da oferta, em três medidas (ver `prices.oferta`). É OFERTA, não
+    -- procura: nem o CardTrader nem o Cardmarket publicam volume de vendas.
+    n_listings  INTEGER NOT NULL DEFAULT 0,  -- anúncios utilizáveis
+    n_sellers   INTEGER NOT NULL DEFAULT 0,  -- vendedores distintos
+    n_copies    INTEGER NOT NULL DEFAULT 0,  -- cópias à venda ao todo
     day         TEXT,
     source      TEXT NOT NULL DEFAULT 'cardtrader'
 );

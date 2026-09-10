@@ -2065,7 +2065,9 @@ function renderVenda() {
   if (!v.printings && !v.in_decks) {
     corpo.innerHTML = `<p class="empty">Não tens nada a mais do que a coleção
       pede — nem tokens (<code>-T</code>), que estão fora dela, nem cópias
-      repetidas das runas especiais ou das artes alternativas.</p>`;
+      repetidas das runas especiais ou das artes alternativas.</p>`
+      + comunsHTML(v.comuns);
+    comunsLigar(v.comuns);
     return;
   }
 
@@ -2105,12 +2107,112 @@ function renderVenda() {
     ${v.kept.length ? `
       <h3 class="section-head sub">Fora da sequência, mas em uso nos decks
         <span>${v.in_decks_copies} cópias em decks — não estão para venda</span></h3>
-      <div class="grid deck-grid">${v.kept.map(vendaTile).join('')}</div>` : ''}`;
+      <div class="grid deck-grid">${v.kept.map(vendaTile).join('')}</div>` : ''}
+
+    ${comunsHTML(v.comuns)}`;
 
   if (v.items.length) {
     cmLigar('venda', () => v.items, `riftvault-venda-${hojeISO()}.csv`, 'venda');
   }
+  comunsLigar(v.comuns);
 }
+
+/* ---------------------------------------------- comuns e incomuns (2026-09-10)
+
+   "Vê no Cardmarket e CardTrader quais as comuns e incomuns que costumam
+   vender-se mais, e quais as mais caras, para eu saber o que vender" (André).
+
+   Vem DOBRADA: são duas tabelas de vinte linhas e a pergunta principal da
+   página continua a ser o excedente lá de cima.
+
+   O QUE ESTA SECÇÃO NÃO TEM: uma lista de "as que se vendem mais". Volume de
+   vendas não existe em fonte pública nenhuma — o Cardmarket dá 403 no site e
+   410 na API — e inventar uma coluna a partir do número de anúncios seria
+   mostrar OFERTA com o nome de procura. Ver `riftvault/comuns.py`.          */
+
+/* O catálogo escreve as raridades em inglês; o ecrã é dele. */
+const COMUNS_RAR = { common: 'comuns', uncommon: 'incomuns', rare: 'raras',
+                     epic: 'épicas', showcase: 'showcase' };
+
+function comunsHTML(c) {
+  if (!c) return '';
+  const rar = (c.rarities || []).map(r => COMUNS_RAR[r] || r).join(' e ');
+  const s = c.sell || { printings: 0, copies: 0, cents: 0, items: [] };
+  const k = c.keep || { printings: 0, items: [] };
+
+  return `<details class="comuns-bloco">
+    <summary><b>Comuns e incomuns: as mais caras e o que tens a mais</b>
+      <span>${c.universe.priced} impressões com preço · o teu excedente vale
+        ${eur(s.cents)}</span></summary>
+
+    <p class="note"><b>O que isto mede.</b> A fonte é o <b>CardTrader</b>
+      (preços de ${escapeHTML(c.day || '—')}): preço mínimo pedido, número de
+      anúncios e de vendedores. <b>Do Cardmarket não vem nada</b> —
+      ${escapeHTML(c.sources.cardmarket.why)}.
+      <br><b>Não há volume de vendas em lado nenhum público</b>, por isso não há
+      aqui nenhuma lista de "as que mais se vendem". A coluna <b>procura</b> é o
+      preço a dividir pela mediana da raridade (${(c.rarities || []).map(r =>
+        `${COMUNS_RAR[r] || r} ${eur(c.medians[r])}`).join(' · ')}), reforçado pela
+      subida do preço e pela queda dos anúncios em ${c.window_days} dias — mede
+      quanto o mercado pede <i>acima do saldo</i>, não quantas se venderam.
+      ${c.listings_days < 2 ? `<br>O histórico do número de anúncios começou
+        agora (${c.listings_days} dia): a queda de anúncios ainda não conta para
+        nada. Ganha sentido ao fim de umas semanas de <code>riftvault prices</code>.`
+        : ''}</p>
+
+    <h3 class="section-head sub">As mais caras
+      <span>top ${c.top} de ${c.universe.priced} ${escapeHTML(rar)}</span></h3>
+    ${comunsTabela(c.by_price)}
+
+    <h3 class="section-head sub">Sinal de procura mais alto
+      <span>preço acima do saldo da raridade — não é volume de vendas</span></h3>
+    ${comunsTabela(c.by_demand)}
+
+    <h3 class="section-head sub">O que vender
+      <span>${s.printings} impressões · ${s.copies} cópias ·
+        ${eur(s.cents)}</span></h3>
+    <p class="note">Só o que <b>nem a Coleção nem os decks pedem</b> — a mesma
+      conta do excedente lá de cima, mas com a sequência do master set incluída,
+      porque é lá que as comuns vivem. Nada disto mexe na coleção.</p>
+    ${s.items.length ? comunsTabela(s.items, true) + cmZonaHTML('comuns')
+      : `<p class="empty">Não tens nenhuma comum ou incomum a mais.</p>`}
+
+    ${k.printings ? `
+      <h3 class="section-head sub">Guardar, não vender
+        <span>${k.printings} impressões baratas mas a subir</span></h3>
+      ${comunsTabela(k.items, true)}` : ''}
+  </details>`;
+}
+
+function comunsTabela(itens, comExcedente = false) {
+  return `<table class="cm-tabela"><thead><tr>
+      <th>código</th><th>nome</th><th class="n">preço</th><th class="n">procura</th>
+      <th class="n">anúncios</th><th class="n">vend.</th><th class="n">Δ% ${''}</th>
+      <th class="n">${comExcedente ? 'a mais' : 'tens'}</th>
+      ${comExcedente ? '<th class="n">total</th>' : ''}</tr></thead><tbody>
+    ${itens.map(x => `<tr>
+      <td class="cod">${escapeHTML((x.code || '').split('/')[0])}</td>
+      <td title="${escapeAttr(x.name)}">${escapeHTML(x.name)}${
+        x.outside ? ` <span class="fora-tag">fora da coleção</span>` : ''}${
+        x.from_foil ? ` <span class="fora-tag">só foil</span>` : ''}</td>
+      <td class="n">${eur(x.price)}</td>
+      <td class="n">${x.demand.toLocaleString('pt-PT')}</td>
+      <td class="n">${x.n_listings}</td>
+      <td class="n">${x.n_sellers || '—'}</td>
+      <td class="n ${x.pct > 0 ? 'sobe' : ''}">${
+        x.pct == null ? '—' : fmtPct(x.pct)}</td>
+      <td class="n">${comExcedente ? x.qty : x.have || '—'}</td>
+      ${comExcedente ? `<td class="n">${eur(x.total)}</td>` : ''}
+    </tr>`).join('')}</tbody></table>`;
+}
+
+function comunsLigar(c) {
+  if (c && c.sell && c.sell.items.length) {
+    cmLigar('comuns', () => c.sell.items,
+            `riftvault-comuns-${hojeISO()}.csv`, 'venda');
+  }
+}
+
 
 function vendaTile(x) {
   const onde = (x.in_decks || []).map(d =>
