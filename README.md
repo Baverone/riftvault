@@ -70,8 +70,31 @@ não precisa do PC ligado.
 py -m riftvault build
 ```
 
-Gera `site/` — o **mesmo** frontend, sem os controlos de edição. É o que o
-GitHub Actions publica no GitHub Pages (`.github/workflows/pages.yml`).
+Gera `site/` — o **mesmo** frontend, sem os controlos de edição.
+
+**A pasta `site/` vai no Git, e é ela que o GitHub Pages publica** (desde
+2026-09-10). O workflow `.github/workflows/pages.yml` não vai à rede: pega na
+pasta commitada e publica-a, mais nada. Quem gera o site é o PC — as tarefas
+`riftvault-publicar` (de 30 em 30 min) e `riftvault-daily` (07:30) do `ai-pc`.
+
+Foi a RiftScribe que obrigou a isto: a 10/09/2026, das 11:55 às 17:45, todas as
+builds morreram ao fim de 45 s a descarregar o catálogo (`riftscribe.gg/api` em
+timeout, do Actions e do PC) e o site ficou parado na versão da manhã. O
+catálogo completo já está no PC e a colecção também — o Pages não precisava de
+rede nenhuma.
+
+```bash
+py -m riftvault build --se-mudou
+```
+
+Gera para uma pasta de prova e compara com o `site/` commitado **ignorando o
+`generated_at`**: se o conteúdo é o mesmo, não escreve nada. É isto que impede
+a tarefa de meia em meia hora de gastar uma build do Pages só porque o relógio
+andou.
+
+As **imagens continuam a vir do CDN** (`static_images: "remote"`): são ~88 MB e
+não têm nada que fazer no Git. Se a RiftScribe estiver em baixo, a página abre
+na mesma — só as imagens é que não aparecem.
 
 ---
 
@@ -156,7 +179,8 @@ Terceira secção, com seis abas:
   dias" é o que estava em vigor nessa data, mesmo que o registo seja mais
   antigo. Enquanto o `prices.db` não tiver 30 dias, a comparação é *desde* a
   data mais antiga que houver e a linha diz isso — nunca finge a janela toda.
-  O GitHub Actions atualiza os preços sozinho todos os dias.
+  Os preços são atualizados sozinhos todos os dias pelo PC (`riftvault-daily`,
+  07:30) — era o GitHub Actions até 2026-09-10.
 
   A janela, o limiar e a regra de "ainda não tenho" mexem-se em `a_subir`, no
   `riftvault_config.json`. Há ainda uma coluna de **urgência**, desligada de
@@ -578,7 +602,7 @@ que faltam e o custo, e diz se também existe noutra edição. Essas regras est�
 riftvault sync [--set OGN] [--images] [--fast]   # catálogo
 riftvault images [--set OGN]                     # só as imagens em falta
 riftvault serve [--port 8770]                    # modo edição
-riftvault build [--out site]                     # modo publicado
+riftvault build [--out site] [--se-mudou]        # modo publicado
 riftvault add OGN-100a x1                        # somar cópias
 riftvault remove OGN-100a x1                     # tirar cópias
 riftvault set OGN-100a 3                         # fixar a quantidade

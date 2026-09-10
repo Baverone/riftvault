@@ -28,6 +28,10 @@ Secções: **Coleção**, **Decks**, **Faltas** e **Venda**.
 - **Publicado (leitura):** `riftvault build` gera o MESMO frontend em estático,
   sem controlos de edição, publicado no GitHub Pages por GitHub Actions.
 
+**O `build` corre NO PC e o `site/` vai no Git (2026-09-10).** Ver a secção
+própria, "O site é gerado no PC". O GitHub Actions deixou de gerar seja o que
+for: só publica a pasta commitada, sem rede nenhuma.
+
 O frontend é o mesmo ficheiro nos dois modos. Ele pede sempre os mesmos URLs
 (`api/sets.json`, `api/set/<ID>.json`, ...); em modo edição o servidor
 responde dinamicamente, em modo publicado são ficheiros reais gerados pelo
@@ -82,6 +86,95 @@ qualificam sempre `prices.price_history`.
 Como no mtgvault, o `catalog.db` é ATTACHed como schema `catalog`. O SQLite
 não suporta chaves estrangeiras entre bases de dados: `copies.printing_id`
 não tem FK declarada, a integridade é garantida no código.
+
+---
+
+# O site é gerado no PC (2026-09-10)
+
+**O que aconteceu.** A 10/09, das 11:55 às 17:45, TODAS as builds do Pages
+morreram ao fim de 45 s no passo «Descarregar o catálogo»: o
+`riftscribe.gg/api/cards/filters` deixou de responder — timeout do GitHub **e**
+do PC, portanto era mesmo deles. O site ficou parado na versão das 09:08 (o VEN
+ainda a 196 impressões, antes das promos saírem) com o André fora de casa a
+olhar para ele. Cada push a `main` gastava uma build que morria.
+
+**O erro de fundo era de desenho.** O `catalog.db` está no `.gitignore` porque
+é reconstruível, e a consequência era o Actions ter de o reconstruir **a cada
+build** — 7 pedidos à RiftScribe para publicar uma página que só precisava de
+dados que já estavam todos no PC. A única coisa insubstituível daqui, a
+colecção, mora no PC; o catálogo completo também. **O Pages não tinha nada que
+precisar de rede.**
+
+**A cura é a do mtgvault**, que já publicava assim: gerar no PC, commitar o
+resultado, e deixar o Actions só servir.
+
+| | antes | agora |
+|---|---|---|
+| quem corre o `riftvault build` | GitHub Actions | o PC (`riftvault-publicar`, `riftvault-daily`) |
+| de onde vem o catálogo | descarregado da RiftScribe a cada build | `data/catalog.db`, que já está em disco |
+| o que o workflow faz | sync + map + prices + commit + build + deploy | `checkout` -> `upload-pages-artifact` -> `deploy` |
+| pedidos de rede no workflow | 7 à RiftScribe + o CardTrader inteiro | **zero** |
+| o que o workflow escreve no repo | `data/prices.db` | **nada** (`contents: read`) |
+
+## `site/` deixou de estar no `.gitignore`
+
+São **1,2 MB em 17 ficheiros** (`api/faltas.json` 220 KB, os cinco
+`api/set/*.json` 720 KB, `venda.json` 55 KB, e o `index.html`/`app.js`/`css`).
+É JSON, comprime bem, e só se commita quando muda mesmo — ver a seguir.
+
+**As imagens NÃO vão para o Git.** São ~88 MB e o `static_images` fica em
+`"remote"`: o browser dele vai ao `cdn.riftscribe.gg`, como já ia. Isso é o
+browser a buscar imagens, não uma build — se a RiftScribe estiver em baixo a
+**página abre na mesma**, só fica sem as fotos. É a diferença que interessa: o
+site deixou de poder ficar parado, no máximo fica feio.
+
+## `--se-mudou`: o relógio não é conteúdo
+
+O `generated_at` muda a cada geração. Sem defesa nenhuma, a tarefa de 30 em 30
+minutos commitava um site novo e gastava uma build do Pages **48 vezes por
+dia**, para sempre, sem uma carta ter mudado.
+
+`riftvault build --se-mudou` gera para uma pasta de prova (`site-prova/`, fora
+do Git), compara com o `site/` **ignorando todos os `generated_at`**
+(`build.mesmo_conteudo`), e só reescreve se o conteúdo diferir. Compara-se o
+RESULTADO, não as datas dos ficheiros de entrada: o `vault.db` é reescrito por
+qualquer clique, mesmo um que não mude número nenhum, e o WAL faz o mesmo ao
+contrário.
+
+A `api/` é apagada antes de cada geração — uma edição que saia do catálogo tem
+de sair do site, e um payload órfão fazia o `--se-mudou` ver diferença **em
+todas as corridas**, que é a mesma avaria por outro caminho.
+
+## O que o workflow deixou de fazer, e onde passou a ser feito
+
+| passo que saiu do `pages.yml` | onde está agora |
+|---|---|
+| `riftvault sync` | passo `sync` do `riftvault-daily` (já lá estava, não essencial) |
+| `riftvault map` + `riftvault prices` | passo `prices` do mesmo (já lá estava) |
+| commit do `data/prices.db` | passo `commit` do mesmo (um só push) |
+| `riftvault build` | passo `site` do `riftvault-daily` e a `riftvault-publicar` |
+
+Nada se perdeu: os três primeiros já eram feitos no PC todos os dias, o
+workflow é que os repetia. O que é novo é a geração.
+
+**Os preços deixaram de ser essenciais no `riftvault-daily`** — e não é
+indulgência. A publicação do site vem DEPOIS deles: com o CardTrader ou a
+RiftScribe em baixo, a tarefa acaba o trabalho (gera o site com os dados que há
+e publica a colecção que o André editou) e **só depois** diz que o passo
+falhou. O teste continua a dar vermelho — «correu» não é «actualizou» —, o que
+muda é que o vermelho já não impede o site de ir para o ar.
+
+## O teste pergunta pelo site QUE ESTÁ NO AR
+
+Não chega o commit estar em `origin/main`: era isso que estava verde enquanto
+as builds morriam. Os dois `test.py` fazem GET a
+`baverone.github.io/riftvault/api/index.json` e comparam o `generated_at` de lá
+com o do `site/api/index.json` daqui. Se o de lá estiver atrasado:
+
+- **commit do site com menos de 15 min** -> AVISO, o Pages ainda está a
+  construir (as builds boas levavam ~1 min);
+- **mais do que isso** -> VERMELHO, com o `gh run list` na mensagem. É
+  exactamente o caso de 10/09.
 
 ---
 
@@ -2061,6 +2154,10 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   tirarem de lá, o desfazer-deck a mandar tudo para o binder, a venda por origem,
   a marcação em dois passos (propor / confirmar linha a linha) e o rasto em
   `data/locais.log`. `riftvault local` no CLI.
+- **Feito também:** o site gerado no PC (2026-09-10) — o `site/` vai no Git e o
+  `pages.yml` publica-o sem tocar na rede; `riftvault build --se-mudou` para
+  não gastar uma build do Pages por cada volta do relógio. A RiftScribe em
+  baixo já não pode parar o site.
 - **Por fazer:** vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck,
   com as partilhadas assinaladas); e apagar decks pela interface (hoje apaga-se
   o `.txt`).
