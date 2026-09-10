@@ -1,0 +1,718 @@
+/* riftvault — o mesmo CSS no modo edição e no modo publicado.
+   Pensado primeiro para telemóvel: os +/- têm de dar para carregar com o
+   polegar enquanto se está a mexer nas cartas com a outra mão. */
+
+:root {
+  --bg: #0f1016;
+  --panel: #181a24;
+  --panel-2: #1f2230;
+  --line: #2b2f40;
+  --text: #e8e9f0;
+  --dim: #9aa0b5;
+  --accent: #7c8cff;      /* playset jogável */
+  --accent-2: #f0b429;    /* master set */
+  --ok: #3ecf8e;
+  --bad: #ff6b6b;
+  /* 104px dá 3 colunas num telemóvel de 375px. Menos do que isto e os +/-
+     ficam pequenos de mais para o polegar. */
+  --tile: 104px;
+}
+
+* { box-sizing: border-box; }
+
+/* O atributo `hidden` vale só `display: none` por omissão, e qualquer regra
+   com `display: flex`/`grid` ganha-lhe. Sem isto, os separadores das edições
+   ficavam à vista na secção dos decks. */
+[hidden] { display: none !important; }
+
+html, body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-text-size-adjust: 100%;
+}
+
+a { color: var(--accent); }
+
+/* ---------------------------------------------------------------- topo */
+
+header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: rgba(15, 16, 22, .96);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--line);
+  padding: env(safe-area-inset-top) 0 0;
+}
+
+.brand { display: flex; align-items: center; gap: 10px; padding: 8px 12px 0; }
+.brand h1 { margin: 0; font-size: 16px; letter-spacing: .5px; font-weight: 700; }
+.brand .tabs { padding: 0; margin-left: auto; }
+
+.badge-mode {
+  font-size: 11px; color: var(--dim);
+  border: 1px solid var(--line); border-radius: 99px; padding: 1px 8px;
+}
+
+.tabs { display: flex; gap: 4px; overflow-x: auto; padding: 6px 12px; scrollbar-width: none; }
+.tabs::-webkit-scrollbar { display: none; }
+
+.tab {
+  flex: 0 0 auto;
+  background: transparent; color: var(--dim);
+  border: 1px solid transparent; border-radius: 99px;
+  padding: 6px 12px; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
+}
+.tab.is-on { color: var(--text); background: var(--panel-2); border-color: var(--line); }
+.tab:disabled { opacity: .35; cursor: default; }
+
+.tabs-set { padding-top: 0; }
+.tabs-set .tab { font-size: 14px; }
+.tabs-set .tab small { display: block; font-weight: 400; font-size: 10px; opacity: .7; }
+
+/* ------------------------------------------------------- barras e stats */
+
+main { padding: 12px; max-width: 1500px; margin: 0 auto; }
+
+.progress-wrap {
+  display: grid; gap: 12px;
+  grid-template-columns: 1fr 1fr;
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: 12px; padding: 10px; margin-bottom: 10px;
+}
+
+.bar-label { display: flex; justify-content: space-between; gap: 6px; font-size: 12px; margin-bottom: 5px; }
+.bar-label b { font-variant-numeric: tabular-nums; }
+
+.bar { height: 8px; background: var(--panel-2); border-radius: 99px; overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--accent); transition: width .25s; }
+.bar-alt i { background: var(--accent-2); }
+.bar-val i { background: var(--ok); }
+.bar-block small { display: block; margin-top: 5px; font-size: 10px; color: var(--dim); }
+
+.rarities { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; }
+.rarity {
+  font-size: 11px; color: var(--dim);
+  background: var(--panel-2); border: 1px solid var(--line);
+  border-radius: 99px; padding: 3px 9px;
+}
+.rarity b { color: var(--text); font-variant-numeric: tabular-nums; }
+.rarity.is-done b { color: var(--ok); }
+
+/* ------------------------------------------------------------ controlos */
+
+.controls { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; align-items: center; }
+
+.seg { display: flex; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.seg-btn {
+  background: transparent; color: var(--dim); border: 0;
+  padding: 8px 11px; font: inherit; font-size: 12px; cursor: pointer; white-space: nowrap;
+}
+.seg-btn.is-on { background: var(--panel-2); color: var(--text); font-weight: 600; }
+
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chips[hidden] { display: none; }
+.chip { position: relative; }
+.chip input { position: absolute; opacity: 0; pointer-events: none; }
+.chip span {
+  display: inline-block; font-size: 12px; color: var(--dim);
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: 99px; padding: 6px 10px; cursor: pointer;
+}
+.chip input:checked + span { color: var(--text); border-color: var(--accent); }
+
+#search {
+  flex: 1 1 180px; min-width: 140px;
+  background: var(--panel); color: var(--text);
+  border: 1px solid var(--line); border-radius: 10px;
+  padding: 8px 11px; font: inherit; font-size: 13px;
+}
+
+.count-line { margin: 0 0 10px; font-size: 12px; color: var(--dim); }
+.empty { color: var(--dim); text-align: center; padding: 40px 0; }
+
+/* Modo publicado: dizer porque é que não há botões, em vez de deixar a
+   pessoa a carregar no vazio. */
+.banner {
+  display: flex; flex-direction: column; gap: 4px;
+  background: var(--panel); border: 1px solid var(--line);
+  border-left: 3px solid var(--accent-2);
+  border-radius: 10px; padding: 11px 14px; margin-bottom: 12px;
+}
+.banner b { font-size: 13px; }
+.banner span { font-size: 12px; color: var(--dim); line-height: 1.5; }
+.banner code {
+  background: var(--panel-2); border-radius: 4px; padding: 1px 5px;
+  font-size: 11px; color: var(--text);
+}
+
+/* ---------------------------------------------------------------- grelha */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--tile), 1fr));
+  gap: 10px;
+  align-items: start;
+}
+
+/* Um grupo = uma carta impressa e as variantes que lhe pertencem. Quando tem
+   mais do que uma impressão ganha moldura e faixa lateral partilhadas, para
+   se ver de relance que as artes alternativas são daquela carta. */
+.group { grid-column: span 1; }
+
+.group.multi {
+  grid-column: span var(--span, 2);
+  display: grid;
+  grid-template-columns: repeat(var(--span, 2), 1fr);
+  gap: 8px;
+  padding: 8px 8px 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  position: relative;
+}
+.group.multi::before {
+  content: "";
+  position: absolute; left: 5px; top: 10px; bottom: 10px; width: 3px;
+  border-radius: 3px; background: var(--accent); opacity: .55;
+}
+
+/* Cabeçalho de secção quando se ordena por tipo, raridade ou custo.
+   Ocupa a linha inteira da grelha. */
+.section-head {
+  grid-column: 1 / -1;
+  display: flex; align-items: baseline; gap: 8px;
+  margin: 10px 0 0; padding-bottom: 5px;
+  border-bottom: 1px solid var(--line);
+  font-size: 14px; font-weight: 700; text-transform: capitalize;
+}
+.section-head:first-child { margin-top: 0; }
+.section-head span {
+  font-size: 11px; font-weight: 400; color: var(--dim); text-transform: none;
+}
+
+/* Os blocos que ficam DEPOIS da sequência do master set (André, 2026-09-08).
+   Separador grosso, para se ver de longe que a sequência acabou e o que vem a
+   seguir é outra coisa.
+
+   `.cauda` é a cauda da COLEÇÃO — as runas especiais e as artes alternativas,
+   1 de cada, que contam para a percentagem. `.fora` é o que não conta (os
+   tokens): mesmo separador, mas apagado, porque é informação e não meta. */
+.section-head.cauda,
+.section-head.fora {
+  margin-top: 26px; padding-top: 14px;
+  border-top: 2px solid var(--line);
+  text-transform: none;
+}
+.section-head.cauda { border-top-color: var(--accent-2); }
+.section-head.fora { color: var(--dim); }
+.section-head.fora b { color: var(--text); }
+
+/* Os chips da percentagem por bloco, debaixo da barra do master set. */
+.rarities.blocos { margin-top: 6px; }
+.rarity.is-out { opacity: .55; }
+
+/* A contagem por níveis (1 de cada · 2 de cada · playset), por baixo da barra
+   do master set. Ocupa a linha toda mesmo no ecrã largo, onde as três barras
+   ficam lado a lado: são seis chips com números e ao terço da largura partiam-se
+   todos. */
+.niveis { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 5px; }
+.niveis-linha { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; }
+.niveis-rot {
+  font-size: 10px; color: var(--dim); text-transform: uppercase;
+  letter-spacing: .04em; min-width: 92px;
+}
+.rarity.nivel b:first-child { color: var(--accent-2); }
+.rarity.nivel.is-done b:first-child { color: var(--ok); }
+
+.chip-b.is-static { cursor: default; }
+
+.tile { position: relative; display: flex; flex-direction: column; gap: 5px; }
+
+.art {
+  position: relative; display: block; width: 100%; aspect-ratio: 5 / 7;
+  border-radius: 8px; overflow: hidden; background: var(--panel-2);
+  border: 1px solid var(--line);
+}
+.art.landscape { aspect-ratio: 7 / 5; }
+.art img { width: 100%; height: 100%; object-fit: cover; display: block; transition: filter .2s; }
+
+/* Sem cópias: dessaturada e escurecida. */
+.tile.none .art img { filter: grayscale(1) brightness(.42); }
+.tile.done .art { border-color: rgba(62, 207, 142, .55); }
+
+.label {
+  position: absolute; left: 4px; top: 4px;
+  font-size: 10px; font-weight: 700; letter-spacing: .3px;
+  background: rgba(0, 0, 0, .72); color: #fff;
+  border-radius: 5px; padding: 2px 6px;
+}
+.label.alt_art { background: rgba(124, 140, 255, .92); }
+.label.signature { background: rgba(240, 180, 41, .92); color: #24160a; }
+.label.token, .label.rune_promo, .label.special { background: rgba(255, 255, 255, .22); }
+
+.badge {
+  position: absolute; right: 4px; bottom: 4px;
+  font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums;
+  background: rgba(0, 0, 0, .78); color: #fff;
+  border-radius: 6px; padding: 2px 7px;
+}
+.tile.partial .badge { background: rgba(240, 180, 41, .95); color: #24160a; }
+.tile.done .badge { background: rgba(62, 207, 142, .18); color: var(--ok); font-weight: 600; }
+
+/* Preço por cima da carta, só a partir de price_badge_min (1 € por omissão).
+   Canto superior direito: é o único que não colide com a etiqueta de variante,
+   o número de coleção nem o contador. */
+.price {
+  position: absolute; right: 4px; top: 4px;
+  font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums;
+  background: rgba(62, 207, 142, .92); color: #04231a;
+  border-radius: 5px; padding: 2px 6px;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, .5);
+}
+/* Nas cartas que não tenho a imagem fica escurecida — o preço não deve
+   desaparecer com ela. */
+.tile.none .price { background: rgba(62, 207, 142, .82); }
+
+.cn {
+  position: absolute; left: 4px; bottom: 4px;
+  font-size: 10px; color: #cfd3e4;
+  background: rgba(0, 0, 0, .6); border-radius: 5px; padding: 1px 5px;
+}
+
+.tname {
+  font-size: 10px; line-height: 1.25; color: var(--dim);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* Os +/- estão SEMPRE visíveis e são grandes de propósito. */
+.steppers { display: flex; gap: 6px; }
+.step {
+  flex: 1; min-height: 40px;
+  background: var(--panel-2); color: var(--text);
+  border: 1px solid var(--line); border-radius: 9px;
+  font: inherit; font-size: 18px; font-weight: 700; line-height: 1;
+  cursor: pointer; user-select: none; -webkit-user-select: none;
+  touch-action: manipulation;
+}
+.step:active { background: var(--accent); color: #0f1016; transform: scale(.96); }
+.step.minus:disabled { opacity: .3; cursor: default; }
+
+/* Cópias que saíram do binder para um deck. Âmbar, a mesma cor que a vista
+   de decks usa para "está noutro deck". */
+.indeck {
+  font-size: 10px; text-align: center; color: var(--accent-2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.playset {
+  font-size: 10px; color: var(--dim); text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.playset.is-done { color: var(--ok); }
+
+.tile.focus .art { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tile.flash .badge { animation: flash .4s; }
+@keyframes flash { 0% { transform: scale(1.35); } 100% { transform: scale(1); } }
+
+/* Modo publicado: sem controlos de edição. */
+body.readonly .steppers { display: none; }
+
+/* ------------------------------------------------------------------ decks */
+
+.deck-card {
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: 12px; padding: 12px; margin-bottom: 14px;
+}
+.deck-title { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
+.deck-title b { font-size: 16px; }
+.prio {
+  font-size: 11px; color: var(--dim);
+  border: 1px solid var(--line); border-radius: 99px; padding: 1px 8px;
+}
+
+.deck-meta { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 12px; font-size: 13px; }
+.deck-meta i { color: var(--dim); font-style: normal; font-size: 11px; display: block; }
+
+.chips-l { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.chip-l {
+  font-size: 11px; border-radius: 99px; padding: 3px 9px;
+  border: 1px solid var(--line); font-variant-numeric: tabular-nums;
+}
+.chip-l.ok { color: var(--ok); border-color: rgba(62, 207, 142, .4); }
+.chip-l.bad { color: var(--bad); border-color: rgba(255, 107, 107, .45); }
+
+/* Quantas cópias faltam por edição — cada carta conta na edição onde sai mais
+   barata, que é onde ele a vai comprar. */
+.falta-set { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 10px; }
+.falta-lbl { font-size: 11px; color: var(--dim); }
+.fs {
+  font-size: 11px; color: var(--dim); font-variant-numeric: tabular-nums;
+  background: var(--panel-2); border: 1px solid var(--line);
+  border-radius: 99px; padding: 3px 9px; white-space: nowrap;
+}
+.fs b { color: var(--bad); font-weight: 700; }
+
+.nota { display: block; margin-top: 8px; font-size: 11px; color: var(--dim); }
+.nota.bad { color: var(--bad); }
+
+.deck-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.btn {
+  background: var(--panel-2); color: var(--text);
+  border: 1px solid var(--line); border-radius: 9px;
+  padding: 8px 12px; font: inherit; font-size: 12px; cursor: pointer;
+}
+.btn:active { background: var(--accent); color: #0f1016; }
+.btn.primary { border-color: var(--accent); color: var(--accent); }
+.btn:disabled { opacity: .45; cursor: default; }
+body.readonly .deck-actions .btn[data-act="principal"],
+body.readonly .deck-actions .btn[data-act="subir"],
+body.readonly .deck-actions .btn[data-act="descer"],
+body.readonly .deck-actions .btn[data-loc] { display: none; }
+
+/* ONDE estão as cartas do deck (André, 2026-09-10): no deck, no binder
+   Decks/Venda, na Coleção (não conta) ou por comprar. */
+.locais-deck {
+  margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--line);
+}
+
+/* A proposta de marcação. Grava-se SÓ o que ele marcar — o «marcar tudo» liga
+   as checkboxes e mais nada. */
+.propor { margin-top: 12px; }
+.propor h3 { font-size: 13px; margin: 0 0 8px; }
+.propor h3 span { display: block; font-weight: 400; font-size: 11px; color: var(--dim); }
+.propor-lista {
+  max-height: 340px; overflow: auto; border: 1px solid var(--line);
+  border-radius: 9px; background: var(--panel-2);
+}
+.propor-item {
+  display: flex; align-items: center; gap: 10px; padding: 6px 10px;
+  border-bottom: 1px solid var(--line); font-size: 12px; cursor: pointer;
+}
+.propor-item:last-child { border-bottom: 0; }
+.propor-item input { width: 18px; height: 18px; flex: 0 0 auto; }
+.propor-item img { width: 26px; border-radius: 3px; flex: 0 0 auto; }
+.propor-item .pn { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.propor-item .pc { color: var(--dim); font-variant-numeric: tabular-nums; }
+.propor-item .pl { color: var(--dim); font-size: 10px; }
+.propor-acoes { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+
+/* A grelha dos decks fala a mesma língua da Coleção: mesmo tamanho de tile,
+   mesma moldura. O que muda é o que o badge conta — aqui é o que o deck pede
+   contra o que lhe está alocado. */
+.deck-grid { margin-bottom: 16px; }
+
+/* Separador entre "o deck" e "o que falta comprar". */
+.falta-head {
+  margin: 26px 0 4px; padding-top: 16px;
+  border-top: 2px solid var(--line);
+  font-size: 15px; font-weight: 700;
+}
+.section-head.sub { font-size: 13px; }
+/* Nesta secção o badge do preço faz sentido no canto; o contador não. */
+.dtile .price {
+  position: absolute; right: 4px; top: 4px;
+  font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums;
+  background: rgba(255, 107, 107, .95); color: #2a0d0d;
+  border-radius: 5px; padding: 2px 6px;
+}
+
+.dtile { position: relative; display: flex; flex-direction: column; gap: 4px; }
+.dtile .art { border-width: 2px; }
+/* Faltam cópias: dessaturada, como na Coleção. */
+.dtile.gone .art img, .dtile.shared .art img { filter: grayscale(1) brightness(.42); }
+.dtile.ok .art { border-color: rgba(62, 207, 142, .55); }
+.dtile.gone .art { border-color: rgba(255, 107, 107, .6); }
+.dtile.shared .art { border-color: rgba(240, 180, 41, .7); }
+
+/* Quantas o deck pede. */
+.need {
+  position: absolute; left: 4px; top: 4px;
+  font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums;
+  background: rgba(0, 0, 0, .78); color: #fff;
+  border-radius: 5px; padding: 2px 6px;
+}
+.dtile .badge { background: rgba(62, 207, 142, .2); color: var(--ok); }
+.dtile.gone .badge { background: rgba(255, 107, 107, .95); color: #2a0d0d; }
+.dtile.shared .badge { background: rgba(240, 180, 41, .95); color: #24160a; }
+
+/* Edição + número + preço. Monoespaçado e alinhado para se ler de relance
+   quando se anda a procurar a carta. */
+.codigo {
+  font-size: 11px; color: var(--text); opacity: .8;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.onde { font-size: 10px; color: var(--dim); line-height: 1.35; }
+.onde.falta { color: var(--bad); }
+.onde.shared { color: var(--accent-2); }
+.onde.tenho { color: var(--dim); opacity: .8; }
+/* De onde vem cada cópia da lista de venda (André, 2026-09-10). */
+.onde.origem { color: var(--dim); opacity: .75; font-style: italic; }
+
+
+/* ------------------------------------------------------------------ faltas */
+
+/* Sub-abas dos decks: podem ser muitas, por isso quebram de linha. */
+.seg-wrap { flex-wrap: wrap; margin-bottom: 12px; }
+.seg-wrap .seg-btn { border-right: 1px solid var(--line); }
+.seg-wrap .seg-btn:last-child { border-right: 0; }
+.seg-wrap .seg-btn b { color: var(--bad); margin-left: 4px; font-variant-numeric: tabular-nums; }
+.seg-wrap .seg-btn.is-on b { color: var(--text); }
+
+.resumo { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: baseline;
+          padding: 10px 12px; margin-bottom: 10px; }
+.resumo b { font-size: 15px; }
+.resumo span { font-size: 13px; color: var(--dim); font-variant-numeric: tabular-nums; }
+
+.wl-linha { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.aviso-foil {
+  border-left: 3px solid var(--accent-2); padding-left: 10px;
+  line-height: 1.6; font-family: ui-monospace, Consolas, monospace; font-size: 11px;
+}
+.aviso-foil b { font-family: inherit; color: var(--accent-2); display: block; margin-bottom: 4px; }
+.aviso-foil i { font-style: normal; color: var(--text); }
+
+/* As linhas de foil podem ser centenas (307 na wantlist de tudo). Ficam
+   dobradas num <details> para a página não acabar num muro de texto. */
+.foil-lista { margin-top: 6px; }
+.foil-lista > summary {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: var(--accent); cursor: pointer; margin-bottom: 4px;
+}
+
+/* Comuns e incomuns (André, 2026-09-10). Dobrada porque são duas tabelas de
+   vinte linhas e a pergunta principal da página é o excedente, lá em cima. */
+.comuns-bloco { margin-top: 30px; padding-top: 14px; border-top: 2px solid var(--accent-2); }
+.comuns-bloco > summary { cursor: pointer; color: var(--accent); }
+.comuns-bloco > summary span { display: block; color: var(--dim); font-size: 12px; margin-top: 2px; }
+.cm-tabela { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
+.cm-tabela th, .cm-tabela td { padding: 4px 8px; border-bottom: 1px solid var(--line); text-align: left; }
+.cm-tabela th { color: var(--dim); font-weight: 500; }
+.cm-tabela .n { text-align: right; font-variant-numeric: tabular-nums; }
+.cm-tabela .cod { font-family: ui-monospace, Consolas, monospace; color: var(--dim); }
+.cm-tabela .sobe { color: var(--accent-2); }
+.fora-tag { color: var(--dim); font-size: 10px; border: 1px solid var(--line);
+            border-radius: 4px; padding: 0 4px; }
+
+.wl-zona { display: flex; flex-direction: column; gap: 8px; margin-top: 18px; align-items: flex-start; }
+.wl-txt {
+  width: 100%; background: var(--panel-2); color: var(--text);
+  border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px;
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: 12px; line-height: 1.6; resize: vertical;
+}
+
+/* As wantlists do fim da Coleção (André, 2026-09-08). Separador grosso como os
+   blocos da grelha: o que vem a seguir já não é a coleção, é o que falta dela. */
+.wl-bloco { margin-top: 30px; }
+.wl-head {
+  padding-top: 14px; border-top: 2px solid var(--accent-2);
+  text-transform: none;
+}
+.wl-bloco .note { font-size: 12px; color: var(--dim); line-height: 1.6; margin: 8px 0 0; }
+.wl-stale { font-size: 12px; color: var(--accent-2); }
+.wl-stale .btn { margin-left: 8px; }
+
+/* O degrau da lista: até 1 de cada, até 2, o playset inteiro. Os dois blocos
+   partilham a escolha, por isso ficam sempre com o mesmo chip aceso. */
+.wl-niveis { margin-top: 10px; }
+
+/* A linha do cabeçalho da edição que manda para o bloco lá em baixo. */
+.falta-linha {
+  grid-column: 1 / -1; margin: 4px 0 0; font-size: 12px; color: var(--dim);
+}
+.falta-linha b { color: var(--text); font-variant-numeric: tabular-nums; }
+.falta-linha a { color: var(--accent); }
+
+.total-linha { margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--line); }
+.total-linha b { color: var(--text); }
+
+.decks-n {
+  position: absolute; left: 4px; bottom: 4px;
+  font-size: 10px; font-weight: 700;
+  background: rgba(124, 140, 255, .92); color: #0f1016;
+  border-radius: 5px; padding: 2px 6px;
+}
+.dtile .cn { right: 4px; bottom: 4px; left: auto; }
+
+/* Impressão que a RiftScribe não tem — veio do CardTrader e não conta para
+   métrica nenhuma. */
+.so-mercado {
+  position: absolute; left: 4px; top: 22px;
+  font-size: 9px; font-weight: 700;
+  background: rgba(124, 140, 255, .92); color: #0f1016;
+  border-radius: 5px; padding: 1px 5px;
+}
+
+.ja-tens {
+  position: absolute; left: 4px; bottom: 4px;
+  font-size: 10px; font-weight: 700;
+  background: rgba(62, 207, 142, .92); color: #04231a;
+  border-radius: 5px; padding: 2px 6px;
+}
+
+/* Encomendas: nem verde (tenho) nem vermelho (falta) — a chegar. */
+.dtile.a-caminho .art { border-color: rgba(124, 140, 255, .55); border-style: dashed; }
+.dtile.a-caminho .art img { filter: none; opacity: .92; }
+.btn.chegou {
+  width: 100%; padding: 7px 8px; font-size: 12px;
+  border-color: rgba(124, 140, 255, .5); color: var(--accent);
+}
+.btn.chegou:disabled { opacity: .55; cursor: default; }
+body.readonly .btn.chegou { display: none; }
+
+.price.pago { background: rgba(124, 140, 255, .92); color: #0f1016; }
+/* Impressões que não são dele: sobem na mesma, mas sem alarme de cor. */
+.dtile.neutro .art { border-color: var(--line); }
+.dtile.neutro .art img { filter: none; }
+.tname .var { font-style: normal; opacity: .65; }
+
+/* ------------------------------------------------------------- "A subir"
+
+   Lista, não grelha: aqui olha-se para números (preço de então, preço de
+   agora, Δ), e numa grelha de artes eles não cabiam. A arte fica pequena, só
+   para reconhecer a carta.                                                */
+
+.subir-lista { display: flex; flex-direction: column; gap: 0; }
+
+.subir-row {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) auto;
+  gap: 10px; align-items: center;
+  padding: 9px 4px;
+  border-bottom: 1px solid var(--line);
+}
+.subir-row:last-child { border-bottom: 0; }
+
+.subir-art {
+  width: 46px; aspect-ratio: 5 / 7; overflow: hidden;
+  border: 1px solid var(--line); border-radius: 5px; background: var(--panel-2);
+}
+.subir-art.landscape { aspect-ratio: 7 / 5; }
+.subir-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.subir-main { min-width: 0; }
+.subir-nome {
+  font-size: 13px; font-weight: 600; line-height: 1.25;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.subir-nome .var { font-style: normal; opacity: .6; font-weight: 400; }
+
+.subir-nums {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 6px;
+  margin-top: 3px; font-size: 12px; font-variant-numeric: tabular-nums;
+}
+.subir-nums .preco-antes { color: var(--dim); text-decoration: line-through; }
+.subir-nums .seta { color: var(--dim); }
+.subir-nums .preco-hoje { color: var(--text); }
+.subir-nums .desde { color: var(--dim); font-size: 11px; }
+.subir-nums .falta-n { color: var(--accent-2); font-size: 11px; }
+
+.subir-links { display: flex; gap: 10px; margin-top: 3px; }
+.subir-links a { font-size: 11px; color: var(--dim); text-decoration: none; }
+.subir-links a:hover { color: var(--accent); text-decoration: underline; }
+
+.subir-delta {
+  display: flex; flex-direction: column; align-items: flex-end; gap: 1px;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.subir-delta .up { color: var(--bad); font-size: 14px; }
+.subir-delta .d7, .subir-delta .urg { font-size: 10px; color: var(--dim); }
+.subir-delta .urg { color: var(--accent-2); }
+
+/* "Master set": a lista completa das faltas. Sem arte — são centenas de
+   linhas e o que interessa aqui é o código, a quantidade e o preço. */
+.mf-lista { display: flex; flex-direction: column; }
+
+.mf-row {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr) 52px 40px 78px 84px;
+  gap: 8px; align-items: baseline;
+  padding: 5px 4px; font-size: 12.5px;
+  border-bottom: 1px solid var(--line);
+  font-variant-numeric: tabular-nums;
+}
+.mf-row:last-child { border-bottom: 0; }
+.mf-code { color: var(--dim); font-size: 11.5px; }
+.mf-nome { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mf-nome .var { font-style: normal; opacity: .6; }
+.mf-tem { color: var(--dim); font-size: 11px; text-align: right; }
+.mf-falta { color: var(--accent-2); text-align: right; }
+.mf-preco { color: var(--dim); text-align: right; }
+.mf-total { text-align: right; }
+
+@media (max-width: 560px) {
+  .mf-row { grid-template-columns: 78px minmax(0, 1fr) 36px 76px; }
+  .mf-tem, .mf-preco { display: none; }
+}
+
+/* Os três botões das listas do Cardmarket, lado a lado. */
+.cm-botoes { display: flex; flex-wrap: wrap; gap: 8px; }
+.btn.ghost { background: transparent; }
+
+/* Filtro de raridade: botões, não checkboxes — só um de cada vez. */
+.subir-rar { margin: 10px 0 6px; }
+.chip-b {
+  background: var(--panel); color: var(--dim);
+  border: 1px solid var(--line); border-radius: 99px;
+  padding: 5px 11px; font: inherit; font-size: 12px; cursor: pointer;
+}
+.chip-b b { color: var(--text); margin-left: 4px; font-variant-numeric: tabular-nums; }
+.chip-b.is-on { color: var(--text); border-color: var(--accent); }
+
+.aviso {
+  background: var(--panel); border: 1px solid var(--line);
+  border-left: 3px solid var(--accent-2);
+  border-radius: 10px; padding: 14px 16px; max-width: 62ch;
+}
+.aviso b { display: block; margin-bottom: 8px; }
+.aviso p { margin: 0 0 8px; font-size: 13px; color: var(--dim); line-height: 1.5; }
+.aviso p:last-child { margin-bottom: 0; }
+.aviso code {
+  background: var(--panel-2); border-radius: 4px; padding: 1px 5px;
+  font-size: 12px; color: var(--text);
+}
+
+/* Lista de encomendas: aqui uma tabela lê-se melhor do que uma grelha —
+   confere-se contra a fatura, não se olha para as artes. */
+.deck-list { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
+.deck-list td { padding: 7px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.deck-list td.q { width: 38px; color: var(--dim); font-variant-numeric: tabular-nums; }
+.deck-list td.h {
+  width: 76px; text-align: right; color: var(--dim);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.deck-list tr:last-child td { border-bottom: 0; }
+
+/* ----------------------------------------------------------------- toasts */
+
+.toasts {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  z-index: 60; display: flex; flex-direction: column-reverse; gap: 8px;
+  width: min(440px, calc(100vw - 24px));
+}
+
+.toast {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--panel-2); border: 1px solid var(--line);
+  border-radius: 10px; padding: 10px 12px; font-size: 13px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, .45);
+}
+.toast.err { border-color: var(--bad); color: #ffd8d8; }
+.toast span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.toast button {
+  background: transparent; color: var(--accent); border: 1px solid var(--line);
+  border-radius: 7px; padding: 6px 11px; font: inherit; font-weight: 600; cursor: pointer;
+}
+
+.foot { text-align: center; color: var(--dim); font-size: 11px; padding: 24px 12px 40px; }
+
+/* ------------------------------------------------------------- ecrãs maiores */
+
+@media (min-width: 620px) { :root { --tile: 132px; } .seg-btn { font-size: 13px; padding: 9px 13px; } }
+@media (min-width: 1000px) { :root { --tile: 158px; } .progress-wrap { grid-template-columns: 1fr 1fr 1fr; } .rarities { grid-column: auto; align-items: center; } }
