@@ -919,7 +919,7 @@ def cmd_encomendas(args) -> int:
         for g in e["a_caminho"]:
             print(f"\n{g['name']}  — {g['copies']} cópias · {prices.eur(g['cents'])}")
             for it in g["items"]:
-                para = " · ".join(f"{x['qty']}x {x['deck'].split(' · ')[0]}"
+                para = " · ".join(f"{x['qty']}x {_deck_curto(x['deck'])}"
                                   for x in it["para"]) or "nenhum deck a pede"
                 if it["sem_deck"] and it["para"]:
                     para += f" · {it['sem_deck']} para a Coleção"
@@ -934,10 +934,24 @@ def cmd_encomendas(args) -> int:
         for g in e["falta"]:
             print(f"  {g['name']:<24} {g['copies']:>3} cópias de {g['cards']:>2} cartas"
                   f"  {prices.eur(g['cents']):>9}")
+            # A linha de cada carta, com o deck (ou o grupo de Legend) para quem
+            # é — é esta lista que ele leva para a encomenda.
+            for it in sorted(g["items"], key=lambda x: str(x["code"])):
+                print(f"    {it['qty']}x {str(it['code']).split('/')[0]:<12} "
+                      f"{str(it['name'])[:30]:<30} {prices.eur(it['price']):>9}"
+                      f"  -> {_deck_curto(it['deck'])}")
     else:
         print("\nNão falta encomendar nada aos decks.")
     con.close()
     return 0
+
+
+def _deck_curto(rotulo: str) -> str:
+    """O rótulo de um deck só pela Legend («Leblanc, Deceiver»); num grupo de
+    Legend (`A ·· B`, 2026-09-11) encurta cada membro e deixa o «··», que é o
+    que diz que a encomenda serve os dois."""
+    return decks_mod.GRUPO_SEP.join(
+        m.split(" · ")[0] for m in rotulo.split(decks_mod.GRUPO_SEP))
 
 
 def cmd_local(args) -> int:
