@@ -1105,10 +1105,6 @@ function deckLocais(p) {
     ${l.na_colecao ? `<small class="nota">As <b>${l.na_colecao}</b> que estão nos
       binders de coleção não montam este deck — são duplicado a comprar ou a
       decidir. Marca as que estão mesmo no deck.</small>` : ''}
-    <small class="nota">Cada deck é independente: o que está noutro deck não
-      desconta a falta. Nas <b>comuns e incomuns</b> a Coleção fica com as
-      dela — o deck compra as suas${l.colecao_fica
-        ? `, e são <b>${l.colecao_fica}</b> cópias das que tens na Coleção` : ''}.</small>
     ${l.extra ? `<small class="nota bad">${l.extra} cópias estão marcadas neste
       deck e a lista já não as pede.</small>` : ''}
     ${state.editable ? `<div class="deck-actions">
@@ -1244,27 +1240,20 @@ async function recarregarDepoisDeMover() {
 function deckTile(c) {
   // «na Coleção» é um estado próprio desde 2026-09-10: a carta existe, mas
   // está nos binders de coleção e não monta este deck. Não é o mesmo que não a
-  // ter, nem o mesmo que estar noutro deck — e desde 2026-09-11 «noutro deck»
-  // já não é um estado: cada deck é independente, e o que está noutro deck
-  // compra-se na mesma. Fica só a nota de onde ela também está.
-  const st = c.missing ? (c.na_colecao ? 'shared' : 'gone') : 'ok';
+  // ter, nem o mesmo que estar noutro deck.
+  const st = c.missing ? (c.shared ? 'shared' : (c.na_colecao ? 'shared' : 'gone')) : 'ok';
   const src = state.imageMode === 'remote' ? (c.cdn || c.img) : (c.img || c.cdn);
   const alt = state.imageMode === 'remote' ? (c.img || '') : (c.cdn || '');
 
   let nota = '';
   if (c.shared) {
-    nota = `<div class="onde falta">faltam ${c.missing} — também ${c.shared.em
+    nota = `<div class="onde shared">falta ${c.missing} — ${c.shared.em
       .map(h => `${h.qty}× em «${escapeHTML(h.deck.split(' · ')[0])}»`
         + (h.onde === 'colecao' ? ' (na Coleção)' : '')).join(', ')}</div>`;
   } else if (c.na_colecao) {
     const comprar = c.missing - c.na_colecao;
     nota = `<div class="onde shared">${c.na_colecao} na Coleção — mover ou comprar${
       comprar > 0 ? ` · ${comprar} a comprar` : ''}</div>`;
-  } else if (c.missing && c.colecao_fica) {
-    // Ele TEM-nA, mas é comum ou incomum: a Coleção fica com as dela e este
-    // deck compra as suas (André, 2026-09-11). Dizer só «faltam N» era mentira.
-    nota = `<div class="onde falta">${c.missing} a comprar — a Coleção fica com
-      ${c.colecao_fica === 1 ? 'a que tens' : `as ${c.colecao_fica} que tens`}</div>`;
   } else if (c.missing) {
     nota = `<div class="onde falta">faltam ${c.missing}</div>`;
   } else if (c.no_binder) {
