@@ -239,11 +239,53 @@ não a nomeou. **É pergunta para ele**, e é a razão de a Staples poder dizer
 «tens» o que a página do deck manda comprar. O **Pimp** e o **playset jogável**
 também não mexeram: continuam a ser o total físico.
 
+## O que mudou nos números
+
+Medido a 2026-09-11 no `main`, depois do merge, contra o `data/` real. As duas
+corridas usaram o mesmo `vault.db`.
+
+| | antes | depois |
+|---|---|---|
+| cópias em falta nos quatro decks | 37 | **208** |
+| custo dessas faltas | 315,50 € | **364,25 €** |
+| ornn / azir / kennen / leblanc | 2 / 3 / 27 / 5 | **49 / 53 / 56 / 50** |
+| «na Coleção — mover ou comprar» | 189 | **56** (só as raras) |
+| «está noutro deck» (agora só informa) | 38 | **1** |
+| aba «Por deck» (a wantlist) | 28 cópias, 314,42 € | **160 cópias, 358,41 €** |
+| cabeçalho «Falta comprar aos decks» | 22 cartas, 29 cópias, 315,05 € | **igual** |
+| «Venda» | 17 impressões, 25 cópias, 718,90 € | **igual** |
+
+**171 cópias passaram a compra e isso custa 48,75 €** — são cartas baratas, e é
+o ponto: **162 delas** (47,40 €) são comuns e incomuns que ele tem na Coleção e
+que a Coleção fica a guardar; a mais cara é a `Stacked Deck` ×3 (14,73 €, uma
+incomum), depois a `Defy` ×3 (3,75 €, duas vezes) e a partir daí são cêntimos.
+Das 100 cartas distintas que os quatro decks pedem, **66 são comuns ou
+incomuns**.
+
+**A independência sozinha vale 1 cópia** (0,26 €): quase todos os «está noutro
+deck» de ontem eram comuns reservadas na Coleção pelo deck de cima, e essas
+agora nem chegam a ser reservadas. O que sobra são as 45 cópias (316,59 €) que
+ele não tem em lado nenhum — quase todo o dinheiro da lista, e as mesmas de
+ontem.
+
+**A aba «Por deck» pede 48 cópias menos do que as páginas dos decks**, e são
+exactamente as **runas**: `faltas_ignorar_tipos: ["Rune"]` desde 2026-09-01,
+12 por deck. Valem 5,84 € nos quatro.
+
 **A Venda não precisou de mudar, e a consequência é visível:** uma comum do
 binder que um deck pede continua fora da venda (o `binder_allocation` não mexeu),
 mas uma comum da Coleção acima do alvo continua a ser excedente **ao mesmo tempo
 que o deck a compra**. Não é contradição — é o preço de a Coleção ter
-prioridade —, e há teste que o fixa para não passar despercebido.
+prioridade —, e há teste que o fixa para não passar despercebido. **Medido: é
+uma linha só**, a `OGN-042a` Calm Rune ×5 (4,61 €), que a Venda propõe e os
+decks pedem 15 vezes.
+
+**O ecrã não diz «não tenho» de uma carta que ele tem.** O `colecao_fica` (por
+carta e por deck) conta as comuns e incomuns que estão na Coleção e o deck
+compra na mesma, e lê-se «3 a comprar · a Coleção fica com as 3 que tens». Não
+desconta nada e não se consome — a mesma cópia é da Coleção para os quatro
+decks. Sem ele o Leblanc dizia «não tenho» de 37 cartas que estão no binder de
+coleção dele.
 
 ---
 
