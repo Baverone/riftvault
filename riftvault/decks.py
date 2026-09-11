@@ -483,35 +483,43 @@ def deck_rows(con: sqlite3.Connection) -> list[sqlite3.Row]:
         "       path, missing_json FROM decks ORDER BY priority, deck_id").fetchall()
 
 
-def allocate(con: sqlite3.Connection, extra: dict[str, int] | None = None) -> dict:
+def allocate(con: sqlite3.Connection) -> dict:
     """Distribui as cópias pelos decks, por ordem de prioridade.
 
-    Cada deck serve-se de três montes, por esta ordem (ver `pool_dos_decks`):
+    Cada deck serve-se de quatro montes, por esta ordem (ver `pool_dos_decks`):
 
       1. o que já está sleevado NESTE deck (`no_deck`) — não anda, é dele;
       2. o binder Decks/Venda (`no_binder`) — o stock livre dos decks;
       3. a Coleção (`na_colecao`) — *"se há na coleção o deck usa"* (André,
-         2026-09-11).
+         2026-09-11);
+      4. o que vem A CAMINHO (`a_caminho`) — comprado mas ainda não em casa
+         (`pending`). Desde 2026-09-11 (tarde) é aqui que os `+`/`−` dos decks
+         escrevem: *"o que já está encomendado (comprado), mas que ainda não
+         chegou"*. Não é `have` — ele ainda não a tem na mão —, mas já não é
+         para comprar. Até essa hora só a secção Faltas o descontava
+         (`allocate(extra=...)`); agora desconta-se num sítio só, para o
+         deck, o `stats`, o «Falta comprar, por edição» e as wantlists dizerem
+         todos o mesmo número.
 
-    Os montes 2 e 3 consomem-se: o que o deck 1 leva, o deck 2 já não vê. **O que
-    um deck não recebe é `missing` — falta a comprar — sempre.** Se as cópias
-    existem mas estão comprometidas num deck de cima, `shared` diz onde
-    (*"caso algum deck ou decks já estão a usar as cartas disponíveis na
-    coleção, o próximo passa a marcar como faltas para comprar"*); é
-    informação, e desde 2026-09-11 já não desconta nada do `missing`.
+    Os montes 2, 3 e 4 consomem-se: o que o deck 1 leva, o deck 2 já não vê.
+    **O que um deck não recebe nem tem a caminho é `missing` — falta a comprar
+    — sempre.** Se as cópias existem mas estão comprometidas num deck de cima,
+    `shared` diz onde (*"caso algum deck ou decks já estão a usar as cartas
+    disponíveis na coleção, o próximo passa a marcar como faltas para
+    comprar"*); é informação, e desde 2026-09-11 já não desconta nada do
+    `missing`.
 
-    `extra` soma cópias por carta lógica ao monte da Coleção: é como a secção
-    Faltas conta o que vem a caminho (`pending`) — comprado é tido.
-
-    Devolve, por deck e por carta: quanto ficou alocado e de onde, quanto falta
-    comprar, quanto dessa falta existe noutro deck, e o que está marcado neste
-    deck mas o deck já não pede (`extra`).
+    Devolve, por deck e por carta: quanto ficou alocado e de onde, quanto vem
+    a caminho para este deck, quanto falta comprar, quanto dessa falta existe
+    noutro deck, e o que está marcado neste deck mas o deck já não pede
+    (`extra`).
     """
+    from . import pending
+
     p = pool_dos_decks(con)
     binder = dict(p["binder"])
     colecao = dict(p["colecao"])
-    for ck, n in (extra or {}).items():
-        colecao[ck] = colecao.get(ck, 0) + n
+    caminho = dict(pending.open_by_card(con))
     decks = deck_rows(con)
     held: dict[str, list[dict]] = {}     # card_key -> decks que já a levaram
     out = {}
@@ -528,7 +536,7 @@ def allocate(con: sqlite3.Connection, extra: dict[str, int] | None = None) -> di
         ):
             need[r["card_key"]] = r["q"]
 
-        alloc, no_deck, no_binder, na_colecao = {}, {}, {}, {}
+        alloc, no_deck, no_binder, na_colecao, a_caminho = {}, {}, {}, {}, {}
         shared, missing = {}, {}
         for ck, qty in need.items():
             do_deck = min(qty, fixo.get(ck, 0))
@@ -551,7 +559,15 @@ def allocate(con: sqlite3.Connection, extra: dict[str, int] | None = None) -> di
                     {"deck": nome, "slug": d["name"], "qty": take,
                      "priority": d["priority"]})
 
-            falta = qty - take
+            # O que vem a caminho serve o primeiro deck que ainda a peça — é
+            # uma cópia da Coleção como as outras, só que ainda não chegou.
+            # Fica fora do `alloc`: o deck não a TEM, só já não a compra.
+            encomendada = min(qty - take, caminho.get(ck, 0))
+            caminho[ck] = caminho.get(ck, 0) - encomendada
+            if encomendada:
+                a_caminho[ck] = encomendada
+
+            falta = qty - take - encomendada
             if not falta:
                 continue
             missing[ck] = falta
@@ -569,6 +585,7 @@ def allocate(con: sqlite3.Connection, extra: dict[str, int] | None = None) -> di
         sobra = {ck: n for ck, n in fixo.items() if n > 0}
         out[d["deck_id"]] = {"alloc": alloc, "no_deck": no_deck,
                              "no_binder": no_binder, "na_colecao": na_colecao,
+                             "a_caminho": a_caminho,
                              "missing": missing, "shared": shared,
                              "extra": sobra}
 
@@ -594,7 +611,8 @@ def uso_por_carta(con: sqlite3.Connection) -> dict[str, list[dict]]:
             out.setdefault(ck, []).append({
                 "deck": d["display_name"] or d["name"], "slug": d["name"],
                 "priority": d["priority"], "wanted": r["q"],
-                "have": a["alloc"].get(ck, 0), "missing": a["missing"].get(ck, 0),
+                "have": a["alloc"].get(ck, 0), "ordered": a["a_caminho"].get(ck, 0),
+                "missing": a["missing"].get(ck, 0),
             })
     return out
 
@@ -617,15 +635,16 @@ def resumo_das_faltas(con: sqlite3.Connection) -> dict:
         if p is not None:
             barato[r["card_key"]] = min(barato.get(r["card_key"], p), p)
     cartas: set[str] = set()
-    copias = cents = disputadas = 0
+    copias = cents = disputadas = encomendadas = 0
     for a in alloc.values():
         for ck, n in a["missing"].items():
             cartas.add(ck)
             copias += n
             cents += (barato.get(ck) or 0) * n
         disputadas += sum(v["qty"] for v in a["shared"].values())
+        encomendadas += sum(a["a_caminho"].values())
     return {"cards": len(cartas), "copies": copias, "cents": cents,
-            "disputed": disputadas}
+            "disputed": disputadas, "ordered": encomendadas}
 
 
 # ---------------------------------------------------------------------------
@@ -737,6 +756,9 @@ def decks_index(con: sqlite3.Connection) -> list[dict]:
             "no_binder": sum(a["no_binder"].values()),
             "na_colecao": sum(a["na_colecao"].values()),
             "extra": sum(a["extra"].values()),
+            # Comprado, ainda não em casa: não conta no `have`, já não conta
+            # no `missing`.
+            "ordered": sum(a["a_caminho"].values()),
             "missing": sum(a["missing"].values()),
             # A parte do `missing` que existe num deck de cima: disputada.
             "shared": sum(v["qty"] for v in a["shared"].values()),
@@ -748,9 +770,14 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
     d = con.execute("SELECT * FROM decks WHERE deck_id = ?", (deck_id,)).fetchone()
     if not d:
         return None
-    from . import locais
+    from . import locais, pending
 
     a = allocate(con)[deck_id]
+    # A impressão em que o `+` de cada linha grava a encomenda (a base mais
+    # barata), para o ecrã dizer qual é antes de ele carregar.
+    chaves = [r["card_key"] for r in con.execute(
+        "SELECT DISTINCT card_key FROM deck_cards WHERE deck_id = ?", (deck_id,))]
+    encomendar_em = pending.impressao_para_encomendar(con, chaves)
     # As impressões que ESTE deck pode usar: as que estão nele, as do binder
     # Decks/Venda e as da Coleção — os três montes (2026-09-11).
     prints = owned_printings(con, {locais.deck_local(d["name"]), locais.BINDER,
@@ -794,6 +821,7 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
     usado: dict[str, int] = {}
     usado_deck: dict[str, int] = {}
     usado_binder: dict[str, int] = {}
+    usado_caminho: dict[str, int] = {}
     sections = []
     for role in ROLE_ORDER:
         rows = con.execute(
@@ -815,16 +843,25 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
             no_binder = min(tenho - no_deck,
                             max(0, a["no_binder"].get(ck, 0) - usado_binder.get(ck, 0)))
             usado_binder[ck] = usado_binder.get(ck, 0) + no_binder
-            falta = r["qty"] - tenho
+            # O que vem a caminho para esta linha: depois do que tem, e pela
+            # mesma ordem de papéis. Não é `have`, e já não é `missing`.
+            encomendada = min(r["qty"] - tenho,
+                              max(0, a["a_caminho"].get(ck, 0) - usado_caminho.get(ck, 0)))
+            usado_caminho[ck] = usado_caminho.get(ck, 0) + encomendada
+            falta = r["qty"] - tenho - encomendada
             info = names.get(ck) or {}
+            alvo = encomendar_em.get(ck) or {}
             cards.append({
                 "card_key": ck,
                 "name": (info["name"] if info else r["raw_line"]),
                 "raw": r["raw_line"],
                 "type": info["type"] if info else None,
                 "wanted": r["qty"], "have": tenho, "missing": falta,
+                "ordered": encomendada,
                 "no_deck": no_deck, "no_binder": no_binder,
                 "na_colecao": tenho - no_deck - no_binder,
+                # Onde o `+` grava a encomenda: a impressão base mais barata.
+                "order_code": alvo.get("code"), "order_price": alvo.get("price"),
                 # Onde está o que falta, quando existe num deck de cima.
                 "shared": a["shared"].get(ck) if falta else None,
                 "printings": prints.get(ck, []),
@@ -833,6 +870,7 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
         sections.append({"role": role, "label": ROLE_LABEL[role], "cards": cards,
                          "wanted": sum(c["wanted"] for c in cards),
                          "have": sum(c["have"] for c in cards),
+                         "ordered": sum(c["ordered"] for c in cards),
                          "no_deck": sum(c["no_deck"] for c in cards),
                          "no_binder": sum(c["no_binder"] for c in cards),
                          "na_colecao": sum(c["na_colecao"] for c in cards)})
@@ -854,6 +892,7 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
             "no_binder": sum(a["no_binder"].values()),
             "na_colecao": sum(a["na_colecao"].values()),
             "extra": sum(a["extra"].values()),
+            "ordered": sum(a["a_caminho"].values()),
             "missing": sum(a["missing"].values()),
             "shared": sum(v["qty"] for v in a["shared"].values()),
         },

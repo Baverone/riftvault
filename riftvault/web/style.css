@@ -574,6 +574,36 @@ body.readonly .deck-actions .btn[data-loc] { display: none; }
 body.readonly .btn.chegou { display: none; }
 
 .price.pago { background: rgba(124, 140, 255, .92); color: #0f1016; }
+
+/* Os `+`/`−` da encomenda numa linha do deck (2026-09-11): mais baixos que os
+   da Coleção, porque aqui não é a acção principal — é «comprei uma». O «a
+   caminho» leva o azul das encomendas, para não se confundir com falta. */
+.dtile .steppers.enc { margin-top: 2px; }
+.dtile .steppers.enc .step { min-height: 30px; font-size: 15px; }
+.dtile .steppers.enc .step:disabled { opacity: .3; cursor: default; }
+.dtile .steppers.enc .step.plus { color: var(--accent); }
+.onde.caminho, .onde .caminho { color: #9aa8ff; }
+.chip-l.caminho { color: #9aa8ff; border-color: rgba(124, 140, 255, .5); }
+.dtile.a-caminho .badge { background: rgba(124, 140, 255, .25); color: #9aa8ff; }
+body.readonly .dtile .steppers.enc { display: none; }
+
+/* A lista «Encomendas»: tabela, como a de comuns — aqui lêem-se números e
+   destinos, não artes. */
+.enc-tabela {
+  width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.enc-tabela th, .enc-tabela td {
+  text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+.enc-tabela th { font-size: 10px; color: var(--dim); font-weight: 500; text-transform: uppercase; }
+.enc-tabela .num { text-align: right; white-space: nowrap; }
+.enc-tabela .cod { color: var(--dim); white-space: nowrap; }
+.enc-tabela .para { color: #9aa8ff; }
+.enc-tabela .var { font-style: normal; color: var(--dim); font-size: 11px; }
+.enc-tabela .btn.chegou { width: auto; padding: 4px 8px; font-size: 11px; }
+.enc-tabela small { color: var(--dim); }
 /* Impressões que não são dele: sobem na mesma, mas sem alarme de cor. */
 .dtile.neutro .art { border-color: var(--line); }
 .dtile.neutro .art img { filter: none; }
