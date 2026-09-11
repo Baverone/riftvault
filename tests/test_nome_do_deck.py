@@ -157,8 +157,10 @@ class TestNomeDoDeck(unittest.TestCase):
         linhas = [l for l in texto.splitlines() if "Emperor of the Sands" in l
                   and l[:1].isdigit()]
         self.assertEqual(len(linhas), 2, texto)
-        self.assertTrue(linhas[0].startswith("1   Emperor of the Sands · Brutalizer (b)"), texto)
-        self.assertTrue(linhas[1].startswith("2   Emperor of the Sands · Brutalizer "), texto)
+        # Os dois têm a mesma Legend: desde 2026-09-11 (noite) são um grupo e
+        # a tabela marca-os com «·· ».
+        self.assertTrue(linhas[0].startswith("1   ·· Emperor of the Sands · Brutalizer (b)"), texto)
+        self.assertTrue(linhas[1].startswith("2   ·· Emperor of the Sands · Brutalizer "), texto)
         # Depois de reordenar, é o «a» que leva o sufixo — o rótulo segue a
         # prioridade, e a base só o refaz na importação seguinte.
         self.decks.import_all(con, log=lambda *_: None)
