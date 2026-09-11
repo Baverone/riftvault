@@ -928,6 +928,7 @@ def decks_index(con: sqlite3.Connection) -> list[dict]:
                 "irmaos": [n for n in a["grupo"]["membros"]
                            if n != (d["display_name"] or d["name"])],
                 "missing": sum(a["grupo"]["missing"].values()),
+                "ordered": sum(a["grupo"]["a_caminho"].values()),
                 "partilhadas": sum(
                     min(n, max((alloc[por_slug[i["slug"]]]["missing"].get(ck, 0)
                                 for i in a["partilhada"].get(ck, [])), default=0))

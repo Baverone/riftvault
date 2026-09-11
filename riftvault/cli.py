@@ -361,10 +361,19 @@ def cmd_decks(args) -> int:
           f"{'coleção':>8} {'a caminho':>9} {'falta':>6} {'disputadas':>10}")
     idx = decks_mod.decks_index(con)
     for d in idx:
-        print(f"{d['priority']:<3} {d['name'][:40]:<40} "
+        # Os membros de um grupo de Legend (2026-09-11, noite) levam «··» à
+        # frente: partilham as cartas e o total conta-os uma vez.
+        nome = ("·· " if d["grupo"]["variantes"] else "") + d["name"]
+        print(f"{d['priority']:<3} {nome[:40]:<40} "
               f"{d['have']:>5}/{d['wanted']:<6} {d['no_deck']:>5} "
               f"{d['no_binder']:>7} {d['na_colecao']:>8} {d['ordered']:>9} "
               f"{d['missing']:>6} {d['shared']:>10}")
+    grupos = [g for g in decks_mod.grupos(con) if g["variantes"]]
+    for g in grupos:
+        lider = next(d for d in idx if d["id"] == g["lider"])
+        print(f"\n·· {g['rotulo']}: a mesma Legend — partilham as cartas, "
+              f"a falta é a mesma compra ({lider['grupo']['missing']} cópias, "
+              f"contadas uma vez no total).")
     tot = decks_mod.resumo_das_faltas(con)
     if tot["copies"] or tot["ordered"]:
         print(f"\nFalta comprar aos decks: {tot['copies']} cópias de "
@@ -390,6 +399,10 @@ def cmd_deck(args) -> int:
     p = decks_mod.deck_payload(con, row["deck_id"])
     L = p["legality"]
     print(f"{p['name']}   (prioridade {p['priority']})")
+    if p["grupo"]["variantes"]:
+        print(f"  a mesma Legend que «{'», «'.join(p['grupo']['irmaos'])}»: "
+              f"partilham as cartas; o grupo compra {p['grupo']['missing']} "
+              f"cópias ao todo, contadas uma vez.")
     ok = lambda b: "ok" if b else "X"
     print(f"  main {L['main']['n']}/{L['main']['alvo']} {ok(L['main']['ok'])} · "
           f"runas {L['runes']['n']}/{L['runes']['alvo']} {ok(L['runes']['ok'])} · "
@@ -449,6 +462,11 @@ def cmd_deck(args) -> int:
                 if c["shared"]:
                     extra += "  -> " + ", ".join(
                         f"{h['qty']}x em «{h['deck']}»" for h in c["shared"]["em"])
+                # O irmão do grupo pede-a também: é a mesma compra, não uma
+                # disputa (2026-09-11, noite).
+                if c.get("partilhada"):
+                    extra += "  partilhada com " + ", ".join(
+                        f"«{h['deck']}»" for h in c["partilhada"])
             elif c["no_binder"]:
                 marca = "b"
                 extra = f"  ({onde})"
