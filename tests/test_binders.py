@@ -169,14 +169,21 @@ class TestColecaoNaoVeDecks(Base):
 
 
 class TestDecksNaoTiramDaColecao(Base):
-    """Os decks só se montam com cópias de local = Deck / Binder Decks/Venda."""
+    """Os decks montam-se com os três locais — e a Coleção CONTA (2026-09-11).
 
-    def test_com_tudo_na_colecao_o_deck_nao_tem_nada_alocado(self):
+    Entre 2026-09-10 e 2026-09-11 só contavam o deck e o binder Decks/Venda, e
+    o que estava na Coleção era «duplicado a comprar ou a decidir». A frase
+    dele *"se há na coleção o deck usa"* mudou isso; os locais ficam como
+    informação de onde a cópia está. A regra nova vive em
+    `test_partilha_compra.py`; aqui fica o que os locais continuam a dizer.
+    """
+
+    def test_com_tudo_na_colecao_o_deck_esta_montado(self):
         con = self.catalogo()
         d = self.decks.decks_index(con)[0]
-        self.assertEqual(d["have"], 0, "a Coleção não monta decks")
-        self.assertEqual(d["na_colecao"], 7, "mas as cartas existem, na Coleção")
-        self.assertEqual(d["missing"], 0, "e por isso não são para comprar")
+        self.assertEqual(d["have"], 7, "a Coleção monta decks (2026-09-11)")
+        self.assertEqual(d["na_colecao"], 7, "e é de lá que as 7 vêm")
+        self.assertEqual(d["missing"], 0)
         con.close()
 
     def test_marcadas_no_deck_contam_para_o_deck(self):
@@ -186,7 +193,8 @@ class TestDecksNaoTiramDaColecao(Base):
         d = self.decks.decks_index(con)[0]
         self.assertEqual(d["no_deck"], 3)
         self.assertEqual(d["no_binder"], 0)
-        self.assertEqual(d["na_colecao"], 4)
+        self.assertEqual(d["na_colecao"], 4, "as outras 4 vêm da Coleção")
+        self.assertEqual(d["have"], 7, "os três locais somam o que tem")
         con.close()
 
     def test_o_binder_e_o_stock_livre_dos_decks(self):
@@ -198,7 +206,7 @@ class TestDecksNaoTiramDaColecao(Base):
         self.assertEqual(d["no_deck"], 0)
         con.close()
 
-    def test_o_binder_distribui_se_por_prioridade__a_colecao_nao(self):
+    def test_o_binder_e_a_colecao_distribuem_se_por_prioridade(self):
         con = self.catalogo()
         # Champion diferente, senão os dois decks chamam-se «Emperor of the
         # Sands» e o «está noutro deck» compara-os pelo nome de mostrar.
@@ -212,31 +220,14 @@ class TestDecksNaoTiramDaColecao(Base):
         idx = {d["slug"]: d for d in self.decks.decks_index(con)}
         self.assertEqual(idx["azir"]["no_binder"], 3)
         self.assertEqual(idx["ornn"]["no_binder"], 0)
-        # 3 Brutalizer (o azir levou-as do binder) + 1 Legend (o azir reservou-a
-        # na Coleção). As duas são «está no deck de cima», não «a comprar».
+        # 3 Brutalizer (o azir levou-as do binder) + 1 Legend (o azir levou-a
+        # da Coleção) + 1 Spirit Blade que não existe: 5 a comprar, das quais
+        # 4 existem num deck de cima — disputadas.
+        self.assertEqual(idx["ornn"]["missing"], 5)
         self.assertEqual(idx["ornn"]["shared"], 4)
-        self.assertEqual(idx["ornn"]["missing"], 1, "só a Spirit Blade, que não tem")
         con.close()
 
-    def test_uma_copia_da_colecao_reservada_pelo_deck_de_cima_nao_se_compra(self):
-        """Sem isto, o segundo deck mandava comprar o que o primeiro reservou."""
-        con = self.catalogo()
-        self.v.write_deck("ornn", "Legend:\n1 Emperor of the Sands\n"
-                                  "Champion:\n1 Spirit Blade\n"
-                                  "MainDeck:\n3 Brutalizer\n")
-        self.decks.import_all(con, log=lambda *_: None)
-        idx = {d["slug"]: d for d in self.decks.decks_index(con)}
-        self.assertEqual(idx["azir"]["na_colecao"], 7)
-        self.assertEqual(idx["ornn"]["na_colecao"], 0)
-        self.assertEqual(idx["ornn"]["shared"], 4, "reservadas pelo azir")
-        self.assertEqual(idx["ornn"]["missing"], 1, "a Spirit Blade, que não tem")
-        p = self.decks.deck_payload(con, idx["ornn"]["id"])
-        brut = next(c for s in p["sections"] for c in s["cards"]
-                    if c["name"] == "Brutalizer")
-        self.assertEqual([h["onde"] for h in brut["shared"]["em"]], ["colecao"])
-        con.close()
-
-    def test_a_pagina_do_deck_separa_as_quatro_respostas(self):
+    def test_a_pagina_do_deck_diz_de_onde_vem_cada_copia(self):
         con = self.catalogo()
         self.locais.mover(con, "tst-001-100", 2, self.locais.COLECAO,
                           self.locais.deck_local("azir"), source="test")
@@ -244,15 +235,15 @@ class TestDecksNaoTiramDaColecao(Base):
                           self.locais.BINDER, source="test")
         p = self.decks.deck_payload(con, 1)
         defy = next(c for s in p["sections"] for c in s["cards"] if c["name"] == "Defy")
-        self.assertEqual(defy["no_deck"], 2)
-        self.assertEqual(defy["no_binder"], 1)
-        self.assertEqual(defy["na_colecao"], 0)
-        # O Brutalizer está todo na Coleção: existe, mas não conta.
+        self.assertEqual((defy["no_deck"], defy["no_binder"], defy["na_colecao"]),
+                         (2, 1, 0), "o deck e o binder servem antes da Coleção")
+        # O Brutalizer está todo na Coleção: conta, e diz de onde vem.
         brut = next(c for s in p["sections"] for c in s["cards"]
                     if c["name"] == "Brutalizer")
-        self.assertEqual(brut["have"], 0)
+        self.assertEqual(brut["have"], 3)
         self.assertEqual(brut["na_colecao"], 3)
         self.assertEqual(p["locais"]["na_colecao"], 4)  # 3 Brutalizer + 1 Legend
+        self.assertEqual(p["locais"]["missing"], 0)
         con.close()
 
     def test_o_que_nao_existe_em_lado_nenhum_e_que_se_compra(self):
@@ -267,8 +258,9 @@ class TestDecksNaoTiramDaColecao(Base):
                                   "MainDeck:\n3 Defy\n2 Emperor of the Sands\n")
         self.decks.import_all(con, log=lambda *_: None)
         d = self.decks.decks_index(con)[0]
-        self.assertEqual(d["na_colecao"], 4, "3 Defy + 1 Legend estão na Coleção")
+        self.assertEqual(d["na_colecao"], 4, "3 Defy + 1 Legend vêm da Coleção")
         self.assertEqual(d["missing"], 2, "as outras 2 do Legend não existem")
+        self.assertEqual(d["shared"], 0, "e não estão em deck nenhum")
         con.close()
 
 
@@ -672,12 +664,13 @@ class TestCLI(Base):
                          {"tst-002-100": 3})
         con.close()
 
-    def test_o_deck_diz_as_quatro_respostas(self):
+    def test_o_deck_diz_de_onde_vem_o_que_tem(self):
         self.catalogo().close()
         code, out, _ = self.correr("deck", "azir")
         self.assertEqual(code, 0)
         self.assertIn("na Coleção 7", out)
-        self.assertIn("duplicado a comprar ou a decidir", out)
+        self.assertIn("a comprar 0", out)
+        self.assertNotIn("duplicado", out, "a Coleção conta desde 2026-09-11")
 
     def test_o_undo_devolve_a_copia(self):
         self.catalogo().close()
