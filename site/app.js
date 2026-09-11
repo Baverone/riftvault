@@ -48,6 +48,10 @@ const state = {
   // Default: TODAS as impressões (decisão do André). O botão "Só artes base"
   // continua lá, mas não é o que se vê ao abrir.
   decks: null, deckId: null, deck: null, faltas: null, venda: null,
+  // As encomendas (2026-09-11): a lista «Encomendas» da secção Decks, e os
+  // `+`/`−` de cada linha — pedidos em fila por carta (`encFila`) e quantos
+  // ainda estão em voo (`encVoo`), para só o último recarregar o deck.
+  encomendas: null, encFila: new Map(), encVoo: new Map(),
   // O `faltas.json` a caminho (as wantlists da Coleção e a secção Faltas comem
   // o mesmo ficheiro), e se as contagens já mudaram desde que ele chegou.
   faltasP: null, wlStale: false,
@@ -260,11 +264,15 @@ function tileHTML(g, p, comUso = false) {
 function usoLine(g) {
   const uso = g.decks || [];
   if (!uso.length) return '';
+  // O que já vem a caminho para o deck (2026-09-11) não é falta: diz-se à
+  // parte, com o mesmo número que a página do deck mostra.
   const txt = uso.map(u => `${escapeHTML(deckCurto(u.deck))} ${u.wanted}`
-    + (u.missing ? ` (falta${u.missing === 1 ? '' : 'm'} ${u.missing})` : '')).join(' · ');
+    + (u.missing ? ` (falta${u.missing === 1 ? '' : 'm'} ${u.missing})` : '')
+    + (u.ordered ? ` (${u.ordered} a caminho)` : '')).join(' · ');
   const falta = uso.reduce((s, u) => s + u.missing, 0);
   return `<div class="emdecks${falta ? ' falta' : ''}" title="${escapeAttr(uso.map(u =>
-    `${u.deck}: pede ${u.wanted}, tem ${u.have}${u.missing ? `, faltam ${u.missing}` : ''}`)
+    `${u.deck}: pede ${u.wanted}, tem ${u.have}${u.missing ? `, faltam ${u.missing}` : ''}${
+      u.ordered ? `, ${u.ordered} a caminho` : ''}`)
     .join(' / '))}">${txt}</div>`;
 }
 
@@ -1020,9 +1028,10 @@ async function loadDecks() {
   const d = await getJSON('api/decks.json');
   state.decks = d.decks;
   renderDeckTabs();
-  const first = state.decks.some(x => x.id === state.prefs.deck)
+  const first = state.prefs.deck === 'encomendas' || state.decks.some(x => x.id === state.prefs.deck)
     ? state.prefs.deck : (state.decks[0] && state.decks[0].id);
-  if (first) await loadDeck(first);
+  if (first === 'encomendas') await loadEncomendas();
+  else if (first) await loadDeck(first);
   else $('#deck-body').innerHTML = '<p class="empty">Não há decks. Mete um .txt em <code>decks/</code>.</p>';
 }
 
@@ -1033,10 +1042,19 @@ function renderDeckTabs() {
     const b = document.createElement('button');
     b.className = 'tab' + (d.id === state.deckId ? ' is-on' : '');
     const pct = d.wanted ? Math.round((d.have / d.wanted) * 100) : 0;
-    b.innerHTML = `${d.priority === 1 ? '★ ' : ''}${escapeHTML(d.name)}<small>${pct}% · ${d.have}/${d.wanted}</small>`;
+    b.innerHTML = `${d.priority === 1 ? '★ ' : ''}${escapeHTML(d.name)}<small>${pct}% · ${d.have}/${d.wanted}${
+      d.ordered ? ` · ${d.ordered} a caminho` : ''}</small>`;
     b.onclick = () => loadDeck(d.id);
     nav.appendChild(b);
   }
+  // O último separador é a lista «Encomendas» (2026-09-11): o que está a
+  // caminho para os decks todos, e o que ainda falta encomendar.
+  const enc = document.createElement('button');
+  enc.className = 'tab' + (state.deckId === 'encomendas' ? ' is-on' : '');
+  const aCaminho = state.decks.reduce((s, d) => s + (d.ordered || 0), 0);
+  enc.innerHTML = `Encomendas<small>${aCaminho ? `${aCaminho} a caminho` : 'nada a caminho'}</small>`;
+  enc.onclick = () => loadEncomendas();
+  nav.appendChild(enc);
 }
 
 async function loadDeck(deckId) {
@@ -1102,7 +1120,7 @@ function renderDeck() {
 
   const listas = p.sections.map(s => `
     <h2 class="section-head">${s.label}
-      <span>${s.have}/${s.wanted}</span></h2>
+      <span>${s.have}/${s.wanted}${s.ordered ? ` · ${s.ordered} a caminho` : ''}</span></h2>
     <div class="grid deck-grid">${s.cards.map(deckTile).join('')}</div>`).join('');
 
   // Depois do deck, o mesmo em falta mas arrumado por edição — é a vista de
@@ -1123,6 +1141,7 @@ function renderDeck() {
   for (const b of document.querySelectorAll('#deck-head .btn[data-loc]')) {
     b.onclick = () => locaisAction(b.dataset.loc);
   }
+  ligarEncomendas();
 }
 
 /* ONDE estão as cartas deste deck. As três primeiras somam o que o deck tem
@@ -1139,6 +1158,7 @@ function deckLocais(p) {
       ${chip(false, `no deck ${l.no_deck || 0}`)}
       ${chip(false, `no binder Decks/Venda ${l.no_binder || 0}`)}
       ${chip(false, `na Coleção ${l.na_colecao || 0}`)}
+      ${l.ordered ? `<span class="chip-l caminho">a caminho ${l.ordered}</span>` : ''}
       ${chip(l.missing, `a comprar ${l.missing || 0}`)}
       ${l.shared ? chip(true, `${l.shared} disputadas com um deck de cima`) : ''}
       ${l.extra ? chip(true, `a mais neste deck ${l.extra}`) : ''}
@@ -1146,6 +1166,12 @@ function deckLocais(p) {
     ${l.shared ? `<small class="nota">Das <b>${l.missing}</b> a comprar,
       <b>${l.shared}</b> existem na Coleção mas um deck de prioridade mais alta
       já as usa — compram-se na mesma.</small>` : ''}
+    ${l.ordered ? `<small class="nota">As <b>${l.ordered}</b> a caminho já estão
+      compradas: não contam como tidas até chegarem, e já não estão na lista de
+      compras. Quando chegarem, carrega em <b>Chegou</b> na carta.</small>`
+      : (state.editable && l.missing ? `<small class="nota">Compraste alguma?
+      Marca-a com o <b>+</b> da carta — sai da lista de compras e fica «a
+      caminho» até carregares em <b>Chegou</b>.</small>` : '')}
     ${l.na_colecao && state.editable ? `<small class="nota">As <b>${l.na_colecao}</b>
       da Coleção contam para este deck. Se as sleevares, marca-as para o
       riftvault saber onde estão.</small>` : ''}
@@ -1280,20 +1306,31 @@ async function recarregarDepoisDeMover() {
 }
 
 /* Tile de deck: a mesma linguagem visual da Coleção, mas o que interessa aqui
-   é quantas o deck pede e quantas estão de facto alocadas. */
+   é quantas o deck pede e quantas estão de facto alocadas.
+
+   OS `+`/`−` DA ENCOMENDA (André, 2026-09-11): *"um botão de + e − que indique
+   o que já está encomendado (comprado), mas que ainda não chegou"*. Aparecem
+   em cada linha que tenha falta ou já tenha algo a caminho, só em modo edição.
+   Escrevem na `pending` — o mesmo «A caminho» da secção Faltas —, na impressão
+   base mais barata da carta (o código está no `title` do `+`). O `missing` do
+   deck já vem descontado do servidor; aqui só se mostra. */
 function deckTile(c) {
   // O que falta é para comprar, sempre (2026-09-11). «shared» é só a cor: a
-  // falta existe num deck de cima, e a nota diz onde.
-  const st = c.missing ? (c.shared ? 'shared' : 'gone') : 'ok';
+  // falta existe num deck de cima, e a nota diz onde. Com tudo o que falta já
+  // a caminho, a moldura fica a azul tracejado — nem tenho, nem falta.
+  const st = c.missing ? (c.shared ? 'shared' : 'gone') : (c.ordered ? 'a-caminho' : 'ok');
   const src = state.imageMode === 'remote' ? (c.cdn || c.img) : (c.img || c.cdn);
   const alt = state.imageMode === 'remote' ? (c.img || '') : (c.cdn || '');
 
   let nota = '';
-  if (c.missing) {
-    const onde = c.shared ? ` — ${c.shared.em
+  if (c.missing || c.ordered) {
+    const onde = c.missing && c.shared ? ` — ${c.shared.em
       .map(h => `${h.qty}× em «${escapeHTML(deckCurto(h.deck))}»`).join(', ')}` : '';
-    nota = `<div class="onde ${c.shared ? 'shared' : 'falta'}">falta${
-      c.missing === 1 ? '' : 'm'} ${c.missing} a comprar${onde}</div>`;
+    const partes = [];
+    if (c.missing) partes.push(`falta${c.missing === 1 ? '' : 'm'} ${c.missing} a comprar${onde}`);
+    if (c.ordered) partes.push(`<span class="caminho">${c.ordered} a caminho</span>`);
+    nota = `<div class="onde ${c.missing ? (c.shared ? 'shared' : 'falta') : 'caminho'}">${
+      partes.join(' · ')}</div>`;
   } else if (c.no_binder || (c.no_deck && c.na_colecao)) {
     // De onde vem o que tem, quando não vem todo do mesmo sítio.
     const partes = [];
@@ -1306,7 +1343,23 @@ function deckTile(c) {
       .map(x => `${x.qty}× ${escapeHTML(x.code || x.id)}`).join(' · ')}</div>`;
   }
 
-  return `<div class="dtile ${st}">
+  // Os botões só onde há o que encomendar ou o que anular. O `+` diz no
+  // `title` em que impressão grava; o `−` desliga-se a zero (nunca vai abaixo).
+  const enc = state.editable && (c.missing || c.ordered) ? `
+    <div class="steppers enc" data-ck="${escapeAttr(c.card_key)}">
+      <button class="step minus" data-enc="-1" ${c.ordered ? '' : 'disabled'}
+              aria-label="menos uma encomendada de ${escapeAttr(c.name)}"
+              title="menos uma a caminho">−</button>
+      <button class="step plus" data-enc="1" ${c.missing ? '' : 'disabled'}
+              aria-label="mais uma encomendada de ${escapeAttr(c.name)}"
+              title="mais uma a caminho${c.order_code
+                ? ` (${escapeAttr(c.order_code.split('/')[0])}${
+                  c.order_price != null ? ` · ${eur(c.order_price)}` : ''})` : ''}">+</button>
+    </div>
+    ${c.ordered ? `<button class="btn chegou" data-chegou-ck="${escapeAttr(c.card_key)}"
+      title="dar entrada na Coleção das ${c.ordered} que vêm a caminho">Chegou (${c.ordered})</button>` : ''}` : '';
+
+  return `<div class="dtile ${st}" data-ck="${escapeAttr(c.card_key)}">
     <div class="art${c.landscape ? ' landscape' : ''}">
       ${src ? `<img src="${src}" alt="${escapeAttr(c.name)}" loading="lazy" decoding="async"
          ${alt ? `data-fallback="${escapeAttr(alt)}"` : ''}>` : ''}
@@ -1316,7 +1369,125 @@ function deckTile(c) {
     <div class="tname" title="${escapeAttr(c.name)}">${escapeHTML(c.name)}</div>
     ${codeLine(c)}
     ${nota}
+    ${enc}
   </div>`;
+}
+
+/* O clique no `+`/`−` de uma linha do deck. Os pedidos da MESMA carta vão em
+   fila (`state.encFila`): dois cliques rápidos são dois pedidos, um a seguir ao
+   outro, nunca um só nem a dobrar. O servidor responde com o que ficou a
+   caminho; no fim da fila relê-se o deck, porque a alocação por prioridade
+   pode ter mudado noutras linhas (a encomenda é da Coleção, serve o primeiro
+   deck que a peça). */
+async function encomendar(ck, delta) {
+  const p = state.deck;
+  // Ecrã optimista, como os `+` da Coleção: a linha muda já, e o servidor
+  // confirma quando a fila esvaziar.
+  encomendaLocal(ck, delta);
+  state.encVoo.set(ck, (state.encVoo.get(ck) || 0) + 1);
+  const fila = state.encFila.get(ck) || Promise.resolve();
+  const tarefa = fila.then(async () => {
+    const r = await fetch('api/encomenda', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ card_key: ck, delta, deck: p.slug }),
+    });
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `HTTP ${r.status}`);
+    return r.json();
+  });
+  state.encFila.set(ck, tarefa.catch(() => {}));
+  try {
+    const res = await tarefa;
+    toast(`${res.open_card} a caminho de ${escapeHTML(cardNome(ck))}${
+      res.printing_id ? ` (${escapeHTML(res.printing_id.toUpperCase())})` : ''}`, { ms: 2500 });
+  } catch (err) {
+    toast(`Não gravou: ${err.message}`, { error: true });
+  }
+  // Só o último pedido em voo desta carta recarrega — os do meio já não
+  // correspondem ao que está no ecrã.
+  const resto = (state.encVoo.get(ck) || 1) - 1;
+  state.encVoo.set(ck, resto);
+  if (resto === 0 && state.deckId === p.id) await recarregarEncomendas();
+}
+
+/* A mesma linha, sem esperar pelo servidor: move uma cópia entre «a comprar»
+   e «a caminho» em todas as secções onde a carta aparece, e redesenha o tile.
+   O servidor manda a verdade a seguir. */
+function encomendaLocal(ck, delta) {
+  const p = state.deck;
+  let resto = delta;
+  const linhas = p.sections.flatMap(s => s.cards.filter(c => c.card_key === ck));
+  // `+`: da primeira linha com falta; `−`: da última com algo a caminho.
+  for (const c of (delta > 0 ? linhas : linhas.slice().reverse())) {
+    if (!resto) break;
+    const n = delta > 0 ? Math.min(resto, c.missing) : -Math.min(-resto, c.ordered);
+    if (!n) continue;
+    c.ordered += n; c.missing -= n; resto -= n;
+  }
+  // Os tiles estão pela ordem das secções, a mesma das `linhas`.
+  const tiles = [...document.querySelectorAll(`#deck-body .dtile[data-ck="${CSS.escape(ck)}"]`)];
+  tiles.forEach((t, i) => { if (linhas[i]) t.outerHTML = deckTile(linhas[i]); });
+  ligarEncomendas();
+}
+
+/* Os `+`/`−` e o «Chegou» de cada linha do deck. Chama-se depois de cada
+   desenho, porque o `innerHTML` deita os handlers fora. */
+function ligarEncomendas() {
+  for (const b of document.querySelectorAll('#deck-body .steppers.enc .step')) {
+    b.onclick = () => encomendar(b.parentElement.dataset.ck, Number(b.dataset.enc));
+  }
+  for (const b of document.querySelectorAll('#deck-body [data-chegou-ck]')) {
+    b.onclick = () => chegouCarta(b.dataset.chegouCk, b);
+  }
+}
+
+function cardNome(ck) {
+  const p = state.deck;
+  for (const s of (p && p.sections) || []) {
+    const c = s.cards.find(x => x.card_key === ck);
+    if (c) return c.name;
+  }
+  return ck;
+}
+
+/* Depois de um `+`/`−` ou de um «Chegou»: a alocação mudou para os decks
+   todos, o «Falta comprar, por edição» também, e as listas de compra da secção
+   Faltas e as wantlists da Coleção descontam o que vem a caminho. Recarrega-se
+   o deck aberto e marca-se o resto como velho. */
+async function recarregarEncomendas() {
+  state.decks = (await getJSON('api/decks.json')).decks;
+  renderDeckTabs();
+  if (state.deckId === 'encomendas') await loadEncomendas();
+  else await loadDeck(state.deckId);
+  // O `faltas.json` (secção Faltas e wantlists da Coleção) ficou velho: o que
+  // vem a caminho sai das listas de compra. Marca-se e deita-se fora, para a
+  // próxima visita o pedir de novo — não se pede já, são centenas de KB.
+  wlDesatualizar();
+  state.faltas = null;
+}
+
+/* «Chegou» numa linha do deck: tudo o que está a caminho DESSA carta entra na
+   Coleção. Passa pelo `/api/pending/arrive`, o mesmo do separador «A caminho»
+   das Faltas — um mecanismo só. */
+async function chegouCarta(ck, botao, ids = null) {
+  // Sem carta nem ids o servidor dava entrada de TUDO — nunca por engano.
+  if (!ck && !(ids && ids.length)) return toast('Não sei que carta é esta.', { error: true });
+  if (botao) { botao.disabled = true; botao.textContent = 'a dar entrada…'; }
+  try {
+    const r = await fetch('api/pending/arrive', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(ids && ids.length ? { ids } : { card_key: ck }),
+    });
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `HTTP ${r.status}`);
+    const res = await r.json();
+    const n = res.arrived.reduce((s, x) => s + x.qty, 0);
+    toast(`${n} ${n === 1 ? 'cópia entrou' : 'cópias entraram'} na Coleção.`);
+    state.payload = null;
+    if (state.setId) await loadSet(state.setId);
+    await recarregarEncomendas();
+  } catch (err) {
+    toast(`Não deu para dar entrada: ${err.message}`, { error: true });
+    if (botao) { botao.disabled = false; botao.textContent = 'Chegou'; }
+  }
 }
 
 /* Edição + número + preço, em texto legível. É por aqui que ele procura a
@@ -1385,6 +1556,131 @@ function exportCSV() {
   a.download = `${p.slug}-faltas.csv`;
   a.click();
   URL.revokeObjectURL(a.href);
+}
+
+/* ===================================================== LISTA «ENCOMENDAS»
+
+   *"assim consigo contigo organizar melhor as compras"* (André, 2026-09-11).
+   Tudo o que está a caminho, por edição, com o preço de hoje no CardTrader e
+   para que deck vai cada cópia; e por baixo o que AINDA falta encomendar aos
+   decks — o «Falta comprar, por edição» de todos, somado, que já desconta o
+   que vem a caminho. Vem do `api/encomendas.json`; os `+`/`−` ficam nas
+   linhas dos decks, aqui só se lê e se dá entrada.                         */
+
+async function loadEncomendas() {
+  state.deckId = 'encomendas';
+  state.prefs.deck = 'encomendas';
+  savePrefs();
+  renderDeckTabs();
+  $('#deck-head').innerHTML = '';
+  $('#deck-body').innerHTML = '<p class="empty">a carregar…</p>';
+  state.encomendas = await getJSON('api/encomendas.json');
+  renderEncomendas();
+}
+
+function renderEncomendas() {
+  const e = state.encomendas;
+  const t = e.totals;
+  const f = e.falta_totals;
+  const curto = x => escapeHTML(deckCurto(x.deck));
+
+  const aCaminho = !t.copies ? `<p class="empty">Nada a caminho.<br>
+      <small>Compraste alguma carta? Carrega no <b>+</b> dela na página do deck.</small></p>`
+    : e.a_caminho.map(g => `
+      <h3 class="section-head sub">${escapeHTML(g.name)}
+        <span>${plural(g.copies, 'cópia', 'cópias')} · ${plural(g.cards, 'impressão', 'impressões')}${
+          g.cents ? ` · ${eur(g.cents)}` : ''}</span></h3>
+      <table class="enc-tabela">
+        <thead><tr><th>qtd</th><th>carta</th><th>código</th><th class="num">preço hoje</th>
+          <th class="num">total</th><th>para</th>${state.editable ? '<th></th>' : ''}</tr></thead>
+        <tbody>${g.items.map(it => `<tr>
+          <td><b>${it.qty}×</b></td>
+          <td>${escapeHTML(it.name || it.printing_id)}${it.label && it.label !== 'Base'
+            ? ` <i class="var">${escapeHTML(it.label)}</i>` : ''}${
+            it.market_only ? ' <i class="var">fora do catálogo</i>' : ''}</td>
+          <td class="cod">${escapeHTML((it.code || '').split('/')[0])}</td>
+          <td class="num">${it.price != null ? eur(it.price) : '—'}</td>
+          <td class="num">${it.price != null ? eur(it.total) : '—'}${
+            it.paid ? `<br><small>pagaste ${eur(it.paid)}</small>` : ''}</td>
+          <td class="para">${it.para.map(x => `${x.qty}× ${curto(x)}`).join(' · ')}${
+            it.sem_deck ? `${it.para.length ? ' · ' : ''}${it.sem_deck} para a Coleção` : ''}</td>
+          ${state.editable ? `<td><button class="btn chegou" data-chegou-ck="${
+            escapeAttr(it.card_key || '')}" data-chegou-ids="${it.ids.join(',')}"
+            title="dar entrada na Coleção">Chegou</button></td>` : ''}
+        </tr>`).join('')}</tbody>
+      </table>`).join('');
+
+  const falta = !f.copies ? '<p class="empty">Não falta encomendar nada aos decks.</p>'
+    : e.falta.map(g => `
+      <h3 class="section-head sub">${escapeHTML(g.name)}
+        <span>${plural(g.copies, 'cópia', 'cópias')} de ${plural(g.cards, 'carta', 'cartas')}${
+          g.cents ? ` · ${eur(g.cents)}` : ''}</span></h3>
+      <table class="enc-tabela">
+        <thead><tr><th>qtd</th><th>carta</th><th>código</th><th class="num">preço</th>
+          <th class="num">total</th><th>deck</th></tr></thead>
+        <tbody>${g.items.map(it => `<tr>
+          <td><b>${it.qty}×</b></td>
+          <td>${escapeHTML(it.name)}</td>
+          <td class="cod">${escapeHTML((it.code || '').split('/')[0])}</td>
+          <td class="num">${it.price != null ? eur(it.price) : '—'}</td>
+          <td class="num">${it.price != null ? eur(it.total) : '—'}</td>
+          <td class="para">${curto(it)}</td>
+        </tr>`).join('')}</tbody>
+      </table>`).join('');
+
+  $('#deck-body').innerHTML = `
+    <div class="deck-card resumo">
+      <b>A caminho</b>
+      <span>${t.copies ? `${plural(t.copies, 'cópia', 'cópias')} · ${plural(t.printings, 'impressão', 'impressões')}${
+        t.cents ? ` · ${eur(t.cents)} ao preço de hoje` : ''}${
+        t.sem_preco ? ` (${t.sem_preco} sem preço)` : ''}${
+        t.paid ? ` · pagaste ${eur(t.paid)}` : ''}` : 'nada'}</span>
+    </div>
+    <p class="note">Já compradas, ainda não em casa. <b>Não contam na Coleção</b>
+      — essa mede o que tens na caixa — mas já saíram das listas de compra dos
+      decks e das wantlists. O preço é o de hoje no CardTrader, não o que
+      pagaste. «Para» diz que deck fica com cada cópia, pela prioridade dos
+      decks — a encomenda é da Coleção, não de um deck.</p>
+    ${state.editable && t.copies ? `<div class="wl-zona">
+      <button class="btn" id="chegou-tudo">Chegou tudo (${t.copies} cópias)</button>
+    </div>` : ''}
+    ${aCaminho}
+    <div class="deck-card resumo" style="margin-top:18px">
+      <b>Falta encomendar</b>
+      <span>${f.copies ? `${plural(f.copies, 'cópia', 'cópias')} de ${plural(f.cards, 'carta', 'cartas')}${
+        f.cents ? ` · ${eur(f.cents)}` : ''}` : 'nada'}</span>
+    </div>
+    <p class="note">O que os decks ainda pedem e nem tens nem vem a caminho — o
+      «Falta comprar, por edição» de cada deck, somado. Para marcar uma compra,
+      carrega no <b>+</b> da carta na página do deck.</p>
+    ${falta}`;
+
+  for (const b of document.querySelectorAll('#deck-body [data-chegou-ids]')) {
+    b.onclick = () => chegouCarta(b.dataset.chegouCk, b,
+      b.dataset.chegouIds.split(',').filter(Boolean).map(Number));
+  }
+  const tudo = $('#chegou-tudo');
+  if (tudo) tudo.onclick = () => chegouTudo(tudo);
+}
+
+async function chegouTudo(botao) {
+  if (!confirm('Dar entrada na Coleção de TUDO o que está a caminho?')) return;
+  if (botao) { botao.disabled = true; botao.textContent = 'a dar entrada…'; }
+  try {
+    const r = await fetch('api/pending/arrive', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+    });
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `HTTP ${r.status}`);
+    const res = await r.json();
+    const n = res.arrived.reduce((s, x) => s + x.qty, 0);
+    toast(`${n} ${n === 1 ? 'cópia entrou' : 'cópias entraram'} na Coleção.`);
+    state.payload = null;
+    if (state.setId) await loadSet(state.setId);
+    await recarregarEncomendas();
+  } catch (err) {
+    toast(`Não deu para dar entrada: ${err.message}`, { error: true });
+    if (botao) botao.disabled = false;
+  }
 }
 
 function showSection(name) {
@@ -2184,7 +2480,8 @@ function renderCaminho() {
   const p = state.faltas.pending;
   if (!p.copies) {
     $('#falta-body').innerHTML = `<p class="empty">Nada a caminho.<br>
-      <small>Regista com <code>riftvault pending</code>.</small></p>`;
+      <small>Compraste alguma carta? Carrega no <b>+</b> dela na página do deck
+      (ou <code>riftvault encomendas --mais</code>).</small></p>`;
     return;
   }
   // Agrupar por edição: é assim que as encomendas chegam e se conferem.
@@ -2234,8 +2531,10 @@ async function chegou(id, botao) {
     const n = res.arrived.reduce((s, x) => s + x.qty, 0);
     toast(`${n} ${n === 1 ? 'cópia entrou' : 'cópias entraram'} na coleção.`);
     // A coleção mudou: força-se a recarga em vez de tentar remendar o estado.
+    // Os decks também — o que chegou passou de «a caminho» a «tenho».
     state.faltas = null;
     state.payload = null;
+    state.decks = null;
     await loadFaltas();
     if (state.setId) await loadSet(state.setId);
     showSection('faltas');
