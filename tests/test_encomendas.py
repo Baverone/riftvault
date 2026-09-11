@@ -34,7 +34,10 @@ os.environ["RIFTVAULT_CONFIG"] = str(Path(tempfile.gettempdir()) / "riftvault-na
 from tests.fixture import Vault  # noqa: E402
 
 AZIR = "Legend:\n1 Emperor of the Sands\n\nMainDeck:\n3 Defy\n3 Brutalizer\n"
-ORNN = ("Legend:\n1 Emperor of the Sands\n\nChampion:\n1 Spirit Blade\n\n"
+# OUTRA Legend (2026-09-11, noite): dois decks com a mesma Legend partilham
+# as cartas — aqui testa-se a disputa. O Forge Master não existe na Coleção,
+# por isso o ornn continua a ter o Legend em falta, como antes.
+ORNN = ("Legend:\n1 Forge Master\n\nChampion:\n1 Spirit Blade\n\n"
         "MainDeck:\n2 Defy\n")
 
 
@@ -59,12 +62,15 @@ class Base(unittest.TestCase):
         self.v.add_printing(con, "tst-003-100", "TST", 3, "Emperor of the Sands",
                             card_type="Legend", size=100)
         self.v.add_printing(con, "tst-004-100", "TST", 4, "Spirit Blade", size=100)
+        self.v.add_printing(con, "tst-005-100", "TST", 5, "Forge Master",
+                            card_type="Legend", size=100)
         # A mesma Defy noutra edição, mais cara: o `+` tem de ir para a barata.
         self.v.add_printing(con, "tsu-010-050", "TSU", 10, "Defy", size=50)
         self.v.rebuild(con)
         for pid, cents in (("tst-001-100", 150), ("tst-001a-100", 2000),
                            ("tst-002-100", 50), ("tst-003-100", 1000),
-                           ("tst-004-100", 700), ("tsu-010-050", 300)):
+                           ("tst-004-100", 700), ("tsu-010-050", 300),
+                           ("tst-005-100", 1000)):
             con.execute("INSERT INTO catalog.price_latest (printing_id, price_cents) "
                         "VALUES (?,?)", (pid, cents))
         for pid, n in (("tst-001-100", defy), ("tst-002-100", 3), ("tst-003-100", 1)):
@@ -308,7 +314,7 @@ class TestLista(Base):
         self.assertEqual(f["copies"], sum(g["copies"] for g in e["falta"]))
         self.assertEqual(f["cents"], sum(g["cents"] for g in e["falta"]))
         self.assertEqual(sorted(it["name"] for g in e["falta"] for it in g["items"]),
-                         ["Emperor of the Sands", "Spirit Blade"])
+                         ["Forge Master", "Spirit Blade"])
         self.assertTrue(all(it["deck"] == self.idx(con)["ornn"]["name"]
                             for g in e["falta"] for it in g["items"]))
         con.close()
