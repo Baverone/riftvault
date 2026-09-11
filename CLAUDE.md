@@ -253,7 +253,9 @@ de 25 cartas · 36 cópias · 409,12 € para **40 · 80 · 475,28 €** — o m
 «Todos juntos» já dizia. As Staples passaram de 5 para **20**. A Venda passou
 de 17 impressões · 25 cópias · 718,90 € para **15 · 19 · 577,21 €**: saíram a
 `UNL-235` Deceiver (118,64 €, o LeBlanc usa-a) e as 5 `OGN-042a` Calm Rune
-(o Azir e o Ornn jogam com elas). A percentagem de master set **não mexe**.
+(é o Ornn, prioridade 1, que leva as 6 da Coleção — `decks.colecao_allocation`
+serve-o primeiro e o Azir fica a 0 delas; medido a 2026-09-11). A percentagem
+de master set **não mexe**.
 
 ---
 
@@ -352,7 +354,9 @@ num deck sem linha no log, é bug.**
 
 - **A secção Faltas (`faltas.py`) continua a contar as cópias todas**, esteja
   onde estiverem (`decks.owned_by_card`). Ela responde a "o que comprar primeiro
-  para os decks", com o teto do playset; passá-la a cega para a Coleção fazia-a
+  para os decks" — ~~com o teto do playset~~ (**o teto caiu a 2026-09-11**: a
+  carência é a soma do que os decks pedem menos o que ele tem, ver "Os decks
+  partilham a Coleção"); passá-la a cega para a Coleção fazia-a
   dizer, no dia da migração, que ele tem de comprar quase tudo outra vez.
   **É pergunta para ele** — ver o relatório `riftvault-binders.md`.
 - **O playset JOGÁVEL** (`metrics.owned_by_card`, a métrica 1) também é o total
@@ -2149,7 +2153,10 @@ em falta · 1118 cópias · 21 567,33 €»*, que é outra pergunta. Passou a ch
 (`FALTA_HEAD = ['staples', 'deck']` no `app.js`). Pôr lá as outras abas é
 acrescentar o id à lista.
 
-**Os dois totais dos decks diferem de propósito, e agora está escrito.** O
+**Os dois totais dos decks diferem de propósito, e agora está escrito.**
+(**Deixaram de diferir a 2026-09-11**: sem teto, o cabeçalho e a soma da aba
+«Por deck» dão o mesmo número — 80 cópias · 475,28 € nesse dia — e a nota do
+`faltaHead()` foi reescrita. O que se segue é como estava a 09-09.) O
 cabeçalho soma o que TODOS os decks pedem com o teto do playset (34 cópias); a
 aba «Por deck» conta o que sobra depois dos decks anteriores (33). Hoje a
 diferença é a `Salvage`: três decks pedem 2 cada, ele tem 2, e nenhum deck

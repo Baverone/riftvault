@@ -1410,9 +1410,10 @@ function showSection(name) {
 
 /* ========================================================== SECÇÃO FALTAS
 
-   Três leituras da mesma carência. A carência é GLOBAL — soma-se o que todos
-   os decks pedem e desconta-se o que ele tem — e não a alocação por
-   prioridade, que responde a outra pergunta (quem fica com o quê).          */
+   Leituras da mesma carência: soma-se o que todos os decks pedem e
+   desconta-se o que ele tem — e o que um deck não recebe compra-se, mesmo que
+   exista num deck de cima (desde 2026-09-11 não há teto do playset, e a aba
+   «Por deck» É a alocação por prioridade).                                  */
 
 const FALTA_TABS = [
   { id: 'staples', label: 'Staples', sub: 'pedidas por vários decks' },
@@ -1453,9 +1454,9 @@ function renderFaltaTabs() {
 }
 
 /* O cabeçalho é a carência GLOBAL DOS DECKS (`faltas.shortfall`): tudo o que
-   os decks pedem, com o teto do playset, menos o que ele tem e o que vem a
-   caminho. Só descreve duas das seis abas — as Staples e o Por deck — e nas
-   outras estava a mentir: por cima de «614 impressões em falta · 21 567,33 €»
+   os decks pedem, sem teto, menos o que ele tem e o que vem a caminho — o
+   mesmo número que a aba «Por deck» soma. Só descreve duas das seis abas — as
+   Staples e o Por deck — e nas outras estava a mentir: por cima de «614 impressões em falta · 21 567,33 €»
    do master set lia-se «Falta comprar 25 cartas · 34 cópias · 356,91 €», que é
    outra pergunta. Por isso passou a ter o âmbito no título e a aparecer só
    onde é a conta da página (ver `FALTA_HEAD`). */
@@ -1474,9 +1475,9 @@ function faltaHead() {
       ${f.ignored_types.length ? `<span><i>Fora da conta</i>${
         f.ignored_types.join(', ')} — compram-se a granel</span>` : ''}
     </div>
-    <small class="nota">Soma o que <b>todos</b> os decks pedem, até ao playset
-      de cada carta. A aba <i>Por deck</i> pode dar menos: aí uma carta que dois
-      decks peçam compra-se uma vez e troca-se entre eles.</small>
+    <small class="nota">Soma o que <b>todos</b> os decks pedem menos o que tens:
+      o que um deck não recebe compra-se, mesmo que exista num deck de cima.
+      A aba <i>Por deck</i> reparte este mesmo número por prioridade.</small>
   </div>`;
 }
 
