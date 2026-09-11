@@ -28,7 +28,12 @@ from . import a_subir, cardmarket, config, decks, metrics, pending
 
 
 def _wanted(con: sqlite3.Connection) -> dict[str, dict]:
-    """card_key -> {qty pedida ao todo, decks que a pedem}."""
+    """card_key -> {qty pedida ao todo, decks que a pedem}.
+
+    `decks` é {slug: {"deck": rótulo, "qty": n}}. A chave é o SLUG: pelo
+    rótulo, dois decks com a mesma Legend e o mesmo Champion contavam como um
+    só e a carta deixava de ser staple (2026-09-11).
+    """
     out: dict[str, dict] = {}
     for r in con.execute(
         "SELECT dc.card_key, dc.qty, d.deck_id, d.display_name, d.name, d.priority "
@@ -36,8 +41,9 @@ def _wanted(con: sqlite3.Connection) -> dict[str, dict]:
     ):
         e = out.setdefault(r["card_key"], {"qty": 0, "decks": {}})
         e["qty"] += r["qty"]
-        nome = r["display_name"] or r["name"]
-        e["decks"][nome] = e["decks"].get(nome, 0) + r["qty"]
+        slot = e["decks"].setdefault(
+            r["name"], {"deck": r["display_name"] or r["name"], "qty": 0})
+        slot["qty"] += r["qty"]
     return out
 
 
@@ -130,8 +136,9 @@ def shortfall(con: sqlite3.Connection) -> list[dict]:
             "wanted": v["qty"], "target": v["alvo"], "cap": teto(k),
             "have": tenho.get(k, 0), "missing": falta,
             "n_decks": len(v["decks"]),
-            "decks": [{"deck": d, "qty": q} for d, q in
-                      sorted(v["decks"].items(), key=lambda x: -x[1])],
+            "decks": [{"deck": x["deck"], "slug": slug, "qty": x["qty"]}
+                      for slug, x in sorted(v["decks"].items(),
+                                            key=lambda kv: -kv[1]["qty"])],
             "price": c.get("price"),
             "total": (c.get("price") or 0) * falta,
             "set": c.get("set"), "code": c.get("code"),
@@ -531,7 +538,8 @@ def pimp(con: sqlite3.Connection) -> dict:
                     "v": v.get("v", 2 if r.get("market_only") else None),
                     "n_versions": v.get("n", 2 if r.get("market_only") else 1),
                     "foil_only": v.get("foil_only", False),
-                    "decks": sorted(quem.get(ck, {}).get("decks", {}).keys()),
+                    "decks": sorted(x["deck"] for x in
+                                    quem.get(ck, {}).get("decks", {}).values()),
                 })
         out = sorted(por_set.values(), key=lambda d: (ordens.get(d["set"], 999), d["set"]))
         for d in out:

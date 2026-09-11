@@ -14,6 +14,19 @@ FORMATO DAS LISTAS
     Secções com cabeçalho terminado em ':' (Legend, Champion, MainDeck,
     Battlefields, Rune Pool, Sideboard) e linhas "N Nome da Carta". Também
     aceita códigos, "3 OGN-045".
+
+    Uma linha opcional "Nome: <texto>" (ou "Name:"), antes do Legend, dá o
+    nome de mostrar ao deck. Sem ela o rótulo é "Legend · Champion", como
+    sempre foi (2026-09-11: o segundo deck de LeBlanc tinha a mesma Legend e o
+    mesmo Champion do primeiro e os dois liam-se igual).
+
+A CHAVE DE UM DECK É O SLUG (o nome do ficheiro), NUNCA O RÓTULO
+    O rótulo pode repetir-se — dois decks com a mesma Legend e o mesmo
+    Champion — e a 2026-09-11 isso fundia-os: o `allocate` não via o primeiro
+    LeBlanc como «outro deck» e mandava comprar o que já lá estava. Tudo o
+    que precisa de distinguir decks compara `slug`; o `deck` (rótulo) é só
+    para mostrar. Se mesmo assim dois rótulos coincidirem, o de prioridade
+    mais baixa leva o slug entre parênteses (`rotulos`).
 """
 
 from __future__ import annotations
@@ -72,10 +85,16 @@ def norm(name: str) -> str:
 def parse(path: Path) -> dict:
     """Lê um .txt e devolve as linhas por papel, ainda sem resolver nomes."""
     text = path.read_text(encoding="utf-8")
-    role, out = "main", []
+    role, out, nome = "main", [], None
     for raw in text.splitlines():
         line = raw.strip()
         if not line or line.startswith("#") or line.startswith("//"):
+            continue
+        # "Nome: LeBlanc Baited Hook" — o rótulo do deck, se ele o quiser
+        # diferente do "Legend · Champion". Só a primeira conta.
+        m = re.match(r"^(?:nome|name)\s*:\s*(.+?)\s*$", line, re.IGNORECASE)
+        if m and nome is None:
+            nome = m.group(1)
             continue
         if line.endswith(":"):
             head = norm(line[:-1])
@@ -87,8 +106,25 @@ def parse(path: Path) -> dict:
 
     # A lista é identificada pelo conteúdo, para reimportar não duplicar.
     body = "\n".join(f"{r}|{q}|{norm(n)}" for r, q, n in out)
-    return {"path": str(path), "slug": path.stem, "lines": out,
+    return {"path": str(path), "slug": path.stem, "lines": out, "nome": nome,
             "content_hash": hashlib.sha256(body.encode()).hexdigest()[:16]}
+
+
+def rotulos(decks: list[tuple[str, int, str]]) -> dict[str, str]:
+    """[(slug, prioridade, rótulo)] -> {slug: rótulo}, sem dois iguais.
+
+    Dois ficheiros sem `Nome:` e com a mesma Legend e o mesmo Champion dão o
+    mesmo rótulo. O de prioridade mais alta (número mais baixo) fica como
+    está; os outros levam o slug entre parênteses, para se verem os dois em
+    vez de um deles desaparecer atrás do outro.
+    """
+    out, vistos = {}, set()
+    for slug, pri, rotulo in sorted(decks, key=lambda x: (x[1], x[0])):
+        if rotulo in vistos:
+            rotulo = f"{rotulo} ({slug})"
+        vistos.add(rotulo)
+        out[slug] = rotulo
+    return out
 
 
 def resolve(con: sqlite3.Connection, name: str, role: str) -> str | None:
@@ -137,6 +173,9 @@ def import_all(con: sqlite3.Connection, log=print) -> dict:
     known = {r["path"]: r["priority"] for r in con.execute("SELECT path, priority FROM decks")}
     next_pri = max(list(known.values()) + [0]) + 1
 
+    # Primeiro lêem-se todos, porque o rótulo de um deck depende dos outros:
+    # dois com o mesmo "Legend · Champion" têm de sair distintos (`rotulos`).
+    lidos = []
     for path in files:
         d = parse(path)
         legend = champion = None
@@ -152,11 +191,21 @@ def import_all(con: sqlite3.Connection, log=print) -> dict:
             if role == "champion" and champion is None:
                 champion = name
 
-        # O separador chama-se pelo Legend + Champion, como o André pediu.
-        display = " · ".join(x for x in (legend, champion) if x) or d["slug"]
+        # O separador chama-se pelo Legend + Champion, como o André pediu —
+        # a não ser que o ficheiro traga um `Nome:` (2026-09-11).
+        display = (d["nome"]
+                   or " · ".join(x for x in (legend, champion) if x)
+                   or d["slug"])
         pri = known.get(str(path), next_pri)
         if str(path) not in known:
             next_pri += 1
+        lidos.append((path, d, legend, champion, rows, missing, display, pri))
+
+    nomes = rotulos([(d["slug"], pri, display)
+                     for _, d, _, _, _, _, display, pri in lidos])
+
+    for path, d, legend, champion, rows, missing, _, pri in lidos:
+        display = nomes[d["slug"]]
 
         # Uma carta pode repetir-se no mesmo papel (raro, mas soma-se).
         agg: dict[tuple[str, str], list] = {}
@@ -451,8 +500,8 @@ def allocate(con: sqlite3.Connection) -> dict:
                 if do_binder:
                     no_binder[ck] = do_binder
                 held.setdefault(ck, []).append(
-                    {"deck": nome, "qty": take, "priority": d["priority"],
-                     "onde": "deck"})
+                    {"deck": nome, "slug": d["name"], "qty": take,
+                     "priority": d["priority"], "onde": "deck"})
 
             falta = qty - take
             if not falta:
@@ -466,14 +515,17 @@ def allocate(con: sqlite3.Connection) -> dict:
                 colecao[ck] = colecao.get(ck, 0) - tem
                 na_colecao[ck] = tem
                 held.setdefault(ck, []).append(
-                    {"deck": nome, "qty": tem, "priority": d["priority"],
-                     "onde": "colecao"})
+                    {"deck": nome, "slug": d["name"], "qty": tem,
+                     "priority": d["priority"], "onde": "colecao"})
             resto = falta - tem
             if not resto:
                 continue
             # Está noutro deck (ou reservada por ele)? É a leitura de sempre:
             # existe, mas está comprometida noutro sítio — não se compra.
-            noutro = [h for h in held.get(ck, []) if h["deck"] != nome]
+            # Compara-se pelo SLUG: pelo rótulo, dois LeBlanc com a mesma
+            # Legend eram o mesmo deck e o segundo mandava comprar o que o
+            # primeiro já tinha (2026-09-11).
+            noutro = [h for h in held.get(ck, []) if h["slug"] != d["name"]]
             if noutro:
                 shared[ck] = {"qty": resto, "em": noutro}
             else:

@@ -267,9 +267,21 @@ function deckLine(pid) {
 /* «Deck Azir · Brutalizer» -> «Azir»; «Binder Decks/Venda» -> «Decks/Venda». */
 function curtoLocal(label) {
   if (!label) return '';
-  if (label.startsWith('Deck ')) return label.slice(5).split(' · ')[0];
+  if (label.startsWith('Deck ')) return deckCurto(label.slice(5));
   if (label.startsWith('Binder ')) return label.slice(7);
   return label;
+}
+
+/* O rótulo curto de um deck: «Azir, Emperor · Azir, Sovereign» -> «Azir, Emperor».
+   Um `Nome:` do ficheiro não tem « · » e fica inteiro. Se o servidor tiver
+   desambiguado dois rótulos iguais com « (slug)» no fim, o sufixo fica —
+   senão os dois LeBlanc voltavam a ler-se igual nos chips (2026-09-11). */
+function deckCurto(name) {
+  if (!name) return '';
+  const m = name.match(/^(.*?)( \([^()]*\))?$/);
+  const base = m ? m[1] : name;
+  const sufixo = m && m[2] ? m[2] : '';
+  return base.split(' · ')[0] + sufixo;
 }
 
 /* A grelha em blocos (André, 2026-09-08): *"master set playset todo seguido; 1
@@ -1248,7 +1260,7 @@ function deckTile(c) {
   let nota = '';
   if (c.shared) {
     nota = `<div class="onde shared">falta ${c.missing} — ${c.shared.em
-      .map(h => `${h.qty}× em «${escapeHTML(h.deck.split(' · ')[0])}»`
+      .map(h => `${h.qty}× em «${escapeHTML(deckCurto(h.deck))}»`
         + (h.onde === 'colecao' ? ' (na Coleção)' : '')).join(', ')}</div>`;
   } else if (c.na_colecao) {
     const comprar = c.missing - c.na_colecao;
@@ -1906,7 +1918,7 @@ function renderPorDeck() {
 
   const abas = f.por_deck.map((d, i) => `
     <button class="seg-btn ${i === sel ? 'is-on' : ''}" data-fd="${i}">
-      ${d.priority}. ${escapeHTML(d.name.split(' · ')[0])}
+      ${d.priority}. ${escapeHTML(deckCurto(d.name))}
       <b>${d.copies}</b></button>`).join('')
     + `<button class="seg-btn ${sel === 'todos' ? 'is-on' : ''}" data-fd="todos">
         Todos juntos <b>${tj.copies}</b></button>`;
@@ -2041,7 +2053,7 @@ function renderPimp() {
       Todas <b>${somaDecks}</b></button>`
     + p.by_deck.map((d, k) => `
       <button class="seg-btn ${k === sel ? 'is-on' : ''}" data-pd="${k}">
-        ${d.priority}. ${escapeHTML(d.name.split(' · ')[0])}
+        ${d.priority}. ${escapeHTML(deckCurto(d.name))}
         <b>${d.printings}</b></button>`).join('');
 
   $('#falta-body').innerHTML = `
@@ -2127,7 +2139,7 @@ function pimpTile(x, comDecks = true) {
       x.price != null ? ` · ${eur(x.price)}` : ''}</div>
     <div class="onde tenho">${escapeHTML(x.label)}${
       comDecks && x.decks.length
-        ? ` · ${x.decks.map(d => escapeHTML(d.split(' · ')[0])).join(', ')}` : ''}</div>
+        ? ` · ${x.decks.map(d => escapeHTML(deckCurto(d))).join(', ')}` : ''}</div>
   </div>`;
 }
 
@@ -2233,7 +2245,7 @@ function staplTile(x) {
       ${x.price != null ? `<span class="price">${eurShort(x.total)}</span>` : ''}`)}
     <div class="tname" title="${escapeAttr(x.name)}">${escapeHTML(x.name)}</div>
     <div class="onde tenho">${x.decks.map(d =>
-      `${d.qty}× ${escapeHTML(d.deck.split(' · ')[0])}`).join('<br>')}</div>
+      `${d.qty}× ${escapeHTML(deckCurto(d.deck))}`).join('<br>')}</div>
   </div>`;
 }
 
@@ -2421,7 +2433,7 @@ function comunsLigar(c) {
 
 function vendaTile(x) {
   const onde = (x.in_decks || []).map(d =>
-    `${d.qty}× ${escapeHTML(d.deck.split(' · ')[0])}`).join(', ');
+    `${d.qty}× ${escapeHTML(deckCurto(d.deck))}`).join(', ');
   return `<div class="dtile ${x.state === 'deck' ? 'neutro' : 'gone'}">
     ${artHTML(x, `<span class="need">${x.qty || x.have}×</span>
       ${x.price != null ? `<span class="price">${eurShort(x.total || x.price)}</span>` : ''}`)}

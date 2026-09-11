@@ -2158,11 +2158,55 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   `pages.yml` publica-o sem tocar na rede; `riftvault build --se-mudou` para
   não gastar uma build do Pages por cada volta do relógio. A RiftScribe em
   baixo já não pode parar o site.
+- **Feito também:** o `Nome:` no ficheiro do deck (2026-09-11) e a chave dos
+  decks a ser o slug em todo o lado — dois decks com a mesma Legend/Champion
+  deixaram de se fundir na alocação e nas Staples.
 - **Por fazer:** vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck,
   com as partilhadas assinaladas); e apagar decks pela interface (hoje apaga-se
   o `.txt`).
 - **Por fazer, da revisão:** registar uma encomenda («a caminho») pela
   interface — hoje só pelo `riftvault pending`, e ele compra no telemóvel.
+
+## `Nome:` no ficheiro do deck, e a chave de um deck é o SLUG (2026-09-11)
+
+Palavras dele: *"adiciona outro deck de LeBlanc, chama-lhe LeBlanc Baited
+Hook"*. O `decks/leblanc-baited-hook.txt` tem a mesma Legend e o mesmo
+Champion do `leblanc.txt`, e o rótulo era só `legend · champion`: liam-se os
+dois igual.
+
+**Uma linha opcional `Nome: <texto>` (ou `Name:`) no `.txt`, antes do
+`Legend:`.** Se existir, é o rótulo em todo o lado — CLI, secção Decks, Pimp
+decks, «Deck …» dos locais, wantlists. Sem ela fica `legend · champion`, como
+sempre. Só o `leblanc-baited-hook.txt` a tem; os outros cinco não. O Legend e
+o Champion continuam guardados à parte (`decks.legend`/`champion`).
+
+**O bug que estava por baixo era pior do que o rótulo.** Dois sítios
+comparavam decks pelo RÓTULO e fundiam os dois LeBlanc:
+
+- `decks.allocate`: o «está noutro deck?» era `h["deck"] != nome`. O segundo
+  LeBlanc não via o primeiro como outro deck, e o que o primeiro já tinha
+  reservado da Coleção saía como **a comprar**. Medido no `data/` real:
+  o LeBlanc Baited Hook passou de «falta 30 · noutro 19» para
+  **«falta 5 · noutro 44»** — 25 cópias que ele já tem (Karthus, Ruined Rex,
+  Glasc Mixologist, …) deixaram de estar na lista de compras.
+- `faltas._wanted`: os decks que pedem uma carta eram um dicionário por
+  rótulo. Uma carta nos dois LeBlanc contava como pedida por UM deck e não era
+  staple. As cartas pedidas por >= 2 decks passaram de 21 para **36**, e as
+  Staples de 2 para **5**.
+
+Agora `held` e `_wanted` levam o `slug` e comparam por ele; o `deck` (rótulo)
+é só para mostrar. **A chave de um deck é sempre o slug** (`path.stem`).
+
+**Se o rótulo ainda se repetir** (dois ficheiros sem `Nome:` e a mesma
+Legend/Champion), `decks.rotulos` deixa o de prioridade mais alta como está e
+acrescenta o slug entre parênteses aos outros — aparecem os dois, nunca um
+atrás do outro. O `deckCurto` do `app.js` guarda esse sufixo nos rótulos
+curtos. `tests/test_nome_do_deck.py` fixa tudo isto, contra pastas
+temporárias.
+
+**A tabela de 5 linhas para 6 decks NÃO se reproduziu**: com o `data/` real
+copiado para `_lixo/`, o `riftvault decks` de antes da correcção já mostrava as
+6 linhas (com dois rótulos iguais). O que faltava era o sufixo, não a linha.
 
 ## 11/09/2026 - decks independentes: feito e DESFEITO no mesmo dia
 
