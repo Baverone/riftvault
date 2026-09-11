@@ -257,13 +257,15 @@ def por_deck(con: sqlite3.Connection) -> list[dict]:
     já obrigava a comprar 2 Defy, o deck 2 não pedia mais nenhum, porque as
     cartas «trocavam-se entre decks». A frase dele revogou isso.
 
-    O que vem a caminho conta como tido, como em toda a secção — entra na
-    alocação como cópias a mais na Coleção (`allocate(extra=...)`).
+    O que vem a caminho conta como tido, como em toda a secção — desde
+    2026-09-11 (tarde) é a própria alocação que o desconta (quarto monte,
+    `a_caminho`), por isso aqui não se soma nada: somar outra vez contava a
+    encomenda a dobrar.
     """
     cfg = config.load()
     ignorar = set(cfg.get("faltas_ignorar_tipos", []))
     tipos = _tipos(con)
-    alloc = decks.allocate(con, extra=pending.open_by_card(con))
+    alloc = decks.allocate(con)
 
     out = []
     for d in decks.decks_index(con):

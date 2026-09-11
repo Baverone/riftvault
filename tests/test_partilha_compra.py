@@ -250,7 +250,7 @@ class TestColecaoDizOndeEUsada(Base):
                          [("azir", 3, 3, 0), ("ornn", 2, 0, 2)])
         self.assertEqual(grupos["spirit blade"]["decks"],
                          [{"deck": uso[1]["deck"], "slug": "ornn", "priority": 2,
-                           "wanted": 1, "have": 0, "missing": 1}])
+                           "wanted": 1, "have": 0, "ordered": 0, "missing": 1}])
         self.assertEqual(grupos["brutalizer"]["decks"][0]["slug"], "azir")
         con.close()
 

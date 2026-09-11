@@ -144,20 +144,71 @@ def api_deck(deck_id: int):
     return jsonify(payload)
 
 
+@app.get("/api/encomendas.json")
+def api_encomendas():
+    """A lista «Encomendas»: o que está a caminho, para que deck vai, e o que
+    ainda falta encomendar (André, 2026-09-11)."""
+    con = get_con()
+    _reimport_if_changed(con)
+    return jsonify({"editable": True, **pending.encomendas(con)})
+
+
 @app.post("/api/pending/arrive")
 def api_pending_arrive():
     """Confirma a chegada: passa do `pending` para a coleção.
 
-    Sem `id`, dá entrada em tudo o que está aberto. A entrada passa pelo
-    `collection.adjust`, portanto fica no log e dá para desfazer.
+    Sem `id`, `ids` nem `card_key`, dá entrada em tudo o que está aberto; com
+    `card_key`, no que está aberto dessa carta (o «Chegou» da linha do deck);
+    com `ids`, só nessas linhas (a tabela «Encomendas»). A entrada passa pelo
+    `collection.adjust`, portanto fica no log e dá para desfazer. Idempotente:
+    a segunda chamada não encontra nada e dá 404.
     """
     data = request.get_json(silent=True) or {}
     pid = data.get("id")
+    ids = data.get("ids")
     con = get_con()
-    feitas = pending.arrive(con, int(pid) if pid else None, source="web")
+    alvo = [int(i) for i in ids] if isinstance(ids, list) else (int(pid) if pid else None)
+    feitas = pending.arrive(con, alvo, source="web",
+                            card_key=data.get("card_key") or None)
     if not feitas:
         return jsonify({"error": "não havia nada por chegar"}), 404
     return jsonify({"arrived": feitas, "pending": pending.totals(con)})
+
+
+@app.post("/api/encomenda")
+def api_encomenda():
+    """Os `+`/`−` dos decks (André, 2026-09-11): `{card_key | printing_id,
+    delta, deck?}`.
+
+    `delta > 0` regista mais cópias a caminho (na impressão base mais barata da
+    carta, ou na `printing_id` dada); `delta < 0` tira das linhas abertas mais
+    recentes, e nunca vai abaixo de zero — sem nada a caminho é 400, com a
+    razão escrita. O `deck` é só a origem do clique, para o rasto.
+    """
+    data = request.get_json(silent=True) or {}
+    try:
+        delta = int(data.get("delta", 0))
+    except (TypeError, ValueError):
+        return jsonify({"error": "delta inválido"}), 400
+    if delta == 0:
+        return jsonify({"error": "delta é zero"}), 400
+    if not data.get("card_key") and not data.get("printing_id"):
+        return jsonify({"error": "falta card_key ou printing_id"}), 400
+    origem = "web" + (f" deck:{data['deck']}" if data.get("deck") else "")
+    con = get_con()
+    try:
+        if delta > 0:
+            res = pending.encomendar(con, data.get("card_key"), data.get("printing_id"),
+                                     delta, source=origem)
+        else:
+            res = pending.anular(con, data.get("card_key"), data.get("printing_id"),
+                                 -delta, source=origem)
+    except pending.SemEncomenda as exc:
+        return jsonify({"error": str(exc)}), 400
+    except collection.UnknownPrinting as exc:
+        return jsonify({"error": str(exc)}), 404
+    res["pending"] = pending.totals(con)
+    return jsonify(res)
 
 
 # --------------------------------------------------------------------------

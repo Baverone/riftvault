@@ -14,6 +14,7 @@
     riftvault venda [--comuns] [--cardmarket] [--csv f.csv]
     riftvault wantlist [--edicao OGN] --cardmarket
     riftvault local [REF N --para deck:azir] [--deck azir --propor|--marcar ...]
+    riftvault encomendas [--mais REF [N] | --menos REF [N] | --chegou [REF]]
 """
 
 from __future__ import annotations
@@ -221,11 +222,13 @@ def cmd_stats(args) -> int:
     # com o que dois decks disputam e a Coleção não chega a contar como falta.
     decks_mod.import_all(con, log=lambda *_: None)
     tot = decks_mod.resumo_das_faltas(con)
-    if tot["copies"]:
+    if tot["copies"] or tot["ordered"]:
         print(f"\nDecks: falta comprar {tot['copies']} cópias de {tot['cards']} "
               f"cartas · {prices.eur(tot['cents'])}"
               + (f" — {tot['disputed']} disputadas com um deck de cima"
-                 if tot["disputed"] else ""))
+                 if tot["disputed"] else "")
+              + (f" — {tot['ordered']} já a caminho (não contam na falta)"
+                 if tot["ordered"] else ""))
 
     if getattr(args, "usadas", False):
         _imprimir_usadas(con)
@@ -248,8 +251,11 @@ def _imprimir_usadas(con) -> None:
         partes = []
         for u in uso[ck]:
             curto = u["deck"].split(" · ")[0]
+            detalhe = [x for x in (
+                f"faltam {u['missing']}" if u["missing"] else "",
+                f"{u['ordered']} a caminho" if u.get("ordered") else "") if x]
             partes.append(f"{curto} {u['wanted']}"
-                          + (f" (faltam {u['missing']})" if u["missing"] else ""))
+                          + (f" ({', '.join(detalhe)})" if detalhe else ""))
         print(f"  {nomes.get(ck, ck)[:34]:<34} {tenho.get(ck, 0):>3}   "
               + " · ".join(partes))
 
@@ -348,21 +354,24 @@ def cmd_decks(args) -> int:
     # sleevado nele, do binder Decks/Venda ou da Coleção (2026-09-11: *"se há
     # na coleção o deck usa"*); as três colunas do meio somam-no. "falta" é o
     # que o deck não recebe e tem de comprar; "disputadas" é a parte dessa
-    # falta que existe num deck de cima — informação, não desconto.
+    # falta que existe num deck de cima — informação, não desconto. "a caminho"
+    # (2026-09-11) é o que já está encomendado para este deck: não é tenho,
+    # já não é falta.
     print(f"{'#':<3} {'deck':<40} {'tenho':>12} {'deck':>5} {'binder':>7} "
-          f"{'coleção':>8} {'falta':>6} {'disputadas':>10}")
+          f"{'coleção':>8} {'a caminho':>9} {'falta':>6} {'disputadas':>10}")
     idx = decks_mod.decks_index(con)
     for d in idx:
         print(f"{d['priority']:<3} {d['name'][:40]:<40} "
               f"{d['have']:>5}/{d['wanted']:<6} {d['no_deck']:>5} "
-              f"{d['no_binder']:>7} {d['na_colecao']:>8} {d['missing']:>6} "
-              f"{d['shared']:>10}")
+              f"{d['no_binder']:>7} {d['na_colecao']:>8} {d['ordered']:>9} "
+              f"{d['missing']:>6} {d['shared']:>10}")
     tot = decks_mod.resumo_das_faltas(con)
-    if tot["copies"]:
+    if tot["copies"] or tot["ordered"]:
         print(f"\nFalta comprar aos decks: {tot['copies']} cópias de "
               f"{tot['cards']} cartas · {prices.eur(tot['cents'])}"
               + (f" ({tot['disputed']} disputadas com um deck de cima)"
-                 if tot["disputed"] else ""))
+                 if tot["disputed"] else "")
+              + (f" — {tot['ordered']} já a caminho" if tot["ordered"] else ""))
     extra = sum(d["extra"] for d in idx)
     if extra:
         print(f"{extra} cópias estão marcadas num deck que já não as pede — "
@@ -398,7 +407,8 @@ def cmd_deck(args) -> int:
           f" (ir buscar) · na Coleção {lc['na_colecao']} · "
           f"a comprar {lc['missing']}"
           + (f" ({lc['shared']} disputadas com um deck de cima)"
-             if lc.get("shared") else ""))
+             if lc.get("shared") else "")
+          + (f" · a caminho {lc['ordered']}" if lc.get("ordered") else ""))
     if lc["na_colecao"]:
         print(f"  para sleevar as da Coleção: `riftvault local --deck "
               f"{p['slug']} --propor`")
@@ -422,13 +432,20 @@ def cmd_deck(args) -> int:
             onde = " · ".join(f"{n} {sitio}" for n, sitio in (
                 (c["no_deck"], "no deck"), (c["no_binder"], "no binder Decks/Venda"),
                 (c["na_colecao"], "na Coleção")) if n)
-            if c["missing"]:
+            if c["missing"] or c.get("ordered"):
                 # O que falta compra-se SEMPRE (2026-09-11); se existe num deck
-                # de cima, diz-se onde — é informação, não desconto.
-                marca = "x"
-                extra = ("  (não tenho)" if c["have"] == 0
-                         else f"  (falta{'m' if c['missing'] > 1 else ''} {c['missing']}"
-                              f" a comprar; {onde})")
+                # de cima, diz-se onde — é informação, não desconto. O que já
+                # vem a caminho diz-se à parte: não é tenho, já não é falta.
+                marca = "x" if c["missing"] else "~"
+                partes = []
+                if c["missing"]:
+                    partes.append(f"falta{'m' if c['missing'] > 1 else ''} "
+                                  f"{c['missing']} a comprar")
+                if c.get("ordered"):
+                    partes.append(f"{c['ordered']} a caminho")
+                if onde:
+                    partes.append(onde)
+                extra = "  (" + "; ".join(partes) + ")"
                 if c["shared"]:
                     extra += "  -> " + ", ".join(
                         f"{h['qty']}x em «{h['deck']}»" for h in c["shared"]["em"])
@@ -811,6 +828,100 @@ def cmd_pending(args) -> int:
     return 0
 
 
+def cmd_encomendas(args) -> int:
+    """As encomendas (André, 2026-09-11): o que está a caminho, para que deck
+    vai, e o que ainda falta encomendar.
+
+    `--mais REF [N]` / `--menos REF [N]` são os `+`/`−` dos decks na consola —
+    a REF é um código de impressão (`OGN-045`) ou o nome da carta (aí vai para
+    a base mais barata, como no site). `--chegou [REF]` dá entrada do que está
+    a caminho dessa carta, ou de tudo.
+    """
+    con = db.connect()
+    if db.catalog_is_empty(con):
+        print("catálogo vazio — corre `riftvault sync`.", file=sys.stderr)
+        return 1
+    decks_mod.import_all(con, log=lambda *_: None)
+
+    def carta_ou_impressao(ref: str) -> tuple[str | None, str | None]:
+        """Devolve (card_key, printing_id): um dos dois, conforme a REF."""
+        try:
+            return None, collection.resolve_printing(con, ref)
+        except collection.UnknownPrinting:
+            pass
+        ck = decks_mod.resolve(con, ref, "main")
+        if ck is None:
+            raise SystemExit(f"erro: não encontrei nem impressão nem carta {ref!r}")
+        return ck, None
+
+    if args.mais or args.menos:
+        ref = args.mais or args.menos
+        ck, pid = carta_ou_impressao(ref)
+        n = _qty(args.qty)
+        try:
+            if args.mais:
+                res = pending_mod.encomendar(con, ck, pid, n, source="cli")
+                print(f"+{n}  {_describe(con, res['printing_id'])}  "
+                      f"-> {res['open_printing']} a caminho desta impressão")
+            else:
+                res = pending_mod.anular(con, ck, pid, n, source="cli")
+                print(f"-{res['removed']}  {_describe(con, res['printing_id'])}  "
+                      f"-> {res['open_printing']} a caminho desta impressão")
+        except pending_mod.SemEncomenda as exc:
+            print(f"erro: {exc}", file=sys.stderr)
+            return 1
+        con.close()
+        return 0
+
+    if args.chegou is not None:
+        ck = None
+        if args.chegou:
+            ck, pid = carta_ou_impressao(args.chegou)
+            if pid and ck is None:
+                ck = pending_mod._card_key(con, pid)
+        feitas = pending_mod.arrive(con, None, source="cli", card_key=ck)
+        if not feitas:
+            print("não havia nada por chegar.")
+            return 1
+        for f in feitas:
+            print(f"+{f['qty']}  {_describe(con, f['printing_id'])}  -> {f['total']}")
+        print(f"\n{len(feitas)} linhas deram entrada na coleção.")
+        con.close()
+        return 0
+
+    e = pending_mod.encomendas(con)
+    t = e["totals"]
+    if not t["copies"]:
+        print("Nada a caminho.")
+    else:
+        print(f"A caminho: {t['copies']} cópias · {t['printings']} impressões · "
+              f"{prices.eur(t['cents'])} ao preço de hoje"
+              + (f" ({t['sem_preco']} sem preço)" if t["sem_preco"] else "")
+              + (f" · pagaste {prices.eur(t['paid'])}" if t["paid"] else ""))
+        for g in e["a_caminho"]:
+            print(f"\n{g['name']}  — {g['copies']} cópias · {prices.eur(g['cents'])}")
+            for it in g["items"]:
+                para = " · ".join(f"{x['qty']}x {x['deck'].split(' · ')[0]}"
+                                  for x in it["para"]) or "nenhum deck a pede"
+                if it["sem_deck"] and it["para"]:
+                    para += f" · {it['sem_deck']} para a Coleção"
+                print(f"  {it['qty']}x {str(it['code']).split('/')[0]:<12} "
+                      f"{str(it['name'])[:30]:<30} {prices.eur(it['price']):>9}"
+                      f"  -> {para}")
+
+    f = e["falta_totals"]
+    if f["copies"]:
+        print(f"\nFalta encomendar: {f['copies']} cópias de {f['cards']} cartas · "
+              f"{prices.eur(f['cents'])}")
+        for g in e["falta"]:
+            print(f"  {g['name']:<24} {g['copies']:>3} cópias de {g['cards']:>2} cartas"
+                  f"  {prices.eur(g['cents']):>9}")
+    else:
+        print("\nNão falta encomendar nada aos decks.")
+    con.close()
+    return 0
+
+
 def cmd_local(args) -> int:
     """Onde está cada cópia: Coleção, um deck, ou o binder Decks/Venda.
 
@@ -1094,6 +1205,16 @@ def main(argv: list[str] | None = None) -> int:
                    metavar="ID",
                    help="dá entrada na coleção: sem ID, tudo o que está aberto")
     p.set_defaults(func=cmd_pending)
+
+    p = sub.add_parser("encomendas", help="o que está a caminho, para que deck "
+                                          "vai, e o que falta encomendar")
+    p.add_argument("--mais", metavar="REF",
+                   help="mais N a caminho: código (OGN-045) ou nome da carta")
+    p.add_argument("--menos", metavar="REF", help="menos N a caminho")
+    p.add_argument("qty", nargs="?", default="1", help="com --mais/--menos: 3 ou x3")
+    p.add_argument("--chegou", nargs="?", const="", default=None, metavar="REF",
+                   help="dá entrada na coleção: desta carta, ou de tudo sem REF")
+    p.set_defaults(func=cmd_encomendas)
 
     p = sub.add_parser("local", help="onde está cada cópia: Coleção, deck, "
                                      "binder Decks/Venda")
