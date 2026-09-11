@@ -15,6 +15,9 @@ data/images/
 # cópia legível, para ele abrir no Excel; o registo a sério é a tabela
 # `location_ops` DENTRO do vault.db, que vai para o Git.
 data/locais.log
+# O mesmo para as encomendas (2026-09-11): o registo a sério é a tabela
+# `pending` e o `ops` do vault.db; o CSV é só para ler.
+data/encomendas.log
 data/serve.log
 
 # O `site/` (build estático do modo publicado) NÃO entra aqui desde 2026-09-10:
