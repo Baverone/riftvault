@@ -102,16 +102,6 @@ class TestColecaoFicaComAsComuns(Base):
         self.assertEqual(defy["missing"], 3, "compra-se")
         con.close()
 
-    def test_nao_diz_que_nao_tem_o_que_tem__diz_que_a_colecao_fica_com_ela(self):
-        """«não tenho» seria mentira: ele tem 3 Defy no binder de coleção."""
-        con = self.catalogo()
-        defy = self.carta(con, 1, "Defy")
-        self.assertEqual(defy["colecao_fica"], 3)
-        self.assertEqual(defy["missing"], 3, "e compra na mesma: não desconta")
-        d = self.decks.decks_index(con)[0]
-        self.assertEqual(d["colecao_fica"], 3)
-        con.close()
-
     def test_uma_rara_na_colecao_le_se_na_colecao__mover_ou_comprar(self):
         con = self.catalogo()
         brut = self.carta(con, 1, "Brutalizer")

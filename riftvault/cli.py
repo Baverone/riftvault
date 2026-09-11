@@ -325,16 +325,8 @@ def cmd_decks(args) -> int:
               f"{d['shared']:>7}")
     partilhadas = sum(d["shared"] for d in idx)
     if partilhadas:
-        print(f"\n{partilhadas} cópia{'s' if partilhadas > 1 else ''} em «noutro» "
-              f"já está{'o' if partilhadas > 1 else ''} contada"
-              f"{'s' if partilhadas > 1 else ''} em «falta»: cada deck é "
-              f"independente\ne o que está noutro deck não o monta.")
-    fica = sum(d["colecao_fica"] for d in idx)
-    if fica:
-        print(f"\n{fica} cópia{'s' if fica > 1 else ''} em «falta» "
-              f"existe{'m' if fica > 1 else ''} na Coleção, mas são comuns ou "
-              f"incomuns:\na Coleção fica com elas e o deck compra as suas "
-              f"(André, 2026-09-11).")
+        print(f"\n{partilhadas} cópias em «noutro» já estão contadas em «falta»: "
+              f"cada deck é independente\ne o que está noutro deck não o monta.")
     na_col = sum(d["na_colecao"] for d in idx)
     if na_col:
         print(f"\n{na_col} cópias que os decks pedem estão nos binders de COLEÇÃO "
@@ -374,9 +366,6 @@ def cmd_deck(args) -> int:
     print(f"  no deck {lc['no_deck']} · no binder Decks/Venda {lc['no_binder']}"
           f" (ir buscar) · na Coleção {lc['na_colecao']} (não conta) · "
           f"a comprar {lc['missing']}")
-    if lc.get("colecao_fica"):
-        print(f"  {lc['colecao_fica']} dessas cópias existem na Coleção mas são "
-              f"comuns/incomuns: a Coleção fica com elas (André, 2026-09-11).")
     if lc["na_colecao"]:
         print(f"  as {lc['na_colecao']} da Coleção são duplicado a comprar ou a "
               f"decidir: `riftvault local --deck {p['slug']} --propor`")
@@ -413,16 +402,9 @@ def cmd_deck(args) -> int:
                             if c["missing"] > c["na_colecao"] else ""))
             elif c["missing"]:
                 # "não tenho" só quando é mesmo zero; com 1 de 2 é "falta 1".
-                # E nunca quando ele TEM a carta na Coleção: é comum ou
-                # incomum, a Coleção fica com ela e este deck compra a sua.
                 marca = "x"
-                if c.get("colecao_fica"):
-                    tem = ("a que tens" if c["colecao_fica"] == 1
-                           else f"as {c['colecao_fica']} que tens")
-                    extra = f"  ({c['missing']} a comprar · a Coleção fica com {tem})"
-                else:
-                    extra = ("  (não tenho)" if c["have"] == 0
-                             else f"  (falta{'m' if c['missing'] > 1 else ''} {c['missing']})")
+                extra = ("  (não tenho)" if c["have"] == 0
+                         else f"  (falta{'m' if c['missing'] > 1 else ''} {c['missing']})")
             elif c["no_binder"]:
                 marca = "b"
                 extra = f"  ({c['no_binder']} por ir buscar ao binder Decks/Venda)"

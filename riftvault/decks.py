@@ -498,7 +498,7 @@ def allocate(con: sqlite3.Connection) -> dict:
             need[r["card_key"]] = r["q"]
 
         alloc, no_deck, no_binder = {}, {}, {}
-        shared, na_colecao, missing, colecao_fica = {}, {}, {}, {}
+        shared, na_colecao, missing = {}, {}, {}
         for ck, qty in need.items():
             do_deck = min(qty, fixo.get(ck, 0))
             fixo[ck] = fixo.get(ck, 0) - do_deck
@@ -532,14 +532,6 @@ def allocate(con: sqlite3.Connection) -> dict:
             tem = 0
             if raridades.get(ck, "") not in baratas:
                 tem = min(falta, colecao.get(ck, 0))
-            else:
-                # Dizer «não tenho» de uma comum que está no binder de coleção
-                # era mentira. O `colecao_fica` é só para o ecrã — não desconta
-                # nada, não se consome (a Coleção fica com elas para todos os
-                # decks) e lê-se «a Coleção fica com as dela».
-                fica = min(falta, colecao.get(ck, 0))
-                if fica:
-                    colecao_fica[ck] = fica
             if tem:
                 colecao[ck] = colecao.get(ck, 0) - tem
                 na_colecao[ck] = tem
@@ -564,7 +556,7 @@ def allocate(con: sqlite3.Connection) -> dict:
         out[d["deck_id"]] = {"alloc": alloc, "no_deck": no_deck,
                              "no_binder": no_binder, "shared": shared,
                              "na_colecao": na_colecao, "missing": missing,
-                             "colecao_fica": colecao_fica, "extra": extra}
+                             "extra": extra}
 
     return out
 
@@ -676,9 +668,6 @@ def decks_index(con: sqlite3.Connection) -> list[dict]:
             "no_deck": sum(a["no_deck"].values()),
             "no_binder": sum(a["no_binder"].values()),
             "na_colecao": sum(a["na_colecao"].values()),
-            # Comuns e incomuns que ele TEM na Coleção e o deck compra na
-            # mesma: já estão contadas em `missing`, isto é só para o ecrã.
-            "colecao_fica": sum(a["colecao_fica"].values()),
             "extra": sum(a["extra"].values()),
             "missing": sum(a["missing"].values()),
             "shared": sum(v["qty"] for v in a["shared"].values()),
@@ -736,7 +725,6 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
     usado: dict[str, int] = {}
     usado_deck: dict[str, int] = {}
     usado_col: dict[str, int] = {}
-    usado_fica: dict[str, int] = {}
     sections = []
     for role in ROLE_ORDER:
         rows = con.execute(
@@ -759,11 +747,6 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
             # decisão dele — mover ou comprar outra.
             na_col = min(falta, max(0, a["na_colecao"].get(ck, 0) - usado_col.get(ck, 0)))
             usado_col[ck] = usado_col.get(ck, 0) + na_col
-            # E o que ele TEM na Coleção mas é comum/incomum: a Coleção fica
-            # com elas e o deck compra as suas. Não desconta nada — está aqui
-            # para o ecrã não dizer «não tenho» de uma carta que ele tem.
-            fica = min(falta, max(0, a["colecao_fica"].get(ck, 0) - usado_fica.get(ck, 0)))
-            usado_fica[ck] = usado_fica.get(ck, 0) + fica
             info = names.get(ck) or {}
             cards.append({
                 "card_key": ck,
@@ -772,7 +755,7 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
                 "type": info["type"] if info else None,
                 "wanted": r["qty"], "have": tenho, "missing": falta,
                 "no_deck": no_deck, "no_binder": tenho - no_deck,
-                "na_colecao": na_col, "colecao_fica": fica,
+                "na_colecao": na_col,
                 "shared": a["shared"].get(ck) if falta else None,
                 "printings": prints.get(ck, []),
                 **imagem(ck),
@@ -799,7 +782,6 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
             "no_deck": sum(a["no_deck"].values()),
             "no_binder": sum(a["no_binder"].values()),
             "na_colecao": sum(a["na_colecao"].values()),
-            "colecao_fica": sum(a["colecao_fica"].values()),
             "extra": sum(a["extra"].values()),
             "missing": sum(a["missing"].values()),
         },

@@ -1107,8 +1107,7 @@ function deckLocais(p) {
       decidir. Marca as que estão mesmo no deck.</small>` : ''}
     <small class="nota">Cada deck é independente: o que está noutro deck não
       desconta a falta. Nas <b>comuns e incomuns</b> a Coleção fica com as
-      dela — o deck compra as suas${l.colecao_fica
-        ? `, e são <b>${l.colecao_fica}</b> cópias das que tens na Coleção` : ''}.</small>
+      dela — o deck compra as suas.</small>
     ${l.extra ? `<small class="nota bad">${l.extra} cópias estão marcadas neste
       deck e a lista já não as pede.</small>` : ''}
     ${state.editable ? `<div class="deck-actions">
@@ -1260,11 +1259,6 @@ function deckTile(c) {
     const comprar = c.missing - c.na_colecao;
     nota = `<div class="onde shared">${c.na_colecao} na Coleção — mover ou comprar${
       comprar > 0 ? ` · ${comprar} a comprar` : ''}</div>`;
-  } else if (c.missing && c.colecao_fica) {
-    // Ele TEM-nA, mas é comum ou incomum: a Coleção fica com as dela e este
-    // deck compra as suas (André, 2026-09-11). Dizer só «faltam N» era mentira.
-    nota = `<div class="onde falta">${c.missing} a comprar — a Coleção fica com
-      ${c.colecao_fica === 1 ? 'a que tens' : `as ${c.colecao_fica} que tens`}</div>`;
   } else if (c.missing) {
     nota = `<div class="onde falta">faltam ${c.missing}</div>`;
   } else if (c.no_binder) {
