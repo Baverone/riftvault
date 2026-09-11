@@ -62,11 +62,6 @@ DEFAULTS: dict = {
     "master_target_overrides": {},
     "token_card_keys": [],
     "faltas_ignorar_tipos": ["Rune"],
-    # Raridades em que a Coleção fica com as suas e o deck compra as dele
-    # (André, 2026-09-11): *"a coleção terá sempre prioridade (...) isto apenas
-    # é válido para comuns, incomuns"*. Nas outras a cópia da Coleção continua a
-    # ler-se «na Coleção — mover ou comprar». Lista vazia desliga a regra.
-    "decks_colecao_primeiro": ["common", "uncommon"],
     "pimp_ignorar_tipos": ["signature", "rune_promo"],
     "pimp_ignorar_impressoes": ["unl-238-219"],
     "price_badge_min_cents": 100,

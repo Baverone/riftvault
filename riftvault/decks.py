@@ -1,25 +1,14 @@
 """Decks: leitura das listas, alocação por prioridade e validação.
 
-A REGRA CENTRAL — CADA DECK É INDEPENDENTE (André, 2026-09-11)
-    *"Nos decks, quero que apresentes as faltas todas, cada deck será
-    independente. A coleção terá obrigatoriamente que ter as cartas também e
-    terá sempre prioridade (...). Isto apenas é válido para comuns, incomuns."*
+A REGRA CENTRAL — ALOCAÇÃO POR PRIORIDADE
+    Os decks têm uma ordem. Percorrem-se por essa ordem e cada um serve-se do
+    que sobra: o deck 1 fica com as cartas que precisa, o deck 2 só recebe o
+    que o deck 1 não levou. Uma carta que falte ao deck 2 por já estar noutro
+    deck NÃO é o mesmo que uma carta que não se tem — a primeira diz onde está,
+    a segunda vai para a lista de compras.
 
-    O binder Decks/Venda continua a distribuir-se por prioridade — é stock
-    livre, e o deck 1 serve-se primeiro. O que mudou é o que acontece ao resto:
-    uma cópia que esteja NOUTRO deck já **não desconta** a falta. O «está no
-    deck X» passou a ser informação ao lado da falta, não uma razão para não
-    comprar: o deck 2 não desmonta o deck 1 para se montar.
-
-A COLEÇÃO TEM PRIORIDADE NAS COMUNS E INCOMUNS (mesma data)
-    Nessas raridades (`decks_colecao_primeiro` no config) uma cópia que esteja
-    nos binders de coleção **não existe para o deck**: nem a monta, nem aparece
-    como "na Coleção — mover ou comprar". A falta é `pedido − (no deck + no
-    binder)`, e compra-se. São cartas baratas, e a Coleção fica com as suas.
-
-    Nas raras e acima fica tudo como estava desde 2026-09-10: a cópia da
-    Coleção lê-se **«na Coleção — mover ou comprar»** — nem tida, nem a
-    comprar. Aí a decisão custa dinheiro e é dele.
+    É por isso que a alocação é global e não por deck: mudar a ordem muda quem
+    fica com o quê.
 
 FORMATO DAS LISTAS
     Secções com cabeçalho terminado em ':' (Legend, Champion, MainDeck,
@@ -265,49 +254,6 @@ def owned_by_card(con: sqlite3.Connection) -> dict[str, int]:
         "WHERE c.qty > 0 GROUP BY p.card_key")}
 
 
-def raridade_por_carta(con: sqlite3.Connection) -> dict[str, str]:
-    """card_key -> raridade de JOGO da carta (a da impressão canónica).
-
-    A carta lógica tem várias impressões e elas não têm todas a mesma raridade:
-    a reimpressão showcase de uma comum é `showcase` (ARMADILHA 2 do CLAUDE.md),
-    e a arte alternativa também. A raridade da CARTA é a da impressão canónica —
-    a base da edição mais antiga —, que é a mesma escolha que o `pimp` faz.
-
-    Sem raridade conhecida devolve-se nada, e quem pergunta trata a carta como
-    rara: é o comportamento antigo, e uma carta por classificar não pode mudar
-    de regra em silêncio.
-    """
-    ordens = {s: config.set_order(s) for s in
-              (r["set_id"] for r in con.execute(
-                  "SELECT DISTINCT set_id FROM catalog.printings"))}
-    melhor: dict[str, tuple] = {}
-    out: dict[str, str] = {}
-    for r in con.execute(
-        "SELECT card_key, set_id, api_sort, rarity, base_rarity, variant_kind "
-        "FROM catalog.printings WHERE variant_kind = 'base'"
-    ):
-        rank = (ordens.get(r["set_id"], 999), r["api_sort"] or 0)
-        ck = r["card_key"]
-        if ck in melhor and melhor[ck] <= rank:
-            continue
-        rar = r["base_rarity"] or r["rarity"]
-        if not rar:
-            continue
-        melhor[ck] = rank
-        out[ck] = rar
-    return out
-
-
-def colecao_primeiro(cfg: dict | None = None) -> set[str]:
-    """Raridades em que a Coleção fica com as suas e o deck compra (2026-09-11).
-
-    Lista vazia desliga a regra e as comuns voltam a ler-se «na Coleção — mover
-    ou comprar», como as raras.
-    """
-    cfg = cfg or config.load()
-    return {str(x).strip().lower() for x in cfg.get("decks_colecao_primeiro", [])}
-
-
 def _por_carta(con: sqlite3.Connection, mapa: dict[str, int]) -> dict[str, int]:
     """{printing_id: qty} -> {card_key: qty}, somando as impressões."""
     chaves = {r["printing_id"]: r["card_key"] for r in con.execute(
@@ -463,14 +409,8 @@ def allocate(con: sqlite3.Connection) -> dict:
          prioridade, exactamente como antes.
 
     **A Coleção não entra.** Uma cópia nos binders de coleção não monta deck
-    nenhum; nas raras e acima aparece em `na_colecao` para ele decidir se a move
-    ou se compra outra — *"duplicado a comprar ou a decidir"*. Nas comuns e
-    incomuns nem isso: a Coleção fica com as suas e o deck compra (2026-09-11).
-
-    **Cada deck é independente** (2026-09-11): o que está noutro deck vai para
-    `shared` — que passou a ser só informação, «também no deck X» — e a falta
-    conta na mesma em `missing`. Antes o `shared` descontava, e um deck ficava
-    por montar à espera de outro ser desfeito.
+    nenhum; aparece em `na_colecao` para ele decidir se a move ou se compra
+    outra — *"duplicado a comprar ou a decidir"*.
 
     Devolve, por deck e por carta: quanto ficou alocado (e de onde), quanto está
     noutro deck, quanto está na Coleção, quanto falta comprar, e o que está
@@ -479,8 +419,6 @@ def allocate(con: sqlite3.Connection) -> dict:
     p = pool_dos_decks(con)
     binder = dict(p["binder"])
     colecao = dict(p["colecao"])
-    raridades = raridade_por_carta(con)
-    baratas = colecao_primeiro()
     decks = deck_rows(con)
     held: dict[str, list[dict]] = {}     # card_key -> decks que já a levaram
     out = {}
@@ -519,19 +457,11 @@ def allocate(con: sqlite3.Connection) -> dict:
             falta = qty - take
             if not falta:
                 continue
-            # Está na Coleção? Existe, mas é coleção — não monta o deck.
-            #
-            # NAS COMUNS E INCOMUNS nem se mostra (André, 2026-09-11): *"a
-            # coleção terá obrigatoriamente que ter as cartas também e terá
-            # sempre prioridade (...) e se o deck depois precisar, também será
-            # necessário comprar"*. Para o deck, essa cópia não existe — e não
-            # se consome, porque a Coleção fica com ela na mesma.
-            #
-            # Nas raras e acima é a leitura de 2026-09-10: vai para o balde
-            # próprio e CONSOME-SE, senão dois decks reclamavam a mesma cópia.
-            tem = 0
-            if raridades.get(ck, "") not in baratas:
-                tem = min(falta, colecao.get(ck, 0))
+            # Está na Coleção? Existe, mas é coleção — não monta o deck. Vai
+            # para o balde próprio e CONSOME-SE, senão dois decks reclamavam a
+            # mesma cópia; e entra no `held`, para o deck seguinte ver que ela
+            # já está reservada em vez de a mandar comprar.
+            tem = min(falta, colecao.get(ck, 0))
             if tem:
                 colecao[ck] = colecao.get(ck, 0) - tem
                 na_colecao[ck] = tem
@@ -541,14 +471,13 @@ def allocate(con: sqlite3.Connection) -> dict:
             resto = falta - tem
             if not resto:
                 continue
-            # Está noutro deck (ou reservada por ele)? Diz-se onde — mas NÃO
-            # desconta (2026-09-11): cada deck é independente, e a cópia que
-            # está sleevada noutro deck não monta este. A falta é a mesma com
-            # ou sem ela; o `shared` só acrescenta o «também no deck X».
+            # Está noutro deck (ou reservada por ele)? É a leitura de sempre:
+            # existe, mas está comprometida noutro sítio — não se compra.
             noutro = [h for h in held.get(ck, []) if h["deck"] != nome]
             if noutro:
                 shared[ck] = {"qty": resto, "em": noutro}
-            missing[ck] = resto
+            else:
+                missing[ck] = resto
 
         # O que está marcado neste deck e o deck já não pede — a lista mudou,
         # a carta continua na caixa dele. Aparece para não desaparecer do ecrã.

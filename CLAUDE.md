@@ -178,117 +178,6 @@ com o do `site/api/index.json` daqui. Se o de lá estiver atrasado:
 
 ---
 
-# Cada deck é independente, e a Coleção fica com as comuns (2026-09-11)
-
-Palavras dele: *"nos decks, quero que apresentes as faltas todas, cada deck será
-independente. A coleção terá obrigatoriamente que ter as cartas também e terá
-sempre prioridade. Então se a coleção está a usar as cartas, o deck irá precisar
-de pedir as cartas também, e se o deck depois precisar, também será necessário
-comprar. Isto apenas é válido para comuns, incomuns."*
-
-São **duas regras numa frase**, e só a segunda é que tem o corte por raridade.
-
-## 1. Independência — o «está noutro deck» deixou de descontar
-
-Vale para **todas as raridades**. Uma cópia sleevada no deck 1 não monta o
-deck 2: o `shared` continua a dizer onde ela está («também 3× em «Azir»»), mas a
-falta é a mesma com ou sem ela e a carta entra em `missing`. **Isto revoga a
-leitura de 2026-08-31** — *"uma carta que falte ao deck 2 por já estar noutro
-deck não entra na lista de compras desse deck"* —, que punha o deck 2 à espera
-de o deck 1 ser desfeito.
-
-O binder Decks/Venda **continua a distribuir-se por prioridade**: é stock livre,
-uma cópia só, e o deck principal serve-se primeiro. O que sobra ao deck de baixo
-é que passou a ser compra em vez de silêncio.
-
-## 2. A Coleção tem prioridade nas comuns e incomuns
-
-Nessas raridades a cópia que está nos binders de coleção **não existe para o
-deck**: não o monta e **nem sequer se lê «na Coleção — mover ou comprar»**. A
-falta é `pedido − (no deck + no binder Decks/Venda)`, e compra-se. **Nem o
-excedente serve** — ter 5 de uma comum de playset 3 não dá 2 ao deck; a Coleção
-fica com as dela.
-
-Nas **raras e acima** fica tudo como estava desde 2026-09-10: a cópia da Coleção
-lê-se «na Coleção — mover ou comprar», nem tida nem a comprar, e continua a
-consumir-se para dois decks não reclamarem a mesma. Aí a decisão custa dinheiro
-e é dele.
-
-**A raridade é a da impressão CANÓNICA da carta** (`decks.raridade_por_carta`) —
-a base da edição mais antiga, a mesma escolha do Pimp. A reimpressão showcase de
-uma comum é `showcase` (ARMADILHA 2) e não pode tornar a carta rara. Uma carta
-**sem raridade conhecida trata-se como rara**: uma carta por classificar não
-muda de regra em silêncio. Escreve-se em `decks_colecao_primeiro`, hoje
-`["common", "uncommon"]`; lista vazia desliga a regra.
-
-## Onde vive, e o que passou a ler o mesmo
-
-Tudo isto é **uma função só**, o `decks.allocate`, e a partir de hoje a aba
-«Faltas → Por deck» lê-a também: o `faltas.por_deck` deixou de ter conta própria
-(a reserva partilhada de 2026-09-01, em que o deck 2 não pedia o que o deck 1 já
-mandava comprar) e passou a somar o `missing` do `allocate`, descontando só o
-que vem a caminho — por prioridade, porque uma encomenda é uma cópia só. **A
-página do deck, a aba «Por deck» e a wantlist do Cardmarket contam agora o
-mesmo**, e há teste que o fixa.
-
-**O que NÃO mudou:** a aba **Staples** e o cabeçalho «Falta comprar aos decks»
-(`faltas.shortfall`) continuam a ser a carência GLOBAL, com o teto de playset de
-2026-09-01 e a contar as cópias todas, esteja onde estiverem. É outra pergunta —
-*"o que comprar primeiro, sabendo que as cartas se trocam entre decks"* — e ele
-não a nomeou. **É pergunta para ele**, e é a razão de a Staples poder dizer
-«tens» o que a página do deck manda comprar. O **Pimp** e o **playset jogável**
-também não mexeram: continuam a ser o total físico.
-
-## O que mudou nos números
-
-Medido a 2026-09-11 no `main`, depois do merge, contra o `data/` real. As duas
-corridas usaram o mesmo `vault.db`.
-
-| | antes | depois |
-|---|---|---|
-| cópias em falta nos quatro decks | 37 | **208** |
-| custo dessas faltas | 315,50 € | **364,25 €** |
-| ornn / azir / kennen / leblanc | 2 / 3 / 27 / 5 | **49 / 53 / 56 / 50** |
-| «na Coleção — mover ou comprar» | 189 | **56** (só as raras) |
-| «está noutro deck» (agora só informa) | 38 | **1** |
-| aba «Por deck» (a wantlist) | 28 cópias, 314,42 € | **160 cópias, 358,41 €** |
-| cabeçalho «Falta comprar aos decks» | 22 cartas, 29 cópias, 315,05 € | **igual** |
-| «Venda» | 17 impressões, 25 cópias, 718,90 € | **igual** |
-
-**171 cópias passaram a compra e isso custa 48,75 €** — são cartas baratas, e é
-o ponto: **162 delas** (47,40 €) são comuns e incomuns que ele tem na Coleção e
-que a Coleção fica a guardar; a mais cara é a `Stacked Deck` ×3 (14,73 €, uma
-incomum), depois a `Defy` ×3 (3,75 €, duas vezes) e a partir daí são cêntimos.
-Das 100 cartas distintas que os quatro decks pedem, **66 são comuns ou
-incomuns**.
-
-**A independência sozinha vale 1 cópia** (0,26 €): quase todos os «está noutro
-deck» de ontem eram comuns reservadas na Coleção pelo deck de cima, e essas
-agora nem chegam a ser reservadas. O que sobra são as 45 cópias (316,59 €) que
-ele não tem em lado nenhum — quase todo o dinheiro da lista, e as mesmas de
-ontem.
-
-**A aba «Por deck» pede 48 cópias menos do que as páginas dos decks**, e são
-exactamente as **runas**: `faltas_ignorar_tipos: ["Rune"]` desde 2026-09-01,
-12 por deck. Valem 5,84 € nos quatro.
-
-**A Venda não precisou de mudar, e a consequência é visível:** uma comum do
-binder que um deck pede continua fora da venda (o `binder_allocation` não mexeu),
-mas uma comum da Coleção acima do alvo continua a ser excedente **ao mesmo tempo
-que o deck a compra**. Não é contradição — é o preço de a Coleção ter
-prioridade —, e há teste que o fixa para não passar despercebido. **Medido: é
-uma linha só**, a `OGN-042a` Calm Rune ×5 (4,61 €), que a Venda propõe e os
-decks pedem 15 vezes.
-
-**O ecrã não diz «não tenho» de uma carta que ele tem.** O `colecao_fica` (por
-carta e por deck) conta as comuns e incomuns que estão na Coleção e o deck
-compra na mesma, e lê-se «3 a comprar · a Coleção fica com as 3 que tens». Não
-desconta nada e não se consome — a mesma cópia é da Coleção para os quatro
-decks. Sem ele o Leblanc dizia «não tenho» de 37 cartas que estão no binder de
-coleção dele.
-
----
-
 # Onde está cada cópia: três locais (2026-09-10)
 
 Palavras dele: *"vou querer ter as cartas da coleção apenas alocadas à coleção e
@@ -381,9 +270,6 @@ num deck sem linha no log, é bug.**
   para os decks", com o teto do playset; passá-la a cega para a Coleção fazia-a
   dizer, no dia da migração, que ele tem de comprar quase tudo outra vez.
   **É pergunta para ele** — ver o relatório `riftvault-binders.md`.
-  **(A 2026-09-11 metade disto caiu: a aba «Por deck» passou a ler o
-  `decks.allocate` e vê só o deck e o binder. A Staples e o cabeçalho é que
-  continuam globais — ver a secção dos decks independentes.)**
 - **O playset JOGÁVEL** (`metrics.owned_by_card`, a métrica 1) também é o total
   físico. É o "quantas destas cartas tenho ao todo", e é a mesma pergunta do
   Pimp.
@@ -1475,12 +1361,6 @@ impressões dela (`catalog.rebuild_cards`).
 desconta-se o que ele tem. A alocação por prioridade responde a outra coisa
 (quem fica com o quê) e não serve para decidir compras.
 
-**Isto vale para a Staples e para o cabeçalho, já não vale para a aba «Por
-deck»** (2026-09-11): essa passou a ler o `decks.allocate` porque ele mandou os
-decks ser independentes. A carência global fica onde estava, e é a razão de os
-dois números poderem diferir na mesma página — ver a secção dos decks
-independentes.
-
 - **TETO POR CARTA (André, 2026-09-01):** a carência é limitada ao alvo de
   playset da carta, mesmo que a soma dos decks peça mais. Cinco decks a pedir
   3 Defy não são 15 Defy para comprar — são 3, e trocam-se entre decks. Isso
@@ -2133,12 +2013,10 @@ aguentar os blocos, imprime só o URL. A consola do Windows abre em cp1252 —
 ## Decks (2026-08-31)
 
 **Alocação por prioridade.** Os decks têm uma ordem (`decks.priority`, 1 =
-principal). Percorrem-se por essa ordem e cada um serve-se do que sobra do
-**binder Decks/Venda**: o deck 1 fica com o que precisa, o deck 2 só recebe o
-que sobrou. Uma carta que falte ao deck 2 **por já estar noutro deck** é
-mostrada com o deck onde está — **e desde 2026-09-11 entra na lista de compras
-desse deck na mesma** (*"cada deck será independente"*; ver a secção própria).
-Até lá não entrava.
+principal). Percorrem-se por essa ordem e cada um serve-se do que sobra: o
+deck 1 fica com o que precisa, o deck 2 só recebe o que sobrou. Uma carta que
+falte ao deck 2 **por já estar noutro deck** é mostrada com o deck onde está —
+é diferente de não a ter, e não entra na lista de compras desse deck.
 
 A alocação é **global e por carta lógica**, não por deck nem por papel: mudar
 a ordem refaz tudo (`decks.allocate`). Uma carta que esteja no main e no
@@ -2280,11 +2158,6 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   `pages.yml` publica-o sem tocar na rede; `riftvault build --se-mudou` para
   não gastar uma build do Pages por cada volta do relógio. A RiftScribe em
   baixo já não pode parar o site.
-- **Feito também:** os decks independentes (2026-09-11) — o «está noutro deck»
-  deixou de descontar a falta, e nas comuns e incomuns a Coleção fica com as
-  dela (o deck compra as suas). A aba «Por deck» passou a ler o
-  `decks.allocate`, por isso a página do deck, a aba e a wantlist contam o
-  mesmo. A Staples continua a ser a carência global, com o teto de playset.
 - **Por fazer:** vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck,
   com as partilhadas assinaladas); e apagar decks pela interface (hoje apaga-se
   o `.txt`).

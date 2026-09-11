@@ -41,24 +41,15 @@ class Base(unittest.TestCase):
         self.venda, self.a_subir = venda, a_subir
 
     def catalogo(self, com_deck: bool = True):
-        """Uma edição pequena, a coleção lá dentro e (opcional) um deck.
-
-        As cartas dos decks são RARAS de propósito: é nelas que a leitura de
-        2026-09-10 se mantém — a cópia da Coleção lê-se «na Coleção — mover ou
-        comprar». Nas comuns e incomuns a regra é outra desde 2026-09-11 (a
-        Coleção fica com as dela e o deck compra), e vive no
-        `tests/test_decks_independentes.py`.
-        """
+        """Uma edição pequena, a coleção lá dentro e (opcional) um deck."""
         from riftvault import collection
         con = self.v.connect()
-        self.v.add_printing(con, "tst-001-100", "TST", 1, "Defy", size=100,
-                            rarity="rare")
+        self.v.add_printing(con, "tst-001-100", "TST", 1, "Defy", size=100)
         self.v.add_printing(con, "tst-001a-100", "TST", 1, "Defy",
-                            variant="a", kind="alt_art", size=100, rarity="rare")
-        self.v.add_printing(con, "tst-002-100", "TST", 2, "Brutalizer", size=100,
-                            rarity="rare")
+                            variant="a", kind="alt_art", size=100)
+        self.v.add_printing(con, "tst-002-100", "TST", 2, "Brutalizer", size=100)
         self.v.add_printing(con, "tst-003-100", "TST", 3, "Emperor of the Sands",
-                            card_type="Legend", size=100, rarity="rare")
+                            card_type="Legend", size=100)
         # Uma carta que nenhum deck pede — é dela que se faz a venda.
         self.v.add_printing(con, "tst-004-100", "TST", 4, "Spirit Blade", size=100)
         self.v.rebuild(con)
@@ -222,19 +213,13 @@ class TestDecksNaoTiramDaColecao(Base):
         self.assertEqual(idx["azir"]["no_binder"], 3)
         self.assertEqual(idx["ornn"]["no_binder"], 0)
         # 3 Brutalizer (o azir levou-as do binder) + 1 Legend (o azir reservou-a
-        # na Coleção). Dizem onde estão — mas desde 2026-09-11 não descontam:
-        # cada deck é independente e o ornn compra as dele.
+        # na Coleção). As duas são «está no deck de cima», não «a comprar».
         self.assertEqual(idx["ornn"]["shared"], 4)
-        self.assertEqual(idx["ornn"]["missing"], 5, "as 4 + a Spirit Blade")
+        self.assertEqual(idx["ornn"]["missing"], 1, "só a Spirit Blade, que não tem")
         con.close()
 
-    def test_o_que_o_deck_de_cima_reservou_diz_se__e_compra_se(self):
-        """REVOGADO a 2026-09-11: era «não se compra», passou a comprar-se.
-
-        Até aqui o segundo deck ficava à espera de o primeiro ser desfeito. A
-        frase dele — *"cada deck será independente"* — inverte isto: o «está no
-        deck de cima» continua escrito, ao lado da falta, mas já não a tira.
-        """
+    def test_uma_copia_da_colecao_reservada_pelo_deck_de_cima_nao_se_compra(self):
+        """Sem isto, o segundo deck mandava comprar o que o primeiro reservou."""
         con = self.catalogo()
         self.v.write_deck("ornn", "Legend:\n1 Emperor of the Sands\n"
                                   "Champion:\n1 Spirit Blade\n"
@@ -244,8 +229,7 @@ class TestDecksNaoTiramDaColecao(Base):
         self.assertEqual(idx["azir"]["na_colecao"], 7)
         self.assertEqual(idx["ornn"]["na_colecao"], 0)
         self.assertEqual(idx["ornn"]["shared"], 4, "reservadas pelo azir")
-        self.assertEqual(idx["ornn"]["missing"], 5,
-                         "as 4 reservadas + a Spirit Blade: independentes")
+        self.assertEqual(idx["ornn"]["missing"], 1, "a Spirit Blade, que não tem")
         p = self.decks.deck_payload(con, idx["ornn"]["id"])
         brut = next(c for s in p["sections"] for c in s["cards"]
                     if c["name"] == "Brutalizer")
