@@ -178,6 +178,51 @@ com o do `site/api/index.json` daqui. Se o de lá estiver atrasado:
 
 ---
 
+# Decks com a MESMA Legend partilham cartas, não disputam (2026-09-11, noite)
+
+Palavras dele: *"deck com o mesmo Legend, partilham cartas. Os 2 decks de
+LeBlanc partilham as mesmas cartas, são só 2 listas diferentes em algumas
+cartas. Então o que encomendar para 1 deck, estou a encomendar para o outro
+também."*
+
+**A regra numa frase:** decks com a mesma Legend (mesmo `card_key` da linha
+`Legend:`) são duas listas do mesmo deck físico — nunca se jogam ao mesmo
+tempo —, formam um **grupo**, e dentro do grupo a procura de cada carta é o
+**MÁXIMO** entre as listas, não a soma. O grupo serve-se da Coleção como um
+deck só, na prioridade do melhor colocado dos membros; o que lhe falta é falta
+dos dois, a mesma carta, a mesma quantidade, **contada uma vez** no total
+geral. Entre grupos diferentes (Ornn, Azir, Kennen, grupo LeBlanc) continua a
+regra da secção a seguir: soma, disputa, o de baixo compra.
+
+**Onde vive:** `decks.grupos` (a Legend agrupa; `lider` é o membro de
+prioridade mais alta, `rotulo` é `A ·· B`) e `decks.allocate`, cuja unidade
+passou a ser o grupo — funde as listas por máximo, aloca, e espalha o resultado
+por cada membro cortado ao que ele pede. Cada entrada da alocação leva
+`grupo` com o resultado ao nível do grupo (`missing`, `a_caminho`, `ordered`,
+os montes) e `partilhada` nas cartas que o irmão também pede. **Quem soma
+totais lê só as entradas com `grupo.lider`** — é o único cuidado que a camada
+pede: `resumo_das_faltas`, `pending.encomendas` («Falta encomendar» e o
+«para»), `_por_impressao` (Venda, «usadas nos decks») e o `faltas._wanted`
+(a `qty` soma por grupo, `n_grupos` decide as Staples — uma compra que serve
+decks DIFERENTES, não duas listas do mesmo). `missing_by_set(..., grupo=True)`
+responde pelo grupo.
+
+**Apresentação:** a página de cada deck continua a ser a lista dele; a carta
+que o irmão também pede diz «partilhada com …» em vez de «-> 3x em …» e não é
+disputa. Na tabela do `riftvault decks`, na secção Decks do site e nas abas
+das Faltas os membros levam `·· ` à frente e uma linha a explicar. A soma das
+abas «Por deck» **já não é o total** quando há grupos — a nota do «Todos
+juntos» diz porquê. `tests/test_mesma_legend.py` fixa tudo isto contra
+cópias.
+
+**Uma encomenda (`+`) feita pela Coleção desconta nos dois** — já era assim,
+porque a encomenda é da Coleção e o monte `a_caminho` é lido pelo líder.
+
+**Medido no `data/` real** (5 decks, os dois LeBlanc com a mesma Legend): ver
+o relatório `ai-pc/work/revisao/riftvault-mesma-legend.md`.
+
+---
+
 # Os decks partilham a Coleção; o que não chega compra-se (2026-09-11)
 
 Palavras dele: *"Os decks podem usar cartas da coleção. Na coleção indica onde

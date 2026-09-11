@@ -96,13 +96,13 @@ class TestNomeDoDeck(unittest.TestCase):
         con.close()
 
     def test_alocacao_distingue_decks_com_o_mesmo_rotulo(self):
-        """O bug de 2026-09-11: as 3 Defy estão na Coleção e o deck 1 fica com
-        elas; o deck 2 tem de as ver como «em a», não como inexistentes.
-
-        Nessa mesma tarde a regra passou a «o que o deck de baixo não recebe
-        compra-se» — por isso o deck 2 tem as 3 Defy em `missing` E em
-        `shared` (é onde estão). O que o bug fazia era não as ver em `shared`
-        de todo, porque comparava os decks pelo rótulo."""
+        """O bug de 2026-09-11 (tarde): comparados pelo rótulo, os dois decks
+        eram o mesmo e o deck 2 não via as Defy como «em a». Nessa noite a
+        regra mudou outra vez — dois decks com a MESMA LEGEND partilham as
+        cartas (são o mesmo deck físico, ver `test_mesma_legend.py`) — e o que
+        aqui fica fixado é que continuam a ser dois decks distintos na
+        alocação (duas entradas, dois slugs), a servirem-se das mesmas cópias
+        sem que nenhum as veja como disputadas."""
         self.v.write_deck("a", LISTA)
         self.v.write_deck("b", LISTA)
         con = self._importar()
@@ -111,28 +111,29 @@ class TestNomeDoDeck(unittest.TestCase):
         a, b = alloc[rows["a"]["deck_id"]], alloc[rows["b"]["deck_id"]]
         self.assertEqual(a["na_colecao"], {"defy": 3, "brutalizer": 1,
                                            "emperor of the sands": 1})
-        self.assertEqual(a["missing"], {})
-        self.assertEqual(b["missing"], {"defy": 3, "emperor of the sands": 1})
-        self.assertEqual(b["shared"]["defy"]["qty"], 3)
-        self.assertEqual([h["slug"] for h in b["shared"]["defy"]["em"]], ["a"])
-        # E o índice diz o mesmo. Das 5 que o deck 2 pede, 4 estão no deck 1
-        # (disputadas, a comprar) e 1 (a segunda Brutalizer, de 3 na Coleção)
-        # ainda está livre na Coleção.
+        self.assertEqual(b["na_colecao"], a["na_colecao"], "as mesmas cópias")
+        self.assertEqual((a["missing"], b["missing"]), ({}, {}))
+        self.assertEqual((a["shared"], b["shared"]), ({}, {}), "irmãos não disputam")
+        self.assertEqual(sorted(a["grupo"]["slugs"]), ["a", "b"])
+        self.assertEqual((a["grupo"]["lider"], b["grupo"]["lider"]), (True, False))
+        self.assertEqual([x["slug"] for x in b["partilhada"]["defy"]], ["a"])
         idx = {d["slug"]: d for d in self.decks.decks_index(con)}
-        self.assertEqual(idx["b"]["missing"], 4)
-        self.assertEqual(idx["b"]["shared"], 4)
-        self.assertEqual(idx["b"]["na_colecao"], 1)
+        self.assertEqual((idx["b"]["missing"], idx["b"]["shared"]), (0, 0))
+        self.assertEqual(idx["b"]["na_colecao"], 5)
         con.close()
 
     def test_staples_contam_os_dois_decks(self):
-        """Pedida por dois decks com o mesmo rótulo é pedida por DOIS decks."""
+        """Pedida por dois decks com o mesmo rótulo aparece nos DOIS — mas,
+        como têm a mesma Legend, a procura é o máximo (3), não a soma (6), e
+        contam como UM grupo (2026-09-11, noite)."""
         self.v.write_deck("a", LISTA + "3 Extra\n")
         self.v.write_deck("b", LISTA + "3 Extra\n")
         con = self._importar()
         pedido = self.faltas._wanted(con)
         self.assertEqual(set(pedido["defy"]["decks"]), {"a", "b"})
         self.assertEqual(pedido["defy"]["decks"]["a"]["qty"], 3)
-        self.assertEqual(pedido["defy"]["qty"], 6)
+        self.assertEqual(pedido["defy"]["qty"], 3)
+        self.assertEqual(pedido["defy"]["n_grupos"], 1)
         con.close()
 
     def test_tabela_e_order_por_slug(self):
@@ -156,8 +157,10 @@ class TestNomeDoDeck(unittest.TestCase):
         linhas = [l for l in texto.splitlines() if "Emperor of the Sands" in l
                   and l[:1].isdigit()]
         self.assertEqual(len(linhas), 2, texto)
-        self.assertTrue(linhas[0].startswith("1   Emperor of the Sands · Brutalizer (b)"), texto)
-        self.assertTrue(linhas[1].startswith("2   Emperor of the Sands · Brutalizer "), texto)
+        # Os dois têm a mesma Legend: desde 2026-09-11 (noite) são um grupo e
+        # a tabela marca-os com «·· ».
+        self.assertTrue(linhas[0].startswith("1   ·· Emperor of the Sands · Brutalizer (b)"), texto)
+        self.assertTrue(linhas[1].startswith("2   ·· Emperor of the Sands · Brutalizer "), texto)
         # Depois de reordenar, é o «a» que leva o sufixo — o rótulo segue a
         # prioridade, e a base só o refaz na importação seguinte.
         self.decks.import_all(con, log=lambda *_: None)

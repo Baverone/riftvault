@@ -26,6 +26,28 @@ A REGRA CENTRAL — OS DECKS PARTILHAM A COLEÇÃO, E O QUE NÃO CHEGA COMPRA-SE
     incluindo o sideboard); a comprar = max(0, procura_total − cópias que
     existem), distribuída pelos decks de prioridade mais baixa.
 
+DECKS COM A MESMA LEGEND SÃO O MESMO DECK FÍSICO — PARTILHAM, NÃO DISPUTAM
+    Palavras do André (2026-09-11, à noite): *"deck com o mesmo Legend,
+    partilham cartas. Os 2 decks de LeBlanc partilham as mesmas cartas, são só
+    2 listas diferentes em algumas cartas. Então o que encomendar para 1 deck,
+    estou a encomendar para o outro também."*
+
+    Dois decks com a mesma Legend nunca se jogam ao mesmo tempo: são duas
+    LISTAS do mesmo monte de cartas. Formam um GRUPO (`grupos`), e dentro do
+    grupo a procura de cada carta é o MÁXIMO entre as listas, não a soma —
+    LeBlanc pede 3 Hidden Blade e o Baited Hook pede 2, o grupo pede 3. O
+    grupo serve-se da Coleção como um deck só, na prioridade do melhor
+    colocado dos seus membros, e o que lhe falta é falta dos dois — a mesma
+    carta, a mesma quantidade, contada UMA vez no total geral. Entre grupos
+    diferentes (Ornn, Azir, Kennen, o grupo LeBlanc) fica a regra de cima:
+    soma, disputa, o de baixo compra.
+
+    Na página de cada deck a lista continua a ser a dele; uma carta que o
+    irmão também pede diz «partilhada com …» (`partilhada`) e não conta como
+    disputa. Quem soma totais lê o grupo pelo LÍDER (`grupo.lider`), senão
+    conta os dois LeBlanc a dobrar — é o único cuidado que a camada pede a
+    quem a consome.
+
 FORMATO DAS LISTAS
     Secções com cabeçalho terminado em ':' (Legend, Champion, MainDeck,
     Battlefields, Rune Pool, Sideboard) e linhas "N Nome da Carta". Também
@@ -459,10 +481,14 @@ def _por_impressao(con: sqlite3.Connection, monte: str,
         if livre.get(r["printing_id"], 0) > 0:
             por_carta.setdefault(r["card_key"], []).append(r["printing_id"])
 
+    # Pelo GRUPO, lido no líder: dois decks com a mesma Legend levam as mesmas
+    # cópias, e contá-las uma vez por membro punha a Venda a proteger o dobro.
     out: dict[str, list[dict]] = {}
     for d in deck_rows(con):
-        nome = d["display_name"] or d["name"]
-        for ck, n in alloc[d["deck_id"]][monte].items():
+        a = alloc[d["deck_id"]]
+        if not a["grupo"]["lider"]:
+            continue
+        for ck, n in a["grupo"][monte].items():
             falta = n
             for pid in por_carta.get(ck, []):
                 if falta <= 0:
@@ -472,7 +498,7 @@ def _por_impressao(con: sqlite3.Connection, monte: str,
                     livre[pid] -= tira
                     falta -= tira
                     out.setdefault(pid, []).append(
-                        {"deck": nome, "slug": d["name"], "qty": tira,
+                        {"deck": a["grupo"]["rotulo"], "slug": d["name"], "qty": tira,
                          "priority": d["priority"]})
     return out
 
@@ -481,6 +507,50 @@ def deck_rows(con: sqlite3.Connection) -> list[sqlite3.Row]:
     return con.execute(
         "SELECT deck_id, name, display_name, legend, champion, priority, "
         "       path, missing_json FROM decks ORDER BY priority, deck_id").fetchall()
+
+
+# Separador dos nomes no rótulo de um grupo com mais de um deck.
+GRUPO_SEP = " ·· "
+
+
+def grupos(con: sqlite3.Connection) -> list[dict]:
+    """Os decks agrupados pela Legend, por ordem da melhor prioridade.
+
+    A chave é o `card_key` da linha `Legend:` (não o texto, que pode vir com o
+    prefixo «LeBlanc, » numa lista e sem ele na outra). Um deck sem Legend
+    resolvida fica sozinho no seu grupo. Cada grupo: `legend`, `deck_ids`,
+    `slugs`, `nomes` (rótulos), `lider` (o deck_id do membro de prioridade
+    mais alta — é por ele que se somam totais), `priority`, `rotulo` (os nomes
+    juntos por `GRUPO_SEP` quando são vários) e `variantes` (True se > 1).
+    """
+    legend_de = {r["deck_id"]: r["ck"] for r in con.execute(
+        "SELECT deck_id, MIN(card_key) AS ck FROM deck_cards "
+        "WHERE role = 'legend' GROUP BY deck_id")}
+    por_legend: dict[str, dict] = {}
+    for d in deck_rows(con):
+        chave = legend_de.get(d["deck_id"]) or f"deck:{d['name']}"
+        g = por_legend.setdefault(chave, {
+            "legend": chave, "deck_ids": [], "slugs": [], "nomes": [],
+            "lider": d["deck_id"], "priority": d["priority"]})
+        g["deck_ids"].append(d["deck_id"])
+        g["slugs"].append(d["name"])
+        g["nomes"].append(d["display_name"] or d["name"])
+    out = sorted(por_legend.values(), key=lambda g: (g["priority"], g["lider"]))
+    for g in out:
+        g["variantes"] = len(g["deck_ids"]) > 1
+        g["rotulo"] = GRUPO_SEP.join(g["nomes"])
+    return out
+
+
+def grupo_de(con: sqlite3.Connection, deck_id: int) -> dict:
+    return next(g for g in grupos(con) if deck_id in g["deck_ids"])
+
+
+def _need(con: sqlite3.Connection, deck_id: int) -> dict[str, int]:
+    """card_key -> quanto ESTE deck pede, todos os papéis somados."""
+    return {r["card_key"]: r["q"] for r in con.execute(
+        "SELECT card_key, SUM(qty) AS q FROM deck_cards WHERE deck_id = ? "
+        "GROUP BY card_key", (deck_id,))}
 
 
 def allocate(con: sqlite3.Connection) -> dict:
@@ -513,6 +583,16 @@ def allocate(con: sqlite3.Connection) -> dict:
     a caminho para este deck, quanto falta comprar, quanto dessa falta existe
     noutro deck, e o que está marcado neste deck mas o deck já não pede
     (`extra`).
+
+    A UNIDADE DA ALOCAÇÃO É O GRUPO DE LEGEND, NÃO O DECK (2026-09-11, noite).
+    Decks com a mesma Legend são duas listas do mesmo deck físico e servem-se
+    juntos: a procura do grupo é o máximo por carta entre as listas, e o
+    resultado espalha-se depois por cada membro, cortado ao que ele pede. Cada
+    entrada leva `grupo` — com o resultado ao nível do grupo (`missing`,
+    `shared`, `a_caminho`, `no_binder`, `na_colecao`, `alloc`, `need`) e
+    `lider` — e `partilhada`: por carta, os irmãos que também a pedem. Quem
+    soma totais de todos os decks lê só as entradas com `grupo.lider`, senão
+    conta o grupo uma vez por membro.
     """
     from . import pending
 
@@ -520,21 +600,26 @@ def allocate(con: sqlite3.Connection) -> dict:
     binder = dict(p["binder"])
     colecao = dict(p["colecao"])
     caminho = dict(pending.open_by_card(con))
-    decks = deck_rows(con)
-    held: dict[str, list[dict]] = {}     # card_key -> decks que já a levaram
+    por_id = {d["deck_id"]: d for d in deck_rows(con)}
+    held: dict[str, list[dict]] = {}     # card_key -> grupos que já a levaram
     out = {}
 
-    for d in decks:
-        nome = d["display_name"] or d["name"]
-        fixo = dict(p["fixo"].get(d["name"]) or {})
-        # A alocação é por carta lógica, não por papel: uma carta que esteja no
+    for g in grupos(con):
+        membros = [por_id[i] for i in g["deck_ids"]]
+        needs = {d["deck_id"]: _need(con, d["deck_id"]) for d in membros}
+        # A procura do grupo: o MÁXIMO entre as listas, carta a carta. A
+        # alocação é por carta lógica, não por papel: uma carta que esteja no
         # main e no sideboard disputa o mesmo stock.
         need: dict[str, int] = {}
-        for r in con.execute(
-            "SELECT card_key, SUM(qty) AS q FROM deck_cards WHERE deck_id = ? "
-            "GROUP BY card_key", (d["deck_id"],)
-        ):
-            need[r["card_key"]] = r["q"]
+        for nd in needs.values():
+            for ck, q in nd.items():
+                need[ck] = max(need.get(ck, 0), q)
+        # O que está sleevado em qualquer dos membros é do grupo: é o mesmo
+        # deck físico com duas listas.
+        fixo: dict[str, int] = {}
+        for d in membros:
+            for ck, n in (p["fixo"].get(d["name"]) or {}).items():
+                fixo[ck] = fixo.get(ck, 0) + n
 
         alloc, no_deck, no_binder, na_colecao, a_caminho = {}, {}, {}, {}, {}
         shared, missing = {}, {}
@@ -556,10 +641,10 @@ def allocate(con: sqlite3.Connection) -> dict:
                 if da_colecao:
                     na_colecao[ck] = da_colecao
                 held.setdefault(ck, []).append(
-                    {"deck": nome, "slug": d["name"], "qty": take,
-                     "priority": d["priority"]})
+                    {"deck": g["rotulo"], "slug": por_id[g["lider"]]["name"],
+                     "grupo": g["legend"], "qty": take, "priority": g["priority"]})
 
-            # O que vem a caminho serve o primeiro deck que ainda a peça — é
+            # O que vem a caminho serve o primeiro grupo que ainda a peça — é
             # uma cópia da Coleção como as outras, só que ainda não chegou.
             # Fica fora do `alloc`: o deck não a TEM, só já não a compra.
             encomendada = min(qty - take, caminho.get(ck, 0))
@@ -571,23 +656,68 @@ def allocate(con: sqlite3.Connection) -> dict:
             if not falta:
                 continue
             missing[ck] = falta
-            # Existe, mas está num deck de cima? Fica escrito de onde vem a
-            # falta — «-> 3x em Azir» — e compra-se na mesma. Compara-se pelo
-            # SLUG: pelo rótulo, dois LeBlanc com a mesma Legend eram o mesmo
-            # deck (2026-09-11).
-            noutro = [h for h in held.get(ck, []) if h["slug"] != d["name"]]
+            # Existe, mas está num grupo de cima? Fica escrito de onde vem a
+            # falta — «-> 3x em Azir» — e compra-se na mesma. O irmão do
+            # mesmo grupo nunca aparece aqui: partilha, não disputa.
+            noutro = [h for h in held.get(ck, []) if h["grupo"] != g["legend"]]
             if noutro:
                 shared[ck] = {"qty": min(falta, sum(h["qty"] for h in noutro)),
                               "em": noutro}
 
-        # O que está marcado neste deck e o deck já não pede — a lista mudou,
-        # a carta continua na caixa dele. Aparece para não desaparecer do ecrã.
-        sobra = {ck: n for ck, n in fixo.items() if n > 0}
-        out[d["deck_id"]] = {"alloc": alloc, "no_deck": no_deck,
-                             "no_binder": no_binder, "na_colecao": na_colecao,
-                             "a_caminho": a_caminho,
-                             "missing": missing, "shared": shared,
-                             "extra": sobra}
+        resultado = {"alloc": alloc, "no_deck": no_deck, "no_binder": no_binder,
+                     "na_colecao": na_colecao, "a_caminho": a_caminho,
+                     "missing": missing, "shared": shared, "need": need}
+
+        # Espalha-se pelos membros, cortado ao que CADA lista pede. As fontes
+        # repartem-se pela mesma ordem (deck, binder, Coleção); o `missing` de
+        # um membro é o máximo que o grupo ainda compra para aquela carta, e
+        # por isso igual nos dois quando pedem a mesma quantidade.
+        for d in membros:
+            nd = needs[d["deck_id"]]
+            m_alloc, m_deck, m_binder, m_col, m_cam, m_miss, m_shared = {}, {}, {}, {}, {}, {}, {}
+            partilhada: dict[str, list[dict]] = {}
+            for ck, qty in nd.items():
+                take = min(qty, alloc.get(ck, 0))
+                dd = min(take, no_deck.get(ck, 0))
+                db = min(take - dd, no_binder.get(ck, 0))
+                dc = take - dd - db
+                enc = min(qty - take, a_caminho.get(ck, 0))
+                falta = qty - take - enc
+                if take:
+                    m_alloc[ck] = take
+                if dd:
+                    m_deck[ck] = dd
+                if db:
+                    m_binder[ck] = db
+                if dc:
+                    m_col[ck] = dc
+                if enc:
+                    m_cam[ck] = enc
+                if falta:
+                    m_miss[ck] = falta
+                    if ck in shared:
+                        m_shared[ck] = {"qty": min(falta, shared[ck]["qty"]),
+                                        "em": shared[ck]["em"]}
+                irmaos = [{"deck": por_id[i]["display_name"] or por_id[i]["name"],
+                           "slug": por_id[i]["name"], "qty": needs[i].get(ck, 0)}
+                          for i in g["deck_ids"] if i != d["deck_id"] and needs[i].get(ck)]
+                if irmaos:
+                    partilhada[ck] = irmaos
+
+            # O que está marcado NESTE deck e a lista dele já não pede — a
+            # carta continua na caixa. Aparece para não desaparecer do ecrã.
+            proprio = p["fixo"].get(d["name"]) or {}
+            sobra = {ck: n - min(n, nd.get(ck, 0)) for ck, n in proprio.items()
+                     if n - min(n, nd.get(ck, 0)) > 0}
+            out[d["deck_id"]] = {
+                "alloc": m_alloc, "no_deck": m_deck, "no_binder": m_binder,
+                "na_colecao": m_col, "a_caminho": m_cam, "missing": m_miss,
+                "shared": m_shared, "extra": sobra, "partilhada": partilhada,
+                "grupo": {**resultado, "legend": g["legend"], "rotulo": g["rotulo"],
+                          "membros": g["nomes"], "slugs": g["slugs"],
+                          "variantes": g["variantes"],
+                          "lider": d["deck_id"] == g["lider"]},
+            }
 
     return out
 
@@ -598,21 +728,35 @@ def uso_por_carta(con: sqlite3.Connection) -> dict[str, list[dict]]:
     É o que a Coleção mostra em cada carta — *"na coleção indica onde as cartas
     estão a ser usadas"* (André, 2026-09-11): «Azir 3 · Kennen 2 (faltam 2)».
     Só as cartas que algum deck pede aparecem.
+
+    Uma entrada por GRUPO de Legend, não por deck (2026-09-11, noite): os dois
+    LeBlanc pedem as mesmas cópias e listá-los aos dois era contar a dobrar. O
+    `deck` é o rótulo dos membros que pedem a carta — «LeBlanc» se só um a
+    pede, «LeBlanc ·· LeBlanc Baited Hook» se os dois —, `membros` lista-os, e
+    `wanted`/`missing` são os do grupo (o máximo entre as listas).
     """
     alloc = allocate(con)
+    por_slug = {d["name"]: d for d in deck_rows(con)}
     out: dict[str, list[dict]] = {}
     for d in deck_rows(con):
         a = alloc[d["deck_id"]]
-        for r in con.execute(
-            "SELECT card_key, SUM(qty) AS q FROM deck_cards WHERE deck_id = ? "
-            "GROUP BY card_key", (d["deck_id"],)
-        ):
-            ck = r["card_key"]
+        g = a["grupo"]
+        if not g["lider"]:
+            continue
+        nomes = {por_slug[s]["deck_id"]: por_slug[s]["display_name"] or s
+                 for s in g["slugs"]}
+        pedem: dict[str, list[int]] = {}
+        for i in nomes:
+            for ck in _need(con, i):
+                pedem.setdefault(ck, []).append(i)
+        for ck, qty in g["need"].items():
+            quem = [nomes[i] for i in pedem.get(ck, [])]
             out.setdefault(ck, []).append({
-                "deck": d["display_name"] or d["name"], "slug": d["name"],
-                "priority": d["priority"], "wanted": r["q"],
-                "have": a["alloc"].get(ck, 0), "ordered": a["a_caminho"].get(ck, 0),
-                "missing": a["missing"].get(ck, 0),
+                "deck": GRUPO_SEP.join(quem) if quem else g["rotulo"],
+                "membros": quem, "slug": d["name"],
+                "priority": d["priority"], "wanted": qty,
+                "have": g["alloc"].get(ck, 0), "ordered": g["a_caminho"].get(ck, 0),
+                "missing": g["missing"].get(ck, 0),
             })
     return out
 
@@ -623,8 +767,11 @@ def resumo_das_faltas(con: sqlite3.Connection) -> dict:
     É a linha do `riftvault stats` e a soma da tabela do `riftvault decks`: o
     `missing` de todos os decks, ao preço da impressão base mais barata. As
     `disputadas` são a parte dessa falta que existe noutro deck.
+
+    Soma-se por GRUPO de Legend, lido no líder: o que falta aos dois LeBlanc é
+    a mesma carta e conta uma vez (2026-09-11, noite).
     """
-    alloc = allocate(con)
+    alloc = {k: a["grupo"] for k, a in allocate(con).items() if a["grupo"]["lider"]}
     prices = {r["printing_id"]: r["price_cents"] for r in con.execute(
         "SELECT printing_id, price_cents FROM catalog.price_latest "
         "WHERE price_cents IS NOT NULL")}
@@ -653,7 +800,8 @@ def resumo_das_faltas(con: sqlite3.Connection) -> dict:
 
 
 def missing_by_set(con: sqlite3.Connection, deck_id: int,
-                   ignore_types: set[str] | None = None) -> list[dict]:
+                   ignore_types: set[str] | None = None,
+                   grupo: bool = False) -> list[dict]:
     """Cópias em falta neste deck, por edição onde as ir buscar.
 
     Cada carta é atribuída à edição onde sai **mais barata** — é a decisão
@@ -663,8 +811,13 @@ def missing_by_set(con: sqlite3.Connection, deck_id: int,
 
     Inclui as que faltam por estarem noutro deck: desde 2026-09-11 também se
     compram — *"o próximo passa a marcar como faltas para comprar"*.
+
+    `grupo=True` responde pelo GRUPO de Legend do deck (o máximo entre as
+    listas dos irmãos) — é o que se soma quando se juntam os decks todos, para
+    os dois LeBlanc não contarem a dobrar.
     """
-    falta = allocate(con)[deck_id]["missing"]
+    a = allocate(con)[deck_id]
+    falta = a["grupo"]["missing"] if grupo else a["missing"]
     if ignore_types:
         tipos = {r["card_key"]: r["type"] for r in con.execute(
             "SELECT card_key, type FROM catalog.cards")}
@@ -738,6 +891,7 @@ def rules() -> dict:
 
 def decks_index(con: sqlite3.Connection) -> list[dict]:
     alloc = allocate(con)
+    por_slug = {d["name"]: d["deck_id"] for d in deck_rows(con)}
     out = []
     for d in deck_rows(con):
         a = alloc[d["deck_id"]]
@@ -762,6 +916,24 @@ def decks_index(con: sqlite3.Connection) -> list[dict]:
             "missing": sum(a["missing"].values()),
             # A parte do `missing` que existe num deck de cima: disputada.
             "shared": sum(v["qty"] for v in a["shared"].values()),
+            # O grupo de Legend a que pertence (2026-09-11, noite): os irmãos
+            # partilham as cartas e o total geral conta o grupo uma vez, pelo
+            # líder. `partilhadas` é quantas cópias desta lista o irmão também
+            # pede — é o que explica porque é que a soma das linhas passa o
+            # total.
+            "grupo": {
+                "legend": a["grupo"]["legend"], "rotulo": a["grupo"]["rotulo"],
+                "membros": a["grupo"]["membros"], "slugs": a["grupo"]["slugs"],
+                "variantes": a["grupo"]["variantes"], "lider": a["grupo"]["lider"],
+                "irmaos": [n for n in a["grupo"]["membros"]
+                           if n != (d["display_name"] or d["name"])],
+                "missing": sum(a["grupo"]["missing"].values()),
+                "ordered": sum(a["grupo"]["a_caminho"].values()),
+                "partilhadas": sum(
+                    min(n, max((alloc[por_slug[i["slug"]]]["missing"].get(ck, 0)
+                                for i in a["partilhada"].get(ck, [])), default=0))
+                    for ck, n in a["missing"].items()),
+            },
         })
     return out
 
@@ -864,6 +1036,9 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
                 "order_code": alvo.get("code"), "order_price": alvo.get("price"),
                 # Onde está o que falta, quando existe num deck de cima.
                 "shared": a["shared"].get(ck) if falta else None,
+                # Os irmãos do grupo (mesma Legend) que também pedem esta
+                # carta: partilham-na, não a disputam. É uma compra só.
+                "partilhada": a["partilhada"].get(ck),
                 "printings": prints.get(ck, []),
                 **imagem(ck),
             })
@@ -882,6 +1057,15 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
         "missing_by_set": missing_by_set(con, deck_id),
         "legality": legality(con, deck_id),
         "unresolved": json.loads(d["missing_json"] or "[]"),
+        # O grupo de Legend (2026-09-11, noite): os irmãos com quem esta lista
+        # partilha as cartas, e o que o grupo compra ao todo.
+        "grupo": {
+            "rotulo": a["grupo"]["rotulo"], "membros": a["grupo"]["membros"],
+            "variantes": a["grupo"]["variantes"], "lider": a["grupo"]["lider"],
+            "irmaos": [n for n in a["grupo"]["membros"]
+                       if n != (d["display_name"] or d["name"])],
+            "missing": sum(a["grupo"]["missing"].values()),
+        },
         # De onde vêm as cartas deste deck (os três montes somam o `have`), o
         # que falta comprar e quanto dessa falta está noutro deck. O `extra` é
         # o que está marcado neste deck e o deck já não pede — a lista mudou, a
@@ -970,12 +1154,18 @@ def shopping_list(con: sqlite3.Connection, deck_id: int | None = None) -> list[d
 
     names = {r["card_key"]: r["name"] for r in con.execute(
         "SELECT card_key, name FROM catalog.cards")}
+    # Tudo junto soma-se por GRUPO de Legend, pelo líder — os irmãos pedem as
+    # mesmas cópias (2026-09-11, noite).
     juntos: dict[str, int] = {}
     for d in deck_rows(con):
+        a = alloc[d["deck_id"]]
         if deck_id and d["deck_id"] != deck_id:
             continue
-        for ck, q in alloc[d["deck_id"]]["missing"].items():
-            juntos[ck] = max(juntos.get(ck, 0), q) if deck_id else juntos.get(ck, 0) + q
+        if not deck_id and not a["grupo"]["lider"]:
+            continue
+        falta = a["missing"] if deck_id else a["grupo"]["missing"]
+        for ck, q in falta.items():
+            juntos[ck] = juntos.get(ck, 0) + q
 
     return sorted(
         [{"card_key": ck, "name": names.get(ck, ck), "qty": q,

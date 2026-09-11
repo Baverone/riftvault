@@ -339,12 +339,18 @@ def encomendas(con: sqlite3.Connection) -> dict:
     # Para que deck vai cada carta: o monte `a_caminho` da alocação, por
     # prioridade. É por carta lógica — a encomenda é da Coleção — e a lista
     # reparte-a pelas impressões pela ordem em que estão a caminho.
+    # Por GRUPO de Legend, lido no líder (2026-09-11, noite): uma encomenda
+    # para o LeBlanc é para o LeBlanc Baited Hook também, e o «para» diz os
+    # dois nomes em vez de contar a cópia duas vezes.
     alloc = decks.allocate(con)
     para_carta: dict[str, list[dict]] = {}
     for d in decks.deck_rows(con):
-        for ck, n in alloc[d["deck_id"]]["a_caminho"].items():
+        g = alloc[d["deck_id"]]["grupo"]
+        if not g["lider"]:
+            continue
+        for ck, n in g["a_caminho"].items():
             para_carta.setdefault(ck, []).append(
-                {"deck": d["display_name"] or d["name"], "slug": d["name"],
+                {"deck": g["rotulo"], "slug": d["name"],
                  "priority": d["priority"], "qty": n})
 
     por_impressao: dict[str, dict] = {}
@@ -399,16 +405,20 @@ def encomendas(con: sqlite3.Connection) -> dict:
 
     # O que AINDA falta encomendar: o «Falta comprar, por edição» de cada deck,
     # somado. Já desconta o que vem a caminho — é o `missing` da alocação.
+    # Por grupo de Legend, uma vez: o que falta ao LeBlanc falta ao Baited
+    # Hook, e é a mesma compra.
     falta_set: dict[str, dict] = {}
     for d in decks.deck_rows(con):
-        for m in decks.missing_by_set(con, d["deck_id"]):
+        g = alloc[d["deck_id"]]["grupo"]
+        if not g["lider"]:
+            continue
+        for m in decks.missing_by_set(con, d["deck_id"], grupo=True):
             f = falta_set.setdefault(m["set"], {"set": m["set"], "name": m["name"],
                                                  "copies": 0, "cents": 0, "items": []})
             f["copies"] += m["copies"]
             f["cents"] += m["cents"]
             for it in m["items"]:
-                f["items"].append({**it, "deck": d["display_name"] or d["name"],
-                                   "slug": d["name"]})
+                f["items"].append({**it, "deck": g["rotulo"], "slug": d["name"]})
     falta = sorted(falta_set.values(), key=lambda d: (ordens.get(d["set"], 999), d["set"]))
     for f in falta:
         f["cards"] = len({it["card_key"] for it in f["items"]})

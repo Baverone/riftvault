@@ -52,6 +52,10 @@ class Base(unittest.TestCase):
                             card_type="Legend", size=100)
         # Uma carta que nenhum deck pede — é dela que se faz a venda.
         self.v.add_printing(con, "tst-004-100", "TST", 4, "Spirit Blade", size=100)
+        # Uma segunda Legend, sem cópias, para um segundo deck que DISPUTE com
+        # o azir: com a mesma Legend partilhavam (2026-09-11, noite).
+        self.v.add_printing(con, "tst-005-100", "TST", 5, "Forge Master",
+                            card_type="Legend", size=100)
         self.v.rebuild(con)
         for pid, n in (("tst-001-100", 4), ("tst-002-100", 3), ("tst-003-100", 1)):
             collection.adjust(con, pid, n, source="test")
@@ -208,9 +212,9 @@ class TestDecksNaoTiramDaColecao(Base):
 
     def test_o_binder_e_a_colecao_distribuem_se_por_prioridade(self):
         con = self.catalogo()
-        # Champion diferente, senão os dois decks chamam-se «Emperor of the
-        # Sands» e o «está noutro deck» compara-os pelo nome de mostrar.
-        self.v.write_deck("ornn", "Legend:\n1 Emperor of the Sands\n"
+        # Legend diferente: com a mesma, os dois decks partilhavam as cartas
+        # em vez de as disputarem (2026-09-11, noite).
+        self.v.write_deck("ornn", "Legend:\n1 Forge Master\n"
                                   "Champion:\n1 Spirit Blade\n"
                                   "MainDeck:\n3 Brutalizer\n")
         self.decks.import_all(con, log=lambda *_: None)
@@ -220,11 +224,11 @@ class TestDecksNaoTiramDaColecao(Base):
         idx = {d["slug"]: d for d in self.decks.decks_index(con)}
         self.assertEqual(idx["azir"]["no_binder"], 3)
         self.assertEqual(idx["ornn"]["no_binder"], 0)
-        # 3 Brutalizer (o azir levou-as do binder) + 1 Legend (o azir levou-a
-        # da Coleção) + 1 Spirit Blade que não existe: 5 a comprar, das quais
-        # 4 existem num deck de cima — disputadas.
+        # 3 Brutalizer (o azir levou-as do binder) + 1 Legend e 1 Spirit Blade
+        # que não existem: 5 a comprar, das quais 3 existem num deck de cima —
+        # disputadas.
         self.assertEqual(idx["ornn"]["missing"], 5)
-        self.assertEqual(idx["ornn"]["shared"], 4)
+        self.assertEqual(idx["ornn"]["shared"], 3)
         con.close()
 
     def test_a_pagina_do_deck_diz_de_onde_vem_cada_copia(self):
