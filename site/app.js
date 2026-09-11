@@ -308,6 +308,9 @@ function curtoLocal(label) {
    senão os dois LeBlanc voltavam a ler-se igual nos chips (2026-09-11). */
 function deckCurto(name) {
   if (!name) return '';
+  // Um GRUPO de Legend vem como «LeBlanc ·· LeBlanc Baited Hook» (2026-09-11,
+  // noite): encurta-se cada membro e o «··» fica, é ele que diz que são dois.
+  if (name.includes(' ·· ')) return name.split(' ·· ').map(deckCurto).join(' ·· ');
   const m = name.match(/^(.*?)( \([^()]*\))?$/);
   const base = m ? m[1] : name;
   const sufixo = m && m[2] ? m[2] : '';
@@ -1042,16 +1045,23 @@ function renderDeckTabs() {
     const b = document.createElement('button');
     b.className = 'tab' + (d.id === state.deckId ? ' is-on' : '');
     const pct = d.wanted ? Math.round((d.have / d.wanted) * 100) : 0;
-    b.innerHTML = `${d.priority === 1 ? '★ ' : ''}${escapeHTML(d.name)}<small>${pct}% · ${d.have}/${d.wanted}${
+    // Membros de um grupo de Legend (2026-09-11, noite) levam «··»: são
+    // listas do mesmo deck físico e partilham as cartas.
+    const grupo = d.grupo && d.grupo.variantes;
+    b.innerHTML = `${d.priority === 1 ? '★ ' : ''}${grupo ? '<span class="grupo-marca" title="' +
+      escapeAttr(`A mesma Legend que ${d.grupo.irmaos.join(', ')}: partilham as cartas`) + '">··</span> ' : ''}${
+      escapeHTML(d.name)}<small>${pct}% · ${d.have}/${d.wanted}${
       d.ordered ? ` · ${d.ordered} a caminho` : ''}</small>`;
     b.onclick = () => loadDeck(d.id);
     nav.appendChild(b);
   }
   // O último separador é a lista «Encomendas» (2026-09-11): o que está a
-  // caminho para os decks todos, e o que ainda falta encomendar.
+  // caminho para os decks todos, e o que ainda falta encomendar. Soma-se por
+  // grupo de Legend (pelo líder): os dois LeBlanc partilham a encomenda.
   const enc = document.createElement('button');
   enc.className = 'tab' + (state.deckId === 'encomendas' ? ' is-on' : '');
-  const aCaminho = state.decks.reduce((s, d) => s + (d.ordered || 0), 0);
+  const aCaminho = state.decks.reduce((s, d) =>
+    s + (d.grupo && !d.grupo.lider ? 0 : ((d.grupo && d.grupo.ordered) || d.ordered || 0)), 0);
   enc.innerHTML = `Encomendas<small>${aCaminho ? `${aCaminho} a caminho` : 'nada a caminho'}</small>`;
   enc.onclick = () => loadEncomendas();
   nav.appendChild(enc);
@@ -1080,7 +1090,13 @@ function renderDeck() {
       <div class="deck-title">
         <b>${escapeHTML(p.name)}</b>
         <span class="prio">${p.priority === 1 ? 'principal' : `prioridade ${p.priority}`}</span>
+        ${p.grupo && p.grupo.variantes ? `<span class="prio grupo">variante de ${
+          escapeHTML(p.grupo.irmaos.map(deckCurto).join(', '))}</span>` : ''}
       </div>
+      ${p.grupo && p.grupo.variantes ? `<small class="nota">A mesma Legend que
+        <b>${escapeHTML(p.grupo.irmaos.join(', '))}</b>: são listas do mesmo deck e
+        partilham as cartas — o que falta a uma é a mesma compra da outra
+        (<b>${p.grupo.missing}</b> cópias para o grupo, contadas uma vez no total).</small>` : ''}
       <div class="deck-meta">
         <span><i>Legend</i> ${escapeHTML(p.legend || '—')}</span>
         <span><i>Champion</i> ${escapeHTML(p.champion || '—')}</span>
@@ -1322,6 +1338,9 @@ function deckTile(c) {
   const src = state.imageMode === 'remote' ? (c.cdn || c.img) : (c.img || c.cdn);
   const alt = state.imageMode === 'remote' ? (c.img || '') : (c.cdn || '');
 
+  // O irmão do grupo (mesma Legend) que também pede esta carta: é a mesma
+  // compra, não uma disputa (2026-09-11, noite). Diz-se na linha da falta.
+  const irmaos = (c.partilhada || []).map(h => escapeHTML(deckCurto(h.deck))).join(', ');
   let nota = '';
   if (c.missing || c.ordered) {
     const onde = c.missing && c.shared ? ` — ${c.shared.em
@@ -1329,8 +1348,11 @@ function deckTile(c) {
     const partes = [];
     if (c.missing) partes.push(`falta${c.missing === 1 ? '' : 'm'} ${c.missing} a comprar${onde}`);
     if (c.ordered) partes.push(`<span class="caminho">${c.ordered} a caminho</span>`);
+    if (irmaos) partes.push(`<span class="partilhada">partilhada com ${irmaos}</span>`);
     nota = `<div class="onde ${c.missing ? (c.shared ? 'shared' : 'falta') : 'caminho'}">${
       partes.join(' · ')}</div>`;
+  } else if (irmaos) {
+    nota = `<div class="onde tenho">partilhada com ${irmaos}</div>`;
   } else if (c.no_binder || (c.no_deck && c.na_colecao)) {
     // De onde vem o que tem, quando não vem todo do mesmo sítio.
     const partes = [];
@@ -1640,7 +1662,9 @@ function renderEncomendas() {
       — essa mede o que tens na caixa — mas já saíram das listas de compra dos
       decks e das wantlists. O preço é o de hoje no CardTrader, não o que
       pagaste. «Para» diz que deck fica com cada cópia, pela prioridade dos
-      decks — a encomenda é da Coleção, não de um deck.</p>
+      decks — a encomenda é da Coleção, não de um deck. Decks com a mesma
+      Legend («A ·· B») partilham as cartas: uma encomenda para um é para o
+      outro, e conta uma vez.</p>
     ${state.editable && t.copies ? `<div class="wl-zona">
       <button class="btn" id="chegou-tudo">Chegou tudo (${t.copies} cópias)</button>
     </div>` : ''}
@@ -1773,7 +1797,10 @@ function faltaHead() {
     </div>
     <small class="nota">Soma o que <b>todos</b> os decks pedem menos o que tens:
       o que um deck não recebe compra-se, mesmo que exista num deck de cima.
-      A aba <i>Por deck</i> reparte este mesmo número por prioridade.</small>
+      A aba <i>Por deck</i> reparte este mesmo número por prioridade${
+        (f.por_deck || []).some(d => d.grupo && d.grupo.variantes)
+          ? ' — excepto nos decks com a <b>mesma Legend</b>, que partilham as cartas: cada um mostra a sua lista, mas a compra é uma e aqui conta uma vez'
+          : ''}.</small>
   </div>`;
 }
 
@@ -2230,12 +2257,15 @@ function mfLinha(x) {
    prioridade não lhe dá — é a mesma lista da secção Decks. Desde 2026-09-11 o
    deck de baixo compra o que o de cima já usa («o próximo passa a marcar como
    faltas para comprar»), por isso a soma das abas é o custo de ter os decks
-   todos montados, e a última aba («Todos juntos») dá o mesmo total. */
+   todos montados, e a última aba («Todos juntos») dá o mesmo total — excepto
+   nos decks com a MESMA LEGEND (2026-09-11, noite), que partilham as cartas:
+   cada aba mostra a sua lista, mas a compra é uma e o total conta-a uma vez. */
 function renderPorDeck() {
   const f = state.faltas;
   const um = f.por_deck.reduce((s, d) => s + d.cents, 0);
   const copias = f.por_deck.reduce((s, d) => s + d.copies, 0);
   const tj = f.todos_juntos;
+  const grupos = f.por_deck.some(d => d.grupo && d.grupo.variantes);
   // O índice do deck escolhido fica guardado no browser, mas apagar um deck é
   // apagar o .txt — e aí o índice antigo passa a apontar para fora da lista.
   // Sem esta correção o `f.por_deck[sel]` vinha `undefined`, a secção Faltas
@@ -2245,24 +2275,33 @@ function renderPorDeck() {
   if (sel !== 'todos' && !f.por_deck[sel]) sel = f.por_deck.length ? 0 : 'todos';
 
   const abas = f.por_deck.map((d, i) => `
-    <button class="seg-btn ${i === sel ? 'is-on' : ''}" data-fd="${i}">
-      ${d.priority}. ${escapeHTML(deckCurto(d.name))}
+    <button class="seg-btn ${i === sel ? 'is-on' : ''}" data-fd="${i}"${
+      d.grupo && d.grupo.variantes ? ` title="${escapeAttr(`A mesma Legend que ${
+        d.grupo.irmaos.join(', ')}: partilham as cartas, a compra conta uma vez`)}"` : ''}>
+      ${d.priority}. ${d.grupo && d.grupo.variantes ? '·· ' : ''}${escapeHTML(deckCurto(d.name))}
       <b>${d.copies}</b></button>`).join('')
     + `<button class="seg-btn ${sel === 'todos' ? 'is-on' : ''}" data-fd="todos">
         Todos juntos <b>${tj.copies}</b></button>`;
 
   const alvo = sel === 'todos' ? tj : f.por_deck[sel];
+  const sobre = sel !== 'todos' && f.por_deck[sel].grupo && f.por_deck[sel].grupo.variantes
+    ? ` Este deck tem a <b>mesma Legend</b> que ${escapeHTML(f.por_deck[sel].grupo.irmaos.join(', '))}:
+       partilham as cartas, e o que aqui falta é a mesma compra que falta lá — em
+       «Todos juntos» conta uma vez.` : '';
   const intro = sel === 'todos'
     ? `<p class="note">O que custaria ter os <b>${f.por_deck.length}</b> decks
        montados <b>ao mesmo tempo</b>, com cópias para cada um. ${
          tj.copies === copias
            ? 'É a soma das abas dos decks: cada deck compra o que a Coleção não chega para ele.'
-           : `São <b>${eur(tj.cents - um)}</b> e <b>${tj.copies - copias}</b> cópias
-              a mais do que a soma das abas dos decks.`}</p>`
+           : grupos && tj.copies < copias
+             ? `São <b>${tj.copies}</b> cópias e não ${copias}: os decks marcados com «··»
+                têm a mesma Legend e partilham as cartas — a compra deles conta uma vez.`
+             : `São <b>${eur(tj.cents - um)}</b> e <b>${tj.copies - copias}</b> cópias
+                a mais do que a soma das abas dos decks.`}</p>`
     : `<p class="note">O que falta a este deck depois de os decks de cima se
        servirem da Coleção. ${sel > 0
          ? 'O que um deck de cima já usa não conta para este: compra-se.'
-         : 'É o primeiro da fila, por isso serve-se primeiro.'}</p>`;
+         : 'É o primeiro da fila, por isso serve-se primeiro.'}${sobre}</p>`;
 
   $('#falta-body').innerHTML = `
     <div class="seg seg-wrap">${abas}</div>
