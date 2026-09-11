@@ -178,7 +178,91 @@ com o do `site/api/index.json` daqui. Se o de lá estiver atrasado:
 
 ---
 
+# Os decks partilham a Coleção; o que não chega compra-se (2026-09-11)
+
+Palavras dele: *"Os decks podem usar cartas da coleção. Na coleção indica onde
+as cartas estão a ser usadas. Os decks que precisem de cartas iguais, caso não
+haja suficientes na coleção, ficam em falta e é necessário comprar!"* E, a
+confirmar: *"se há na coleção o deck usa; caso algum deck ou decks já estão a
+usar as cartas disponíveis na coleção, o próximo passa a marcar como faltas
+para comprar"*.
+
+**Isto revoga a regra 2 dos três locais de 2026-09-10** («os decks só se montam
+com Deck + Binder Decks/Venda») e a REGRA CENTRAL antiga do `decks.py` («uma
+carta que falte por estar noutro deck não é o mesmo que uma carta que não se
+tem»). Três regras, uma por frase:
+
+1. **Uma cópia que exista conta para o deck**, esteja na Coleção, sleevada no
+   deck ou no binder Decks/Venda. `decks.pool_dos_decks` dá os três montes e o
+   `allocate` serve-se deles por esta ordem: deck, binder, Coleção. A marcação
+   de locais (`riftvault local`, `copy_locations`, os botões do site) fica como
+   **informação de onde a cópia está** — não desconta nada. A mesma cópia
+   conta para a barra do master set E para o deck. O `tenho` do Ornn passou de
+   «0/66 · na Coleção 62 (não conta)» para **62/66**.
+2. **A Coleção diz onde cada carta está a ser usada.** O `metrics.set_payload`
+   leva `decks` em cada grupo (`decks.uso_por_carta`), a grelha mostra
+   «Azir 3 · Kennen 2 (faltam 2)» no primeiro tile de cada carta — a vermelho
+   quando um deck não recebe o que pede —, há um filtro **Em decks** ao lado
+   de «Faltas», e `riftvault stats --usadas` lista o mesmo.
+3. **O que um deck não recebe é falta a comprar, sempre.** `allocate.missing`
+   = o que o deck pede − o que lhe calhou; `shared` passou a ser a parte disso
+   que existe num deck de cima («disputadas»), só informação. Entra no «Falta
+   comprar, por edição», no `shopping`, na tabela do `riftvault decks` (coluna
+   `disputadas` no lugar de `noutro`), numa linha nova do `riftvault stats`
+   (`decks.resumo_das_faltas`) e na secção Faltas.
+
+**A fórmula, por carta lógica:** `procura_total = Σ(o que cada deck pede, em
+todos os papéis)`; `a comprar = max(0, procura_total − cópias que existem)`,
+distribuída pelos decks de prioridade mais baixa. **O sideboard soma à procura
+como o main** e disputa o mesmo stock — era a regra que já existia (`need`
+agrupa por carta, sem olhar ao papel) e ficou fixada em teste; na página do
+deck o main serve-se primeiro.
+
+**O teto por carta de 2026-09-01 ficou revogado.** O `faltas.shortfall` deixou
+de limitar a carência ao playset («cinco decks a pedir 3 Defy são 3, e
+trocam-se entre decks»): a frase de hoje diz o contrário. O `faltas.por_deck`
+deixou de ter a reserva partilhada e passou a ser o `missing` da alocação
+(com o pendente somado à Coleção via `allocate(extra=...)`), por isso a soma
+das abas é o mesmo número que «Todos juntos» e que a secção Decks — uma
+resposta só para «o que este deck compra». As runas continuam fora das abas
+dos decks (`faltas_ignorar_tipos`), como antes.
+
+**A Venda não vende o que os decks usam da Coleção.** `decks.colecao_allocation`
+(o gémeo do `binder_allocation`, artes base primeiro) diz que impressões da
+Coleção estão a ser jogadas, e o `venda.excedente` passou a
+`cópias − max(usadas nos decks, alvo)`, com «usadas» a ser a **soma** do que
+os decks levam. Estava `na_colecao − alvo`, sem os decks, porque a Coleção
+não montava decks. Com o máximo em vez da soma vendia-se uma cópia que dois
+decks disputam; há teste. A lista «Em uso nos decks» da Venda não repete a
+sequência inteira do master set que os decks jogam — só o que estava no
+âmbito da Venda ou está fisicamente num deck/binder.
+
+**Medido no `data/` real (5 decks; o Akali saiu na manhã de 11/09):**
+
+| deck | antes (10/09) | depois |
+|---|---|---|
+| Ornn | 0/66 · coleção 62 · falta 4 · noutro 0 | **62/66 · falta 4 · disputadas 0** |
+| Azir | 0/66 · coleção 51 · falta 4 · noutro 11 | **51/66 · falta 15 · disputadas 11** |
+| Kennen | 0/66 · coleção 32 · falta 29 · noutro 5 | **32/66 · falta 34 · disputadas 3** |
+| LeBlanc | 0/66 · coleção 39 · falta 5 · noutro 22 | **39/66 · falta 27 · disputadas 12** |
+| LeBlanc Baited Hook | 0/66 · coleção 17 · falta 5 · noutro 44 | **17/66 · falta 49 · disputadas 33** |
+| **total a comprar** | 47 cópias · 393,33 € (26 cartas) | **129 cópias · 481,46 € (44 cartas), 59 disputadas** |
+
+A secção Faltas («Falta comprar aos decks», sem runas, com o pendente) passou
+de 25 cartas · 36 cópias · 409,12 € para **40 · 80 · 475,28 €** — o mesmo que o
+«Todos juntos» já dizia. As Staples passaram de 5 para **20**. A Venda passou
+de 17 impressões · 25 cópias · 718,90 € para **15 · 19 · 577,21 €**: saíram a
+`UNL-235` Deceiver (118,64 €, o LeBlanc usa-a) e as 5 `OGN-042a` Calm Rune
+(o Azir e o Ornn jogam com elas). A percentagem de master set **não mexe**.
+
+---
+
 # Onde está cada cópia: três locais (2026-09-10)
+
+**A regra 2 desta secção («os decks só se montam com Deck + Binder») foi
+revogada a 2026-09-11** — ver a secção acima. Os três locais continuam a
+existir e a Coleção continua a ser a única que conta para a percentagem; o
+que mudou é que os decks também se servem dela.
 
 Palavras dele: *"vou querer ter as cartas da coleção apenas alocadas à coleção e
 as cartas dos decks apenas alocadas a Decks. Ou seja: a coleção fica em Binders
@@ -224,10 +308,10 @@ ficava com contagem negativa.
    `metrics.itens_da_colecao` (níveis) e o `a_subir.em_falta` (as três listas de
    compra) leem. Uma cópia num deck **volta a aparecer como falta** — é a
    consequência que ele pediu.
-2. **Os decks só se montam com Deck + Binder Decks/Venda.** `decks.pool_dos_decks`
-   dá os dois montes; o que está sleevado num deck é DAQUELE deck e não anda, o
-   binder distribui-se por prioridade como sempre. Uma carta que o deck pede e
-   está na Coleção sai em `na_colecao`: **não é «tenho» nem é «a comprar»**.
+2. ~~**Os decks só se montam com Deck + Binder Decks/Venda.**~~ **REVOGADO a
+   2026-09-11**: os decks servem-se dos três montes (deck, binder, Coleção) e
+   o `na_colecao` do `allocate` passou a ser parte do `tenho`. O que está
+   sleevado num deck continua a ser DAQUELE deck e não anda.
 3. **Desfazer um deck manda tudo para o binder** (`locais.desfazer_deck`), onde
    fica disponível para outro deck. **Nada volta à Coleção**: quem as tirou de
    lá foi ele.
@@ -256,8 +340,9 @@ num deck sem linha no log, é bug.**
   `qty_colecao` e `locations` a par do `qty` (que continua a ser o total
   físico) — trocá-los punha a barra a contar cartas que estão em decks.
 - A **Venda** tem duas origens e cada linha diz a sua: `from_binder` (nenhum
-  deck a pede) e `from_colecao` (acima do alvo). O que está DENTRO de um deck
-  nunca aparece. A sequência do master set **na Coleção** continua fora
+  deck a pede) e `from_colecao` (acima do alvo — e, desde 2026-09-11, acima do
+  que os decks usam da Coleção: `cópias − max(usadas, alvo)`). O que está
+  DENTRO de um deck nunca aparece. A sequência do master set **na Coleção** continua fora
   (2026-09-08), mas a que está no binder Decks/Venda entra: foi ele que a tirou
   de lá.
 - O **valor** da coleção continua a ser o total físico: uma carta não vale menos
@@ -280,10 +365,11 @@ num deck sem linha no log, é bug.**
 ## Efeito medido no `data/` real
 
 Ver a tabela do relatório. **Na prática: a percentagem de master set NÃO desce**
-(a migração deixa tudo na Coleção) e os **decks passam a 0 alocadas** até ele
+(a migração deixa tudo na Coleção) e os **decks passavam a 0 alocadas** até ele
 marcar — o que estava a contar como "no deck" era uma dedução, e ela
-desapareceu. É o passo que a frase dele obriga: ele é que sabe o que está
-fisicamente em cada caixa.
+desapareceu. **Durou um dia**: a 2026-09-11 ele disse *"se há na coleção o
+deck usa"* e os decks voltaram a contar a Coleção (Ornn 62/66 sem marcar
+nada). A marcação ficou como informação de onde a cópia está.
 
 ---
 
@@ -1361,12 +1447,14 @@ impressões dela (`catalog.rebuild_cards`).
 desconta-se o que ele tem. A alocação por prioridade responde a outra coisa
 (quem fica com o quê) e não serve para decidir compras.
 
-- **TETO POR CARTA (André, 2026-09-01):** a carência é limitada ao alvo de
-  playset da carta, mesmo que a soma dos decks peça mais. Cinco decks a pedir
-  3 Defy não são 15 Defy para comprar — são 3, e trocam-se entre decks. Isso
-  vale 3 nas Units/Spells/Gears, **12 nas Runas** e **1 nos Legends e
-  Battlefields**, porque é o mesmo alvo da métrica de playset jogável. Efeito
-  medido: 88 -> 85 cartas, 262 -> 210 cópias, 919,94 € -> 848,01 €.
+- **TETO POR CARTA (André, 2026-09-01) — REVOGADO a 2026-09-11.** A carência
+  era limitada ao alvo de playset da carta, mesmo que a soma dos decks pedisse
+  mais: cinco decks a pedir 3 Defy não eram 15 Defy para comprar — eram 3, e
+  trocavam-se entre decks (efeito medido na altura: 88 -> 85 cartas, 262 ->
+  210 cópias, 919,94 € -> 848,01 €). A frase de 11/09 (*"os decks que
+  precisem de cartas iguais, caso não haja suficientes na coleção, ficam em
+  falta e é necessário comprar"*) diz o contrário, e a carência passou a ser
+  a soma. O `cap` continua no payload só como informação do playset.
 - **Runas fora da conta (André, 2026-09-01):** `faltas_ignorar_tipos` no
   config, default `["Rune"]`. São baratas e compram-se a granel, e a 12 por
   deck enchiam os staples. **Só afeta as abas dos decks** (Staples, Por deck e
@@ -2016,7 +2104,8 @@ aguentar os blocos, imprime só o URL. A consola do Windows abre em cp1252 —
 principal). Percorrem-se por essa ordem e cada um serve-se do que sobra: o
 deck 1 fica com o que precisa, o deck 2 só recebe o que sobrou. Uma carta que
 falte ao deck 2 **por já estar noutro deck** é mostrada com o deck onde está —
-é diferente de não a ter, e não entra na lista de compras desse deck.
+e, desde 2026-09-11, **entra na lista de compras desse deck na mesma** (ver
+"Os decks partilham a Coleção"); até lá não entrava.
 
 A alocação é **global e por carta lógica**, não por deck nem por papel: mudar
 a ordem refaz tudo (`decks.allocate`). Uma carta que esteja no main e no
@@ -2161,6 +2250,12 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
 - **Feito também:** o `Nome:` no ficheiro do deck (2026-09-11) e a chave dos
   decks a ser o slug em todo o lado — dois decks com a mesma Legend/Champion
   deixaram de se fundir na alocação e nas Staples.
+- **Feito também:** os decks a partilhar a Coleção (2026-09-11, tarde) — uma
+  cópia na Coleção conta para o deck; o que dois decks disputam e a Coleção
+  não chega é falta a comprar do deck de baixo (o teto do playset de 09-01
+  caiu); a grelha da Coleção diz que decks usam cada carta, com filtro «Em
+  decks» e `riftvault stats --usadas`; a Venda não vende o que os decks usam
+  da Coleção. `tests/test_partilha_compra.py`.
 - **Por fazer:** vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck,
   com as partilhadas assinaladas); e apagar decks pela interface (hoje apaga-se
   o `.txt`).

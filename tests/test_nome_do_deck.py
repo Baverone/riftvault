@@ -97,7 +97,12 @@ class TestNomeDoDeck(unittest.TestCase):
 
     def test_alocacao_distingue_decks_com_o_mesmo_rotulo(self):
         """O bug de 2026-09-11: as 3 Defy estão na Coleção e o deck 1 fica com
-        elas reservadas; o deck 2 tem de as ver «noutro deck», não «a comprar»."""
+        elas; o deck 2 tem de as ver como «em a», não como inexistentes.
+
+        Nessa mesma tarde a regra passou a «o que o deck de baixo não recebe
+        compra-se» — por isso o deck 2 tem as 3 Defy em `missing` E em
+        `shared` (é onde estão). O que o bug fazia era não as ver em `shared`
+        de todo, porque comparava os decks pelo rótulo."""
         self.v.write_deck("a", LISTA)
         self.v.write_deck("b", LISTA)
         con = self._importar()
@@ -107,14 +112,14 @@ class TestNomeDoDeck(unittest.TestCase):
         self.assertEqual(a["na_colecao"], {"defy": 3, "brutalizer": 1,
                                            "emperor of the sands": 1})
         self.assertEqual(a["missing"], {})
-        self.assertEqual(b["missing"], {}, "o deck 2 mandava comprar o que o 1 já tinha")
+        self.assertEqual(b["missing"], {"defy": 3, "emperor of the sands": 1})
         self.assertEqual(b["shared"]["defy"]["qty"], 3)
         self.assertEqual([h["slug"] for h in b["shared"]["defy"]["em"]], ["a"])
-        # E o índice diz o mesmo: nada a comprar. Das 5 que o deck 2 pede, 4
-        # estão reservadas pelo deck 1 e 1 (a segunda Brutalizer, de 3 na
-        # Coleção) ainda está livre na Coleção.
+        # E o índice diz o mesmo. Das 5 que o deck 2 pede, 4 estão no deck 1
+        # (disputadas, a comprar) e 1 (a segunda Brutalizer, de 3 na Coleção)
+        # ainda está livre na Coleção.
         idx = {d["slug"]: d for d in self.decks.decks_index(con)}
-        self.assertEqual(idx["b"]["missing"], 0)
+        self.assertEqual(idx["b"]["missing"], 4)
         self.assertEqual(idx["b"]["shared"], 4)
         self.assertEqual(idx["b"]["na_colecao"], 1)
         con.close()

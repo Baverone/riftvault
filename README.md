@@ -193,14 +193,14 @@ Continuam a contar na secção Decks, na Coleção e na aba **A subir**, que med
 o master set e não os decks. O que fica de fora está em
 `faltas_ignorar_tipos`, no config.
 
-**Nunca se compra mais do que um playset da mesma carta.** Cinco decks a pedir
-3 Defy não são 15 Defy — são 3, e trocam-se entre decks. O teto é o alvo de
-playset: 3 nas Units/Spells/Gears, 12 nas Runas, 1 nos Legends e Battlefields.
-Cada carta mostra o que os decks pedem ao todo e o teto que se aplicou.
+**Os decks que pedem a mesma carta compram o que a Coleção não chega para
+todos** (11/09/2026). Cinco decks a pedir 3 Defy com 3 na Coleção são 12 Defy a
+comprar — já não se «trocam entre decks»; o teto do playset que havia até
+essa data ficou revogado. Cada carta mostra o que os decks pedem ao todo.
 
 A carência aqui é **global** — soma-se o que todos os decks pedem e desconta-se
-o que tens. É diferente da alocação por prioridade da secção Decks, que
-responde a outra pergunta: quem fica com o quê.
+o que tens — e dá a mesma soma que a secção Decks: a alocação por prioridade
+diz quem fica com o quê, e o que sobra por deck é o que esse deck compra.
 
 ## Wantlist do Cardmarket
 
@@ -520,9 +520,13 @@ As listas ficam em `decks/*.txt`. Cada uma dá um separador, com o nome
 **Legend · Champion**.
 
 Os decks têm uma **ordem**, e é ela que manda: o deck 1 fica com as cartas de
-que precisa, o deck 2 só recebe o que sobrou. Quando falta uma carta ao deck 2
-porque o deck 1 a levou, o site diz **em que deck está** em vez de a mandar
-para a lista de compras. Mudar a ordem refaz a alocação toda.
+que precisa, o deck 2 só recebe o que sobrou. **Os decks usam a Coleção**
+(11/09/2026: *"se há na coleção o deck usa"*) — uma cópia conta para a barra do
+master set e para o deck ao mesmo tempo. Quando falta uma carta ao deck 2
+porque o deck 1 a levou, ela vai **para a lista de compras** desse deck, e o
+site diz em que deck está a que existe (*"caso algum deck ou decks já estão a
+usar as cartas disponíveis na coleção, o próximo passa a marcar como faltas
+para comprar"*). Mudar a ordem refaz a alocação toda.
 
 Para reordenar, usa os botões **Tornar principal / Subir / Descer** no site,
 ou:
@@ -536,12 +540,16 @@ py -m riftvault shopping --deck azir --csv faltas.csv
 Para **apagar** um deck, apaga o `.txt` — o site atualiza-se sozinho.
 
 Cada deck é uma grelha de cartas, como a Coleção. A moldura diz o estado:
-verde tens, vermelho falta, âmbar está noutro deck. O canto mostra quantas o
-deck pede, e o badge quantas lhe estão alocadas.
+verde tens, vermelho falta, âmbar falta mas existe num deck de cima (compra-se
+na mesma; a nota diz onde está). O canto mostra quantas o deck pede, e o badge
+quantas lhe estão alocadas.
 
-Ao contrário, na **Coleção** cada carta que saiu para um deck diz para qual —
-para quando a procuras no binder e ela não lá está. Quando só parte saiu, diz
-quantas ficaram (`3× Azir · 1 na Coleção`).
+Ao contrário, na **Coleção** cada carta que algum deck usa diz quais e quanto
+— `Azir 3 · Kennen 2 (faltam 2)` —, a vermelho quando um deck não recebe o
+que pede. O filtro **Em decks** mostra só essas, e `riftvault stats --usadas`
+lista o mesmo na consola. E cada carta que saiu fisicamente para um deck diz
+para qual — para quando a procuras no binder e ela não lá está. Quando só parte
+saiu, diz quantas ficaram (`3× Azir · 1 na Coleção`).
 
 ### Onde está cada cópia (2026-09-10)
 
@@ -556,9 +564,10 @@ Cada cópia tem **um local**, e só um:
 - **A Coleção só conta o que está na Coleção.** Uma cópia que esteja num deck
   deixa de contar para a barra, mesmo sendo a mesma impressão — a impressão
   volta a aparecer como falta.
-- **Os decks nunca tiram da Coleção.** Uma carta que o deck pede e que está nos
-  binders de coleção aparece como **«na Coleção — mover ou comprar»**: não é
-  «tenho» nem é «a comprar», é decisão tua.
+- **Os decks montam-se com os três locais** (11/09/2026). Uma carta que o deck
+  pede e que está nos binders de coleção conta como «tenho», e a página do
+  deck diz «na Coleção». O local é informação de onde a cópia está — não
+  desconta nada.
 - **Desfazer um deck** manda tudo o que estava nele para o binder Decks/Venda,
   onde fica disponível para outro deck. Nada volta à Coleção sozinho.
 
@@ -587,8 +596,8 @@ máximo 3 cópias e a identidade de domínio do Legend, e mostra **quantas cópi
 faltam por edição** com o custo estimado. Cada carta em falta conta na edição
 onde sai mais barata — é onde a irias comprar. As que existem em mais do que
 uma edição estão assinaladas no tooltip, para o número não parecer mais firme
-do que é. Cartas que faltam por estarem noutro deck não entram nessa conta:
-essas não se compram.
+do que é. Cartas que faltam por estarem noutro deck entram nessa conta desde
+11/09/2026: compram-se, e o chip «disputadas» diz quantas são.
 
 A seguir ao deck vem **"Em falta, por edição"**: as mesmas cartas em falta, mas
 arrumadas por edição e ordenadas pelo que custam — é a vista de quem vai
