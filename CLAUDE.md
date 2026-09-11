@@ -2163,3 +2163,8 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   o `.txt`).
 - **Por fazer, da revisão:** registar uma encomenda («a caminho») pela
   interface — hoje só pelo `riftvault pending`, e ele compra no telemóvel.
+
+## 11/09/2026 - decks independentes: feito e DESFEITO no mesmo dia
+
+A regra «cada deck e independente; a Colecao fica com as comuns e incomuns e o deck compra as suas» foi implementada (merge e793cf2) e revertida a pedido do Andre minutos depois: «afinal nao, mete a colecao a partilhar cartas com os decks». Vale o modelo dos binders de 10/09: uma copia na Colecao conta para o deck. Nao voltar a implementar sem ele pedir. O teste dessa ordem apagou o riftvault_config.json real durante a bateria - qualquer teste novo tem de correr contra copias, nunca contra o data/ e o config a serio.
+
