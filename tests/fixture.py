@@ -22,6 +22,13 @@ class Vault:
 
     O `config` guarda os caminhos em constantes de módulo lidas na importação,
     por isso não chega pôr as variáveis de ambiente — é preciso reimportá-lo.
+
+    ATENÇÃO: o `riftvault_config.json` NÃO é isolado. As bases e as pastas vão
+    para um sítio descartável, mas o `config.CONFIG_PATH` continua a apontar
+    para o ficheiro do repositório, de propósito — os testes medem contra as
+    regras a sério. Um teste que precise de outro config escreve um ficheiro
+    NOVO e troca o `config.CONFIG_PATH`, repondo-o no fim; escrever (ou apagar)
+    o do repositório estraga o do André. Aconteceu a 2026-09-11.
     """
 
     def __init__(self):

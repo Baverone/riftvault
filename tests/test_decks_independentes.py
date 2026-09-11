@@ -152,17 +152,25 @@ class TestColecaoFicaComAsComuns(Base):
         con.close()
 
     def test_desligar_a_regra_devolve_a_leitura_antiga(self):
-        """`decks_colecao_primeiro: []` e a comum volta a ser «na Coleção»."""
+        """`decks_colecao_primeiro: []` e a comum volta a ser «na Coleção».
+
+        O config de teste é um ficheiro NOVO, na pasta descartável, e o
+        `CONFIG_PATH` volta ao que era no fim. **O fixture não isola o
+        `riftvault_config.json` do repositório** — escrever nele (ou apagá-lo)
+        estraga o do André. Aconteceu a 2026-09-11, ao escrever este teste.
+        """
         con = self.catalogo()
         cfg = self.v.config
-        (cfg.CONFIG_PATH).write_text('{"decks_colecao_primeiro": []}',
-                                     encoding="utf-8")
+        tmp = self.v.root / "config-sem-a-regra.json"
+        tmp.write_text('{"decks_colecao_primeiro": []}', encoding="utf-8")
+        antigo = cfg.CONFIG_PATH
+        cfg.CONFIG_PATH = tmp
         cfg.reload()
         try:
             defy = self.carta(con, 1, "Defy")
             self.assertEqual(defy["na_colecao"], 3)
         finally:
-            cfg.CONFIG_PATH.unlink()
+            cfg.CONFIG_PATH = antigo
             cfg.reload()
         con.close()
 
