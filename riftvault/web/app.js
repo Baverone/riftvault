@@ -201,6 +201,11 @@ function visiblePrintings(group) {
   if (state.prefs.stateFilter === 'missing') {
     list = list.filter(p => tileState(p.id) !== 'done');
   }
+  // "Em decks" é por CARTA, não por impressão: a alocação é por carta lógica
+  // e o rótulo «Azir 3 · Kennen 2» é do grupo inteiro (2026-09-11).
+  if (state.prefs.stateFilter === 'indeck' && !(group.decks || []).length) {
+    return [];
+  }
   return list;
 }
 
@@ -213,7 +218,7 @@ function imgAlt(p) {
   return state.imageMode === 'remote' ? (p.img || '') : (p.cdn || '');
 }
 
-function tileHTML(g, p) {
+function tileHTML(g, p, comUso = false) {
   const q = state.qty.get(p.id) || 0;
   const t = state.targets.get(p.id) || 0;
   const st = tileState(p.id);
@@ -243,7 +248,24 @@ function tileHTML(g, p) {
       ${g.is_token ? 'token' : 'jogável'} ${play.owned}/${play.target}${p.price != null ? ` · ${eur(p.price)}` : ''}
     </div>
     ${deckLine(p.id)}
+    ${comUso ? usoLine(g) : ''}
   </div>`;
+}
+
+/* QUE DECKS USAM ESTA CARTA (André, 2026-09-11): *"na coleção indica onde as
+   cartas estão a ser usadas"*. É por carta lógica — a alocação é por carta —,
+   por isso sai uma vez por grupo, no primeiro tile visível. «Azir 3 · Kennen 2
+   (faltam 2)»: o Azir leva as 3 que pede, o Kennen pede 2 e não recebe nenhuma
+   porque a Coleção não chega para os dois — essas 2 são para comprar. */
+function usoLine(g) {
+  const uso = g.decks || [];
+  if (!uso.length) return '';
+  const txt = uso.map(u => `${escapeHTML(deckCurto(u.deck))} ${u.wanted}`
+    + (u.missing ? ` (falta${u.missing === 1 ? '' : 'm'} ${u.missing})` : '')).join(' · ');
+  const falta = uso.reduce((s, u) => s + u.missing, 0);
+  return `<div class="emdecks${falta ? ' falta' : ''}" title="${escapeAttr(uso.map(u =>
+    `${u.deck}: pede ${u.wanted}, tem ${u.have}${u.missing ? `, faltam ${u.missing}` : ''}`)
+    .join(' / '))}">${txt}</div>`;
 }
 
 /* ONDE estão as cópias (André, 2026-09-10): *"a coleção fica em Binders de
@@ -314,7 +336,10 @@ function render() {
         total++;
         if ((state.qty.get(p.id) || 0) >= t) feitas++;
       }
-      const inner = list.map(p => { state.tiles.push(p.id); return tileHTML(g, p); }).join('');
+      const inner = list.map((p, i) => {
+        state.tiles.push(p.id);
+        return tileHTML(g, p, i === 0);   // o uso nos decks sai uma vez por carta
+      }).join('');
       pedacos.push(list.length > 1
         ? `<div class="group multi" style="--span:${list.length}">${inner}</div>`
         : `<div class="group">${inner}</div>`);
@@ -986,8 +1011,10 @@ function setFocus(i, tiles) {
 /* =========================================================== SECÇÃO DECKS
 
    A alocação vem toda do servidor: os decks são percorridos por ordem de
-   prioridade e cada um serve-se do que sobra. Uma carta que falte por já
-   estar num deck anterior mostra ONDE está — é diferente de não a ter.      */
+   prioridade e cada um serve-se do que sobra — do que está sleevado nele, do
+   binder Decks/Venda e da Coleção (André, 2026-09-11: «se há na coleção o deck
+   usa»). O que um deck não recebe é para COMPRAR, mesmo que exista num deck de
+   cima; nesse caso a carta diz onde está («3× em Azir»), como informação.   */
 
 async function loadDecks() {
   const d = await getJSON('api/decks.json');
@@ -1098,10 +1125,11 @@ function renderDeck() {
   }
 }
 
-/* ONDE estão as cartas deste deck (André, 2026-09-10). São quatro respostas
-   diferentes e cada uma pede uma acção diferente: as do deck já lá estão, as
-   do binder Decks/Venda são para ir buscar, as da Coleção são duplicado a
-   comprar ou a decidir, e as que faltam compram-se. */
+/* ONDE estão as cartas deste deck. As três primeiras somam o que o deck tem
+   e dizem onde ele as vai encontrar — no deck já sleevadas, no binder
+   Decks/Venda por ir buscar, ou na Coleção, que desde 2026-09-11 conta («se há
+   na coleção o deck usa»). O que falta compra-se; se parte disso existe num
+   deck de cima, diz-se quantas («disputadas»), só como informação. */
 function deckLocais(p) {
   const l = p.locais || {};
   const chip = (mau, txt) => `<span class="chip-l ${mau ? 'bad' : 'ok'}">${txt}</span>`;
@@ -1110,13 +1138,17 @@ function deckLocais(p) {
     <div class="chips-l">
       ${chip(false, `no deck ${l.no_deck || 0}`)}
       ${chip(false, `no binder Decks/Venda ${l.no_binder || 0}`)}
-      ${chip(l.na_colecao, `na Coleção ${l.na_colecao || 0}`)}
+      ${chip(false, `na Coleção ${l.na_colecao || 0}`)}
       ${chip(l.missing, `a comprar ${l.missing || 0}`)}
+      ${l.shared ? chip(true, `${l.shared} disputadas com um deck de cima`) : ''}
       ${l.extra ? chip(true, `a mais neste deck ${l.extra}`) : ''}
     </div>
-    ${l.na_colecao ? `<small class="nota">As <b>${l.na_colecao}</b> que estão nos
-      binders de coleção não montam este deck — são duplicado a comprar ou a
-      decidir. Marca as que estão mesmo no deck.</small>` : ''}
+    ${l.shared ? `<small class="nota">Das <b>${l.missing}</b> a comprar,
+      <b>${l.shared}</b> existem na Coleção mas um deck de prioridade mais alta
+      já as usa — compram-se na mesma.</small>` : ''}
+    ${l.na_colecao && state.editable ? `<small class="nota">As <b>${l.na_colecao}</b>
+      da Coleção contam para este deck. Se as sleevares, marca-as para o
+      riftvault saber onde estão.</small>` : ''}
     ${l.extra ? `<small class="nota bad">${l.extra} cópias estão marcadas neste
       deck e a lista já não as pede.</small>` : ''}
     ${state.editable ? `<div class="deck-actions">
@@ -1250,27 +1282,25 @@ async function recarregarDepoisDeMover() {
 /* Tile de deck: a mesma linguagem visual da Coleção, mas o que interessa aqui
    é quantas o deck pede e quantas estão de facto alocadas. */
 function deckTile(c) {
-  // «na Coleção» é um estado próprio desde 2026-09-10: a carta existe, mas
-  // está nos binders de coleção e não monta este deck. Não é o mesmo que não a
-  // ter, nem o mesmo que estar noutro deck.
-  const st = c.missing ? (c.shared ? 'shared' : (c.na_colecao ? 'shared' : 'gone')) : 'ok';
+  // O que falta é para comprar, sempre (2026-09-11). «shared» é só a cor: a
+  // falta existe num deck de cima, e a nota diz onde.
+  const st = c.missing ? (c.shared ? 'shared' : 'gone') : 'ok';
   const src = state.imageMode === 'remote' ? (c.cdn || c.img) : (c.img || c.cdn);
   const alt = state.imageMode === 'remote' ? (c.img || '') : (c.cdn || '');
 
   let nota = '';
-  if (c.shared) {
-    nota = `<div class="onde shared">falta ${c.missing} — ${c.shared.em
-      .map(h => `${h.qty}× em «${escapeHTML(deckCurto(h.deck))}»`
-        + (h.onde === 'colecao' ? ' (na Coleção)' : '')).join(', ')}</div>`;
-  } else if (c.na_colecao) {
-    const comprar = c.missing - c.na_colecao;
-    nota = `<div class="onde shared">${c.na_colecao} na Coleção — mover ou comprar${
-      comprar > 0 ? ` · ${comprar} a comprar` : ''}</div>`;
-  } else if (c.missing) {
-    nota = `<div class="onde falta">faltam ${c.missing}</div>`;
-  } else if (c.no_binder) {
-    nota = `<div class="onde tenho">${c.no_binder} por ir buscar ao binder
-      Decks/Venda${c.no_deck ? ` · ${c.no_deck} já no deck` : ''}</div>`;
+  if (c.missing) {
+    const onde = c.shared ? ` — ${c.shared.em
+      .map(h => `${h.qty}× em «${escapeHTML(deckCurto(h.deck))}»`).join(', ')}` : '';
+    nota = `<div class="onde ${c.shared ? 'shared' : 'falta'}">falta${
+      c.missing === 1 ? '' : 'm'} ${c.missing} a comprar${onde}</div>`;
+  } else if (c.no_binder || (c.no_deck && c.na_colecao)) {
+    // De onde vem o que tem, quando não vem todo do mesmo sítio.
+    const partes = [];
+    if (c.no_deck) partes.push(`${c.no_deck} já no deck`);
+    if (c.no_binder) partes.push(`${c.no_binder} por ir buscar ao binder Decks/Venda`);
+    if (c.na_colecao) partes.push(`${c.na_colecao} na Coleção`);
+    nota = `<div class="onde tenho">${partes.join(' · ')}</div>`;
   } else if (c.printings.length) {
     nota = `<div class="onde tenho">${c.printings
       .map(x => `${x.qty}× ${escapeHTML(x.code || x.id)}`).join(' · ')}</div>`;
@@ -1899,10 +1929,11 @@ function mfLinha(x) {
 }
 
 
-/* Sub-abas dentro de "Por deck". Cada deck conta só o que a lista dos decks
-   anteriores AINDA não cobre — as cartas trocam-se entre decks, não se compram
-   aos pares. A última aba responde à pergunta oposta: e se quisesse os decks
-   todos montados ao mesmo tempo? */
+/* Sub-abas dentro de "Por deck". Cada deck conta o que a alocação por
+   prioridade não lhe dá — é a mesma lista da secção Decks. Desde 2026-09-11 o
+   deck de baixo compra o que o de cima já usa («o próximo passa a marcar como
+   faltas para comprar»), por isso a soma das abas é o custo de ter os decks
+   todos montados, e a última aba («Todos juntos») dá o mesmo total. */
 function renderPorDeck() {
   const f = state.faltas;
   const um = f.por_deck.reduce((s, d) => s + d.cents, 0);
@@ -1926,14 +1957,15 @@ function renderPorDeck() {
   const alvo = sel === 'todos' ? tj : f.por_deck[sel];
   const intro = sel === 'todos'
     ? `<p class="note">O que custaria ter os <b>${f.por_deck.length}</b> decks
-       montados <b>ao mesmo tempo</b>, com cópias para cada um — sem trocar
-       cartas de deck. São <b>${eur(tj.cents - um)}</b> e
-       <b>${tj.copies - copias}</b> cópias a mais do que montá-los um de cada
-       vez.</p>`
-    : `<p class="note">O que falta a este deck <b>depois</b> de comprares as
-       listas dos anteriores. ${sel > 0
-         ? 'As cartas que os decks de cima já obrigam a comprar não voltam a contar aqui.'
-         : 'É o primeiro da fila, por isso leva a lista inteira.'}</p>`;
+       montados <b>ao mesmo tempo</b>, com cópias para cada um. ${
+         tj.copies === copias
+           ? 'É a soma das abas dos decks: cada deck compra o que a Coleção não chega para ele.'
+           : `São <b>${eur(tj.cents - um)}</b> e <b>${tj.copies - copias}</b> cópias
+              a mais do que a soma das abas dos decks.`}</p>`
+    : `<p class="note">O que falta a este deck depois de os decks de cima se
+       servirem da Coleção. ${sel > 0
+         ? 'O que um deck de cima já usa não conta para este: compra-se.'
+         : 'É o primeiro da fila, por isso serve-se primeiro.'}</p>`;
 
   $('#falta-body').innerHTML = `
     <div class="seg seg-wrap">${abas}</div>
@@ -1955,7 +1987,7 @@ function renderPorDeck() {
       <small class="nota aviso-foil" id="wl-foil" hidden></small>
     </div>
     <p class="note total-linha">Somando as abas dos decks:
-      <b>${copias} cópias · ${eur(um)}</b> para os montar um de cada vez.</p>`;
+      <b>${copias} cópias · ${eur(um)}</b> para os ter todos montados.</p>`;
 
   for (const b of document.querySelectorAll('#falta-body .seg-btn[data-fd]')) {
     b.onclick = () => {
@@ -2295,8 +2327,10 @@ function renderVenda() {
       ${v.in_decks_copies} cópias` : ''}.
       <br>Desde 10/09 a lista tem <b>duas origens</b> e cada linha diz a sua: o
       <b>binder Decks/Venda</b> (cópias que tiraste da Coleção e que nenhum deck
-      pede) e a <b>Coleção</b> (o que passa do alvo). O que está <b>dentro</b>
-      de um deck nunca aparece.
+      pede) e a <b>Coleção</b> (o que passa do alvo <b>e</b> do que os decks
+      usam — desde 11/09 os decks jogam com a Coleção, e uma cópia que dois
+      decks disputam não está aqui). O que está <b>dentro</b> de um deck nunca
+      aparece.
       <br>Isto é uma <b>sugestão</b>: não mexe na coleção, não há nada a
       confirmar. As impressões da sequência do master set que estão na Coleção
       nunca entram aqui, por muitas que tenhas a mais — mas as que puseste no
@@ -2322,8 +2356,8 @@ function renderVenda() {
       para saberes o que tens para vender, não para o carregar lá.</small>` : ''}
 
     ${v.kept.length ? `
-      <h3 class="section-head sub">Dentro de um deck — não estão para venda
-        <span>${v.in_decks_copies} cópias marcadas em decks</span></h3>
+      <h3 class="section-head sub">Em uso nos decks — não estão para venda
+        <span>${v.in_decks_copies} cópias</span></h3>
       <div class="grid deck-grid">${v.kept.map(vendaTile).join('')}</div>` : ''}
 
     ${comunsHTML(v.comuns)}`;

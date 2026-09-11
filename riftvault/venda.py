@@ -24,12 +24,18 @@ O QUE A COLEÇÃO AINDA PEDE NÃO ENTRA (2026-09-08, tarde)
 vender, não se mexe no `copies` nem no `ops`. Ele copia a lista e decide.
 
 QUEM DECIDE O QUE ESTÁ NUM DECK
-    O `decks.printing_allocation` — a mesma função que põe "2× Ornn · 1 no
-    binder" no tile da Coleção. Ela escolhe **artes base primeiro**, de
-    propósito, para as alternativas ficarem no binder; por isso uma arte
-    alternativa só aparece alocada quando ele não tem cópias base que cheguem.
-    É exatamente a resposta certa aqui: essa alt art está a ser jogada porque
-    faz falta, e vendê-la partia o deck.
+    Três leituras, somadas: o `decks.printing_allocation` (o que está sleevado,
+    lido dos locais), o `decks.binder_allocation` (o que os decks levam do
+    binder Decks/Venda) e, desde 2026-09-11, o `decks.colecao_allocation` (o
+    que levam da Coleção — *"se há na coleção o deck usa"*). As duas últimas
+    escolhem **artes base primeiro**, de propósito, para as alternativas
+    ficarem para venda; por isso uma arte alternativa só aparece alocada quando
+    ele não tem cópias base que cheguem. É exatamente a resposta certa aqui:
+    essa alt art está a ser jogada porque faz falta, e vendê-la partia o deck.
+
+    «Usadas nos decks» é a SOMA do que os decks levam, não o máximo: dois decks
+    a disputar a mesma cópia contam os dois, e a Coleção só sobra acima de
+    `max(usadas, alvo)`.
 
     Uma impressão pode ficar meia e meia — 2 cópias num deck e 1 a mais. Nesse
     caso a linha aparece nas duas leituras e a quantidade a vender é só o
@@ -85,8 +91,9 @@ def excedente(con: sqlite3.Connection, cfg: dict | None = None,
     try:
         alocacao = decks.printing_allocation(con)
         binder_usado = decks.binder_allocation(con)
+        colecao_usada = decks.colecao_allocation(con)
     except sqlite3.OperationalError:
-        alocacao, binder_usado = {}, {}     # base sem as tabelas dos decks ainda
+        alocacao, binder_usado, colecao_usada = {}, {}, {}   # sem tabelas de decks
     no_binder = locais.em(con, locais.BINDER)
     na_colecao = locais.na_colecao(con)
     mercado = cardmarket.versoes(con)
@@ -105,18 +112,27 @@ def excedente(con: sqlite3.Connection, cfg: dict | None = None,
     ):
         pid = r["printing_id"]
         bloco = metrics.bloco(r, cfg)
-        nos_decks = alocacao.get(pid, [])
+        # Usada num deck = sleevada nele, ou a ser jogada a partir do binder
+        # Decks/Venda ou da Coleção (2026-09-11: a Coleção monta decks). É a
+        # SOMA do que os decks levam, não o máximo — dois decks a disputar a
+        # mesma cópia contam os dois, senão vendia-se o que um deles usa.
+        nos_decks = (alocacao.get(pid, []) + binder_usado.get(pid, [])
+                     + colecao_usada.get(pid, []))
         usadas = sum(d["qty"] for d in nos_decks)
 
         # ORIGEM 1 — o binder Decks/Venda, menos o que os decks lhe pedem.
         do_binder = max(0, no_binder.get(pid, 0)
                         - sum(x["qty"] for x in binder_usado.get(pid, [])))
 
-        # ORIGEM 2 — a Coleção, acima do alvo. Zero nos blocos que estão fora
-        # dela (tokens, signatures, sobrenumeradas, promos), que a Coleção não
-        # pede; e zero na sequência quando o âmbito é o estreito de 2026-09-08.
+        # ORIGEM 2 — a Coleção, acima do alvo E do que os decks lhe usam:
+        # `cópias − max(usadas nos decks, alvo)`. A mesma cópia serve a Coleção
+        # e o deck, por isso é o máximo dos dois e não a soma. Zero nos blocos
+        # que estão fora dela (tokens, signatures, sobrenumeradas, promos), que
+        # a Coleção não pede; e zero na sequência quando o âmbito é o estreito
+        # de 2026-09-08.
         alvo = metrics.alvo(r, cfg) if metrics.conta_bloco(bloco, cfg) else 0
-        da_colecao = max(0, na_colecao.get(pid, 0) - alvo)
+        usadas_col = sum(x["qty"] for x in colecao_usada.get(pid, []))
+        da_colecao = max(0, na_colecao.get(pid, 0) - max(usadas_col, alvo))
         if bloco == metrics.BLOCO_MASTER and not incluir_master:
             da_colecao = 0
 
@@ -144,6 +160,9 @@ def excedente(con: sqlite3.Connection, cfg: dict | None = None,
             "cdn": r["image_medium"] or r["image_large"] or r["image_url"],
             "have": r["qty"],
             "in_decks": nos_decks, "used": usadas,
+            # Quantas das usadas vêm da Coleção — o `listar` precisa disto para
+            # não listar a sequência inteira como «dentro de um deck».
+            "used_colecao": usadas_col,
             # DE ONDE vem cada cópia da linha (André, 2026-09-10). Somam o
             # `qty`; separam-se porque são duas decisões diferentes: tirar do
             # binder Decks/Venda é arrumação, tirar da Coleção é vender coleção.
@@ -176,8 +195,14 @@ def listar(con: sqlite3.Connection, cfg: dict | None = None) -> dict:
 
     # Só as que têm excedente é que se vendem; as que estão inteiras num deck
     # ficam à parte, para ele ver que não desapareceram — foram para um deck.
+    # A sequência do master set só entra nessa lista se estiver sleevada ou no
+    # binder Decks/Venda: desde 2026-09-11 os decks usam a Coleção inteira, e
+    # listar aqui os 200 cartas da sequência que eles jogam era ruído — essa
+    # informação vive na grelha da Coleção («Azir 3 · Kennen 2»).
     venda = [x for x in itens if x["qty"] > 0]
-    nos_decks = [x for x in itens if x["used"] > 0]
+    nos_decks = [x for x in itens if x["used"] > 0
+                 and (x["block"] != metrics.BLOCO_MASTER
+                      or x["used"] > x["used_colecao"])]
     venda.sort(key=lambda x: (-(x["total"] or 0), x["set"], x["cn"]))
 
     blocos: dict[str, dict] = {}

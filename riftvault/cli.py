@@ -216,8 +216,42 @@ def cmd_stats(args) -> int:
               + " ".join(f"{f'{k}/{n}':^{larg}}" for k in range(1, n + 1)))
         for nome, ls in linhas:
             print(f"{nome:<{w}} " + " ".join(celula(lv).ljust(larg) for lv in ls))
+
+    # O que os decks têm de comprar (2026-09-11): a soma do `missing` de todos,
+    # com o que dois decks disputam e a Coleção não chega a contar como falta.
+    decks_mod.import_all(con, log=lambda *_: None)
+    tot = decks_mod.resumo_das_faltas(con)
+    if tot["copies"]:
+        print(f"\nDecks: falta comprar {tot['copies']} cópias de {tot['cards']} "
+              f"cartas · {prices.eur(tot['cents'])}"
+              + (f" — {tot['disputed']} disputadas com um deck de cima"
+                 if tot["disputed"] else ""))
+
+    if getattr(args, "usadas", False):
+        _imprimir_usadas(con)
     con.close()
     return 0
+
+
+def _imprimir_usadas(con) -> None:
+    """As cartas que os decks usam, e quanto cada deck leva — o gémeo em
+    consola do rótulo «Azir 3 · Kennen 2 (faltam 2)» da grelha da Coleção."""
+    uso = decks_mod.uso_por_carta(con)
+    if not uso:
+        print("\nNenhum deck pede carta nenhuma.")
+        return
+    nomes = {r["card_key"]: r["name"] for r in con.execute(
+        "SELECT card_key, name FROM catalog.cards")}
+    tenho = decks_mod.owned_by_card(con)
+    print(f"\nCartas usadas em decks ({len(uso)}), tens / os decks que as pedem:")
+    for ck in sorted(uso, key=lambda k: nomes.get(k, k).casefold()):
+        partes = []
+        for u in uso[ck]:
+            curto = u["deck"].split(" · ")[0]
+            partes.append(f"{curto} {u['wanted']}"
+                          + (f" (faltam {u['missing']})" if u["missing"] else ""))
+        print(f"  {nomes.get(ck, ck)[:34]:<34} {tenho.get(ck, 0):>3}   "
+              + " · ".join(partes))
 
 
 def cmd_map(args) -> int:
@@ -310,22 +344,25 @@ def cmd_decks(args) -> int:
         decks_mod.set_order(con, ids)
         print("ordem alterada.\n")
 
-    # Desde 2026-09-10 o "tenho" só conta cópias marcadas NO deck ou no binder
-    # Decks/Venda: a Coleção não monta decks. A coluna "coleção" é o que existe
-    # mas está nos binders de coleção — decisão dele, mover ou comprar outra.
+    # O "tenho" é o que a alocação por prioridade dá ao deck, venha do que está
+    # sleevado nele, do binder Decks/Venda ou da Coleção (2026-09-11: *"se há
+    # na coleção o deck usa"*); as três colunas do meio somam-no. "falta" é o
+    # que o deck não recebe e tem de comprar; "disputadas" é a parte dessa
+    # falta que existe num deck de cima — informação, não desconto.
     print(f"{'#':<3} {'deck':<40} {'tenho':>12} {'deck':>5} {'binder':>7} "
-          f"{'coleção':>8} {'falta':>6} {'noutro':>7}")
+          f"{'coleção':>8} {'falta':>6} {'disputadas':>10}")
     idx = decks_mod.decks_index(con)
     for d in idx:
         print(f"{d['priority']:<3} {d['name'][:40]:<40} "
               f"{d['have']:>5}/{d['wanted']:<6} {d['no_deck']:>5} "
               f"{d['no_binder']:>7} {d['na_colecao']:>8} {d['missing']:>6} "
-              f"{d['shared']:>7}")
-    na_col = sum(d["na_colecao"] for d in idx)
-    if na_col:
-        print(f"\n{na_col} cópias que os decks pedem estão nos binders de COLEÇÃO "
-              f"e não contam.\nMarca-as com `riftvault local --deck <slug> "
-              f"--propor` (e depois `--marcar`).")
+              f"{d['shared']:>10}")
+    tot = decks_mod.resumo_das_faltas(con)
+    if tot["copies"]:
+        print(f"\nFalta comprar aos decks: {tot['copies']} cópias de "
+              f"{tot['cards']} cartas · {prices.eur(tot['cents'])}"
+              + (f" ({tot['disputed']} disputadas com um deck de cima)"
+                 if tot["disputed"] else ""))
     extra = sum(d["extra"] for d in idx)
     if extra:
         print(f"{extra} cópias estão marcadas num deck que já não as pede — "
@@ -354,15 +391,17 @@ def cmd_deck(args) -> int:
         print("  por casar no catálogo: "
               + ", ".join(u["name"] for u in p["unresolved"]))
 
-    # De onde vêm as cartas (André, 2026-09-10). São quatro respostas
-    # diferentes e cada uma pede uma acção diferente.
+    # De onde vêm as cartas: as três primeiras somam o que o deck tem, e cada
+    # uma diz onde ele as vai encontrar. A Coleção conta desde 2026-09-11.
     lc = p["locais"]
     print(f"  no deck {lc['no_deck']} · no binder Decks/Venda {lc['no_binder']}"
-          f" (ir buscar) · na Coleção {lc['na_colecao']} (não conta) · "
-          f"a comprar {lc['missing']}")
+          f" (ir buscar) · na Coleção {lc['na_colecao']} · "
+          f"a comprar {lc['missing']}"
+          + (f" ({lc['shared']} disputadas com um deck de cima)"
+             if lc.get("shared") else ""))
     if lc["na_colecao"]:
-        print(f"  as {lc['na_colecao']} da Coleção são duplicado a comprar ou a "
-              f"decidir: `riftvault local --deck {p['slug']} --propor`")
+        print(f"  para sleevar as da Coleção: `riftvault local --deck "
+              f"{p['slug']} --propor`")
     if lc["extra"]:
         print(f"  {lc['extra']} cópias estão marcadas neste deck e ele já não "
               f"as pede.")
@@ -379,31 +418,29 @@ def cmd_deck(args) -> int:
     for s in p["sections"]:
         print(f"\n{s['label']}  ({s['have']}/{s['wanted']})")
         for c in s["cards"]:
-            if c["shared"]:
-                onde = ", ".join(
-                    f"{h['qty']}x em «{h['deck']}»"
-                    + (" (na Coleção)" if h.get("onde") == "colecao" else "")
-                    for h in c["shared"]["em"])
-                marca, extra = "~", f"  -> {onde}"
-            elif c["na_colecao"]:
-                # Existe, mas está nos binders de COLEÇÃO: não monta o deck.
-                marca = "c"
-                extra = (f"  ({c['na_colecao']} na Coleção — mover ou comprar)"
-                         + (f", falta{'m' if c['missing'] - c['na_colecao'] > 1 else ''} "
-                            f"{c['missing'] - c['na_colecao']} a comprar"
-                            if c["missing"] > c["na_colecao"] else ""))
-            elif c["missing"]:
-                # "não tenho" só quando é mesmo zero; com 1 de 2 é "falta 1".
+            # De onde vem o que tem — os três somam o `have`.
+            onde = " · ".join(f"{n} {sitio}" for n, sitio in (
+                (c["no_deck"], "no deck"), (c["no_binder"], "no binder Decks/Venda"),
+                (c["na_colecao"], "na Coleção")) if n)
+            if c["missing"]:
+                # O que falta compra-se SEMPRE (2026-09-11); se existe num deck
+                # de cima, diz-se onde — é informação, não desconto.
                 marca = "x"
                 extra = ("  (não tenho)" if c["have"] == 0
-                         else f"  (falta{'m' if c['missing'] > 1 else ''} {c['missing']})")
+                         else f"  (falta{'m' if c['missing'] > 1 else ''} {c['missing']}"
+                              f" a comprar; {onde})")
+                if c["shared"]:
+                    extra += "  -> " + ", ".join(
+                        f"{h['qty']}x em «{h['deck']}»" for h in c["shared"]["em"])
             elif c["no_binder"]:
                 marca = "b"
-                extra = f"  ({c['no_binder']} por ir buscar ao binder Decks/Venda)"
+                extra = f"  ({onde})"
             else:
                 marca = "."
-                extra = ("  " + " · ".join(f"{x['qty']}x {x['code']}" for x in c["printings"])
-                         if args.onde else "")
+                extra = (f"  ({onde})" if c["no_deck"] and c["na_colecao"] else "")
+                if args.onde:
+                    extra += "  " + " · ".join(f"{x['qty']}x {x['code']}"
+                                               for x in c["printings"])
             print(f"  {marca} {c['wanted']:>2} {c['name'][:38]:<38} {c['have']}/{c['wanted']}{extra}")
     con.close()
     return 0
@@ -975,6 +1012,8 @@ def main(argv: list[str] | None = None) -> int:
     p.set_defaults(func=cmd_log)
 
     p = sub.add_parser("stats", help="resumo das duas métricas por edição")
+    p.add_argument("--usadas", action="store_true",
+                   help="lista as cartas da coleção que os decks usam, e quais")
     p.set_defaults(func=cmd_stats)
 
     p = sub.add_parser("decks", help="lista os decks e a alocação por prioridade")

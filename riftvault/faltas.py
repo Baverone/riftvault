@@ -16,8 +16,12 @@ Seis vistas da mesma pergunta:
   A CAMINHO  — o que já comprou e ainda não chegou (ver `pending`).
 
 A carência é GLOBAL, não por deck: soma-se o que todos os decks pedem de uma
-carta e desconta-se o que ele tem. É diferente da alocação por prioridade, que
-diz quem fica com o quê — aqui a pergunta é quanto falta comprar ao todo.
+carta e desconta-se o que ele tem. A alocação por prioridade diz quem fica com
+o quê — aqui a pergunta é quanto falta comprar ao todo, e desde 2026-09-11 as
+duas dão a mesma soma: *"os decks que precisem de cartas iguais, caso não haja
+suficientes na coleção, ficam em falta e é necessário comprar"* (André). O
+TETO POR CARTA de 2026-09-01 («cinco decks a pedir 3 Defy são 3, e trocam-se
+entre decks») ficou revogado por essa frase — ver `shortfall`.
 """
 
 from __future__ import annotations
@@ -98,17 +102,19 @@ def shortfall(con: sqlite3.Connection) -> list[dict]:
     nomes = {r["card_key"]: r["name"] for r in con.execute(
         "SELECT card_key, name FROM catalog.cards")}
 
-    # TETO POR CARTA (decisão do André, 2026-09-01): não se compra mais do que
-    # um playset da mesma carta, mesmo que a soma dos decks peça mais. Cinco
-    # decks a pedir 3 Defy cada não são 15 Defy para comprar — são 3, e trocam-
-    # se entre decks. É o mesmo alvo da métrica de playset jogável da Coleção,
-    # por isso vale 3 nas Units/Spells/Gears, 12 nas Runas e 1 nos Legends e
-    # Battlefields.
+    # SEM TETO POR CARTA desde 2026-09-11. Havia um (decisão de 2026-09-01):
+    # não se comprava mais do que um playset da mesma carta, porque «cinco
+    # decks a pedir 3 Defy não são 15 Defy para comprar — são 3, e trocam-se
+    # entre decks». A frase dele de hoje diz o contrário — *"os decks que
+    # precisem de cartas iguais, caso não haja suficientes na coleção, ficam em
+    # falta e é necessário comprar"* — e é ela que manda: a carência é a soma
+    # do que os decks pedem menos o que ele tem. O `cap` continua no payload,
+    # só como informação de quanto é o playset.
     tipos = {r["card_key"]: (r["type"], bool(r["is_token"])) for r in con.execute(
         "SELECT card_key, type, is_token FROM catalog.cards")}
     cfg = config.load()
 
-    def teto(k: str) -> int:
+    def playset(k: str) -> int:
         t, tok = tipos.get(k, (None, False))
         return metrics.playset_target(t, tok, cfg)
 
@@ -121,9 +127,8 @@ def shortfall(con: sqlite3.Connection) -> list[dict]:
     for k, v in pedido.items():
         if tipos.get(k, (None, False))[0] in ignorar:
             continue
-        alvo = min(v["qty"], teto(k))
-        if alvo > tenho.get(k, 0):
-            em_falta[k] = {**v, "alvo": alvo}
+        if v["qty"] > tenho.get(k, 0):
+            em_falta[k] = {**v, "alvo": v["qty"]}
     onde = _cheapest(con, list(em_falta))
 
     out = []
@@ -132,8 +137,8 @@ def shortfall(con: sqlite3.Connection) -> list[dict]:
         c = onde.get(k) or {}
         out.append({
             "card_key": k, "name": nomes.get(k, k),
-            # `wanted` é o que os decks pedem ao todo; `target` é o teto.
-            "wanted": v["qty"], "target": v["alvo"], "cap": teto(k),
+            # `wanted` é o que os decks pedem ao todo, e é o alvo.
+            "wanted": v["qty"], "target": v["alvo"], "cap": playset(k),
             "have": tenho.get(k, 0), "missing": falta,
             "n_decks": len(v["decks"]),
             "decks": [{"deck": x["deck"], "slug": slug, "qty": x["qty"]}
@@ -240,48 +245,30 @@ def _agrupar(con: sqlite3.Connection, falta: dict[str, int]) -> list[dict]:
 
 
 def por_deck(con: sqlite3.Connection) -> list[dict]:
-    """O que falta comprar a CADA deck, descontando o que os anteriores já levam.
+    """O que falta comprar a CADA deck: o `missing` da alocação por prioridade.
 
-    Percorre-se por prioridade com uma reserva partilhada: o que ele tem, mais
-    o que as listas dos decks anteriores já mandam comprar. Se o deck 1 já
-    obriga a comprar 2 Defy, o deck 2 não pede mais nenhum — as cartas trocam-se
-    entre decks, não se compram aos pares.
+    É a mesma resposta da secção Decks, de propósito — duas contas diferentes
+    para «o que este deck tem de comprar» liam-se como erro. Desde 2026-09-11 o
+    deck de baixo compra o que o de cima já usa (*"o próximo passa a marcar
+    como faltas para comprar"*), por isso a soma das abas é o custo de ter os
+    decks todos montados, e dá o mesmo que `todos_juntos`.
 
-    Por isso a soma das abas é o custo REAL de montar os decks um de cada vez.
-    A aba "todos juntos" (ver `todos_juntos`) responde à outra pergunta: quanto
-    custaria tê-los montados ao mesmo tempo, com cópias para cada um.
+    Até essa data havia uma reserva partilhada e o teto do playset: se o deck 1
+    já obrigava a comprar 2 Defy, o deck 2 não pedia mais nenhum, porque as
+    cartas «trocavam-se entre decks». A frase dele revogou isso.
+
+    O que vem a caminho conta como tido, como em toda a secção — entra na
+    alocação como cópias a mais na Coleção (`allocate(extra=...)`).
     """
     cfg = config.load()
     ignorar = set(cfg.get("faltas_ignorar_tipos", []))
     tipos = _tipos(con)
-    tenho = dict(decks.owned_by_card(con))
-    for k, q in pending.open_by_card(con).items():
-        tenho[k] = tenho.get(k, 0) + q
+    alloc = decks.allocate(con, extra=pending.open_by_card(con))
 
-    def teto(k: str) -> int:
-        t, tok = tipos.get(k, (None, False))
-        return metrics.playset_target(t, tok, cfg)
-
-    reserva = dict(tenho)          # o que já está disponível, incluindo compras
     out = []
     for d in decks.decks_index(con):
-        pedido: dict[str, int] = {}
-        for r in con.execute(
-            "SELECT card_key, SUM(qty) AS q FROM deck_cards WHERE deck_id = ? "
-            "GROUP BY card_key", (d["id"],)
-        ):
-            pedido[r["card_key"]] = r["q"]
-
-        comprar: dict[str, int] = {}
-        for k, q in pedido.items():
-            if tipos.get(k, (None, False))[0] in ignorar:
-                continue
-            precisa = min(q, teto(k))
-            em_mao = reserva.get(k, 0)
-            if precisa > em_mao:
-                comprar[k] = precisa - em_mao
-                reserva[k] = precisa      # a compra passa a estar disponível
-
+        comprar = {k: n for k, n in alloc[d["id"]]["missing"].items()
+                   if tipos.get(k, (None, False))[0] not in ignorar}
         by_set = _agrupar(con, comprar)
         out.append({
             "id": d["id"], "name": d["name"], "priority": d["priority"],
@@ -295,10 +282,12 @@ def por_deck(con: sqlite3.Connection) -> list[dict]:
 
 
 def todos_juntos(con: sqlite3.Connection) -> dict:
-    """E se ele quisesse os decks todos montados AO MESMO TEMPO?
+    """Os decks todos montados AO MESMO TEMPO: soma-se o que cada deck pede e
+    desconta-se o que ele tem.
 
-    Aqui não há teto nem partilha: soma-se o que cada deck pede e desconta-se
-    só o que ele tem. É o cenário de ter cópias a mais para não desmontar nada.
+    Desde 2026-09-11 é a regra dos decks — e por isso dá o mesmo total que a
+    soma das abas do `por_deck`. Fica como está: é a vista de tudo junto, sem
+    a partição por deck.
     """
     cfg = config.load()
     ignorar = set(cfg.get("faltas_ignorar_tipos", []))

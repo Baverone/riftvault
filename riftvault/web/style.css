@@ -306,6 +306,14 @@ main { padding: 12px; max-width: 1500px; margin: 0 auto; }
   font-size: 10px; text-align: center; color: var(--accent-2);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+/* Que decks usam esta carta (2026-09-11) — «Azir 3 · Kennen 2 (faltam 2)». Uma
+   linha por carta, no primeiro tile do grupo. Fica a vermelho quando algum
+   deck não recebe o que pede: é o que ele tem de comprar. */
+.emdecks {
+  font-size: 10px; text-align: center; color: var(--accent-2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.emdecks.falta { color: var(--bad); }
 
 .playset {
   font-size: 10px; color: var(--dim); text-align: center;

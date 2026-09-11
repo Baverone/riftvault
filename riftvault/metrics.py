@@ -678,10 +678,14 @@ def set_payload(con: sqlite3.Connection, set_id: str, editable: bool = True,
     owned_cards = owned_by_card(con)
     price = prices_map(con)
     # Onde estão as cópias que não estão no binder de coleção: nos decks.
+    # E que decks USAM cada carta lógica (André, 2026-09-11: *"na coleção
+    # indica onde as cartas estão a ser usadas"*) — é por carta, não por
+    # impressão, porque a alocação é por carta.
     try:
         nos_decks = decks.printing_allocation(con)
+        uso = decks.uso_por_carta(con)
     except sqlite3.OperationalError:
-        nos_decks = {}
+        nos_decks, uso = {}, {}
 
     rows = con.execute(
         "SELECT * FROM catalog.printings WHERE set_id = ? ORDER BY api_sort", (set_id,)
@@ -705,6 +709,9 @@ def set_payload(con: sqlite3.Connection, set_id: str, editable: bool = True,
                 "energy": r["energy"],
                 "faction": r["faction"],
                 "is_token": bool(r["is_token"]),
+                # Os decks que pedem esta carta, por prioridade, com o que
+                # cada um leva e o que lhe falta: «Azir 3 · Kennen 2 (faltam 2)».
+                "decks": uso.get(r["card_key"], []),
                 "printings": [],
             }
         g["printings"].append({
