@@ -313,6 +313,8 @@ def cmd_decks(args) -> int:
     # Desde 2026-09-10 o "tenho" só conta cópias marcadas NO deck ou no binder
     # Decks/Venda: a Coleção não monta decks. A coluna "coleção" é o que existe
     # mas está nos binders de coleção — decisão dele, mover ou comprar outra.
+    # A coluna "noutro" é INFORMATIVA desde 2026-09-11: essas cópias já estão
+    # contadas em "falta", porque cada deck é independente.
     print(f"{'#':<3} {'deck':<40} {'tenho':>12} {'deck':>5} {'binder':>7} "
           f"{'coleção':>8} {'falta':>6} {'noutro':>7}")
     idx = decks_mod.decks_index(con)
@@ -321,6 +323,10 @@ def cmd_decks(args) -> int:
               f"{d['have']:>5}/{d['wanted']:<6} {d['no_deck']:>5} "
               f"{d['no_binder']:>7} {d['na_colecao']:>8} {d['missing']:>6} "
               f"{d['shared']:>7}")
+    partilhadas = sum(d["shared"] for d in idx)
+    if partilhadas:
+        print(f"\n{partilhadas} cópias em «noutro» já estão contadas em «falta»: "
+              f"cada deck é independente\ne o que está noutro deck não o monta.")
     na_col = sum(d["na_colecao"] for d in idx)
     if na_col:
         print(f"\n{na_col} cópias que os decks pedem estão nos binders de COLEÇÃO "
@@ -379,13 +385,15 @@ def cmd_deck(args) -> int:
     for s in p["sections"]:
         print(f"\n{s['label']}  ({s['have']}/{s['wanted']})")
         for c in s["cards"]:
+            tambem = ""
             if c["shared"]:
-                onde = ", ".join(
+                # Desde 2026-09-11 isto é INFORMAÇÃO, não desconto: a cópia
+                # está noutro deck e este compra a dele na mesma.
+                tambem = "  -> também " + ", ".join(
                     f"{h['qty']}x em «{h['deck']}»"
                     + (" (na Coleção)" if h.get("onde") == "colecao" else "")
                     for h in c["shared"]["em"])
-                marca, extra = "~", f"  -> {onde}"
-            elif c["na_colecao"]:
+            if c["na_colecao"]:
                 # Existe, mas está nos binders de COLEÇÃO: não monta o deck.
                 marca = "c"
                 extra = (f"  ({c['na_colecao']} na Coleção — mover ou comprar)"
@@ -404,7 +412,8 @@ def cmd_deck(args) -> int:
                 marca = "."
                 extra = ("  " + " · ".join(f"{x['qty']}x {x['code']}" for x in c["printings"])
                          if args.onde else "")
-            print(f"  {marca} {c['wanted']:>2} {c['name'][:38]:<38} {c['have']}/{c['wanted']}{extra}")
+            print(f"  {marca} {c['wanted']:>2} {c['name'][:38]:<38} "
+                  f"{c['have']}/{c['wanted']}{extra}{tambem}")
     con.close()
     return 0
 
