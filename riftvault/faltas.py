@@ -4,7 +4,10 @@ Seis vistas da mesma pergunta:
 
   STAPLES    — cartas que faltam e que MAIS DO QUE UM deck pede. São as que
                rendem mais por euro: uma compra serve vários decks.
-  POR DECK   — o que falta a cada deck, por edição.
+  POR DECK   — o que falta a cada deck, por edição. Desde 2026-09-11 cada deck
+               é INDEPENDENTE: não desconta o que está noutro deck nem o que
+               outro deck já manda comprar, e nas comuns e incomuns não desconta
+               a Coleção. Sai do `decks.allocate`.
   A SUBIR    — o que falta do MASTER SET e está a subir de preço. Vive no
                `a_subir.py`: o âmbito é a métrica de master set, não os decks.
   MASTER SET — a lista completa do que falta ao master set, por edição e
@@ -233,47 +236,38 @@ def _agrupar(con: sqlite3.Connection, falta: dict[str, int]) -> list[dict]:
 
 
 def por_deck(con: sqlite3.Connection) -> list[dict]:
-    """O que falta comprar a CADA deck, descontando o que os anteriores já levam.
+    """O que falta comprar a CADA deck. Desde 2026-09-11, deck a deck.
 
-    Percorre-se por prioridade com uma reserva partilhada: o que ele tem, mais
-    o que as listas dos decks anteriores já mandam comprar. Se o deck 1 já
-    obriga a comprar 2 Defy, o deck 2 não pede mais nenhum — as cartas trocam-se
-    entre decks, não se compram aos pares.
+    *"Nos decks, quero que apresentes as faltas todas, cada deck será
+    independente"* (André, 2026-09-11). Isto REVOGA a reserva partilhada de
+    2026-09-01, em que o deck 2 não pedia o que o deck 1 já mandava comprar:
+    agora cada deck pede o seu, e o que está noutro deck não lhe serve.
 
-    Por isso a soma das abas é o custo REAL de montar os decks um de cada vez.
-    A aba "todos juntos" (ver `todos_juntos`) responde à outra pergunta: quanto
-    custaria tê-los montados ao mesmo tempo, com cópias para cada um.
+    A falta é a do `decks.allocate` — a mesma da página do deck e do tile —, e
+    é ela que já sabe de locais e de raridades: o deck monta-se com o que está
+    nele e no binder Decks/Venda, e nas comuns e incomuns a Coleção fica com as
+    suas. **Uma pergunta, uma resposta**: a aba, a página do deck e a wantlist
+    do Cardmarket contam todas o mesmo.
+
+    O que vem a caminho continua a descontar, e distribui-se por PRIORIDADE —
+    uma encomenda é uma cópia só, e o deck principal serve-se primeiro.
     """
     cfg = config.load()
     ignorar = set(cfg.get("faltas_ignorar_tipos", []))
     tipos = _tipos(con)
-    tenho = dict(decks.owned_by_card(con))
-    for k, q in pending.open_by_card(con).items():
-        tenho[k] = tenho.get(k, 0) + q
+    alloc = decks.allocate(con)
+    a_caminho = dict(pending.open_by_card(con))
 
-    def teto(k: str) -> int:
-        t, tok = tipos.get(k, (None, False))
-        return metrics.playset_target(t, tok, cfg)
-
-    reserva = dict(tenho)          # o que já está disponível, incluindo compras
     out = []
     for d in decks.decks_index(con):
-        pedido: dict[str, int] = {}
-        for r in con.execute(
-            "SELECT card_key, SUM(qty) AS q FROM deck_cards WHERE deck_id = ? "
-            "GROUP BY card_key", (d["id"],)
-        ):
-            pedido[r["card_key"]] = r["q"]
-
         comprar: dict[str, int] = {}
-        for k, q in pedido.items():
+        for k, q in alloc[d["id"]]["missing"].items():
             if tipos.get(k, (None, False))[0] in ignorar:
                 continue
-            precisa = min(q, teto(k))
-            em_mao = reserva.get(k, 0)
-            if precisa > em_mao:
-                comprar[k] = precisa - em_mao
-                reserva[k] = precisa      # a compra passa a estar disponível
+            vem = min(q, a_caminho.get(k, 0))
+            a_caminho[k] = a_caminho.get(k, 0) - vem
+            if q - vem > 0:
+                comprar[k] = q - vem
 
         by_set = _agrupar(con, comprar)
         out.append({
