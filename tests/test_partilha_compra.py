@@ -31,8 +31,10 @@ os.environ["RIFTVAULT_CONFIG"] = str(Path(tempfile.gettempdir()) / "riftvault-na
 from tests.fixture import Vault  # noqa: E402
 
 AZIR = "Legend:\n1 Emperor of the Sands\n\nMainDeck:\n3 Defy\n3 Brutalizer\n"
-# O mesmo Legend, outro Champion, para os rótulos saírem diferentes.
-ORNN = ("Legend:\n1 Emperor of the Sands\n\nChampion:\n1 Spirit Blade\n\n"
+# OUTRA Legend: desde a noite de 2026-09-11 dois decks com a mesma Legend
+# partilham as cartas em vez de as disputarem (ver `test_mesma_legend.py`), e
+# estes testes são os da disputa. O Forge Master não existe na Coleção.
+ORNN = ("Legend:\n1 Forge Master\n\nChampion:\n1 Spirit Blade\n\n"
         "MainDeck:\n2 Defy\n")
 
 
@@ -57,11 +59,13 @@ class Base(unittest.TestCase):
         self.v.add_printing(con, "tst-003-100", "TST", 3, "Emperor of the Sands",
                             card_type="Legend", size=100)
         self.v.add_printing(con, "tst-004-100", "TST", 4, "Spirit Blade", size=100)
+        self.v.add_printing(con, "tst-005-100", "TST", 5, "Forge Master",
+                            card_type="Legend", size=100)
         self.v.rebuild(con)
         if precos:
             for pid, cents in (("tst-001-100", 150), ("tst-001a-100", 2000),
                                ("tst-002-100", 50), ("tst-003-100", 1000),
-                               ("tst-004-100", 700)):
+                               ("tst-004-100", 700), ("tst-005-100", 1000)):
                 con.execute("INSERT INTO catalog.price_latest (printing_id, price_cents) "
                             "VALUES (?,?)", (pid, cents))
         for pid, n in (("tst-001-100", defy), ("tst-002-100", 3), ("tst-003-100", 1)):
@@ -133,11 +137,10 @@ class TestDisputaCompraSe(Base):
         con = self.catalogo(defy=3)       # o azir pede 3, o ornn pede 2
         idx = self.idx(con)
         self.assertEqual(idx["azir"]["missing"], 0)
-        # O ornn não recebe Defy nenhuma (o azir levou as 3) nem o Legend (o
-        # azir levou o único), e não tem a Spirit Blade: 4 a comprar, das quais
-        # 3 disputadas com o azir.
+        # O ornn não recebe Defy nenhuma (o azir levou as 3), não tem o Legend
+        # nem a Spirit Blade: 4 a comprar, das quais 2 disputadas com o azir.
         self.assertEqual(idx["ornn"]["missing"], 4)
-        self.assertEqual(idx["ornn"]["shared"], 3)
+        self.assertEqual(idx["ornn"]["shared"], 2)
         defy = self.carta(con, "ornn", "Defy")
         self.assertEqual((defy["have"], defy["missing"]), (0, 2))
         self.assertEqual([(h["slug"], h["qty"]) for h in defy["shared"]["em"]],
@@ -156,7 +159,7 @@ class TestDisputaCompraSe(Base):
         self.assertEqual(lista["Defy"]["total_cents"], 300)
         tot = self.decks.resumo_das_faltas(con)
         self.assertEqual((tot["copies"], tot["cents"], tot["disputed"]),
-                         (4, 2000, 3))
+                         (4, 2000, 2))
         con.close()
 
     def test_com_colecao_suficiente_ninguem_compra(self):
@@ -166,9 +169,9 @@ class TestDisputaCompraSe(Base):
         defy = self.carta(con, "ornn", "Defy")
         self.assertEqual((defy["have"], defy["missing"]), (2, 0))
         self.assertIsNone(defy["shared"])
-        # Ficam o Legend (só há 1, e o azir levou-o) e a Spirit Blade.
+        # Ficam o Legend e a Spirit Blade, que ele não tem — nada disputado.
         self.assertEqual(idx["ornn"]["missing"], 2)
-        self.assertEqual(idx["ornn"]["shared"], 1)
+        self.assertEqual(idx["ornn"]["shared"], 0)
         con.close()
 
     def test_a_disputa_parcial_compra_so_o_que_falta(self):
@@ -185,8 +188,8 @@ class TestDisputaCompraSe(Base):
         idx = self.idx(con)
         self.assertEqual(self.carta(con, "ornn", "Defy")["missing"], 0)
         self.assertEqual(self.carta(con, "azir", "Defy")["missing"], 2)
-        self.assertEqual(idx["azir"]["shared"], 3, "2 Defy + o Legend, agora no ornn")
-        self.assertEqual(idx["ornn"]["missing"], 1, "a Spirit Blade")
+        self.assertEqual(idx["azir"]["shared"], 2, "as 2 Defy, agora no ornn")
+        self.assertEqual(idx["ornn"]["missing"], 2, "o Legend e a Spirit Blade")
         con.close()
 
     def test_o_sideboard_conta_na_procura_como_o_main(self):
@@ -249,7 +252,8 @@ class TestColecaoDizOndeEUsada(Base):
         self.assertEqual([(u["slug"], u["wanted"], u["have"], u["missing"]) for u in uso],
                          [("azir", 3, 3, 0), ("ornn", 2, 0, 2)])
         self.assertEqual(grupos["spirit blade"]["decks"],
-                         [{"deck": uso[1]["deck"], "slug": "ornn", "priority": 2,
+                         [{"deck": uso[1]["deck"], "membros": [uso[1]["deck"]],
+                           "slug": "ornn", "priority": 2,
                            "wanted": 1, "have": 0, "ordered": 0, "missing": 1}])
         self.assertEqual(grupos["brutalizer"]["decks"][0]["slug"], "azir")
         con.close()
@@ -273,8 +277,8 @@ class TestColecaoDizOndeEUsada(Base):
         self.assertEqual(code, 0)
         texto = out.getvalue()
         self.assertIn("Decks: falta comprar 4 cópias de 3 cartas · 20.00 €", texto)
-        self.assertIn("3 disputadas", texto)
-        self.assertRegex(texto, r"Defy\s+3\s+Emperor of the Sands 3 · Emperor of the Sands 2 \(faltam 2\)")
+        self.assertIn("2 disputadas", texto)
+        self.assertRegex(texto, r"Defy\s+3\s+Emperor of the Sands 3 · Forge Master 2 \(faltam 2\)")
 
 
 class TestVendaNaoVendeDisputadas(Base):

@@ -37,17 +37,32 @@ def _wanted(con: sqlite3.Connection) -> dict[str, dict]:
     `decks` é {slug: {"deck": rótulo, "qty": n}}. A chave é o SLUG: pelo
     rótulo, dois decks com a mesma Legend e o mesmo Champion contavam como um
     só e a carta deixava de ser staple (2026-09-11).
+
+    A `qty` soma por GRUPO de Legend, com o MÁXIMO dentro de cada grupo
+    (2026-09-11, noite): os dois LeBlanc são duas listas do mesmo deck e
+    pedem as mesmas cópias — *"o que encomendar para 1 deck, estou a encomendar
+    para o outro também"*. `n_grupos` é quantos grupos a pedem, e é isso que
+    faz uma staple: uma compra que serve DECKS DIFERENTES, não duas listas do
+    mesmo.
     """
+    grupo_de = {}
+    for g in decks.grupos(con):
+        for slug in g["slugs"]:
+            grupo_de[slug] = g["legend"]
     out: dict[str, dict] = {}
     for r in con.execute(
         "SELECT dc.card_key, dc.qty, d.deck_id, d.display_name, d.name, d.priority "
         "FROM deck_cards dc JOIN decks d ON d.deck_id = dc.deck_id"
     ):
-        e = out.setdefault(r["card_key"], {"qty": 0, "decks": {}})
-        e["qty"] += r["qty"]
+        e = out.setdefault(r["card_key"], {"qty": 0, "decks": {}, "grupos": {}})
         slot = e["decks"].setdefault(
             r["name"], {"deck": r["display_name"] or r["name"], "qty": 0})
         slot["qty"] += r["qty"]
+        g = grupo_de.get(r["name"], r["name"])
+        e["grupos"][g] = max(e["grupos"].get(g, 0), slot["qty"])
+    for e in out.values():
+        e["qty"] = sum(e["grupos"].values())
+        e["n_grupos"] = len(e["grupos"])
     return out
 
 
@@ -140,7 +155,9 @@ def shortfall(con: sqlite3.Connection) -> list[dict]:
             # `wanted` é o que os decks pedem ao todo, e é o alvo.
             "wanted": v["qty"], "target": v["alvo"], "cap": playset(k),
             "have": tenho.get(k, 0), "missing": falta,
-            "n_decks": len(v["decks"]),
+            # Decks DIFERENTES (grupos de Legend), não listas: os dois LeBlanc
+            # contam como um. A lista `decks` continua a mostrar as duas.
+            "n_decks": v["n_grupos"],
             "decks": [{"deck": x["deck"], "slug": slug, "qty": x["qty"]}
                       for slug, x in sorted(v["decks"].items(),
                                             key=lambda kv: -kv[1]["qty"])],
@@ -261,6 +278,10 @@ def por_deck(con: sqlite3.Connection) -> list[dict]:
     2026-09-11 (tarde) é a própria alocação que o desconta (quarto monte,
     `a_caminho`), por isso aqui não se soma nada: somar outra vez contava a
     encomenda a dobrar.
+
+    Desde a noite de 2026-09-11 a soma das abas JÁ NÃO é o total: dois decks
+    com a mesma Legend mostram cada um a sua lista, mas pedem as mesmas cópias
+    e o total conta-as uma vez (`grupo`). A aba diz-o.
     """
     cfg = config.load()
     ignorar = set(cfg.get("faltas_ignorar_tipos", []))
@@ -279,6 +300,7 @@ def por_deck(con: sqlite3.Connection) -> list[dict]:
             "copies": sum(g["copies"] for g in by_set),
             "cents": sum(g["cents"] for g in by_set),
             "by_set": by_set,
+            "grupo": d["grupo"],
         })
     return out
 
