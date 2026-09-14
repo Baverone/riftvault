@@ -572,28 +572,64 @@ def rotulo(bloco_id: str, cfg: dict | None = None) -> str | None:
 # na caixa.
 
 
-def niveis(itens, n: int | None = None) -> list[dict]:
+def alvo_do_nivel(k: int, n: int, alvo: int) -> int:
+    """O alvo da impressão no degrau k de n: `min(k, alvo)`, e no ÚLTIMO degrau
+    o alvo inteiro.
+
+    É a frase dele — *"1 de cada, 2 de cada, o playset de cada"*: o último
+    degrau é o playset, seja ele 3 ou 12. Enquanto o maior alvo da Coleção era
+    3 as duas leituras davam o mesmo; desde *"muda tudo para playset"*
+    (2026-09-14) as runas pedem 12, e `min(3, 12)` deixava o «3/3» a 3 cópias
+    da runa — a barra do master set, que pede as 12, já não batia com ele.
+    Ver `degraus`.
+    """
+    return alvo if k >= n else min(k, alvo)
+
+
+def degraus(itens, cfg: dict | None = None) -> int:
+    """Quantos níveis há: 1 de cada, 2 de cada, …, e o playset no fim.
+
+    São `min(maior alvo do âmbito, playset comum)`, com o playset comum a ser o
+    `playset_targets_by_type.default` (3). Não é um número escrito à mão para
+    os níveis: é o playset de uma carta qualquer, que é o que ele descreveu
+    (*"do género 1/3 Z % · 2/3 X % · 3/3 Y %"*).
+
+    Era «o maior alvo do âmbito», e dava o mesmo (3) enquanto as runas pediam 1.
+    Com as runas a 12 (2026-09-14) davam 12 degraus, e do 4.º ao 12.º só as 24
+    runas mexiam — nove colunas iguais para uma leitura de relance. O último
+    degrau pede o playset INTEIRO de cada impressão (`alvo_do_nivel`), por isso
+    a runa continua a pedir as 12 no «3/3» e a percentagem desse degrau continua
+    a ser EXACTAMENTE a da barra.
+    """
+    cfg = cfg or config.load()
+    maior = max((a for a, _, _ in itens), default=0)
+    comum = int(cfg.get("playset_targets_by_type", {}).get("default", 3))
+    return min(maior, comum) if maior else 0
+
+
+def niveis(itens, n: int | None = None, cfg: dict | None = None) -> list[dict]:
     """A contagem por níveis de uma lista de `(alvo, tem, preço|None)`.
 
-    Para cada nível k, o alvo é `min(k, alvo)`:
+    Para cada nível k, o alvo é o do `alvo_do_nivel` — `min(k, alvo)`, e o
+    alvo inteiro no último degrau:
 
-      `missing` = Σ max(0, min(k, alvo) − tem)   — cópias que faltam
+      `missing` = Σ max(0, alvo_k − tem)   — cópias que faltam
       `done`    = quantas impressões já lá chegaram
       `cents`   = o que custam essas cópias ao preço de hoje
 
-    `n` é quantos níveis se fazem; por omissão, o maior alvo que lá está. O
-    denominador é o mesmo em todos os níveis (as impressões todas do âmbito),
-    senão as percentagens não eram comparáveis entre si.
+    `n` é quantos níveis se fazem; por omissão, os `degraus`. O denominador é
+    o mesmo em todos os níveis (as impressões todas do âmbito), senão as
+    percentagens não eram comparáveis entre si.
     """
     itens = [(a, t, p) for a, t, p in itens if a > 0]
     if n is None:
-        n = max((a for a, _, _ in itens), default=0)
+        n = degraus(itens, cfg)
     saida = []
     for k in range(1, int(n) + 1):
         done = total = missing = cents = 0
         for alvo, tem, preco in itens:
             total += 1
-            falta = max(0, min(k, alvo) - tem)
+            falta = max(0, alvo_do_nivel(k, int(n), alvo) - tem)
             missing += falta
             cents += falta * (preco or 0)
             if not falta:
@@ -632,17 +668,17 @@ def itens_da_colecao(con: sqlite3.Connection, cfg: dict | None = None) -> list[t
 
 
 def niveis_max(con: sqlite3.Connection, cfg: dict | None = None) -> int:
-    """Quantos níveis há: o maior alvo do master set em TODO o catálogo.
+    """Quantos níveis há, medido em TODO o catálogo — ver `degraus`.
 
     Vem do catálogo inteiro e não de cada edição para as cinco mostrarem os
     mesmos degraus — uma edição só de Legends daria um nível só, e o `1/3` de
     uma deixava de ser comparável com o `1/1` da outra.
 
-    Hoje são **3** (o playset das Units/Spells/Gears). Se as runas voltarem ao
-    playset — `runas_especiais.tipos: []` — passam a ser 12, e é isso que se vê:
-    o número de degraus é o maior alvo, não um valor escrito à mão.
+    Hoje são **3**: 1 de cada, 2 de cada, e o playset — que nas runas são 12
+    desde 2026-09-14. Até aí era «o maior alvo do catálogo», que dava os mesmos
+    3 porque as runas pediam 1.
     """
-    return max((a for _, a, _, _ in itens_da_colecao(con, cfg)), default=0)
+    return degraus([(a, t, p) for _, a, t, p in itens_da_colecao(con, cfg)], cfg)
 
 
 def niveis_payload(con: sqlite3.Connection, cfg: dict | None = None) -> dict:
@@ -654,14 +690,14 @@ def niveis_payload(con: sqlite3.Connection, cfg: dict | None = None) -> dict:
     """
     cfg = cfg or config.load()
     itens = itens_da_colecao(con, cfg)
-    n = max((a for _, a, _, _ in itens), default=0)
+    n = degraus([(a, t, p) for _, a, t, p in itens], cfg)
     por_set: dict[str, list] = {}
     for s, alvo, tem, preco in itens:
         por_set.setdefault(s, []).append((alvo, tem, preco))
     return {
         "max": n,
-        "levels": niveis([(a, t, p) for _, a, t, p in itens], n),
-        "by_set": {s: niveis(v, n) for s, v in por_set.items()},
+        "levels": niveis([(a, t, p) for _, a, t, p in itens], n, cfg),
+        "by_set": {s: niveis(v, n, cfg) for s, v in por_set.items()},
     }
 
 

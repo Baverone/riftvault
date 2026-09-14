@@ -65,12 +65,14 @@ class Base(unittest.TestCase):
 class TestAmbito(Base):
     """O "masterset" é a métrica 2, não uma edição."""
 
-    def test_a_alt_art_conta_a_1__o_token_fica_de_fora(self):
-        """André, 2026-09-08: os `-T` estão fora; a alt art conta, 1 de cada.
+    def test_a_alt_art_conta_em_playset__o_token_fica_de_fora(self):
+        """André, 2026-09-08: os `-T` estão fora; a alt art conta.
 
         De manhã saíam as duas; à tarde ele pediu *"no fim 1 alt art de cada"* e
         elas voltaram para a coleção — logo, para as listas de compra. O token
         continua fora. É a mesma regra e a mesma função (`metrics.e_master`).
+        Desde 2026-09-14 (*"muda tudo para playset"*) a alt art pede o playset
+        do tipo, como a base.
         """
         con = self.v.connect()
         self.v.add_printing(con, "tst-001-100", "TST", 1, "Defy")
@@ -83,10 +85,10 @@ class TestAmbito(Base):
         escopo = self.a_subir.masterset(con)
         self.assertIn("tst-001-100", escopo)
         self.assertNotIn("tst-t01-100", escopo)
-        # O alvo é o do master set: uma Unit base segue o playset do tipo, e a
-        # arte alternativa pede 1.
+        # O alvo é o do master set: a Unit base e a arte alternativa seguem as
+        # duas o playset do tipo.
         self.assertEqual(escopo["tst-001-100"]["target"], 3)
-        self.assertEqual(escopo["tst-001a-100"]["target"], 1)
+        self.assertEqual(escopo["tst-001a-100"]["target"], 3)
         self.assertEqual(escopo["tst-001a-100"]["block"], "alt_art")
         con.close()
 

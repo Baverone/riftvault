@@ -493,6 +493,12 @@ def master_faltas(con: sqlite3.Connection, cfg: dict | None = None,
     cfg = cfg or config.load()
     o = opcoes(cfg)
     escopo, excluidas = excluir(masterset(con, cfg), o["excluir"])
+    # O último degrau é o playset INTEIRO (`metrics.alvo_do_nivel`): pedir o
+    # `--nivel 3` é pedir a lista de sempre, com as 12 da runa e não 3. Assim a
+    # wantlist do degrau k continua a pedir exactamente as cópias que a
+    # contagem do degrau k diz que faltam.
+    if nivel is not None and int(nivel) >= metrics.niveis_max(con, cfg):
+        nivel = None
     falta = em_falta(con, escopo, str(o["regra_falta"]), nivel)
     mercado = cardmarket.versoes(con)
     precos = {r["printing_id"]: r["price_cents"] for r in con.execute(
