@@ -211,10 +211,13 @@ def cmd_stats(args) -> int:
                     f"{prices.eur(lv['cents']):>11}")
 
         larg = max((len(celula(lv)) for _, ls in linhas for lv in ls), default=0)
+        # O último degrau é o playset inteiro de cada carta (3 numa Unit, 12
+        # numa runa desde 2026-09-14), por isso diz «playset» e não «3 de cada».
         print("\nContagem por níveis do master set "
               "(cópias, não o que vem a caminho):")
         print(f"{'edição':<{w}} "
-              + " ".join(f"{f'{k}/{n}':^{larg}}" for k in range(1, n + 1)))
+              + " ".join(f"{(f'playset ({k}/{n})' if k == n else f'{k}/{n}'):^{larg}}"
+                         for k in range(1, n + 1)))
         for nome, ls in linhas:
             print(f"{nome:<{w}} " + " ".join(celula(lv).ljust(larg) for lv in ls))
 

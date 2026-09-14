@@ -188,27 +188,33 @@ class TestConfigDosSufixos(Base):
 
 
 class TestAlvoDasRunas(Base):
-    """*"As runas normais, quando têm número de set, apenas 1 de cada também,
-    em vez de 12 (playset)"* — André, 2026-09-08 à noite.
+    """UMA regra para as runas todas, base ou especial (`runas_especiais`).
 
-    UMA regra: tipo runa -> alvo do master 1, seja base ou especial. O playset
-    JOGÁVEL não mexeu — continua 12, que é o Rune Pool de cada deck.
+    Foi 1 — *"as runas normais, quando têm número de set, apenas 1 de cada
+    também, em vez de 12 (playset)"*, André, 2026-09-08 à noite — até *"muda
+    tudo para playset"* (2026-09-14): agora é o playset do tipo, 12, o mesmo
+    do Rune Pool de cada deck. A regra inteira está no `test_tudo_playset.py`.
     """
 
-    def test_a_runa_base_com_numero_de_set_pede_1(self):
-        self.assertEqual(self.metrics.master_target("tst-005-100", "base", "Rune", False), 1)
+    def test_a_runa_base_com_numero_de_set_pede_o_playset(self):
+        self.assertEqual(self.metrics.master_target("tst-005-100", "base", "Rune", False), 12)
 
-    def test_a_runa_especial_pede_1_como_ja_pedia(self):
-        for kind in ("alt_art", "rune_promo", "signature"):
+    def test_a_runa_especial_pede_o_playset_como_a_base(self):
+        for kind in ("alt_art", "rune_promo"):
             with self.subTest(kind=kind):
                 self.assertEqual(
-                    self.metrics.master_target("x", kind, "Rune", False), 1)
+                    self.metrics.master_target("x", kind, "Rune", False), 12)
+
+    def test_a_signature_de_runa_esta_fora_e_fica_a_1(self):
+        """O playset é da Coleção; o que saiu dela pede o alvo da variante."""
+        self.assertEqual(self.metrics.master_target("x", "signature", "Rune", False), 1)
 
     def test_as_outras_cartas_nao_mexeram(self):
-        """A Unit continua em playset e o Legend continua a 1."""
+        """A Unit continua em playset e o Legend continua a 1 — é o playset dele."""
         self.assertEqual(self.metrics.master_target("x", "base", "Unit", False), 3)
         self.assertEqual(self.metrics.master_target("x", "base", "Legend", False), 1)
-        self.assertEqual(self.metrics.master_target("x", "alt_art", "Unit", False), 1)
+        self.assertEqual(self.metrics.master_target("x", "alt_art", "Unit", False), 3)
+        self.assertEqual(self.metrics.master_target("x", "alt_art", "Legend", False), 1)
 
     def test_o_playset_jogavel_da_runa_continua_12(self):
         """Colecionar e jogar são duas perguntas: os decks pedem as 12 na mesma."""
@@ -229,25 +235,29 @@ class TestAlvoDasRunas(Base):
         self.assertEqual(self.metrics.master_target("x", "base", "Rune", False), 12)
 
     def test_o_alvo_da_runa_base_segue_a_percentagem_e_o_valor(self):
-        """Uma cópia da runa base passa a fechar o tile — e a barra."""
+        """São precisas as 12 cópias para fechar o tile — e a barra."""
         from riftvault import collection
         con = self.edicao(com_runas=True)
         collection.adjust(con, "tst-005-100", 1, source="test")
         con.execute("INSERT INTO catalog.price_latest (printing_id, price_cents) "
                     "VALUES ('tst-005-100', 100)")
         p = self.metrics.set_payload(con, "TST")
+        self.assertEqual(p["progress"]["master"]["done"], 0)
+        # "se estivesse completa" também: 12 cópias da runa, não 1.
+        self.assertEqual(p["progress"]["value"]["full"], 1200)
+        collection.adjust(con, "tst-005-100", 11, source="test")
+        p = self.metrics.set_payload(con, "TST")
         self.assertEqual(p["progress"]["master"]["done"], 1)
-        # "se estivesse completa" também: 1 cópia da runa, não 12.
-        self.assertEqual(p["progress"]["value"]["full"], 100)
         con.close()
 
 
 class TestRunasEspeciais(Base):
     """`runas_especiais` — o critério do bloco 2, escrito no config."""
 
-    def test_o_default_e_runa_que_nao_seja_base(self):
+    def test_o_default_e_runa_que_nao_seja_base_em_playset(self):
         o = self.metrics.opcoes_runa()
-        self.assertEqual((o["tipos"], o["excepto"], o["alvo"]), (["Rune"], ["base"], 1))
+        self.assertEqual((o["tipos"], o["excepto"], o["alvo"]),
+                         (["Rune"], ["base"], "playset"))
 
     def test_o_alvo_das_runas_muda_no_config(self):
         """O `alvo` vale para as runas TODAS desde 2026-09-08 à noite."""
@@ -400,7 +410,8 @@ class TestPercentagem(Base):
         from riftvault import collection
         con = self.edicao()
         collection.adjust(con, "tst-t01-100", 1, source="test")     # token completo
-        collection.adjust(con, "tst-001a-100", 1, source="test")    # alt art completa
+        # A alt art de uma Unit pede o playset desde 2026-09-14: são 3.
+        collection.adjust(con, "tst-001a-100", 3, source="test")    # alt art completa
         p = self.metrics.set_payload(con, "TST")
         blocos = {b["id"]: b for b in p["blocks"]}
         self.assertEqual((blocos["token"]["done"], blocos["token"]["total"]), (1, 1))
@@ -421,16 +432,17 @@ class TestPercentagem(Base):
         con.close()
 
     def test_os_alvos_de_cada_bloco(self):
-        """Bloco 1 em playset; as runas, as especiais e as alt arts a 1."""
+        """Os três blocos da Coleção em playset (2026-09-14); o de fora a 1."""
         con = self.edicao(com_runas=True)
         p = self.metrics.set_payload(con, "TST")
         alvos = {pr["id"]: pr["target"] for g in p["groups"] for pr in g["printings"]}
         self.assertEqual(alvos["tst-001-100"], 3)    # Unit base: playset
-        self.assertEqual(alvos["tst-005-100"], 1)    # Rune base: 1 de cada
-        self.assertEqual(alvos["tst-005a-100"], 1)   # runa especial
-        self.assertEqual(alvos["tst-r01-100"], 1)    # runa especial
-        self.assertEqual(alvos["tst-001a-100"], 1)   # "1 alt art de cada"
+        self.assertEqual(alvos["tst-005-100"], 12)   # Rune base: playset da runa
+        self.assertEqual(alvos["tst-005a-100"], 12)  # runa especial
+        self.assertEqual(alvos["tst-r01-100"], 12)   # runa especial
+        self.assertEqual(alvos["tst-001a-100"], 3)   # alt art de Unit: playset
         self.assertEqual(alvos["tst-t01-100"], 1)    # token_target
+        self.assertEqual(alvos["tst-003-star-100"], 1)   # signature: fora, 1
         con.close()
 
     def test_valor_se_estivesse_completa_conta_a_cauda_e_ignora_o_token(self):
@@ -439,8 +451,8 @@ class TestPercentagem(Base):
             con.execute("INSERT INTO catalog.price_latest (printing_id, price_cents) "
                         "VALUES (?, 100)", (pid,))
         val = self.metrics.set_payload(con, "TST")["progress"]["value"]
-        # 3 cópias da base + 1 da arte alternativa, a 1,00 €. O token fica fora.
-        self.assertEqual(val["full"], 400)
+        # 3 cópias da base + 3 da arte alternativa, a 1,00 €. O token fica fora.
+        self.assertEqual(val["full"], 600)
         con.close()
 
 
@@ -457,17 +469,16 @@ class TestListasDeCompra(Base):
         self.assertNotIn("tst-003-star-100", escopo)
         con.close()
 
-    def test_faltam_1_de_cada_alt_art_e_1_de_cada_runa_especial(self):
-        """*"faltam N"* passou a incluir a cauda, e a 1 — não ao playset."""
+    def test_faltam_o_playset_da_alt_art_e_da_runa_especial(self):
+        """*"faltam N"* inclui a cauda, e ao playset — *"muda tudo para playset"*."""
         con = self.edicao(com_runas=True)
         itens = {x["printing_id"]: x
                  for s in self.a_subir.master_faltas(con)["sets"] for x in s["items"]}
-        self.assertEqual(itens["tst-001a-100"]["missing"], 1)
-        self.assertEqual(itens["tst-005a-100"]["missing"], 1)
-        self.assertEqual(itens["tst-r01-100"]["missing"], 1)
-        # E a runa BASE também: *"as runas normais, quando têm número de set,
-        # apenas 1 de cada também, em vez de 12 (playset)"* (2026-09-08, à noite).
-        self.assertEqual(itens["tst-005-100"]["missing"], 1)
+        self.assertEqual(itens["tst-001a-100"]["missing"], 3)
+        self.assertEqual(itens["tst-005a-100"]["missing"], 12)
+        self.assertEqual(itens["tst-r01-100"]["missing"], 12)
+        # E a runa BASE também: pediu 1 de 2026-09-08 a 2026-09-14.
+        self.assertEqual(itens["tst-005-100"]["missing"], 12)
         self.assertNotIn("tst-t01-100", itens)
         con.close()
 

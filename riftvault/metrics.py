@@ -5,10 +5,15 @@
   2) MASTER SET — alvo por IMPRESSÃO. É a métrica de colecionador, e desde
      2026-09-08 a Coleção são TRÊS BLOCOS por esta ordem (ver `BLOCOS`):
 
-       1. a sequência do master set, em PLAYSET (o alvo do tipo da carta),
-          **exceto as runas, que são 1 de cada** — ver `e_runa`;
-       2. as runas especiais, **1 de cada** e por edição;
-       3. no fim, as artes alternativas, **1 de cada**.
+       1. a sequência do master set, por número de coleção;
+       2. as runas especiais, por edição;
+       3. no fim, as artes alternativas.
+
+     **Desde 2026-09-14 os três pedem o PLAYSET do tipo da carta** (André:
+     *"muda tudo para playset"*) — Unit/Spell/Gear 3, Rune 12, Legend e
+     Battlefield 1. Até aí a sequência pedia o playset mas as runas, as runas
+     especiais e as artes alternativas pediam 1 de cada (decisões de
+     2026-09-08); o que ainda distingue os blocos é só a ORDEM da grelha.
 
      Os três contam para a percentagem; o que fica de fora (`master_set.fora`,
      hoje os tokens `-T`, as signatures `*`, as sobrenumeradas e as promos
@@ -53,8 +58,10 @@ BLOCO_RUNA = "rune_special"
 BLOCO_OVER = "overnumbered"
 BLOCOS = [
     (BLOCO_MASTER, None),
-    (BLOCO_RUNA, "Runas especiais — 1 de cada"),
-    ("alt_art", "Artes alternativas — 1 de cada"),
+    # Os dois blocos da Coleção diziam «— 1 de cada» até 2026-09-14 (*"muda
+    # tudo para playset"*); agora o sufixo vem do alvo em vigor — ver `rotulo`.
+    (BLOCO_RUNA, "Runas especiais"),
+    ("alt_art", "Artes alternativas"),
     ("token", "Fora da coleção — tokens"),
     ("signature", "Fora da coleção — signatures"),
     (BLOCO_OVER, "Fora da coleção — sobrenumeradas"),
@@ -103,7 +110,17 @@ BLOCO_CURTO = {
 #
 # Muda-se em `runas_especiais` no config. `tipos: []` desliga as três coisas e
 # as runas voltam a seguir o playset, como qualquer outra carta.
-RUNA_ESPECIAL: dict = {"tipos": ["Rune"], "excepto": ["base"], "alvo": 1}
+#
+# **Desde 2026-09-14 o `alvo` é `"playset"`** — *"muda tudo para playset"* —
+# e a runa pede o playset do tipo (12), base ou especial. O bloco 2 fica: o que
+# mudou foi o alvo, não onde a runa aparece na grelha.
+RUNA_ESPECIAL: dict = {"tipos": ["Rune"], "excepto": ["base"], "alvo": "playset"}
+
+# O valor do `runas_especiais.alvo` que quer dizer «o playset do tipo», em vez
+# de um número fixo. É a escrita do André (*"muda tudo para playset"*), e assim
+# a runa segue o `playset_targets_by_type.Rune` sem o 12 estar escrito duas
+# vezes.
+ALVO_PLAYSET = "playset"
 
 # O sufixo do CÓDIGO IMPRESSO -> o `variant_kind` que ele dá no catálogo. É a
 # escrita do André ("sigla-T", "a no fim"), e o `master_set.fora` aceita-a a par
@@ -237,24 +254,31 @@ def master_target(printing_id: str, kind: str, card_type: str | None, is_token: 
     if is_token:
         return int(cfg.get("token_target", 1))
     by_variant = cfg.get("master_targets_by_variant", {})
-    if e_runa({"type": card_type}, cfg):
-        # *"As runas normais, quando têm número de set, apenas 1 de cada também,
-        # em vez de 12 (playset)"* (André, 2026-09-08, à noite). UMA regra para
-        # as runas todas — base ou especial, o alvo do MASTER é 1 —, e antes do
-        # `master_base_follows_type`, que é quem lhes dava o playset.
-        #
-        # O playset JOGÁVEL da runa continua 12 (`playset_targets_by_type`): é o
-        # Rune Pool de cada deck, e quem responde a isso é a métrica 1. São duas
-        # perguntas diferentes — colecionar e jogar.
-        return int(opcoes_runa(cfg).get("alvo", 1))
+    if e_runa({"type": card_type}, cfg) and kind not in kinds_fora(cfg):
+        # UMA regra para as runas todas — base ou especial — que estejam DENTRO
+        # da Coleção, e antes do `master_base_follows_type`. Uma runa de uma
+        # variante que saiu (uma signature de runa, se um dia existir) pede o
+        # alvo da variante, como as outras de fora: o playset é da Coleção.
+        # Foi 1 desde *"as runas normais, quando têm
+        # número de set, apenas 1 de cada também, em vez de 12 (playset)"*
+        # (André, 2026-09-08, à noite) até *"muda tudo para playset"* (André,
+        # 2026-09-14), que pôs o `alvo` a `"playset"`: o alvo do master passa a
+        # ser o playset do tipo (12), o mesmo número do Rune Pool dos decks. Um
+        # número escrito no `alvo` continua a valer o que vale.
+        alvo_runa = opcoes_runa(cfg).get("alvo", 1)
+        if alvo_runa == ALVO_PLAYSET:
+            return playset_target(card_type, is_token, cfg)
+        return int(alvo_runa)
     if kind == "base" and cfg.get("master_base_follows_type", True):
         # Senão uma Rune base pediria 3 em vez de 12, e um Legend pediria 3
         # em vez de 1. O alvo do master da base segue o alvo de jogo.
         return playset_target(card_type, is_token, cfg)
     if kind in set(cfg.get("master_variantes_playset", [])):
-        # O André quer contagem de playset nas artes alternativas (2026-09-05):
-        # se decide colecionar a alt art, quer as 3 na mesma, não uma. Isto é
-        # só o alvo do tile — continuam fora da percentagem (`e_master`).
+        # As variantes que pedem o playset do tipo em vez do 1 fixo. Esteve
+        # vazio de 2026-09-08 (*"no fim 1 alt art de cada"*) a 2026-09-14
+        # (*"muda tudo para playset"*): hoje leva o que está DENTRO da Coleção —
+        # as artes alternativas e as runas promo. As de `master_set.fora`
+        # (signatures, promos, tokens) não estão na lista e ficam a 1.
         return playset_target(card_type, is_token, cfg)
     return int(by_variant.get(kind, 1))
 
@@ -490,11 +514,33 @@ def conta_bloco(bloco_id: str, cfg: dict | None = None) -> bool:
     return bloco_id == "alt_art" and "alt_art" not in kinds_fora(cfg)
 
 
+def _sufixo_alvo(bloco_id: str, cfg: dict) -> str:
+    """«— playset» ou «— N de cada», conforme o alvo que o bloco pede hoje.
+
+    O cabeçalho dizia «1 de cada» escrito à mão e passou a mentir quando ele
+    disse *"muda tudo para playset"* (2026-09-14). Agora lê-se do mesmo config
+    que o `master_target` lê, para o título e o badge do tile não divergirem.
+    """
+    if bloco_id == BLOCO_RUNA:
+        alvo_runa = opcoes_runa(cfg).get("alvo", 1)
+    elif "alt_art" in set(cfg.get("master_variantes_playset", [])):
+        alvo_runa = ALVO_PLAYSET
+    else:
+        alvo_runa = cfg.get("master_targets_by_variant", {}).get("alt_art", 1)
+    if alvo_runa == ALVO_PLAYSET:
+        return " — playset"
+    return f" — {int(alvo_runa)} de cada"
+
+
 def rotulo(bloco_id: str, cfg: dict | None = None) -> str | None:
     """O cabeçalho do bloco. `None` no primeiro: a sequência não leva título."""
+    cfg = cfg or config.load()
     if not conta_bloco(bloco_id, cfg) and bloco_id in BLOCO_LABEL_FORA:
         return BLOCO_LABEL_FORA[bloco_id]
-    return BLOCO_LABEL.get(bloco_id)
+    base = BLOCO_LABEL.get(bloco_id)
+    if bloco_id in (BLOCO_RUNA, "alt_art") and base:
+        return base + _sufixo_alvo(bloco_id, cfg)
+    return base
 
 
 # --------------------------------------------------------------------------
@@ -526,28 +572,64 @@ def rotulo(bloco_id: str, cfg: dict | None = None) -> str | None:
 # na caixa.
 
 
-def niveis(itens, n: int | None = None) -> list[dict]:
+def alvo_do_nivel(k: int, n: int, alvo: int) -> int:
+    """O alvo da impressão no degrau k de n: `min(k, alvo)`, e no ÚLTIMO degrau
+    o alvo inteiro.
+
+    É a frase dele — *"1 de cada, 2 de cada, o playset de cada"*: o último
+    degrau é o playset, seja ele 3 ou 12. Enquanto o maior alvo da Coleção era
+    3 as duas leituras davam o mesmo; desde *"muda tudo para playset"*
+    (2026-09-14) as runas pedem 12, e `min(3, 12)` deixava o «3/3» a 3 cópias
+    da runa — a barra do master set, que pede as 12, já não batia com ele.
+    Ver `degraus`.
+    """
+    return alvo if k >= n else min(k, alvo)
+
+
+def degraus(itens, cfg: dict | None = None) -> int:
+    """Quantos níveis há: 1 de cada, 2 de cada, …, e o playset no fim.
+
+    São `min(maior alvo do âmbito, playset comum)`, com o playset comum a ser o
+    `playset_targets_by_type.default` (3). Não é um número escrito à mão para
+    os níveis: é o playset de uma carta qualquer, que é o que ele descreveu
+    (*"do género 1/3 Z % · 2/3 X % · 3/3 Y %"*).
+
+    Era «o maior alvo do âmbito», e dava o mesmo (3) enquanto as runas pediam 1.
+    Com as runas a 12 (2026-09-14) davam 12 degraus, e do 4.º ao 12.º só as 24
+    runas mexiam — nove colunas iguais para uma leitura de relance. O último
+    degrau pede o playset INTEIRO de cada impressão (`alvo_do_nivel`), por isso
+    a runa continua a pedir as 12 no «3/3» e a percentagem desse degrau continua
+    a ser EXACTAMENTE a da barra.
+    """
+    cfg = cfg or config.load()
+    maior = max((a for a, _, _ in itens), default=0)
+    comum = int(cfg.get("playset_targets_by_type", {}).get("default", 3))
+    return min(maior, comum) if maior else 0
+
+
+def niveis(itens, n: int | None = None, cfg: dict | None = None) -> list[dict]:
     """A contagem por níveis de uma lista de `(alvo, tem, preço|None)`.
 
-    Para cada nível k, o alvo é `min(k, alvo)`:
+    Para cada nível k, o alvo é o do `alvo_do_nivel` — `min(k, alvo)`, e o
+    alvo inteiro no último degrau:
 
-      `missing` = Σ max(0, min(k, alvo) − tem)   — cópias que faltam
+      `missing` = Σ max(0, alvo_k − tem)   — cópias que faltam
       `done`    = quantas impressões já lá chegaram
       `cents`   = o que custam essas cópias ao preço de hoje
 
-    `n` é quantos níveis se fazem; por omissão, o maior alvo que lá está. O
-    denominador é o mesmo em todos os níveis (as impressões todas do âmbito),
-    senão as percentagens não eram comparáveis entre si.
+    `n` é quantos níveis se fazem; por omissão, os `degraus`. O denominador é
+    o mesmo em todos os níveis (as impressões todas do âmbito), senão as
+    percentagens não eram comparáveis entre si.
     """
     itens = [(a, t, p) for a, t, p in itens if a > 0]
     if n is None:
-        n = max((a for a, _, _ in itens), default=0)
+        n = degraus(itens, cfg)
     saida = []
     for k in range(1, int(n) + 1):
         done = total = missing = cents = 0
         for alvo, tem, preco in itens:
             total += 1
-            falta = max(0, min(k, alvo) - tem)
+            falta = max(0, alvo_do_nivel(k, int(n), alvo) - tem)
             missing += falta
             cents += falta * (preco or 0)
             if not falta:
@@ -586,17 +668,17 @@ def itens_da_colecao(con: sqlite3.Connection, cfg: dict | None = None) -> list[t
 
 
 def niveis_max(con: sqlite3.Connection, cfg: dict | None = None) -> int:
-    """Quantos níveis há: o maior alvo do master set em TODO o catálogo.
+    """Quantos níveis há, medido em TODO o catálogo — ver `degraus`.
 
     Vem do catálogo inteiro e não de cada edição para as cinco mostrarem os
     mesmos degraus — uma edição só de Legends daria um nível só, e o `1/3` de
     uma deixava de ser comparável com o `1/1` da outra.
 
-    Hoje são **3** (o playset das Units/Spells/Gears). Se as runas voltarem ao
-    playset — `runas_especiais.tipos: []` — passam a ser 12, e é isso que se vê:
-    o número de degraus é o maior alvo, não um valor escrito à mão.
+    Hoje são **3**: 1 de cada, 2 de cada, e o playset — que nas runas são 12
+    desde 2026-09-14. Até aí era «o maior alvo do catálogo», que dava os mesmos
+    3 porque as runas pediam 1.
     """
-    return max((a for _, a, _, _ in itens_da_colecao(con, cfg)), default=0)
+    return degraus([(a, t, p) for _, a, t, p in itens_da_colecao(con, cfg)], cfg)
 
 
 def niveis_payload(con: sqlite3.Connection, cfg: dict | None = None) -> dict:
@@ -608,14 +690,14 @@ def niveis_payload(con: sqlite3.Connection, cfg: dict | None = None) -> dict:
     """
     cfg = cfg or config.load()
     itens = itens_da_colecao(con, cfg)
-    n = max((a for _, a, _, _ in itens), default=0)
+    n = degraus([(a, t, p) for _, a, t, p in itens], cfg)
     por_set: dict[str, list] = {}
     for s, alvo, tem, preco in itens:
         por_set.setdefault(s, []).append((alvo, tem, preco))
     return {
         "max": n,
-        "levels": niveis([(a, t, p) for _, a, t, p in itens], n),
-        "by_set": {s: niveis(v, n) for s, v in por_set.items()},
+        "levels": niveis([(a, t, p) for _, a, t, p in itens], n, cfg),
+        "by_set": {s: niveis(v, n, cfg) for s, v in por_set.items()},
     }
 
 
