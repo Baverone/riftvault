@@ -254,9 +254,12 @@ def master_target(printing_id: str, kind: str, card_type: str | None, is_token: 
     if is_token:
         return int(cfg.get("token_target", 1))
     by_variant = cfg.get("master_targets_by_variant", {})
-    if e_runa({"type": card_type}, cfg):
-        # UMA regra para as runas todas — base ou especial —, e antes do
-        # `master_base_follows_type`. Foi 1 desde *"as runas normais, quando têm
+    if e_runa({"type": card_type}, cfg) and kind not in kinds_fora(cfg):
+        # UMA regra para as runas todas — base ou especial — que estejam DENTRO
+        # da Coleção, e antes do `master_base_follows_type`. Uma runa de uma
+        # variante que saiu (uma signature de runa, se um dia existir) pede o
+        # alvo da variante, como as outras de fora: o playset é da Coleção.
+        # Foi 1 desde *"as runas normais, quando têm
         # número de set, apenas 1 de cada também, em vez de 12 (playset)"*
         # (André, 2026-09-08, à noite) até *"muda tudo para playset"* (André,
         # 2026-09-14), que pôs o `alvo` a `"playset"`: o alvo do master passa a
