@@ -136,8 +136,9 @@ class TestUmaListaPorEdicao(Base):
 class TestAlvosDosTresBlocos(Base):
     """Os alvos são os da Coleção — a wantlist não tem alvos próprios.
 
-    Playset na sequência (Unit 3, Legend 1), **1** na runa base, **1** na runa
-    especial e **1** na arte alternativa. Ver `metrics.master_target`.
+    Desde *"muda tudo para playset"* (André, 2026-09-14) é o playset do tipo em
+    todos os blocos: Unit 3, Legend 1, runa **12** (base ou especial), arte
+    alternativa o playset do tipo dela. Ver `metrics.master_target`.
     """
 
     def montar(self):
@@ -162,18 +163,18 @@ class TestAlvosDosTresBlocos(Base):
         self.assertEqual(alvos, {
             "tst-001-100": (3, 3),          # Unit na sequência: playset
             "tst-002-100": (1, 1),          # Legend na sequência: 1
-            "tst-003-100": (1, 1),          # runa base: 1, não 12
-            "tst-003a-100": (1, 1),         # runa especial: 1
-            "tst-004-100": (1, 1),          # arte alternativa: 1
+            "tst-003-100": (12, 12),        # runa base: o playset, 12
+            "tst-003a-100": (12, 12),       # runa especial: 12 também
+            "tst-004-100": (3, 3),          # arte alternativa de Unit: 3
         })
         con.close()
 
-    def test_a_runa_pede_1_e_nao_o_playset_de_12(self):
-        """Colecionar e jogar são perguntas diferentes: o Rune Pool continua 12."""
+    def test_a_runa_pede_o_playset_de_12(self):
+        """Colecionar passou a ser o mesmo número que jogar: o Rune Pool é 12."""
         con = self.montar()
         p = self.a_subir.wantlist(con, "TST")
         runa = next(x for x in p["items"] if x["printing_id"] == "tst-003-100")
-        self.assertEqual(runa["target"], 1)
+        self.assertEqual(runa["target"], 12)
         self.assertEqual(self.metrics.playset_target("Rune", False), 12)
         con.close()
 
@@ -218,7 +219,7 @@ class TestFormatoDasLinhas(Base):
         p = self.a_subir.wantlist(con, "TST")
         self.assertEqual(p["text"].splitlines(), [
             "3 Jinx - Loose Cannon (V.1) (Unleashed)",
-            "1 Jinx - Loose Cannon (V.2) (Unleashed)",
+            "3 Jinx - Loose Cannon (V.2) (Unleashed)",   # a alt art pede playset
         ])
         # Linha a linha, é exactamente o `cardmarket.linha` — se um dia
         # divergirem, é porque alguém escreveu um segundo formato.
@@ -231,7 +232,7 @@ class TestFormatoDasLinhas(Base):
         p = self.a_subir.wantlist(con, "TST", com_codigo=True)
         self.assertEqual(p["text"].splitlines(),
                          ["3 Jinx - Loose Cannon [TST-002]",
-                          "1 Jinx - Loose Cannon [TST-002a]"])
+                          "3 Jinx - Loose Cannon [TST-002a]"])
         con.close()
 
     def test_sem_par_no_mercado_usa_o_nome_do_catalogo(self):

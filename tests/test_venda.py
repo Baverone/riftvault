@@ -4,8 +4,9 @@
 decks seleccionados"* (André, 2026-09-08).
 
 Na mesma tarde ele pediu *"1 alt art de cada"*, e a venda passou a ser só o
-EXCEDENTE do que a coleção pede: a primeira arte alternativa é coleção, a
-segunda é venda.
+EXCEDENTE do que a coleção pede. Desde *"muda tudo para playset"* (2026-09-14)
+a arte alternativa pede o playset do tipo — 3 numa Unit —, por isso as três
+primeiras são coleção e a quarta é venda. As fixtures contam com isso.
 """
 
 from __future__ import annotations
@@ -52,7 +53,7 @@ class TestAmbito(Base):
         from riftvault import collection
         con = self.catalogo()
         collection.adjust(con, "tst-001-100", 9, source="test")    # base, a mais
-        collection.adjust(con, "tst-001a-100", 2, source="test")   # 1 é coleção
+        collection.adjust(con, "tst-001a-100", 4, source="test")   # 3 são coleção
         collection.adjust(con, "tst-t01-100", 2, source="test")
 
         ids = [x["printing_id"] for x in self.venda.listar(con)["items"]]
@@ -61,18 +62,19 @@ class TestAmbito(Base):
         self.assertEqual(sorted(ids), ["tst-001a-100", "tst-t01-100"])
         con.close()
 
-    def test_a_primeira_alt_art_e_colecao__a_segunda_e_venda(self):
-        """*"no fim 1 alt art de cada"*: o alvo guarda-se antes de vender."""
+    def test_o_playset_da_alt_art_e_colecao__a_quarta_e_venda(self):
+        """O alvo guarda-se antes de vender — e desde *"muda tudo para playset"*
+        (2026-09-14) o alvo da arte alternativa de uma Unit é 3, não 1."""
         from riftvault import collection
         con = self.catalogo()
-        collection.adjust(con, "tst-001a-100", 1, source="test")
+        collection.adjust(con, "tst-001a-100", 3, source="test")
         self.assertEqual(self.venda.listar(con)["items"], [])
 
-        collection.adjust(con, "tst-001a-100", 1, source="test")   # a segunda
+        collection.adjust(con, "tst-001a-100", 1, source="test")   # a quarta
         v = self.venda.listar(con)
         self.assertEqual([x["printing_id"] for x in v["items"]], ["tst-001a-100"])
-        self.assertEqual(v["items"][0]["have"], 2)
-        self.assertEqual(v["items"][0]["target"], 1)
+        self.assertEqual(v["items"][0]["have"], 4)
+        self.assertEqual(v["items"][0]["target"], 3)
         self.assertEqual(v["items"][0]["qty"], 1)
         con.close()
 
@@ -95,8 +97,8 @@ class TestAmbito(Base):
     def test_soma_e_ordem_pelo_valor(self):
         from riftvault import collection
         con = self.catalogo()
-        collection.adjust(con, "tst-001a-100", 2, source="test")   # sobra 1: 20,00 €
-        collection.adjust(con, "tst-002a-100", 3, source="test")   # sobram 2: 10,00 €
+        collection.adjust(con, "tst-001a-100", 4, source="test")   # sobra 1: 20,00 €
+        collection.adjust(con, "tst-002a-100", 5, source="test")   # sobram 2: 10,00 €
         v = self.venda.listar(con)
 
         self.assertEqual(v["printings"], 2)
@@ -109,7 +111,7 @@ class TestAmbito(Base):
     def test_blocos_separam_tokens_de_artes_alternativas(self):
         from riftvault import collection
         con = self.catalogo()
-        collection.adjust(con, "tst-001a-100", 2, source="test")
+        collection.adjust(con, "tst-001a-100", 4, source="test")
         collection.adjust(con, "tst-t01-100", 2, source="test")
 
         blocos = {b["id"]: b for b in self.venda.listar(con)["blocks"]}
@@ -121,7 +123,7 @@ class TestAmbito(Base):
         from riftvault import collection
         con = self.catalogo()
         con.execute("DELETE FROM catalog.price_latest WHERE printing_id = 'tst-001a-100'")
-        collection.adjust(con, "tst-001a-100", 3, source="test")
+        collection.adjust(con, "tst-001a-100", 5, source="test")
 
         v = self.venda.listar(con)
         self.assertEqual(v["printings"], 1)
@@ -183,31 +185,31 @@ class TestDecks(Base):
         con.close()
 
     def test_so_o_excedente_e_que_se_vende(self):
-        """4 cópias: 2 no deck, 2 na Coleção que só pede 1 — vende-se 1."""
+        """6 cópias: 2 no deck, 4 na Coleção que só pede 3 — vende-se 1."""
         from riftvault import locais
         con, collection, _ = self.montar(
             "Legend:\n1 Emperor of the Sands\nMainDeck:\n2 Defy\n")
-        collection.adjust(con, "tst-001a-100", 4, source="test")
+        collection.adjust(con, "tst-001a-100", 6, source="test")
         locais.mover(con, "tst-001a-100", 2, locais.COLECAO,
                      locais.deck_local("azir"), source="test")
 
         v = self.venda.listar(con)
         item = v["items"][0]
-        self.assertEqual(item["have"], 4)
+        self.assertEqual(item["have"], 6)
         self.assertEqual(item["used"], 2)          # as do deck nunca se vendem
-        self.assertEqual(item["in_colecao"], 2)
-        self.assertEqual(item["from_colecao"], 1)  # o alvo da alt art é 1
+        self.assertEqual(item["in_colecao"], 4)
+        self.assertEqual(item["from_colecao"], 1)  # o alvo da alt art é 3
         self.assertEqual(item["qty"], 1)
         self.assertEqual(item["state"], "deck")    # está num deck E sobra
         self.assertEqual(v["copies"], 1)
         con.close()
 
     def test_a_colecao_fica_com_a_dela(self):
-        """3 cópias, 2 no deck: a que fica na Coleção é o alvo e não se vende."""
+        """5 cópias, 2 no deck: as 3 que ficam na Coleção são o alvo e não se vendem."""
         from riftvault import locais
         con, collection, _ = self.montar(
             "Legend:\n1 Emperor of the Sands\nMainDeck:\n2 Defy\n")
-        collection.adjust(con, "tst-001a-100", 3, source="test")
+        collection.adjust(con, "tst-001a-100", 5, source="test")
         locais.mover(con, "tst-001a-100", 2, locais.COLECAO,
                      locais.deck_local("azir"), source="test")
 
@@ -235,7 +237,7 @@ class TestLista(Base):
     def test_a_quantidade_da_linha_e_o_excedente(self):
         from riftvault import collection
         con = self.catalogo()
-        collection.adjust(con, "tst-001a-100", 3, source="test")   # 1 é coleção
+        collection.adjust(con, "tst-001a-100", 5, source="test")   # 3 são coleção
 
         itens = self.venda.listar(con)["items"]
         res = self.cardmarket.gerar(itens)
@@ -246,7 +248,7 @@ class TestLista(Base):
     def test_com_codigo(self):
         from riftvault import collection
         con = self.catalogo()
-        collection.adjust(con, "tst-001a-100", 2, source="test")
+        collection.adjust(con, "tst-001a-100", 4, source="test")
 
         itens = self.venda.listar(con)["items"]
         self.assertEqual(self.cardmarket.linha(itens[0], com_codigo=True),
@@ -256,7 +258,7 @@ class TestLista(Base):
     def test_csv_leva_a_mesma_quantidade(self):
         from riftvault import collection
         con = self.catalogo()
-        collection.adjust(con, "tst-002a-100", 4, source="test")   # 1 é coleção
+        collection.adjust(con, "tst-002a-100", 6, source="test")   # 3 são coleção
 
         linhas = self.cardmarket.csv_texto(self.venda.listar(con)["items"]).splitlines()
         self.assertEqual(linhas[0].split(",")[0], "quantidade")

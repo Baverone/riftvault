@@ -579,9 +579,10 @@ def wantlist(con: sqlite3.Connection, set_id: str | None = None,
     wantlist para eu colocar no Cardmarket."*
 
     **Não é uma lista nova.** É a do «Master set» (`master_faltas`), cortada por
-    edição — mesmo âmbito (os três blocos da Coleção), mesmos alvos (playset na
-    sequência, 1 nas runas, 1 nas runas especiais, 1 nas artes alternativas),
-    mesma regra de carência e as mesmas exclusões. As linhas saem do gerador
+    edição — mesmo âmbito (os três blocos da Coleção), mesmos alvos (o playset
+    do tipo em todos os blocos desde *"muda tudo para playset"*, 2026-09-14:
+    3 numa Unit, 12 numa runa, 1 num Legend), mesma regra de carência e as
+    mesmas exclusões. As linhas saem do gerador
     único (`cardmarket.gerar`), que é o mesmo do «A subir», do «Master set», da
     Venda e das listas dos decks; o gémeo em JavaScript é o `cmLinha`. Uma
     segunda implementação era uma segunda resposta à mesma pergunta.
@@ -599,8 +600,8 @@ def wantlist(con: sqlite3.Connection, set_id: str | None = None,
     lista para ter **uma de cada**, `2` para ter **duas**, e sem ele a lista
     inteira, com o playset na sequência. Não é uma lista nova nem outros alvos —
     é o mesmo `metrics.master_target` cortado por `min(nivel, alvo)`, por isso
-    as impressões de alvo 1 (runas, Legends, runas especiais, artes
-    alternativas) saem iguais em todos os níveis.
+    as impressões de alvo 1 (Legends, Battlefields) saem iguais em todos os
+    níveis, e o último degrau é o playset inteiro (as 12 da runa).
     """
     p = master_faltas(con, cfg, nivel)
     alvo = set_id.upper() if set_id else None
@@ -610,7 +611,9 @@ def wantlist(con: sqlite3.Connection, set_id: str | None = None,
     itens = [x for d in sets for x in d["items"]]
     return {
         "set": alvo,
-        "level": nivel,
+        # O do `master_faltas`, não o pedido: `--nivel 3` é a lista de sempre
+        # (`level: None`), e quem lê o payload tem de ver isso.
+        "level": p["level"],
         "sets": sets,
         "items": itens,
         "no_price": sum(1 for x in itens if x["price"] is None),
