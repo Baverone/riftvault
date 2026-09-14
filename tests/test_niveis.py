@@ -6,14 +6,17 @@ uma contagem: quantas cartas faltam para ter 1 de cada, quantas faltam para ter
 X % · 3/3 Y %."*
 
 O que se fixa aqui: que o alvo do nível k é `min(k, alvo)` — e por isso uma
-impressão de alvo 1 (Legend, Battlefield) só pode faltar no nível 1 — e que o
-ÚLTIMO degrau é o playset inteiro (desde 2026-09-14, *"muda tudo para
-playset"*, a runa pede 12 e o «3/3» pede-lhe as 12); que o denominador é o
-mesmo em todos os níveis, que é o da barra do master set, e que por isso a
-percentagem do último nível dá EXACTAMENTE a da barra; que a soma das edições
-é o global; e que a wantlist por nível pede exactamente as cópias que a
-contagem desse nível diz que faltam — pelo mesmo gerador, sem uma segunda
-lista.
+impressão de alvo 1 (Legend, Battlefield, e desde 2026-09-14 à noite as runas,
+*"runas 1 de cada"*) só pode faltar no nível 1 — e que o ÚLTIMO degrau é o
+playset inteiro (a função aguenta um alvo de 12, se as runas voltarem a
+segui-lo); que o denominador é o mesmo em todos os níveis, que é o da barra do
+master set — **só o bloco 1**: a coleção extra (artes alternativas, runas
+especiais, sobrenumeradas, promos) não entra, *"só quero % de completo para
+masterset!"* —, e que por isso a percentagem do último nível dá EXACTAMENTE a
+da barra; que a soma das edições é o global; e que a wantlist por nível pede,
+no master set, exactamente as cópias que a contagem desse nível diz que
+faltam — pelo mesmo gerador, sem uma segunda lista — e, por cima disso, a
+coleção extra ao mesmo degrau.
 """
 
 from __future__ import annotations
@@ -95,12 +98,15 @@ class TestAConta(Base):
         self.assertEqual(len(self.metrics.niveis([(1, 0, 0), (3, 0, 0)])), 3)
         # E dá para pedir mais, para todas as edições mostrarem os mesmos.
         self.assertEqual(len(self.metrics.niveis([(1, 0, 0)], 3)), 3)
-        # Uma runa a 12 (2026-09-14) NÃO faz 12 degraus: do 4.º ao 12.º só as
-        # runas mexiam. Ficam os 3 do playset comum, e o último pede as 12.
+        # Um alvo de 12 (as runas, se `runas_especiais.tipos` for `[]`) NÃO
+        # faz 12 degraus: do 4.º ao 12.º só as runas mexiam. Ficam os 3 do
+        # playset comum, e o último pede as 12.
         self.assertEqual(len(self.metrics.niveis([(3, 0, 0), (12, 0, 0)])), 3)
 
     def test_o_ultimo_degrau_e_o_playset_inteiro(self):
-        """*"1 de cada, 2 de cada, o playset de cada"* — e o playset da runa é 12."""
+        """*"1 de cada, 2 de cada, o playset de cada"* — a função pede o alvo
+        inteiro no último degrau, seja ele 3 ou 12 (hoje as runas pedem 1, mas
+        a regra da função não depende disso)."""
         ls = self.metrics.niveis([(3, 0, 100), (12, 0, 10)])
         self.assertEqual([lv["missing"] for lv in ls], [2, 4, 15])
         self.assertEqual([lv["cents"] for lv in ls], [110, 220, 420])
@@ -135,20 +141,31 @@ class TestNoPayloadDaEdicao(Base):
         from riftvault import collection
         collection.adjust(con, "tst-001-100", 3, source="test")   # completa
         collection.adjust(con, "tst-002-100", 1, source="test")   # falta 2
-        collection.adjust(con, "tst-004-100", 1, source="test")   # runa: faltam 11
+        collection.adjust(con, "tst-004-100", 1, source="test")   # runa: completa (1)
         return con
 
     def test_os_tres_niveis(self):
         con = self.montar()
         ls = self.metrics.set_payload(con, "TST")["progress"]["levels"]
-        # 5 impressões no âmbito: 3 Units (alvo 3, 3 e 3 para a alt art),
-        # 1 Legend (1), 1 runa (12) — tudo em playset desde 2026-09-14.
-        self.assertEqual([lv["total"] for lv in ls], [5, 5, 5])
-        # Nível 1: tem a Unit completa, a outra com 1 e a runa — faltam o
-        # Legend e a arte alternativa. Nível 2: só a Unit completa. Playset:
-        # a runa pede as 12 e a alt art as 3.
-        self.assertEqual([lv["done"] for lv in ls], [3, 1, 1])
-        self.assertEqual([lv["missing"] for lv in ls], [2, 5, 17])
+        # 4 impressões no âmbito: 2 Units (alvo 3), 1 Legend (1), 1 runa (1).
+        # A arte alternativa é coleção extra e fica de fora dos níveis, como
+        # fica da barra.
+        self.assertEqual([lv["total"] for lv in ls], [4, 4, 4])
+        # Nível 1: tem a Unit completa, a outra com 1 e a runa — falta o
+        # Legend. Nível 2 e playset: a Unit completa e a runa (alvo 1, já não
+        # lhe pedem mais); à outra Unit falta a segunda e depois a terceira.
+        self.assertEqual([lv["done"] for lv in ls], [3, 2, 2])
+        self.assertEqual([lv["missing"] for lv in ls], [1, 2, 3])
+        con.close()
+
+    def test_a_colecao_extra_nao_entra_nos_niveis(self):
+        """Encher a alt art não mexe em degrau nenhum — é «puramente coleção»."""
+        from riftvault import collection
+        con = self.montar()
+        antes = self.metrics.set_payload(con, "TST")["progress"]["levels"]
+        collection.adjust(con, "tst-005a-100", 3, source="test")
+        depois = self.metrics.set_payload(con, "TST")["progress"]["levels"]
+        self.assertEqual(antes, depois)
         con.close()
 
     def test_o_ultimo_nivel_e_a_barra_do_master_set(self):
@@ -166,7 +183,7 @@ class TestNoPayloadDaEdicao(Base):
                             variant="t01", kind="token")
         self.v.rebuild(con)
         ls = self.metrics.set_payload(con, "TST")["progress"]["levels"]
-        self.assertEqual([lv["total"] for lv in ls], [5, 5, 5])
+        self.assertEqual([lv["total"] for lv in ls], [4, 4, 4])
         con.close()
 
     def test_conta_copias_e_nao_o_que_vem_a_caminho(self):
@@ -282,8 +299,10 @@ class TestWantlistPorNivel(Base):
         self.assertEqual(cheia["copies"], 7)     # 3 + 1 + 3
         con.close()
 
-    def test_o_ultimo_degrau_pede_o_playset_inteiro_da_runa(self):
-        """`--nivel 3` é a lista de sempre: a runa leva as 12, não 3."""
+    def test_a_runa_pede_1_em_todos_os_degraus(self):
+        """*"runas 1 de cada"* (2026-09-14, à noite): a runa é de alvo 1, como
+        um Legend — sai igual em todos os níveis e sem `full_target`. O último
+        degrau (`--nivel 3`) continua a ser a lista de sempre."""
         con = self.montar()
         self.v.add_printing(con, "tst-004-100", "TST", 4, "Fury Rune",
                             card_type="Rune")
@@ -291,23 +310,39 @@ class TestWantlistPorNivel(Base):
         self.assertEqual(self.metrics.niveis_max(con), 3)
         alto = self.a_subir.wantlist(con, "TST", nivel=3)
         runa = next(x for x in alto["items"] if x["printing_id"] == "tst-004-100")
-        self.assertEqual(runa["missing"], 12)
+        self.assertEqual(runa["missing"], 1)
         self.assertIsNone(alto["level"])
-        meio = self.a_subir.wantlist(con, "TST", nivel=2)
-        runa = next(x for x in meio["items"] if x["printing_id"] == "tst-004-100")
-        self.assertEqual((runa["missing"], runa["full_target"]), (2, 12))
+        for k in (1, 2):
+            p = self.a_subir.wantlist(con, "TST", nivel=k)
+            runa = next(x for x in p["items"] if x["printing_id"] == "tst-004-100")
+            self.assertEqual((runa["target"], runa["missing"]), (1, 1), f"nível {k}")
+            self.assertNotIn("full_target", runa)
         con.close()
 
+    def so_master(self, con, itens):
+        """Os itens da lista que são do bloco 1 — o âmbito da contagem."""
+        linhas = {r["printing_id"]: r for r in con.execute("SELECT * FROM catalog.printings")}
+        return [x for x in itens
+                if self.metrics.bloco(linhas[x["printing_id"]]) == self.metrics.BLOCO_MASTER]
+
     def test_a_lista_do_nivel_pede_o_que_a_contagem_do_nivel_diz(self):
-        """As duas respostas à mesma pergunta têm de dar o mesmo número."""
+        """As duas respostas à mesma pergunta têm de dar o mesmo número — no
+        master set. A coleção extra (a alt art) entra na lista ao mesmo degrau
+        e não entra na contagem: é a diferença, e é exactamente ela."""
         from riftvault import collection
         con = self.montar()
         collection.adjust(con, "tst-001-100", 1, source="test")
         ls = self.metrics.set_payload(con, "TST")["progress"]["levels"]
         for lv in ls:
             p = self.a_subir.wantlist(con, "TST", nivel=lv["k"])
-            self.assertEqual(p["copies"], lv["missing"], f"nível {lv['k']}")
-            self.assertEqual(p["cents"], lv["cents"], f"nível {lv['k']}")
+            master = self.so_master(con, p["items"])
+            self.assertEqual(sum(x["missing"] for x in master), lv["missing"],
+                             f"nível {lv['k']}")
+            self.assertEqual(sum(x["total"] for x in master), lv["cents"],
+                             f"nível {lv['k']}")
+            extra = [x for x in p["items"] if x not in master]
+            self.assertEqual([(x["printing_id"], x["missing"]) for x in extra],
+                             [("tst-003a-100", min(lv["k"], 3))], f"nível {lv['k']}")
         con.close()
 
     def test_o_alvo_que_sai_e_o_do_nivel_e_o_inteiro_nao_se_perde(self):
@@ -366,15 +401,15 @@ class TestWantlistPorNivel(Base):
         con.close()
 
 
-class TestOsNiveisSaoOsDaContagemDeCadaBloco(Base):
-    """As runas especiais e as artes alternativas entram, ao playset.
+class TestOsNiveisSaoSoOMasterSet(Base):
+    """As runas especiais e as artes alternativas NÃO entram em degrau nenhum.
 
-    Ficam no âmbito porque contam para a barra (são dois dos três blocos da
-    Coleção); e desde 2026-09-14 pedem o playset do tipo — 12 numa runa, 3
-    numa Unit —, por isso o último degrau pede-lhes tudo.
+    São coleção extra (2026-09-14, à noite: *"só quero % de completo para
+    masterset!"*): aparecem na grelha nos blocos delas, mas a contagem por
+    níveis é a barra em degraus, e a barra é só a sequência.
     """
 
-    def test_a_runa_especial_e_a_alt_art_contam_em_todos_os_niveis(self):
+    def test_a_runa_especial_e_a_alt_art_ficam_fora_de_todos_os_niveis(self):
         con = self.v.connect()
         self.v.add_printing(con, "tst-001-100", "TST", 1, "Uma Unit")
         self.v.add_printing(con, "tst-002-100", "TST", 2, "Fury Rune",
@@ -386,13 +421,16 @@ class TestOsNiveisSaoOsDaContagemDeCadaBloco(Base):
                             variant="a", kind="alt_art", rarity="epic")
         self.v.rebuild(con)
         p = self.metrics.set_payload(con, "TST")
-        blocos = {b["id"] for b in p["blocks"]}
-        self.assertEqual(blocos, {"master", "rune_special", "alt_art"})
+        blocos = {b["id"]: b["counts"] for b in p["blocks"]}
+        self.assertEqual(blocos, {"master": True, "rune_special": False,
+                                  "alt_art": False})
         ls = p["progress"]["levels"]
-        self.assertEqual([lv["total"] for lv in ls], [4, 4, 4])
-        # Nada em casa: no nível 1 faltam as 4, no 2 as 8, e no playset as
-        # duas runas pedem 12 cada e as duas Units 3 cada.
-        self.assertEqual([lv["missing"] for lv in ls], [4, 8, 30])
+        # Só a Unit base e a runa base: as outras duas estão nos blocos que
+        # não contam.
+        self.assertEqual([lv["total"] for lv in ls], [2, 2, 2])
+        # Nada em casa: no nível 1 faltam as 2, no 2 a segunda da Unit (a runa
+        # é de alvo 1), e no playset a terceira.
+        self.assertEqual([lv["missing"] for lv in ls], [2, 3, 4])
         con.close()
 
 

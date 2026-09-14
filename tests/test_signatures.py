@@ -260,12 +260,21 @@ class TestVoltarAtras(Base):
         self.com_config({"master_set": {"fora_da_percentagem": ["*"],
                                         "escondidas": ["-T"]}})
         con = self.edicao()
-        self.assertEqual(self.blocos(con)["tst-001-star-100"], "signature")
+        b = self.blocos(con)
+        self.assertEqual(b["tst-001-star-100"], "signature")
         p = self.metrics.set_payload(con, "TST")
         blocos = {b["id"]: b for b in p["blocks"]}
         self.assertFalse(blocos["signature"]["counts"])
         self.assertEqual(blocos["signature"]["label"], "Coleção — signatures — playset")
-        self.assertEqual(p["progress"]["master"]["total"], 4)
+        # A signature da RUNA cai no bloco das runas especiais (a runa especial
+        # ganha à variante), e é por isso que esse bloco deixa de contar: uma
+        # variante que está fora da percentagem pode lá cair, e o `conta_bloco`
+        # não deixa que conte por esse caminho. A barra fica com a base, a alt
+        # art dela e a runa base — 3, e não 4: a alt art da runa vai com o
+        # bloco. É o preço de pôr as signatures a meio caminho.
+        self.assertEqual(b["tst-005-star-100"], "rune_special")
+        self.assertFalse(blocos["rune_special"]["counts"])
+        self.assertEqual(p["progress"]["master"]["total"], 3)
         con.close()
 
 

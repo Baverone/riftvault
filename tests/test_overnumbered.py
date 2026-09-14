@@ -1,29 +1,31 @@
-"""As sobrenumeradas fora da Coleção — a regra inteira, num sítio só.
+"""As sobrenumeradas: coleção extra — a regra inteira, num sítio só.
 
 André, 2026-09-10: *"no riftvault, também não quero para a coleção as
-overnumbered"*.
+overnumbered"*. E 2026-09-14, à noite: *"Alt Art, overnumbered, etc etc mete
+Playset na contagem / mas só quero % de completo para masterset! / o que é Alt
+Art e Overnumbered, etc etc é puramente coleção"*.
 
 A regra numa frase: **uma impressão cujo número de coleccionador passa o
-tamanho da edição (as «300/298») não faz parte da Coleção** — não entra na
-sequência do master set, nem no bloco das runas especiais, nem no bloco das
-artes alternativas, nem no denominador da percentagem, nem nas contagens por
-níveis, nem nas listas de compra. Continua na grelha, num bloco próprio no fim
-e com alvo 1, para as que ele TENHA continuarem visíveis e contadas.
+tamanho da edição (as «300/298») é COLEÇÃO EXTRA** — aparece na grelha num
+bloco próprio, pede o playset do tipo, entra nas listas de compra e na Venda
+como qualquer carta, mas NÃO entra na sequência do master set, no denominador
+da percentagem nem nas contagens por níveis. Até 2026-09-14 nem tinha alvo a
+sério (1) nem entrava nas listas; a frase da noite trouxe-a para a coleção sem
+a pôr a contar.
 
 **O critério é o CÓDIGO IMPRESSO**, como todas as decisões dele sobre a
 Coleção: o `public_code` traz o número E o tamanho da edição (`OGN-299*/298`),
 por isso o tamanho não é um número escrito à mão nem uma segunda consulta.
 
-**Um ponto de verdade só:** `metrics.fora_da_colecao`, pela lista
-`master_set.fora`, que passou a levar `"overnumbered"` a par dos sufixos. O
-`e_master` (a percentagem), o `bloco` (a grelha) e o âmbito do «A subir»
-perguntam todos à mesma função — é a mesma arquitetura das signatures
-(2026-09-09), para outra categoria.
+**Um ponto de verdade só:** `metrics.fora_do_master`, pela lista
+`master_set.fora_da_percentagem`, que leva `"overnumbered"` a par dos sufixos.
+O `e_master` (a percentagem), o `bloco` (a grelha) e o âmbito das listas de
+compra (`e_colecao`) perguntam todos às mesmas funções.
 
 Estes testes valem por todos os consumidores da regra: a Coleção (blocos e
 percentagem), a contagem por níveis, as wantlists (por edição e por nível), o
-«A subir» e a lista do «Master set». Se um dia um deles passar a responder
-sozinho, é aqui que se vê.
+«A subir», a lista do «Master set» e a Venda. Se um dia um deles passar a
+responder sozinho, é aqui que se vê.
 """
 
 from __future__ import annotations
@@ -73,8 +75,11 @@ class Base(unittest.TestCase):
 
         Dentro do tamanho: a Unit base, a alt art dela, a runa base e a alt art
         da runa. Acima dele: a reimpressão showcase de topo de set, a signature
-        que se lhe agarra e a alt art de uma runa — para se ver que a saída
-        ganha ao bloco das runas especiais e que a signature NÃO muda de bloco.
+        que se lhe agarra e a alt art de uma runa — para se ver que a
+        sobrenumerada é coleção extra a playset, que a signature continua
+        escondida, e que a alt art de runa sobrenumerada cai no bloco das runas
+        especiais (é coleção extra por qualquer dos dois motivos, e a runa
+        especial ganha à arte alternativa).
         """
         con = self.v.connect()
         add = self.v.add_printing
@@ -98,13 +103,19 @@ class Base(unittest.TestCase):
                     "VALUES ('tst-101-100', 200000)")
         return con
 
-    # As três que saem por serem sobrenumeradas, e as quatro que ficam.
-    ACIMA = ("tst-101-100", "tst-101-star-100", "tst-105a-100")
-    DENTRO = ("tst-001-100", "tst-001a-100", "tst-005-100", "tst-005a-100")
+    # O master set (conta), a coleção extra (aparece, não conta) e a escondida.
+    MASTER = ("tst-001-100", "tst-005-100")
+    EXTRA = ("tst-001a-100", "tst-005a-100", "tst-101-100", "tst-105a-100")
+    ESCONDIDAS = ("tst-101-star-100",)
+    # As duas que estão acima do tamanho E na página.
+    ACIMA = ("tst-101-100", "tst-105a-100")
 
     def blocos(self, con):
         p = self.metrics.set_payload(con, "TST")
         return {pr["id"]: pr["block"] for g in p["groups"] for pr in g["printings"]}
+
+    def linhas(self, con):
+        return {r["printing_id"]: r for r in con.execute("SELECT * FROM catalog.printings")}
 
 
 class TestOCriterio(Base):
@@ -141,61 +152,76 @@ class TestOCriterio(Base):
 
 
 class TestARegra(Base):
-    """Uma pergunta, uma função: `metrics.fora_da_colecao`."""
+    """Uma pergunta, uma função: `metrics.fora_do_master`."""
 
-    def test_a_sobrenumerada_nao_faz_parte_da_colecao(self):
-        self.assertFalse(self.metrics.e_master(
-            {"variant_kind": "base", "is_token": 0,
-             "public_code": "TST-101/100", "collector_number": 101}))
+    def test_a_sobrenumerada_nao_conta_mas_e_colecao(self):
+        linha = {"variant_kind": "base", "is_token": 0,
+                 "public_code": "TST-101/100", "collector_number": 101}
+        self.assertFalse(self.metrics.e_master(linha))
+        self.assertTrue(self.metrics.e_colecao(linha))
+        self.assertFalse(self.metrics.escondida(linha))
 
     def test_a_lista_do_config_e_a_mesma_dos_sufixos(self):
         self.assertTrue(self.metrics.fora_overnumbered())
         self.assertEqual(self.metrics.FORA_OVERNUMBERED, "overnumbered")
-        # E continua a levar as signatures: são duas entradas da mesma lista.
+        # E a mesma gramática serve as duas listas: as signatures, que estão
+        # escondidas, também não contam — o `kinds_fora` junta as duas.
         self.assertIn("signature", self.metrics.kinds_fora())
+        self.assertIn("signature", self.metrics.kinds_escondidas())
 
     def test_um_valor_desconhecido_continua_a_rebentar(self):
         """Ponto 6 das "Superfícies não validadas": um sufixo novo tem de dar erro."""
-        self.com_config({"master_set": {"fora": ["overnumbered", "b"]}})
+        self.com_config({"master_set": {"fora_da_percentagem": ["overnumbered", "b"]}})
         with self.assertRaises(ValueError):
             self.metrics.kinds_fora()
 
-    def test_o_alvo_da_sobrenumerada_e_1(self):
-        """Uma Unit base pediria 3; fora da coleção pede 1, como as signatures."""
+    def test_o_alvo_da_sobrenumerada_e_o_playset_do_tipo(self):
+        """*"overnumbered […] mete Playset na contagem"*: uma Unit pede 3."""
         con = self.edicao()
         tiles = {pr["id"]: pr for g in self.metrics.set_payload(con, "TST")["groups"]
                  for pr in g["printings"]}
-        self.assertEqual(tiles["tst-101-100"]["target"], 1)
-        # E a que ficou dentro continua com o playset do tipo.
+        self.assertEqual(tiles["tst-101-100"]["target"], 3)
         self.assertEqual(tiles["tst-001-100"]["target"], 3)
+        # A runa sobrenumerada é runa: 1, como todas as runas.
+        self.assertEqual(tiles["tst-105a-100"]["target"], 1)
         con.close()
 
 
 class TestColecao(Base):
-    """Nem na sequência, nem nas runas especiais, nem nas artes alternativas."""
+    """Na grelha, num bloco próprio; fora da sequência e da percentagem."""
 
-    def test_vai_para_um_bloco_proprio_no_fim(self):
+    def test_vai_para_um_bloco_proprio(self):
         con = self.edicao()
         self.assertEqual(self.blocos(con)["tst-101-100"], "overnumbered")
+        self.assertEqual(self.metrics.rotulo("overnumbered"),
+                         "Coleção — sobrenumeradas — playset")
         con.close()
 
-    def test_a_alt_art_de_uma_runa_sobrenumerada_tambem_sai(self):
-        """A saída ganha ao bloco 2 — a runa especial só vale dentro da coleção."""
+    def test_a_alt_art_de_uma_runa_sobrenumerada_fica_nas_runas_especiais(self):
+        """É coleção extra pelos dois motivos; o bloco é o das runas.
+
+        Antes de 2026-09-14 a saída ganhava ao bloco 2 porque «fora» era
+        fora da página; hoje os dois blocos são a mesma coisa (coleção extra,
+        não conta) e a runa especial ganha à arte alternativa, como sempre.
+        """
         con = self.edicao()
         b = self.blocos(con)
         self.assertEqual(b["tst-005a-100"], "rune_special")
-        self.assertEqual(b["tst-105a-100"], "overnumbered")
+        self.assertEqual(b["tst-105a-100"], "rune_special")
+        self.assertFalse(self.metrics.e_master(self.linhas(con)["tst-105a-100"]))
         con.close()
 
-    def test_a_signature_fica_no_bloco_das_signatures(self):
-        """Todas as signatures são sobrenumeradas, e mesmo assim não mudam de bloco.
+    def test_a_signature_continua_escondida_e_nao_muda_de_motivo(self):
+        """Todas as signatures são sobrenumeradas, e mesmo assim são «signature».
 
-        A ordem dos critérios em `fora_da_colecao` é variante primeiro, número
-        depois: o que tirou as signatures foi a frase de 2026-09-09, e mudá-las
-        de cabeçalho agora era apagar essa decisão do ecrã.
+        A ordem dos critérios em `fora_do_master` é variante primeiro, número
+        depois: o que as tirou foi a frase de 2026-09-09, e o `bloco` continua
+        a dizer o motivo certo mesmo não a pondo na grelha.
         """
         con = self.edicao()
-        self.assertEqual(self.blocos(con)["tst-101-star-100"], "signature")
+        self.assertNotIn("tst-101-star-100", self.blocos(con))
+        self.assertEqual(self.metrics.bloco(self.linhas(con)["tst-101-star-100"]),
+                         "signature")
         con.close()
 
     def test_o_bloco_nao_conta_para_a_percentagem(self):
@@ -203,51 +229,52 @@ class TestColecao(Base):
         p = self.metrics.set_payload(con, "TST")
         blocos = {b["id"]: b for b in p["blocks"]}
         self.assertFalse(blocos["overnumbered"]["counts"])
-        self.assertEqual(blocos["overnumbered"]["total"], 2)
-        # A barra são as quatro de dentro: base, alt art, runa base, runa esp.
-        self.assertEqual(p["progress"]["master"]["total"], len(self.DENTRO))
+        self.assertEqual(blocos["overnumbered"]["total"], 1)
+        # A barra são as duas da sequência: base e runa base.
+        self.assertEqual(p["progress"]["master"]["total"], len(self.MASTER))
         self.assertEqual(sum(b["total"] for b in p["blocks"] if b["counts"]),
                          p["progress"]["master"]["total"])
         con.close()
 
     def test_a_que_ele_tem_continua_visivel_e_contada_no_bloco(self):
-        """Sai da conta da coleção, não da grelha nem da caixa."""
+        """Sai da conta da percentagem, não da grelha nem da caixa."""
         from riftvault import collection
         con = self.edicao()
-        collection.adjust(con, "tst-101-100", 1, source="test")
+        collection.adjust(con, "tst-101-100", 3, source="test")
         p = self.metrics.set_payload(con, "TST")
         tiles = {pr["id"]: pr for g in p["groups"] for pr in g["printings"]}
-        self.assertEqual(tiles["tst-101-100"]["qty"], 1)
+        self.assertEqual(tiles["tst-101-100"]["qty"], 3)
         blocos = {b["id"]: b for b in p["blocks"]}
         self.assertEqual((blocos["overnumbered"]["done"],
-                          blocos["overnumbered"]["total"]), (1, 2))
-        # E não entra no "se estivesse completa": 2000 € de reimpressão de topo
-        # não são preço de fechar a coleção.
+                          blocos["overnumbered"]["total"]), (1, 1))
+        # Vale o que ele tem, e não entra no "se estivesse completa": 2000 € de
+        # reimpressão de topo não são preço de fechar o master set.
+        self.assertEqual(p["progress"]["value"]["owned"], 3 * 200000)
         self.assertEqual(p["progress"]["value"]["full"], 0)
         con.close()
 
-    def test_a_ordem_da_grelha_poe_o_bloco_depois_da_colecao(self):
+    def test_a_ordem_da_grelha_poe_o_bloco_depois_do_master_set(self):
         con = self.edicao()
         ordem = self.metrics.ordem_da_grelha(self.metrics.set_payload(con, "TST"))
         blocos = [b for b, _ in ordem]
-        # As duas sobrenumeradas são as últimas da grelha, e nada da coleção
-        # aparece depois delas — nunca intercaladas, como os outros blocos.
-        self.assertEqual(blocos[-2:], ["overnumbered", "overnumbered"])
+        # A sobrenumerada é a última da grelha, e nada que conte aparece
+        # depois dela — nunca intercaladas, como os outros blocos.
+        self.assertEqual(blocos[-1], "overnumbered")
         self.assertLess(max(i for i, b in enumerate(blocos)
                             if self.metrics.conta_bloco(b)),
-                        min(i for i, b in enumerate(blocos) if b == "overnumbered"))
+                        blocos.index("overnumbered"))
         con.close()
 
 
 class TestContagemPorNiveis(Base):
-    """Os degraus 1/2/3 medem o mesmo âmbito da barra — sem sobrenumeradas."""
+    """Os degraus 1/2/3 medem o mesmo âmbito da barra — só o master set."""
 
     def test_o_ambito_dos_niveis_nao_leva_sobrenumeradas(self):
         con = self.edicao()
-        self.assertEqual(len(self.metrics.itens_da_colecao(con)), len(self.DENTRO))
+        self.assertEqual(len(self.metrics.itens_da_colecao(con)), len(self.MASTER))
         n = self.metrics.niveis_payload(con)
-        self.assertEqual(n["levels"][0]["total"], len(self.DENTRO))
-        self.assertEqual(n["by_set"]["TST"][0]["total"], len(self.DENTRO))
+        self.assertEqual(n["levels"][0]["total"], len(self.MASTER))
+        self.assertEqual(n["by_set"]["TST"][0]["total"], len(self.MASTER))
         con.close()
 
     def test_o_ultimo_degrau_continua_a_ser_a_barra(self):
@@ -268,11 +295,11 @@ class TestContagemPorNiveis(Base):
         con.close()
 
 
-class TestPartilhaComOASubir(Base):
-    """O «a subir» exclui pelo MESMO critério — não tem uma cópia da regra."""
+class TestListasDeCompra(Base):
+    """As listas de compra levam a coleção extra — pelo MESMO critério."""
 
-    def test_o_ambito_do_a_subir_e_exactamente_o_que_o_e_master_deixa_passar(self):
-        """A partilha, fixada: uma função responde às duas páginas.
+    def test_o_ambito_das_listas_e_exactamente_o_que_o_e_colecao_deixa_passar(self):
+        """A partilha, fixada: uma função responde a todas as páginas.
 
         Se um dia o `a_subir` passar a calcular o seu próprio âmbito, isto
         parte — que é o ponto.
@@ -281,49 +308,77 @@ class TestPartilhaComOASubir(Base):
         escopo = set(self.a_subir.masterset(con))
         pela_metrica = {r["printing_id"] for r in
                         con.execute("SELECT * FROM catalog.printings")
-                        if self.metrics.e_master(r)}
+                        if self.metrics.e_colecao(r)}
         self.assertEqual(escopo, pela_metrica)
-        self.assertEqual(escopo, set(self.DENTRO))
+        self.assertEqual(escopo, set(self.MASTER + self.EXTRA))
         con.close()
 
-    def test_nenhuma_sobrenumerada_entra_em_lista_de_compra_nenhuma(self):
-        """A rede de segurança: se uma entrar por algum lado, isto apanha-a.
-
-        São os cinco consumidores da regra — o âmbito do «A subir», a lista do
-        «Master set», e as wantlists nos três degraus.
-        """
+    def test_a_sobrenumerada_entra_em_todas_as_listas_de_compra_a_playset(self):
+        """Os cinco consumidores — «A subir», «Master set», wantlists nos três
+        degraus — pedem-na, e a signature não entra em nenhum."""
         con = self.edicao()
         ambitos = {"a_subir": set(self.a_subir.masterset(con))}
         m = self.a_subir.master_faltas(con)
-        ambitos["master_faltas"] = {x["printing_id"]
-                                    for s in m["sets"] for x in s["items"]}
+        itens = {x["printing_id"]: x for s in m["sets"] for x in s["items"]}
+        ambitos["master_faltas"] = set(itens)
         for nivel in (1, 2, None):
             p = self.a_subir.wantlist(con, "TST", nivel=nivel)
             ambitos[f"wantlist:{nivel}"] = {x["printing_id"] for x in p["items"]}
         for nome, pids in ambitos.items():
             with self.subTest(consumidor=nome):
-                self.assertEqual(pids & set(self.ACIMA), set())
+                self.assertEqual(pids & set(self.ACIMA), set(self.ACIMA))
+                self.assertEqual(pids & set(self.ESCONDIDAS), set())
+        # A playset do tipo: 3 numa Unit, 1 numa runa. E os 2000 € contam.
+        self.assertEqual(itens["tst-101-100"]["missing"], 3)
+        self.assertEqual(itens["tst-105a-100"]["missing"], 1)
+        self.assertEqual(itens["tst-101-100"]["total"], 3 * 200000)
         con.close()
 
-    def test_nao_sao_contadas_como_excluidas__nunca_estiveram_no_ambito(self):
-        """A página diz quantas TIROU; estas saem antes, com a coleção."""
+    def test_a_wantlist_por_nivel_corta_a_como_ao_resto(self):
+        con = self.edicao()
+        w = self.a_subir.wantlist(con, "TST", nivel=1)
+        por_pid = {x["printing_id"]: x["missing"] for x in w["items"]}
+        self.assertEqual(por_pid["tst-101-100"], 1)
+        con.close()
+
+    def test_nao_sao_contadas_como_excluidas(self):
+        """A página diz quantas TIROU; estas entram, e a signature nunca chega."""
         con = self.edicao()
         self.assertEqual(self.a_subir.master_faltas(con)["scope"]["excluded"], 0)
         con.close()
 
+    def test_o_botao_para_as_tirar_das_listas_existe_e_conta_las(self):
+        """`a_subir.excluir.blocos: ["overnumbered"]` — vazio até ele decidir.
+
+        As sobrenumeradas a playset valem dinheiro a sério (os Poros do UNL) e
+        ele nunca disse se as compra; o botão fica pronto e a página diz
+        quantas tirou por esse motivo.
+        """
+        self.com_config({"a_subir": {"excluir": {"blocos": ["overnumbered"]}}})
+        con = self.edicao()
+        m = self.a_subir.master_faltas(con)
+        pids = {x["printing_id"] for s in m["sets"] for x in s["items"]}
+        self.assertNotIn("tst-101-100", pids)
+        # A alt art de runa sobrenumerada está no bloco das runas, não neste.
+        self.assertIn("tst-105a-100", pids)
+        self.assertEqual(m["scope"]["excluded"], 1)
+        self.assertEqual(m["scope"]["excluded_by"],
+                         [{"criterio": "overnumbered", "n": 1}])
+        con.close()
+
 
 class TestVenda(Base):
-    """A consequência que ele não pediu — a mesma das signatures, 2026-09-09.
+    """Uma sobrenumerada é coleção extra: só sobra acima do playset.
 
-    O âmbito da Venda é "não é o bloco `master`", e as sobrenumeradas passaram a
-    estar nesse caso: uma que ele tenha e nenhum deck use aparece como candidata
-    a venda. **É pergunta para ele** — hoje são 5 impressões no `vault.db` real.
-    Fica fixado para não mudar sem se dar por isso.
+    Até 2026-09-14 o alvo era 1 e a Venda propunha a segunda; e antes disso
+    (2026-09-10) propunha a primeira. Hoje a Coleção pede-lhe as 3.
     """
 
-    def test_uma_sobrenumerada_que_ele_tenha_aparece_como_candidata(self):
+    def test_so_sobra_acima_do_playset(self):
         from riftvault import collection
         con = self.edicao()
+        collection.adjust(con, "tst-101-100", 3, source="test")
+        self.assertEqual(self.venda.listar(con)["items"], [])
         collection.adjust(con, "tst-101-100", 1, source="test")
         itens = {x["printing_id"]: x for x in self.venda.listar(con)["items"]}
         self.assertIn("tst-101-100", itens)
@@ -333,19 +388,30 @@ class TestVenda(Base):
 
 
 class TestVoltarAtras(Base):
-    """Tirar o `overnumbered` do config põe tudo como estava — uma linha."""
+    """Tirar o `overnumbered` do config põe-nas na sequência — uma linha."""
 
-    def test_sem_a_palavra_a_sobrenumerada_volta_a_todos_os_sitios(self):
-        self.com_config({"master_set": {"fora": ["-T", "*"]}})
+    def test_sem_a_palavra_a_sobrenumerada_volta_ao_master_set(self):
+        self.com_config({"master_set": {"fora_da_percentagem": ["a", "-R", "promo"],
+                                        "escondidas": ["-T", "*"]}})
         con = self.edicao()
         self.assertFalse(self.metrics.fora_overnumbered())
         b = self.blocos(con)
         self.assertEqual(b["tst-101-100"], "master")
         self.assertEqual(b["tst-105a-100"], "rune_special")
-        # A signature continua fora: é a outra decisão, e é outra entrada.
-        self.assertEqual(b["tst-101-star-100"], "signature")
+        # A signature continua escondida: é a outra lista.
+        self.assertNotIn("tst-101-star-100", b)
+        # A barra passa a contar as três da sequência: base, runa base e a
+        # sobrenumerada, que volta a ser master set.
         self.assertEqual(
-            self.metrics.set_payload(con, "TST")["progress"]["master"]["total"], 6)
+            self.metrics.set_payload(con, "TST")["progress"]["master"]["total"], 3)
+        con.close()
+
+    def test_o_nome_antigo_da_lista_continua_a_ser_lido(self):
+        """`master_set.fora` (2026-09-08 a 2026-09-14) vale como `fora_da_percentagem`."""
+        self.com_config({"master_set": {"fora": ["-T", "*"]}})
+        con = self.edicao()
+        self.assertFalse(self.metrics.fora_overnumbered())
+        self.assertEqual(self.blocos(con)["tst-101-100"], "master")
         con.close()
 
 

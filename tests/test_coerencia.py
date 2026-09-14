@@ -6,12 +6,18 @@ da wantlist («360 cópias a comprar»). São perguntas diferentes — a contage
 métrica e a lista é de compra — mas vistos lado a lado sem explicação liam-se
 como um erro de contagem, e por isso a linha passou a dizer a diferença.
 
-O que se fixa aqui é o que essa frase promete:
+Desde 2026-09-14 à noite os dois âmbitos já não são o mesmo: a contagem é SÓ o
+master set (*"só quero % de completo para masterset!"*) e a lista de compra
+leva também a coleção extra — artes alternativas, sobrenumeradas, promos — ao
+playset (*"Alt Art, overnumbered, etc etc mete Playset na contagem"*). O que se
+fixa aqui é o que a frase do ecrã promete:
 
-  1. a lista de compra NUNCA pede mais cópias do que a contagem diz que faltam;
-  2. a diferença vem só de duas coisas — as exclusões das listas de compra
+  1. NO MASTER SET, a lista de compra nunca pede mais cópias do que a contagem
+     diz que faltam;
+  2. aí, a diferença vem só de duas coisas — as exclusões das listas de compra
      (signatures e showcases) e o que já vem a caminho;
-  3. sem nenhuma delas, os dois números são o MESMO.
+  3. sem nenhuma delas, e sem coleção extra, os dois números são o MESMO;
+  4. o que a lista pede A MAIS do que a contagem é exactamente a coleção extra.
 
 Se um dia divergirem por outro motivo, é a frase no ecrã que passa a mentir.
 """
@@ -43,23 +49,27 @@ class Base(unittest.TestCase):
         con.execute("INSERT INTO catalog.price_latest (printing_id, price_cents, "
                     "from_foil) VALUES (?,?,0)", (pid, cents))
 
-    def montar(self, com_excluidas=True):
-        """Uma edição com uma Unit, um Legend e uma arte alternativa.
+    def montar(self, com_excluidas=True, com_extra=True):
+        """Uma edição com uma Unit, um Legend e — com `com_extra` — uma arte
+        alternativa, que é coleção extra: entra na lista a playset (3) e não
+        entra na contagem.
 
         Com `com_excluidas`, junta as duas que as listas de compra deixam de
-        fora: uma signature (variante) e uma reimpressão de raridade showcase
-        (raridade). As duas contam na percentagem e não na lista de compra —
-        é exactamente a diferença que a linha do ecrã explica.
+        fora: uma signature (variante, e escondida desde 2026-09-11 — não conta
+        em lado nenhum) e uma reimpressão de raridade showcase (raridade), que
+        conta na percentagem e não na lista de compra — é exactamente a
+        diferença que a linha do ecrã explica.
         """
         con = self.v.connect()
         self.v.add_printing(con, "tst-001-100", "TST", 1, "Uma Unit")
         self.v.add_printing(con, "tst-002-100", "TST", 2, "Um Legend",
                             card_type="Legend")
-        self.v.add_printing(con, "tst-003a-100", "TST", 3, "Uma alt",
-                            variant="a", kind="alt_art", rarity="epic")
         self.preco(con, "tst-001-100", 100)
         self.preco(con, "tst-002-100", 500)
-        self.preco(con, "tst-003a-100", 900)
+        if com_extra:
+            self.v.add_printing(con, "tst-003a-100", "TST", 3, "Uma alt",
+                                variant="a", kind="alt_art", rarity="epic")
+            self.preco(con, "tst-003a-100", 900)
         if com_excluidas:
             self.v.add_printing(con, "tst-004-star-100", "TST", 4, "Uma signature",
                                 variant="star", kind="signature", rarity="showcase")
@@ -74,9 +84,15 @@ class Base(unittest.TestCase):
         """As cópias que o último degrau da contagem diz que faltam."""
         return self.metrics.set_payload(con, "TST")["progress"]["levels"][-1]["missing"]
 
-    def a_comprar(self, con):
-        """As cópias que a wantlist da edição pede."""
-        return self.a_subir.wantlist(con, "TST")["copies"]
+    def a_comprar(self, con, so_master=False):
+        """As cópias que a wantlist da edição pede — todas, ou só as do bloco 1."""
+        itens = self.a_subir.wantlist(con, "TST")["items"]
+        if so_master:
+            linhas = {r["printing_id"]: r
+                      for r in con.execute("SELECT * FROM catalog.printings")}
+            itens = [x for x in itens if self.metrics.bloco(linhas[x["printing_id"]])
+                     == self.metrics.BLOCO_MASTER]
+        return sum(x["missing"] for x in itens)
 
 
 class TestAListaNuncaPedeMaisDoQueAContagem(Base):
@@ -86,7 +102,8 @@ class TestAListaNuncaPedeMaisDoQueAContagem(Base):
         con = self.montar()
         collection.adjust(con, "tst-001-100", 1, source="test")
         pending.add(con, "tst-002-100", 1)
-        self.assertLessEqual(self.a_comprar(con), self.faltam_no_playset(con))
+        self.assertLessEqual(self.a_comprar(con, so_master=True),
+                             self.faltam_no_playset(con))
         con.close()
 
     def test_a_diferenca_sao_as_exclusoes_e_o_que_vem_a_caminho(self):
@@ -95,21 +112,30 @@ class TestAListaNuncaPedeMaisDoQueAContagem(Base):
         pending.add(con, "tst-001-100", 2)
         # showcase 3 (o playset da Unit) = 3 cópias excluídas das listas de
         # compra, mais as 2 que já vêm a caminho. A signature não entra na
-        # conta de nenhum dos lados desde 2026-09-09: saiu da coleção.
-        self.assertEqual(self.faltam_no_playset(con) - self.a_comprar(con), 3 + 2)
+        # conta de nenhum dos lados: está escondida.
+        self.assertEqual(
+            self.faltam_no_playset(con) - self.a_comprar(con, so_master=True), 3 + 2)
         con.close()
 
     def test_sem_exclusoes_nem_pendente_sao_o_mesmo_numero(self):
-        con = self.montar(com_excluidas=False)
+        con = self.montar(com_excluidas=False, com_extra=False)
         self.assertEqual(self.a_comprar(con), self.faltam_no_playset(con))
+        con.close()
+
+    def test_o_que_a_lista_pede_a_mais_e_a_colecao_extra(self):
+        """A alt art (alvo 3) está na lista e não na contagem — e é só ela."""
+        con = self.montar(com_excluidas=False)
+        self.assertEqual(self.a_comprar(con) - self.faltam_no_playset(con), 3)
+        self.assertEqual(self.a_comprar(con, so_master=True),
+                         self.faltam_no_playset(con))
         con.close()
 
     def test_a_contagem_conta_o_que_a_lista_de_compra_exclui(self):
         """A métrica não sabe do `a_subir.excluir` — e não pode passar a saber.
 
         A reimpressão showcase conta na barra e não se compra. A signature já
-        não faz nem uma coisa nem outra: saiu da coleção a 2026-09-09, e isso é
-        outra decisão — a que o `master_set.fora` responde.
+        não faz nem uma coisa nem outra: está escondida (`master_set.escondidas`),
+        e isso é outra decisão.
         """
         con = self.montar()
         p = self.metrics.set_payload(con, "TST")
@@ -117,10 +143,12 @@ class TestAListaNuncaPedeMaisDoQueAContagem(Base):
                     if self.metrics.conta_bloco(pr["block"])}
         self.assertIn("tst-005-100", contadas)
         self.assertNotIn("tst-004-star-100", contadas)
-        # E nenhuma delas aparece na lista de compra.
+        self.assertNotIn("tst-003a-100", contadas)
+        # E nenhuma das duas aparece na lista de compra; a alt art sim.
         na_lista = {x["printing_id"] for x in self.a_subir.wantlist(con, "TST")["items"]}
         self.assertNotIn("tst-004-star-100", na_lista)
         self.assertNotIn("tst-005-100", na_lista)
+        self.assertIn("tst-003a-100", na_lista)
         con.close()
 
 
