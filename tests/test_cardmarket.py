@@ -123,15 +123,16 @@ class TestSignaturesFora(Base):
         con.close()
 
     def test_a_signature_saiu_tambem_da_percentagem_de_set(self):
-        """2026-09-09: *"das coleções tira as signatures"*. Sai das duas."""
+        """2026-09-09: *"das coleções tira as signatures"*. Sai das duas — e
+        desde 2026-09-11 nem aparece na página (`master_set.escondidas`)."""
         con = self.montar()
-        self.assertFalse(self.metrics.e_master(
-            {"variant_kind": "signature", "is_token": 0}))
-        # O ALVO não mexeu — o tile continua a dizer-lhe 0/1 no bloco de fora.
-        alvo = self.metrics.master_target("tst-002-star-100", "signature", "Unit", False)
-        self.assertEqual(alvo, 1)
-        prog = self.metrics.set_payload(con, "TST")["progress"]["master"]
-        self.assertEqual(prog["total"], 1)      # só a base
+        linha = {"variant_kind": "signature", "is_token": 0}
+        self.assertFalse(self.metrics.e_master(linha))
+        self.assertTrue(self.metrics.escondida(linha))
+        p = self.metrics.set_payload(con, "TST")
+        self.assertEqual(p["progress"]["master"]["total"], 1)      # só a base
+        self.assertNotIn("tst-002-star-100",
+                         [pr["id"] for g in p["groups"] for pr in g["printings"]])
         con.close()
 
     def test_lista_vazia_no_config_traz_a_signature_de_volta(self):

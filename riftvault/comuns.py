@@ -257,10 +257,10 @@ def universo(con: sqlite3.Connection, cfg: dict | None = None,
             # Negativo = há menos anúncios do que havia. É esse o sinal bom.
             "pct_listings": pct_of,
             "demand": round(procura(preco, mediana, pct, pct_of), 1),
-            # O que está fora da Coleção (sobrenumeradas, tokens, ...) diz
+            # O que está fora do master set (sobrenumeradas, tokens, ...) diz
             # porquê: é o caso dos Poros do UNL, que são comuns de raridade mas
             # reimpressões de topo de set — ver a ARMADILHA 2 do CLAUDE.md.
-            "outside": metrics.fora_da_colecao(r, cfg),
+            "outside": metrics.fora_do_master(r, cfg),
             "have": tenho.get(r["printing_id"], 0),
             # `qty` é o excedente, e chama-se `qty` porque é o que o gerador do
             # Cardmarket lê nas listas de venda (ver `cardmarket.quantidade`).

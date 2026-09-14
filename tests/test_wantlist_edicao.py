@@ -136,9 +136,11 @@ class TestUmaListaPorEdicao(Base):
 class TestAlvosDosTresBlocos(Base):
     """Os alvos são os da Coleção — a wantlist não tem alvos próprios.
 
-    Desde *"muda tudo para playset"* (André, 2026-09-14) é o playset do tipo em
-    todos os blocos: Unit 3, Legend 1, runa **12** (base ou especial), arte
-    alternativa o playset do tipo dela. Ver `metrics.master_target`.
+    Desde 2026-09-14 à noite (*"quero masterset com playset / runas 1 de cada /
+    Alt Art, overnumbered, etc etc mete Playset na contagem"*) é o playset do
+    tipo em todos os blocos — Unit 3, Legend 1, arte alternativa o playset do
+    tipo dela — **excepto as runas, que são 1**, base ou especial. Ver
+    `metrics.master_target`.
     """
 
     def montar(self):
@@ -163,23 +165,24 @@ class TestAlvosDosTresBlocos(Base):
         self.assertEqual(alvos, {
             "tst-001-100": (3, 3),          # Unit na sequência: playset
             "tst-002-100": (1, 1),          # Legend na sequência: 1
-            "tst-003-100": (12, 12),        # runa base: o playset, 12
-            "tst-003a-100": (12, 12),       # runa especial: 12 também
+            "tst-003-100": (1, 1),          # runa base: 1 de cada
+            "tst-003a-100": (1, 1),         # runa especial: 1 também
             "tst-004-100": (3, 3),          # arte alternativa de Unit: 3
         })
         con.close()
 
-    def test_a_runa_pede_o_playset_de_12(self):
-        """Colecionar passou a ser o mesmo número que jogar: o Rune Pool é 12."""
+    def test_a_runa_pede_1_e_o_playset_jogavel_continua_12(self):
+        """*"runas 1 de cada"*: colecionar uma runa é ter uma; jogar são 12, e
+        isso é a métrica 1 e o Rune Pool dos decks, que não mexem."""
         con = self.montar()
         p = self.a_subir.wantlist(con, "TST")
         runa = next(x for x in p["items"] if x["printing_id"] == "tst-003-100")
-        self.assertEqual(runa["target"], 12)
+        self.assertEqual(runa["target"], 1)
         self.assertEqual(self.metrics.playset_target("Rune", False), 12)
         con.close()
 
     def test_os_tokens_ficam_fora(self):
-        """Estão fora da coleção (`master_set.fora`), logo fora da wantlist."""
+        """Estão escondidos (`master_set.escondidas`), logo fora da wantlist."""
         con = self.montar()
         self.v.add_printing(con, "tst-t01-100", "TST", 90, "Recruit",
                             variant="t01", kind="token")
