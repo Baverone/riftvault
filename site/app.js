@@ -26,8 +26,9 @@ const state = {
   play: new Map(),             // card_key -> {owned, target}
   targets: new Map(),          // printing_id -> alvo do master (o do tile)
   // printing_id -> bloco da grelha. A Coleção são três blocos seguidos —
-  // 'master' (a sequência, em playset — mas as runas a 1), 'rune_special'
-  // (1 de cada) e 'alt_art' (1 de cada) — e os três contam para a
+  // 'master' (a sequência), 'rune_special' e 'alt_art' —, os três em playset
+  // do tipo desde 2026-09-14 («muda tudo para playset»; até aí as runas, as
+  // runas especiais e as alt arts pediam 1), e os três contam para a
   // percentagem. O que ficou fora da
   // coleção vai para blocos próprios no fim. Ver `metrics.BLOCOS`.
   blocks: new Map(),
@@ -546,10 +547,13 @@ function niveisLinha(rotulo, ls) {
 function niveisChip(lv, n) {
   const pct = lv.total ? Math.round((lv.done / lv.total) * 100) : 0;
   const feito = !lv.missing;
+  // O último degrau é o playset INTEIRO de cada impressão (3 numa Unit, 12
+  // numa runa desde 2026-09-14) — é a barra do master set, por degraus.
   const rotulo = lv.k === n ? `playset (${lv.k}/${n})` : `${lv.k}/${n}`;
   return `<span class="rarity nivel ${feito ? 'is-done' : ''}"
-    title="${lv.done} de ${lv.total} impressões já com ${lv.k} cópia${lv.k === 1 ? '' : 's'}${
-      lv.k === n ? ' (ou o alvo delas, se for menor)' : ' ou o alvo delas, se for menor'}"
+    title="${lv.done} de ${lv.total} impressões já ${
+      lv.k === n ? 'com o playset delas (3 numa Unit, 12 numa runa, 1 num Legend)'
+        : `com ${lv.k} cópia${lv.k === 1 ? '' : 's'} ou o alvo delas, se for menor`}"
     >${rotulo} <b>${pct} %</b>${feito ? ' · completo'
       : ` · faltam <b>${lv.missing}</b>${lv.cents ? ` · ${eur(lv.cents)}` : ''}`}</span>`;
 }
@@ -670,9 +674,9 @@ function renderWantlists() {
   // O que o degrau muda na lista, dito por extenso: sem isto, uma lista que
   // encolhe a metade parece que perdeu cartas.
   const doNivel = nivel
-    ? ` Está no degrau <b>até ${nivel} de cada</b>: das cartas com playset pede-se
-        ${nivel}, e as de alvo <b>1</b> (runas, Legends, Battlefields, runas
-        especiais e artes alternativas) vão sempre por inteiro.`
+    ? ` Está no degrau <b>até ${nivel} de cada</b>: de cada carta pede-se no
+        máximo ${nivel}, e as de alvo <b>1</b> (Legends e Battlefields) vão
+        sempre por inteiro.`
     : '';
 
   zona.innerHTML = `
@@ -680,11 +684,11 @@ function renderWantlists() {
       esta lista foi feita. <button class="btn ghost" id="wl-refresh">Atualizar</button></p>` : ''}
 
     ${wlBloco('wl-edicao', `Wantlist Cardmarket — ${escapeHTML(nome)}`, daEdicao,
-      `Tudo o que falta desta edição ao <b>master set</b>, pelos alvos dos três
-       blocos da Coleção: <b>playset</b> na sequência, <b>1</b> por runa,
-       <b>1</b> por runa especial e <b>1</b> por arte alternativa. Conta
-       enquanto <b>cópias + a caminho &lt; alvo</b>, e vai por número de
-       coleção.${doNivel}${foraTexto(m.scope)}`, nivel)}
+      `Tudo o que falta desta edição ao <b>master set</b>, ao <b>playset</b>
+       do tipo em todos os blocos da Coleção (Unit/Spell/Gear 3, runa 12,
+       Legend e Battlefield 1 — sequência, runas especiais e artes
+       alternativas por igual). Conta enquanto <b>cópias + a caminho &lt;
+       alvo</b>, e vai por número de coleção.${doNivel}${foraTexto(m.scope)}`, nivel)}
 
     ${wlBloco('wl-tudo', 'Wantlist — tudo', todas,
       `As cinco edições seguidas, na ordem dos separadores. É a mesma lista da
@@ -1862,7 +1866,7 @@ function foraTexto(scope) {
   return `<br>Fora da lista: <b>${scope.excluded}</b> impressões
     (${motivos}) — continuam a contar na percentagem de master set,
     só não entram nas listas de compra. A exclusão é da <b>sequência</b>: as
-    runas especiais e as artes alternativas entram na mesma, 1 de cada.`;
+    runas especiais e as artes alternativas entram na mesma, ao playset.`;
 }
 
 function renderASubir() {
@@ -2660,7 +2664,8 @@ function renderVenda() {
     <p class="note">Só o que <b>tens na caixa</b> e a <b>sequência do master
       set</b> não pede: os tokens (<code>-T</code>), que estão fora da coleção,
       e as cópias a mais das runas especiais e das artes alternativas — dessas
-      guarda-se <b>1 de cada</b>, que é o que a coleção pede, e só sobra o
+      guarda-se o <b>playset</b> (3 numa Unit, 12 numa runa — desde 14/09, «muda
+      tudo para playset»), que é o que a coleção pede, e só sobra o
       resto. O que algum deck usa fica de fora da lista e aparece
       em baixo${v.in_decks ? `: são <b>${v.in_decks}</b> impressões,
       ${v.in_decks_copies} cópias` : ''}.
