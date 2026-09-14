@@ -507,8 +507,12 @@ def e_master(printing, cfg: dict | None = None) -> bool:
     Aceita uma linha do `catalog.printings` ou qualquer dicionário com
     `variant_kind` e `is_token` — as sobrenumeradas precisam também do
     `public_code` e do `collector_number`, e sem eles a resposta é "não é".
+
+    É `conta_bloco(bloco(...))`, e não o `fora_do_master` directamente, para a
+    barra (que soma por bloco) e os níveis (que somam por impressão) não
+    poderem discordar: uma runa especial conta se e só se o bloco dela conta.
     """
-    return fora_do_master(printing, cfg) is None
+    return conta_bloco(bloco(printing, cfg), cfg)
 
 
 def e_colecao(printing, cfg: dict | None = None) -> bool:
@@ -562,7 +566,11 @@ def conta_bloco(bloco_id: str, cfg: dict | None = None) -> bool:
         return True
     kinds = kinds_fora(cfg)
     if bloco_id == BLOCO_RUNA:
-        return not any(k in kinds for k in KIND_ORDER if k != "base")
+        # As variantes que podem cair neste bloco: tudo o que não é a base (o
+        # `excepto`) nem um token — um token nunca é runa especial.
+        variantes = (set(KIND_ORDER) - {"token", "unknown"}
+                     - set(opcoes_runa(cfg).get("excepto") or ()))
+        return not (variantes & kinds)
     if bloco_id in KIND_ORDER:
         return bloco_id not in kinds
     return False

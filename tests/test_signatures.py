@@ -3,18 +3,20 @@
 André, 2026-09-09: *"no riftvault, das coleções tira as signatures, fazemos 1
 Alt Art de cada mas as signature não"*.
 
-A regra numa frase: **uma impressão de signature (o `*` do código impresso,
-`variant_kind = "signature"`) não faz parte da Coleção** — não entra na
-sequência do master set, não entra no bloco das runas especiais, não entra no
-bloco das artes alternativas, e não entra no denominador da percentagem nem nas
-contagens por níveis nem nas listas de compra. Continua na grelha, num bloco
-próprio no fim e com alvo, para as que ele TENHA continuarem visíveis e
-contadas.
+E 2026-09-11: *"podes tirar as signatures da coleção, nunca vou colocar
+nenhuma, não vale a pena estarem lá"*.
 
-**Um ponto de verdade só:** `metrics.e_master`, pela lista `master_set.fora`
-(o `"*"` traduz-se para `variant_kind = "signature"` em `metrics.SUFIXO_KIND`).
-É o mesmo critério que o `a_subir.excluir` já usava para as tirar das listas de
-compra — não há segunda definição de "isto é uma signature".
+A regra numa frase: **uma impressão de signature (o `*` do código impresso,
+`variant_kind = "signature"`) está ESCONDIDA** — não entra na sequência do
+master set, não entra em bloco nenhum da grelha, não entra no denominador da
+percentagem nem nas contagens por níveis nem nas listas de compra. O que ele
+tenha continua no vault, no valor e na Venda.
+
+**Um ponto de verdade só:** `metrics.escondida`, pela lista
+`master_set.escondidas` (o `"*"` traduz-se para `variant_kind = "signature"`
+em `metrics.SUFIXO_KIND`), que o `e_master` lê por construção. É o mesmo
+critério que o `a_subir.excluir` já usava para as tirar das listas de compra —
+não há segunda definição de "isto é uma signature".
 
 Estes testes valem por todos os consumidores da regra: a Coleção (blocos e
 percentagem), a contagem por níveis, as wantlists (por edição e por nível) e o
@@ -108,53 +110,47 @@ class TestARegra(Base):
         tipos, _ = self.a_subir.criterios(self.a_subir.opcoes()["excluir"])
         self.assertIn("signature", tipos)
 
-    def test_o_alvo_nao_mexeu__o_tile_continua_a_dizer_0_de_1(self):
-        """ALVO e CONTA são campos diferentes desde 2026-09-02."""
-        self.assertEqual(
-            self.metrics.master_target("x", "signature", "Unit", False), 1)
+    def test_esta_escondida(self):
+        self.assertTrue(self.metrics.escondida(
+            {"variant_kind": "signature", "is_token": 0}))
+        self.assertIn("signature", self.metrics.kinds_escondidas())
 
 
 class TestColecao(Base):
-    """Nem na sequência, nem nas runas especiais, nem nas artes alternativas."""
+    """Nem na sequência, nem nas runas especiais, nem em bloco nenhum."""
 
-    def test_vai_para_um_bloco_proprio_no_fim(self):
+    def test_nao_vai_para_a_grelha(self):
         con = self.edicao()
-        self.assertEqual(self.blocos(con)["tst-001-star-100"], "signature")
+        self.assertNotIn("tst-001-star-100", self.blocos(con))
         con.close()
 
     def test_a_signature_de_uma_runa_tambem_sai(self):
-        """A runa especial ganha à alt art, mas a saída ganha às duas."""
+        """A runa especial ganha à alt art, mas o escondido ganha às duas."""
         con = self.edicao()
         b = self.blocos(con)
         self.assertEqual(b["tst-005a-100"], "rune_special")
-        self.assertEqual(b["tst-005-star-100"], "signature")
+        self.assertNotIn("tst-005-star-100", b)
         con.close()
 
-    def test_o_bloco_nao_conta_para_a_percentagem(self):
+    def test_nao_ha_bloco_de_signatures_e_a_barra_e_so_a_sequencia(self):
         con = self.edicao()
         p = self.metrics.set_payload(con, "TST")
-        blocos = {b["id"]: b for b in p["blocks"]}
-        self.assertFalse(blocos["signature"]["counts"])
-        self.assertEqual(blocos["signature"]["total"], 2)
-        # A barra são os outros quatro: base, alt art, runa base, runa especial.
-        self.assertEqual(p["progress"]["master"]["total"], 4)
+        self.assertNotIn("signature", [b["id"] for b in p["blocks"]])
+        self.assertEqual(p["hidden_kinds"], ["signature", "token"])
+        # A barra são as duas da sequência: base e runa base.
+        self.assertEqual(p["progress"]["master"]["total"], 2)
         self.assertEqual(sum(b["total"] for b in p["blocks"] if b["counts"]),
                          p["progress"]["master"]["total"])
         con.close()
 
-    def test_a_que_ele_tem_continua_visivel_e_contada_no_bloco(self):
-        """Sai da conta da coleção, não da grelha nem da caixa."""
+    def test_a_que_ele_tem_continua_a_valer(self):
+        """Sai da página, não da caixa nem do valor."""
         from riftvault import collection
         con = self.edicao()
         collection.adjust(con, "tst-001-star-100", 1, source="test")
         p = self.metrics.set_payload(con, "TST")
-        tiles = {pr["id"]: pr for g in p["groups"] for pr in g["printings"]}
-        self.assertEqual(tiles["tst-001-star-100"]["qty"], 1)
-        self.assertEqual(tiles["tst-001-star-100"]["target"], 1)
-        blocos = {b["id"]: b for b in p["blocks"]}
-        self.assertEqual((blocos["signature"]["done"], blocos["signature"]["total"]),
-                         (1, 2))
-        # E não entra no "se estivesse completa": 200 € de signature não são
+        self.assertEqual(p["progress"]["value"]["owned"], 200000)
+        # E não entra no "se estivesse completa": 2000 € de signature não são
         # preço de fechar a coleção.
         self.assertEqual(p["progress"]["value"]["full"], 0)
         con.close()
@@ -164,12 +160,12 @@ class TestContagemPorNiveis(Base):
     """Os degraus 1/2/3 medem o mesmo âmbito da barra — sem signatures."""
 
     def test_o_ambito_dos_niveis_nao_leva_signatures(self):
-        """São as 4 da barra: base, alt art, runa base e runa especial."""
+        """São as 2 da barra: base e runa base."""
         con = self.edicao()
-        self.assertEqual(len(self.metrics.itens_da_colecao(con)), 4)
+        self.assertEqual(len(self.metrics.itens_da_colecao(con)), 2)
         n = self.metrics.niveis_payload(con)
-        self.assertEqual(n["levels"][0]["total"], 4)
-        self.assertEqual(n["by_set"]["TST"][0]["total"], 4)
+        self.assertEqual(n["levels"][0]["total"], 2)
+        self.assertEqual(n["by_set"]["TST"][0]["total"], 2)
         con.close()
 
     def test_o_ultimo_degrau_continua_a_ser_a_barra(self):
@@ -240,7 +236,8 @@ class TestVoltarAtras(Base):
     """Tirar o `*` do config põe tudo como estava — é uma linha, como sempre."""
 
     def test_sem_o_asterisco_a_signature_volta_a_todos_os_sitios(self):
-        self.com_config({"master_set": {"fora": ["-T"]}})
+        self.com_config({"master_set": {"fora_da_percentagem": [],
+                                        "escondidas": ["-T"]}})
         con = self.edicao()
         self.assertTrue(self.metrics.e_master(
             {"variant_kind": "signature", "is_token": 0}))
@@ -252,9 +249,23 @@ class TestVoltarAtras(Base):
         m = self.a_subir.master_faltas(con)
         pids = [x["printing_id"] for s in m["sets"] for x in s["items"]]
         self.assertNotIn("tst-001-star-100", pids)
-        # Uma só: a signature da RUNA volta para o bloco 2 e o `so_no_master`
-        # não a exclui — era exactamente a confusão que a saída resolve.
+        # Uma só: a signature da RUNA volta para o bloco das runas e o
+        # `so_no_master` não a exclui — era exactamente a confusão que a saída
+        # resolve.
         self.assertEqual(m["scope"]["excluded"], 1)
+        con.close()
+
+    def test_so_fora_da_percentagem_poe_as_num_bloco_visivel(self):
+        """O meio-termo de 2026-09-09: fora da barra, mas na grelha."""
+        self.com_config({"master_set": {"fora_da_percentagem": ["*"],
+                                        "escondidas": ["-T"]}})
+        con = self.edicao()
+        self.assertEqual(self.blocos(con)["tst-001-star-100"], "signature")
+        p = self.metrics.set_payload(con, "TST")
+        blocos = {b["id"]: b for b in p["blocks"]}
+        self.assertFalse(blocos["signature"]["counts"])
+        self.assertEqual(blocos["signature"]["label"], "Coleção — signatures — playset")
+        self.assertEqual(p["progress"]["master"]["total"], 4)
         con.close()
 
 
