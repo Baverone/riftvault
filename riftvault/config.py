@@ -36,33 +36,29 @@ DEFAULTS: dict = {
         "Rune": 12,
         "default": 3,
     },
-    "master_targets_by_variant": {
-        "base": 3,
-        "alt_art": 1,
-        "signature": 1,
-        "rune_promo": 1,
-        "special": 1,
-    },
     "token_target": 1,
-    # Fora da coleção (André, 2026-09-08): escreve-se como ele fala — pelo
-    # sufixo do código ou pela palavra dele. Hoje o `-T` dos tokens, o `*` das
-    # signatures, as `overnumbered` e as `promo` (as `VEN-SP`) — as artes
-    # alternativas voltaram para dentro com alvo 1 ("no fim 1 alt art de cada"),
-    # as signatures saíram a 2026-09-09 ("das coleções tira as signatures,
-    # fazemos 1 Alt Art de cada mas as signature não"), as sobrenumeradas a
-    # 2026-09-10 ("também não quero para a coleção as overnumbered") e as promos
-    # no mesmo dia ("quero que as promos fiquem também à parte, tal como as
-    # signature e as overnumbered"). Ver `metrics._fora` e `metrics.e_master`.
-    "master_set": {"fora": ["-T", "*", "overnumbered", "promo"]},
-    # O bloco 2 da Coleção ("1 runa especial de cada para cada set", 2026-09-08)
-    # — com o alvo a "playset" desde 2026-09-14 ("muda tudo para playset"): a
-    # runa pede as 12, base ou especial. Ver `metrics.ALVO_PLAYSET`.
-    "runas_especiais": {"tipos": ["Rune"], "excepto": ["base"], "alvo": "playset"},
-    # As variantes de DENTRO da Coleção pedem o playset do tipo (André,
-    # 2026-09-14). Esteve vazio de 2026-09-08 ("no fim 1 alt art de cada") até
-    # aí. As de `master_set.fora` não entram e ficam a 1.
-    "master_variantes_playset": ["alt_art", "rune_promo"],
-    "master_base_follows_type": True,
+    # As três categorias da Coleção (André, 2026-09-14, à noite: "só quero % de
+    # completo para masterset! o que é Alt Art e Overnumbered, etc etc é
+    # puramente coleção"), escritas como ele fala — pelo sufixo do código ou
+    # pela palavra dele:
+    #   `fora_da_percentagem` — a coleção extra: aparece, pede o playset, não
+    #                           conta para a percentagem. As artes alternativas
+    #                           (`a`), as runas promo (`-R`), as sobrenumeradas
+    #                           (2026-09-10) e as promos `VEN-SP` (2026-09-10).
+    #   `escondidas`          — nem aparece: os tokens `-T` e as signatures `*`
+    #                           (2026-09-11: "nunca vou colocar nenhuma, não
+    #                           vale a pena estarem lá").
+    # `fora` é o nome antigo da primeira (2026-09-08 a 2026-09-14) e continua a
+    # ser lido. Ver `metrics._fora`, `metrics.escondida` e `metrics.e_master`.
+    "master_set": {"fora_da_percentagem": ["a", "-R", "overnumbered", "promo"],
+                   "escondidas": ["-T", "*"]},
+    # O bloco das runas especiais ("1 runa especial de cada para cada set",
+    # 2026-09-08) e o alvo de TODAS as runas: 1 ("runas 1 de cada", 2026-09-14
+    # à noite). `"playset"` dá as 12. Ver `metrics.RUNA_ESPECIAL`.
+    "runas_especiais": {"tipos": ["Rune"], "excepto": ["base"], "alvo": 1},
+    # `master_targets_by_variant`, `master_variantes_playset` e
+    # `master_base_follows_type` deixaram de ser lidos a 2026-09-14: o alvo é
+    # "runa 1, o resto o playset do tipo" em todos os blocos (`metrics.master_target`).
     "master_target_overrides": {},
     "token_card_keys": [],
     "faltas_ignorar_tipos": ["Rune"],
@@ -87,17 +83,28 @@ def load() -> dict:
 
 
 def _migrar_master_set(raw: dict, cfg: dict) -> None:
-    """`master_ignorar_variantes` era o nome antigo do `master_set.fora`.
+    """Os nomes antigos da lista do que não conta para a percentagem.
 
-    Um ficheiro escrito antes de 2026-09-08 continua a mandar — a lista só se
-    traduz para o nome novo. Se o ficheiro trouxer os dois, o novo ganha: é o
-    que lá está escrito por último. A tradução vive aqui e não no `metrics`
-    para haver uma leitura só do config.
+    `master_ignorar_variantes` (até 2026-09-08) e `master_set.fora` (até
+    2026-09-14) eram os nomes do que hoje é `master_set.fora_da_percentagem`.
+    Um ficheiro escrito com um deles continua a mandar — a lista só se traduz
+    para o nome novo, e vale o que valia: fora da percentagem, mas na página.
+    Se o ficheiro trouxer o nome novo, é esse que ganha. A tradução vive aqui e
+    não no `metrics` para haver uma leitura só do config.
+
+    A partir do que o FICHEIRO diz, não dos defaults: um `master_set` escrito
+    no ficheiro substitui o default inteiro (é o `cfg.update`), e o nome antigo
+    não pode herdar o `escondidas` de omissão — esse ficheiro não escondia nada.
     """
-    antigo = raw.get("master_ignorar_variantes")
-    if antigo is None or (raw.get("master_set") or {}).get("fora") is not None:
+    ms = raw.get("master_set") or {}
+    if ms.get("fora_da_percentagem") is not None:
         return
-    cfg["master_set"] = {**(cfg.get("master_set") or {}), "fora": list(antigo)}
+    antigo = ms.get("fora")
+    if antigo is None:
+        antigo = raw.get("master_ignorar_variantes")
+    if antigo is None:
+        return
+    cfg["master_set"] = {**ms, "fora_da_percentagem": list(antigo)}
 
 
 def _migrar_a_subir(raw: dict, cfg: dict) -> None:

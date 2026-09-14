@@ -10,12 +10,15 @@ duas:
   USADA NUM DECK   — a cópia está alocada a um deck da secção Decks. Fica.
   CANDIDATA A VENDA — nenhum deck a usa. É o que sobra.
 
-O QUE A COLEÇÃO AINDA PEDE NÃO ENTRA (2026-09-08, tarde)
-    Os blocos das runas especiais e das artes alternativas voltaram a contar,
-    com alvo **1 de cada** — *"1 runa especial de cada para cada set; no fim 1
-    alt art de cada"*. Por isso a venda passou a ser só o EXCEDENTE: uma alt
-    art que ele tem uma vez é coleção, a sexta é venda. Os tokens, que
-    continuam fora da coleção, sobram inteiros como antes.
+O QUE A COLEÇÃO AINDA PEDE NÃO ENTRA (2026-09-08, tarde; 2026-09-14, noite)
+    A venda é só o EXCEDENTE acima do alvo — *"1 runa especial de cada para
+    cada set; no fim 1 alt art de cada"* (2026-09-08): uma alt art que ele
+    tem uma vez é coleção, a que sobra é venda. Desde 2026-09-14 à noite a
+    coleção extra inteira (artes alternativas, sobrenumeradas, promos) pede o
+    PLAYSET do tipo (*"Alt Art, overnumbered, etc etc mete Playset na
+    contagem"*), por isso só sobra a quarta cópia de uma Unit — e as runas
+    especiais a segunda. O que está escondido (tokens, signatures —
+    `metrics.escondida`) tem alvo 0 e sobra inteiro, como antes.
 
     Era exatamente a tensão que estava anotada no CLAUDE.md ("a lista mostra a
     impressão inteira, não só o que passa do alvo"); a frase dele decidiu-a.
@@ -126,11 +129,12 @@ def excedente(con: sqlite3.Connection, cfg: dict | None = None,
 
         # ORIGEM 2 — a Coleção, acima do alvo E do que os decks lhe usam:
         # `cópias − max(usadas nos decks, alvo)`. A mesma cópia serve a Coleção
-        # e o deck, por isso é o máximo dos dois e não a soma. Zero nos blocos
-        # que estão fora dela (tokens, signatures, sobrenumeradas, promos), que
-        # a Coleção não pede; e zero na sequência quando o âmbito é o estreito
-        # de 2026-09-08.
-        alvo = metrics.alvo(r, cfg) if metrics.conta_bloco(bloco, cfg) else 0
+        # e o deck, por isso é o máximo dos dois e não a soma. O alvo é o da
+        # página inteira — master set e coleção extra (2026-09-14: *"é
+        # puramente coleção"*) —; zero no que está escondido (tokens,
+        # signatures), que a Coleção não pede; e zero na sequência quando o
+        # âmbito é o estreito de 2026-09-08.
+        alvo = metrics.alvo(r, cfg) if metrics.e_colecao(r, cfg) else 0
         usadas_col = sum(x["qty"] for x in colecao_usada.get(pid, []))
         da_colecao = max(0, na_colecao.get(pid, 0) - max(usadas_col, alvo))
         if bloco == metrics.BLOCO_MASTER and not incluir_master:

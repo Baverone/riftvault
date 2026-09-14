@@ -2,22 +2,30 @@
 
   1) PLAYSET JOGÁVEL — alvo por CARTA LÓGICA (o nome). Qualquer impressão de
      qualquer edição conta. É a métrica de "consigo montar decks com isto".
-  2) MASTER SET — alvo por IMPRESSÃO. É a métrica de colecionador, e desde
-     2026-09-08 a Coleção são TRÊS BLOCOS por esta ordem (ver `BLOCOS`):
+  2) MASTER SET — alvo por IMPRESSÃO. É a métrica de colecionador, e desde a
+     noite de 2026-09-14 a página da Coleção são TRÊS CATEGORIAS (André:
+     *"quero masterset com playset / runas 1 de cada / Alt Art, overnumbered,
+     etc etc mete Playset na contagem / mas só quero % de completo para
+     masterset! / o que é Alt Art e Overnumbered, etc etc é puramente
+     coleção"*):
 
-       1. a sequência do master set, por número de coleção;
-       2. as runas especiais, por edição;
-       3. no fim, as artes alternativas.
+       1. o MASTER SET — a sequência da edição, por número de coleção. É o
+          ÚNICO bloco que entra na percentagem de completo e nos níveis.
+       2. a COLEÇÃO EXTRA («puramente coleção») — as runas especiais, as
+          artes alternativas, as sobrenumeradas, as promos `VEN-SP`. Aparecem
+          na grelha com contagem própria, entram nas listas de compra e na
+          Venda como qualquer carta, mas NÃO contam para a percentagem.
+          Escreve-se em `master_set.fora_da_percentagem`.
+       3. as ESCONDIDAS — os tokens `-T` e as signatures `*`. Não aparecem na
+          página (André, 2026-09-11: *"nunca vou colocar nenhuma, não vale a
+          pena estarem lá"*). Escreve-se em `master_set.escondidas`.
 
-     **Desde 2026-09-14 os três pedem o PLAYSET do tipo da carta** (André:
-     *"muda tudo para playset"*) — Unit/Spell/Gear 3, Rune 12, Legend e
-     Battlefield 1. Até aí a sequência pedia o playset mas as runas, as runas
-     especiais e as artes alternativas pediam 1 de cada (decisões de
-     2026-09-08); o que ainda distingue os blocos é só a ORDEM da grelha.
-
-     Os três contam para a percentagem; o que fica de fora (`master_set.fora`,
-     hoje os tokens `-T`, as signatures `*`, as sobrenumeradas e as promos
-     `VEN-SP`) vai para blocos informativos no fim. Ver `fora_da_colecao`,
+     O ALVO é o mesmo nas duas primeiras: o playset do tipo da carta
+     (Unit/Spell/Gear 3, Legend e Battlefield 1) — **excepto as runas, que
+     são 1 de cada**, base ou especial. Até 2026-09-14 de manhã as variantes
+     de dentro pediam 1 (decisões de 2026-09-08) e nessa tarde tudo pediu o
+     playset, runas a 12 incluídas (*"muda tudo para playset"*); a frase da
+     noite é a que vale. Ver `master_target`, `escondida`, `fora_do_master`,
      `e_master`, `bloco` e `conta_bloco`.
 
 São sempre calculadas e mostradas em paralelo. Nenhuma substitui a outra.
@@ -36,50 +44,49 @@ KIND_ORDER = {"base": 0, "alt_art": 1, "signature": 2,
 
 RARITY_ORDER = ["common", "uncommon", "rare", "epic", "showcase"]
 
-# Os blocos da grelha, por esta ordem (André, 2026-09-08): *"master set playset
-# todo seguido; 1 runa especial de cada para cada set; no fim 1 alt art de
-# cada"*. Os três primeiros são a COLEÇÃO — contam para a percentagem; os
-# outros são o que ficou fora dela (`master_set.fora`, hoje os tokens, as
-# signatures — *"das coleções tira as signatures, fazemos 1 Alt Art de cada mas
-# as signature não"*, André, 2026-09-09 —, as sobrenumeradas — *"também não
-# quero para a coleção as overnumbered"*, André, 2026-09-10 — e as promos —
-# *"deparei-me com as VEN-SP (promos). Quero que as promos fiquem também à
-# parte, tal como as signature e as overnumbered"*, André, 2026-09-10).
+# Os blocos da grelha, por esta ordem: primeiro o master set inteiro (André,
+# 2026-09-08: *"master set playset todo seguido"*), depois a coleção extra —
+# as runas especiais (*"1 runa especial de cada para cada set"*), as artes
+# alternativas, as sobrenumeradas (*"também não quero para a coleção as
+# overnumbered"*, 2026-09-10) e as promos (*"deparei-me com as VEN-SP (promos).
+# Quero que as promos fiquem também à parte"*, 2026-09-10). Desde a noite de
+# 2026-09-14 só o primeiro conta para a percentagem; os outros são «puramente
+# coleção» (ver o cabeçalho do módulo). Os tokens e as signatures não aparecem
+# (`master_set.escondidas`) — os blocos deles ficam na lista para o caso de
+# alguém os tirar de lá.
 #
-# Há um bloco por variante, e não só para as que ele nomeou: assim quem
-# acrescentar uma variante ao `master_set.fora` recebe um cabeçalho a dizer o
-# que é, em vez do «outras». Os blocos vazios não aparecem.
+# Há um bloco por variante, e não só para as que ele nomeou: assim uma
+# variante nova recebe um cabeçalho a dizer o que é, em vez do «outras». Os
+# blocos vazios não aparecem.
 BLOCO_MASTER = "master"
 BLOCO_RUNA = "rune_special"
-# As sobrenumeradas (André, 2026-09-10: *"também não quero para a coleção as
-# overnumbered"*) — as «300/298». Não são uma variante: é o NÚMERO que passa o
-# tamanho da edição, por isso têm bloco próprio em vez de caírem no da variante
-# delas. Ver `e_overnumbered`.
+# As sobrenumeradas (André, 2026-09-10) — as «300/298». Não são uma variante:
+# é o NÚMERO que passa o tamanho da edição, por isso têm bloco próprio em vez
+# de caírem no da variante delas. Ver `e_overnumbered`.
 BLOCO_OVER = "overnumbered"
 BLOCOS = [
     (BLOCO_MASTER, None),
-    # Os dois blocos da Coleção diziam «— 1 de cada» até 2026-09-14 (*"muda
-    # tudo para playset"*); agora o sufixo vem do alvo em vigor — ver `rotulo`.
+    # O sufixo do alvo («— 1 de cada», «— playset») vem do alvo em vigor, não
+    # está escrito aqui — ver `rotulo`.
     (BLOCO_RUNA, "Runas especiais"),
     ("alt_art", "Artes alternativas"),
-    ("token", "Fora da coleção — tokens"),
-    ("signature", "Fora da coleção — signatures"),
-    (BLOCO_OVER, "Fora da coleção — sobrenumeradas"),
-    ("rune_promo", "Fora da coleção — runas promo"),
+    (BLOCO_OVER, "Sobrenumeradas"),
     # As `VEN-SP` (André, 2026-09-10). Chamam-se «promos» porque é o nome que
     # ele lhes deu e o que o catálogo lhes chama (`variant_label: "Promo"`); as
-    # runas promo do VEN são outra coisa e têm bloco próprio, acima.
-    ("special", "Fora da coleção — promos"),
-    ("base", "Fora da coleção — impressões base"),
-    ("outras", "Fora da coleção — outras"),
+    # runas promo do VEN são outra coisa e caem nas runas especiais, acima.
+    ("special", "Promos"),
+    ("rune_promo", "Runas promo"),
+    ("token", "Tokens"),
+    ("signature", "Signatures"),
+    ("base", "Impressões base"),
+    ("outras", "Outras"),
 ]
 BLOCO_LABEL = dict(BLOCOS)
 
-# O mesmo bloco muda de rótulo quando o `master_set.fora` o põe fora da coleção:
-# a cauda das artes alternativas é «1 de cada» enquanto conta, e «fora» quando
-# não conta. É o mesmo id nos dois casos — o que muda é o que se lê. Ver
-# `rotulo()`.
-BLOCO_LABEL_FORA = {"alt_art": "Fora da coleção — artes alternativas"}
+# O prefixo do cabeçalho de um bloco que NÃO conta para a percentagem: é a
+# palavra dele (*"é puramente coleção"*). Um bloco que conte — só o master set,
+# hoje — não leva prefixo. Ver `rotulo()`.
+PREFIXO_COLECAO = "Coleção — "
 
 # O nome curto de cada bloco, para os chips da percentagem por bloco. É o mesmo
 # nos dois rótulos, por isso não se tira do `label` a golpes de expressão
@@ -99,27 +106,27 @@ BLOCO_CURTO = {
 
 # As runas. Três campos, e cada um responde a uma pergunta diferente:
 #
-#   `tipos`   — o que É uma runa. Decide o ALVO de TODAS elas (`e_runa`), desde
-#               que ele disse *"as runas normais, quando têm número de set,
-#               apenas 1 de cada também"* (2026-09-08, à noite).
-#   `alvo`    — esse alvo: 1 por impressão, base ou especial.
-#   `excepto` — quais é que ficam na SEQUÊNCIA (só a base). O resto vai para o
-#               bloco 2, «runas especiais» (`e_runa_especial`) — hoje as artes
-#               alternativas do OGN e as promo do VEN (a RiftScribe não tem
-#               runas no SFD nem no UNL — ver "BURACO NO CATÁLOGO" no CLAUDE.md).
+#   `tipos`   — o que É uma runa. Decide o ALVO de TODAS elas (`e_runa`), base
+#               ou especial, dentro ou fora do master set.
+#   `alvo`    — esse alvo: **1 por impressão** (André, 2026-09-14, à noite:
+#               *"runas 1 de cada"*, dito como frase solta a seguir a *"quero
+#               masterset com playset"* — vale para todas). Foi 1 de 2026-09-08
+#               (*"apenas 1 de cada também, em vez de 12"*) até à tarde de
+#               2026-09-14 (*"muda tudo para playset"*, 12), e voltou a 1 nessa
+#               noite. `"playset"` continua a ser aceite e dá as 12.
+#   `excepto` — quais é que ficam na SEQUÊNCIA do master set (só a base). O
+#               resto vai para o bloco «runas especiais» (`e_runa_especial`) —
+#               hoje as artes alternativas do OGN e as promo do VEN (a
+#               RiftScribe não tem runas no SFD nem no UNL — ver "BURACO NO
+#               CATÁLOGO" no CLAUDE.md).
 #
 # Muda-se em `runas_especiais` no config. `tipos: []` desliga as três coisas e
 # as runas voltam a seguir o playset, como qualquer outra carta.
-#
-# **Desde 2026-09-14 o `alvo` é `"playset"`** — *"muda tudo para playset"* —
-# e a runa pede o playset do tipo (12), base ou especial. O bloco 2 fica: o que
-# mudou foi o alvo, não onde a runa aparece na grelha.
-RUNA_ESPECIAL: dict = {"tipos": ["Rune"], "excepto": ["base"], "alvo": "playset"}
+RUNA_ESPECIAL: dict = {"tipos": ["Rune"], "excepto": ["base"], "alvo": 1}
 
 # O valor do `runas_especiais.alvo` que quer dizer «o playset do tipo», em vez
-# de um número fixo. É a escrita do André (*"muda tudo para playset"*), e assim
-# a runa segue o `playset_targets_by_type.Rune` sem o 12 estar escrito duas
-# vezes.
+# de um número fixo. É a escrita dele de 2026-09-14 à tarde (*"muda tudo para
+# playset"*); à noite voltou ao 1, mas a escrita fica aceite.
 ALVO_PLAYSET = "playset"
 
 # O sufixo do CÓDIGO IMPRESSO -> o `variant_kind` que ele dá no catálogo. É a
@@ -146,22 +153,27 @@ PALAVRA_KIND = {
     "promo": "special",     # VEN-SP4
 }
 
-# O valor do `master_set.fora` que NÃO é uma variante. As sobrenumeradas são um
-# critério de NÚMERO — como o `showcase` do `a_subir.excluir` é um critério de
-# raridade —, mas escrevem-se na mesma lista de propósito: a pergunta é uma só
-# ("o que é que não é a Coleção") e tem de ter uma resposta só.
+# O valor das listas do `master_set` que NÃO é uma variante. As sobrenumeradas
+# são um critério de NÚMERO — como o `showcase` do `a_subir.excluir` é um
+# critério de raridade —, mas escrevem-se na mesma lista de propósito: a
+# pergunta é uma só ("o que é que não é o master set") e tem de ter uma
+# resposta só.
 FORA_OVERNUMBERED = "overnumbered"
 
-# Memo do `_fora`: a lista do config não muda dentro de uma corrida, e a
-# pergunta é feita uma vez por impressão (1180) por payload.
-_FORA_MEMO: dict[tuple, tuple] = {}
+# As duas listas do `master_set`, com a MESMA gramática (ver `_ler_lista`):
+#
+#   `fora_da_percentagem` — a coleção extra (bloco 2): aparece, tem alvo de
+#                           playset, não conta para a percentagem.
+#   `escondidas`          — o que nem aparece (bloco 3).
+#
+# `fora` é o nome antigo (2026-09-08 a 2026-09-14) e continua a ser lido — ver
+# `config._migrar_master_set`.
+LISTA_FORA = "fora_da_percentagem"
+LISTA_ESCONDIDAS = "escondidas"
 
-# Alvo das sobrenumeradas depois de saírem: **1 de cada**, como as signatures e
-# os tokens que já estavam fora. Elas continuam na grelha e o tile continua a
-# dizer quantas ele tem — mas pedir o playset de uma carta que já não se
-# coleciona era ler o número ao contrário. ALVO e CONTA são campos diferentes
-# desde 2026-09-02; isto é o alvo.
-ALVO_OVERNUMBERED = 1
+# Memo do `_ler_lista`: as listas do config não mudam dentro de uma corrida, e
+# a pergunta é feita uma vez por impressão (1180) por payload.
+_FORA_MEMO: dict[tuple, tuple] = {}
 
 
 # --------------------------------------------------------------------------
@@ -194,29 +206,29 @@ def opcoes_runa(cfg: dict | None = None) -> dict:
 
 
 def e_runa(printing, cfg: dict | None = None) -> bool:
-    """Esta impressão é de uma RUNA — a pergunta do ALVO do master set.
+    """Esta impressão é de uma RUNA — a pergunta do ALVO.
 
-    André, 2026-09-08, à noite: *"as runas normais, quando têm número de set,
-    apenas 1 de cada também, em vez de 12 (playset)"*. Passou a haver **uma
-    regra só** para as runas todas: base ou especial, o alvo do master é 1
-    (`runas_especiais.alvo`). Ver `master_target`.
+    André, 2026-09-14, à noite: *"runas 1 de cada"*. É **uma regra só** para
+    as runas todas: base ou especial, dentro ou fora do master set, o alvo é o
+    `runas_especiais.alvo` (1). Ver `master_target`.
 
-    O que continua a distinguir a base da especial é só o BLOCO da grelha —
-    a base fica na sequência, o resto vai para o bloco 2. Ver `e_runa_especial`.
+    O que distingue a base da especial é só o BLOCO da grelha — a base fica na
+    sequência, o resto vai para as runas especiais. Ver `e_runa_especial`.
     """
     return campo(printing, "type") in (opcoes_runa(cfg).get("tipos") or ())
 
 
 def e_runa_especial(printing, cfg: dict | None = None) -> bool:
-    """Esta impressão é uma «runa especial» — o bloco 2 da Coleção?
+    """Esta impressão é uma «runa especial» — o bloco a seguir ao master set?
 
     André, 2026-09-08: *"1 runa especial de cada para cada set"*. A runa base
-    fica no bloco 1 (a sequência) e as outras impressões da runa — a arte
-    alternativa e a promo — vão para um bloco próprio, por edição, antes da
-    cauda das artes alternativas.
+    fica na sequência e as outras impressões da runa — a arte alternativa e a
+    promo — vão para um bloco próprio, por edição, antes da cauda das artes
+    alternativas. Desde 2026-09-14 à noite esse bloco é coleção extra: não
+    conta para a percentagem, como as artes alternativas de que é feito.
 
-    **É só sobre o bloco, já não sobre o alvo.** O alvo das duas é o mesmo (1)
-    desde a segunda frase dele nesse dia — ver `e_runa`.
+    **É só sobre o bloco, não sobre o alvo.** O alvo das duas é o mesmo (1) —
+    ver `e_runa`.
     """
     if not e_runa(printing, cfg):
         return False
@@ -237,80 +249,68 @@ def playset_target(card_type: str | None, is_token: bool, cfg: dict | None = Non
 
 def master_target(printing_id: str, kind: str, card_type: str | None, is_token: bool,
                   cfg: dict | None = None, printing=None) -> int:
-    """O alvo do master set de uma impressão.
+    """O alvo de uma impressão — o que o tile mostra («2/3»).
 
-    Quem tem a LINHA do catálogo na mão deve chamar o `alvo()`, não isto: o alvo
-    das sobrenumeradas depende do código impresso, e daqui só se vê a variante.
-    Os quatro escalares ficam para quem não tem a linha (e para os testes).
+    UMA regra (André, 2026-09-14, à noite): **se for runa, 1; senão, o playset
+    do tipo** (`playset_targets_by_type`: Unit/Spell/Gear 3, Legend e
+    Battlefield 1). Vale igual no master set e na coleção extra — *"Alt Art,
+    overnumbered, etc etc mete Playset na contagem"* —, e é o mesmo número da
+    métrica jogável, de propósito: colecionar 3 é ter as 3 que se jogam. Os
+    tokens ficam com o `token_target` (1), como sempre.
+
+    Até aqui havia três botões a dizer coisas diferentes
+    (`master_targets_by_variant`, `master_variantes_playset`,
+    `master_base_follows_type`) e as variantes de fora pediam 1 enquanto as de
+    dentro pediam o playset. Os três deixaram de ser lidos; se ainda estiverem
+    num config, não fazem nada.
+
+    Quem tem a LINHA do catálogo na mão deve chamar o `alvo()`, não isto; os
+    quatro escalares ficam para quem não a tem (e para os testes).
     """
     cfg = cfg or config.load()
     override = cfg.get("master_target_overrides", {}).get(printing_id)
     if override is not None:
         return int(override)
-    if printing is not None and fora_da_colecao(printing, cfg) == BLOCO_OVER:
-        # Saiu da Coleção por ser sobrenumerada (André, 2026-09-10): fica na
-        # grelha com 1 de cada, como as signatures e os tokens que já lá estão.
-        return ALVO_OVERNUMBERED
     if is_token:
         return int(cfg.get("token_target", 1))
-    by_variant = cfg.get("master_targets_by_variant", {})
-    if e_runa({"type": card_type}, cfg) and kind not in kinds_fora(cfg):
-        # UMA regra para as runas todas — base ou especial — que estejam DENTRO
-        # da Coleção, e antes do `master_base_follows_type`. Uma runa de uma
-        # variante que saiu (uma signature de runa, se um dia existir) pede o
-        # alvo da variante, como as outras de fora: o playset é da Coleção.
-        # Foi 1 desde *"as runas normais, quando têm
-        # número de set, apenas 1 de cada também, em vez de 12 (playset)"*
-        # (André, 2026-09-08, à noite) até *"muda tudo para playset"* (André,
-        # 2026-09-14), que pôs o `alvo` a `"playset"`: o alvo do master passa a
-        # ser o playset do tipo (12), o mesmo número do Rune Pool dos decks. Um
-        # número escrito no `alvo` continua a valer o que vale.
+    if e_runa({"type": card_type}, cfg):
+        # *"runas 1 de cada"*, base ou especial. `"playset"` no `alvo` é a
+        # escrita da tarde de 2026-09-14 e continua a dar as 12.
         alvo_runa = opcoes_runa(cfg).get("alvo", 1)
         if alvo_runa == ALVO_PLAYSET:
             return playset_target(card_type, is_token, cfg)
         return int(alvo_runa)
-    if kind == "base" and cfg.get("master_base_follows_type", True):
-        # Senão uma Rune base pediria 3 em vez de 12, e um Legend pediria 3
-        # em vez de 1. O alvo do master da base segue o alvo de jogo.
-        return playset_target(card_type, is_token, cfg)
-    if kind in set(cfg.get("master_variantes_playset", [])):
-        # As variantes que pedem o playset do tipo em vez do 1 fixo. Esteve
-        # vazio de 2026-09-08 (*"no fim 1 alt art de cada"*) a 2026-09-14
-        # (*"muda tudo para playset"*): hoje leva o que está DENTRO da Coleção —
-        # as artes alternativas e as runas promo. As de `master_set.fora`
-        # (signatures, promos, tokens) não estão na lista e ficam a 1.
-        return playset_target(card_type, is_token, cfg)
-    return int(by_variant.get(kind, 1))
+    return playset_target(card_type, is_token, cfg)
 
 
 def alvo(printing, cfg: dict | None = None) -> int:
-    """O alvo do master set de uma LINHA do catálogo — a porta de entrada.
+    """O alvo de uma LINHA do catálogo — a porta de entrada.
 
-    É o `master_target` com o contexto que o número de coleccionador precisa.
-    Toda a produção passa por aqui (a grelha, os níveis, as listas de compra e a
-    Venda) para não haver duas contas do mesmo alvo.
+    É o `master_target` com o que a linha traz. Toda a produção passa por aqui
+    (a grelha, os níveis, as listas de compra e a Venda) para não haver duas
+    contas do mesmo alvo. `printing` pode ser um dicionário mínimo com
+    `printing_id`, `variant_kind`, `type` e `is_token`.
     """
     return master_target(printing["printing_id"], printing["variant_kind"],
                          campo(printing, "type"), bool(campo(printing, "is_token")),
                          cfg, printing=printing)
 
 
-def _fora(cfg: dict | None = None) -> tuple[frozenset[str], bool]:
-    """O `master_set.fora` lido: (variantes que saem, as sobrenumeradas saem?).
+def _ler_lista(nome: str, bruto: tuple) -> tuple[frozenset[str], bool]:
+    """Uma lista do `master_set` lida: (variantes, as sobrenumeradas também?).
 
     A lista escreve-se como o André fala — pelo sufixo do código impresso
     (`["-T", "*"]`), pela palavra dele para a variante (`"promo"`), pelo nome
     interno dela (`["token", "signature"]`) ou pela palavra do que não é
-    variante nenhuma (`"overnumbered"`). Uma leitura só, para os dois critérios
-    não se separarem.
+    variante nenhuma (`"overnumbered"`). É a MESMA gramática para o
+    `fora_da_percentagem` e para o `escondidas`, para não haver duas maneiras
+    de dizer «signature».
 
     Um valor que não se reconheça REBENTA, e de propósito: uma variante nova
     (um `b`? um `sp7`?) tem de aparecer, não de ser ignorada em silêncio —
     ver CLAUDE.md, "Superfícies NÃO validadas".
     """
-    cfg = cfg or config.load()
-    bruto = tuple((cfg.get("master_set") or {}).get("fora") or ())
-    memo = _FORA_MEMO.get(bruto)
+    memo = _FORA_MEMO.get((nome, bruto))
     if memo is not None:
         return memo
     kinds, over = set(), False
@@ -328,38 +328,81 @@ def _fora(cfg: dict | None = None) -> tuple[frozenset[str], bool]:
             aceites = ", ".join(sorted(set(SUFIXO_KIND) | set(PALAVRA_KIND)
                                        | set(KIND_ORDER) | {FORA_OVERNUMBERED}))
             raise ValueError(
-                f"master_set.fora: nao reconheco {valor!r}. Aceita: {aceites}")
-    _FORA_MEMO[bruto] = out = (frozenset(kinds), over)
+                f"master_set.{nome}: nao reconheco {valor!r}. Aceita: {aceites}")
+    _FORA_MEMO[(nome, bruto)] = out = (frozenset(kinds), over)
     return out
 
 
+def _lista(cfg: dict, nome: str) -> tuple:
+    return tuple((cfg.get("master_set") or {}).get(nome) or ())
+
+
+def _fora(cfg: dict | None = None) -> tuple[frozenset[str], bool]:
+    """O que NÃO conta para a percentagem: `fora_da_percentagem` MAIS `escondidas`.
+
+    O que está escondido não conta por construção — não há maneira de esconder
+    uma variante da página e deixá-la a contar. Ver `_escondidas`.
+    """
+    cfg = cfg or config.load()
+    fora = _ler_lista(LISTA_FORA, _lista(cfg, LISTA_FORA))
+    esc = _escondidas(cfg)
+    return (fora[0] | esc[0], fora[1] or esc[1])
+
+
+def _escondidas(cfg: dict | None = None) -> tuple[frozenset[str], bool]:
+    """O `master_set.escondidas` lido: (variantes, as sobrenumeradas também?).
+
+    André, 2026-09-11 (à noite): *"podes tirar as signatures da coleção, nunca
+    vou colocar nenhuma, não vale a pena estarem lá"*. Hoje é `["-T", "*"]`:
+    os tokens e as signatures não aparecem na página — nem num bloco de fora.
+    """
+    cfg = cfg or config.load()
+    return _ler_lista(LISTA_ESCONDIDAS, _lista(cfg, LISTA_ESCONDIDAS))
+
+
 def kinds_fora(cfg: dict | None = None) -> frozenset[str]:
-    """Os `variant_kind` que ficam FORA da Coleção — metade do `master_set.fora`.
+    """Os `variant_kind` que NÃO contam para a percentagem (blocos 2 e 3).
 
-    As signatures saíram a 2026-09-09 (*"das coleções tira as signatures,
-    fazemos 1 Alt Art de cada mas as signature não"*): o `"*"` da lista tira-as
-    da sequência **e** do denominador da percentagem — é a mesma pergunta. Não
-    saem da grelha: ficam num bloco próprio no fim, com alvo, para as que ele
-    tenha continuarem visíveis. Tira-se o `"*"` para as pôr de volta.
-
-    As promos `VEN-SP` saíram a 2026-09-10, pela mesma lista e pelo mesmo
-    mecanismo (*"quero que as promos fiquem também à parte, tal como as
-    signature e as overnumbered"*): é o `"promo"` do config, que o
-    `PALAVRA_KIND` traduz para `variant_kind = "special"`.
-
-    A outra metade da lista é o `fora_overnumbered`, que não é por variante.
+    Hoje as artes alternativas e as runas promo (`fora_da_percentagem`, André
+    2026-09-14: *"o que é Alt Art e Overnumbered, etc etc é puramente
+    coleção"*), as promos `VEN-SP` (2026-09-10) e, por estarem escondidas, os
+    tokens e as signatures. A outra metade das listas é o `fora_overnumbered`,
+    que não é por variante.
     """
     return _fora(cfg)[0]
 
 
 def fora_overnumbered(cfg: dict | None = None) -> bool:
-    """As sobrenumeradas ficam fora da Coleção? — a outra metade da lista.
+    """As sobrenumeradas ficam fora da percentagem? — a outra metade da lista.
 
-    André, 2026-09-10: *"no riftvault, também não quero para a coleção as
-    overnumbered"*. Escreve-se `"overnumbered"` no `master_set.fora`, a par dos
-    sufixos; tira-se de lá para as pôr de volta. Ver `e_overnumbered`.
+    André, 2026-09-10: *"também não quero para a coleção as overnumbered"* e,
+    2026-09-14: *"overnumbered […] mete Playset na contagem"* — fora da
+    percentagem, dentro da coleção extra. Escreve-se `"overnumbered"` no
+    `master_set.fora_da_percentagem`. Ver `e_overnumbered`.
     """
     return _fora(cfg)[1]
+
+
+def kinds_escondidas(cfg: dict | None = None) -> frozenset[str]:
+    """Os `variant_kind` que não aparecem na página da Coleção — `escondidas`."""
+    return _escondidas(cfg)[0]
+
+
+def escondida(printing, cfg: dict | None = None) -> bool:
+    """Esta impressão fica FORA DA PÁGINA da Coleção — o bloco 3?
+
+    É a única resposta a esta pergunta: o `set_payload` (a grelha), o
+    `sets_payload` (o «N impressões» do separador), as listas de compra
+    (`a_subir.masterset`) e a Venda (`venda.excedente`, que lhe dá alvo 0)
+    perguntam aqui. O que sai daqui não desaparece do vault: as cópias
+    continuam no `copies`, contam para o valor, e a Venda — que lê o `copies`
+    directamente — continua a listá-las como excedente inteiro.
+    """
+    cfg = cfg or config.load()
+    kinds, over = _escondidas(cfg)
+    if campo(printing, "variant_kind", "unknown") in kinds:
+        return True
+    return bool(over and e_overnumbered(printing))
 
 
 def tamanho_do_set(printing) -> int | None:
@@ -402,25 +445,23 @@ def e_overnumbered(printing) -> bool:
     return tamanho is not None and cn is not None and int(cn) > tamanho
 
 
-def fora_da_colecao(printing, cfg: dict | None = None) -> str | None:
-    """PORQUE é que esta impressão está fora da Coleção — o bloco, ou `None`.
+def fora_do_master(printing, cfg: dict | None = None) -> str | None:
+    """PORQUE é que esta impressão não conta para a percentagem — o bloco, ou `None`.
 
     Uma pergunta, uma função: quem quer saber se conta chama o `e_master`, quem
     quer saber onde é que ela vai parar na grelha chama o `bloco`, e os dois
     saem daqui. O motivo é o bloco porque é isso que ele lê no cabeçalho —
-    «Fora da coleção — signatures» é diferente de «— sobrenumeradas».
+    «Coleção — sobrenumeradas» é diferente de «Coleção — promos». As
+    escondidas também saem daqui (o `_fora` junta as duas listas): quem quer
+    saber se APARECE pergunta ao `escondida`.
 
     A ordem é a das decisões dele: primeiro a VARIANTE que ele nomeou (o sufixo
-    do código), depois o NÚMERO. É por isso que as 36 signatures continuam no
-    bloco das signatures — são todas sobrenumeradas, mas o que as tirou foi a
-    frase de 2026-09-09, e mudá-las de bloco agora era apagar essa decisão do
-    ecrã.
+    do código), depois o NÚMERO. É por isso que as 36 signatures continuam a
+    ser «signature» — são todas sobrenumeradas, mas o que as tirou foi a frase
+    de 2026-09-09, e mudá-las de motivo agora era apagar essa decisão.
 
-    **As runas promo do VEN (`VEN-R01..R06`) NÃO saem por aqui.** São
-    `rune_promo`, não `special`, e continuam dentro da Coleção, no bloco das
-    runas especiais: é a decisão dele de 2026-09-08 (*"1 runa especial de cada
-    para cada set"*) e são elas que enchem esse bloco no VEN. Ele nomeou as
-    `VEN-SP`; tirar as `VEN-R` com elas era apagar a outra decisão.
+    Chamava-se `fora_da_colecao` até 2026-09-14: desde essa noite a coleção
+    extra É coleção (*"puramente coleção"*), o que ela não é é master set.
     """
     cfg = cfg or config.load()
     kinds, over = _fora(cfg)
@@ -439,13 +480,11 @@ def fora_da_colecao(printing, cfg: dict | None = None) -> str | None:
 
 
 def e_master(printing, cfg: dict | None = None) -> bool:
-    """Esta impressão faz parte da COLEÇÃO — isto é, conta para a percentagem?
+    """Esta impressão é MASTER SET — isto é, conta para a percentagem?
 
     É a única resposta a esta pergunta em todo o riftvault: usam-na a métrica
-    (o denominador da percentagem), a grelha da Coleção (a ordem dos blocos), a
-    aba «A subir», a lista completa do master set e a lista de venda. Havia duas
-    leituras a divergir — a percentagem ignorava as artes alternativas mas a
-    grelha punha-as na sequência — e passou a haver uma.
+    (o denominador da percentagem e os níveis), a grelha da Coleção (o bloco
+    que conta) e a Venda (o âmbito estreito, «a sequência nunca se vende»).
 
     A REGRA É O CÓDIGO IMPRESSO (André, 2026-09-08): o que ele mandou tirar
     escreve-se pelo sufixo, e no catálogo lê-se pelo `variant_kind`, que é
@@ -454,93 +493,112 @@ def e_master(printing, cfg: dict | None = None) -> bool:
       `UNL-T03`   -> variant `t03` -> kind `token`
       `UNL-228a`  -> variant `a`   -> kind `alt_art`
 
-    Muda-se em `master_set.fora`, hoje `["-T", "*", "overnumbered", "promo"]` —
-    os tokens, as signatures, as sobrenumeradas e as promos `VEN-SP`. **As
-    artes alternativas voltaram
-    para dentro a 2026-09-08**, na segunda frase dele (*"no fim 1 alt art de
-    cada"*): continuam a ser a cauda da grelha, num bloco próprio, mas agora
-    contam com alvo 1. **As signatures saíram a 2026-09-09**: *"das coleções
-    tira as signatures, fazemos 1 Alt Art de cada mas as signature não"* — as
-    duas coisas na mesma frase, e é esta função que as separa. **As
-    sobrenumeradas saíram a 2026-09-10**: *"também não quero para a coleção as
-    overnumbered"* — e essas não são uma variante, são um número (ver
-    `e_overnumbered`). **As promos `VEN-SP` saíram no mesmo dia**: *"quero que
-    as promos fiquem também à parte, tal como as signature e as overnumbered"* —
-    essas são outra vez uma variante (`special`), e por isso só precisaram de
-    uma palavra na lista. Ver `fora_da_colecao`, `bloco` e `conta_bloco`.
+    Muda-se em `master_set.fora_da_percentagem` (hoje `["a", "-R",
+    "overnumbered", "promo"]`) e `master_set.escondidas` (`["-T", "*"]`). A
+    história das decisões está no cabeçalho do módulo e no CLAUDE.md; a última
+    é de 2026-09-14 à noite — *"só quero % de completo para masterset!"* —, e
+    é a que tirou as artes alternativas e as runas especiais da percentagem.
 
     Não confundir com o ALVO (`master_target`): o alvo é o que o tile mostra
-    ("6/12"), isto é o que entra no denominador. São duas perguntas diferentes
-    e têm dois campos desde 2026-09-02.
+    ("2/3"), isto é o que entra no denominador. São duas perguntas diferentes
+    e têm dois campos desde 2026-09-02. Nem com o `e_colecao`, que diz se está
+    na PÁGINA e nas listas de compra.
 
     Aceita uma linha do `catalog.printings` ou qualquer dicionário com
     `variant_kind` e `is_token` — as sobrenumeradas precisam também do
     `public_code` e do `collector_number`, e sem eles a resposta é "não é".
     """
-    return fora_da_colecao(printing, cfg) is None
+    return fora_do_master(printing, cfg) is None
+
+
+def e_colecao(printing, cfg: dict | None = None) -> bool:
+    """Esta impressão é COLEÇÃO — está na página, tem alvo, compra-se?
+
+    O master set (bloco 1) e a coleção extra (bloco 2), que é tudo o que não
+    está escondido. É o âmbito das listas de compra (`a_subir.masterset`) e o
+    que a Venda protege até ao alvo. O que conta para a PERCENTAGEM é menos do
+    que isto — só o bloco 1, ver `e_master`.
+    """
+    return not escondida(printing, cfg)
 
 
 def bloco(printing, cfg: dict | None = None) -> str:
     """Em que bloco da grelha é que esta impressão cai.
 
-    A Coleção são três blocos seguidos (André, 2026-09-08): a sequência do
-    master set em playset, depois as runas especiais a 1, depois as artes
-    alternativas a 1. O que está fora da coleção vai para um bloco próprio a
-    seguir a tudo — nunca intercalado. Ver `BLOCOS` para a ordem.
+    Primeiro o master set inteiro, depois a coleção extra em blocos próprios —
+    as runas especiais, as artes alternativas, as sobrenumeradas, as promos —,
+    nunca intercalados. Ver `BLOCOS` para a ordem. Uma impressão escondida
+    devolve o bloco da variante dela na mesma (`token`, `signature`); é o
+    `set_payload` que a deixa de fora da grelha.
     """
-    fora = fora_da_colecao(printing, cfg)
-    if fora is not None:
-        return fora
     # A runa especial ganha à arte alternativa: a arte alternativa de uma runa é
     # das duas coisas, e ele pediu-a no bloco das runas ("1 runa especial de
-    # cada para cada set"), antes da cauda das alt arts.
-    if e_runa_especial(printing, cfg):
+    # cada para cada set"), antes da cauda das alt arts. Mas não ganha ao
+    # escondido: uma signature de runa, se um dia existir, não aparece.
+    if not escondida(printing, cfg) and e_runa_especial(printing, cfg):
         return BLOCO_RUNA
+    fora = fora_do_master(printing, cfg)
+    if fora is not None:
+        return fora
     if printing["variant_kind"] == "alt_art":
         return "alt_art"
     return BLOCO_MASTER
 
 
 def conta_bloco(bloco_id: str, cfg: dict | None = None) -> bool:
-    """Este bloco entra na percentagem da Coleção?
+    """Este bloco entra na percentagem de completo?
 
-    Os três blocos da coleção contam; os outros são o que o `master_set.fora`
-    deixou de fora e existem só para ele ver que não desapareceram. O `alt_art`
-    é o único id que aparece dos dois lados — é a cauda da coleção enquanto
-    contar, e um bloco de fora quando o `master_set.fora` o levar.
+    Só o master set (André, 2026-09-14: *"só quero % de completo para
+    masterset!"*). Os outros são coleção extra ou escondidos, e existem para
+    ele ver o que tem — não para a barra.
+
+    A excepção é de config, não de hoje: se alguém tirar uma variante do
+    `fora_da_percentagem`, o bloco dela volta a contar (é o «1 alt art de cada»
+    de 2026-09-08, a uma linha de distância). O bloco das runas especiais é
+    feito de variantes (artes alternativas e runas promo) e conta só quando
+    nenhuma delas está fora.
     """
-    if bloco_id in (BLOCO_MASTER, BLOCO_RUNA):
+    if bloco_id == BLOCO_MASTER:
         return True
-    return bloco_id == "alt_art" and "alt_art" not in kinds_fora(cfg)
+    kinds = kinds_fora(cfg)
+    if bloco_id == BLOCO_RUNA:
+        return not any(k in kinds for k in KIND_ORDER if k != "base")
+    if bloco_id in KIND_ORDER:
+        return bloco_id not in kinds
+    return False
 
 
 def _sufixo_alvo(bloco_id: str, cfg: dict) -> str:
     """«— playset» ou «— N de cada», conforme o alvo que o bloco pede hoje.
 
-    O cabeçalho dizia «1 de cada» escrito à mão e passou a mentir quando ele
-    disse *"muda tudo para playset"* (2026-09-14). Agora lê-se do mesmo config
-    que o `master_target` lê, para o título e o badge do tile não divergirem.
+    Lê-se do mesmo config que o `master_target` lê, para o título e o badge do
+    tile não divergirem: as runas especiais dizem o `runas_especiais.alvo`, os
+    tokens o `token_target`, e todos os outros o playset do tipo.
     """
     if bloco_id == BLOCO_RUNA:
-        alvo_runa = opcoes_runa(cfg).get("alvo", 1)
-    elif "alt_art" in set(cfg.get("master_variantes_playset", [])):
-        alvo_runa = ALVO_PLAYSET
+        alvo_bloco = opcoes_runa(cfg).get("alvo", 1)
+    elif bloco_id == "token":
+        alvo_bloco = int(cfg.get("token_target", 1))
     else:
-        alvo_runa = cfg.get("master_targets_by_variant", {}).get("alt_art", 1)
-    if alvo_runa == ALVO_PLAYSET:
+        alvo_bloco = ALVO_PLAYSET
+    if alvo_bloco == ALVO_PLAYSET:
         return " — playset"
-    return f" — {int(alvo_runa)} de cada"
+    return f" — {int(alvo_bloco)} de cada"
 
 
 def rotulo(bloco_id: str, cfg: dict | None = None) -> str | None:
-    """O cabeçalho do bloco. `None` no primeiro: a sequência não leva título."""
+    """O cabeçalho do bloco. `None` no primeiro: a sequência não leva título.
+
+    Os blocos que não contam levam «Coleção — » à frente — é a palavra dele
+    (*"é puramente coleção"*) — e o alvo que pedem atrás.
+    """
     cfg = cfg or config.load()
-    if not conta_bloco(bloco_id, cfg) and bloco_id in BLOCO_LABEL_FORA:
-        return BLOCO_LABEL_FORA[bloco_id]
     base = BLOCO_LABEL.get(bloco_id)
-    if bloco_id in (BLOCO_RUNA, "alt_art") and base:
+    if not base:
+        return base
+    if conta_bloco(bloco_id, cfg):
         return base + _sufixo_alvo(bloco_id, cfg)
-    return base
+    return PREFIXO_COLECAO + base[0].lower() + base[1:] + _sufixo_alvo(bloco_id, cfg)
 
 
 # --------------------------------------------------------------------------
@@ -556,14 +614,15 @@ def rotulo(bloco_id: str, cfg: dict | None = None) -> str | None:
 # parte a mesma pergunta em degraus, que é como se compra: primeiro uma de cada,
 # depois a segunda, e só no fim a terceira.
 #
-# O ÂMBITO É O MESMO DA BARRA — as impressões que `conta_bloco` deixa contar
-# (os três blocos da Coleção), pelo alvo do `master_target`. Não é um âmbito
-# novo: se fosse, a percentagem do último nível não batia certo com a barra por
-# cima da qual ela aparece. As impressões de alvo 1 — as runas, os Legends, os
-# Battlefields, as runas especiais e as artes alternativas — só podem faltar no
-# nível 1; do nível 2 em diante contam como feitas, porque `min(k, alvo)` nunca
-# lhes pede mais do que 1. É por isso que a percentagem do nível mais alto é
-# EXACTAMENTE a da barra do master set.
+# O ÂMBITO É O MESMO DA BARRA — as impressões que `e_master` deixa contar (só
+# o master set, desde 2026-09-14 à noite), pelo alvo do `master_target`. Não é
+# um âmbito novo: se fosse, a percentagem do último nível não batia certo com a
+# barra por cima da qual ela aparece. As impressões de alvo 1 — as runas, os
+# Legends, os Battlefields — só podem faltar no nível 1; do nível 2 em diante
+# contam como feitas, porque `min(k, alvo)` nunca lhes pede mais do que 1. É
+# por isso que a percentagem do nível mais alto é EXACTAMENTE a da barra do
+# master set. A coleção extra (artes alternativas, sobrenumeradas, promos) não
+# entra aqui, como não entra na barra.
 #
 # CONTA CÓPIAS, NÃO O QUE VEM A CAMINHO. É a regra da Coleção — o `pending` fica
 # fora do `copies` de propósito, e as barras não mexem enquanto a encomenda vem
@@ -661,7 +720,7 @@ def itens_da_colecao(con: sqlite3.Connection, cfg: dict | None = None) -> list[t
     ):
         pid = r["printing_id"]
         n = alvo(r, cfg)
-        if n <= 0 or not conta_bloco(bloco(r, cfg), cfg):
+        if n <= 0 or not e_master(r, cfg):
             continue
         out.append((r["set_id"], n, qty.get(pid, 0), price.get(pid)))
     return out
@@ -710,14 +769,25 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
-def sets_payload(con: sqlite3.Connection) -> list[dict]:
-    rows = con.execute(
-        "SELECT set_id, COUNT(*) AS n FROM catalog.printings GROUP BY set_id"
-    ).fetchall()
+def sets_payload(con: sqlite3.Connection, cfg: dict | None = None) -> list[dict]:
+    """As edições, com o «N impressões» do separador.
+
+    O N é o que está NA PÁGINA — sem as escondidas (`master_set.escondidas`).
+    Um separador a dizer 352 por cima de uma grelha com 340 tiles lia-se como
+    erro de contagem.
+    """
+    cfg = cfg or config.load()
+    por_set: dict[str, int] = {}
+    for r in con.execute(
+        "SELECT set_id, variant_kind, collector_number, public_code "
+        "FROM catalog.printings"
+    ):
+        if not escondida(r, cfg):
+            por_set[r["set_id"]] = por_set.get(r["set_id"], 0) + 1
     out = [
-        {"id": r["set_id"], "name": config.set_name(r["set_id"]),
-         "order": config.set_order(r["set_id"]), "n_printings": r["n"]}
-        for r in rows
+        {"id": s, "name": config.set_name(s),
+         "order": config.set_order(s), "n_printings": n}
+        for s, n in por_set.items()
     ]
     out.sort(key=lambda s: (s["order"], s["id"]))
     return out
@@ -773,8 +843,20 @@ def set_payload(con: sqlite3.Connection, set_id: str, editable: bool = True,
         "SELECT * FROM catalog.printings WHERE set_id = ? ORDER BY api_sort", (set_id,)
     ).fetchall()
 
+    # O que está escondido (André, 2026-09-11: *"podes tirar as signatures da
+    # coleção, nunca vou colocar nenhuma"*; os tokens desde 2026-09-14) não vai
+    # para a grelha — nem para um bloco de fora. Guarda-se à parte só para o
+    # VALOR: uma cópia que ele tenha continua na caixa e vale o mesmo, e o
+    # total desta edição tem de bater certo com o `prices.collection_value`,
+    # que lê o `copies` inteiro.
+    escondidas_valor: list[tuple[int, int]] = []
     groups: dict[str, dict] = {}
     for r in rows:
+        if escondida(r, cfg):
+            preco = price.get(r["printing_id"])
+            if preco is not None:
+                escondidas_valor.append((totais.get(r["printing_id"], 0), preco))
+            continue
         g = groups.get(r["group_key"])
         if g is None:
             g = groups[r["group_key"]] = {
@@ -818,9 +900,9 @@ def set_payload(con: sqlite3.Connection, set_id: str, editable: bool = True,
                     (locais_por_pid.get(r["printing_id"]) or {}).items(),
                     key=lambda kv: (kv[0] != locais.COLECAO, kv[0]))],
             "target": alvo(r, cfg),
-            # O bloco da grelha: `master`, `rune_special` ou `alt_art` dentro da
-            # coleção, e um bloco próprio para o que ficou de fora. É o mesmo
-            # campo que diz se entra na percentagem (ver `conta_bloco`).
+            # O bloco da grelha: `master` para o que conta, e um bloco próprio
+            # para cada pedaço da coleção extra. É o mesmo campo que diz se
+            # entra na percentagem (ver `conta_bloco`).
             "block": bloco(r, cfg),
             "img": f"img/{r['printing_id']}.webp",
             "cdn": r["image_medium"] or r["image_large"] or r["image_url"],
@@ -854,9 +936,9 @@ def set_payload(con: sqlite3.Connection, set_id: str, editable: bool = True,
     # da barra de propósito: é o mesmo âmbito, e a percentagem do último nível
     # tem de dar exactamente a da barra.
     para_niveis: list[tuple] = []
-    # TODOS os blocos têm contador próprio ("tens N de M"); os três da coleção
-    # somam-se ainda na percentagem global, e os de fora não — é o ponto todo
-    # de estarem fora.
+    # TODOS os blocos têm contador próprio ("tens N de M"); só o master set
+    # entra na percentagem global — a coleção extra não, e é o ponto todo de
+    # ser extra (André, 2026-09-14: *"só quero % de completo para masterset"*).
     by_block: dict[str, list[int]] = {}
     for g in ordered:
         for p in g["printings"]:
@@ -895,11 +977,15 @@ def set_payload(con: sqlite3.Connection, set_id: str, editable: bool = True,
             # não vale menos por estar sleevada. Por isso o total físico, e não
             # o `qty` da Coleção.
             value_owned += p["qty_total"] * p["price"]
-            # "se estivesse completa" é sobre a COLEÇÃO: o que não entra na
-            # percentagem também não entra no preço de a fechar. Desde
-            # 2026-09-08 isso inclui 1 de cada runa especial e 1 de cada alt art.
+            # "se estivesse completa" é sobre o MASTER SET: o que não entra na
+            # percentagem também não entra no preço de a fechar — a coleção
+            # extra é a mais, e o preço dela está nas wantlists.
             if conta_bloco(p["block"], cfg):
                 value_full += p["target"] * p["price"]
+    # As escondidas: valem o que ele tem delas, e não entram no «se estivesse
+    # completa» — estão fora da percentagem por construção (ver `_fora`).
+    for qty_total, preco in escondidas_valor:
+        value_owned += qty_total * preco
 
     # Cada bloco leva o seu "tens N de M"; o `counts` diz quais é que se somam
     # na barra do master set. A percentagem global é a soma dos que contam.
@@ -933,6 +1019,9 @@ def set_payload(con: sqlite3.Connection, set_id: str, editable: bool = True,
         # A ordem dos blocos da grelha, e o rótulo de cada um. Vem do servidor
         # para o cliente não ter uma segunda cópia da regra.
         "blocks": blocks,
+        # As variantes que não estão na página (`master_set.escondidas`), para o
+        # filtro de tipo de impressão não oferecer um chip que não filtra nada.
+        "hidden_kinds": sorted(kinds_escondidas(cfg)),
         "groups": ordered,
     }
 
