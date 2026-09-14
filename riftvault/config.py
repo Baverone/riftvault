@@ -54,10 +54,14 @@ DEFAULTS: dict = {
     # no mesmo dia ("quero que as promos fiquem também à parte, tal como as
     # signature e as overnumbered"). Ver `metrics._fora` e `metrics.e_master`.
     "master_set": {"fora": ["-T", "*", "overnumbered", "promo"]},
-    # O bloco 2 da Coleção: "1 runa especial de cada para cada set".
-    "runas_especiais": {"tipos": ["Rune"], "excepto": ["base"], "alvo": 1},
-    # Vazio desde 2026-09-08: as artes alternativas pedem 1, não o playset.
-    "master_variantes_playset": [],
+    # O bloco 2 da Coleção ("1 runa especial de cada para cada set", 2026-09-08)
+    # — com o alvo a "playset" desde 2026-09-14 ("muda tudo para playset"): a
+    # runa pede as 12, base ou especial. Ver `metrics.ALVO_PLAYSET`.
+    "runas_especiais": {"tipos": ["Rune"], "excepto": ["base"], "alvo": "playset"},
+    # As variantes de DENTRO da Coleção pedem o playset do tipo (André,
+    # 2026-09-14). Esteve vazio de 2026-09-08 ("no fim 1 alt art de cada") até
+    # aí. As de `master_set.fora` não entram e ficam a 1.
+    "master_variantes_playset": ["alt_art", "rune_promo"],
     "master_base_follows_type": True,
     "master_target_overrides": {},
     "token_card_keys": [],
