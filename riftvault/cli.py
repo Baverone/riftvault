@@ -691,12 +691,14 @@ def cmd_a_subir(args) -> int:
     if fora.get("excluded"):
         # Por critério: as signatures também são de raridade showcase, e um
         # número só não dizia quantas saíram por serem uma coisa ou a outra.
-        motivos = ", ".join(f"{c['n']} {c['criterio']}"
+        nomes = fora.get("excluded_labels") or {}
+        motivos = ", ".join(f"{c['n']} {nomes.get(c['criterio'], c['criterio'])}"
                             for c in fora.get("excluded_by") or ())
+        extra = ("a coleção extra acompanha-se na grelha, não se compra"
+                 if fora.get("so_master_set") else
+                 "a exclusão é da sequência: a coleção extra entra na mesma")
         print(f"fora: {fora['excluded']} impressões ({motivos}) "
-              f"— continuam a contar na percentagem de master set. "
-              f"A exclusão é da sequência: as runas especiais e as artes "
-              f"alternativas entram na mesma, 1 de cada.")
+              f"— não entram nas listas de compra; {extra}.")
     print()
     for x in itens:
         pct = "" if x.get("pct") is None else f"{x['pct']:+7.1f}%"

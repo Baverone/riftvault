@@ -501,7 +501,9 @@ class TestPercentagem(Base):
 
 
 class TestListasDeCompra(Base):
-    """O âmbito é a página inteira: master set e coleção extra, sem o escondido."""
+    """O `masterset` é a página inteira (sem o escondido); as LISTAS são só o
+    bloco 1 — a coleção extra acompanha-se, não se compra (André, 2026-09-15).
+    O grosso está em `test_extra_so_track.py`; aqui fica a mecânica do `excluir`."""
 
     def test_o_ambito_e_a_pagina_menos_os_tokens_e_as_signatures(self):
         con = self.edicao(com_runas=True)
@@ -513,24 +515,45 @@ class TestListasDeCompra(Base):
         self.assertNotIn("tst-003-star-100", escopo)
         con.close()
 
-    def test_faltam_o_playset_da_alt_art_e_1_da_runa_especial(self):
+    def test_a_lista_e_so_o_master_set(self):
+        """A alt art e as runas especiais têm alvo na grelha, não na lista."""
         con = self.edicao(com_runas=True)
-        itens = {x["printing_id"]: x
-                 for s in self.a_subir.master_faltas(con)["sets"] for x in s["items"]}
-        self.assertEqual(itens["tst-001a-100"]["missing"], 3)
-        self.assertEqual(itens["tst-005a-100"]["missing"], 1)
-        self.assertEqual(itens["tst-r01-100"]["missing"], 1)
+        p = self.a_subir.master_faltas(con)
+        itens = {x["printing_id"]: x for s in p["sets"] for x in s["items"]}
+        self.assertEqual(sorted(itens), ["tst-001-100", "tst-002-100", "tst-005-100"])
         self.assertEqual(itens["tst-005-100"]["missing"], 1)
-        self.assertNotIn("tst-t01-100", itens)
+        self.assertEqual(p["scope"]["excluded"], 3)
+        self.assertTrue(p["scope"]["so_master_set"])
         con.close()
 
-    def test_o_showcase_da_cauda_nao_cai_na_exclusao_da_sequencia(self):
-        """A alt art tem raridade `showcase` e fica na mesma: é outro bloco."""
-        con = self.edicao()
+    def test_a_colecao_extra_sai_com_o_bloco_por_motivo(self):
+        con = self.edicao(com_runas=True)
         escopo, saem = self.a_subir.excluir(
             self.a_subir.masterset(con), self.a_subir.opcoes()["excluir"])
-        self.assertIn("tst-001a-100", escopo)
+        self.assertNotIn("tst-001a-100", escopo)
+        self.assertEqual(saem["tst-001a-100"]["excluded_by"], "alt_art")
+        self.assertEqual(saem["tst-005a-100"]["excluded_by"], "rune_special")
+        self.assertEqual(saem["tst-r01-100"]["excluded_by"], "rune_special")
         # A signature já nem chega aqui: está escondida.
+        self.assertNotIn("tst-003-star-100", escopo)
+        self.assertNotIn("tst-003-star-100", saem)
+        resumo = self.a_subir.resumo_fora(saem, self.a_subir.opcoes()["excluir"])
+        self.assertEqual(resumo["excluded"], 3)
+        # Pela ordem da grelha, com o nome do cabeçalho para a página escrever.
+        self.assertEqual(resumo["excluded_by"],
+                         [{"criterio": "rune_special", "n": 2},
+                          {"criterio": "alt_art", "n": 1}])
+        self.assertEqual(resumo["excluded_labels"],
+                         {"rune_special": "runas especiais", "alt_art": "artes alternativas"})
+        con.close()
+
+    def test_desligado_o_showcase_da_cauda_nao_cai_na_exclusao_da_sequencia(self):
+        """Com o `so_master_set` desligado (o mundo de 2026-09-14), a alt art de
+        raridade `showcase` fica na mesma: é outro bloco (`so_no_master`)."""
+        con = self.edicao()
+        escopo, saem = self.a_subir.excluir(
+            self.a_subir.masterset(con), self.a_subir.opcoes()["excluir"], so_master=False)
+        self.assertIn("tst-001a-100", escopo)
         self.assertNotIn("tst-003-star-100", escopo)
         self.assertNotIn("tst-003-star-100", saem)
         con.close()
@@ -539,21 +562,24 @@ class TestListasDeCompra(Base):
         con = self.edicao()
         _, saem = self.a_subir.excluir(
             self.a_subir.masterset(con),
-            {"tipos": ["signature"], "raridades": ["showcase"], "so_no_master": False})
+            {"tipos": ["signature"], "raridades": ["showcase"], "so_no_master": False},
+            so_master=False)
         self.assertIn("tst-001a-100", saem)
+        self.assertEqual(saem["tst-001a-100"]["excluded_by"], "showcase")
         con.close()
 
-    def test_um_bloco_inteiro_pode_sair_das_listas(self):
-        """`excluir.blocos` — o botão para a coleção extra não se comprar."""
+    def test_desligado_um_bloco_inteiro_pode_sair_das_listas(self):
+        """`excluir.blocos` — com o `so_master_set` desligado, tira só o que se escrever."""
         con = self.edicao(com_runas=True)
-        ficam, saem = self.a_subir.excluir(
-            self.a_subir.masterset(con), {"blocos": ["alt_art", "rune_special"]})
+        fora = {"blocos": ["alt_art", "rune_special"]}
+        ficam, saem = self.a_subir.excluir(self.a_subir.masterset(con), fora, so_master=False)
         self.assertNotIn("tst-001a-100", ficam)
         self.assertEqual(saem["tst-001a-100"]["excluded_by"], "alt_art")
         self.assertEqual(saem["tst-005a-100"]["excluded_by"], "rune_special")
         self.assertIn("tst-001-100", ficam)
-        resumo = self.a_subir.resumo_fora(saem, {"blocos": ["alt_art", "rune_special"]})
+        resumo = self.a_subir.resumo_fora(saem, fora, so_master=False)
         self.assertEqual(resumo["excluded"], 3)
+        self.assertFalse(resumo["so_master_set"])
         self.assertEqual(resumo["excluded_by"],
                          [{"criterio": "alt_art", "n": 1},
                           {"criterio": "rune_special", "n": 2}])

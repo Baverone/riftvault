@@ -275,20 +275,21 @@ class TestWantlistPorNivel(Base):
         return con
 
     def test_o_nivel_1_pede_uma_de_cada(self):
+        """Só do master set: a alt art (coleção extra) não entra em nível
+        nenhum — acompanha-se na grelha, não se compra (2026-09-15)."""
         con = self.montar()
         p = self.a_subir.wantlist(con, "TST", nivel=1)
         self.assertEqual({x["printing_id"]: x["missing"] for x in p["items"]},
-                         {"tst-001-100": 1, "tst-002-100": 1, "tst-003a-100": 1})
-        self.assertEqual(p["copies"], 3)
-        self.assertEqual(p["cents"], 100 + 500 + 900)
+                         {"tst-001-100": 1, "tst-002-100": 1})
+        self.assertEqual(p["copies"], 2)
+        self.assertEqual(p["cents"], 100 + 500)
         con.close()
 
     def test_o_nivel_2_so_muda_as_que_tem_playset(self):
         con = self.montar()
         p = self.a_subir.wantlist(con, "TST", nivel=2)
-        # A alt art pede o playset desde 2026-09-14 — corta-se a 2 como a base.
         self.assertEqual({x["printing_id"]: x["missing"] for x in p["items"]},
-                         {"tst-001-100": 2, "tst-002-100": 1, "tst-003a-100": 2})
+                         {"tst-001-100": 2, "tst-002-100": 1})
         con.close()
 
     def test_sem_nivel_e_a_lista_de_sempre(self):
@@ -296,7 +297,7 @@ class TestWantlistPorNivel(Base):
         cheia = self.a_subir.wantlist(con, "TST")
         alto = self.a_subir.wantlist(con, "TST", nivel=3)
         self.assertEqual(cheia["text"], alto["text"])
-        self.assertEqual(cheia["copies"], 7)     # 3 + 1 + 3
+        self.assertEqual(cheia["copies"], 4)     # 3 + 1; a alt art fica de fora
         con.close()
 
     def test_a_runa_pede_1_em_todos_os_degraus(self):
