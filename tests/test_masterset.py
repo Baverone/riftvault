@@ -180,8 +180,9 @@ class TestClassificacao(Base):
                          "Coleção — artes alternativas — playset")
         self.assertEqual(self.metrics.rotulo("rune_special"),
                          "Coleção — runas especiais — 1 de cada")
+        # «1 de cada» desde 2026-09-15 (`master_set.um_de_cada`).
         self.assertEqual(self.metrics.rotulo("overnumbered"),
-                         "Coleção — sobrenumeradas — playset")
+                         "Coleção — sobrenumeradas — 1 de cada")
         self.assertIsNone(self.metrics.rotulo("master"))
 
 
@@ -245,7 +246,8 @@ class TestConfigDasListas(Base):
 
 
 class TestAlvos(Base):
-    """UMA regra: runa 1, o resto o playset do tipo — em todos os blocos."""
+    """UMA regra: runa 1, o `um_de_cada` 1 (sobrenumeradas e promos, desde
+    2026-09-15), o resto o playset do tipo — em todos os blocos."""
 
     def test_a_runa_pede_1_base_ou_especial(self):
         for kind in ("base", "alt_art", "rune_promo", "signature"):
@@ -254,12 +256,16 @@ class TestAlvos(Base):
                     self.metrics.master_target("x", kind, "Rune", False), 1)
 
     def test_as_outras_cartas_pedem_o_playset_do_tipo_em_qualquer_variante(self):
-        for kind in ("base", "alt_art", "special", "signature"):
+        for kind in ("base", "alt_art", "signature"):
             with self.subTest(kind=kind):
                 self.assertEqual(self.metrics.master_target("x", kind, "Unit", False), 3)
                 self.assertEqual(self.metrics.master_target("x", kind, "Legend", False), 1)
                 self.assertEqual(
                     self.metrics.master_target("x", kind, "Battlefield", False), 1)
+
+    def test_a_promo_pede_1(self):
+        """*"overnumbered e promos (SP) voltamos a 1 de cada"* — `test_alvo_1.py`."""
+        self.assertEqual(self.metrics.master_target("x", "special", "Unit", False), 1)
 
     def test_o_token_pede_o_token_target(self):
         self.assertEqual(self.metrics.master_target("x", "token", None, True), 1)
