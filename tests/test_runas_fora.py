@@ -8,8 +8,10 @@ O critério é a NUMERAÇÃO, não o tipo:
 
   - runa COM numeração de master set (`TST-002/100`, e a arte alternativa
     dela, `TST-002a/100`) — fica exactamente como estava: a base na sequência
-    do master set, a alt art no bloco das runas especiais, alvo 1, a base a
-    contar para a percentagem e para as listas de compra;
+    do master set, a alt art no bloco das runas especiais, a base a contar
+    para a percentagem e para as listas de compra. (O alvo era 1 nesta ordem;
+    passou a 3 nessa mesma tarde — *"vamos ate 3 como as outras cartas"* —,
+    ver `test_runas_3.py`. Aqui fica só o que esta ordem decidiu: o bloco.)
   - runa SEM numeração (`TST-R01`, código sem `/tamanho`) — escondida, como os
     tokens e as signatures: não aparece na grelha, em bloco nenhum, no
     separador, em wantlist nenhuma nem no «A subir», e não conta para a
@@ -150,11 +152,10 @@ class TestRunaSemNumeracao(Base):
 
 
 class TestRunaComNumeracao(Base):
-    def test_a_base_fica_na_sequencia_com_alvo_1_e_conta(self):
+    def test_a_base_fica_na_sequencia_e_conta(self):
         con = self.edicao()
         r = self.linha(con, self.RUNA_BASE)
         self.assertEqual(self.metrics.bloco(r), "master")
-        self.assertEqual(self.metrics.alvo(r), 1)
         self.assertTrue(self.metrics.e_master(r))
         self.assertFalse(self.metrics.escondida(r))
         self.assertIn(self.RUNA_BASE, self.ids_na_grelha(con))
@@ -166,7 +167,8 @@ class TestRunaComNumeracao(Base):
             with self.subTest(nivel=nivel):
                 w = self.a_subir.wantlist(con, "TST", nivel=nivel)
                 por_pid = {x["printing_id"]: x["missing"] for x in w["items"]}
-                self.assertEqual(por_pid[self.RUNA_BASE], 1)
+                # A runa numerada pede o mesmo que a Unit (3 desde 2026-09-15).
+                self.assertEqual(por_pid[self.RUNA_BASE], por_pid[self.UNIT])
                 self.assertEqual(por_pid[self.UNIT], min(nivel or 3, 3))
         con.close()
 
@@ -174,7 +176,6 @@ class TestRunaComNumeracao(Base):
         con = self.edicao()
         r = self.linha(con, self.RUNA_ALT)
         self.assertEqual(self.metrics.bloco(r), "rune_special")
-        self.assertEqual(self.metrics.alvo(r), 1)
         self.assertFalse(self.metrics.e_master(r))
         self.assertFalse(self.metrics.escondida(r))
         self.assertIn(self.RUNA_ALT, self.ids_na_grelha(con))

@@ -821,8 +821,8 @@ def wantlist(con: sqlite3.Connection, set_id: str | None = None,
 
     **Não é uma lista nova.** É a do «Master set» (`master_faltas`), cortada por
     edição — mesmo âmbito (só o master set: a coleção extra acompanha-se, não
-    se compra — 2026-09-15), mesmos alvos (o playset do tipo, e 1 nas runas —
-    2026-09-14, à noite), mesma regra de carência e as mesmas exclusões. As linhas saem do gerador
+    se compra — 2026-09-15), mesmos alvos (o playset do tipo, runas numeradas
+    incluídas — 2026-09-15), mesma regra de carência e as mesmas exclusões. As linhas saem do gerador
     único (`cardmarket.gerar`), que é o mesmo do «A subir», do «Master set», da
     Venda e das listas dos decks; o gémeo em JavaScript é o `cmLinha`. Uma
     segunda implementação era uma segunda resposta à mesma pergunta.
@@ -840,7 +840,7 @@ def wantlist(con: sqlite3.Connection, set_id: str | None = None,
     lista para ter **uma de cada**, `2` para ter **duas**, e sem ele a lista
     inteira, com o playset na sequência. Não é uma lista nova nem outros alvos —
     é o mesmo `metrics.master_target` cortado por `min(nivel, alvo)`, por isso
-    as impressões de alvo 1 (Legends, Battlefields, runas) saem iguais em todos
+    as impressões de alvo 1 (Legends, Battlefields) saem iguais em todos
     os níveis, e o último degrau é o playset inteiro.
     """
     p = master_faltas(con, cfg, nivel)

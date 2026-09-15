@@ -26,17 +26,19 @@
           todas e deixam de contar para masterset […] menos as que tem
           numeração de masterset"*). Escreve-se em `master_set.escondidas`.
 
-     O ALVO é o mesmo nas duas primeiras: o playset do tipo da carta
-     (Unit/Spell/Gear 3, Legend e Battlefield 1) — **excepto as runas, que
-     são 1 de cada**, base ou especial, **e, desde 2026-09-15, as
-     sobrenumeradas e as promos, que voltaram a 1** (André: *"overnumbered e
-     promos (SP) voltamos a 1 de cada / se eu tiver mais adiciono na mesma"*
-     — ver `master_set.um_de_cada` e `e_um_de_cada`). Ter mais do que 1
-     dessas não é excedente nem erro: a segunda cópia aparece na grelha e
-     conta no valor como qualquer outra. Até 2026-09-14 de manhã as variantes
-     de dentro pediam 1 (decisões de 2026-09-08) e nessa tarde tudo pediu o
-     playset, runas a 12 incluídas (*"muda tudo para playset"*); a frase da
-     noite é a que vale, com a excepção do dia seguinte. Ver `master_target`,
+     O ALVO é o mesmo nas duas primeiras: o alvo de COLEÇÃO do tipo da carta
+     (`alvo_do_tipo`: Unit/Spell/Gear/Rune 3, Legend e Battlefield 1) —
+     **excepto, desde 2026-09-15, as sobrenumeradas e as promos, que voltaram
+     a 1** (André: *"overnumbered e promos (SP) voltamos a 1 de cada / se eu
+     tiver mais adiciono na mesma"* — ver `master_set.um_de_cada` e
+     `e_um_de_cada`). Ter mais do que 1 dessas não é excedente nem erro: a
+     segunda cópia aparece na grelha e conta no valor como qualquer outra.
+     **As runas deixaram de ser caso especial a 2026-09-15** (André: *"as
+     runas que estao no masterset […] vamos ate 3 como as outras cartas"*):
+     pediram 1 de 2026-09-08 a 2026-09-14 de manhã, 12 nessa tarde, 1 outra
+     vez à noite, e hoje pedem 3 como qualquer Unit — o 3 vem do
+     `master_targets_by_type`, porque o playset JOGÁVEL da runa continua a ser
+     12 (`playset_targets_by_type`) e são duas perguntas. Ver `master_target`,
      `escondida`, `fora_do_master`, `e_master`, `bloco` e `conta_bloco`.
 
 São sempre calculadas e mostradas em paralelo. Nenhuma substitui a outra.
@@ -115,16 +117,11 @@ BLOCO_CURTO = {
     "outras": "outras",
 }
 
-# As runas. Três campos, e cada um responde a uma pergunta diferente:
+# O bloco das runas especiais. Dois campos, e é SÓ sobre o bloco da grelha —
+# o alvo das runas deixou de ser caso especial a 2026-09-15 (ver
+# `master_target`):
 #
-#   `tipos`   — o que É uma runa. Decide o ALVO de TODAS elas (`e_runa`), base
-#               ou especial, dentro ou fora do master set.
-#   `alvo`    — esse alvo: **1 por impressão** (André, 2026-09-14, à noite:
-#               *"runas 1 de cada"*, dito como frase solta a seguir a *"quero
-#               masterset com playset"* — vale para todas). Foi 1 de 2026-09-08
-#               (*"apenas 1 de cada também, em vez de 12"*) até à tarde de
-#               2026-09-14 (*"muda tudo para playset"*, 12), e voltou a 1 nessa
-#               noite. `"playset"` continua a ser aceite e dá as 12.
+#   `tipos`   — o que É uma runa (`e_runa`).
 #   `excepto` — quais é que ficam na SEQUÊNCIA do master set (só a base). O
 #               resto vai para o bloco «runas especiais» (`e_runa_especial`) —
 #               hoje só as artes alternativas do OGN: as promo do VEN estão
@@ -132,13 +129,15 @@ BLOCO_CURTO = {
 #               e a RiftScribe não tem runas no SFD nem no UNL (ver "BURACO
 #               NO CATÁLOGO" no CLAUDE.md).
 #
-# Muda-se em `runas_especiais` no config. `tipos: []` desliga as três coisas e
-# as runas voltam a seguir o playset, como qualquer outra carta.
-RUNA_ESPECIAL: dict = {"tipos": ["Rune"], "excepto": ["base"], "alvo": 1}
+# Muda-se em `runas_especiais` no config. `tipos: []` desfaz o bloco e as
+# artes alternativas das runas caem na cauda das artes alternativas. O `alvo`
+# que este bloco tinha (1 de 2026-09-08 a 2026-09-15, com um `"playset"` na
+# tarde de 14/09) deixou de ser lido: um config que ainda o traga não faz nada.
+RUNA_ESPECIAL: dict = {"tipos": ["Rune"], "excepto": ["base"]}
 
-# O valor do `runas_especiais.alvo` que quer dizer «o playset do tipo», em vez
-# de um número fixo. É a escrita dele de 2026-09-14 à tarde (*"muda tudo para
-# playset"*); à noite voltou ao 1, mas a escrita fica aceite.
+# O rótulo do sufixo de um bloco cujo alvo é o do tipo de cada carta («—
+# playset»), por oposição aos blocos que pedem um número fixo («— 1 de cada»).
+# Ver `_sufixo_alvo`.
 ALVO_PLAYSET = "playset"
 
 # O sufixo do CÓDIGO IMPRESSO -> o `variant_kind` que ele dá no catálogo. É a
@@ -226,14 +225,13 @@ def opcoes_runa(cfg: dict | None = None) -> dict:
 
 
 def e_runa(printing, cfg: dict | None = None) -> bool:
-    """Esta impressão é de uma RUNA — a pergunta do ALVO.
+    """Esta impressão é de uma RUNA — a pergunta do BLOCO, só.
 
-    André, 2026-09-14, à noite: *"runas 1 de cada"*. É **uma regra só** para
-    as runas todas: base ou especial, dentro ou fora do master set, o alvo é o
-    `runas_especiais.alvo` (1). Ver `master_target`.
-
-    O que distingue a base da especial é só o BLOCO da grelha — a base fica na
-    sequência, o resto vai para as runas especiais. Ver `e_runa_especial`.
+    Serve o `e_runa_especial`, que decide se a impressão vai para o bloco das
+    runas especiais. **Não decide alvo nenhum**: desde 2026-09-15 (André: *"as
+    runas que estao no masterset […] vamos ate 3 como as outras cartas"*) o
+    `master_target` não pergunta se a carta é runa — o alvo vem do tipo, como
+    para qualquer Unit (`alvo_do_tipo`).
     """
     return campo(printing, "type") in (opcoes_runa(cfg).get("tipos") or ())
 
@@ -242,13 +240,14 @@ def e_runa_especial(printing, cfg: dict | None = None) -> bool:
     """Esta impressão é uma «runa especial» — o bloco a seguir ao master set?
 
     André, 2026-09-08: *"1 runa especial de cada para cada set"*. A runa base
-    fica na sequência e as outras impressões da runa — a arte alternativa e a
-    promo — vão para um bloco próprio, por edição, antes da cauda das artes
-    alternativas. Desde 2026-09-14 à noite esse bloco é coleção extra: não
-    conta para a percentagem, como as artes alternativas de que é feito.
+    fica na sequência e as outras impressões da runa — hoje só a arte
+    alternativa do OGN — vão para um bloco próprio, por edição, antes da cauda
+    das artes alternativas. Desde 2026-09-14 à noite esse bloco é coleção
+    extra: não conta para a percentagem, como as artes alternativas de que é
+    feito.
 
-    **É só sobre o bloco, não sobre o alvo.** O alvo das duas é o mesmo (1) —
-    ver `e_runa`.
+    **É só sobre o bloco, não sobre o alvo.** O alvo é o do tipo, como o de
+    qualquer outra impressão — ver `master_target`.
     """
     if not e_runa(printing, cfg):
         return False
@@ -267,21 +266,47 @@ def playset_target(card_type: str | None, is_token: bool, cfg: dict | None = Non
     return int(targets.get(card_type or "", targets.get("default", 3)))
 
 
+def alvo_do_tipo(card_type: str | None, is_token: bool, cfg: dict | None = None) -> int:
+    """O alvo de COLEÇÃO de um tipo de carta — a métrica 2, por tipo.
+
+    É o playset jogável do tipo (`playset_target`), excepto onde o
+    `master_targets_by_type` do config disser outro número. Hoje só a runa:
+    joga-se com 12 no Rune Pool, mas coleciona-se a 3 (André, 2026-09-15:
+    *"as runas que estao no masterset […] vamos ate 3 como as outras
+    cartas"*). São duas perguntas — o `faltas` e os decks continuam a pedir as
+    12 —, por isso são duas tabelas em vez de um `Rune: 3` a partir a outra.
+
+    O tipo que não estiver no `master_targets_by_type` segue o playset: uma
+    tabela vazia é «colecionar é ter o que se joga», que é o que vale para
+    Units, Spells, Gear, Legends e Battlefields.
+    """
+    cfg = cfg or config.load()
+    if is_token:
+        return playset_target(card_type, is_token, cfg)
+    proprio = (cfg.get("master_targets_by_type") or {}).get(card_type or "")
+    if proprio is not None:
+        return int(proprio)
+    return playset_target(card_type, is_token, cfg)
+
+
 def master_target(printing_id: str, kind: str, card_type: str | None, is_token: bool,
                   cfg: dict | None = None, printing=None) -> int:
     """O alvo de uma impressão — o que o tile mostra («2/3»).
 
-    UMA regra (André, 2026-09-14, à noite): **se for runa, 1; senão, o playset
-    do tipo** (`playset_targets_by_type`: Unit/Spell/Gear 3, Legend e
-    Battlefield 1) — **e, desde 2026-09-15, 1 também no que está em
-    `master_set.um_de_cada`**: as sobrenumeradas e as promos (*"overnumbered e
-    promos (SP) voltamos a 1 de cada"*). De resto vale igual no master set e
-    na coleção extra — *"Alt Art, overnumbered, etc etc mete Playset na
-    contagem"* fica de pé para as artes alternativas —, e é o mesmo número da
-    métrica jogável, de propósito: colecionar 3 é ter as 3 que se jogam. Os
-    tokens ficam com o `token_target` (1), como sempre.
+    UMA regra: **o alvo de coleção do tipo** (`alvo_do_tipo`: Unit/Spell/Gear
+    3, Legend e Battlefield 1, e Rune 3 desde 2026-09-15) — **excepto 1 no
+    que está em `master_set.um_de_cada`**: as sobrenumeradas e as promos
+    (2026-09-15, *"overnumbered e promos (SP) voltamos a 1 de cada"*). Vale
+    igual no master set e na coleção extra — *"Alt Art, overnumbered, etc etc
+    mete Playset na contagem"* (2026-09-14) fica de pé para as artes
+    alternativas. Os tokens ficam com o `token_target` (1), como sempre.
 
-    Até aqui havia três botões a dizer coisas diferentes
+    **As runas não são caso especial.** Foram-no de 2026-09-08 (*"apenas 1 de
+    cada também, em vez de 12"*) a 2026-09-15 (*"as runas que estao no
+    masterset […] vamos ate 3 como as outras cartas"*); o ramo que lhes dava o
+    `runas_especiais.alvo` saiu daqui, e o 3 é o do `master_targets_by_type`.
+
+    Até 2026-09-14 havia três botões a dizer coisas diferentes
     (`master_targets_by_variant`, `master_variantes_playset`,
     `master_base_follows_type`) e as variantes de fora pediam 1 enquanto as de
     dentro pediam o playset. Os três deixaram de ser lidos; se ainda estiverem
@@ -298,16 +323,9 @@ def master_target(printing_id: str, kind: str, card_type: str | None, is_token: 
         return int(override)
     if is_token:
         return int(cfg.get("token_target", 1))
-    if e_runa({"type": card_type}, cfg):
-        # *"runas 1 de cada"*, base ou especial. `"playset"` no `alvo` é a
-        # escrita da tarde de 2026-09-14 e continua a dar as 12.
-        alvo_runa = opcoes_runa(cfg).get("alvo", 1)
-        if alvo_runa == ALVO_PLAYSET:
-            return playset_target(card_type, is_token, cfg)
-        return int(alvo_runa)
     if e_um_de_cada(printing if printing is not None else {"variant_kind": kind}, cfg):
         return ALVO_UM
-    return playset_target(card_type, is_token, cfg)
+    return alvo_do_tipo(card_type, is_token, cfg)
 
 
 def alvo(printing, cfg: dict | None = None) -> int:
@@ -642,14 +660,13 @@ def _sufixo_alvo(bloco_id: str, cfg: dict) -> str:
     """«— playset» ou «— N de cada», conforme o alvo que o bloco pede hoje.
 
     Lê-se do mesmo config que o `master_target` lê, para o título e o badge do
-    tile não divergirem: as runas especiais dizem o `runas_especiais.alvo`, os
-    tokens o `token_target`, os blocos do `um_de_cada` (as sobrenumeradas e as
-    promos, 2026-09-15) dizem 1, e todos os outros o playset do tipo.
+    tile não divergirem: os tokens dizem o `token_target`, os blocos do
+    `um_de_cada` (as sobrenumeradas e as promos, 2026-09-15) dizem 1, e todos
+    os outros — as runas especiais incluídas, desde 2026-09-15 — o playset do
+    tipo.
     """
     kinds_um, over_um = _um_de_cada(cfg)
-    if bloco_id == BLOCO_RUNA:
-        alvo_bloco = opcoes_runa(cfg).get("alvo", 1)
-    elif bloco_id == "token":
+    if bloco_id == "token":
         alvo_bloco = int(cfg.get("token_target", 1))
     elif (bloco_id == BLOCO_OVER and over_um) or bloco_id in kinds_um:
         alvo_bloco = ALVO_UM
@@ -691,8 +708,9 @@ def rotulo(bloco_id: str, cfg: dict | None = None) -> str | None:
 # O ÂMBITO É O MESMO DA BARRA — as impressões que `e_master` deixa contar (só
 # o master set, desde 2026-09-14 à noite), pelo alvo do `master_target`. Não é
 # um âmbito novo: se fosse, a percentagem do último nível não batia certo com a
-# barra por cima da qual ela aparece. As impressões de alvo 1 — as runas, os
-# Legends, os Battlefields — só podem faltar no nível 1; do nível 2 em diante
+# barra por cima da qual ela aparece. As impressões de alvo 1 — os Legends, os
+# Battlefields (as runas numeradas deixaram de o ser a 2026-09-15) — só podem
+# faltar no nível 1; do nível 2 em diante
 # contam como feitas, porque `min(k, alvo)` nunca lhes pede mais do que 1. É
 # por isso que a percentagem do nível mais alto é EXACTAMENTE a da barra do
 # master set. A coleção extra (artes alternativas, sobrenumeradas, promos) não
@@ -731,8 +749,8 @@ def degraus(itens, cfg: dict | None = None) -> int:
     Com as runas a 12 (2026-09-14) davam 12 degraus, e do 4.º ao 12.º só as 24
     runas mexiam — nove colunas iguais para uma leitura de relance. O último
     degrau pede o playset INTEIRO de cada impressão (`alvo_do_nivel`), por isso
-    a runa continua a pedir as 12 no «3/3» e a percentagem desse degrau continua
-    a ser EXACTAMENTE a da barra.
+    a percentagem desse degrau continua a ser EXACTAMENTE a da barra seja qual
+    for o alvo (hoje as runas pedem 3, como o resto — 2026-09-15).
     """
     cfg = cfg or config.load()
     maior = max((a for a, _, _ in itens), default=0)

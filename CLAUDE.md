@@ -2612,3 +2612,59 @@ preço (com os preços fora da ordem do número, para a ordenação apagada dar
 vermelho), inversor, unitário e não total, sem preço no fim, subtotais e
 total, a mesma lista do «Master set», a coleção extra fora, não escreve.
 
+## 15/09/2026, à tarde — as runas numeradas pedem 3 (`master_targets_by_type`)
+
+Palavras dele: *"as runas que estao no masterset (acho que e so origin) vamos
+ate 3 como as outras cartas"*.
+
+**A regra em duas linhas:** uma runa COM numeração de master set pede o alvo
+normal, **3**, como uma Unit — base na sequência (`OGN-007/298`) ou arte
+alternativa no bloco «runas especiais» (`OGN-007a/298`). As sem numeração
+(`VEN-R01..R06`) continuam escondidas (ordem `runas-fora`, mesma manhã).
+
+Revoga em definitivo o «runas 1 de cada» (2026-09-08; reafirmado a 14/09 à
+noite). **O ramo runa→1 saiu do `metrics.master_target`**: o alvo é o do tipo
+(`metrics.alvo_do_tipo` = `master_targets_by_type` por cima de
+`playset_targets_by_type`), e a runa deixou de ser caso especial no código.
+`master_targets_by_type: {"Rune": 3}` é a única entrada — é a tabela que
+separa «colecionar» (3) de «jogar» (12, o Rune Pool).
+
+**São só as do OGN, e ele tem razão.** No catálogo da RiftScribe as 18 runas
+são: 6 bases OGN (numeradas, sequência), 6 artes alternativas OGN (numeradas,
+bloco «runas especiais», coleção extra) e 6 promo VEN (sem numeração,
+escondidas). O SFD e o UNL não têm runas na RiftScribe (BURACO NO CATÁLOGO);
+as do CardTrader vivem no `market_only`, fora das métricas.
+
+**Medido a 2026-09-15 no `main` (`c501739`) e no ramo, mesma corrida, mesmo
+`vault.db`, mesmo catálogo e preços:**
+
+| | antes | depois | porquê |
+|---|---|---|---|
+| denominador | 928 | **928** | conta IMPRESSÕES, não cópias; o alvo não mexe nele |
+| nível 1 | 850/928 = 91,6 % · faltam 78 · 386,51 € | igual | as 6 bases OGN já tinham ≥ 1 |
+| nível 2 | 766/928 = 82,5 % · faltam 229 · 1 119,54 € | **763/928 = 82,2 %** · faltam **232** · 1 119,87 € | 3 runas a 1 cópia (`OGN-007`, `126`, `166`) deixam de estar feitas: +3 |
+| playset | 689/928 = 74,2 % · faltam 457 · 1 991,92 € | **686/928 = 73,9 %** · faltam **463** · 1 992,58 € | as mesmas 3 × 2 cópias: +6 |
+| wantlist «tudo» | 229 linhas · 432 cópias · 1 629,47 € | **231 · 436 · 1 629,91 €** | entram `OGN-007` Fury Rune e `OGN-126` Body Rune, 2 cada a 0,11 €; a `OGN-166` tem 7 a caminho e não entra |
+| valor da coleção | 2 144,86 € | **2 144,86 €** | não mexe, como tem de ser |
+
+As outras três bases (`042` ×9, `089` ×3, `214` ×5) já estavam a 3 ou mais e
+leem-se «9/3» a verde — a leitura de «se eu tiver mais adiciono na mesma».
+
+**Os restos da config, um a um** (confirmados com `git grep`):
+
+- `runas_especiais.alvo` — **saiu** no `4c5a817`; `tipos`/`excepto` ficam,
+  porque decidem o BLOCO (`metrics.e_runa_especial`), não o alvo.
+- `playset_targets_by_type.Rune: 12` — **fica, porque ainda é lido**: é a
+  métrica 1 (a barra do playset jogável na Coleção, `g["playset"]`), a
+  resposta do `/api/card`, o teto do Pimp e o `cap` das Faltas. É o Rune Pool
+  dos decks, não um alvo de coleção.
+- `faltas_ignorar_tipos: ["Rune"]` — **fica, e não esconde nada do «Quanto
+  custa»**: só o `faltas.py` o lê (Staples, Por deck, Todos juntos — as abas
+  dos DECKS, decisão de 2026-09-01). O «Quanto custa»/«Master set» é o
+  `a_subir.master_faltas`, que não o conhece — medido: a Fury Rune e a Body
+  Rune aparecem lá a «1/3».
+
+`tests/test_runas_3.py` fixa a regra (era referido por cinco testes e não
+existia); `test_niveis`, `test_contador_bloco` e `test_wantlist_edicao`
+descreviam a runa a 1 e foram ajustados.
+

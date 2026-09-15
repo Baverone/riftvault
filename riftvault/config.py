@@ -36,6 +36,12 @@ DEFAULTS: dict = {
         "Rune": 12,
         "default": 3,
     },
+    # O alvo de COLEÇÃO por tipo, onde difere do playset jogável (o que não
+    # estiver aqui segue o `playset_targets_by_type`). Só a runa: joga-se com
+    # 12 no Rune Pool, coleciona-se a 3 (André, 2026-09-15: "as runas que estao
+    # no masterset […] vamos ate 3 como as outras cartas"). Ver
+    # `metrics.alvo_do_tipo`.
+    "master_targets_by_type": {"Rune": 3},
     "token_target": 1,
     # As três categorias da Coleção (André, 2026-09-14, à noite: "só quero % de
     # completo para masterset! o que é Alt Art e Overnumbered, etc etc é
@@ -53,7 +59,8 @@ DEFAULTS: dict = {
     #                           contar para masterset […] menos as que tem
     #                           numeração de masterset"). As runas numeradas —
     #                           a base e a arte alternativa do OGN — ficam onde
-    #                           estavam, com alvo 1.
+    #                           estavam, e desde essa tarde pedem 3 como o
+    #                           resto (`master_targets_by_type`).
     #   `um_de_cada`          — o que pede 1 em vez do playset do tipo: as
     #                           sobrenumeradas e as promos (2026-09-15:
     #                           "overnumbered e promos (SP) voltamos a 1 de
@@ -67,12 +74,13 @@ DEFAULTS: dict = {
                    "escondidas": ["-T", "*", "-R"],
                    "um_de_cada": ["overnumbered", "promo"]},
     # O bloco das runas especiais ("1 runa especial de cada para cada set",
-    # 2026-09-08) e o alvo de TODAS as runas: 1 ("runas 1 de cada", 2026-09-14
-    # à noite). `"playset"` dá as 12. Ver `metrics.RUNA_ESPECIAL`.
-    "runas_especiais": {"tipos": ["Rune"], "excepto": ["base"], "alvo": 1},
+    # 2026-09-08) — só o BLOCO. O `alvo` que aqui vivia (1, "runas 1 de cada")
+    # deixou de ser lido a 2026-09-15: as runas pedem o alvo do tipo, como
+    # tudo o resto. Ver `metrics.RUNA_ESPECIAL`.
+    "runas_especiais": {"tipos": ["Rune"], "excepto": ["base"]},
     # `master_targets_by_variant`, `master_variantes_playset` e
     # `master_base_follows_type` deixaram de ser lidos a 2026-09-14: o alvo é
-    # "runa 1, o resto o playset do tipo" em todos os blocos (`metrics.master_target`).
+    # o do tipo em todos os blocos, menos o `um_de_cada` (`metrics.master_target`).
     "master_target_overrides": {},
     # As listas de compra («A subir», «Master set», as wantlists por edição e
     # por nível) são SÓ o master set (André, 2026-09-15: "sobrenumeradas não

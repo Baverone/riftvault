@@ -6,7 +6,9 @@
      mas só quero % de completo para masterset!
      o que é Alt Art e Overnumbered, etc etc é puramente coleção»
 
-  1. MASTER SET — a sequência da edição. Alvo = playset do tipo, runas 1.
+  1. MASTER SET — a sequência da edição. Alvo = playset do tipo — runas
+     incluídas desde 2026-09-15 (*"vamos ate 3 como as outras cartas"*, ver
+     `test_runas_3.py`; o «runas 1 de cada» desta frase foi revogado).
      Só isto conta para a percentagem e para os níveis.
   2. COLEÇÃO EXTRA — artes alternativas, runas especiais, sobrenumeradas,
      promos. Mesmo alvo. Aparecem na grelha com «tenho N de alvo», vendem-se
@@ -122,17 +124,17 @@ class TestAlvos(Base):
         self.assertTrue(self.metrics.e_colecao(r))
         con.close()
 
-    def test_a_runa_base_pede_1_e_conta(self):
+    def test_a_runa_base_pede_3_e_conta(self):
         con = self.edicao()
         r = self.linhas(con)["tst-002-100"]
-        self.assertEqual(self.metrics.alvo(r), 1)
+        self.assertEqual(self.metrics.alvo(r), 3)
         self.assertTrue(self.metrics.e_master(r))
         con.close()
 
-    def test_a_runa_especial_pede_1_e_nao_conta(self):
+    def test_a_runa_especial_pede_3_e_nao_conta(self):
         con = self.edicao()
         r = self.linhas(con)["tst-002a-100"]
-        self.assertEqual(self.metrics.alvo(r), 1)
+        self.assertEqual(self.metrics.alvo(r), 3)
         self.assertFalse(self.metrics.e_master(r))
         self.assertEqual(self.metrics.bloco(r), "rune_special")
         # A runa promo, sem numeração, já não é runa especial: está escondida.
@@ -203,16 +205,17 @@ class TestPercentagem(Base):
         depois = self.metrics.set_payload(con, "TST")["progress"]
         self.assertEqual(antes["master"], depois["master"])
         self.assertEqual(antes["levels"], depois["levels"])
-        # E os níveis medem só o master set: 3 + 1 + 1 + 1 cópias em falta.
+        # E os níveis medem só o master set: 3 + 3 + 1 + 1 cópias em falta (a
+        # Unit e a runa a 3, o Battlefield e o Legend a 1).
         self.assertEqual(depois["levels"][-1]["total"], len(self.MASTER))
-        self.assertEqual(depois["levels"][-1]["missing"], 3 + 1 + 1 + 1)
+        self.assertEqual(depois["levels"][-1]["missing"], 3 + 3 + 1 + 1)
         con.close()
 
     def test_o_ultimo_nivel_e_a_barra(self):
         from riftvault import collection
         con = self.edicao()
         collection.adjust(con, "tst-001-100", 3, source="test")
-        collection.adjust(con, "tst-002-100", 1, source="test")
+        collection.adjust(con, "tst-002-100", 3, source="test")
         p = self.metrics.set_payload(con, "TST")["progress"]
         self.assertEqual(p["master"]["done"], 2)
         self.assertEqual(p["levels"][-1]["done"], 2)
@@ -236,9 +239,9 @@ class TestListasDeCompra(Base):
         p = self.a_subir.master_faltas(con)
         itens = {x["printing_id"]: x for s in p["sets"] for x in s["items"]}
         self.assertEqual(sorted(itens), sorted(self.MASTER))
-        # O master set continua a pedir o playset do tipo, e 1 nas runas.
+        # O master set continua a pedir o playset do tipo — runas incluídas.
         self.assertEqual(itens["tst-001-100"]["missing"], 3)
-        self.assertEqual(itens["tst-002-100"]["missing"], 1)
+        self.assertEqual(itens["tst-002-100"]["missing"], 3)
         self.assertEqual(itens["tst-003-100"]["missing"], 1)
         self.assertEqual(itens["tst-004-100"]["missing"], 1)
         # E a página diz o que tirou, e de que bloco — uma lista que encolhe
@@ -263,7 +266,7 @@ class TestListasDeCompra(Base):
         tiles = {pr["id"]: pr for g in p["groups"] for pr in g["printings"]}
         self.assertEqual((tiles["tst-001a-100"]["qty"], tiles["tst-001a-100"]["target"]), (1, 3))
         self.assertEqual((tiles["tst-101-100"]["qty"], tiles["tst-101-100"]["target"]), (0, 1))
-        self.assertEqual(tiles["tst-002a-100"]["target"], 1)
+        self.assertEqual(tiles["tst-002a-100"]["target"], 3)
         # … e mesmo com 1 de 3 (a alt art) ou 0 de 1 (a sobrenumerada), nada
         # disto é para comprar.
         faltas = {x["printing_id"] for s in self.a_subir.master_faltas(con)["sets"]
@@ -279,9 +282,11 @@ class TestListasDeCompra(Base):
                 w = self.a_subir.wantlist(con, "TST", nivel=nivel)
                 por_pid = {x["printing_id"]: x["missing"] for x in w["items"]}
                 self.assertEqual(sorted(por_pid), sorted(self.MASTER))
-                # A Unit segue o degrau; as de alvo 1 saem iguais em todos.
+                # A Unit e a runa seguem o degrau; as de alvo 1 saem iguais
+                # em todos.
                 self.assertEqual(por_pid["tst-001-100"], min(nivel or 3, 3))
-                self.assertEqual(por_pid["tst-002-100"], 1)
+                self.assertEqual(por_pid["tst-002-100"], min(nivel or 3, 3))
+                self.assertEqual(por_pid["tst-004-100"], 1)
                 for pid in self.EXTRA:
                     self.assertNotIn(pid, w["text"], pid)
         con.close()
@@ -307,11 +312,11 @@ class TestListasDeCompra(Base):
         itens = {x["printing_id"]: x for s in p["sets"] for x in s["items"]}
         self.assertEqual(sorted(itens), sorted(self.MASTER + self.EXTRA))
         # Com o alvo de cada bloco: a alt art de Unit pede 3, a sobrenumerada
-        # e a promo pedem 1 (2026-09-15), a runa especial 1.
+        # e a promo pedem 1 (2026-09-15), a runa especial 3 (2026-09-15).
         self.assertEqual(itens["tst-001a-100"]["missing"], 3)
         self.assertEqual(itens["tst-101-100"]["missing"], 1)
         self.assertEqual(itens["tst-sp1-006"]["missing"], 1)
-        self.assertEqual(itens["tst-002a-100"]["missing"], 1)
+        self.assertEqual(itens["tst-002a-100"]["missing"], 3)
         self.assertFalse(p["scope"]["so_master_set"])
         con.close()
 
