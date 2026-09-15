@@ -402,89 +402,21 @@ o traga continua a funcionar.
 
 Não se distingue foil de normal: uma cópia é uma cópia.
 
-## Venda
+## Venda (apagada a 2026-09-15)
 
-Quarta secção. O que tens **fora da sequência do master set** — os tokens
-(`-T`), as signatures (`*`), as sobrenumeradas, as promos (`VEN-SP`), as runas
-especiais e as artes alternativas —, partido em duas leituras:
+Havia uma quarta secção, «Venda», com o excedente da caixa e uma análise das
+comuns e incomuns mais caras. *"Esquece a parte da venda, podes apagar para já,
+se for necessário mando fazer novamente"* — e foi apagada: o separador, a
+página, o `riftvault venda`, o `api/venda.json` e os módulos `venda.py` e
+`comuns.py`. Está tudo no histórico do git; o commit a reverter está no
+relatório `riftvault-sem-venda.md`.
 
-- **usada num deck seleccionado** — a cópia está alocada a um deck da secção
-  Decks. Fica onde está e não entra na lista.
-- **candidata a venda** — nenhum deck a usa. Nome, código, quantidade, preço de
-  hoje e total, mais o botão para copiar a lista no formato do Cardmarket.
-
-Uma impressão pode estar nas duas: 2 cópias num deck e 1 a mais vende só 1.
-
-**É só o EXCEDENTE.** Nos blocos que contam para a coleção — as runas especiais
-e as artes alternativas — guarda-se **1 de cada**, que é o que a coleção pede, e
-só sobra o resto; a primeira arte alternativa é coleção, a sexta é venda. Os
-tokens e as signatures, que estão fora da coleção, sobram inteiros.
-
-**Sobre as signatures:** desde que saíram da coleção (2026-09-09), uma signature
-que tenhas e nenhum deck use aparece aqui como candidata — é a regra de sempre,
-aplicada ao bloco novo. Hoje não tens nenhuma na caixa, por isso a lista não
-mexeu; **diz se preferes que fiquem sempre de fora da venda.**
-
-**E sobre as sobrenumeradas, o mesmo — só que desta vez tem efeito.** Com a
-decisão de 2026-09-10 entraram na Venda as **5** que tens e nenhum deck usa:
-`OGN-303` Nine-Tailed Fox, `SFD-224` Aphelios, `SFD-244` Fire Below the
-Mountain, `UNL-231` Wuju Master e `UNL-235` Deceiver — **654 €**, e a caixa
-passou de 4,11 € para 658,06 €. Não vendi nada nem mexi na coleção: é uma
-sugestão. **Diz se as queres aí ou se preferes guardá-las.**
-
-**E com as promos, outra vez o mesmo:** a `VEN-SP5` Ezreal, Prodigy que tens
-(**18,87 €**) passou a candidata a venda. É a mesma pergunta das duas de cima.
-
-**Duas origens desde 2026-09-10, e cada linha diz a sua:**
-
-- **do binder Decks/Venda** — cópias que tiraste da Coleção e que **nenhum deck
-  pede**. Entram seja qual for o bloco, incluindo a sequência do master set:
-  foste tu que as tiraste da coleção.
-- **da Coleção** — o que passa do alvo, como sempre. Aqui a sequência do master
-  set continua a **não** entrar, por muitas que tenhas a mais (decisão de
-  2026-09-08).
-
-O que está **dentro** de um deck nunca aparece na lista — está sleevado e a
-jogar.
-
-**Nada sai da base.** É uma sugestão — não há botão de vender e a coleção não
-mexe.
-
-```bash
-py -m riftvault venda                # a tabela
-py -m riftvault venda --cardmarket   # as linhas para copiar
-py -m riftvault venda --csv venda.csv
-```
-
-### Comuns e incomuns: o que vender
-
-*"Vê no Cardmarket e CardTrader quais as comuns e incomuns que costumam
-vender-se mais, e quais as mais caras, para eu saber o que vender."* É a secção
-dobrada no fim da página Venda, e o `py -m riftvault venda --comuns`.
-
-**A resposta curta: não tens nada para vender aí.** O teu excedente em comuns e
-incomuns são **22 impressões, 33 cópias, 3,83 €** — vinte delas ao preço mínimo
-do CardTrader (11 cêntimos) e metade são tokens do UNL. O dinheiro do que te
-sobra está nas seis que já aparecem em cima na Venda (**675 € dos 695 €**), e
-essas não são comuns.
-
-**Não existe "quais se vendem mais".** Ninguém publica volume de vendas:
-o Cardmarket responde **403** ao site e **410** à API pública, e a alternativa
-era registar uma app com chave própria — que a regra de só usar a subscrição não
-permite. Do CardTrader vem o lado da **oferta**: preço mínimo, quantos anúncios,
-quantos vendedores e quantas cópias estão à venda. A coluna **procura** é o
-preço a dividir pela mediana da raridade, reforçado pela subida do preço; mede
-quanto o mercado pede **acima do saldo**, não quantas se venderam. Hoje as duas
-medianas são as duas 11 cêntimos, por isso as duas listas saem quase iguais.
-
-**A lista das caras é para NÃO venderes.** As seis comuns caras do Riftbound são
-os Poros do UNL (`UNL-220` a `UNL-225`, de 100 a 286 €) — não tens nenhuma. A
-sétima já é a `OGN-183` Stacked Deck a 4,91 €.
-
-Passou também a guardar-se o número de anúncios ao longo do tempo
-(`listings_history` no `prices.db`). Com um dia não diz nada; ao fim de umas
-semanas, anúncios a cair com o preço a subir é o sinal mais próximo de procura
-que dá para ter.
+O que ficou, porque não era só da Venda: o **binder Decks/Venda** (é um local
+das cópias, ver «Onde está cada cópia»), o `decks.colecao_allocation` (é o que
+a grelha da Coleção usa para dizer «Azir 3 · Ornn 1»), e a recolha do número
+de anúncios, vendedores e cópias à venda no CardTrader (`prices.oferta`,
+`listings_history` no `prices.db`) — são dados de mercado e continuam a
+crescer com o `riftvault prices`.
 
 ## Valor da coleção
 
@@ -559,7 +491,7 @@ Cada cópia tem **um local**, e só um:
 |---|---|---|
 | **Coleção** | os binders de coleção | a percentagem de master set, os níveis, as wantlists |
 | **Deck `<slug>`** | sleevada dentro de um dos `decks/*.txt` | só esse deck |
-| **Binder Decks/Venda** | o stock livre | qualquer deck, por prioridade; o que sobra é venda |
+| **Binder Decks/Venda** | o stock livre | qualquer deck, por prioridade |
 
 - **A Coleção só conta o que está na Coleção.** Uma cópia que esteja num deck
   deixa de contar para a barra, mesmo sendo a mesma impressão — a impressão
@@ -623,8 +555,6 @@ riftvault decks [--order azir,ornn]               # decks e alocação
 riftvault deck azir [--onde]                      # detalhe de um deck
 riftvault shopping [--deck azir] [--csv f.csv]    # o que falta comprar
 riftvault a-subir [--cardmarket] [--todas]        # master set: a subir / tudo
-riftvault venda [--cardmarket] [--csv f.csv]      # fora do master set, a sobrar
-riftvault venda --comuns                          # comuns e incomuns: as caras
 riftvault local [...]                             # onde está cada cópia
 riftvault map / prices / value                    # CardTrader
 ```
@@ -642,8 +572,6 @@ riftvault/
   locais.py       onde está cada cópia: Coleção, deck, binder Decks/Venda
   metrics.py      as duas métricas, os blocos da grelha e os payloads
   a_subir.py      o que falta do master set (a subir, e a lista completa)
-  venda.py        o que está fora do master set e sobra dos decks
-  comuns.py       comuns e incomuns: as mais caras e o que tens a mais
   server.py       modo edição (Flask)
   build.py        modo publicado (estático)
   cli.py          linha de comandos

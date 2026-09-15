@@ -34,11 +34,11 @@ class Base(unittest.TestCase):
     def setUp(self):
         self.v = Vault()
         self.addCleanup(self.v.close)
-        from riftvault import a_subir, decks, locais, metrics, venda
-        for m in (metrics, decks, locais, a_subir, venda):
+        from riftvault import a_subir, decks, locais, metrics
+        for m in (metrics, decks, locais, a_subir):
             importlib.reload(m)
         self.locais, self.decks, self.metrics = locais, decks, metrics
-        self.venda, self.a_subir = venda, a_subir
+        self.a_subir = a_subir
 
     def catalogo(self, com_deck: bool = True):
         """Uma edição pequena, a coleção lá dentro e (opcional) um deck."""
@@ -50,7 +50,7 @@ class Base(unittest.TestCase):
         self.v.add_printing(con, "tst-002-100", "TST", 2, "Brutalizer", size=100)
         self.v.add_printing(con, "tst-003-100", "TST", 3, "Emperor of the Sands",
                             card_type="Legend", size=100)
-        # Uma carta que nenhum deck pede — é dela que se faz a venda.
+        # Uma carta que nenhum deck pede.
         self.v.add_printing(con, "tst-004-100", "TST", 4, "Spirit Blade", size=100)
         # Uma segunda Legend, sem cópias, para um segundo deck que DISPUTE com
         # o azir: com a mesma Legend partilhavam (2026-09-11, noite).
@@ -317,75 +317,6 @@ class TestDesfazerDeck(Base):
         self.assertEqual(res["copies"], 0)
         self.assertEqual(
             con.execute("SELECT COUNT(*) FROM location_ops").fetchone()[0], 0)
-        con.close()
-
-
-class TestVendaPorOrigem(Base):
-    """A venda diz de onde vem cada cópia."""
-
-    def test_o_que_esta_no_binder_e_nenhum_deck_pede(self):
-        con = self.catalogo()
-        # A Spirit Blade não está em deck nenhum e ele mandou-a para o binder.
-        from riftvault import collection
-        collection.adjust(con, "tst-004-100", 2, source="test")
-        self.locais.mover(con, "tst-004-100", 2, self.locais.COLECAO,
-                          self.locais.BINDER, source="test")
-
-        v = self.venda.listar(con)
-        item = next(x for x in v["items"] if x["printing_id"] == "tst-004-100")
-        self.assertEqual(item["from_binder"], 2)
-        self.assertEqual(item["from_colecao"], 0)
-        self.assertEqual(item["origem"], "binder")
-        self.assertEqual([o["id"] for o in v["origins"]], ["binder"])
-        con.close()
-
-    def test_a_sequencia_do_master_set_vende_se_quando_esta_no_binder(self):
-        """Ele próprio a tirou da Coleção — já não é coleção."""
-        con = self.catalogo()
-        self.locais.mover(con, "tst-002-100", 3, self.locais.COLECAO,
-                          self.locais.BINDER, source="test")
-        self.v.write_deck("azir", "Legend:\n1 Emperor of the Sands\n"
-                                  "MainDeck:\n3 Defy\n")
-        self.decks.import_all(con, log=lambda *_: None)
-
-        v = self.venda.listar(con)
-        item = next(x for x in v["items"] if x["printing_id"] == "tst-002-100")
-        self.assertEqual(item["block"], "master")
-        self.assertEqual(item["from_binder"], 3)
-        con.close()
-
-    def test_a_sequencia_na_colecao_nunca_entra(self):
-        """A decisão de 2026-09-08 fica de pé: a sequência não se vende."""
-        con = self.catalogo()      # tem 4 Defy base (alvo 3) na Coleção
-        v = self.venda.listar(con)
-        self.assertEqual([x["printing_id"] for x in v["items"]], [])
-        # Mas com o âmbito largo (as comuns e incomuns) aparece o excedente.
-        largo = self.venda.excedente(con, incluir_master=True)
-        item = next(x for x in largo if x["printing_id"] == "tst-001-100")
-        self.assertEqual(item["from_colecao"], 1)
-        con.close()
-
-    def test_o_que_esta_dentro_de_um_deck_nunca_se_vende(self):
-        con = self.catalogo()
-        from riftvault import collection
-        collection.adjust(con, "tst-001a-100", 3, source="test")
-        self.locais.mover(con, "tst-001a-100", 3, self.locais.COLECAO,
-                          self.locais.deck_local("azir"), source="test")
-        v = self.venda.listar(con)
-        self.assertEqual(v["items"], [])
-        self.assertEqual(v["in_decks_copies"], 3)
-        con.close()
-
-    def test_nao_mexe_na_base(self):
-        con = self.catalogo()
-        self.locais.mover(con, "tst-001-100", 2, self.locais.COLECAO,
-                          self.locais.BINDER, source="test")
-        antes = con.execute("SELECT printing_id, location, qty FROM copy_locations "
-                            "ORDER BY printing_id").fetchall()
-        self.venda.listar(con)
-        depois = con.execute("SELECT printing_id, location, qty FROM copy_locations "
-                             "ORDER BY printing_id").fetchall()
-        self.assertEqual([tuple(r) for r in antes], [tuple(r) for r in depois])
         con.close()
 
 

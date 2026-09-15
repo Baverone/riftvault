@@ -7,8 +7,7 @@ Art e Overnumbered, etc etc é puramente coleção"*.
 
 A regra numa frase: **uma impressão cujo número de coleccionador passa o
 tamanho da edição (as «300/298») é COLEÇÃO EXTRA** — aparece na grelha num
-bloco próprio, pede o playset do tipo e entra na Venda como qualquer carta,
-mas NÃO entra na sequência do master set, no denominador da percentagem, nas
+bloco próprio e pede o playset do tipo, mas NÃO entra na sequência do master set, no denominador da percentagem, nas
 contagens por níveis **nem nas listas de compra** (2026-09-15: *"sobrenumeradas
 não entram na wantlist, nem na % de coleção completa; apenas pedi para ser
 feito track de playset para eu saber exatamente quantas tenho"*). Até
@@ -27,7 +26,7 @@ compra (`e_colecao`) perguntam todos às mesmas funções.
 
 Estes testes valem por todos os consumidores da regra: a Coleção (blocos e
 percentagem), a contagem por níveis, as wantlists (por edição e por nível), o
-«A subir», a lista do «Master set» e a Venda. Se um dia um deles passar a
+«A subir» e a lista do «Master set». Se um dia um deles passar a
 responder sozinho, é aqui que se vê.
 """
 
@@ -51,11 +50,10 @@ class Base(unittest.TestCase):
     def setUp(self):
         self.v = Vault()
         self.addCleanup(self.v.close)
-        from riftvault import a_subir, config, metrics, venda
+        from riftvault import a_subir, config, metrics
         importlib.reload(metrics)
         importlib.reload(a_subir)
-        importlib.reload(venda)
-        self.metrics, self.a_subir, self.venda = metrics, a_subir, venda
+        self.metrics, self.a_subir = metrics, a_subir
         self.config = config
 
     def com_config(self, extra: dict):
@@ -373,26 +371,6 @@ class TestListasDeCompra(Base):
         self.assertFalse(m["scope"]["so_master_set"])
         self.assertEqual(m["scope"]["excluded_by"],
                          [{"criterio": "overnumbered", "n": 1}])
-        con.close()
-
-
-class TestVenda(Base):
-    """Uma sobrenumerada é coleção extra: só sobra acima do playset.
-
-    Até 2026-09-14 o alvo era 1 e a Venda propunha a segunda; e antes disso
-    (2026-09-10) propunha a primeira. Hoje a Coleção pede-lhe as 3.
-    """
-
-    def test_so_sobra_acima_do_playset(self):
-        from riftvault import collection
-        con = self.edicao()
-        collection.adjust(con, "tst-101-100", 3, source="test")
-        self.assertEqual(self.venda.listar(con)["items"], [])
-        collection.adjust(con, "tst-101-100", 1, source="test")
-        itens = {x["printing_id"]: x for x in self.venda.listar(con)["items"]}
-        self.assertIn("tst-101-100", itens)
-        self.assertEqual(itens["tst-101-100"]["qty"], 1)
-        self.assertEqual(itens["tst-101-100"]["block"], "overnumbered")
         con.close()
 
 

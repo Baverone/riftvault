@@ -30,7 +30,7 @@ import json
 import shutil
 from pathlib import Path
 
-from . import config, db, decks, faltas, metrics, pending, venda
+from . import config, db, decks, faltas, metrics, pending
 
 # A pasta das imagens fica de fora da comparação: em `static_images: "local"`
 # são ~88 MB e não dependem da colecção — o que muda nelas é o `riftvault
@@ -159,12 +159,6 @@ def _gerar(out_dir: Path | str, log=print, imagens: bool = True) -> dict:
     (out / "api" / "faltas.json").write_text(
         json.dumps(faltas.payload(con), ensure_ascii=False, separators=(",", ":")),
         encoding="utf-8")
-    # A lista de venda é um ficheiro à parte de propósito: o `faltas.json` já é
-    # descarregado inteiro a cada visita e esta secção pode nunca ser aberta.
-    lista_venda = venda.payload(con, editable=False)
-    (out / "api" / "venda.json").write_text(
-        json.dumps(lista_venda, ensure_ascii=False, separators=(",", ":")),
-        encoding="utf-8")
     # As encomendas (2026-09-11): a lista do que está a caminho, só de leitura
     # no site publicado — os `+`/`−` são do modo edição.
     encomendas = {"editable": False, **pending.encomendas(con)}
@@ -173,7 +167,6 @@ def _gerar(out_dir: Path | str, log=print, imagens: bool = True) -> dict:
         encoding="utf-8")
     con.close()
     log(f"  api/decks.json  ({len(index_decks)} decks) + api/faltas.json"
-        f" + api/venda.json ({lista_venda['printings']} impressões)"
         f" + api/encomendas.json ({encomendas['totals']['copies']} cópias a caminho)")
 
     n_img = 0

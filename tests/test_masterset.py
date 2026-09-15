@@ -30,11 +30,10 @@ class Base(unittest.TestCase):
     def setUp(self):
         self.v = Vault()
         self.addCleanup(self.v.close)
-        from riftvault import a_subir, config, metrics, venda
+        from riftvault import a_subir, config, metrics
         importlib.reload(metrics)
         importlib.reload(a_subir)
-        importlib.reload(venda)
-        self.metrics, self.a_subir, self.venda = metrics, a_subir, venda
+        self.metrics, self.a_subir = metrics, a_subir
         self.config = config
 
     def com_config(self, extra: dict):
@@ -338,7 +337,7 @@ class TestEscondidas(Base):
 
     O `"*"` e o `"-T"` do `master_set.escondidas` tiram as signatures e os
     tokens da página inteira: nem grelha, nem separador, nem listas. O que
-    ele tenha continua no vault e na Venda.
+    ele tenha continua no vault.
     """
 
     def test_a_signature_e_o_token_nao_vao_para_a_grelha(self):
