@@ -8,6 +8,11 @@ passou a dizer as duas coisas: quantas impressões tem (pelo menos uma cópia) e
 quantas estão no playset completo. O payload leva `owned`, `done` e
 `max_target` por bloco; o `app.js` recalcula o mesmo a partir do estado local.
 
+Horas depois as promos voltaram a alvo 1 (*"overnumbered e promos (SP)
+voltamos a 1 de cada"*), por isso o bloco que aqui faz de «pede playset» são
+as artes alternativas — a fotografia dele lê-se hoje nesse bloco. O das
+promos ficou como caso de alvo 1, ao lado das runas especiais.
+
 Corre contra cópias (`tests.fixture.Vault`); o config real só é lido.
 """
 
@@ -32,7 +37,8 @@ class TestContadorDoBloco(unittest.TestCase):
         self.metrics = metrics
 
     def edicao(self):
-        """Seis promos (alvo 3) e duas runas especiais (alvo 1)."""
+        """Seis artes alternativas (alvo 3), seis promos (alvo 1) e uma runa
+        especial (alvo 1)."""
         con = self.v.connect()
         v = self.v
         v.add_printing(con, "tst-001-100", "TST", 1, "Uma Unit", size=100, api_sort=1)
@@ -40,6 +46,9 @@ class TestContadorDoBloco(unittest.TestCase):
             v.add_printing(con, f"tst-sp{i}-006", "TST", i, f"Promo {i}",
                            variant=f"sp{i}", kind="special", lane="sp",
                            codigo=f"TST-SP{i}/006", api_sort=10 + i)
+            v.add_printing(con, f"tst-{i + 10:03d}a-100", "TST", i + 10,
+                           f"Unit {i}", variant="a", kind="alt_art",
+                           rarity="showcase", size=100, api_sort=20 + i)
         v.add_printing(con, "tst-002-100", "TST", 2, "Fury Rune",
                        card_type="Rune", size=100, api_sort=2)
         v.add_printing(con, "tst-002a-100", "TST", 2, "Fury Rune",
@@ -59,9 +68,9 @@ class TestContadorDoBloco(unittest.TestCase):
         """A fotografia: nenhum playset completo, mas duas impressões na caixa."""
         from riftvault import collection
         con = self.edicao()
-        collection.adjust(con, "tst-sp4-006", 1, source="test")
-        collection.adjust(con, "tst-sp5-006", 1, source="test")
-        b = self.blocos(con)["special"]
+        collection.adjust(con, "tst-014a-100", 1, source="test")
+        collection.adjust(con, "tst-015a-100", 1, source="test")
+        b = self.blocos(con)["alt_art"]
         self.assertEqual((b["owned"], b["done"], b["total"]), (2, 0, 6))
         self.assertEqual(b["max_target"], 3)
         self.assertFalse(b["counts"])
@@ -70,10 +79,26 @@ class TestContadorDoBloco(unittest.TestCase):
     def test_um_playset_completo_conta_nas_duas(self):
         from riftvault import collection
         con = self.edicao()
-        collection.adjust(con, "tst-sp1-006", 3, source="test")
-        collection.adjust(con, "tst-sp2-006", 2, source="test")
-        b = self.blocos(con)["special"]
+        collection.adjust(con, "tst-011a-100", 3, source="test")
+        collection.adjust(con, "tst-012a-100", 2, source="test")
+        b = self.blocos(con)["alt_art"]
         self.assertEqual((b["owned"], b["done"], b["total"]), (2, 1, 6))
+        con.close()
+
+    def test_as_promos_a_1_de_cada_dizem_tens_2_de_6_e_e_verdade(self):
+        """A mesma fotografia, depois de *"promos (SP) voltamos a 1 de cada"*:
+        as duas promos a uma cópia ESTÃO completas, `owned` e `done` são o
+        mesmo número e o `max_target` 1 poupa o cabeçalho ao «no playset
+        completo». Uma segunda cópia não altera nenhuma das contas."""
+        from riftvault import collection
+        con = self.edicao()
+        collection.adjust(con, "tst-sp4-006", 1, source="test")
+        collection.adjust(con, "tst-sp5-006", 2, source="test")
+        b = self.blocos(con)["special"]
+        self.assertEqual((b["owned"], b["done"], b["total"]), (2, 2, 6))
+        self.assertEqual(b["max_target"], 1)
+        self.assertFalse(b["counts"])
+        self.assertEqual(b["label"], "Coleção — promos — 1 de cada")
         con.close()
 
     def test_num_bloco_de_alvo_1_os_dois_numeros_sao_o_mesmo(self):

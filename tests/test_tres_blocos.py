@@ -103,19 +103,21 @@ class TestAlvos(Base):
         self.assertTrue(self.metrics.e_colecao(r))
         con.close()
 
-    def test_uma_sobrenumerada_pede_3_e_nao_conta(self):
+    def test_uma_sobrenumerada_pede_1_e_nao_conta(self):
+        """Pediu 3 de 2026-09-14 à noite até 2026-09-15 (*"overnumbered e
+        promos (SP) voltamos a 1 de cada"*) — ver `test_alvo_1.py`."""
         con = self.edicao()
         r = self.linhas(con)["tst-101-100"]
-        self.assertEqual(self.metrics.alvo(r), 3)
+        self.assertEqual(self.metrics.alvo(r), 1)
         self.assertFalse(self.metrics.e_master(r))
         self.assertTrue(self.metrics.e_colecao(r))
         self.assertEqual(self.metrics.bloco(r), "overnumbered")
         con.close()
 
-    def test_uma_promo_pede_3_e_nao_conta(self):
+    def test_uma_promo_pede_1_e_nao_conta(self):
         con = self.edicao()
         r = self.linhas(con)["tst-sp1-006"]
-        self.assertEqual(self.metrics.alvo(r), 3)
+        self.assertEqual(self.metrics.alvo(r), 1)
         self.assertFalse(self.metrics.e_master(r))
         self.assertTrue(self.metrics.e_colecao(r))
         con.close()
@@ -146,12 +148,14 @@ class TestAlvos(Base):
         con.close()
 
     def test_o_alvo_e_o_mesmo_dentro_e_fora_da_percentagem(self):
-        """*"Alt Art, overnumbered, etc etc mete Playset na contagem"*."""
+        """*"Alt Art, overnumbered, etc etc mete Playset na contagem"* — desde
+        2026-09-15 só para as artes alternativas: as sobrenumeradas e as
+        promos voltaram a 1 (`test_alvo_1.py`)."""
         con = self.edicao()
         a = self.alvos(con)
         self.assertEqual(a["tst-001-100"], a["tst-001a-100"])
-        self.assertEqual(a["tst-001-100"], a["tst-101-100"])
         self.assertEqual(a["tst-002-100"], a["tst-002a-100"])
+        self.assertNotEqual(a["tst-001-100"], a["tst-101-100"])
         con.close()
 
 
@@ -248,19 +252,23 @@ class TestListasDeCompra(Base):
                          ["alt_art", "overnumbered", "rune_special", "special"])
         con.close()
 
-    def test_a_colecao_extra_continua_na_grelha_com_o_alvo_de_playset(self):
-        """*"apenas pedi para ser feito track de playset"*: tenho 1 de 3."""
+    def test_a_colecao_extra_continua_na_grelha_com_o_alvo_dela(self):
+        """*"apenas pedi para ser feito track de playset"*: a arte alternativa
+        diz «tenho 0 de 3»; a sobrenumerada, desde 2026-09-15, «tenho 0 de 1»
+        — e com zero cópias continua a não ser para comprar."""
         from riftvault import collection
         con = self.edicao()
-        collection.adjust(con, "tst-101-100", 1, source="test")
+        collection.adjust(con, "tst-001a-100", 1, source="test")
         p = self.metrics.set_payload(con, "TST")
         tiles = {pr["id"]: pr for g in p["groups"] for pr in g["printings"]}
-        self.assertEqual((tiles["tst-101-100"]["qty"], tiles["tst-101-100"]["target"]), (1, 3))
-        self.assertEqual((tiles["tst-001a-100"]["qty"], tiles["tst-001a-100"]["target"]), (0, 3))
+        self.assertEqual((tiles["tst-001a-100"]["qty"], tiles["tst-001a-100"]["target"]), (1, 3))
+        self.assertEqual((tiles["tst-101-100"]["qty"], tiles["tst-101-100"]["target"]), (0, 1))
         self.assertEqual(tiles["tst-002a-100"]["target"], 1)
-        # … e mesmo com 1 de 3, as outras 2 não são para comprar.
+        # … e mesmo com 1 de 3 (a alt art) ou 0 de 1 (a sobrenumerada), nada
+        # disto é para comprar.
         faltas = {x["printing_id"] for s in self.a_subir.master_faltas(con)["sets"]
                   for x in s["items"]}
+        self.assertNotIn("tst-001a-100", faltas)
         self.assertNotIn("tst-101-100", faltas)
         con.close()
 
@@ -298,7 +306,11 @@ class TestListasDeCompra(Base):
         p = self.a_subir.master_faltas(con, cfg)
         itens = {x["printing_id"]: x for s in p["sets"] for x in s["items"]}
         self.assertEqual(sorted(itens), sorted(self.MASTER + self.EXTRA))
-        self.assertEqual(itens["tst-101-100"]["missing"], 3)
+        # Com o alvo de cada bloco: a alt art de Unit pede 3, a sobrenumerada
+        # e a promo pedem 1 (2026-09-15), a runa especial 1.
+        self.assertEqual(itens["tst-001a-100"]["missing"], 3)
+        self.assertEqual(itens["tst-101-100"]["missing"], 1)
+        self.assertEqual(itens["tst-sp1-006"]["missing"], 1)
         self.assertEqual(itens["tst-002a-100"]["missing"], 1)
         self.assertFalse(p["scope"]["so_master_set"])
         con.close()
