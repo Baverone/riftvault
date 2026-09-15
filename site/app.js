@@ -433,8 +433,8 @@ function renderProgress() {
       mTotal++; if (ok) mDone++;
       const tem = state.qty.get(p.id) || 0;
       for (const nv of niv) {
-        // `min(k, alvo)`: uma impressão de alvo 1 — runa, Legend, arte
-        // alternativa — só pode faltar no nível 1; do 2 em diante já está feita.
+        // `min(k, alvo)`: uma impressão de alvo 1 — Legend, Battlefield — só
+        // pode faltar no nível 1; do 2 em diante já está feita.
         const falta = Math.max(0, Math.min(nv.k, t) - tem);
         nv.total++; nv.missing += falta; nv.cents += falta * (p.price || 0);
         if (!falta) nv.done++;
@@ -505,8 +505,8 @@ function renderProgress() {
    género 1/3 Z % · 2/3 X % · 3/3 Y %."*
 
    É a MESMA conta da barra do master set, partida em degraus: o alvo do nível k
-   é `min(k, alvo)`, por isso as impressões de alvo 1 (as runas, os Legends e os
-   Battlefields da sequência, as runas especiais e as artes alternativas) só
+   é `min(k, alvo)`, por isso as impressões de alvo 1 (os Legends e os
+   Battlefields da sequência; as runas numeradas pedem 3 desde 2026-09-15) só
    podem faltar no nível 1, e a percentagem do último nível dá exactamente a da
    barra. Conta CÓPIAS, não o que vem a caminho — é a regra da Coleção; as
    wantlists por nível é que descontam o pendente, porque aí a pergunta é o que
@@ -564,12 +564,12 @@ function niveisLinha(rotulo, ls) {
 function niveisChip(lv, n) {
   const pct = lv.total ? Math.round((lv.done / lv.total) * 100) : 0;
   const feito = !lv.missing;
-  // O último degrau é o playset INTEIRO de cada impressão (3 numa Unit, 12
-  // numa runa desde 2026-09-14) — é a barra do master set, por degraus.
+  // O último degrau é o playset INTEIRO de cada impressão (3 numa Unit ou
+  // numa runa, 1 num Legend) — é a barra do master set, por degraus.
   const rotulo = lv.k === n ? `playset (${lv.k}/${n})` : `${lv.k}/${n}`;
   return `<span class="rarity nivel ${feito ? 'is-done' : ''}"
     title="${lv.done} de ${lv.total} impressões já ${
-      lv.k === n ? 'com o playset delas (3 numa Unit, 12 numa runa, 1 num Legend)'
+      lv.k === n ? 'com o playset delas (3 numa Unit ou numa runa, 1 num Legend)'
         : `com ${lv.k} cópia${lv.k === 1 ? '' : 's'} ou o alvo delas, se for menor`}"
     >${rotulo} <b>${pct} %</b>${feito ? ' · completo'
       : ` · faltam <b>${lv.missing}</b>${lv.cents ? ` · ${eur(lv.cents)}` : ''}`}</span>`;
@@ -703,7 +703,7 @@ function renderWantlists() {
     ${wlBloco('wl-edicao', `Wantlist Cardmarket — ${escapeHTML(nome)}`, daEdicao,
       `Tudo o que falta desta edição ao <b>master set</b> — a sequência, a que
        conta para a percentagem —, ao <b>playset</b> do tipo (Unit/Spell/Gear
-       3, Legend e Battlefield 1, runa 1). Conta enquanto <b>cópias + a
+       e runa 3, Legend e Battlefield 1). Conta enquanto <b>cópias + a
        caminho &lt; alvo</b>, e vai por número de coleção.${doNivel}${foraTexto(m.scope)}`, nivel)}
 
     ${wlBloco('wl-tudo', 'Wantlist — tudo', todas,
