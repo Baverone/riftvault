@@ -7,11 +7,13 @@ Art e Overnumbered, etc etc é puramente coleção"*.
 
 A regra numa frase: **uma impressão cujo número de coleccionador passa o
 tamanho da edição (as «300/298») é COLEÇÃO EXTRA** — aparece na grelha num
-bloco próprio, pede o playset do tipo, entra nas listas de compra e na Venda
-como qualquer carta, mas NÃO entra na sequência do master set, no denominador
-da percentagem nem nas contagens por níveis. Até 2026-09-14 nem tinha alvo a
-sério (1) nem entrava nas listas; a frase da noite trouxe-a para a coleção sem
-a pôr a contar.
+bloco próprio e pede o playset do tipo, mas NÃO entra na sequência do master set, no denominador da percentagem, nas
+contagens por níveis **nem nas listas de compra** (2026-09-15: *"sobrenumeradas
+não entram na wantlist, nem na % de coleção completa; apenas pedi para ser
+feito track de playset para eu saber exatamente quantas tenho"*). Até
+2026-09-14 nem tinha alvo a sério (1); a frase dessa noite trouxe-a para a
+coleção sem a pôr a contar, e por um dia entrou nas listas — a de 15/09
+tirou-a de lá.
 
 **O critério é o CÓDIGO IMPRESSO**, como todas as decisões dele sobre a
 Coleção: o `public_code` traz o número E o tamanho da edição (`OGN-299*/298`),
@@ -24,7 +26,7 @@ compra (`e_colecao`) perguntam todos às mesmas funções.
 
 Estes testes valem por todos os consumidores da regra: a Coleção (blocos e
 percentagem), a contagem por níveis, as wantlists (por edição e por nível), o
-«A subir», a lista do «Master set» e a Venda. Se um dia um deles passar a
+«A subir» e a lista do «Master set». Se um dia um deles passar a
 responder sozinho, é aqui que se vê.
 """
 
@@ -295,13 +297,18 @@ class TestContagemPorNiveis(Base):
 
 
 class TestListasDeCompra(Base):
-    """As listas de compra levam a coleção extra — pelo MESMO critério."""
+    """As listas de compra NÃO levam a coleção extra (2026-09-15) — e dizem-no.
 
-    def test_o_ambito_das_listas_e_exactamente_o_que_o_e_colecao_deixa_passar(self):
+    O grosso está em `test_extra_so_track.py`; aqui fica o que é próprio das
+    sobrenumeradas: o motivo com que saem e os 2000 € que deixam de pesar.
+    """
+
+    def test_o_ambito_da_pagina_e_exactamente_o_que_o_e_colecao_deixa_passar(self):
         """A partilha, fixada: uma função responde a todas as páginas.
 
-        Se um dia o `a_subir` passar a calcular o seu próprio âmbito, isto
-        parte — que é o ponto.
+        O `masterset` é a página inteira — é o `excluir` que tira o bloco 2
+        das listas, para poder dizer quantas tirou. Se um dia o `a_subir`
+        passar a calcular o seu próprio âmbito, isto parte — que é o ponto.
         """
         con = self.edicao()
         escopo = set(self.a_subir.masterset(con))
@@ -312,11 +319,13 @@ class TestListasDeCompra(Base):
         self.assertEqual(escopo, set(self.MASTER + self.EXTRA))
         con.close()
 
-    def test_a_sobrenumerada_entra_em_todas_as_listas_de_compra_a_playset(self):
+    def test_a_sobrenumerada_nao_entra_em_lista_de_compra_nenhuma(self):
         """Os cinco consumidores — «A subir», «Master set», wantlists nos três
-        degraus — pedem-na, e a signature não entra em nenhum."""
+        degraus — não a pedem; a signature também não; o master set sim."""
         con = self.edicao()
-        ambitos = {"a_subir": set(self.a_subir.masterset(con))}
+        escopo, _ = self.a_subir.excluir(self.a_subir.masterset(con),
+                                         self.a_subir.opcoes()["excluir"])
+        ambitos = {"a_subir": set(escopo)}
         m = self.a_subir.master_faltas(con)
         itens = {x["printing_id"]: x for s in m["sets"] for x in s["items"]}
         ambitos["master_faltas"] = set(itens)
@@ -325,42 +334,41 @@ class TestListasDeCompra(Base):
             ambitos[f"wantlist:{nivel}"] = {x["printing_id"] for x in p["items"]}
         for nome, pids in ambitos.items():
             with self.subTest(consumidor=nome):
-                self.assertEqual(pids & set(self.ACIMA), set(self.ACIMA))
+                self.assertEqual(pids & set(self.EXTRA), set())
                 self.assertEqual(pids & set(self.ESCONDIDAS), set())
-        # A playset do tipo: 3 numa Unit, 1 numa runa. E os 2000 € contam.
-        self.assertEqual(itens["tst-101-100"]["missing"], 3)
-        self.assertEqual(itens["tst-105a-100"]["missing"], 1)
-        self.assertEqual(itens["tst-101-100"]["total"], 3 * 200000)
+                self.assertEqual(pids & set(self.MASTER), set(self.MASTER))
+        # Os 2000 € da sobrenumerada não pesam na lista.
+        self.assertEqual(m["cents"], 0)
         con.close()
 
-    def test_a_wantlist_por_nivel_corta_a_como_ao_resto(self):
+    def test_sai_com_o_motivo_sobrenumerada_e_a_alt_art_de_runa_com_o_dela(self):
+        """A página diz quantas TIROU e de que bloco; a signature nunca chega."""
         con = self.edicao()
-        w = self.a_subir.wantlist(con, "TST", nivel=1)
-        por_pid = {x["printing_id"]: x["missing"] for x in w["items"]}
-        self.assertEqual(por_pid["tst-101-100"], 1)
+        m = self.a_subir.master_faltas(con)
+        self.assertEqual(m["scope"]["excluded"], len(self.EXTRA))
+        self.assertTrue(m["scope"]["so_master_set"])
+        motivos = {c["criterio"]: c["n"] for c in m["scope"]["excluded_by"]}
+        # A alt art de runa sobrenumerada está no bloco das runas, não neste.
+        self.assertEqual(motivos, {"overnumbered": 1, "rune_special": 2, "alt_art": 1})
+        self.assertEqual(m["scope"]["excluded_labels"]["overnumbered"], "sobrenumeradas")
         con.close()
 
-    def test_nao_sao_contadas_como_excluidas(self):
-        """A página diz quantas TIROU; estas entram, e a signature nunca chega."""
-        con = self.edicao()
-        self.assertEqual(self.a_subir.master_faltas(con)["scope"]["excluded"], 0)
-        con.close()
+    def test_desligado_o_botao_de_2026_09_14_tira_so_o_que_se_escrever(self):
+        """`listas_de_compra.so_master_set: false` + `a_subir.excluir.blocos`.
 
-    def test_o_botao_para_as_tirar_das_listas_existe_e_conta_las(self):
-        """`a_subir.excluir.blocos: ["overnumbered"]` — vazio até ele decidir.
-
-        As sobrenumeradas a playset valem dinheiro a sério (os Poros do UNL) e
-        ele nunca disse se as compra; o botão fica pronto e a página diz
-        quantas tirou por esse motivo.
+        É o mundo de um dia (2026-09-14, à noite): a coleção extra nas listas,
+        e um botão para tirar blocos à escolha. Continua a ser lido.
         """
-        self.com_config({"a_subir": {"excluir": {"blocos": ["overnumbered"]}}})
+        self.com_config({"listas_de_compra": {"so_master_set": False},
+                         "a_subir": {"excluir": {"blocos": ["overnumbered"]}}})
         con = self.edicao()
         m = self.a_subir.master_faltas(con)
         pids = {x["printing_id"] for s in m["sets"] for x in s["items"]}
         self.assertNotIn("tst-101-100", pids)
-        # A alt art de runa sobrenumerada está no bloco das runas, não neste.
         self.assertIn("tst-105a-100", pids)
+        self.assertIn("tst-001a-100", pids)
         self.assertEqual(m["scope"]["excluded"], 1)
+        self.assertFalse(m["scope"]["so_master_set"])
         self.assertEqual(m["scope"]["excluded_by"],
                          [{"criterio": "overnumbered", "n": 1}])
         con.close()

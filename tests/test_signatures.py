@@ -10,7 +10,7 @@ A regra numa frase: **uma impressão de signature (o `*` do código impresso,
 `variant_kind = "signature"`) está ESCONDIDA** — não entra na sequência do
 master set, não entra em bloco nenhum da grelha, não entra no denominador da
 percentagem nem nas contagens por níveis nem nas listas de compra. O que ele
-tenha continua no vault, no valor e na Venda.
+tenha continua no vault e no valor.
 
 **Um ponto de verdade só:** `metrics.escondida`, pela lista
 `master_set.escondidas` (o `"*"` traduz-se para `variant_kind = "signature"`
@@ -195,8 +195,15 @@ class TestListasDeCompra(Base):
         m = self.a_subir.master_faltas(con)
         pids = [x["printing_id"] for s in m["sets"] for x in s["items"]]
         self.assertNotIn("tst-001-star-100", pids)
-        # E não são contadas como "excluídas": nunca estiveram no âmbito.
-        self.assertEqual(m["scope"]["excluded"], 0)
+        self.assertNotIn("tst-005-star-100", pids)
+        # E não são contadas como "excluídas": nunca estiveram no âmbito. O que
+        # a página conta como excluído são as duas alt arts — a coleção extra,
+        # que desde 2026-09-15 fica fora das listas (`so_master_set`) —, e
+        # nenhuma pelo critério `signature`.
+        self.assertEqual(m["scope"]["excluded"], 2)
+        self.assertEqual({x["criterio"]: x["n"] for x in m["scope"]["excluded_by"]},
+                         {"alt_art": 1, "rune_special": 1})
+        self.assertEqual(pids, ["tst-001-100", "tst-005-100"])
         con.close()
 
     def test_a_wantlist_da_edicao_nao_leva_signatures__em_nenhum_nivel(self):
@@ -227,10 +234,18 @@ class TestVoltarAtras(Base):
         m = self.a_subir.master_faltas(con)
         pids = [x["printing_id"] for s in m["sets"] for x in s["items"]]
         self.assertNotIn("tst-001-star-100", pids)
-        # Uma só: a signature da RUNA volta para o bloco das runas e o
-        # `so_no_master` não a exclui — era exactamente a confusão que a saída
-        # resolve.
-        self.assertEqual(m["scope"]["excluded"], 1)
+        self.assertNotIn("tst-005-star-100", pids)
+        # A da sequência sai pelo TIPO `signature`. A signature da RUNA volta
+        # para o bloco das runas especiais, onde o `so_no_master` não a
+        # excluía — era exactamente a confusão que a saída resolve —, e hoje
+        # sai com o bloco inteiro, como as duas alt arts: a coleção extra não
+        # entra nas listas (`so_master_set`, 2026-09-15). Cada uma conta uma
+        # vez, e a soma dos critérios é o total.
+        por_criterio = {x["criterio"]: x["n"] for x in m["scope"]["excluded_by"]}
+        self.assertEqual(por_criterio, {"signature": 1, "rune_special": 2, "alt_art": 1})
+        self.assertEqual(m["scope"]["excluded"], 4)
+        self.assertEqual(sum(por_criterio.values()), m["scope"]["excluded"])
+        self.assertEqual(pids, ["tst-001-100", "tst-005-100"])
         con.close()
 
     def test_so_fora_da_percentagem_poe_as_num_bloco_visivel(self):

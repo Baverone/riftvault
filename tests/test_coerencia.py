@@ -6,18 +6,21 @@ da wantlist («360 cópias a comprar»). São perguntas diferentes — a contage
 métrica e a lista é de compra — mas vistos lado a lado sem explicação liam-se
 como um erro de contagem, e por isso a linha passou a dizer a diferença.
 
-Desde 2026-09-14 à noite os dois âmbitos já não são o mesmo: a contagem é SÓ o
-master set (*"só quero % de completo para masterset!"*) e a lista de compra
-leva também a coleção extra — artes alternativas, sobrenumeradas, promos — ao
-playset (*"Alt Art, overnumbered, etc etc mete Playset na contagem"*). O que se
-fixa aqui é o que a frase do ecrã promete:
+Desde 2026-09-14 à noite a contagem é SÓ o master set (*"só quero % de
+completo para masterset!"*), e desde 2026-09-15 a lista de compra também
+(`listas_de_compra.so_master_set`: *"sobrenumeradas não entram na wantlist, nem
+na % de coleção completa; apenas pedi para ser feito track de playset para eu
+saber exatamente quantas tenho"*). Na noite de 14/09 a lista levou a coleção
+extra — artes alternativas, sobrenumeradas, promos — ao playset, e este
+ficheiro fixava isso; durou uma noite. O que se fixa hoje é o que a frase do
+ecrã promete:
 
-  1. NO MASTER SET, a lista de compra nunca pede mais cópias do que a contagem
-     diz que faltam;
-  2. aí, a diferença vem só de duas coisas — as exclusões das listas de compra
+  1. a lista de compra nunca pede mais cópias do que a contagem diz que faltam;
+  2. a diferença vem só de duas coisas — as exclusões das listas de compra
      (signatures e showcases) e o que já vem a caminho;
-  3. sem nenhuma delas, e sem coleção extra, os dois números são o MESMO;
-  4. o que a lista pede A MAIS do que a contagem é exactamente a coleção extra.
+  3. sem nenhuma delas, os dois números são o MESMO;
+  4. a coleção extra não está em NENHUM dos dois: aparece na grelha com o alvo
+     de playset («tenho 1 de 3») e é tudo.
 
 Se um dia divergirem por outro motivo, é a frase no ecrã que passa a mentir.
 """
@@ -51,8 +54,8 @@ class Base(unittest.TestCase):
 
     def montar(self, com_excluidas=True, com_extra=True):
         """Uma edição com uma Unit, um Legend e — com `com_extra` — uma arte
-        alternativa, que é coleção extra: entra na lista a playset (3) e não
-        entra na contagem.
+        alternativa, que é coleção extra: alvo 3 na grelha, e não entra nem na
+        contagem nem na lista de compra.
 
         Com `com_excluidas`, junta as duas que as listas de compra deixam de
         fora: uma signature (variante, e escondida desde 2026-09-11 — não conta
@@ -84,14 +87,18 @@ class Base(unittest.TestCase):
         """As cópias que o último degrau da contagem diz que faltam."""
         return self.metrics.set_payload(con, "TST")["progress"]["levels"][-1]["missing"]
 
-    def a_comprar(self, con, so_master=False):
-        """As cópias que a wantlist da edição pede — todas, ou só as do bloco 1."""
+    def a_comprar(self, con):
+        """As cópias que a wantlist da edição pede.
+
+        Desde 2026-09-15 a lista já vem só com o bloco 1 — confirma-se aqui em
+        vez de a filtrar, senão o teste passava com a coleção extra lá dentro.
+        """
         itens = self.a_subir.wantlist(con, "TST")["items"]
-        if so_master:
-            linhas = {r["printing_id"]: r
-                      for r in con.execute("SELECT * FROM catalog.printings")}
-            itens = [x for x in itens if self.metrics.bloco(linhas[x["printing_id"]])
-                     == self.metrics.BLOCO_MASTER]
+        linhas = {r["printing_id"]: r
+                  for r in con.execute("SELECT * FROM catalog.printings")}
+        for x in itens:
+            self.assertEqual(self.metrics.bloco(linhas[x["printing_id"]]),
+                             self.metrics.BLOCO_MASTER, x["printing_id"])
         return sum(x["missing"] for x in itens)
 
 
@@ -102,8 +109,7 @@ class TestAListaNuncaPedeMaisDoQueAContagem(Base):
         con = self.montar()
         collection.adjust(con, "tst-001-100", 1, source="test")
         pending.add(con, "tst-002-100", 1)
-        self.assertLessEqual(self.a_comprar(con, so_master=True),
-                             self.faltam_no_playset(con))
+        self.assertLessEqual(self.a_comprar(con), self.faltam_no_playset(con))
         con.close()
 
     def test_a_diferenca_sao_as_exclusoes_e_o_que_vem_a_caminho(self):
@@ -112,9 +118,8 @@ class TestAListaNuncaPedeMaisDoQueAContagem(Base):
         pending.add(con, "tst-001-100", 2)
         # showcase 3 (o playset da Unit) = 3 cópias excluídas das listas de
         # compra, mais as 2 que já vêm a caminho. A signature não entra na
-        # conta de nenhum dos lados: está escondida.
-        self.assertEqual(
-            self.faltam_no_playset(con) - self.a_comprar(con, so_master=True), 3 + 2)
+        # conta de nenhum dos lados: está escondida. A alt art também não.
+        self.assertEqual(self.faltam_no_playset(con) - self.a_comprar(con), 3 + 2)
         con.close()
 
     def test_sem_exclusoes_nem_pendente_sao_o_mesmo_numero(self):
@@ -122,12 +127,27 @@ class TestAListaNuncaPedeMaisDoQueAContagem(Base):
         self.assertEqual(self.a_comprar(con), self.faltam_no_playset(con))
         con.close()
 
-    def test_o_que_a_lista_pede_a_mais_e_a_colecao_extra(self):
-        """A alt art (alvo 3) está na lista e não na contagem — e é só ela."""
+    def test_e_com_colecao_extra_continuam_a_ser_o_mesmo_numero(self):
+        """A coleção extra não mexe em nenhum dos lados (2026-09-15)."""
+        con = self.montar(com_excluidas=False, com_extra=True)
+        self.assertEqual(self.a_comprar(con), self.faltam_no_playset(con))
+        con.close()
+
+    def test_a_colecao_extra_nao_esta_em_nenhum_dos_dois(self):
+        """A alt art (alvo 3) acompanha-se na grelha; não se conta nem se compra.
+
+        André, 2026-09-15: *"apenas pedi para ser feito track de playset para eu
+        saber exatamente quantas tenho"*. Na noite de 14/09 a lista pedia 3 a
+        mais do que a contagem, e eram os desta alt art.
+        """
+        from riftvault import collection
         con = self.montar(com_excluidas=False)
-        self.assertEqual(self.a_comprar(con) - self.faltam_no_playset(con), 3)
-        self.assertEqual(self.a_comprar(con, so_master=True),
-                         self.faltam_no_playset(con))
+        collection.adjust(con, "tst-003a-100", 1, source="test")
+        self.assertEqual(self.a_comprar(con), self.faltam_no_playset(con))
+        p = self.metrics.set_payload(con, "TST")
+        tile = {pr["id"]: pr for g in p["groups"] for pr in g["printings"]}["tst-003a-100"]
+        self.assertEqual((tile["qty"], tile["target"]), (1, 3))
+        self.assertFalse(self.metrics.conta_bloco(tile["block"]))
         con.close()
 
     def test_a_contagem_conta_o_que_a_lista_de_compra_exclui(self):
@@ -135,20 +155,24 @@ class TestAListaNuncaPedeMaisDoQueAContagem(Base):
 
         A reimpressão showcase conta na barra e não se compra. A signature já
         não faz nem uma coisa nem outra: está escondida (`master_set.escondidas`),
-        e isso é outra decisão.
+        e isso é outra decisão. A alt art também não faz nenhuma das duas, por
+        uma terceira (`so_master_set`, 2026-09-15) — mas está na grelha.
         """
         con = self.montar()
         p = self.metrics.set_payload(con, "TST")
+        na_grelha = {pr["id"] for g in p["groups"] for pr in g["printings"]}
         contadas = {pr["id"] for g in p["groups"] for pr in g["printings"]
                     if self.metrics.conta_bloco(pr["block"])}
         self.assertIn("tst-005-100", contadas)
         self.assertNotIn("tst-004-star-100", contadas)
         self.assertNotIn("tst-003a-100", contadas)
-        # E nenhuma das duas aparece na lista de compra; a alt art sim.
+        self.assertIn("tst-003a-100", na_grelha)
+        self.assertNotIn("tst-004-star-100", na_grelha)
+        # E nenhuma das três aparece na lista de compra.
         na_lista = {x["printing_id"] for x in self.a_subir.wantlist(con, "TST")["items"]}
         self.assertNotIn("tst-004-star-100", na_lista)
         self.assertNotIn("tst-005-100", na_lista)
-        self.assertIn("tst-003a-100", na_lista)
+        self.assertNotIn("tst-003a-100", na_lista)
         con.close()
 
 

@@ -4,10 +4,13 @@ André, 2026-09-08: *"Quero também que no fim de cada edição me dês uma want
 para eu colocar no Cardmarket."*
 
 O que se fixa aqui: que há uma wantlist POR EDIÇÃO com as faltas dessa edição e
-só dessa; que os alvos são os dos três blocos da Coleção (playset na sequência,
-1 nas runas, 1 nas runas especiais, 1 nas artes alternativas); que as linhas
-saem do gerador único e não de uma segunda implementação; e que os totais batem
-certo — por edição e no conjunto — sem nunca entrarem no texto.
+só dessa; que os alvos são os da Coleção (playset do tipo na sequência, 1 nas
+runas) e que a lista é SÓ o master set — a coleção extra (artes alternativas,
+runas especiais, sobrenumeradas, promos) tem alvo na grelha para se
+acompanhar, não para se comprar (André, 2026-09-15,
+`listas_de_compra.so_master_set`); que as linhas saem do gerador único e não de
+uma segunda implementação; e que os totais batem certo — por edição e no
+conjunto — sem nunca entrarem no texto.
 """
 
 from __future__ import annotations
@@ -141,6 +144,10 @@ class TestAlvosDosTresBlocos(Base):
     tipo em todos os blocos — Unit 3, Legend 1, arte alternativa o playset do
     tipo dela — **excepto as runas, que são 1**, base ou especial. Ver
     `metrics.master_target`.
+
+    E desde 2026-09-15 a wantlist é SÓ o bloco 1: a coleção extra leva o alvo
+    na GRELHA (*"apenas pedi para ser feito track de playset para eu saber
+    exatamente quantas tenho"*), não na lista.
     """
 
     def montar(self):
@@ -166,9 +173,25 @@ class TestAlvosDosTresBlocos(Base):
             "tst-001-100": (3, 3),          # Unit na sequência: playset
             "tst-002-100": (1, 1),          # Legend na sequência: 1
             "tst-003-100": (1, 1),          # runa base: 1 de cada
-            "tst-003a-100": (1, 1),         # runa especial: 1 também
-            "tst-004-100": (3, 3),          # arte alternativa de Unit: 3
         })
+        # A runa especial e a arte alternativa ficam de fora, e a lista diz-o.
+        self.assertTrue(p["scope"]["so_master_set"])
+        self.assertEqual({x["criterio"]: x["n"] for x in p["scope"]["excluded_by"]},
+                         {"rune_special": 1, "alt_art": 1})
+        con.close()
+
+    def test_a_colecao_extra_tem_o_alvo_na_grelha_nao_na_lista(self):
+        """«tenho 0 de 3» na arte alternativa, «0 de 1» na runa especial — e
+        nenhuma das duas na wantlist, mesmo com tudo a zero."""
+        con = self.montar()
+        g = self.metrics.set_payload(con, "TST")
+        tiles = {pr["id"]: pr for grp in g["groups"] for pr in grp["printings"]}
+        self.assertEqual((tiles["tst-004-100"]["qty"], tiles["tst-004-100"]["target"]), (0, 3))
+        self.assertEqual((tiles["tst-003a-100"]["qty"], tiles["tst-003a-100"]["target"]), (0, 1))
+        self.assertFalse(self.metrics.conta_bloco(tiles["tst-004-100"]["block"]))
+        pids = [x["printing_id"] for x in self.a_subir.wantlist(con, "TST")["items"]]
+        self.assertNotIn("tst-004-100", pids)
+        self.assertNotIn("tst-003a-100", pids)
         con.close()
 
     def test_a_runa_pede_1_e_o_playset_jogavel_continua_12(self):
@@ -220,10 +243,14 @@ class TestFormatoDasLinhas(Base):
     def test_o_texto_e_o_do_gerador_unico(self):
         con = self.montar()
         p = self.a_subir.wantlist(con, "TST")
+        # Só a base: a alt art é coleção extra e não se compra (2026-09-15). A
+        # versão continua a ser a V.1 — a numeração vem do catálogo, não da
+        # lista, senão a base passava a V.1 de uma só e o Cardmarket
+        # trazia a impressão errada.
         self.assertEqual(p["text"].splitlines(), [
             "3 Jinx - Loose Cannon (V.1) (Unleashed)",
-            "3 Jinx - Loose Cannon (V.2) (Unleashed)",   # a alt art pede playset
         ])
+        self.assertEqual(p["items"][0]["n_versions"], 2)
         # Linha a linha, é exactamente o `cardmarket.linha` — se um dia
         # divergirem, é porque alguém escreveu um segundo formato.
         self.assertEqual(p["text"],
@@ -234,8 +261,20 @@ class TestFormatoDasLinhas(Base):
         con = self.montar()
         p = self.a_subir.wantlist(con, "TST", com_codigo=True)
         self.assertEqual(p["text"].splitlines(),
-                         ["3 Jinx - Loose Cannon [TST-002]",
-                          "3 Jinx - Loose Cannon [TST-002a]"])
+                         ["3 Jinx - Loose Cannon [TST-002]"])
+        con.close()
+
+    def test_com_o_botao_desligado_a_alt_art_volta_a_v2(self):
+        """`listas_de_compra.so_master_set: false` é o mundo de 2026-09-14 à
+        noite: a alt art entra a playset, como V.2."""
+        self.com_config({"listas_de_compra": {"so_master_set": False}})
+        con = self.montar()
+        p = self.a_subir.wantlist(con, "TST")
+        self.assertEqual(p["text"].splitlines(), [
+            "3 Jinx - Loose Cannon (V.1) (Unleashed)",
+            "3 Jinx - Loose Cannon (V.2) (Unleashed)",
+        ])
+        self.assertFalse(p["scope"]["so_master_set"])
         con.close()
 
     def test_sem_par_no_mercado_usa_o_nome_do_catalogo(self):
@@ -350,18 +389,36 @@ class TestExclusoes(Base):
         self.assertEqual(prog["total"], 2)
         con.close()
 
-    def test_a_alt_art_entra_na_mesma_apesar_da_raridade_showcase(self):
-        """`so_no_master`: a exclusão é da SEQUÊNCIA, não dos outros blocos.
+    def test_a_alt_art_sai_pelo_bloco_e_nao_pela_raridade_showcase(self):
+        """`so_no_master`: a exclusão por raridade é da SEQUÊNCIA, não dos
+        outros blocos. 54 das 102 artes alternativas reais têm raridade
+        `showcase`.
 
-        54 das 102 artes alternativas reais têm raridade `showcase`; deixá-las
-        cair aqui apagava em silêncio o «no fim 1 alt art de cada».
+        Desde 2026-09-15 a alt art sai na mesma — mas pelo BLOCO (é coleção
+        extra, `so_master_set`), e a página diz «alt_art», não «showcase».
+        São decisões diferentes e têm de continuar a contar-se separadas.
         """
         con = self.montar()
         self.v.add_printing(con, "tst-002a-100", "TST", 2, "Sett, Brawler",
                             variant="a", kind="alt_art", rarity="showcase")
         self.v.rebuild(con)
         p = self.a_subir.wantlist(con, "TST")
+        self.assertNotIn("tst-002a-100", [x["printing_id"] for x in p["items"]])
+        self.assertEqual({x["criterio"]: x["n"] for x in p["scope"]["excluded_by"]},
+                         {"alt_art": 1, "showcase": 1})
+        con.close()
+
+    def test_com_o_botao_desligado_a_alt_art_entra_apesar_da_raridade(self):
+        """O `so_no_master` de 2026-09-08 continua de pé por baixo do botão:
+        sem o `so_master_set`, a alt art showcase entra na mesma."""
+        self.com_config({"listas_de_compra": {"so_master_set": False}})
+        con = self.montar()
+        self.v.add_printing(con, "tst-002a-100", "TST", 2, "Sett, Brawler",
+                            variant="a", kind="alt_art", rarity="showcase")
+        self.v.rebuild(con)
+        p = self.a_subir.wantlist(con, "TST")
         self.assertIn("tst-002a-100", [x["printing_id"] for x in p["items"]])
+        self.assertEqual(p["scope"]["excluded_by"], [{"criterio": "showcase", "n": 1}])
         con.close()
 
 

@@ -60,6 +60,13 @@ DEFAULTS: dict = {
     # `master_base_follows_type` deixaram de ser lidos a 2026-09-14: o alvo é
     # "runa 1, o resto o playset do tipo" em todos os blocos (`metrics.master_target`).
     "master_target_overrides": {},
+    # As listas de compra («A subir», «Master set», as wantlists por edição e
+    # por nível) são SÓ o master set (André, 2026-09-15: "sobrenumeradas não
+    # entram na wantlist, nem na % de coleção completa; apenas pedi para ser
+    # feito track de playset para eu saber exatamente quantas tenho"). A
+    # coleção extra tem alvo para se VER, não para se comprar. Ver
+    # `a_subir.so_master_set`.
+    "listas_de_compra": {"so_master_set": True},
     "token_card_keys": [],
     "faltas_ignorar_tipos": ["Rune"],
     "pimp_ignorar_tipos": ["signature", "rune_promo"],

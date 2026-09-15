@@ -572,9 +572,9 @@ function niveisChip(lv, n) {
    também o `faltas.json`: é mais barato descarregar um ficheiro que já existe
    do que gerar um segundo com os mesmos dados dentro (medido no relatório).
 
-   Os alvos são os dos três blocos da Coleção — playset na sequência, 1 por
-   runa, 1 por runa especial, 1 por arte alternativa — porque vêm do mesmo
-   `metrics.master_target` de tudo o resto.
+   É SÓ o master set (2026-09-15): a coleção extra tem alvo na grelha para ele
+   ver quantas tem, não para comprar — o servidor já a tira
+   (`listas_de_compra.so_master_set`) e o `scope` diz quantas.
 
    Dois blocos: o da edição aberta e, a seguir, o de todas as edições pela
    ordem dos separadores.                                                    */
@@ -686,11 +686,10 @@ function renderWantlists() {
       esta lista foi feita. <button class="btn ghost" id="wl-refresh">Atualizar</button></p>` : ''}
 
     ${wlBloco('wl-edicao', `Wantlist Cardmarket — ${escapeHTML(nome)}`, daEdicao,
-      `Tudo o que falta desta edição ao <b>master set</b>, ao <b>playset</b>
-       do tipo em todos os blocos da Coleção (Unit/Spell/Gear 3, runa 12,
-       Legend e Battlefield 1 — sequência, runas especiais e artes
-       alternativas por igual). Conta enquanto <b>cópias + a caminho &lt;
-       alvo</b>, e vai por número de coleção.${doNivel}${foraTexto(m.scope)}`, nivel)}
+      `Tudo o que falta desta edição ao <b>master set</b> — a sequência, a que
+       conta para a percentagem —, ao <b>playset</b> do tipo (Unit/Spell/Gear
+       3, Legend e Battlefield 1, runa 1). Conta enquanto <b>cópias + a
+       caminho &lt; alvo</b>, e vai por número de coleção.${doNivel}${foraTexto(m.scope)}`, nivel)}
 
     ${wlBloco('wl-tudo', 'Wantlist — tudo', todas,
       `As cinco edições seguidas, na ordem dos separadores. É a mesma lista da
@@ -757,11 +756,12 @@ function renderFaltaLinha() {
   el.hidden = !d;
   if (!d) return;
   // Esta linha fica logo por baixo dos chips dos níveis, e os dois números não
-  // são o mesmo: o chip é a MÉTRICA (só o master set; conta os showcases, e não
-  // desconta o que vem a caminho) e esta linha é a LISTA DE COMPRA (leva também
-  // a coleção extra, desde 2026-09-14 à noite). Vistos lado a lado sem
-  // explicação — «faltam 383» em cima, «360» ou «520» em baixo — liam-se como
-  // erro de contagem. Diz-se a diferença, e só quando ela existe.
+  // são o mesmo: o chip é a MÉTRICA (conta os showcases, e não desconta o que
+  // vem a caminho) e esta linha é a LISTA DE COMPRA. Os dois são só o master
+  // set — a coleção extra saiu das listas a 2026-09-15 — mas vistos lado a
+  // lado sem explicação («faltam 383» em cima, «360» em baixo) liam-se como
+  // erro de contagem. Diz-se a diferença, e só quando ela existe. O «mais» só
+  // acontece com o `listas_de_compra.so_master_set` desligado.
   const nv = (state.levels.get(state.setId) || []).slice(-1)[0];
   const menos = nv && nv.missing > d.copies;
   const mais = nv && nv.missing < d.copies;
@@ -1860,17 +1860,25 @@ function renderFaltas() {
    A ordem das duas vem do servidor (`rank_pct` e `rank_valor`), para os
    critérios de desempate viverem num sítio só.                             */
 
-/* O que o `a_subir.excluir` tirou, por critério — o mesmo texto nas duas listas
-   de compra. Por critério porque as signatures também são de raridade showcase:
-   um número só não dizia quantas saíram por serem uma coisa ou a outra. */
+/* O que o `a_subir.excluir` tirou, por critério — o mesmo texto nas listas de
+   compra todas. Por critério porque as signatures também são de raridade
+   showcase: um número só não dizia quantas saíram por serem uma coisa ou a
+   outra. Os blocos da coleção extra (2026-09-15) levam o nome do cabeçalho da
+   grelha, que vem no `excluded_labels`. */
 function foraTexto(scope) {
   if (!scope.excluded) return '';
+  const nomes = scope.excluded_labels || {};
   const motivos = (scope.excluded_by || [])
-    .map(c => `${c.n} ${escapeHTML(c.criterio)}`).join(' + ');
+    .map(c => `${c.n} ${escapeHTML(nomes[c.criterio] || c.criterio)}`).join(' + ');
+  const extra = scope.so_master_set
+    ? ` A <b>coleção extra</b> (artes alternativas, runas especiais,
+        sobrenumeradas, promos) tem alvo de playset na grelha para veres
+        quantas tens de cada — não é para comprar, por isso não entra em
+        nenhuma lista de compra.`
+    : ` A exclusão é da <b>sequência</b>: a coleção extra entra na mesma, ao
+        playset.`;
   return `<br>Fora da lista: <b>${scope.excluded}</b> impressões
-    (${motivos}) — continuam a contar na percentagem de master set,
-    só não entram nas listas de compra. A exclusão é da <b>sequência</b>: as
-    runas especiais e as artes alternativas entram na mesma, ao playset.`;
+    (${motivos}) — não entram nas listas de compra.${extra}`;
 }
 
 function renderASubir() {

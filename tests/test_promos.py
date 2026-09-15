@@ -7,9 +7,10 @@ Playset na contagem / mas só quero % de completo para masterset!"*.
 
 A regra numa frase: **uma impressão promo (`variant_kind = "special"`, o sufixo
 `-SP` do código impresso) é COLEÇÃO EXTRA** — aparece na grelha num bloco
-próprio («Coleção — promos»), pede o playset do tipo, entra nas listas de
-compra e na Venda como qualquer carta, mas NÃO entra na sequência do master
-set, no denominador da percentagem nem nas contagens por níveis.
+próprio («Coleção — promos») e pede o playset do tipo, mas NÃO entra na sequência do master set, no denominador da
+percentagem, nas contagens por níveis nem nas listas de compra (2026-09-15:
+*"apenas pedi para ser feito track de playset para eu saber exatamente quantas
+tenho"*).
 
 **Não são as runas promo.** As `VEN-R01..R06` são `rune_promo`, escrevem-se
 `-R` na mesma lista e caem no bloco das runas especiais, com alvo 1 — é a
@@ -23,7 +24,7 @@ decisão dele de 2026-09-08 (*"1 runa especial de cada para cada set"*) e a de
 
 Estes testes valem por todos os consumidores da regra: a Coleção (blocos e
 percentagem), a contagem por níveis, as wantlists (por edição e por nível), o
-«A subir», a lista do «Master set» e a Venda. Se um dia um deles passar a
+«A subir» e a lista do «Master set». Se um dia um deles passar a
 responder sozinho, é aqui que se vê.
 """
 
@@ -271,7 +272,7 @@ class TestContagemPorNiveis(Base):
 
 
 class TestListasDeCompra(Base):
-    """As listas de compra levam a coleção extra — pelo MESMO critério."""
+    """As listas de compra NÃO levam a coleção extra (2026-09-15) — e dizem-no."""
 
     def test_o_ambito_das_listas_e_exactamente_o_que_o_e_colecao_deixa_passar(self):
         """A partilha, fixada: uma função responde a todas as páginas.
@@ -288,11 +289,14 @@ class TestListasDeCompra(Base):
         self.assertEqual(escopo, set(self.MASTER + self.EXTRA))
         con.close()
 
-    def test_a_promo_entra_em_todas_as_listas_de_compra_a_playset(self):
+    def test_a_promo_nao_entra_em_lista_de_compra_nenhuma(self):
         """Os cinco consumidores — «A subir», «Master set», wantlists nos três
-        degraus — pedem-na, e a runa promo também (a 1)."""
+        degraus — não a pedem, nem à runa promo; o master set sim
+        (2026-09-15: acompanhar não é querer comprar)."""
         con = self.edicao()
-        ambitos = {"a_subir": set(self.a_subir.masterset(con))}
+        escopo, _ = self.a_subir.excluir(self.a_subir.masterset(con),
+                                         self.a_subir.opcoes()["excluir"])
+        ambitos = {"a_subir": set(escopo)}
         m = self.a_subir.master_faltas(con)
         itens = {x["printing_id"]: x for s in m["sets"] for x in s["items"]}
         ambitos["master_faltas"] = set(itens)
@@ -301,22 +305,26 @@ class TestListasDeCompra(Base):
             ambitos[f"wantlist:{nivel}"] = {x["printing_id"] for x in p["items"]}
         for nome, pids in ambitos.items():
             with self.subTest(consumidor=nome):
-                self.assertIn("tst-sp4-006", pids)
-                self.assertIn("tst-r01", pids)
-        self.assertEqual(itens["tst-sp4-006"]["missing"], 3)
-        self.assertEqual(itens["tst-sp4-006"]["total"], 3 * 1625)
-        self.assertEqual(itens["tst-r01"]["missing"], 1)
+                self.assertEqual(pids & set(self.EXTRA), set())
+                self.assertEqual(pids & set(self.MASTER), set(self.MASTER))
+        # Os 16,25 € × 3 da promo não pesam na lista.
+        self.assertEqual(m["cents"], 0)
         con.close()
 
-    def test_nao_sao_contadas_como_excluidas(self):
-        """A página diz quantas TIROU; estas entram."""
+    def test_saem_com_o_bloco_por_motivo(self):
+        """A página diz quantas TIROU e de que bloco: «promos», «runas especiais»."""
         con = self.edicao()
-        self.assertEqual(self.a_subir.master_faltas(con)["scope"]["excluded"], 0)
+        scope = self.a_subir.master_faltas(con)["scope"]
+        self.assertEqual(scope["excluded"], len(self.EXTRA))
+        motivos = {c["criterio"]: c["n"] for c in scope["excluded_by"]}
+        self.assertEqual(motivos, {"special": 1, "rune_special": 1, "alt_art": 1})
+        self.assertEqual(scope["excluded_labels"]["special"], "promos")
         con.close()
 
-    def test_o_botao_para_as_tirar_das_listas_existe(self):
-        """`a_subir.excluir.blocos: ["special"]` — vazio até ele decidir."""
-        self.com_config({"a_subir": {"excluir": {"blocos": ["special"]}}})
+    def test_desligado_o_botao_de_2026_09_14_tira_so_o_que_se_escrever(self):
+        """`listas_de_compra.so_master_set: false` + `a_subir.excluir.blocos: ["special"]`."""
+        self.com_config({"listas_de_compra": {"so_master_set": False},
+                         "a_subir": {"excluir": {"blocos": ["special"]}}})
         con = self.edicao()
         m = self.a_subir.master_faltas(con)
         pids = {x["printing_id"] for s in m["sets"] for x in s["items"]}

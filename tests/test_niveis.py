@@ -13,10 +13,11 @@ segui-lo); que o denominador é o mesmo em todos os níveis, que é o da barra d
 master set — **só o bloco 1**: a coleção extra (artes alternativas, runas
 especiais, sobrenumeradas, promos) não entra, *"só quero % de completo para
 masterset!"* —, e que por isso a percentagem do último nível dá EXACTAMENTE a
-da barra; que a soma das edições é o global; e que a wantlist por nível pede,
-no master set, exactamente as cópias que a contagem desse nível diz que
-faltam — pelo mesmo gerador, sem uma segunda lista — e, por cima disso, a
-coleção extra ao mesmo degrau.
+da barra; que a soma das edições é o global; e que a wantlist por nível pede
+exactamente as cópias que a contagem desse nível diz que faltam — pelo mesmo
+gerador, sem uma segunda lista. A coleção extra não entra na wantlist em
+degrau nenhum (2026-09-15, `listas_de_compra.so_master_set`: acompanha-se na
+grelha, não se compra).
 """
 
 from __future__ import annotations
@@ -275,20 +276,21 @@ class TestWantlistPorNivel(Base):
         return con
 
     def test_o_nivel_1_pede_uma_de_cada(self):
+        """Só do master set: a alt art (coleção extra) não entra em nível
+        nenhum — acompanha-se na grelha, não se compra (2026-09-15)."""
         con = self.montar()
         p = self.a_subir.wantlist(con, "TST", nivel=1)
         self.assertEqual({x["printing_id"]: x["missing"] for x in p["items"]},
-                         {"tst-001-100": 1, "tst-002-100": 1, "tst-003a-100": 1})
-        self.assertEqual(p["copies"], 3)
-        self.assertEqual(p["cents"], 100 + 500 + 900)
+                         {"tst-001-100": 1, "tst-002-100": 1})
+        self.assertEqual(p["copies"], 2)
+        self.assertEqual(p["cents"], 100 + 500)
         con.close()
 
     def test_o_nivel_2_so_muda_as_que_tem_playset(self):
         con = self.montar()
         p = self.a_subir.wantlist(con, "TST", nivel=2)
-        # A alt art pede o playset desde 2026-09-14 — corta-se a 2 como a base.
         self.assertEqual({x["printing_id"]: x["missing"] for x in p["items"]},
-                         {"tst-001-100": 2, "tst-002-100": 1, "tst-003a-100": 2})
+                         {"tst-001-100": 2, "tst-002-100": 1})
         con.close()
 
     def test_sem_nivel_e_a_lista_de_sempre(self):
@@ -296,7 +298,7 @@ class TestWantlistPorNivel(Base):
         cheia = self.a_subir.wantlist(con, "TST")
         alto = self.a_subir.wantlist(con, "TST", nivel=3)
         self.assertEqual(cheia["text"], alto["text"])
-        self.assertEqual(cheia["copies"], 7)     # 3 + 1 + 3
+        self.assertEqual(cheia["copies"], 4)     # 3 + 1; a alt art fica de fora
         con.close()
 
     def test_a_runa_pede_1_em_todos_os_degraus(self):
@@ -326,9 +328,14 @@ class TestWantlistPorNivel(Base):
                 if self.metrics.bloco(linhas[x["printing_id"]]) == self.metrics.BLOCO_MASTER]
 
     def test_a_lista_do_nivel_pede_o_que_a_contagem_do_nivel_diz(self):
-        """As duas respostas à mesma pergunta têm de dar o mesmo número — no
-        master set. A coleção extra (a alt art) entra na lista ao mesmo degrau
-        e não entra na contagem: é a diferença, e é exactamente ela."""
+        """As duas respostas à mesma pergunta têm de dar o mesmo número.
+
+        Desde 2026-09-15 a lista é só o master set, como a contagem
+        (`listas_de_compra.so_master_set`): a coleção extra (a alt art) não
+        entra em nenhum degrau — *"apenas pedi para ser feito track de playset
+        para eu saber exatamente quantas tenho"*. Na noite de 14/09 entrava ao
+        mesmo degrau e era a diferença entre os dois números; durou uma noite.
+        """
         from riftvault import collection
         con = self.montar()
         collection.adjust(con, "tst-001-100", 1, source="test")
@@ -341,8 +348,11 @@ class TestWantlistPorNivel(Base):
             self.assertEqual(sum(x["total"] for x in master), lv["cents"],
                              f"nível {lv['k']}")
             extra = [x for x in p["items"] if x not in master]
-            self.assertEqual([(x["printing_id"], x["missing"]) for x in extra],
-                             [("tst-003a-100", min(lv["k"], 3))], f"nível {lv['k']}")
+            self.assertEqual(extra, [], f"nível {lv['k']}")
+            self.assertNotIn("tst-003a-100", p["text"], f"nível {lv['k']}")
+            # A página diz que a tirou, e de que bloco.
+            self.assertTrue(p["scope"]["so_master_set"])
+            self.assertIn("alt_art", p["scope"]["excluded_blocks"])
         con.close()
 
     def test_o_alvo_que_sai_e_o_do_nivel_e_o_inteiro_nao_se_perde(self):
