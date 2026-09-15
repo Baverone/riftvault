@@ -9,18 +9,27 @@ Antes seguia o Riftbound inteiro, incluindo o que ele já tinha, e limitava-se a
 marcar as que lhe tocavam. Agora o que ele já tem sai da lista: a pergunta
 passou a ser só *o que é que me está a fugir de preço antes de eu o comprar*.
 
-ÂMBITO — a COLEÇÃO, não só a percentagem (2026-09-14, à noite)
+ÂMBITO — SÓ O MASTER SET (2026-09-15)
     O "masterset" não é uma edição: no riftvault é a **métrica 2**, o alvo por
-    IMPRESSÃO (ver `metrics.master_target`). O âmbito destas listas é o que
-    está NA PÁGINA da Coleção (`metrics.e_colecao`): o master set, que conta
-    para a percentagem, E a coleção extra — as artes alternativas, as runas
-    especiais, as sobrenumeradas, as promos —, que não conta (André: *"Alt
-    Art, overnumbered, etc etc mete Playset na contagem […] é puramente
-    coleção"*). Fica de fora o que está escondido (`master_set.escondidas`, os
-    tokens e as signatures) e tudo o que tenha alvo 0. Até 2026-09-14 o âmbito
-    era só o que contava para a barra; a coleção extra entrou nas listas de
-    compra porque ele pediu playset nela, e uma carta com alvo e sem lista de
-    compra era um alvo sem maneira de o cumprir.
+    IMPRESSÃO (ver `metrics.master_target`). As listas de compra — esta aba, a
+    lista completa do «Master set», as wantlists do fim de cada edição e as
+    por nível — são **só o bloco 1**, o que conta para a percentagem
+    (`metrics.e_master`). André, 2026-09-15: *"mas sobrenumeradas não entram
+    na wantlist, nem na % de coleção completa; apenas pedi para ser feito
+    track de playset para eu saber exatamente quantas tenho"*.
+
+    A coleção extra — as artes alternativas, as runas especiais, as
+    sobrenumeradas, as promos — tem alvo de playset **para ele ver «tenho 1 de
+    3» na grelha**, não porque queira comprar. Acompanhar não é querer comprar.
+    Na noite de 2026-09-14 ela tinha entrado inteira nas listas (a leitura foi
+    «um alvo sem lista de compra é um alvo sem maneira de o cumprir») e a
+    wantlist passou de 3 337 € para 30 646 €, com 7 202 € em três Baron Nashor
+    que ele disse a 2026-09-05 que nunca compraria. Fica de fora por
+    `listas_de_compra.so_master_set` (ver `so_master_set`), e a página diz
+    quantas impressões tirou e de que bloco.
+
+    Continuam de fora, como sempre, o que está escondido
+    (`master_set.escondidas`, os tokens e as signatures) e o que tenha alvo 0.
 
 O QUE É "AINDA NÃO TENHO"
     A regra do master set, que é a mesma do filtro **Faltas** da grelha: a
@@ -69,12 +78,11 @@ AS SIGNATURES E OS SHOWCASES FICAM DE FORA (André, 2026-09-08)
     bloco delas) e as duas exclusões tiram zero — ficam para o caso de
     voltarem.
 
-    **A coleção extra entra INTEIRA nas listas de compra** (2026-09-14): as
-    sobrenumeradas a playset valem dinheiro a sério (os Poros do UNL a 100–285 €
-    cada), e ele nunca disse se as compra. Se não quiser, o botão é
-    `a_subir.excluir.blocos` — uma lista de blocos da grelha a tirar das
-    listas (`["overnumbered"]`, por exemplo), que a página conta como os outros
-    critérios. Está vazia até ele dizer.
+    **A coleção extra NÃO entra nas listas de compra** (2026-09-15, ver o
+    ÂMBITO acima). O `a_subir.excluir.blocos` — a lista de blocos da grelha a
+    tirar das listas — é de 2026-09-14 e continua a ser lido, mas com o
+    `so_master_set` ligado já não tira nada que não estivesse fora: fica para
+    quem desligue o botão e queira comprar só parte da coleção extra.
 
     Isto é filtro DESTA página, não da métrica: a percentagem de set completo
     não sabe destas listas. A página diz sempre quantas impressões tirou **e
@@ -115,8 +123,9 @@ DEFAULTS: dict = {
     # variante. Não mexe na percentagem de master set, que continua a contá-las.
     # O `so_no_master` limita as duas exclusões à SEQUÊNCIA do master set — ver
     # `excluir()`. O `blocos` tira blocos inteiros da grelha (`overnumbered`,
-    # `alt_art`, …) das listas de compra; vazio até o André decidir se compra
-    # a coleção extra (2026-09-14).
+    # `alt_art`, …) das listas de compra — desde 2026-09-15 a coleção extra
+    # inteira já sai pelo `listas_de_compra.so_master_set`, e isto só faz
+    # diferença com esse botão desligado.
     "excluir": {"tipos": ["signature"], "raridades": ["showcase"],
                 "so_no_master": True, "blocos": []},
     "urgencia": False,
@@ -127,6 +136,29 @@ DEFAULTS: dict = {
     "link_cardtrader": "https://www.cardtrader.com/cards/{blueprint_id}",
     "link_riftscribe": "https://riftscribe.gg/cards/{printing_id}",
 }
+
+# Bloco `listas_de_compra` do config — vale para TODAS as listas de compra
+# (esta aba, o «Master set», as wantlists por edição e por nível), por isso não
+# vive dentro do `a_subir.excluir`, que tem nome de uma aba só.
+LISTAS_DEFAULTS: dict = {
+    # André, 2026-09-15: "sobrenumeradas não entram na wantlist, nem na % de
+    # coleção completa; apenas pedi para ser feito track de playset para eu
+    # saber exatamente quantas tenho". Ligado, as listas são só o bloco 1.
+    "so_master_set": True,
+}
+
+
+def so_master_set(cfg: dict | None = None) -> bool:
+    """As listas de compra são só o master set (bloco 1)?
+
+    É a frase dele de 2026-09-15: a coleção extra tem alvo de playset para ele
+    VER quantas tem, não para comprar. Muda-se em
+    `listas_de_compra.so_master_set`; sem ficheiro de config vale o mesmo, para
+    um riftvault sem config não medir outra coisa.
+    """
+    cfg = cfg or config.load()
+    bruto = cfg.get("listas_de_compra") or {}
+    return bool(bruto.get("so_master_set", LISTAS_DEFAULTS["so_master_set"]))
 
 
 def opcoes(cfg: dict | None = None) -> dict:
@@ -144,6 +176,7 @@ def opcoes(cfg: dict | None = None) -> dict:
     fora = dict(DEFAULTS["excluir"])
     fora.update(bruto.get("excluir") or {})
     out["excluir"] = fora
+    out["so_master_set"] = so_master_set(cfg)
     return out
 
 
@@ -156,11 +189,11 @@ def masterset(con: sqlite3.Connection, cfg: dict | None = None) -> dict[str, dic
     """printing_id -> impressão, para as que estão na página da Coleção.
 
     O mesmo critério de `metrics.set_payload`, pela mesma função: alvo > 0 e
-    `metrics.e_colecao` — o master set E a coleção extra (2026-09-14, à
-    noite), sem as escondidas (tokens, signatures). Cada impressão leva o
-    `block` a que pertence, porque o `excluir()` a seguir pergunta por ele.
-
-    O nome ficou de quando o âmbito era só o que contava para a barra.
+    `metrics.e_colecao` — o master set E a coleção extra, sem as escondidas
+    (tokens, signatures). Cada impressão leva o `block` a que pertence, porque
+    é o `excluir()` a seguir que tira a coleção extra das listas
+    (`so_master_set`, 2026-09-15) — sai daqui inteira para a página poder
+    dizer quantas tirou e de que bloco.
     """
     cfg = cfg or config.load()
     out: dict[str, dict] = {}
@@ -189,50 +222,63 @@ def criterios(fora) -> tuple[list[str], list[str]]:
     return tipos, raridades
 
 
-def blocos_fora(fora) -> list[str]:
-    """`a_subir.excluir.blocos` — os blocos da grelha que não entram nas listas.
+def blocos_fora(fora, so_master: bool | None = None) -> list[str]:
+    """Os blocos da grelha que não entram nas listas de compra, pela ordem da grelha.
 
-    Vazio por omissão (2026-09-14): a coleção extra entra inteira até o André
-    dizer o contrário. Cada bloco conta como critério próprio no `resumo_fora`,
-    para a página dizer «92 sobrenumeradas» e não um número sem nome.
+    Com o `so_master_set` ligado (2026-09-15, o default) é a coleção extra
+    inteira — todos os blocos menos o master set —, e o `a_subir.excluir.blocos`
+    de 2026-09-14 só acrescenta o que já lá está. Desligado, é só essa lista.
+    Cada bloco conta como critério próprio no `resumo_fora`, para a página
+    dizer «92 sobrenumeradas» e não um número sem nome.
     """
-    return list(dict.fromkeys((fora or {}).get("blocos") or ()))
+    if so_master is None:
+        so_master = so_master_set()
+    escritos = list(dict.fromkeys((fora or {}).get("blocos") or ()))
+    if not so_master:
+        return escritos
+    todos = [b for b, _ in metrics.BLOCOS if b != metrics.BLOCO_MASTER]
+    return todos + [b for b in escritos if b not in todos]
 
 
-def excluir(escopo: dict[str, dict], fora) -> tuple[dict[str, dict], dict[str, dict]]:
-    """Parte o âmbito em (o que fica, o que sai), por `variant_kind` E `rarity`.
+def excluir(escopo: dict[str, dict], fora,
+            so_master: bool | None = None) -> tuple[dict[str, dict], dict[str, dict]]:
+    """Parte o âmbito em (o que fica, o que sai): por BLOCO, `variant_kind` e `rarity`.
 
-    São dois critérios porque a `signature` é uma variante (o sufixo `*` do
-    código) e o `showcase` é uma raridade — as 42 reimpressões showcase são
-    `variant_kind = base` e nenhuma lista de variantes lhes tocava.
+    **Primeiro o bloco** (2026-09-15): com `listas_de_compra.so_master_set`
+    ligado — o default, e `so_master` a `None` lê-o do config — tudo o que não
+    é o master set sai, com o bloco por motivo. É a frase dele: *"apenas pedi
+    para ser feito track de playset para eu saber exatamente quantas tenho"*
+    — a coleção extra acompanha-se na grelha, não se compra. Desligado, sai só
+    o que estiver escrito em `a_subir.excluir.blocos`.
 
-    **Só se aplicam à SEQUÊNCIA do master set** (`so_no_master`, ligado). As
-    duas exclusões são de 2026-09-08 de manhã, quando as artes alternativas
-    ainda estavam fora da coleção e as 42 que saíam eram todas reimpressões
-    `variant_kind = base`. Na mesma tarde ele pediu-as de volta a 1 de cada —
-    e 54 das 102 alt arts têm raridade `showcase`, por isso deixá-las cair
-    aqui apagaria em silêncio a decisão nova. Os blocos das runas especiais e
-    das artes alternativas são "1 de cada" e entram inteiros nas listas de
-    compra. Põe-se `so_no_master: false` para as exclusões voltarem a valer em
-    toda a coleção.
+    Depois os dois critérios de 2026-09-08, porque a `signature` é uma
+    variante (o sufixo `*` do código) e o `showcase` é uma raridade — as 42
+    reimpressões showcase são `variant_kind = base` e nenhuma lista de
+    variantes lhes tocava. **Só se aplicam à SEQUÊNCIA do master set**
+    (`so_no_master`, ligado): foram decididos de manhã, quando as artes
+    alternativas ainda estavam fora da coleção, e 54 das 102 alt arts têm
+    raridade `showcase` — deixá-las cair aqui apagaria em silêncio a decisão da
+    tarde. Hoje, com o bloco a sair primeiro, o `so_no_master` só faz
+    diferença com o `so_master_set` desligado.
 
     Devolve as duas metades porque quem mostra tem de dizer quantas tirou: uma
     lista que encolhe sem explicação parece um erro de contagem. Cada impressão
-    que sai leva o `excluded_by` — o PRIMEIRO critério que lhe bateu, tipos
-    antes de raridades. É preciso escolher um: as 36 signatures também têm
-    raridade `showcase`, e contá-las nos dois dava uma soma maior que o total.
+    que sai leva o `excluded_by` — o PRIMEIRO critério que lhe bateu, blocos
+    antes de tipos antes de raridades. É preciso escolher um: as 36 signatures
+    também têm raridade `showcase`, e contá-las nos dois dava uma soma maior
+    que o total.
     """
     tipos, raridades = criterios(fora)
-    blocos = blocos_fora(fora)
-    so_master = bool((fora or {}).get("so_no_master", True))
+    blocos = blocos_fora(fora, so_master)
+    so_sequencia = bool((fora or {}).get("so_no_master", True))
     ficam, saem = {}, {}
     for pid, v in escopo.items():
         bloco = v.get("block", metrics.BLOCO_MASTER)
         if bloco in blocos:
-            # Um bloco inteiro fora das listas (`excluir.blocos`): o motivo é o
-            # bloco, e a página conta-o como tal.
+            # Um bloco inteiro fora das listas: o motivo é o bloco, e a página
+            # conta-o como tal («96 artes alternativas»).
             saem[pid] = {**v, "excluded_by": bloco}
-        elif so_master and bloco != metrics.BLOCO_MASTER:
+        elif so_sequencia and bloco != metrics.BLOCO_MASTER:
             ficam[pid] = v
         elif v["variant_kind"] in tipos:
             saem[pid] = {**v, "excluded_by": v["variant_kind"]}
@@ -243,10 +289,17 @@ def excluir(escopo: dict[str, dict], fora) -> tuple[dict[str, dict], dict[str, d
     return ficam, saem
 
 
-def resumo_fora(saem: dict[str, dict], fora) -> dict:
-    """O bloco que a página e o CLI mostram: quantas saíram, e por que critério."""
+def resumo_fora(saem: dict[str, dict], fora, so_master: bool | None = None) -> dict:
+    """O bloco que a página e o CLI mostram: quantas saíram, e por que critério.
+
+    Os blocos levam o nome curto da grelha (`label`: «sobrenumeradas», «artes
+    alternativas») a par do id — é o que ele lê no cabeçalho do bloco, e a
+    página escreve o mesmo nome nos dois sítios.
+    """
+    if so_master is None:
+        so_master = so_master_set()
     tipos, raridades = criterios(fora)
-    blocos = blocos_fora(fora)
+    blocos = blocos_fora(fora, so_master)
     contagem: dict[str, int] = {}
     for v in saem.values():
         contagem[v["excluded_by"]] = contagem.get(v["excluded_by"], 0) + 1
@@ -256,9 +309,16 @@ def resumo_fora(saem: dict[str, dict], fora) -> dict:
         # não mudar o que já lê o payload.
         "excluded_kinds": sorted(tipos),
         "excluded_rarities": sorted(raridades),
-        "excluded_blocks": sorted(blocos),
+        # Só os blocos que tiraram alguma coisa: com o `so_master_set` a lista
+        # é a grelha inteira e os vazios (tokens, signatures) não interessam.
+        "excluded_blocks": sorted(b for b in blocos if contagem.get(b)),
+        "so_master_set": bool(so_master),
         "excluded_by": [{"criterio": c, "n": contagem[c]}
                         for c in blocos + tipos + raridades if contagem.get(c)],
+        # O nome que a página escreve para cada bloco («sobrenumeradas», «artes
+        # alternativas»): o mesmo do cabeçalho da grelha.
+        "excluded_labels": {b: metrics.BLOCO_CURTO.get(b, b)
+                            for b in blocos if contagem.get(b)},
     }
 
 
@@ -355,7 +415,7 @@ def calcular(con: sqlite3.Connection, hoje: date | None = None) -> dict:
     min_pct, min_cents = float(o["subida_minima_pct"]), int(o["preco_minimo_cents"])
     pesos = o["urgencia_pesos"]
 
-    escopo, excluidas = excluir(masterset(con, cfg), o["excluir"])
+    escopo, excluidas = excluir(masterset(con, cfg), o["excluir"], o["so_master_set"])
     falta = em_falta(con, escopo, str(o["regra_falta"]))
     mercado = cardmarket.versoes(con)
 
@@ -468,10 +528,10 @@ def calcular(con: sqlite3.Connection, hoje: date | None = None) -> dict:
         "scope": {
             "printings": len(escopo),
             "sets": sorted({v["set_id"] for v in escopo.values()}),
-            # Quantas impressões o `excluir` tirou do master set, e por que
-            # critério. A página diz os números — uma lista que encolhe sem
-            # explicação parece um erro de contagem.
-            **resumo_fora(excluidas, o["excluir"]),
+            # Quantas impressões o `excluir` tirou, e por que critério. A
+            # página diz os números — uma lista que encolhe sem explicação
+            # parece um erro de contagem.
+            **resumo_fora(excluidas, o["excluir"], o["so_master_set"]),
         },
         # Quantas segue (em falta, dentro do âmbito) e de quantas há com que
         # comparar. A diferença é histórico que ainda não existe.
@@ -522,7 +582,7 @@ def master_faltas(con: sqlite3.Connection, cfg: dict | None = None,
     """
     cfg = cfg or config.load()
     o = opcoes(cfg)
-    escopo, excluidas = excluir(masterset(con, cfg), o["excluir"])
+    escopo, excluidas = excluir(masterset(con, cfg), o["excluir"], o["so_master_set"])
     # O último degrau é o playset INTEIRO (`metrics.alvo_do_nivel`): pedir o
     # `--nivel 3` é pedir a lista de sempre, com as 12 da runa e não 3. Assim a
     # wantlist do degrau k continua a pedir exactamente as cópias que a
@@ -589,7 +649,7 @@ def master_faltas(con: sqlite3.Connection, cfg: dict | None = None,
         "level": nivel,
         "scope": {
             "printings": len(escopo),
-            **resumo_fora(excluidas, o["excluir"]),
+            **resumo_fora(excluidas, o["excluir"], o["so_master_set"]),
         },
         "sets": sets,
     }
@@ -609,9 +669,9 @@ def wantlist(con: sqlite3.Connection, set_id: str | None = None,
     wantlist para eu colocar no Cardmarket."*
 
     **Não é uma lista nova.** É a do «Master set» (`master_faltas`), cortada por
-    edição — mesmo âmbito (a página da Coleção: master set e coleção extra),
-    mesmos alvos (o playset do tipo, e 1 nas runas — 2026-09-14, à noite),
-    mesma regra de carência e as mesmas exclusões. As linhas saem do gerador
+    edição — mesmo âmbito (só o master set: a coleção extra acompanha-se, não
+    se compra — 2026-09-15), mesmos alvos (o playset do tipo, e 1 nas runas —
+    2026-09-14, à noite), mesma regra de carência e as mesmas exclusões. As linhas saem do gerador
     único (`cardmarket.gerar`), que é o mesmo do «A subir», do «Master set», da
     Venda e das listas dos decks; o gémeo em JavaScript é o `cmLinha`. Uma
     segunda implementação era uma segunda resposta à mesma pergunta.
