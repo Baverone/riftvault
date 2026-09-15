@@ -949,15 +949,24 @@ def set_payload(con: sqlite3.Connection, set_id: str, editable: bool = True,
     # TODOS os blocos têm contador próprio ("tens N de M"); só o master set
     # entra na percentagem global — a coleção extra não, e é o ponto todo de
     # ser extra (André, 2026-09-14: *"só quero % de completo para masterset"*).
+    #
+    # Cada bloco leva DUAS contas: `owned` (impressões de que ele tem pelo menos
+    # uma cópia) e `done` (impressões com o alvo completo). Até 2026-09-14 a
+    # coleção extra pedia 1 e as duas eram o mesmo número; com o alvo a playset
+    # o «tens 0 de 6» passou a ser «0 playsets completos» e lia-se como «não
+    # tens nenhuma» (fotografias do André, 2026-09-15). O cabeçalho diz as
+    # duas, e `max_target` diz ao cliente quando é que vale a pena dizê-las.
     by_block: dict[str, list[int]] = {}
     for g in ordered:
         for p in g["printings"]:
             if p["target"] <= 0:
                 continue
             complete = p["qty"] >= p["target"]
-            slot = by_block.setdefault(p["block"], [0, 0])
+            slot = by_block.setdefault(p["block"], [0, 0, 0, 0])
             slot[1] += 1
             slot[0] += 1 if complete else 0
+            slot[2] += 1 if p["qty"] > 0 else 0
+            slot[3] = max(slot[3], p["target"])
             if not conta_bloco(p["block"], cfg):
                 continue
             master_total += 1
@@ -1002,7 +1011,8 @@ def set_payload(con: sqlite3.Connection, set_id: str, editable: bool = True,
     blocks = [
         {"id": bid, "label": rotulo(bid, cfg), "short": BLOCO_CURTO.get(bid, bid),
          "counts": conta_bloco(bid, cfg),
-         "done": by_block[bid][0], "total": by_block[bid][1]}
+         "done": by_block[bid][0], "total": by_block[bid][1],
+         "owned": by_block[bid][2], "max_target": by_block[bid][3]}
         for bid, _ in BLOCOS if bid in by_block
     ]
 
