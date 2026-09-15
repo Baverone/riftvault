@@ -176,12 +176,15 @@ class TestARegra(Base):
         with self.assertRaises(ValueError):
             self.metrics.kinds_fora()
 
-    def test_o_alvo_da_sobrenumerada_e_o_playset_do_tipo(self):
-        """*"overnumbered […] mete Playset na contagem"*: uma Unit pede 3."""
+    def test_o_alvo_da_sobrenumerada_e_1_e_o_da_base_e_o_playset(self):
+        """*"overnumbered e promos (SP) voltamos a 1 de cada"* (2026-09-15): a
+        sobrenumerada pede 1; a Unit da sequência continua a pedir 3. Foi o
+        playset do tipo de 2026-09-14 (*"mete Playset na contagem"*) até esse
+        dia — ver `test_alvo_1.py`."""
         con = self.edicao()
         tiles = {pr["id"]: pr for g in self.metrics.set_payload(con, "TST")["groups"]
                  for pr in g["printings"]}
-        self.assertEqual(tiles["tst-101-100"]["target"], 3)
+        self.assertEqual(tiles["tst-101-100"]["target"], 1)
         self.assertEqual(tiles["tst-001-100"]["target"], 3)
         # A runa sobrenumerada é runa: 1, como todas as runas.
         self.assertEqual(tiles["tst-105a-100"]["target"], 1)
@@ -195,7 +198,7 @@ class TestColecao(Base):
         con = self.edicao()
         self.assertEqual(self.blocos(con)["tst-101-100"], "overnumbered")
         self.assertEqual(self.metrics.rotulo("overnumbered"),
-                         "Coleção — sobrenumeradas — playset")
+                         "Coleção — sobrenumeradas — 1 de cada")   # 2026-09-15
         con.close()
 
     def test_a_alt_art_de_uma_runa_sobrenumerada_fica_nas_runas_especiais(self):
