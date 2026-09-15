@@ -561,12 +561,12 @@ function niveisLinha(rotulo, ls) {
 function niveisChip(lv, n) {
   const pct = lv.total ? Math.round((lv.done / lv.total) * 100) : 0;
   const feito = !lv.missing;
-  // O último degrau é o playset INTEIRO de cada impressão (3 numa Unit, 12
-  // numa runa desde 2026-09-14) — é a barra do master set, por degraus.
+  // O último degrau é o playset INTEIRO de cada impressão (3 numa Unit ou
+  // numa runa, 1 num Legend) — é a barra do master set, por degraus.
   const rotulo = lv.k === n ? `playset (${lv.k}/${n})` : `${lv.k}/${n}`;
   return `<span class="rarity nivel ${feito ? 'is-done' : ''}"
     title="${lv.done} de ${lv.total} impressões já ${
-      lv.k === n ? 'com o playset delas (3 numa Unit, 12 numa runa, 1 num Legend)'
+      lv.k === n ? 'com o playset delas (3 numa Unit ou numa runa, 1 num Legend)'
         : `com ${lv.k} cópia${lv.k === 1 ? '' : 's'} ou o alvo delas, se for menor`}"
     >${rotulo} <b>${pct} %</b>${feito ? ' · completo'
       : ` · faltam <b>${lv.missing}</b>${lv.cents ? ` · ${eur(lv.cents)}` : ''}`}</span>`;
@@ -700,7 +700,7 @@ function renderWantlists() {
     ${wlBloco('wl-edicao', `Wantlist Cardmarket — ${escapeHTML(nome)}`, daEdicao,
       `Tudo o que falta desta edição ao <b>master set</b> — a sequência, a que
        conta para a percentagem —, ao <b>playset</b> do tipo (Unit/Spell/Gear
-       3, Legend e Battlefield 1, runa 1). Conta enquanto <b>cópias + a
+       e runa 3, Legend e Battlefield 1). Conta enquanto <b>cópias + a
        caminho &lt; alvo</b>, e vai por número de coleção.${doNivel}${foraTexto(m.scope)}`, nivel)}
 
     ${wlBloco('wl-tudo', 'Wantlist — tudo', todas,
