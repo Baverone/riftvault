@@ -78,12 +78,16 @@ class TestContadorDoBloco(unittest.TestCase):
 
     def test_num_bloco_de_alvo_1_os_dois_numeros_sao_o_mesmo(self):
         """As runas especiais pedem 1: ter uma é ter o alvo — e o cabeçalho
-        não precisa de dizer duas vezes a mesma coisa (`max_target` 1)."""
+        não precisa de dizer duas vezes a mesma coisa (`max_target` 1).
+
+        Só a arte alternativa da runa (numerada) enche o bloco; a promo
+        `TST-R01` está escondida desde 2026-09-15 e nem entra na conta."""
         from riftvault import collection
         con = self.edicao()
+        collection.adjust(con, "tst-002a-100", 4, source="test")
         collection.adjust(con, "tst-r01", 4, source="test")
         b = self.blocos(con)["rune_special"]
-        self.assertEqual((b["owned"], b["done"], b["total"]), (1, 1, 2))
+        self.assertEqual((b["owned"], b["done"], b["total"]), (1, 1, 1))
         self.assertEqual(b["max_target"], 1)
         con.close()
 

@@ -75,8 +75,10 @@ class Base(unittest.TestCase):
         return con
 
     MASTER = ["tst-001-100", "tst-002-100", "tst-003-100", "tst-004-100"]
-    EXTRA = ["tst-001a-100", "tst-002a-100", "tst-r01", "tst-101-100", "tst-sp1-006"]
-    ESCONDIDAS = ["tst-001-star-100", "tst-t01-100"]
+    EXTRA = ["tst-001a-100", "tst-002a-100", "tst-101-100", "tst-sp1-006"]
+    # A runa promo `TST-R01` (sem numeração de master set) está escondida desde
+    # 2026-09-15 — ver `test_runas_fora.py`.
+    ESCONDIDAS = ["tst-001-star-100", "tst-t01-100", "tst-r01"]
 
     def linhas(self, con) -> dict:
         return {r["printing_id"]: r for r in con.execute("SELECT * FROM catalog.printings")}
@@ -127,12 +129,14 @@ class TestAlvos(Base):
 
     def test_a_runa_especial_pede_1_e_nao_conta(self):
         con = self.edicao()
-        for pid in ("tst-002a-100", "tst-r01"):
-            with self.subTest(pid=pid):
-                r = self.linhas(con)[pid]
-                self.assertEqual(self.metrics.alvo(r), 1)
-                self.assertFalse(self.metrics.e_master(r))
-                self.assertEqual(self.metrics.bloco(r), "rune_special")
+        r = self.linhas(con)["tst-002a-100"]
+        self.assertEqual(self.metrics.alvo(r), 1)
+        self.assertFalse(self.metrics.e_master(r))
+        self.assertEqual(self.metrics.bloco(r), "rune_special")
+        # A runa promo, sem numeração, já não é runa especial: está escondida.
+        r = self.linhas(con)["tst-r01"]
+        self.assertTrue(self.metrics.escondida(r))
+        self.assertFalse(self.metrics.e_master(r))
         con.close()
 
     def test_o_legend_e_o_battlefield_pedem_1_que_e_o_playset_deles(self):
@@ -238,7 +242,7 @@ class TestListasDeCompra(Base):
         self.assertTrue(p["scope"]["so_master_set"])
         self.assertEqual(p["scope"]["printings"], len(self.MASTER))
         por_bloco = {x["criterio"]: x["n"] for x in p["scope"]["excluded_by"]}
-        self.assertEqual(por_bloco, {"rune_special": 2, "alt_art": 1,
+        self.assertEqual(por_bloco, {"rune_special": 1, "alt_art": 1,
                                      "overnumbered": 1, "special": 1})
         self.assertEqual(sorted(p["scope"]["excluded_blocks"]),
                          ["alt_art", "overnumbered", "rune_special", "special"])

@@ -135,7 +135,7 @@ class TestColecao(Base):
         con = self.edicao()
         p = self.metrics.set_payload(con, "TST")
         self.assertNotIn("signature", [b["id"] for b in p["blocks"]])
-        self.assertEqual(p["hidden_kinds"], ["signature", "token"])
+        self.assertEqual(p["hidden_kinds"], ["rune_promo", "signature", "token"])
         # A barra são as duas da sequência: base e runa base.
         self.assertEqual(p["progress"]["master"]["total"], 2)
         self.assertEqual(sum(b["total"] for b in p["blocks"] if b["counts"]),

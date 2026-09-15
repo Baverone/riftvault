@@ -43,15 +43,21 @@ DEFAULTS: dict = {
     # pela palavra dele:
     #   `fora_da_percentagem` — a coleção extra: aparece, pede o playset, não
     #                           conta para a percentagem. As artes alternativas
-    #                           (`a`), as runas promo (`-R`), as sobrenumeradas
-    #                           (2026-09-10) e as promos `VEN-SP` (2026-09-10).
-    #   `escondidas`          — nem aparece: os tokens `-T` e as signatures `*`
+    #                           (`a`), as sobrenumeradas (2026-09-10) e as
+    #                           promos `VEN-SP` (2026-09-10).
+    #   `escondidas`          — nem aparece: os tokens `-T`, as signatures `*`
     #                           (2026-09-11: "nunca vou colocar nenhuma, não
-    #                           vale a pena estarem lá").
+    #                           vale a pena estarem lá") e as runas SEM
+    #                           numeração de master set, as promo `-R`
+    #                           (2026-09-15: "Saiem as runas todas e deixam de
+    #                           contar para masterset […] menos as que tem
+    #                           numeração de masterset"). As runas numeradas —
+    #                           a base e a arte alternativa do OGN — ficam onde
+    #                           estavam, com alvo 1.
     # `fora` é o nome antigo da primeira (2026-09-08 a 2026-09-14) e continua a
     # ser lido. Ver `metrics._fora`, `metrics.escondida` e `metrics.e_master`.
-    "master_set": {"fora_da_percentagem": ["a", "-R", "overnumbered", "promo"],
-                   "escondidas": ["-T", "*"]},
+    "master_set": {"fora_da_percentagem": ["a", "overnumbered", "promo"],
+                   "escondidas": ["-T", "*", "-R"]},
     # O bloco das runas especiais ("1 runa especial de cada para cada set",
     # 2026-09-08) e o alvo de TODAS as runas: 1 ("runas 1 de cada", 2026-09-14
     # à noite). `"playset"` dá as 12. Ver `metrics.RUNA_ESPECIAL`.
