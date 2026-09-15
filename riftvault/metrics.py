@@ -708,8 +708,9 @@ def rotulo(bloco_id: str, cfg: dict | None = None) -> str | None:
 # O ÂMBITO É O MESMO DA BARRA — as impressões que `e_master` deixa contar (só
 # o master set, desde 2026-09-14 à noite), pelo alvo do `master_target`. Não é
 # um âmbito novo: se fosse, a percentagem do último nível não batia certo com a
-# barra por cima da qual ela aparece. As impressões de alvo 1 — as runas, os
-# Legends, os Battlefields — só podem faltar no nível 1; do nível 2 em diante
+# barra por cima da qual ela aparece. As impressões de alvo 1 — os Legends, os
+# Battlefields (as runas numeradas deixaram de o ser a 2026-09-15) — só podem
+# faltar no nível 1; do nível 2 em diante
 # contam como feitas, porque `min(k, alvo)` nunca lhes pede mais do que 1. É
 # por isso que a percentagem do nível mais alto é EXACTAMENTE a da barra do
 # master set. A coleção extra (artes alternativas, sobrenumeradas, promos) não
