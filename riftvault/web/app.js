@@ -55,6 +55,8 @@ const state = {
   // e a tabela de preços (`api/quanto_custa.json`). Cada um tem o pedido a
   // caminho guardado (`*P`) para não se pedir duas vezes.
   wantlist: null, wantlistP: null, compras: null, comprasP: null, quantoCusta: null,
+  // O separador «Faltas» (2026-09-15, fim da tarde): `api/faltas_edicao.json`.
+  faltasEdicao: null,
   // As encomendas (2026-09-11): a lista «Encomendas» da secção Decks, e os
   // `+`/`−` de cada linha — pedidos em fila por carta (`encFila`) e quantos
   // ainda estão em voo (`encVoo`), para só o último recarregar o deck.
@@ -70,6 +72,8 @@ const state = {
            // «Quanto custa»: a edição escolhida (`all` = as que têm botão,
            // uma a seguir à outra). Sobrevive ao refresh.
            qcSet: 'all',
+           // «Faltas»: a edição escolhida, como no «Quanto custa».
+           feSet: 'all',
            section: 'colecao' },
 };
 
@@ -129,8 +133,11 @@ async function boot() {
   if (wanted) await loadSet(wanted);
   // Uma preferência guardada com a secção Venda (apagada a 2026-09-15) cai
   // aqui na Coleção, como qualquer outro nome que já não exista.
-  showSection(['decks', 'faltas'].includes(state.prefs.section)
-    ? state.prefs.section : 'colecao');
+  // `#decks`, `#faltas-edicao`, … no URL abre essa secção — dá para ligar a
+  // uma secção directamente; sem ele fica a última que ele abriu.
+  const hash = location.hash.slice(1);
+  showSection(SECCOES.includes(hash) ? hash
+    : SECCOES.includes(state.prefs.section) ? state.prefs.section : 'colecao');
 }
 
 async function loadSet(setId) {
@@ -957,7 +964,7 @@ function wireControls() {
   // Imagem local em falta cai para o CDN (e vice-versa no modo publicado).
   // Qualquer secção com artes tem de estar nesta lista: uma imagem que o cache
   // local ainda não tivesse aparecia partida e não caía para o CDN.
-  for (const alvo of ['#grid', '#deck-body', '#falta-body']) {
+  for (const alvo of ['#grid', '#deck-body', '#falta-body', '#fe-body']) {
     $(alvo).addEventListener('error', imgFallback, true);
   }
 
@@ -1747,13 +1754,18 @@ async function chegouTudo(botao) {
   }
 }
 
+/* Os separadores de cima. `faltas` é o «Quanto custa» (o id ficou de quando
+   era as faltas); `faltas-edicao` é o separador «Faltas» de 2026-09-15. */
+const SECCOES = ['colecao', 'decks', 'faltas', 'faltas-edicao'];
+
 function showSection(name) {
   state.prefs.section = name;
   savePrefs();
-  for (const s of ['colecao', 'decks', 'faltas']) $('#' + s).hidden = s !== name;
+  for (const s of SECCOES) $('#' + s).hidden = s !== name;
   $('#set-tabs').hidden = name !== 'colecao';
   $('#deck-tabs').hidden = name !== 'decks';
   $('#falta-tabs').hidden = name !== 'faltas';
+  $('#fe-tabs').hidden = name !== 'faltas-edicao';
   for (const b of document.querySelectorAll('#section-tabs .tab')) {
     b.classList.toggle('is-on', b.dataset.section === name);
   }
@@ -1761,6 +1773,8 @@ function showSection(name) {
     $('#deck-body').innerHTML = `<p class="empty">${escapeHTML(err.message)}</p>`);
   if (name === 'faltas' && !state.quantoCusta) loadQuantoCusta().catch(err =>
     $('#falta-body').innerHTML = `<p class="empty">${escapeHTML(err.message)}</p>`);
+  if (name === 'faltas-edicao' && !state.faltasEdicao) loadFaltasEdicao().catch(err =>
+    $('#fe-body').innerHTML = `<p class="empty">${escapeHTML(err.message)}</p>`);
 }
 
 
@@ -1943,6 +1957,123 @@ function qcLinha(x) {
       x.block_label ? ` <i class="var">${escapeHTML(x.block_label)}</i>` : ''}</span>
     <span class="mf-tem qc-tem ${tem}" title="quantas tens na Coleção / alvo">tens ${x.have}/${x.target}</span>
     <span class="mf-preco">${eur(x.price)}</span>
+  </div>`;
+}
+
+
+/* ====================================================== «FALTAS»
+
+   O que falta, por edição, em três blocos (André, 2026-09-15, fim da tarde:
+   "quero as faltas por edicao e dividido em 3 partes / Masterset / Alt Art /
+   OverNumbered"). Vem tudo do servidor (`api/faltas_edicao.json`,
+   `faltas_edicao.payload`) — a mesma carência da wantlist do fim de cada
+   edição da Coleção; aqui só se desenha.
+
+   A carta com imagem, não texto — é o que ele pediu para o «Quanto custa» no
+   mesmo dia ("gosto de ter em imagem da carta e nao apenas texto"). Os tiles
+   são os `dtile` dos decks (`artHTML`), com o crachá a dizer QUANTAS FALTAM.
+
+   VER NÃO É COMPRAR: só os blocos com `in_lists` (o master set) entram na
+   wantlist e no Cardmarket; os outros dois dizem-no no cabeçalho. Uma carta a
+   caminho aparece marcada e não soma ao que há a comprar.                  */
+
+async function loadFaltasEdicao() {
+  $('#fe-body').innerHTML = '<p class="empty">a carregar…</p>';
+  state.faltasEdicao = await getJSON('api/faltas_edicao.json');
+  renderFeTabs();
+  renderFaltasEdicao();
+}
+
+function renderFeTabs() {
+  const nav = $('#fe-tabs');
+  const p = state.faltasEdicao;
+  nav.innerHTML = '';
+  if (state.prefs.feSet !== 'all' && !p.sets.some(s => s.set === state.prefs.feSet)) {
+    state.prefs.feSet = 'all';
+  }
+  const botoes = [{ set: 'all', name: 'Todas', sub: feCurto(p.totals) },
+                  ...p.sets.map(s => ({ ...s, sub: feCurto(s) }))];
+  for (const s of botoes) {
+    const b = document.createElement('button');
+    b.className = 'tab' + (s.set === state.prefs.feSet ? ' is-on' : '');
+    b.innerHTML = `${escapeHTML(s.name)}<small>${escapeHTML(s.sub)}</small>`;
+    b.onclick = () => { state.prefs.feSet = s.set; savePrefs(); renderFeTabs(); renderFaltasEdicao(); };
+    nav.appendChild(b);
+  }
+}
+
+/* «faltam 304 · 2 257 €» — o resumo curto de um bloco, edição ou total. */
+function feCurto(t) {
+  if (!t.copies && !t.pending_copies) return 'nada falta';
+  return `faltam ${t.copies} · ${eurShort(t.cents)}`;
+}
+
+/* «faltam N cópias de M · X €[ · K a caminho]» — a frase dos cabeçalhos. */
+function feResumo(t) {
+  if (!t.copies && !t.pending_copies) return 'nada falta';
+  const partes = [];
+  if (t.copies) partes.push(`faltam <b>${plural(t.copies, 'cópia', 'cópias')}</b> de ${
+    plural(t.cards, 'impressão', 'impressões')} · <b>${eur(t.cents)}</b>${
+    t.no_price ? ` (${t.no_price} sem preço)` : ''}`);
+  if (t.pending_copies) partes.push(`<i class="caminho">${t.pending_copies} a caminho</i>`);
+  return partes.join(' · ');
+}
+
+function renderFaltasEdicao() {
+  const p = state.faltasEdicao;
+  const sel = state.prefs.feSet;
+  const sets = p.sets.filter(s => sel === 'all' || s.set === sel);
+  const t = p.totals, tl = p.totals_lists;
+  const nasListas = p.blocks.filter(b => b.in_lists).map(b => b.label);
+  const soVer = p.blocks.filter(b => !b.in_lists).map(b => b.label);
+  const fora = Object.entries(p.scope.fora || {}).map(([b, n]) => `${n} ${escapeHTML(b)}`);
+
+  $('#fe-head').innerHTML = `<div class="deck-card">
+    <div class="deck-title"><b>Faltas</b>
+      <span class="prio">${plural(t.cards, 'impressão', 'impressões')} · ${
+        plural(t.copies, 'cópia', 'cópias')}</span></div>
+    <div class="deck-meta">
+      <span><i>Fechar os três blocos</i>${eur(t.cents)}</span>
+      <span><i>A comprar (${escapeHTML(nasListas.join(' + '))})</i>${eur(tl.cents)} · ${
+        plural(tl.copies, 'cópia', 'cópias')}</span>
+      ${t.pending_copies ? `<span><i>A caminho</i>${t.pending_copies} cópias — não contam</span>` : ''}
+    </div>
+    <small class="nota">Só o <b>${escapeHTML(nasListas.join(' e '))}</b> entra na wantlist do fim
+      de cada edição, na «Wantlist — tudo» e no texto do Cardmarket${
+      soVer.length ? ` — <b>${escapeHTML(soVer.join(' e '))}</b> são para <b>ver</b> quantas
+      faltam, não para comprar (<code>listas_de_compra.so_master_set</code>)` : ''}.
+      O que vem a caminho aparece marcado e não soma ao que há a comprar.
+      Preço mais baixo em Near Mint/Mint no CardTrader, só ofertas em inglês.${
+      fora.length ? `<br>Fora deste separador: ${fora.join(', ')} — não estão nos três blocos.` : ''}</small>
+  </div>`;
+
+  $('#fe-body').innerHTML = sets.map(s => `
+    <h2 class="section-head qc-set fe-set">${escapeHTML(s.name)}
+      <span>${feResumo(s)}</span></h2>
+    ${s.blocks.map(g => `
+      <h3 class="section-head sub fe-bloco ${g.id}${g.in_lists ? '' : ' fe-ver'}">${escapeHTML(g.label)}
+        <small>${escapeHTML(g.target_label)}${g.in_lists ? '' : ' · só para ver'}</small>
+        <span>${feResumo(g)}</span></h3>
+      ${g.items.length
+        ? `<div class="grid deck-grid fe-grid">${g.items.map(feTile).join('')}</div>`
+        : `<p class="empty fe-vazio">${g.scope ? 'Nada falta neste bloco.' : 'Esta edição não tem impressões neste bloco.'}</p>`}`).join('')}`).join('');
+}
+
+/* Um tile: a arte, «faltam N» no canto (ou «a caminho» quando o pendente
+   cobre tudo), o total no outro canto, «tens H/T» em baixo. */
+function feTile(x) {
+  const cls = x.missing > 0 ? 'gone' : 'a-caminho';
+  const crachá = x.missing > 0 ? `faltam ${x.missing}` : 'a caminho';
+  return `<div class="dtile ${cls}">
+    ${artHTML(x, `<span class="need">${crachá}</span>
+      <span class="ja-tens">tens ${x.have}/${x.target}</span>
+      ${x.price != null && x.missing > 0 ? `<span class="price">${eurShort(x.total)}</span>` : ''}`)}
+    <div class="tname" title="${escapeAttr(x.name)}">${escapeHTML(x.name)}${
+      x.label && x.label !== 'Base' ? ` <i class="var">${escapeHTML(x.label)}</i>` : ''}</div>
+    <div class="codigo">${escapeHTML((x.code || '').split('/')[0])}${
+      x.price != null ? ` · ${eur(x.price)}` : ' · sem preço'}</div>
+    ${x.pending ? `<div class="onde caminho">${x.pending} a caminho${
+      x.missing > 0 ? ` · ${x.missing} por comprar` : ''}</div>` : ''}
   </div>`;
 }
 
