@@ -20,16 +20,17 @@
     <nav id="section-tabs" class="tabs tabs-section">
       <button class="tab is-on" data-section="colecao">Coleção</button>
       <button class="tab" data-section="decks">Decks</button>
-      <!-- Chamava-se «Faltas» até 2026-09-15. «Quanto custa» põe a pergunta
-           do preço em primeiro lugar, que é o que ele quer ter presente ao
-           abrir o separador; o identificador interno continua `faltas`. -->
+      <!-- Chamava-se «Faltas» até 2026-09-15 de manhã e mostrava o que
+           faltava; desde a tarde é a TABELA DE PREÇOS do jogo (as mais caras
+           de cada raridade, por edição) — as faltas vivem na wantlist da
+           Coleção e nos Decks. O identificador interno continua `faltas`. -->
       <button class="tab" data-section="faltas">Quanto custa</button>
     </nav>
   </div>
 
   <nav id="set-tabs" class="tabs tabs-set" aria-label="Edições"></nav>
   <nav id="deck-tabs" class="tabs tabs-set" aria-label="Decks" hidden></nav>
-  <nav id="falta-tabs" class="tabs tabs-set" aria-label="Quanto custa" hidden></nav>
+  <nav id="falta-tabs" class="tabs tabs-set" aria-label="Quanto custa — edições" hidden></nav>
 </header>
 
 <main>
@@ -98,8 +99,8 @@
     <p id="empty" class="empty" hidden>Nada corresponde a estes filtros.</p>
 
     <!-- No fim da edição, a wantlist do Cardmarket dela; e no fim de tudo, a
-         de todas as edições. São as mesmas faltas da aba «Master set», pelo
-         mesmo gerador — ver `renderWantlists` no app.js. -->
+         de todas as edições. As faltas do master set (`api/wantlist.json`),
+         pelo gerador único — ver `renderWantlists` no app.js. -->
     <div id="wantlists"></div>
 
   </section>

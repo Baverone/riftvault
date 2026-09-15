@@ -27,7 +27,8 @@ from . import build as build_mod
 from . import cardmarket, catalog, collection, config, db, decks as decks_mod
 from . import faltas as faltas_mod
 from . import locais as locais_mod
-from . import metrics, pending as pending_mod, prices, server
+from . import metrics, pending as pending_mod, prices, quanto_custa as quanto_custa_mod
+from . import server
 
 
 def _qty(raw: str | None) -> int:
@@ -708,6 +709,45 @@ def cmd_a_subir(args) -> int:
     return 0
 
 
+def cmd_quanto_custa(args) -> int:
+    """O separador «Quanto custa» na consola: por edição, o top N mais caras de
+    cada raridade (2026-09-15, à tarde). Não é uma lista de compra — entram
+    todas as cartas, tenha ele ou não."""
+    con = db.connect()
+    if db.catalog_is_empty(con):
+        print("catálogo vazio — corre `riftvault sync`.", file=sys.stderr)
+        return 1
+    t = quanto_custa_mod.tabela(con)
+    alvo = args.edicao.upper() if args.edicao else None
+    sets = [s for s in t["sets"] if alvo is None or s["set"] == alvo]
+    if alvo and not sets:
+        print(f"{alvo}: sem botão neste separador (quanto_custa.sem_edicoes) "
+              f"ou não existe no catálogo.", file=sys.stderr)
+        return 1
+    for s in sets:
+        print(f"{s['name']} — {s['printings']} impressões com preço")
+        for g in s["rarities"]:
+            print(f"  {g['label']} (top {t['top'] or 'todas'} de {g['n']})")
+            for x in g["items"]:
+                extra = f"  [{x['block_label']}]" if x.get("block_label") else ""
+                print(f"    {cardmarket.codigo(x['code']):<12} "
+                      f"{x['name'][:34]:<34} {prices.eur(x['price']):>10}   "
+                      f"tens {x['have']}/{x['target']}{extra}")
+        print()
+    sc = t["scope"]
+    outras = ", ".join(f"{n} {r}" for r, n in sorted(sc["outras_raridades"].items()))
+    extra = ", ".join(f"{n} {b}" for b, n in sorted(sc["colecao_extra"].items()))
+    print(f"fora da tabela: {sc['alt_art']} artes alternativas, "
+          f"{sc['escondidas']} escondidas (tokens, signatures, runas sem numeração)"
+          + (f", {extra} (coleção extra — quanto_custa.so_sequencia)" if extra else "")
+          + (f", {outras} (raridade fora das quatro)" if outras else "")
+          + (f", {sc['sem_preco']} sem preço" if sc["sem_preco"] else "")
+          + (f"; sem botão: {', '.join(t['sem_edicoes'])}" if t["sem_edicoes"] else "")
+          + ". Preços só de ofertas em inglês.")
+    con.close()
+    return 0
+
+
 def cmd_pending(args) -> int:
     con = db.connect()
     if args.chegou is not None:
@@ -1111,6 +1151,11 @@ def main(argv: list[str] | None = None) -> int:
                    help="tudo o que falta do master set, não só o que sobe")
     p.add_argument("--out", help="com --cardmarket: escrever para ficheiro")
     p.set_defaults(func=cmd_a_subir)
+
+    p = sub.add_parser("quanto-custa", help="a tabela de preços: por edição, as "
+                                             "mais caras de cada raridade")
+    p.add_argument("--edicao", help="só esta edição (OGN, SFD, …)")
+    p.set_defaults(func=cmd_quanto_custa)
 
     p = sub.add_parser("pending", help="encomendas a caminho")
     p.add_argument("--chegou", nargs="?", type=int, const=0, default=None,

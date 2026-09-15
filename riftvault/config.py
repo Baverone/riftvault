@@ -89,16 +89,12 @@ DEFAULTS: dict = {
     # coleção extra tem alvo para se VER, não para se comprar. Ver
     # `a_subir.so_master_set`.
     "listas_de_compra": {"so_master_set": True},
-    # O separador «Quanto custa» (2026-09-15): um botão por edição do catálogo,
-    # menos estas — o OGS (Proving Grounds) a pedido dele. Ver
-    # `a_subir.edicoes_quanto_custa`.
-    "quanto_custa": {"sem_edicoes": ["OGS"],
-                     # Dentro de cada edição, quantas se mostram por raridade
-                     # (2026-09-15: "o top5 de mais caras de comuns, e top5 de
-                     # incomuns, e top5 de Raras"); as que não estão aqui — as
-                     # épicas — mostram-se todas. Ver `a_subir.top_por_raridade`.
-                     "top_por_raridade": 5,
-                     "raridades_com_top": ["rare", "uncommon", "common"]},
+    # O separador «Quanto custa» (2026-09-15, à tarde): a tabela de preços do
+    # jogo — por edição, as `top_por_raridade` mais caras de cada raridade
+    # (comum, incomum, rara, mítica), tenha ele ou não. Um botão por edição do
+    # catálogo, menos estas — o OGS (Proving Grounds) a pedido dele, de quando
+    # isto eram faltas. Ver `quanto_custa.py`.
+    "quanto_custa": {"sem_edicoes": ["OGS"], "top_por_raridade": 5},
     # As línguas cujas ofertas do CardTrader entram no preço (2026-09-15:
     # "apenas cartas versao ingles"). Era 'en' fixo no código desde o início.
     "precos": {"linguas": ["en"]},
