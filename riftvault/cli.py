@@ -12,6 +12,7 @@
     riftvault find "sett"
     riftvault a-subir [--cardmarket] [--todas] [--csv f.csv]
     riftvault wantlist [--edicao OGN] --cardmarket
+    riftvault faltas [--edicao OGN]
     riftvault local [REF N --para deck:azir] [--deck azir --propor|--marcar ...]
     riftvault encomendas [--mais REF [N] | --menos REF [N] | --chegou [REF]]
 """
@@ -26,6 +27,7 @@ from . import a_subir as a_subir_mod
 from . import build as build_mod
 from . import cardmarket, catalog, collection, config, db, decks as decks_mod
 from . import faltas as faltas_mod
+from . import faltas_edicao
 from . import locais as locais_mod
 from . import metrics, pending as pending_mod, prices, quanto_custa as quanto_custa_mod
 from . import server
@@ -748,6 +750,50 @@ def cmd_quanto_custa(args) -> int:
     return 0
 
 
+def cmd_faltas(args) -> int:
+    """O separador «Faltas» na consola: por edição, os três blocos — master
+    set, alt art, sobrenumeradas — com o que falta de cada (2026-09-15, fim
+    da tarde). Só o master set entra nas listas de compra; os outros dois são
+    para ver."""
+    con = db.connect()
+    if db.catalog_is_empty(con):
+        print("catálogo vazio — corre `riftvault sync`.", file=sys.stderr)
+        return 1
+    p = faltas_edicao.payload(con)
+    alvo = args.edicao.upper() if args.edicao else None
+    sets = [s for s in p["sets"] if alvo is None or s["set"] == alvo]
+    if alvo and not sets:
+        print(f"{alvo}: não existe no catálogo.", file=sys.stderr)
+        return 1
+    for s in sets:
+        print(f"{s['name']} — faltam {s['copies']} cópias de {s['cards']} impressões · "
+              f"{prices.eur(s['cents'])}"
+              + (f" · {s['pending_copies']} a caminho" if s["pending_copies"] else ""))
+        for g in s["blocks"]:
+            print(f"  {g['label']} — {g['target_label']} — faltam {g['copies']} cópias de "
+                  f"{g['cards']} · {prices.eur(g['cents'])}"
+                  + (f" · {g['pending_copies']} a caminho" if g["pending_copies"] else "")
+                  + ("" if g["in_lists"] else "   (não entra nas compras)"))
+            for x in g["items"]:
+                caminho = f"  ({x['pending']} a caminho)" if x["pending"] else ""
+                print(f"    {cardmarket.codigo(x['code']):<12} "
+                      f"{x['name'][:34]:<34} tens {x['have']}/{x['target']}  "
+                      f"faltam {x['missing']}  {prices.eur(x['total']):>10}{caminho}")
+        print()
+    t, tl = p["totals"], p["totals_lists"]
+    fora = ", ".join(f"{n} {b}" for b, n in sorted(p["scope"]["fora"].items()))
+    nas_listas = ", ".join(b["label"] for b in p["blocks"] if b["in_lists"])
+    print(f"faltam ao todo: {t['copies']} cópias de {t['cards']} impressões · "
+          f"{prices.eur(t['cents'])} · {t['pending_copies']} a caminho (não contam).")
+    print(f"a comprar ({nas_listas} — a wantlist e o Cardmarket): {tl['copies']} cópias "
+          f"de {tl['cards']} impressões · {prices.eur(tl['cents'])}."
+          + (f" Fora do separador: {fora}." if fora else "")
+          + (" Os outros blocos são para ver, não para comprar "
+             "(listas_de_compra.so_master_set)." if p["so_master_set"] else ""))
+    con.close()
+    return 0
+
+
 def cmd_pending(args) -> int:
     con = db.connect()
     if args.chegou is not None:
@@ -1156,6 +1202,11 @@ def main(argv: list[str] | None = None) -> int:
                                              "mais caras de cada raridade")
     p.add_argument("--edicao", help="só esta edição (OGN, SFD, …)")
     p.set_defaults(func=cmd_quanto_custa)
+
+    p = sub.add_parser("faltas", help="o separador Faltas: por edição, o que falta "
+                                      "ao master set, às alt art e às sobrenumeradas")
+    p.add_argument("--edicao", help="só esta edição (OGN, SFD, …)")
+    p.set_defaults(func=cmd_faltas)
 
     p = sub.add_parser("pending", help="encomendas a caminho")
     p.add_argument("--chegou", nargs="?", type=int, const=0, default=None,

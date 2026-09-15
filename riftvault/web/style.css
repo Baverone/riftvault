@@ -627,6 +627,40 @@ body.readonly .dtile .steppers.enc { display: none; }
 .qc-rar span b { color: var(--text); }
 .qc-rar small { font-size: 11px; color: var(--dim); font-weight: 400; margin-left: 6px; }
 
+/* --------------------------------------------------------------- «Faltas»
+
+   Por edição, três blocos (2026-09-15, fim da tarde). Os tiles são os
+   `dtile` dos decks — a carta com imagem, o crachá a dizer quantas faltam.
+   Cada bloco tem uma cor própria no cabeçalho, como as raridades na maqueta
+   do «Quanto custa»: lê-se de longe em que bloco se está. */
+.fe-set { margin-top: 22px; }
+.fe-set span b { color: var(--text); }
+.fe-bloco {
+  --cor: var(--accent);
+  margin-top: 14px; text-transform: none;
+  display: flex; align-items: baseline; gap: 8px;
+}
+.fe-bloco::before {
+  content: ""; width: 9px; height: 9px; border-radius: 50%;
+  background: var(--cor); flex: 0 0 auto; align-self: center;
+}
+.fe-bloco.master { --cor: var(--ok); }
+.fe-bloco.alt_art { --cor: var(--accent-2); }
+.fe-bloco.overnumbered { --cor: #c07cff; }
+.fe-bloco small { font-size: 11px; color: var(--dim); font-weight: 400; }
+.fe-bloco span { margin-left: auto; text-align: right; }
+.fe-bloco span b { color: var(--text); }
+/* Os blocos que se vêem mas não se compram: cabeçalho apagado, os tiles não. */
+.fe-bloco.fe-ver { color: var(--dim); }
+.fe-bloco.fe-ver small { color: var(--accent-2); }
+.fe-grid { margin-bottom: 10px; }
+.fe-vazio { padding: 8px 0 12px; font-size: 12px; }
+.fe-set i.caminho, .fe-bloco i.caminho { font-style: normal; color: #9aa8ff; }
+@media (max-width: 560px) {
+  .fe-bloco { flex-wrap: wrap; }
+  .fe-bloco span { margin-left: 0; text-align: left; flex-basis: 100%; }
+}
+
 /* Os três botões das listas do Cardmarket, lado a lado. */
 .cm-botoes { display: flex; flex-wrap: wrap; gap: 8px; }
 .btn.ghost { background: transparent; }

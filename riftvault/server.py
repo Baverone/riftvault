@@ -18,8 +18,8 @@ from datetime import datetime, timezone
 
 from flask import Flask, g, jsonify, redirect, request, send_from_directory
 
-from . import (a_subir, collection, config, db, decks, faltas, locais, metrics,
-               pending, quanto_custa)
+from . import (a_subir, collection, config, db, decks, faltas, faltas_edicao,
+               locais, metrics, pending, quanto_custa)
 
 app = Flask(__name__, static_folder=None)
 
@@ -126,6 +126,14 @@ def api_quanto_custa():
     """O separador «Quanto custa»: a tabela de preços por edição e raridade
     (2026-09-15, à tarde). Não depende dos decks nem das faltas."""
     return jsonify(quanto_custa.tabela(get_con()))
+
+
+@app.get("/api/faltas_edicao.json")
+def api_faltas_edicao():
+    """O separador «Faltas» (2026-09-15, fim da tarde): por edição, em três
+    blocos — master set, alt art, sobrenumeradas. Lê os locais e o pendente,
+    não os decks."""
+    return jsonify(faltas_edicao.payload(get_con()))
 
 
 @app.get("/api/wantlist.json")
