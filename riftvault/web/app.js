@@ -2289,10 +2289,19 @@ function hojeISO() {
    escolhas. As sem preço vão para um grupo próprio no fim.
 
    O `qcGrupos` é o gémeo do `a_subir.por_raridade`: mesma ordem, mesmos
-   desempates, para os dois darem a mesma resposta. */
+   desempates, para os dois darem a mesma resposta.
+
+   O TOPO (2026-09-15, à tarde): "em cada edicao o top5 de mais caras de
+   comuns, e top5 de incomuns, e top5 de Raras" / "miticas e AltArt nao
+   precisa fazer isto". `top` é `{ n, rarities }` (do servidor, que o lê do
+   config): nas raridades nomeadas só se MOSTRAM as `n` mais caras — o grupo
+   guarda as linhas todas (`items`), diz quais se vêem fechado (`top_ids`) e
+   quantas ficaram de fora e quanto somam (`hidden`). O subtotal, o total e a
+   wantlist contam tudo: cortar sem dizer o que se cortou escondia-lhe
+   dinheiro. As épicas não estão na lista e mostram-se todas. */
 const QC_SEM_OFERTA = 'sem_oferta';
 
-function qcGrupos(itens, ordem, rarityOrder) {
+function qcGrupos(itens, ordem, rarityOrder, top = null) {
   const pos = r => { const i = rarityOrder.indexOf(r); return i < 0 ? rarityOrder.length : i; };
   const porRar = new Map();
   const semPreco = [];
@@ -2306,12 +2315,26 @@ function qcGrupos(itens, ordem, rarityOrder) {
   const cmp = (a, b) => sinal * (a.price - b.price)
     || sinal * ((a.total || 0) - (b.total || 0))
     || a.set.localeCompare(b.set) || (a.cn - b.cn) || a.code.localeCompare(b.code);
+  // As mais caras são as mesmas seja qual for a ordem do ecrã.
+  const cmpCaro = (a, b) => (b.price - a.price) || ((b.total || 0) - (a.total || 0))
+    || a.set.localeCompare(b.set) || (a.cn - b.cn) || a.code.localeCompare(b.code);
   const rars = [...porRar.keys()].sort((a, b) => (pos(a) - pos(b)) || a.localeCompare(b));
   const groups = rars.map(r => {
     const items = porRar.get(r).sort(cmp);
-    return { rarity: r, cards: items.length,
-             copies: items.reduce((s, x) => s + x.missing, 0),
-             cents: items.reduce((s, x) => s + (x.total || 0), 0), items };
+    const g = { rarity: r, cards: items.length,
+                copies: items.reduce((s, x) => s + x.missing, 0),
+                cents: items.reduce((s, x) => s + (x.total || 0), 0), items };
+    const n = top && top.rarities.has(r) ? top.n : 0;
+    if (n && items.length > n) {
+      const ids = new Set([...items].sort(cmpCaro).slice(0, n).map(x => x.printing_id));
+      const fora = items.filter(x => !ids.has(x.printing_id));
+      g.top = n;
+      g.top_ids = items.filter(x => ids.has(x.printing_id)).map(x => x.printing_id);
+      g.hidden = { cards: fora.length,
+                   copies: fora.reduce((s, x) => s + x.missing, 0),
+                   cents: fora.reduce((s, x) => s + (x.total || 0), 0) };
+    }
+    return g;
   });
   if (semPreco.length) {
     semPreco.sort((a, b) => a.set.localeCompare(b.set) || (a.cn - b.cn) || a.code.localeCompare(b.code));
@@ -2348,13 +2371,39 @@ function renderMasterFaltas() {
   const porSet = new Map(m.sets.map(s => [s.set, s]));
   const sets = m.sets.filter(s => sel === 'all' ? comBotao.has(s.set) : s.set === sel);
   const itens = sets.flatMap(s => s.items);
-  const q = qcGrupos(itens, ordem, qc.rarity_order);
+  // O corte do topo vem do servidor (config). Um `faltas.json` antigo não o
+  // traz: aí não há corte, como não havia.
+  const top = qc.top ? { n: qc.top, rarities: new Set(qc.top_rarities || []) } : null;
+  const q = qcGrupos(itens, ordem, qc.rarity_order, top);
   const semBotao = (qc.sem_edicoes || []).map(id => porSet.get(id)).filter(Boolean);
   const nome = sel === 'all'
     ? (qc.sets.length === 1 ? qc.sets[0].name : `${qc.sets.length} edições`)
     : (qc.sets.find(b => b.set === sel) || {}).name || sel;
 
   const rotulo = r => r === QC_SEM_OFERTA ? 'sem oferta no CardTrader' : r;
+  const plRar = (n, r) => `${n} ${r === 'common' ? (n === 1 ? 'comum' : 'comuns')
+    : r === 'uncommon' ? (n === 1 ? 'incomum' : 'incomuns')
+    : r === 'rare' ? (n === 1 ? 'rara' : 'raras')
+    : r === 'epic' ? (n === 1 ? 'épica' : 'épicas') : escapeHTML(r)}`;
+  // «ver todas» abre o grupo até se mudar de edição — não se guarda: ele pediu
+  // o topo, e o topo é o que abre.
+  state.qcAbertos = state.qcAbertos || new Set();
+  const chave = g => `${sel}|${g.rarity}`;
+  const linhasDe = g => {
+    if (!g.top_ids || state.qcAbertos.has(chave(g))) return g.items;
+    const ids = new Set(g.top_ids);
+    return g.items.filter(x => ids.has(x.printing_id));
+  };
+  const rodape = g => {
+    if (!g.top_ids) return '';
+    const aberto = state.qcAbertos.has(chave(g));
+    return `<p class="note qc-corte">${aberto
+      ? `as ${g.cards} ${plRar(g.cards, g.rarity).replace(/^\d+ /, '')}, todas`
+      : `as <b>${g.top}</b> mais caras — mais <b>${plRar(g.hidden.cards, g.rarity)}</b> ·
+         ${plural(g.hidden.copies, 'cópia', 'cópias')} · <b>${eur(g.hidden.cents)}</b>
+         que não se vêem, mas contam no subtotal`}
+      <button class="btn mini" data-qcver="${escapeAttr(g.rarity)}">${aberto ? 'ver só o topo' : 'ver todas'}</button></p>`;
+  };
 
   $(faltaSaida.body).innerHTML = `
     <div class="chips subir-rar qc-sets">
@@ -2381,10 +2430,12 @@ function renderMasterFaltas() {
     </div>
 
     ${q.groups.length ? q.groups.map(g => `
-      <h3 class="section-head sub qc-rar ${g.rarity === QC_SEM_OFERTA ? 'fora' : ''}">${escapeHTML(rotulo(g.rarity))}
+      <h3 class="section-head sub qc-rar ${g.rarity === QC_SEM_OFERTA ? 'fora' : ''}">${escapeHTML(rotulo(g.rarity))}${
+        g.top_ids ? ` <small>top ${g.top}</small>` : ''}
         <span>${plural(g.cards, 'impressão', 'impressões')} · ${plural(g.copies, 'cópia', 'cópias')} ·
           <b>${g.cents == null ? 'sem preço' : eur(g.cents)}</b></span></h3>
-      <div class="mf-lista">${g.items.map(mfLinha).join('')}</div>`).join('')
+      <div class="mf-lista">${linhasDe(g).map(mfLinha).join('')}</div>
+      ${rodape(g)}`).join('')
       : `<p class="empty">Não falta nada desta edição ao master set.</p>`}
 
     ${q.groups.length > 1 ? `<div class="deck-card resumo qc-resumo qc-fim">
@@ -2399,6 +2450,10 @@ function renderMasterFaltas() {
       da grelha: conta enquanto <b>cópias + a caminho &lt; alvo</b>. Por
       raridade, da mais rara para a mais comum, e dentro de cada raridade por
       preço de cada carta; o subtotal é preço × cópias em falta.
+      ${top ? `Nas ${[...top.rarities].map(r => plRar(2, r).replace(/^\d+ /, '')).join(', ')}
+        só se vêem as <b>${top.n}</b> mais caras de cada — o subtotal e o total
+        contam as outras na mesma, e o rodapé de cada grupo diz quantas são.` : ''}
+      Preços só de ofertas em inglês.
       ${semBotao.length ? `<br>Sem botão, a pedido (2026-09-15): ${semBotao.map(s =>
         `<b>${escapeHTML(s.name)}</b> — ${plural(s.copies, 'cópia', 'cópias')} · ${eur(s.cents)}`).join(', ')};
         continua na wantlist do fim da Coleção.` : ''}
@@ -2416,6 +2471,13 @@ function renderMasterFaltas() {
   for (const b of document.querySelectorAll('[data-mord]')) {
     b.onclick = () => {
       state.prefs.masterOrd = b.dataset.mord; savePrefs(); renderMasterFaltas();
+    };
+  }
+  for (const b of document.querySelectorAll('[data-qcver]')) {
+    b.onclick = () => {
+      const k = `${sel}|${b.dataset.qcver}`;
+      if (state.qcAbertos.has(k)) state.qcAbertos.delete(k); else state.qcAbertos.add(k);
+      renderMasterFaltas();
     };
   }
   // A lista do Cardmarket sai com o filtro de edição que estiver activo, na
