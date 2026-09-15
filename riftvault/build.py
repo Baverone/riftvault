@@ -30,7 +30,8 @@ import json
 import shutil
 from pathlib import Path
 
-from . import a_subir, config, db, decks, faltas, metrics, pending, quanto_custa
+from . import (a_subir, config, db, decks, faltas, faltas_edicao, metrics, pending,
+               quanto_custa)
 
 # A pasta das imagens fica de fora da comparação: em `static_images: "local"`
 # são ~88 MB e não dependem da colecção — o que muda nelas é o `riftvault
@@ -169,6 +170,11 @@ def _gerar(out_dir: Path | str, log=print, imagens: bool = True) -> dict:
     (out / "api" / "quanto_custa.json").write_text(
         json.dumps(tabela, ensure_ascii=False, separators=(",", ":")),
         encoding="utf-8")
+    # O separador «Faltas» (2026-09-15, fim da tarde): por edição, três blocos.
+    fe = faltas_edicao.payload(con)
+    (out / "api" / "faltas_edicao.json").write_text(
+        json.dumps(fe, ensure_ascii=False, separators=(",", ":")),
+        encoding="utf-8")
     # As encomendas (2026-09-11): a lista do que está a caminho, só de leitura
     # no site publicado — os `+`/`−` são do modo edição.
     encomendas = {"editable": False, **pending.encomendas(con)}
@@ -178,7 +184,8 @@ def _gerar(out_dir: Path | str, log=print, imagens: bool = True) -> dict:
     con.close()
     log(f"  api/decks.json  ({len(index_decks)} decks) + api/wantlist.json"
         f" + api/compras.json + api/quanto_custa.json ({tabela['scope']['printings']} "
-        f"impressões com preço) + api/encomendas.json "
+        f"impressões com preço) + api/faltas_edicao.json ({fe['totals']['copies']} "
+        f"cópias a comprar) + api/encomendas.json "
         f"({encomendas['totals']['copies']} cópias a caminho)")
 
     n_img = 0
