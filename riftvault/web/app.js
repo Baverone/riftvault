@@ -48,7 +48,7 @@ const state = {
   focus: -1,
   // Default: TODAS as impressões (decisão do André). O botão "Só artes base"
   // continua lá, mas não é o que se vê ao abrir.
-  decks: null, deckId: null, deck: null, faltas: null, venda: null,
+  decks: null, deckId: null, deck: null, faltas: null,
   // As encomendas (2026-09-11): a lista «Encomendas» da secção Decks, e os
   // `+`/`−` de cada linha — pedidos em fila por carta (`encFila`) e quantos
   // ainda estão em voo (`encVoo`), para só o último recarregar o deck.
@@ -124,7 +124,9 @@ async function boot() {
   const first = state.index.sets[0];
   const wanted = state.index.sets.some(s => s.id === state.prefs.set) ? state.prefs.set : (first && first.id);
   if (wanted) await loadSet(wanted);
-  showSection(['decks', 'faltas', 'venda'].includes(state.prefs.section)
+  // Uma preferência guardada com a secção Venda (apagada a 2026-09-15) cai
+  // aqui na Coleção, como qualquer outro nome que já não exista.
+  showSection(['decks', 'faltas'].includes(state.prefs.section)
     ? state.prefs.section : 'colecao');
 }
 
@@ -741,7 +743,7 @@ function wlLigar(id, getItens, ficheiro) {
   const zid = id + '-cm';
   if (!$(`#${zid}-txt`)) return;
   cmLigar(zid, getItens, ficheiro);
-  cmMostrar(zid, getItens(), false, 'wantlist', { foco: false, copiar: false });
+  cmMostrar(zid, getItens(), false, { foco: false, copiar: false });
 }
 
 /* A linha no cabeçalho da edição, a ligar ao bloco. Os números são os do
@@ -938,9 +940,9 @@ function wireControls() {
   });
 
   // Imagem local em falta cai para o CDN (e vice-versa no modo publicado).
-  // A Venda também tem artes, e ficava de fora desta lista: uma imagem que o
-  // cache local ainda não tivesse aparecia partida e não caía para o CDN.
-  for (const alvo of ['#grid', '#deck-body', '#falta-body', '#venda-body']) {
+  // Qualquer secção com artes tem de estar nesta lista: uma imagem que o cache
+  // local ainda não tivesse aparecia partida e não caía para o CDN.
+  for (const alvo of ['#grid', '#deck-body', '#falta-body']) {
     $(alvo).addEventListener('error', imgFallback, true);
   }
 
@@ -1316,14 +1318,13 @@ async function desfazerDeck() {
   }
 }
 
-/* Mover cópias mexe na Coleção, nos decks todos e na Venda: as três leituras
-   vêm dos mesmos locais. Recarrega-se o que está no ecrã e marca-se o resto
-   como velho. */
+/* Mover cópias mexe na Coleção e nos decks todos: as duas leituras vêm dos
+   mesmos locais. Recarrega-se o que está no ecrã e marca-se o resto como
+   velho. */
 async function recarregarDepoisDeMover() {
   state.decks = (await getJSON('api/decks.json')).decks;
   renderDeckTabs();
   await loadDeck(state.deckId);
-  state.venda = null;
   if (state.setId) await loadSet(state.setId);
   // Depois do `loadSet`: as wantlists vêm do `faltas.json`, que não se volta a
   // pedir sozinho — são centenas de KB. Fica marcado como velho, com o botão.
@@ -1719,7 +1720,7 @@ async function chegouTudo(botao) {
 function showSection(name) {
   state.prefs.section = name;
   savePrefs();
-  for (const s of ['colecao', 'decks', 'faltas', 'venda']) $('#' + s).hidden = s !== name;
+  for (const s of ['colecao', 'decks', 'faltas']) $('#' + s).hidden = s !== name;
   $('#set-tabs').hidden = name !== 'colecao';
   $('#deck-tabs').hidden = name !== 'decks';
   $('#falta-tabs').hidden = name !== 'faltas';
@@ -1732,8 +1733,6 @@ function showSection(name) {
   // mesmo ficheiro para as wantlists do fim da página, e não se pede duas vezes.
   if (name === 'faltas' && !state.faltas) loadFaltas().catch(err =>
     $('#falta-body').innerHTML = `<p class="empty">${escapeHTML(err.message)}</p>`);
-  if (name === 'venda' && !state.venda) loadVenda().catch(err =>
-    $('#venda-body').innerHTML = `<p class="empty">${escapeHTML(err.message)}</p>`);
 }
 
 
@@ -2029,8 +2028,8 @@ function fmtPct(v) {
    por http num IP da rede local — ou seja, lá nunca funcionaria.           */
 
 /* Quantas cópias vão na linha. Nas listas de compra o campo chama-se `missing`
-   (o que falta comprar); na lista de venda chama-se `qty` (o que sobra dos
-   decks). Gémeo do `cardmarket.quantidade` em Python. */
+   (o que falta comprar); `qty` fica como segunda hipótese para um item que não
+   o traga. Gémeo do `cardmarket.quantidade` em Python. */
 function cmQtd(it) {
   return it.missing != null ? it.missing : (it.qty || 0);
 }
@@ -2091,26 +2090,24 @@ function cmZonaHTML(id) {
 /* `getItens` é uma função, não uma lista: assim os botões apanham sempre o
    filtro que estiver activo no momento do clique, e não o que estava quando a
    página foi desenhada. */
-function cmLigar(id, getItens, nomeFicheiro, onde = 'wantlist') {
+function cmLigar(id, getItens, nomeFicheiro) {
   for (const b of document.querySelectorAll(`[data-cm="${id}"]`)) {
     b.onclick = () => {
       const itens = getItens();
       if (b.dataset.cmModo === 'csv') { cmDescarregar(itens, nomeFicheiro, id); return; }
-      cmMostrar(id, itens, b.dataset.cmModo === 'codigo', onde);
+      cmMostrar(id, itens, b.dataset.cmModo === 'codigo');
     };
   }
 }
 
-/* `onde` é só o texto da nota: nas listas de compra a lista vai para a
-   wantlist, na de venda não — dizer-lhe "cola na wantlist" seria mandá-lo
-   comprar o que quer vender.
+/* Todas as listas que passam por aqui são de COMPRA e vão para a wantlist do
+   Cardmarket (a de venda, que dizia outra coisa na nota, saiu a 2026-09-15).
 
    `foco` e `copiar` só se desligam nas wantlists da Coleção, que já vêm
    preenchidas sem ninguém carregar em nada: aí roubar o foco atirava a página
    para o fim, e escrever no clipboard sem ele pedir apagava-lhe o que lá
    tivesse. Nos botões continuam ligados, que é o que se espera de um clique. */
-function cmMostrar(id, itens, comCodigo, onde = 'wantlist',
-                   { foco = true, copiar = true } = {}) {
+function cmMostrar(id, itens, comCodigo, { foco = true, copiar = true } = {}) {
   const linhas = itens.map(it => cmLinha(it, comCodigo));
   const txt = $(`#${id}-txt`), nota = $(`#${id}-nota`), fnota = $(`#${id}-foil`);
   txt.value = linhas.join('\n');
@@ -2125,8 +2122,7 @@ function cmMostrar(id, itens, comCodigo, onde = 'wantlist',
   const resumo = `${linhas.length} linhas · ${copias} cópias · ${eur(cents)}`
     + (comCodigo ? ' · com código, para desambiguar à mão (o Cardmarket não lê os [ ])' : '');
 
-  const destino = onde === 'wantlist' ? 'Cola na wantlist do Cardmarket.'
-                                      : 'É a lista das cartas, para levares para onde vendes.';
+  const destino = 'Cola na wantlist do Cardmarket.';
   if (!copiar) {
     nota.textContent = `${resumo} — carrega em copiar, ou seleciona e copia à mão.`;
   } else if (navigator.clipboard && window.isSecureContext) {
@@ -2150,11 +2146,8 @@ function cmMostrar(id, itens, comCodigo, onde = 'wantlist',
   const foil = linhas.filter((_, i) => itens[i].foil_only);
   fnota.hidden = !foil.length;
   if (foil.length) {
-    const porque = onde === 'wantlist'
-      ? `O texto da wantlist não leva marca de foil — depois de colares, liga o
-         filtro <i>Foil</i> nestas entradas.`
-      : `O preço que está aqui é o da oferta foil, que pode não ser o da tua
-         cópia.`;
+    const porque = `O texto da wantlist não leva marca de foil — depois de
+         colares, liga o filtro <i>Foil</i> nestas entradas.`;
     fnota.innerHTML = `<b>${foil.length} ${foil.length === 1 ? 'destas só tem'
       : 'destas só têm'} oferta foil no mercado.</b> ${porque}
       <details class="foil-lista"${foil.length <= 8 ? ' open' : ''}>
@@ -2627,217 +2620,6 @@ function staplTile(x) {
     <div class="onde tenho">${x.decks.map(d =>
       `${d.qty}× ${escapeHTML(deckCurto(d.deck))}`).join('<br>')}</div>
   </div>`;
-}
-
-
-/* ========================================================== SECÇÃO VENDA
-
-   "A Coleção é de master set. O resto provavelmente vai para venda ou jogar nos
-   decks seleccionados" (André, 2026-09-08). Isto é a segunda metade da frase: o
-   que ele TEM a mais da sequência do master set, partido em "está num deck" e
-   "sobra". Desde a decisão da tarde ("1 alt art de cada") a cauda da coleção só
-   entra no EXCEDENTE — a primeira arte alternativa é coleção, a sexta é venda.
-
-   NADA SAI DA BASE. É uma sugestão — não há botão de vender, não se mexe no
-   `copies`. A lista sai em texto, como as de compra.                        */
-
-async function loadVenda() {
-  state.venda = await getJSON('api/venda.json');
-  renderVenda();
-}
-
-function renderVenda() {
-  const v = state.venda;
-  const corpo = $('#venda-body');
-
-  if (!v.printings && !v.in_decks) {
-    corpo.innerHTML = `<p class="empty">Não tens nada a mais do que a coleção
-      pede — nem tokens (<code>-T</code>), que estão fora dela, nem cópias
-      repetidas das runas especiais ou das artes alternativas.</p>`
-      + comunsHTML(v.comuns);
-    comunsLigar(v.comuns);
-    return;
-  }
-
-  corpo.innerHTML = `
-    <div class="deck-card resumo">
-      <b>${v.printings} impress${v.printings === 1 ? 'ão' : 'ões'} a mais</b>
-      <span>${v.copies} cópia${v.copies === 1 ? '' : 's'} · ${eur(v.cents)} ao preço
-        de hoje${v.no_price ? ` · ${v.no_price} sem oferta no CardTrader` : ''}</span>
-    </div>
-
-    <p class="note">Só o que <b>tens na caixa</b> e a <b>sequência do master
-      set</b> não pede: os tokens (<code>-T</code>), que estão fora da coleção,
-      e as cópias a mais das runas especiais e das artes alternativas — dessas
-      guarda-se o <b>playset</b> (3 numa Unit, 12 numa runa — desde 14/09, «muda
-      tudo para playset»), que é o que a coleção pede, e só sobra o
-      resto. O que algum deck usa fica de fora da lista e aparece
-      em baixo${v.in_decks ? `: são <b>${v.in_decks}</b> impressões,
-      ${v.in_decks_copies} cópias` : ''}.
-      <br>Desde 10/09 a lista tem <b>duas origens</b> e cada linha diz a sua: o
-      <b>binder Decks/Venda</b> (cópias que tiraste da Coleção e que nenhum deck
-      pede) e a <b>Coleção</b> (o que passa do alvo <b>e</b> do que os decks
-      usam — desde 11/09 os decks jogam com a Coleção, e uma cópia que dois
-      decks disputam não está aqui). O que está <b>dentro</b> de um deck nunca
-      aparece.
-      <br>Isto é uma <b>sugestão</b>: não mexe na coleção, não há nada a
-      confirmar. As impressões da sequência do master set que estão na Coleção
-      nunca entram aqui, por muitas que tenhas a mais — mas as que puseste no
-      binder Decks/Venda entram, porque já não são coleção.
-      ${v.no_price ? `<br><b>${v.no_price}</b> não têm oferta no CardTrader:
-        entram na lista, não entram no total.` : ''}</p>
-
-    ${(v.origins || []).length ? `<div class="chips venda-blocos">${v.origins.map(o => `
-      <span class="chip-b is-static">${escapeHTML(o.label)}
-        <b>${o.copies}</b> · ${eurShort(o.cents)}</span>`).join('')}</div>` : ''}
-
-    ${v.blocks.length ? `<div class="chips venda-blocos">${v.blocks.map(b => `
-      <span class="chip-b is-static">${escapeHTML(b.label || b.id)}
-        <b>${b.copies}</b> · ${eurShort(b.cents)}</span>`).join('')}</div>` : ''}
-
-    ${v.items.length ? `<div class="grid deck-grid">${v.items.map(vendaTile).join('')}</div>`
-      : '<p class="empty">Tudo o que tens a mais está a ser usado nos decks.</p>'}
-
-    ${v.items.length ? cmZonaHTML('venda') : ''}
-    ${v.items.length ? `<small class="nota">A lista sai no formato do Cardmarket
-      (<code>N Nome (V.n) (Edição)</code>), o mesmo das listas de compra — é um
-      formato de <i>wantlist</i>, não de importação de stock de vendedor. Serve
-      para saberes o que tens para vender, não para o carregar lá.</small>` : ''}
-
-    ${v.kept.length ? `
-      <h3 class="section-head sub">Em uso nos decks — não estão para venda
-        <span>${v.in_decks_copies} cópias</span></h3>
-      <div class="grid deck-grid">${v.kept.map(vendaTile).join('')}</div>` : ''}
-
-    ${comunsHTML(v.comuns)}`;
-
-  if (v.items.length) {
-    cmLigar('venda', () => v.items, `riftvault-venda-${hojeISO()}.csv`, 'venda');
-  }
-  comunsLigar(v.comuns);
-}
-
-/* ---------------------------------------------- comuns e incomuns (2026-09-10)
-
-   "Vê no Cardmarket e CardTrader quais as comuns e incomuns que costumam
-   vender-se mais, e quais as mais caras, para eu saber o que vender" (André).
-
-   Vem DOBRADA: são duas tabelas de vinte linhas e a pergunta principal da
-   página continua a ser o excedente lá de cima.
-
-   O QUE ESTA SECÇÃO NÃO TEM: uma lista de "as que se vendem mais". Volume de
-   vendas não existe em fonte pública nenhuma — o Cardmarket dá 403 no site e
-   410 na API — e inventar uma coluna a partir do número de anúncios seria
-   mostrar OFERTA com o nome de procura. Ver `riftvault/comuns.py`.          */
-
-/* O catálogo escreve as raridades em inglês; o ecrã é dele. */
-const COMUNS_RAR = { common: 'comuns', uncommon: 'incomuns', rare: 'raras',
-                     epic: 'épicas', showcase: 'showcase' };
-
-function comunsHTML(c) {
-  if (!c) return '';
-  const rar = (c.rarities || []).map(r => COMUNS_RAR[r] || r).join(' e ');
-  const s = c.sell || { printings: 0, copies: 0, cents: 0, items: [] };
-  const k = c.keep || { printings: 0, items: [] };
-
-  return `<details class="comuns-bloco">
-    <summary><b>Comuns e incomuns: as mais caras e o que tens a mais</b>
-      <span>${c.universe.priced} impressões com preço · o teu excedente vale
-        ${eur(s.cents)}</span></summary>
-
-    <p class="note"><b>O que isto mede.</b> A fonte é o <b>CardTrader</b>
-      (preços de ${escapeHTML(c.day || '—')}): preço mínimo pedido, número de
-      anúncios e de vendedores. <b>Do Cardmarket não vem nada</b> —
-      ${escapeHTML(c.sources.cardmarket.why)}.
-      <br><b>Não há volume de vendas em lado nenhum público</b>, por isso não há
-      aqui nenhuma lista de "as que mais se vendem". A coluna <b>procura</b> é o
-      preço a dividir pela mediana da raridade (${(c.rarities || []).map(r =>
-        `${COMUNS_RAR[r] || r} ${eur(c.medians[r])}`).join(' · ')}), reforçado pela
-      subida do preço e pela queda dos anúncios em ${c.window_days} dias — mede
-      quanto o mercado pede <i>acima do saldo</i>, não quantas se venderam.
-      ${c.listings_days < 2 ? `<br>O histórico do número de anúncios começou
-        agora (${c.listings_days} dia): a queda de anúncios ainda não conta para
-        nada. Ganha sentido ao fim de umas semanas de <code>riftvault prices</code>.`
-        : ''}</p>
-
-    <h3 class="section-head sub">As mais caras
-      <span>top ${c.top} de ${c.universe.priced} ${escapeHTML(rar)}</span></h3>
-    ${comunsTabela(c.by_price)}
-
-    <h3 class="section-head sub">Sinal de procura mais alto
-      <span>preço acima do saldo da raridade — não é volume de vendas</span></h3>
-    ${comunsTabela(c.by_demand)}
-
-    <h3 class="section-head sub">O que vender
-      <span>${s.printings} impressões · ${s.copies} cópias ·
-        ${eur(s.cents)}</span></h3>
-    <p class="note">Só o que <b>nem a Coleção nem os decks pedem</b> — a mesma
-      conta do excedente lá de cima, mas com a sequência do master set incluída,
-      porque é lá que as comuns vivem. Nada disto mexe na coleção.</p>
-    ${s.items.length ? comunsTabela(s.items, true) + cmZonaHTML('comuns')
-      : `<p class="empty">Não tens nenhuma comum ou incomum a mais.</p>`}
-
-    ${k.printings ? `
-      <h3 class="section-head sub">Guardar, não vender
-        <span>${k.printings} impressões baratas mas a subir</span></h3>
-      ${comunsTabela(k.items, true)}` : ''}
-  </details>`;
-}
-
-function comunsTabela(itens, comExcedente = false) {
-  return `<table class="cm-tabela"><thead><tr>
-      <th>código</th><th>nome</th><th class="n">preço</th><th class="n">procura</th>
-      <th class="n">anúncios</th><th class="n">vend.</th><th class="n">Δ% ${''}</th>
-      <th class="n">${comExcedente ? 'a mais' : 'tens'}</th>
-      ${comExcedente ? '<th class="n">total</th>' : ''}</tr></thead><tbody>
-    ${itens.map(x => `<tr>
-      <td class="cod">${escapeHTML((x.code || '').split('/')[0])}</td>
-      <td title="${escapeAttr(x.name)}">${escapeHTML(x.name)}${
-        x.outside ? ` <span class="fora-tag">fora da coleção</span>` : ''}${
-        x.from_foil ? ` <span class="fora-tag">só foil</span>` : ''}</td>
-      <td class="n">${eur(x.price)}</td>
-      <td class="n">${x.demand.toLocaleString('pt-PT')}</td>
-      <td class="n">${x.n_listings}</td>
-      <td class="n">${x.n_sellers || '—'}</td>
-      <td class="n ${x.pct > 0 ? 'sobe' : ''}">${
-        x.pct == null ? '—' : fmtPct(x.pct)}</td>
-      <td class="n">${comExcedente ? x.qty : x.have || '—'}</td>
-      ${comExcedente ? `<td class="n">${eur(x.total)}</td>` : ''}
-    </tr>`).join('')}</tbody></table>`;
-}
-
-function comunsLigar(c) {
-  if (c && c.sell && c.sell.items.length) {
-    cmLigar('comuns', () => c.sell.items,
-            `riftvault-comuns-${hojeISO()}.csv`, 'venda');
-  }
-}
-
-
-function vendaTile(x) {
-  const onde = (x.in_decks || []).map(d =>
-    `${d.qty}× ${escapeHTML(deckCurto(d.deck))}`).join(', ');
-  return `<div class="dtile ${x.state === 'deck' ? 'neutro' : 'gone'}">
-    ${artHTML(x, `<span class="need">${x.qty || x.have}×</span>
-      ${x.price != null ? `<span class="price">${eurShort(x.total || x.price)}</span>` : ''}`)}
-    <div class="tname" title="${escapeAttr(x.name)}">${escapeHTML(x.name)}</div>
-    <div class="codigo">${escapeHTML((x.code || '').split('/')[0])} ·
-      ${escapeHTML(x.label)}${x.price != null ? ` · ${eur(x.price)}` : ''}</div>
-    <div class="onde ${x.state === 'deck' ? 'tenho' : ''}">${
-      onde ? `usada num deck: ${onde}` : 'candidata a venda'}${
-      x.state === 'deck' && x.qty > 0 ? ` · ${x.qty} a mais` : ''}</div>
-    ${vendaOrigem(x)}
-  </div>`;
-}
-
-/* DE ONDE vem cada cópia da linha (André, 2026-09-10): *"cada linha a dizer de
-   onde vem"*. Tirar do binder Decks/Venda é arrumação; tirar da Coleção é
-   vender coleção, e isso lê-se de outra maneira. */
-function vendaOrigem(x) {
-  const p = [];
-  if (x.from_binder) p.push(`${x.from_binder} do binder Decks/Venda`);
-  if (x.from_colecao) p.push(`${x.from_colecao} da Coleção (acima do alvo)`);
-  return p.length ? `<div class="onde origem">${p.join(' · ')}</div>` : '';
 }
 
 

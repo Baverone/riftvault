@@ -8,6 +8,15 @@ data/catalog.db-shm
 # Git. Desde 2026-09-10 quem o escreve é só o PC (`riftvault-daily`): o
 # GitHub Actions deixou de ir à rede e já não commita nada.
 
+# O vault.db vai para o Git, mas os ficheiros do WAL não: existem enquanto o
+# `serve` tem a base aberta e apareciam por acompanhar em cada `git status`.
+data/vault.db-wal
+data/vault.db-shm
+data/vault.db-journal
+data/prices.db-wal
+data/prices.db-shm
+data/prices.db-journal
+
 # Cache local das imagens (~70 MB nas 5 edições).
 data/images/
 
