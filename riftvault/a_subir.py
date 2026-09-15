@@ -313,8 +313,12 @@ def resumo_fora(saem: dict[str, dict], fora, so_master: bool | None = None) -> d
         # é a grelha inteira e os vazios (tokens, signatures) não interessam.
         "excluded_blocks": sorted(b for b in blocos if contagem.get(b)),
         "so_master_set": bool(so_master),
+        # Sem repetir nomes: o bloco `signature` da grelha e o tipo `signature`
+        # do `excluir.tipos` escrevem-se igual, e listar o critério duas vezes
+        # dava uma soma maior que o `excluded`.
         "excluded_by": [{"criterio": c, "n": contagem[c]}
-                        for c in blocos + tipos + raridades if contagem.get(c)],
+                        for c in dict.fromkeys(blocos + tipos + raridades)
+                        if contagem.get(c)],
         # O nome que a página escreve para cada bloco («sobrenumeradas», «artes
         # alternativas»): o mesmo do cabeçalho da grelha.
         "excluded_labels": {b: metrics.BLOCO_CURTO.get(b, b)
