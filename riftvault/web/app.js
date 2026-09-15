@@ -2148,7 +2148,11 @@ function cmMostrar(id, itens, comCodigo, { foco = true, copiar = true } = {}) {
   const resumo = `${linhas.length} linhas · ${copias} cópias · ${eur(cents)}`
     + (comCodigo ? ' · com código, para desambiguar à mão (o Cardmarket não lê os [ ])' : '');
 
-  const destino = 'Cola na wantlist do Cardmarket.';
+  // A língua também não se marca no texto: no Cardmarket é um filtro por
+  // entrada, como o foil. Os preços daqui são só de ofertas em inglês
+  // (`precos.linguas`), por isso diz-se para ligar o mesmo lá.
+  const destino = 'Cola na wantlist do Cardmarket e liga o filtro de língua '
+    + '(inglês) — os preços daqui são só de ofertas em inglês.';
   if (!copiar) {
     nota.textContent = `${resumo} — carrega em copiar, ou seleciona e copia à mão.`;
   } else if (navigator.clipboard && window.isSecureContext) {

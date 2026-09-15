@@ -92,7 +92,16 @@ DEFAULTS: dict = {
     # O separador «Quanto custa» (2026-09-15): um botão por edição do catálogo,
     # menos estas — o OGS (Proving Grounds) a pedido dele. Ver
     # `a_subir.edicoes_quanto_custa`.
-    "quanto_custa": {"sem_edicoes": ["OGS"]},
+    "quanto_custa": {"sem_edicoes": ["OGS"],
+                     # Dentro de cada edição, quantas se mostram por raridade
+                     # (2026-09-15: "o top5 de mais caras de comuns, e top5 de
+                     # incomuns, e top5 de Raras"); as que não estão aqui — as
+                     # épicas — mostram-se todas. Ver `a_subir.top_por_raridade`.
+                     "top_por_raridade": 5,
+                     "raridades_com_top": ["rare", "uncommon", "common"]},
+    # As línguas cujas ofertas do CardTrader entram no preço (2026-09-15:
+    # "apenas cartas versao ingles"). Era 'en' fixo no código desde o início.
+    "precos": {"linguas": ["en"]},
     "token_card_keys": [],
     "faltas_ignorar_tipos": ["Rune"],
     "pimp_ignorar_tipos": ["signature", "rune_promo"],

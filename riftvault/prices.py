@@ -53,7 +53,23 @@ SINGLES_CATEGORY = 258          # confirmado nos blueprints; o resto é selado
 
 # Condições que contam como carta "boa". Fora disto o preço não é comparável.
 OK_CONDITIONS = {"Mint", "Near Mint"}
+# A língua das ofertas que contam, quando o config não diz (André, 2026-09-15:
+# "apenas cartas versao ingles"). Já era só inglês desde 2026-08-31, escrito
+# aqui; passou a ler-se de `precos.linguas` para ficar à vista e mudar sem
+# tocar no código. O CardTrader marca cada oferta com `riftbound_language`
+# ('en', 'fr', 'zh-CN', ...); a RiftScribe não tem língua por impressão.
 LANGUAGE = "en"
+
+
+def linguas(cfg: dict | None = None) -> frozenset[str]:
+    """As línguas cujas ofertas entram no preço (`precos.linguas`)."""
+    cfg = cfg or config.load()
+    lista = (cfg.get("precos") or {}).get("linguas")
+    if lista is None:
+        lista = [LANGUAGE]
+    if not lista:
+        raise ValueError("precos.linguas está vazio — nenhuma oferta entraria no preço")
+    return frozenset(str(x) for x in lista)
 
 
 class CardTraderError(RuntimeError):
@@ -266,20 +282,24 @@ def sync_map(ct: CardTrader | None = None, log=print) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def _usable(p: dict) -> bool:
+def _usable(p: dict, aceites: frozenset[str] | None = None) -> bool:
     h = p.get("properties_hash") or {}
     return (not p.get("graded")
             and not p.get("on_vacation")
             and not h.get("altered")
             and not h.get("signed")
-            and h.get("riftbound_language") == LANGUAGE
+            and h.get("riftbound_language") in (aceites or linguas())
             and h.get("condition") in OK_CONDITIONS
             and p.get("price_currency") == "EUR"
             and (p.get("price_cents") or 0) > 0)
 
 
-def oferta(products: list[dict]) -> dict:
+def oferta(products: list[dict], aceites: frozenset[str] | None = None) -> dict:
     """O que o mercado tem desta impressão: preço mínimo e TAMANHO da oferta.
+
+    `aceites` são as línguas que contam (`linguas()` quando não vem): uma
+    oferta noutra língua não entra no preço nem nas contagens — ele só compra
+    inglês, e um preço de uma carta japonesa não é o preço que ele paga.
 
     Devolve `cents`, `from_foil` e três contagens que medem coisas diferentes:
 
@@ -300,9 +320,10 @@ def oferta(products: list[dict]) -> dict:
     normal nenhuma e o preço vem da foil, contam-se só as foil. Contar as duas
     dava um número que não corresponde ao preço mostrado.
     """
+    aceites = aceites or linguas()
     normal, foil = [], []
     for p in products:
-        if not _usable(p):
+        if not _usable(p, aceites):
             continue
         h = p.get("properties_hash") or {}
         (foil if h.get("riftbound_foil") else normal).append(p)
@@ -368,13 +389,15 @@ def sync_prices(ct: CardTrader | None = None, log=print) -> dict:
     catalogadas = {r["printing_id"] for r in con.execute(
         "SELECT printing_id FROM catalog.printings")}
     rows, sem_preco = [], 0
+    aceites = linguas()
+    log(f"  línguas que contam: {', '.join(sorted(aceites))}")
 
     for expansion_id in sorted(exps):
         log(f"  expansão {expansion_id}: a descarregar o mercado...")
         market = ct.marketplace(expansion_id)
         for bid in exps[expansion_id]:
             products = market.get(str(bid)) or market.get(bid) or []
-            o = oferta(products)
+            o = oferta(products, aceites)
             if o["cents"] is None:
                 sem_preco += 1
             for pid in bp_to_printings[bid]:
