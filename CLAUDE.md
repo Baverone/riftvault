@@ -196,11 +196,13 @@ saber exatamente quantas tenho"*.
 | categoria | config | o que é | grelha | % e níveis | listas de compra |
 |---|---|---|---|---|---|
 | 1. master set | o resto | a sequência da edição | sim, alvo = playset do tipo, runas 1 | **sim** | **sim** |
-| 2. coleção extra | `master_set.fora_da_percentagem` = `["a", "overnumbered", "promo"]` | artes alternativas (incluindo as das runas do OGN, no bloco «runas especiais»), sobrenumeradas, promos | sim, mesmo alvo («tenho 1 de 3») | não | **não** (15/09) |
+| 2. coleção extra | `master_set.fora_da_percentagem` = `["a", "overnumbered", "promo"]` | artes alternativas (incluindo as das runas do OGN, no bloco «runas especiais»), sobrenumeradas, promos | sim — alt arts a playset («tenho 1 de 3»), runas especiais 1, **sobrenumeradas e promos 1 desde 15/09** | não | **não** (15/09) |
 | 3. escondidas | `master_set.escondidas` = `["-T", "*", "-R"]` | tokens, signatures e — desde 15/09 à tarde — as runas sem numeração de master set (`VEN-R01..R06`) | não | não | não |
 
-(O `-R` passou da lista 2 para a 3 a 2026-09-15 — ver a última secção deste
-ficheiro, "As runas sem numeração saem".)
+(O `-R` passou da lista 2 para a 3 a 2026-09-15 — ver a secção "As runas sem
+numeração saem", no fim deste ficheiro. O alvo 1 das sobrenumeradas e das
+promos é da mesma tarde — ver "Sobrenumeradas e promos voltam a 1 de cada",
+a seguir a essa.)
 
 **Acompanhar não é querer comprar.** Na noite de 14/09 a coleção extra entrou
 inteira nas listas de compra (a leitura foi «um alvo sem lista de compra é um
@@ -2488,4 +2490,59 @@ se o que ele queria era «só as runas base», é tirar o `alt_art` de runa do
 `e_runa_especial` — pergunta para ele, não se inventou.
 `tests/test_runas_fora.py`; `test_masterset`, `test_promos`, `test_signatures`
 e `test_tres_blocos` foram ajustados porque descreviam a runa promo no bloco.
+
+## 15/09/2026 — sobrenumeradas e promos voltam a 1 de cada (`master_set.um_de_cada`)
+
+Palavras dele: *"overnumbered e promos (SP) voltamos a 1 de cada"* e, logo a
+seguir, *"se eu tiver mais adiciono na mesma"*.
+
+**Revoga, só para estes dois blocos, o «Alt Art, overnumbered, etc etc mete
+Playset na contagem» de 14/09 à noite.** As artes alternativas ficam a
+playset (ele não as nomeou); as runas ficam como a ordem das runas as deixou.
+
+| bloco | alvo antes | alvo agora |
+|---|---|---|
+| `overnumbered` (92: OGN 12, SFD 30, UNL 19, VEN 31) | playset do tipo (47 a 3, 45 já a 1 — Legends e Battlefields) | **1** |
+| `special` (as 6 `VEN-SP`) | 3 (são Units) | **1** |
+| `alt_art`, `rune_special` | playset / 1 | igual |
+
+**Uma lista nova no `master_set`, com a mesma gramática das outras duas:**
+`"um_de_cada": ["overnumbered", "promo"]` (`riftvault_config.json` e
+`config.DEFAULTS`). Responde a UMA pergunta só — o ALVO (`metrics.e_um_de_cada`,
+lido pelo `master_target` depois das runas e antes do playset do tipo). Não
+mexe no bloco, na percentagem (continuam fora por `fora_da_percentagem`) nem
+nas listas de compra (continuam fora por `listas_de_compra.so_master_set`).
+O cabeçalho dos dois blocos passou a dizer «— 1 de cada» (`_sufixo_alvo`).
+Um valor desconhecido rebenta, como nas outras listas.
+
+**«Se eu tiver mais adiciono na mesma» manda na leitura do número.** 1 é o
+que ele quer TER de cada, não um tecto. Uma segunda cópia fica no tile como
+**«2/1», a verde** — é a forma que a página já tinha para a quarta cópia de
+uma Unit da sequência e para as runas base do OGN que ele tem a 3 (`3/1`) —,
+conta no valor, e nada a marca como a mais: o `set_payload` não tem campo
+de excesso e o `test_alvo_1.py` fixa que o tile com 2 tem exactamente os
+campos do tile com 1 e o bloco conta o mesmo. **Não se inventou uma marca
+nova**: a única leitura que a frase dele permite é «tenho, e tenho mais».
+
+**O cabeçalho dos blocos, depois da ordem anterior.** O «tens N de M» conta
+impressões com pelo menos uma cópia (`owned`) e o «· K no playset completo»
+só aparece com `max_target > 1`. Com alvo 1 as duas contas são o mesmo número
+e o sufixo desaparece sozinho: lê-se «Coleção — promos — 1 de cada · tens 2
+de 6», que é verdade e completo. Não foi preciso mexer no `app.js`.
+
+**Medido a 2026-09-15 no `main`, na mesma corrida, mesmo `vault.db` e mesmos
+preços — os três invariantes NÃO mexem:** níveis **91,6 / 82,5 / 74,2 %**
+(850/766/689 de 928), wantlist «tudo» **229 linhas · 432 cópias ·
+1 629,47 €**, valor **2 144,86 €**. O que muda são os dois blocos:
+sobrenumeradas 92, tem pelo menos uma de **6**, completas 5 → **6**; promos 6,
+tem **2**, completas 0 → **2**. Nenhuma com mais do que uma cópia hoje.
+
+`tests/test_alvo_1.py`; `test_promos`, `test_overnumbered`,
+`test_tres_blocos` e `test_contador_bloco` foram ajustados porque descreviam
+estes blocos a playset (o `test_contador_bloco` passou a usar as artes
+alternativas como bloco de playset).
+
+**O README continua a descrever os três blocos de 09-08** (três a contar,
+denominador 1036, `master_set.fora`) — está velho desde 14/09, não é desta
+ordem; fica anotado.
 
