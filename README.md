@@ -119,13 +119,42 @@ As escolhas ficam guardadas no browser.
 
 ## Quanto custa
 
-Terceira secção (chamava-se «Faltas» até 2026-09-15 — o nome novo põe o
-preço em primeiro lugar; o identificador interno continua `faltas`), com três
-abas, todas **por edição**: Master set, A subir e A caminho. Abre na
-**Master set**, que é a do preço. As abas **por deck** (Staples, Por deck,
-Pimp decks) saíram daqui a 2026-09-15 à tarde (*"quero as mais caras por
-edicao, nao por deck"*) e vivem no separador **Decks**, a seguir às
-Encomendas — são os mesmos dados e o mesmo desenho, só mudaram de sítio:
+Terceira secção: a **tabela de preços do jogo** (chamava-se «Faltas» até
+2026-09-15 de manhã e mostrava o que faltava; à tarde ficou claro que *"o
+separador quanto custa nao e para ter as faltas! e para passar a ter o top 5
+comum mais cara, por cada set / o top 5 incomum / o top5 rara / o top5
+mitica"*; o identificador interno continua `faltas`). Para **cada edição**
+com botão, quatro blocos — **comuns, incomuns, raras, míticas** — com as
+**5 mais caras** de cada (`quanto_custa.top_por_raridade`), do mais caro para
+o mais barato. Um separador por edição em cima e um **Todas** que as mostra
+uma a seguir à outra.
+
+- **Entram todas as cartas da edição, tenhas ou não tenhas.** Não é uma lista
+  de compra: uma carta de que já tens as três cópias continua a ser das mais
+  caras e aparece. Cada linha diz **tens N/M** (as cópias na Coleção e o
+  alvo), só como informação — verde quando está ao alvo.
+- **«Míticas» são as `epic`** do catálogo da RiftScribe, que não tem outra
+  raridade acima (não há *mythic*). A quinta raridade do catálogo,
+  `showcase`, é o tratamento das reimpressões de topo do OGN e do SFD e não
+  cabe em nenhum dos quatro blocos.
+- **Só a sequência de cada edição.** As artes alternativas ficam de fora a
+  pedido (*"AltArt nao precisa fazer isto"*); as sobrenumeradas e as promos
+  também, porque são a mesma categoria (*"Alt Art, overnumbered, etc etc é
+  puramente coleção"*) — e com elas dentro os blocos das comuns e das raras
+  do UNL e do VEN eram só reimpressões de topo (os Poros a 100–285 €).
+  `quanto_custa.so_sequencia: false` mete-as. Tokens, signatures e runas sem
+  numeração continuam escondidos, como em todo o lado.
+- **Sem o OGS** (`quanto_custa.sem_edicoes`), de quando isto eram faltas
+  (*"menos proving grounds"*). O rodapé diz o que ficou de fora.
+- **Preços só de ofertas em inglês** (`precos.linguas`; *"apenas cartas
+  versao ingles"*), Near Mint/Mint, o mais baixo no CardTrader.
+
+Na consola: `py -m riftvault quanto-custa [--edicao OGN]`.
+
+**As faltas não desapareceram — deixaram de ter separador.** As do master set
+estão na **wantlist do fim de cada edição** da Coleção (`api/wantlist.json`)
+e as dos decks nas abas do separador **Decks**, a seguir às Encomendas
+(`api/compras.json`):
 
 - **Decks → Staples** — cartas que **mais do que um deck** pede e que não tens em
   número suficiente. São as que rendem mais por euro: uma compra serve vários
@@ -145,72 +174,22 @@ Encomendas — são os mesmos dados e o mesmo desenho, só mudaram de sítio:
   Arrumado **por deck**, nunca por edição: a vista **Todas** tem uma
   secção por deck, e há sub-abas para veres um de cada vez com a quantidade
   que esse deck usa. Cada sub-aba tem a sua lista para a wantlist.
-- **Master set** — a lista **completa** do que falta à coleção, não só o que
-  está a subir: para comprares tudo de uma vez se te apetecer. Mesmo âmbito e
-  mesma regra da aba anterior (conta enquanto *cópias + a caminho < alvo*), sem
-  o filtro de subida. As signatures e os showcases já nem chegam a esta lista:
-  saíram todos da coleção (as signatures a 09-09, as sobrenumeradas a 10-09) e
-  os filtros de compra ficaram sem nada para tirar. Um botão por edição
-  (menos o OGS, a pedido dele — `quanto_custa.sem_edicoes`) e um para tudo;
-  dentro do que está escolhido as cartas vão **por raridade** (épicas
-  primeiro) e, dentro de cada raridade, **por preço**, do mais caro para o
-  mais barato — há um inversor para ir buscar os baratos de uma vez. Nas
-  raras, incomuns e comuns só se **mostram as 5 mais caras**
-  (`quanto_custa.top_por_raridade`; *"o top5 de mais caras de comuns, e top5
-  de incomuns, e top5 de Raras"*), com um rodapé a dizer quantas ficaram de
-  fora e quanto somam, e um **ver todas** que as abre; as épicas aparecem
-  todas (*"miticas e AltArt nao precisa fazer isto"* — as artes alternativas
-  já nem entram na lista). **O corte é só do que se vê**: o subtotal de cada
-  raridade, o total e a wantlist contam tudo. As cartas sem oferta no
-  CardTrader ficam num grupo à parte no fim, sem contar como zero. Os mesmos
-  três botões de lista para o Cardmarket. Os preços são só de ofertas **em
-  inglês** (`precos.linguas`; *"apenas cartas versao ingles"*).
-- **A caminho** — o que já compraste e ainda não chegou. Não conta na Coleção
-  (essa mede o que tens na caixa) mas já sai das faltas e das wantlists, para
-  não comprares duas vezes. Quando chegar, carrega em **Chegou** na carta (ou em "Chegou tudo") e ela
-  passa para a Coleção. Também dá pela linha de comandos:
-  `py -m riftvault pending --chegou [ID]`.
-- **A subir** — do **master set**, só o que **ainda não tens** e subiu 10% ou
-  mais nos últimos 30 dias. Assim que compras a carta ela sai daqui: isto é
-  uma lista de vigia de compras, não um índice de mercado.
+- **Decks → Encomendas** — o que já compraste e ainda não chegou, para que
+  deck vai, e o que ainda falta encomendar. Não conta na Coleção (essa mede o
+  que tens na caixa) mas já sai das faltas e das wantlists, para não comprares
+  duas vezes. Quando chegar, carrega em **Chegou** na linha (ou em "Chegou
+  tudo") e ela passa para a Coleção. Também dá pela linha de comandos:
+  `py -m riftvault encomendas` e `py -m riftvault pending --chegou [ID]`.
 
-  Duas abas sobre a mesma lista: **por %** (o que está a disparar) e **por
-  valor** (o que te vai custar caro se esperares). Cada linha leva a arte
-  pequena, o nome, a edição e o número, a raridade, o preço de então, o de
-  hoje, o Δ da janela e o Δ de 7 dias, com links para o CardTrader e para a
-  RiftScribe. Há um filtro rápido por raridade.
-
-  **Os showcases não entram** (`a_subir.excluir`, decisão tua a 2026-09-08:
-  *"tira também os showcases"*). O showcase é uma **raridade**, não uma
-  variante: as 42 que saem daqui são reimpressões com número de coleção normal,
-  como a `SFD-232/221`, e continuam a contar na percentagem de set completo — o
-  que muda é só esta página e as listas de compra que saem dela. A nota por
-  baixo do resumo diz quantas saíram e por que critério.
-
-  **As signatures também não**, mas por outro motivo desde 2026-09-09: saíram da
-  Coleção inteira, que é o âmbito desta página, por isso já nem chegam à
-  exclusão (o resumo passou de «78 impressões (36 signature + 42 showcase)» a
-  «42 (42 showcase)»). A exclusão delas fica no config na mesma, para o caso de
-  voltarem.
-
-  No fim há os três botões das **listas para o Cardmarket** (ver abaixo).
-
-  O histórico só grava quando o preço **muda**, por isso o preço "de há 30
-  dias" é o que estava em vigor nessa data, mesmo que o registo seja mais
-  antigo. Enquanto o `prices.db` não tiver 30 dias, a comparação é *desde* a
-  data mais antiga que houver e a linha diz isso — nunca finge a janela toda.
-  Os preços são atualizados sozinhos todos os dias pelo PC (`riftvault-daily`,
-  07:30) — era o GitHub Actions até 2026-09-10.
-
-  A janela, o limiar e a regra de "ainda não tenho" mexem-se em `a_subir`, no
-  `riftvault_config.json`. Há ainda uma coluna de **urgência**, desligada de
-  propósito (`a_subir.urgencia: false`) — é uma proposta de fórmula à espera
-  de veredito, não uma decisão.
+A aba **A subir** (do master set, o que ainda não tens e subiu 10% ou mais
+nos últimos 30 dias) saiu do site com o separador; a conta continua na
+consola, `py -m riftvault a-subir [--cardmarket]`, com as mesmas exclusões
+(`a_subir.excluir`) e a mesma regra de «ainda não tenho».
 
 **As runas não entram nas abas dos decks** (Staples, Por deck e as wantlists)
 — são baratas e compram-se a granel, e a 12 por deck enchiam os staples.
-Continuam a contar na secção Decks, na Coleção e na aba **A subir**, que mede
-o master set e não os decks. O que fica de fora está em
+Continuam a contar na secção Decks, na Coleção e no `riftvault a-subir`, que
+mede o master set e não os decks. O que fica de fora está em
 `faltas_ignorar_tipos`, no config.
 
 **Os decks que pedem a mesma carta compram o que a Coleção não chega para
@@ -231,12 +210,14 @@ gerador (`riftvault/cardmarket.py`):
   as faltas dessa edição já escritas na caixa, e a seguir **Wantlist — tudo**
   com as cinco edições seguidas. O cabeçalho da edição diz *N cópias a comprar
   nesta edição · X €* e leva-te ao bloco.
-- **Quanto custa → A subir** e **Quanto custa → Master set**, com três botões:
-  **Copiar para o Cardmarket**, **Copiar com código** e **Descarregar CSV**.
+  Os três botões: **Copiar para o Cardmarket**, **Copiar com código** e
+  **Descarregar CSV**.
 - **Decks → Por deck** e **Decks → Pimp decks**, com o botão de sempre.
+- Na consola, `py -m riftvault a-subir --cardmarket` (o que está a subir) e
+  `--todas` (tudo o que falta ao master set).
 
-As wantlists da Coleção são a **mesma lista** da aba *Master set*, cortada por
-edição: os mesmos alvos dos três blocos (playset na sequência, 1 por runa, 1 por
+As wantlists da Coleção são a lista completa do que falta ao master set
+(`a_subir.master_faltas`), cortada por edição: os mesmos alvos dos três blocos (playset na sequência, 1 por runa, 1 por
 runa especial, 1 por arte alternativa), a mesma regra *cópias + a caminho <
 alvo* e a mesma exclusão dos showcases. Em modo edição, um `+` ou
 um `−` marca-as como desatualizadas e aparece um botão **Atualizar** — não se
