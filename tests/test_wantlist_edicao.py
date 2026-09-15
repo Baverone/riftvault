@@ -142,8 +142,9 @@ class TestAlvosDosTresBlocos(Base):
     Desde 2026-09-14 à noite (*"quero masterset com playset / runas 1 de cada /
     Alt Art, overnumbered, etc etc mete Playset na contagem"*) é o playset do
     tipo em todos os blocos — Unit 3, Legend 1, arte alternativa o playset do
-    tipo dela — **excepto as runas, que são 1**, base ou especial. Ver
-    `metrics.master_target`.
+    tipo dela — e desde 2026-09-15 à tarde **também as runas numeradas, a 3**
+    (*"as runas que estao no masterset […] vamos ate 3 como as outras
+    cartas"*; até aí eram 1, base ou especial). Ver `metrics.master_target`.
 
     E desde 2026-09-15 a wantlist é SÓ o bloco 1: a coleção extra leva o alvo
     na GRELHA (*"apenas pedi para ser feito track de playset para eu saber
@@ -172,7 +173,7 @@ class TestAlvosDosTresBlocos(Base):
         self.assertEqual(alvos, {
             "tst-001-100": (3, 3),          # Unit na sequência: playset
             "tst-002-100": (1, 1),          # Legend na sequência: 1
-            "tst-003-100": (1, 1),          # runa base: 1 de cada
+            "tst-003-100": (3, 3),          # runa numerada: 3, como a Unit
         })
         # A runa especial e a arte alternativa ficam de fora, e a lista diz-o.
         self.assertTrue(p["scope"]["so_master_set"])
@@ -181,26 +182,28 @@ class TestAlvosDosTresBlocos(Base):
         con.close()
 
     def test_a_colecao_extra_tem_o_alvo_na_grelha_nao_na_lista(self):
-        """«tenho 0 de 3» na arte alternativa, «0 de 1» na runa especial — e
-        nenhuma das duas na wantlist, mesmo com tudo a zero."""
+        """«tenho 0 de 3» na arte alternativa e «0 de 3» na runa especial
+        (numerada, pede 3 desde 2026-09-15) — e nenhuma das duas na wantlist,
+        mesmo com tudo a zero."""
         con = self.montar()
         g = self.metrics.set_payload(con, "TST")
         tiles = {pr["id"]: pr for grp in g["groups"] for pr in grp["printings"]}
         self.assertEqual((tiles["tst-004-100"]["qty"], tiles["tst-004-100"]["target"]), (0, 3))
-        self.assertEqual((tiles["tst-003a-100"]["qty"], tiles["tst-003a-100"]["target"]), (0, 1))
+        self.assertEqual((tiles["tst-003a-100"]["qty"], tiles["tst-003a-100"]["target"]), (0, 3))
         self.assertFalse(self.metrics.conta_bloco(tiles["tst-004-100"]["block"]))
         pids = [x["printing_id"] for x in self.a_subir.wantlist(con, "TST")["items"]]
         self.assertNotIn("tst-004-100", pids)
         self.assertNotIn("tst-003a-100", pids)
         con.close()
 
-    def test_a_runa_pede_1_e_o_playset_jogavel_continua_12(self):
-        """*"runas 1 de cada"*: colecionar uma runa é ter uma; jogar são 12, e
-        isso é a métrica 1 e o Rune Pool dos decks, que não mexem."""
+    def test_a_runa_pede_3_e_o_playset_jogavel_continua_12(self):
+        """*"vamos ate 3 como as outras cartas"* (2026-09-15): colecionar uma
+        runa numerada é ter 3; jogar são 12, e isso é a métrica 1 e o Rune
+        Pool dos decks, que não mexem."""
         con = self.montar()
         p = self.a_subir.wantlist(con, "TST")
         runa = next(x for x in p["items"] if x["printing_id"] == "tst-003-100")
-        self.assertEqual(runa["target"], 1)
+        self.assertEqual(runa["target"], 3)
         self.assertEqual(self.metrics.playset_target("Rune", False), 12)
         con.close()
 
