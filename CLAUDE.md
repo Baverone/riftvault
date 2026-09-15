@@ -178,6 +178,55 @@ com o do `site/api/index.json` daqui. Se o de lá estiver atrasado:
 
 ---
 
+# A Coleção em três categorias; a coleção extra acompanha-se, não se compra (2026-09-14/15)
+
+**As secções de 09-08 a 09-10 sobre blocos, alvos e o que sai da Coleção são
+história desde a noite de 2026-09-14.** O que manda hoje está nas `_notas` do
+`riftvault_config.json` e no topo do `metrics.py`; aqui fica o resumo.
+
+Palavras dele (14/09, à noite): *"quero masterset com playset / runas 1 de
+cada / Alt Art, overnumbered, etc etc mete Playset na contagem / mas só quero
+% de completo para masterset! / o que é Alt Art e Overnumbered, etc etc é
+puramente coleção"*. E (15/09): *"sobrenumeradas não entram na wantlist, nem
+na % de coleção completa; apenas pedi para ser feito track de playset para eu
+saber exatamente quantas tenho"*.
+
+| categoria | config | o que é | grelha | % e níveis | listas de compra |
+|---|---|---|---|---|---|
+| 1. master set | o resto | a sequência da edição | sim, alvo = playset do tipo, runas 1 | **sim** | **sim** |
+| 2. coleção extra | `master_set.fora_da_percentagem` = `["a", "-R", "overnumbered", "promo"]` | artes alternativas, runas especiais, sobrenumeradas, promos | sim, mesmo alvo («tenho 1 de 3») | não | **não** (15/09) |
+| 3. escondidas | `master_set.escondidas` = `["-T", "*"]` | tokens e signatures | não | não | não |
+
+**Acompanhar não é querer comprar.** Na noite de 14/09 a coleção extra entrou
+inteira nas listas de compra (a leitura foi «um alvo sem lista de compra é um
+alvo sem maneira de o cumprir») e a wantlist passou de 3 337 € para 30 646 €,
+7 202 € só em três `UNL-238` Baron Nashor que ele disse a 09-05 que nunca
+compraria. A frase de 15/09 corrige isso: `listas_de_compra.so_master_set`
+(default `true`, `config.DEFAULTS` também) tira o bloco 2 de TODAS as listas —
+«A subir», «Master set», wantlists por edição, «Wantlist — tudo», por nível,
+texto do Cardmarket — em `a_subir.excluir`, que sai por BLOCO antes dos dois
+critérios de 09-08 (tipo `signature`, raridade `showcase`). A página e o CLI
+dizem quantas tirou e de que bloco (`scope.excluded_by`, `excluded_labels`).
+
+**A Venda não mexe com este botão.** A coleção extra continua a vender-se só
+acima do alvo (`cópias − max(usadas, alvo)`). Pergunta aberta: acompanhar uma
+carta a playset impede vendê-la?
+
+**Medido a 2026-09-15 no `main`, na mesma corrida (botão desligado → ligado):**
+wantlist «tudo» 424 linhas · 885 cópias · **29 716,39 € → 229 · 432 ·
+1 629,47 €**; «A subir» 69 cartas · 150 cópias · 4 178,75 € → **30 · 58 ·
+262,77 €** (âmbito 1134 → 928); percentagem **689/928 = 74,2 %** nos dois —
+não mexe, já não contava o bloco 2. Fora das listas: 206 impressões (12 runas
+especiais, 96 artes alternativas, 92 sobrenumeradas, 6 promos).
+
+`tests/test_tres_blocos.py` fixa as três categorias e o botão;
+`test_coerencia`, `test_niveis`, `test_wantlist_edicao`, `test_signatures` e
+`test_cardmarket` foram reescritos a 15/09 porque descreviam a noite de 14/09.
+**Cuidado com o nome `signature`**: é ao mesmo tempo um bloco da grelha e um
+tipo do `excluir.tipos`, e o `resumo_fora` deduplica os critérios por isso.
+
+---
+
 # Decks com a MESMA Legend partilham cartas, não disputam (2026-09-11, noite)
 
 Palavras dele: *"deck com o mesmo Legend, partilham cartas. Os 2 decks de
