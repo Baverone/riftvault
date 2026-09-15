@@ -8,7 +8,9 @@ Gestor pessoal da coleção de **Riftbound** (TCG da Riot), do André. Python +
 SQLite, mesma arquitetura do `mtgvault`. Objetivo: ter **playsets**, incluindo
 artes normais **e** alternativas.
 
-Secções: **Coleção**, **Decks**, **Faltas** e **Venda**.
+Secções: **Coleção**, **Decks** e **Faltas**. (Houve uma **Venda**, apagada a
+2026-09-15 a pedido dele — ver a última secção deste ficheiro. As secções
+abaixo que falam dela são história.)
 
 ## Regras de trabalho
 
@@ -2358,4 +2360,29 @@ copiado para `_lixo/`, o `riftvault decks` de antes da correcção já mostrava 
 ## 11/09/2026 - decks independentes: feito e DESFEITO no mesmo dia
 
 A regra «cada deck e independente; a Colecao fica com as comuns e incomuns e o deck compra as suas» foi implementada (merge e793cf2) e revertida a pedido do Andre minutos depois: «afinal nao, mete a colecao a partilhar cartas com os decks». Vale o modelo dos binders de 10/09: uma copia na Colecao conta para o deck. Nao voltar a implementar sem ele pedir. O teste dessa ordem apagou o riftvault_config.json real durante a bateria - qualquer teste novo tem de correr contra copias, nunca contra o data/ e o config a serio.
+
+## 15/09/2026 - a Venda foi APAGADA
+
+Palavras dele: *"esquece a parte da venda, podes apagar para já, se for
+necessário mando fazer novamente"*. Não é desligar por config nem esconder o
+separador: o código saiu — `riftvault/venda.py`, `riftvault/comuns.py`, o
+`riftvault venda [--comuns]`, a rota `/api/venda.json`, o `site/api/venda.json`,
+o separador e a página no `app.js`/`index.html`, o CSS próprio, a chave
+`comuns` do config e os testes só dela (`test_venda.py`, `test_comuns.py`, mais
+as classes `TestVenda*` dos outros). Ramo `ai-pc/sem-venda-2026-09-15`; o commit
+exacto a reverter para ela voltar está no relatório
+`ai-pc/work/revisao/riftvault-sem-venda.md`.
+
+**O que ficou, de propósito, porque não era só da Venda:** o local «binder
+Decks/Venda» (`locais.BINDER`, o nome fica); o `decks.colecao_allocation` e o
+`binder_allocation` (a grelha da Coleção lê-os para o «Azir 3 · Ornn 1»); o
+`prices.oferta`/`listings_history` (recolha de mercado, continua no `riftvault
+prices`); o `a_subir.medianas_por_raridade` e o `a_subir.ponto`; o
+`cardmarket.quantidade` a aceitar `qty`. O `cmLigar`/`cmMostrar` do `app.js`
+perderam o parâmetro `onde`, que só a Venda usava.
+
+**Não voltar a construir sem ele pedir.** As perguntas abertas das secções de
+cima («deve o que sai da Coleção ser sugerido para venda?», «acompanhar uma
+carta impede vendê-la?») ficaram sem resposta — ele mandou apagar em vez de
+responder.
 
