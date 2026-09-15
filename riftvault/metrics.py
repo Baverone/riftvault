@@ -19,9 +19,12 @@
           ser feito track de playset para eu saber exatamente quantas
           tenho"* — ver `a_subir.so_master_set`). Escreve-se em
           `master_set.fora_da_percentagem`.
-       3. as ESCONDIDAS — os tokens `-T` e as signatures `*`. Não aparecem na
-          página (André, 2026-09-11: *"nunca vou colocar nenhuma, não vale a
-          pena estarem lá"*). Escreve-se em `master_set.escondidas`.
+       3. as ESCONDIDAS — os tokens `-T`, as signatures `*` e, desde
+          2026-09-15, as runas SEM numeração de master set (as promo `-R`).
+          Não aparecem na página (André, 2026-09-11: *"nunca vou colocar
+          nenhuma, não vale a pena estarem lá"*; 2026-09-15: *"Saiem as runas
+          todas e deixam de contar para masterset […] menos as que tem
+          numeração de masterset"*). Escreve-se em `master_set.escondidas`.
 
      O ALVO é o mesmo nas duas primeiras: o playset do tipo da carta
      (Unit/Spell/Gear 3, Legend e Battlefield 1) — **excepto as runas, que
@@ -119,9 +122,10 @@ BLOCO_CURTO = {
 #               noite. `"playset"` continua a ser aceite e dá as 12.
 #   `excepto` — quais é que ficam na SEQUÊNCIA do master set (só a base). O
 #               resto vai para o bloco «runas especiais» (`e_runa_especial`) —
-#               hoje as artes alternativas do OGN e as promo do VEN (a
-#               RiftScribe não tem runas no SFD nem no UNL — ver "BURACO NO
-#               CATÁLOGO" no CLAUDE.md).
+#               hoje só as artes alternativas do OGN: as promo do VEN estão
+#               escondidas desde 2026-09-15 (não têm numeração de master set),
+#               e a RiftScribe não tem runas no SFD nem no UNL (ver "BURACO
+#               NO CATÁLOGO" no CLAUDE.md).
 #
 # Muda-se em `runas_especiais` no config. `tipos: []` desliga as três coisas e
 # as runas voltam a seguir o playset, como qualquer outra carta.
@@ -149,9 +153,10 @@ SUFIXO_KIND = {
 # fiquem também à parte"* (2026-09-10). As três escritas dão o mesmo kind.
 #
 # «Promo» aqui é SÓ a `special`. As runas promo do VEN (`VEN-R01..R06`) são
-# outra categoria — escrevem-se `-R`/`rune_promo` — e ficam dentro da Coleção,
-# no bloco das runas especiais, por decisão dele de 2026-09-08 (*"1 runa
-# especial de cada para cada set"*). Ver o `fora_da_colecao`.
+# outra categoria — escrevem-se `-R`/`rune_promo` — e desde 2026-09-15 estão
+# ESCONDIDAS: são runas sem numeração de master set (*"Saiem as runas todas e
+# deixam de contar para masterset […] menos as que tem numeração de
+# masterset"*). Ver `escondida`.
 PALAVRA_KIND = {
     "promo": "special",     # VEN-SP4
 }
@@ -356,8 +361,12 @@ def _escondidas(cfg: dict | None = None) -> tuple[frozenset[str], bool]:
     """O `master_set.escondidas` lido: (variantes, as sobrenumeradas também?).
 
     André, 2026-09-11 (à noite): *"podes tirar as signatures da coleção, nunca
-    vou colocar nenhuma, não vale a pena estarem lá"*. Hoje é `["-T", "*"]`:
-    os tokens e as signatures não aparecem na página — nem num bloco de fora.
+    vou colocar nenhuma, não vale a pena estarem lá"*. E 2026-09-15: *"Saiem
+    as runas todas e deixam de contar para masterset […] menos as que tem
+    numeração de masterset"* — as runas SEM numeração são as promo `-R` do
+    VEN (código sem `/tamanho`); as numeradas (a base e a arte alternativa do
+    OGN) ficam onde estavam. Hoje é `["-T", "*", "-R"]`: os tokens, as
+    signatures e as runas promo não aparecem na página — nem num bloco de fora.
     """
     cfg = cfg or config.load()
     return _ler_lista(LISTA_ESCONDIDAS, _lista(cfg, LISTA_ESCONDIDAS))
@@ -366,11 +375,11 @@ def _escondidas(cfg: dict | None = None) -> tuple[frozenset[str], bool]:
 def kinds_fora(cfg: dict | None = None) -> frozenset[str]:
     """Os `variant_kind` que NÃO contam para a percentagem (blocos 2 e 3).
 
-    Hoje as artes alternativas e as runas promo (`fora_da_percentagem`, André
-    2026-09-14: *"o que é Alt Art e Overnumbered, etc etc é puramente
-    coleção"*), as promos `VEN-SP` (2026-09-10) e, por estarem escondidas, os
-    tokens e as signatures. A outra metade das listas é o `fora_overnumbered`,
-    que não é por variante.
+    Hoje as artes alternativas (`fora_da_percentagem`, André 2026-09-14: *"o
+    que é Alt Art e Overnumbered, etc etc é puramente coleção"*), as promos
+    `VEN-SP` (2026-09-10) e, por estarem escondidas, os tokens, as signatures
+    e as runas promo `-R` (2026-09-15). A outra metade das listas é o
+    `fora_overnumbered`, que não é por variante.
     """
     return _fora(cfg)[0]
 
@@ -494,8 +503,8 @@ def e_master(printing, cfg: dict | None = None) -> bool:
       `UNL-T03`   -> variant `t03` -> kind `token`
       `UNL-228a`  -> variant `a`   -> kind `alt_art`
 
-    Muda-se em `master_set.fora_da_percentagem` (hoje `["a", "-R",
-    "overnumbered", "promo"]`) e `master_set.escondidas` (`["-T", "*"]`). A
+    Muda-se em `master_set.fora_da_percentagem` (hoje `["a", "overnumbered",
+    "promo"]`) e `master_set.escondidas` (`["-T", "*", "-R"]`). A
     história das decisões está no cabeçalho do módulo e no CLAUDE.md; a última
     é de 2026-09-14 à noite — *"só quero % de completo para masterset!"* —, e
     é a que tirou as artes alternativas e as runas especiais da percentagem.
@@ -949,15 +958,24 @@ def set_payload(con: sqlite3.Connection, set_id: str, editable: bool = True,
     # TODOS os blocos têm contador próprio ("tens N de M"); só o master set
     # entra na percentagem global — a coleção extra não, e é o ponto todo de
     # ser extra (André, 2026-09-14: *"só quero % de completo para masterset"*).
+    #
+    # Cada bloco leva DUAS contas: `owned` (impressões de que ele tem pelo menos
+    # uma cópia) e `done` (impressões com o alvo completo). Até 2026-09-14 a
+    # coleção extra pedia 1 e as duas eram o mesmo número; com o alvo a playset
+    # o «tens 0 de 6» passou a ser «0 playsets completos» e lia-se como «não
+    # tens nenhuma» (fotografias do André, 2026-09-15). O cabeçalho diz as
+    # duas, e `max_target` diz ao cliente quando é que vale a pena dizê-las.
     by_block: dict[str, list[int]] = {}
     for g in ordered:
         for p in g["printings"]:
             if p["target"] <= 0:
                 continue
             complete = p["qty"] >= p["target"]
-            slot = by_block.setdefault(p["block"], [0, 0])
+            slot = by_block.setdefault(p["block"], [0, 0, 0, 0])
             slot[1] += 1
             slot[0] += 1 if complete else 0
+            slot[2] += 1 if p["qty"] > 0 else 0
+            slot[3] = max(slot[3], p["target"])
             if not conta_bloco(p["block"], cfg):
                 continue
             master_total += 1
@@ -1002,7 +1020,8 @@ def set_payload(con: sqlite3.Connection, set_id: str, editable: bool = True,
     blocks = [
         {"id": bid, "label": rotulo(bid, cfg), "short": BLOCO_CURTO.get(bid, bid),
          "counts": conta_bloco(bid, cfg),
-         "done": by_block[bid][0], "total": by_block[bid][1]}
+         "done": by_block[bid][0], "total": by_block[bid][1],
+         "owned": by_block[bid][2], "max_target": by_block[bid][3]}
         for bid, _ in BLOCOS if bid in by_block
     ]
 

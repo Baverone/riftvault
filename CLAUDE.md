@@ -196,8 +196,11 @@ saber exatamente quantas tenho"*.
 | categoria | config | o que é | grelha | % e níveis | listas de compra |
 |---|---|---|---|---|---|
 | 1. master set | o resto | a sequência da edição | sim, alvo = playset do tipo, runas 1 | **sim** | **sim** |
-| 2. coleção extra | `master_set.fora_da_percentagem` = `["a", "-R", "overnumbered", "promo"]` | artes alternativas, runas especiais, sobrenumeradas, promos | sim, mesmo alvo («tenho 1 de 3») | não | **não** (15/09) |
-| 3. escondidas | `master_set.escondidas` = `["-T", "*"]` | tokens e signatures | não | não | não |
+| 2. coleção extra | `master_set.fora_da_percentagem` = `["a", "overnumbered", "promo"]` | artes alternativas (incluindo as das runas do OGN, no bloco «runas especiais»), sobrenumeradas, promos | sim, mesmo alvo («tenho 1 de 3») | não | **não** (15/09) |
+| 3. escondidas | `master_set.escondidas` = `["-T", "*", "-R"]` | tokens, signatures e — desde 15/09 à tarde — as runas sem numeração de master set (`VEN-R01..R06`) | não | não | não |
+
+(O `-R` passou da lista 2 para a 3 a 2026-09-15 — ver a última secção deste
+ficheiro, "As runas sem numeração saem".)
 
 **Acompanhar não é querer comprar.** Na noite de 14/09 a coleção extra entrou
 inteira nas listas de compra (a leitura foi «um alvo sem lista de compra é um
@@ -2434,4 +2437,55 @@ perderam o parâmetro `onde`, que só a Venda usava.
 cima («deve o que sai da Coleção ser sugerido para venda?», «acompanhar uma
 carta impede vendê-la?») ficaram sem resposta — ele mandou apagar em vez de
 responder.
+
+## 15/09/2026 — o contador dos blocos diz as duas contas
+
+Fotografias dele do 8770: «Coleção — promos — playset · tens **0** de 6» com o
+`VEN-SP4` e o `VEN-SP5` a cores e com o crachá «1/3». **Não era bug de
+contagem**: o `tens N de M` conta PLAYSETS COMPLETOS (`qty >= target`,
+`metrics.set_payload` e o `render()` do `app.js`), e isso era o número certo
+desde 2026-09-08 — só que nessa altura a coleção extra pedia 1 e «tens N» era
+o mesmo que «tens pelo menos uma». Quando a 14/09 o alvo passou a playset, o
+número ficou certo e a etiqueta passou a mentir. Não foi o merge `9d5b544`: o
+contador não mudava desde 08/09.
+
+Agora o cabeçalho diz **«tens 2 de 6 · 0 no playset completo»**; o «· K no
+playset completo» só aparece quando o bloco pede mais do que 1 (`max_target`),
+senão eram dois números iguais. O payload leva `owned`, `done` e `max_target`
+por bloco; o cliente recalcula os três. O master set não tem cabeçalho (é a
+barra), mas leva os mesmos campos. `tests/test_contador_bloco.py`.
+
+## 15/09/2026 — as runas sem numeração saem (`-R` para `escondidas`)
+
+Palavras dele: *"Tira as Runas de aparecerem"*; perguntado se eram só as
+especiais: *"Saiem as runas todas e deixam de contar para masterset"*; e logo
+a seguir: *"menos as que tem numeração de masterset"*.
+
+**O critério é a NUMERAÇÃO, não o tipo.** As 18 runas do catálogo:
+
+| | código | lado |
+|---|---|---|
+| 6 bases do OGN | `OGN-007/298` … `OGN-214/298` | numeradas — ficam na sequência, alvo 1, contam |
+| 6 artes alternativas do OGN | `OGN-007a/298` … `OGN-214a/298` | numeradas (partilham o número da base) — ficam no bloco «runas especiais», coleção extra, alvo 1 |
+| 6 promo do VEN | `VEN-R01` … `VEN-R06` | **sem** numeração (sem `/tamanho`) — **escondidas** |
+
+Uma linha de config: `"-R"` saiu de `fora_da_percentagem` e entrou em
+`escondidas` (`riftvault_config.json` e `config.DEFAULTS`). Não houve função
+nova — é o mecanismo dos tokens e das signatures. **O que está escondido não
+sai do vault**: as cópias continuam no `copies` e no valor.
+
+**Os números não mexem, e é o esperado**: as `-R` já estavam fora da
+percentagem desde 14/09. Medido antes e depois na mesma corrida — denominador
+**928**, níveis **91,6 % / 82,5 % / 74,2 %** (850/766/689), wantlist «tudo»
+**229 linhas · 432 cópias · 1 629,47 €**, valor da coleção **2 144,86 €** —
+tudo igual. O que muda: o separador do VEN passa de 227 para **221**
+impressões e o bloco «Coleção — runas especiais» do VEN desaparece. **No OGN o
+bloco fica**, com as 6 artes alternativas das runas — são numeradas.
+
+**A pergunta que fica:** as artes alternativas das runas do OGN têm número
+(`OGN-007a/298`) mas não são a sequência. Pelo critério dele, à letra, ficam;
+se o que ele queria era «só as runas base», é tirar o `alt_art` de runa do
+`e_runa_especial` — pergunta para ele, não se inventou.
+`tests/test_runas_fora.py`; `test_masterset`, `test_promos`, `test_signatures`
+e `test_tres_blocos` foram ajustados porque descreviam a runa promo no bloco.
 

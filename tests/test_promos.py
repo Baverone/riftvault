@@ -101,7 +101,9 @@ class Base(unittest.TestCase):
 
     # O master set (conta) e a coleção extra (aparece, não conta).
     MASTER = ("tst-004-100", "tst-005-100")
-    EXTRA = ("tst-004a-100", "tst-sp4-006", "tst-r01")
+    # A runa promo `tst-r01` era coleção extra até 2026-09-15; agora está
+    # escondida (sem numeração de master set) — ver `test_runas_fora.py`.
+    EXTRA = ("tst-004a-100", "tst-sp4-006")
 
     def blocos(self, con):
         p = self.metrics.set_payload(con, "TST")
@@ -150,14 +152,17 @@ class TestOCriterio(Base):
 class TestARunaPromoEOutraEntrada(Base):
     """As `VEN-R` são outra decisão e outra entrada (`-R`) — não vêm com «promo»."""
 
-    def test_a_runa_promo_e_colecao_extra_no_bloco_das_runas_com_alvo_1(self):
+    def test_a_runa_promo_esta_escondida_e_nao_e_a_promo(self):
+        """Desde 2026-09-15 as `VEN-R` (sem numeração de master set) estão em
+        `escondidas`; a `VEN-SP` continua a ser coleção extra, visível."""
         con = self.edicao()
         linha = {"variant_kind": "rune_promo", "is_token": 0, "type": "Rune",
                  "printing_id": "tst-r01"}
         self.assertFalse(self.metrics.e_master(linha))
-        self.assertTrue(self.metrics.e_colecao(linha))
-        self.assertEqual(self.metrics.alvo(linha), 1)
-        self.assertEqual(self.blocos(con)["tst-r01"], "rune_special")
+        self.assertFalse(self.metrics.e_colecao(linha))
+        self.assertTrue(self.metrics.escondida(linha))
+        self.assertNotIn("tst-r01", self.blocos(con))
+        self.assertEqual(self.blocos(con)["tst-sp4-006"], "special")
         con.close()
 
     def test_a_palavra_promo_sozinha_nao_tira_as_runas_promo(self):
@@ -317,7 +322,7 @@ class TestListasDeCompra(Base):
         scope = self.a_subir.master_faltas(con)["scope"]
         self.assertEqual(scope["excluded"], len(self.EXTRA))
         motivos = {c["criterio"]: c["n"] for c in scope["excluded_by"]}
-        self.assertEqual(motivos, {"special": 1, "rune_special": 1, "alt_art": 1})
+        self.assertEqual(motivos, {"special": 1, "alt_art": 1})
         self.assertEqual(scope["excluded_labels"]["special"], "promos")
         con.close()
 
@@ -329,7 +334,8 @@ class TestListasDeCompra(Base):
         m = self.a_subir.master_faltas(con)
         pids = {x["printing_id"] for s in m["sets"] for x in s["items"]}
         self.assertNotIn("tst-sp4-006", pids)
-        self.assertIn("tst-r01", pids)
+        self.assertIn("tst-004a-100", pids)
+        self.assertNotIn("tst-r01", pids)      # escondida: nem chega ao âmbito
         self.assertEqual(m["scope"]["excluded"], 1)
         con.close()
 

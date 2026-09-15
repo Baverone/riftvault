@@ -88,7 +88,7 @@ class TestClassificacao(Base):
         casos = {
             "base": True,
             "signature": False,      # `OGN-299*` — escondida
-            "rune_promo": False,     # `VEN-R01` — runas especiais, coleção extra
+            "rune_promo": False,     # `VEN-R01` — escondida desde 2026-09-15
             "special": False,        # `VEN-SP4` — promos, coleção extra
             "alt_art": False,        # `UNL-228a` — coleção extra
             "token": False,          # `UNL-T03` — escondido
@@ -99,7 +99,9 @@ class TestClassificacao(Base):
                     {"variant_kind": kind, "is_token": 0}), esperado)
 
     def test_o_que_esta_na_pagina_e_tudo_menos_o_escondido(self):
-        casos = {"base": True, "alt_art": True, "rune_promo": True, "special": True,
+        # A runa promo (`VEN-R01`, sem numeração de master set) está escondida
+        # desde 2026-09-15 — ver `test_runas_fora.py`.
+        casos = {"base": True, "alt_art": True, "rune_promo": False, "special": True,
                  "signature": False, "token": False}
         for kind, esperado in casos.items():
             with self.subTest(kind=kind):
@@ -119,12 +121,19 @@ class TestClassificacao(Base):
                          "token")
 
     def test_a_runa_que_nao_e_base_vai_para_o_bloco_das_runas(self):
-        """*"1 runa especial de cada para cada set"* — antes da cauda das alt arts."""
-        for kind in ("alt_art", "rune_promo"):
-            with self.subTest(kind=kind):
-                self.assertEqual(self.metrics.bloco(
-                    {"variant_kind": kind, "is_token": 0, "type": "Rune"}),
-                    "rune_special")
+        """*"1 runa especial de cada para cada set"* — antes da cauda das alt arts.
+
+        Desde 2026-09-15 só a arte alternativa (numerada) cai aqui: a runa
+        promo, sem numeração de master set, está escondida e o escondido ganha
+        ao bloco das runas — como a signature, abaixo."""
+        self.assertEqual(self.metrics.bloco(
+            {"variant_kind": "alt_art", "is_token": 0, "type": "Rune"}),
+            "rune_special")
+        self.assertEqual(self.metrics.bloco(
+            {"variant_kind": "rune_promo", "is_token": 0, "type": "Rune"}),
+            "rune_promo")
+        self.assertTrue(self.metrics.escondida(
+            {"variant_kind": "rune_promo", "is_token": 0, "type": "Rune"}))
         # A runa BASE fica na sequência.
         self.assertEqual(self.metrics.bloco(
             {"variant_kind": "base", "is_token": 0, "type": "Rune"}), "master")
@@ -184,7 +193,7 @@ class TestConfigDasListas(Base):
                          frozenset({"alt_art", "rune_promo", "special",
                                     "token", "signature"}))
         self.assertEqual(self.metrics.kinds_escondidas(),
-                         frozenset({"token", "signature"}))
+                         frozenset({"token", "signature", "rune_promo"}))
         self.assertTrue(self.metrics.fora_overnumbered())
 
     def test_o_escondido_esta_fora_da_percentagem_por_construcao(self):
@@ -347,7 +356,7 @@ class TestEscondidas(Base):
         ids = {pr["id"] for g in p["groups"] for pr in g["printings"]}
         self.assertNotIn("tst-003-star-100", ids)
         self.assertNotIn("tst-t01-100", ids)
-        self.assertEqual(p["hidden_kinds"], ["signature", "token"])
+        self.assertEqual(p["hidden_kinds"], ["rune_promo", "signature", "token"])
         con.close()
 
     def test_o_separador_conta_so_o_que_esta_na_pagina(self):
@@ -404,13 +413,14 @@ class TestOrdem(Base):
         self.assertEqual([b["counts"] for b in p["blocks"]], [True, False, False])
         con.close()
 
-    def test_o_bloco_das_runas_leva_as_duas_especiais_e_deixa_a_base(self):
+    def test_o_bloco_das_runas_leva_a_alt_art_deixa_a_base_e_esconde_a_promo(self):
+        """Desde 2026-09-15 a runa promo (sem numeração) nem aparece."""
         con = self.edicao(com_runas=True)
         p = self.metrics.set_payload(con, "TST")
         blocos = {pr["id"]: pr["block"] for g in p["groups"] for pr in g["printings"]}
         self.assertEqual(blocos["tst-005-100"], "master")        # runa base
         self.assertEqual(blocos["tst-005a-100"], "rune_special")
-        self.assertEqual(blocos["tst-r01-100"], "rune_special")
+        self.assertNotIn("tst-r01-100", blocos)
         con.close()
 
     def test_a_sequencia_do_master_sai_por_numero_de_colecao(self):
@@ -430,7 +440,6 @@ class TestOrdem(Base):
             ("master", "tst-002-100"),
             ("master", "tst-005-100"),
             ("rune_special", "tst-005a-100"),
-            ("rune_special", "tst-r01-100"),
             ("alt_art", "tst-001a-100"),
         ])
         con.close()
@@ -484,7 +493,7 @@ class TestPercentagem(Base):
         self.assertEqual(alvos["tst-001-100"], 3)    # Unit base: playset
         self.assertEqual(alvos["tst-005-100"], 1)    # Rune base: 1
         self.assertEqual(alvos["tst-005a-100"], 1)   # runa especial: 1
-        self.assertEqual(alvos["tst-r01-100"], 1)    # runa especial: 1
+        self.assertNotIn("tst-r01-100", alvos)       # runa promo: escondida
         self.assertEqual(alvos["tst-001a-100"], 3)   # alt art de Unit: playset
         con.close()
 
@@ -504,14 +513,16 @@ class TestListasDeCompra(Base):
     bloco 1 — a coleção extra acompanha-se, não se compra (André, 2026-09-15).
     O grosso está em `test_extra_so_track.py`; aqui fica a mecânica do `excluir`."""
 
-    def test_o_ambito_e_a_pagina_menos_os_tokens_e_as_signatures(self):
+    def test_o_ambito_e_a_pagina_menos_o_escondido(self):
+        """Sem os tokens, as signatures e — desde 2026-09-15 — a runa promo."""
         con = self.edicao(com_runas=True)
         escopo = self.a_subir.masterset(con)
         self.assertEqual(sorted(escopo), [
             "tst-001-100", "tst-001a-100", "tst-002-100",
-            "tst-005-100", "tst-005a-100", "tst-r01-100"])
+            "tst-005-100", "tst-005a-100"])
         self.assertNotIn("tst-t01-100", escopo)
         self.assertNotIn("tst-003-star-100", escopo)
+        self.assertNotIn("tst-r01-100", escopo)
         con.close()
 
     def test_a_lista_e_so_o_master_set(self):
@@ -521,7 +532,7 @@ class TestListasDeCompra(Base):
         itens = {x["printing_id"]: x for s in p["sets"] for x in s["items"]}
         self.assertEqual(sorted(itens), ["tst-001-100", "tst-002-100", "tst-005-100"])
         self.assertEqual(itens["tst-005-100"]["missing"], 1)
-        self.assertEqual(p["scope"]["excluded"], 3)
+        self.assertEqual(p["scope"]["excluded"], 2)
         self.assertTrue(p["scope"]["so_master_set"])
         con.close()
 
@@ -532,15 +543,15 @@ class TestListasDeCompra(Base):
         self.assertNotIn("tst-001a-100", escopo)
         self.assertEqual(saem["tst-001a-100"]["excluded_by"], "alt_art")
         self.assertEqual(saem["tst-005a-100"]["excluded_by"], "rune_special")
-        self.assertEqual(saem["tst-r01-100"]["excluded_by"], "rune_special")
-        # A signature já nem chega aqui: está escondida.
-        self.assertNotIn("tst-003-star-100", escopo)
-        self.assertNotIn("tst-003-star-100", saem)
+        # A signature e a runa promo já nem chegam aqui: estão escondidas.
+        for pid in ("tst-003-star-100", "tst-r01-100"):
+            self.assertNotIn(pid, escopo)
+            self.assertNotIn(pid, saem)
         resumo = self.a_subir.resumo_fora(saem, self.a_subir.opcoes()["excluir"])
-        self.assertEqual(resumo["excluded"], 3)
+        self.assertEqual(resumo["excluded"], 2)
         # Pela ordem da grelha, com o nome do cabeçalho para a página escrever.
         self.assertEqual(resumo["excluded_by"],
-                         [{"criterio": "rune_special", "n": 2},
+                         [{"criterio": "rune_special", "n": 1},
                           {"criterio": "alt_art", "n": 1}])
         self.assertEqual(resumo["excluded_labels"],
                          {"rune_special": "runas especiais", "alt_art": "artes alternativas"})
@@ -577,11 +588,11 @@ class TestListasDeCompra(Base):
         self.assertEqual(saem["tst-005a-100"]["excluded_by"], "rune_special")
         self.assertIn("tst-001-100", ficam)
         resumo = self.a_subir.resumo_fora(saem, fora, so_master=False)
-        self.assertEqual(resumo["excluded"], 3)
+        self.assertEqual(resumo["excluded"], 2)
         self.assertFalse(resumo["so_master_set"])
         self.assertEqual(resumo["excluded_by"],
                          [{"criterio": "alt_art", "n": 1},
-                          {"criterio": "rune_special", "n": 2}])
+                          {"criterio": "rune_special", "n": 1}])
         con.close()
 
 
