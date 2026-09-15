@@ -109,10 +109,14 @@ class TestAlvo(Base):
         self.assertEqual(self.metrics.alvo(r), 3)
         con.close()
 
-    def test_as_runas_ficam_como_estavam(self):
+    def test_as_runas_nao_sao_um_de_cada(self):
+        """O `um_de_cada` não lhes toca: pedem o do tipo — 3 desde a ordem
+        seguinte do mesmo dia (`test_runas_3.py`)."""
         con = self.edicao()
         a = {pid: self.metrics.alvo(r) for pid, r in self.linhas(con).items()}
-        self.assertEqual((a["tst-002-100"], a[self.RUNA_ALT]), (1, 1))
+        self.assertEqual((a["tst-002-100"], a[self.RUNA_ALT]), (3, 3))
+        for pid in ("tst-002-100", self.RUNA_ALT):
+            self.assertFalse(self.metrics.e_um_de_cada(self.linhas(con)[pid]))
         self.assertEqual(self.metrics.bloco(self.linhas(con)[self.RUNA_ALT]), "rune_special")
         con.close()
 
