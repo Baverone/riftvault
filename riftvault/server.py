@@ -18,7 +18,8 @@ from datetime import datetime, timezone
 
 from flask import Flask, g, jsonify, redirect, request, send_from_directory
 
-from . import collection, config, db, decks, faltas, locais, metrics, pending
+from . import (a_subir, collection, config, db, decks, faltas, locais, metrics,
+               pending, quanto_custa)
 
 app = Flask(__name__, static_folder=None)
 
@@ -120,11 +121,31 @@ def api_decks():
                     "rules": decks.rules()})
 
 
-@app.get("/api/faltas.json")
-def api_faltas():
+@app.get("/api/quanto_custa.json")
+def api_quanto_custa():
+    """O separador «Quanto custa»: a tabela de preços por edição e raridade
+    (2026-09-15, à tarde). Não depende dos decks nem das faltas."""
+    return jsonify(quanto_custa.tabela(get_con()))
+
+
+@app.get("/api/wantlist.json")
+def api_wantlist():
+    """As faltas do master set, por edição — a wantlist do fim de cada edição
+    da Coleção. Vivia dentro do `api/faltas.json` (chave `master`) até
+    2026-09-15; o ficheiro foi apagado com o separador e esta lista, que é
+    da Coleção, ficou com URL próprio."""
     con = get_con()
     _reimport_if_changed(con)
-    return jsonify(faltas.payload(con))
+    return jsonify(a_subir.master_faltas(con))
+
+
+@app.get("/api/compras.json")
+def api_compras():
+    """As listas de compra dos decks (Staples, Por deck, Pimp decks) — o resto
+    do antigo `api/faltas.json`."""
+    con = get_con()
+    _reimport_if_changed(con)
+    return jsonify(faltas.compras(con))
 
 
 @app.get("/api/deck/<int:deck_id>.json")

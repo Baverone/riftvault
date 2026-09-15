@@ -1,19 +1,18 @@
-"""A secção "Faltas": o que comprar, e por que ordem.
+"""As listas de compra dos DECKS: o que comprar, e por que ordem.
 
-Seis vistas da mesma pergunta:
+Três vistas da mesma pergunta, nas abas do separador Decks (desde 2026-09-15
+à tarde; até lá viviam no separador «Faltas», que passou a ser a tabela de
+preços «Quanto custa» — ver `quanto_custa.py`):
 
   STAPLES    — cartas que faltam e que MAIS DO QUE UM deck pede. São as que
                rendem mais por euro: uma compra serve vários decks.
   POR DECK   — o que falta a cada deck, por edição.
-  A SUBIR    — o que falta do MASTER SET e está a subir de preço. Vive no
-               `a_subir.py`: o âmbito é a métrica de master set, não os decks.
-  MASTER SET — a lista completa do que falta ao master set, por edição e
-               número, para comprar tudo de uma vez se lhe apetecer. Mesmo
-               âmbito da anterior, sem o filtro de subida
-               (`a_subir.master_faltas`).
   PIMP DECKS — as versões alteradas das cartas dos decks, também como lista de
                compras (ver `pimp`).
-  A CAMINHO  — o que já comprou e ainda não chegou (ver `pending`).
+
+As faltas do MASTER SET (a wantlist do fim de cada edição da Coleção) não
+vivem aqui: são o `a_subir.master_faltas`/`wantlist`. O que vem a caminho é o
+`pending` (a lista «Encomendas» do separador Decks).
 
 A carência é GLOBAL, não por deck: soma-se o que todos os decks pedem de uma
 carta e desconta-se o que ele tem. A alocação por prioridade diz quem fica com
@@ -28,7 +27,7 @@ from __future__ import annotations
 
 import sqlite3
 
-from . import a_subir, cardmarket, config, decks, metrics, pending
+from . import cardmarket, config, decks, metrics, pending
 
 
 def _wanted(con: sqlite3.Connection) -> dict[str, dict]:
@@ -336,17 +335,24 @@ def todos_juntos(con: sqlite3.Connection) -> dict:
     }
 
 
-def payload(con: sqlite3.Connection) -> dict:
+def compras(con: sqlite3.Connection) -> dict:
+    """As listas de compra dos DECKS: `api/compras.json`.
+
+    É o que resta do `payload` que alimentava o separador «Faltas»/«Quanto
+    custa» (`api/faltas.json`, apagado a 2026-09-15 à tarde — o separador
+    passou a ser a tabela de preços, `quanto_custa.py`). O que aqui fica é o
+    que as abas Staples, Por deck e Pimp decks do separador Decks lêem; a
+    wantlist da Coleção tem ficheiro próprio (`api/wantlist.json`,
+    `a_subir.master_faltas`) e a lista «A caminho» já vivia nas Encomendas
+    (`api/encomendas.json`).
+    """
     todas = shortfall(con)
     return {
         "staples": staples(con),
         "por_deck": por_deck(con),
         "todos_juntos": todos_juntos(con),
-        "a_subir": a_subir.calcular(con),
-        "master": a_subir.master_faltas(con),
         "pimp": pimp(con),
         "ignored_types": sorted(config.load().get("faltas_ignorar_tipos", [])),
-        "pending": {**pending.totals(con), "items": pending.listar(con)},
         "totals": {
             "cards": len(todas),
             "copies": sum(x["missing"] for x in todas),

@@ -9,10 +9,16 @@ SQLite, mesma arquitetura do `mtgvault`. Objetivo: ter **playsets**, incluindo
 artes normais **e** alternativas.
 
 Secções: **Coleção**, **Decks** e **Quanto custa** (chamou-se **Faltas** até
-2026-09-15 — as secções abaixo usam o nome antigo; o identificador interno
-continua `faltas` em todo o lado: rota, `api/faltas.json`, ids de DOM, chave
-de estado). (Houve uma **Venda**, apagada a 2026-09-15 a pedido dele — ver a
-última secção deste ficheiro. As secções abaixo que falam dela são história.)
+2026-09-15 de manhã e mostrou as faltas até à tarde desse dia; **desde
+2026-09-15 à tarde é a TABELA DE PREÇOS** — o top 5 mais caras por raridade,
+em cada edição, tenha ele ou não — ver a última secção deste ficheiro. As
+secções abaixo que falam das abas «Master set», «A subir» e «A caminho» do
+separador são história; o `api/faltas.json` foi apagado e partido em
+`api/wantlist.json`, `api/compras.json` e `api/quanto_custa.json`. O
+identificador interno continua `faltas` nos ids de DOM, na chave de estado e
+no `faltas.py`, que ficou com as listas de compra dos DECKS.) (Houve uma
+**Venda**, apagada a 2026-09-15 a pedido dele — ver a penúltima secção. As
+secções abaixo que falam dela são história.)
 
 ## Regras de trabalho
 
@@ -2748,4 +2754,103 @@ comuns → cinco vistas e «mais 2» com a soma certa; subtotal e total contam a
 sete; épicas todas; um grupo que cabe não leva corte; `top_por_raridade: 3`
 corta a 3, `0` desliga; o inversor mostra as mesmas cinco ao contrário; o
 payload leva o corte; e o separador não tem abas por deck (lê o `app.js`).
+
+## 15/09/2026, fim da tarde — o «Quanto custa» NÃO é as faltas: é a tabela de preços
+
+Palavras dele: *"o separador quanto custa **nao e para ter as faltas!** / e
+para passar a ter o top 5 comum mais cara, por cada set / o top 5 incomum mais
+cara por cada set / o top5 rara mais cara por cada set / o top5 mitica mais
+cara por cada set"* e, antes, *"apenas cartas versao ingles"*. Perguntado até
+onde ia o «podes apagar as faltas»: **só o separador**. Ramo
+`ai-pc/top5-2026-09-15` (recriado — o da manhã já tinha sido fundido);
+relatório em `ai-pc/work/revisao/riftvault-top5.md`.
+
+**As duas ordens anteriores de hoje sobre este separador eram o entendimento
+errado** («Master set» por raridade e por preço; depois o top 5 do que
+FALTAVA). O separador é uma **tabela de preços do jogo**: para cada edição,
+quatro blocos — comuns, incomuns, raras, míticas — com as
+`quanto_custa.top_por_raridade` (5) mais caras de cada, **tenha ele ou não**.
+Uma carta de que já tem as três cópias continua a ser das mais caras e
+aparece; a linha diz «tens N/M» (cópias na Coleção, `locais.na_colecao`, e o
+alvo) só como informação. Sem totais nem subtotais — não é uma lista de compra.
+
+**«Mítica» é o `epic` da RiftScribe.** O catálogo tem `common`, `uncommon`,
+`rare`, `epic` e `showcase`; não há `mythic`. A página escreve «míticas» e
+diz que são as *epic*. A `showcase` não é raridade de jogo (é o tratamento
+das 42 reimpressões de topo do OGN/SFD) e não cabe em nenhum dos quatro
+blocos — hoje nem chega lá, ver a seguir.
+
+**O que entra: só a sequência da edição** (`metrics.e_master`, o bloco
+`master`), `quanto_custa.so_sequencia: true`. Ele tirou as artes alternativas
+pelo nome (*"AltArt nao precisa fazer isto"*); as sobrenumeradas e as promos
+são a mesma categoria nas palavras dele de 14/09 (*"Alt Art, overnumbered, etc
+etc é puramente coleção"*) e saem pela mesma razão — **e não é indiferente**:
+no UNL e no VEN as sobrenumeradas têm raridade de jogo no catálogo, e com elas
+dentro o top 5 das comuns do UNL eram os cinco Poros (`UNL-221` Lonely Poro a
+285,64 €, …), o das raras do UNL e do VEN eram só reimpressões de topo
+(`VEN-189` Rogue Assassin a 400,64 €) e o das míticas do UNL abria com o
+`UNL-238` Baron Nashor a 2 100,64 €; no OGN e no SFD as mesmas reimpressões
+são `showcase` e nem cabiam nos blocos. Medido antes de decidir. **É
+pergunta para ele** — `so_sequencia: false` mete a coleção extra (menos as
+artes alternativas) e a linha diz o bloco («sobrenumeradas», «promos»).
+Tokens, signatures e runas sem numeração continuam escondidos
+(`metrics.e_colecao`). Sem preço não entra (não há por onde ordenar) e o
+rodapé conta-as.
+
+**O OGS continua sem botão** (`quanto_custa.sem_edicoes: ["OGS"]`), de
+manhã, quando isto eram faltas (*"menos proving grounds"*). Agora que é uma
+tabela de preços ele pode querer o OGS de volta — é decisão dele, ficou no
+relatório.
+
+**A língua já estava certa, e é na recolha que existe.** O `prices._usable`
+só aceita ofertas com `riftbound_language` em `precos.linguas` (`["en"]`,
+desde a manhã; antes era `LANGUAGE = "en"` fixo desde 2026-08-31). A
+RiftScribe não tem língua por impressão. Não há segunda filtragem na tabela:
+o `price_latest` já é só inglês, e por isso **os preços e a wantlist não
+mudaram com a língua** — medido na mesma corrida, antes e depois.
+
+### O que se apagou das faltas, e o que ficou por ser partilhado
+
+| saiu (era só do separador) | ficou (partilhado) e onde vive agora |
+|---|---|
+| `faltas.payload` e a rota `/api/faltas.json`; o `site/api/faltas.json` e a geração no `build` | `faltas.shortfall/staples/por_deck/todos_juntos/pimp/wantlist` → **`faltas.compras`**, rota **`/api/compras.json`** — as abas Staples/Por deck/Pimp do separador Decks e o `riftvault wantlist` dos decks |
+| a vista «Master set» por raridade (`a_subir.quanto_custa`, `por_raridade`, `edicoes_quanto_custa`, `top_por_raridade`, `QUANTO_CUSTA_DEFAULTS`, `RARIDADES_POR_PRECO`, `SEM_OFERTA`, a chave `quanto_custa` do `master_faltas`) e o `qcGrupos`/`renderMasterFaltas`/`mfLinha` do `app.js` | `a_subir.master_faltas` e `a_subir.wantlist` → rota **`/api/wantlist.json`** — a wantlist do fim de cada edição da Coleção, o «Wantlist — tudo», os níveis, o texto do Cardmarket, o `riftvault wantlist --edicao/--cardmarket` |
+| a aba «A subir» do site (`renderASubir`, `subirLinha`, `fmtPct`, o CSS `.subir-*`) | `a_subir.calcular` e o **`riftvault a-subir`** ficam — é a mesma família de funções da wantlist e o CLI responde |
+| a aba «A caminho» do separador (`renderCaminho`, `chegou`, `caminhoTile`) | o **Encomendas** do separador Decks (`api/encomendas.json`, `pending.encomendas`) já tinha o «Chegou» por linha e o «Chegou tudo» — era uma vista repetida |
+| `tests/test_quanto_custa.py` (21 testes do separador antigo); `raridades_com_top` do config | `test_top5.py` reescrito; `test_site_do_pc` pede os três ficheiros novos e recusa o `faltas.json` |
+
+**O `faltas.py` não foi apagado — é partilhado.** O cálculo da carência dos
+decks é o mesmo que alimenta as abas dos Decks, o `riftvault wantlist` e o
+«Falta encomendar» das Encomendas (`decks.missing_by_set`). Apagá-lo porque o
+separador deixou de o mostrar era o erro grave desta ordem. O `app.js` deixou
+de pedir o `faltas.json`: `garanteWantlist` (Coleção) e `garanteCompras`
+(Decks) pedem cada um o seu, e o `state.faltas` passou a `state.wantlist`,
+`state.compras` e `state.quantoCusta`.
+
+**A pasta nova:** `riftvault/quanto_custa.py` (`tabela`, `ambito`,
+`edicoes`, `top`), rota `/api/quanto_custa.json`, `riftvault quanto-custa
+[--edicao X]`; no `app.js` `loadQuantoCusta`/`renderQcTabs`/
+`renderQuantoCusta`/`qcLinha` — o `#falta-tabs` passou a ser as edições
+(«Todas» + uma por botão) e a escolha guarda-se em `prefs.qcSet`.
+
+**Medido a 2026-09-15 no `main` (`05bf634`) e no ramo, mesma corrida, mesmo
+`data/` — os invariantes NÃO mexem:** níveis **91,6 / 82,2 / 73,9 %**
+(faltam 78 / 232 / 463 · 386,51 / 1 119,87 / 1 992,58 €, denominador 928);
+wantlist «tudo» **231 linhas · 436 cópias · 1 629,91 €** (OGN 784,02 €, OGS
+18,03 €, SFD 360,41 €, UNL 319,56 €, VEN 147,89 €); valor **2 144,86 €**;
+decks **13 cópias de 6 cartas · 16,98 €, 56 a caminho**; Encomendas **59
+cópias · 27 impressões · 477,02 €** (as 56 dos decks + 3 para a Coleção). A
+tabela: OGN 298 impressões com preço, SFD 221, UNL 219, VEN 166; fora 102
+artes alternativas, 52 escondidas, 92 sobrenumeradas, 6 promos.
+
+`tests/test_top5.py` (25 testes, contra cópias e config temporário): oito
+comuns → as cinco mais caras por ordem decrescente; a carta completa aparece
+na mesma e a lista é a mesma com ou sem cópias; os quatro blocos e «míticas»
+= `epic`; a arte alternativa não aparece; `top_por_raridade: 3` corta a 3,
+`0` mostra tudo, negativo rebenta; o 5 vem do config; o OGS fica de fora e
+volta sem a lista; escondidas, sobrenumeradas e sem preço ficam de fora (e a
+sobrenumerada entra com `so_sequencia: false`, com o bloco na linha); a
+tabela não escreve nem mexe na wantlist/percentagem; a wantlist da Coleção,
+o `faltas.compras`, as Encomendas (com o «Chegou») e as rotas novas
+respondem, e `/api/faltas.json` dá 404; o `app.js` não pede o `faltas.json`.
 

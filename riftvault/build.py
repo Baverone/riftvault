@@ -30,7 +30,7 @@ import json
 import shutil
 from pathlib import Path
 
-from . import config, db, decks, faltas, metrics, pending
+from . import a_subir, config, db, decks, faltas, metrics, pending, quanto_custa
 
 # A pasta das imagens fica de fora da comparação: em `static_images: "local"`
 # são ~88 MB e não dependem da colecção — o que muda nelas é o `riftvault
@@ -156,8 +156,18 @@ def _gerar(out_dir: Path | str, log=print, imagens: bool = True) -> dict:
         (deck_dir / f"{d['id']}.json").write_text(
             json.dumps(decks.deck_payload(con, d["id"]), ensure_ascii=False,
                        separators=(",", ":")), encoding="utf-8")
-    (out / "api" / "faltas.json").write_text(
-        json.dumps(faltas.payload(con), ensure_ascii=False, separators=(",", ":")),
+    # O `api/faltas.json` (o separador «Faltas»/«Quanto custa» até 2026-09-15)
+    # partiu-se em três: a wantlist da Coleção, as listas de compra dos decks
+    # e a tabela de preços que o separador passou a ser.
+    (out / "api" / "wantlist.json").write_text(
+        json.dumps(a_subir.master_faltas(con), ensure_ascii=False, separators=(",", ":")),
+        encoding="utf-8")
+    (out / "api" / "compras.json").write_text(
+        json.dumps(faltas.compras(con), ensure_ascii=False, separators=(",", ":")),
+        encoding="utf-8")
+    tabela = quanto_custa.tabela(con)
+    (out / "api" / "quanto_custa.json").write_text(
+        json.dumps(tabela, ensure_ascii=False, separators=(",", ":")),
         encoding="utf-8")
     # As encomendas (2026-09-11): a lista do que está a caminho, só de leitura
     # no site publicado — os `+`/`−` são do modo edição.
@@ -166,8 +176,10 @@ def _gerar(out_dir: Path | str, log=print, imagens: bool = True) -> dict:
         json.dumps(encomendas, ensure_ascii=False, separators=(",", ":")),
         encoding="utf-8")
     con.close()
-    log(f"  api/decks.json  ({len(index_decks)} decks) + api/faltas.json"
-        f" + api/encomendas.json ({encomendas['totals']['copies']} cópias a caminho)")
+    log(f"  api/decks.json  ({len(index_decks)} decks) + api/wantlist.json"
+        f" + api/compras.json + api/quanto_custa.json ({tabela['scope']['printings']} "
+        f"impressões com preço) + api/encomendas.json "
+        f"({encomendas['totals']['copies']} cópias a caminho)")
 
     n_img = 0
     if imagens and image_mode == "local" and config.IMAGES_DIR.exists():
