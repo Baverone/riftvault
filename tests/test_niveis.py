@@ -142,21 +142,21 @@ class TestNoPayloadDaEdicao(Base):
         from riftvault import collection
         collection.adjust(con, "tst-001-100", 3, source="test")   # completa
         collection.adjust(con, "tst-002-100", 1, source="test")   # falta 2
-        collection.adjust(con, "tst-004-100", 1, source="test")   # runa: completa (1)
+        collection.adjust(con, "tst-004-100", 1, source="test")   # runa: falta 2
         return con
 
     def test_os_tres_niveis(self):
         con = self.montar()
         ls = self.metrics.set_payload(con, "TST")["progress"]["levels"]
-        # 4 impressões no âmbito: 2 Units (alvo 3), 1 Legend (1), 1 runa (1).
-        # A arte alternativa é coleção extra e fica de fora dos níveis, como
-        # fica da barra.
+        # 4 impressões no âmbito: 2 Units (alvo 3), 1 Legend (1), 1 runa (3,
+        # como as outras cartas desde 2026-09-15). A arte alternativa é
+        # coleção extra e fica de fora dos níveis, como fica da barra.
         self.assertEqual([lv["total"] for lv in ls], [4, 4, 4])
-        # Nível 1: tem a Unit completa, a outra com 1 e a runa — falta o
-        # Legend. Nível 2 e playset: a Unit completa e a runa (alvo 1, já não
-        # lhe pedem mais); à outra Unit falta a segunda e depois a terceira.
-        self.assertEqual([lv["done"] for lv in ls], [3, 2, 2])
-        self.assertEqual([lv["missing"] for lv in ls], [1, 2, 3])
+        # Nível 1: tem a Unit completa, a outra com 1 e a runa com 1 — falta o
+        # Legend. Nível 2 e playset: só a Unit completa; à outra Unit e à runa
+        # falta a segunda e depois a terceira.
+        self.assertEqual([lv["done"] for lv in ls], [3, 1, 1])
+        self.assertEqual([lv["missing"] for lv in ls], [1, 3, 5])
         con.close()
 
     def test_a_colecao_extra_nao_entra_nos_niveis(self):
@@ -301,10 +301,11 @@ class TestWantlistPorNivel(Base):
         self.assertEqual(cheia["copies"], 4)     # 3 + 1; a alt art fica de fora
         con.close()
 
-    def test_a_runa_pede_1_em_todos_os_degraus(self):
-        """*"runas 1 de cada"* (2026-09-14, à noite): a runa é de alvo 1, como
-        um Legend — sai igual em todos os níveis e sem `full_target`. O último
-        degrau (`--nivel 3`) continua a ser a lista de sempre."""
+    def test_a_runa_segue_os_degraus_como_uma_unit(self):
+        """*"vamos ate 3 como as outras cartas"* (2026-09-15): a runa numerada
+        é de alvo 3, como uma Unit — corta-se por nível e leva `full_target`
+        nos degraus de baixo. O último degrau (`--nivel 3`) continua a ser a
+        lista de sempre. (Até esse dia pedia 1, como um Legend.)"""
         con = self.montar()
         self.v.add_printing(con, "tst-004-100", "TST", 4, "Fury Rune",
                             card_type="Rune")
@@ -312,13 +313,16 @@ class TestWantlistPorNivel(Base):
         self.assertEqual(self.metrics.niveis_max(con), 3)
         alto = self.a_subir.wantlist(con, "TST", nivel=3)
         runa = next(x for x in alto["items"] if x["printing_id"] == "tst-004-100")
-        self.assertEqual(runa["missing"], 1)
+        self.assertEqual(runa["missing"], 3)
         self.assertIsNone(alto["level"])
         for k in (1, 2):
             p = self.a_subir.wantlist(con, "TST", nivel=k)
             runa = next(x for x in p["items"] if x["printing_id"] == "tst-004-100")
-            self.assertEqual((runa["target"], runa["missing"]), (1, 1), f"nível {k}")
-            self.assertNotIn("full_target", runa)
+            unit = next(x for x in p["items"] if x["printing_id"] == "tst-001-100")
+            self.assertEqual((runa["target"], runa["missing"]), (k, k), f"nível {k}")
+            self.assertEqual(runa["full_target"], 3)
+            self.assertEqual((runa["target"], runa["missing"]),
+                             (unit["target"], unit["missing"]))
         con.close()
 
     def so_master(self, con, itens):
@@ -438,9 +442,9 @@ class TestOsNiveisSaoSoOMasterSet(Base):
         # Só a Unit base e a runa base: as outras duas estão nos blocos que
         # não contam.
         self.assertEqual([lv["total"] for lv in ls], [2, 2, 2])
-        # Nada em casa: no nível 1 faltam as 2, no 2 a segunda da Unit (a runa
-        # é de alvo 1), e no playset a terceira.
-        self.assertEqual([lv["missing"] for lv in ls], [2, 3, 4])
+        # Nada em casa: no nível 1 faltam as 2, no 2 a segunda de cada (a runa
+        # pede 3 como a Unit, desde 2026-09-15), e no playset a terceira.
+        self.assertEqual([lv["missing"] for lv in ls], [2, 4, 6])
         con.close()
 
 
