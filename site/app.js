@@ -340,7 +340,7 @@ function render() {
 
   for (const b of blocos) {
     const pedacos = [];
-    let feitas = 0, total = 0;
+    let feitas = 0, total = 0, alguma = 0, alvoMax = 0;
     for (const g of grupos) {
       const list = visiblePrintings(g).filter(p => (p.block || 'master') === b.id);
       if (!list.length) continue;
@@ -348,7 +348,10 @@ function render() {
         const t = state.targets.get(p.id) || 0;
         if (t <= 0) continue;
         total++;
-        if ((state.qty.get(p.id) || 0) >= t) feitas++;
+        const q = state.qty.get(p.id) || 0;
+        if (q >= t) feitas++;
+        if (q > 0) alguma++;
+        alvoMax = Math.max(alvoMax, t);
       }
       const inner = list.map((p, i) => {
         state.tiles.push(p.id);
@@ -365,8 +368,17 @@ function render() {
       // da grelha (`.section-head`), sem grelha aninhada. Os blocos da coleção
       // dizem que contam para a percentagem; os de fora dizem que não — é a
       // diferença toda entre eles e tem de se ler no ecrã.
+      //
+      // «tens N» é de quantas impressões ele tem PELO MENOS UMA cópia. Quando o
+      // bloco pede playset, o «N no playset completo» vai a seguir: desde que a
+      // coleção extra passou a pedir 3 (2026-09-14), o contador de playsets
+      // sozinho dizia «tens 0 de 6» com duas cartas a cores na grelha
+      // (fotografias do André, 2026-09-15). Com alvo 1 os dois números são o
+      // mesmo e diz-se um só.
+      const completos = alvoMax > 1
+        ? ` · <b>${feitas}</b> no playset completo` : '';
       parts.push(`<h2 class="section-head ${b.counts ? 'cauda' : 'fora'}">${escapeHTML(b.label)}
-        <span>tens <b>${feitas}</b> de <b>${total}</b> — ${b.counts ? '' : 'não '}
+        <span>tens <b>${alguma}</b> de <b>${total}</b>${completos} — ${b.counts ? '' : 'não '}
         contam para a percentagem de master set</span></h2>`);
     }
     parts.push(pedacos.join(''));
