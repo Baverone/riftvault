@@ -287,7 +287,7 @@ def alvo(printing, cfg: dict | None = None) -> int:
     """O alvo de uma LINHA do catálogo — a porta de entrada.
 
     É o `master_target` com o que a linha traz. Toda a produção passa por aqui
-    (a grelha, os níveis, as listas de compra e a Venda) para não haver duas
+    (a grelha, os níveis e as listas de compra) para não haver duas
     contas do mesmo alvo. `printing` pode ser um dicionário mínimo com
     `printing_id`, `variant_kind`, `type` e `is_token`.
     """
@@ -392,11 +392,9 @@ def escondida(printing, cfg: dict | None = None) -> bool:
     """Esta impressão fica FORA DA PÁGINA da Coleção — o bloco 3?
 
     É a única resposta a esta pergunta: o `set_payload` (a grelha), o
-    `sets_payload` (o «N impressões» do separador), as listas de compra
-    (`a_subir.masterset`) e a Venda (`venda.excedente`, que lhe dá alvo 0)
-    perguntam aqui. O que sai daqui não desaparece do vault: as cópias
-    continuam no `copies`, contam para o valor, e a Venda — que lê o `copies`
-    directamente — continua a listá-las como excedente inteiro.
+    `sets_payload` (o «N impressões» do separador) e as listas de compra
+    (`a_subir.masterset`) perguntam aqui. O que sai daqui não desaparece do
+    vault: as cópias continuam no `copies` e contam para o valor.
     """
     cfg = cfg or config.load()
     kinds, over = _escondidas(cfg)
@@ -483,8 +481,8 @@ def e_master(printing, cfg: dict | None = None) -> bool:
     """Esta impressão é MASTER SET — isto é, conta para a percentagem?
 
     É a única resposta a esta pergunta em todo o riftvault: usam-na a métrica
-    (o denominador da percentagem e os níveis), a grelha da Coleção (o bloco
-    que conta) e a Venda (o âmbito estreito, «a sequência nunca se vende»).
+    (o denominador da percentagem e os níveis) e a grelha da Coleção (o bloco
+    que conta).
 
     A REGRA É O CÓDIGO IMPRESSO (André, 2026-09-08): o que ele mandou tirar
     escreve-se pelo sufixo, e no catálogo lê-se pelo `variant_kind`, que é
@@ -519,8 +517,8 @@ def e_colecao(printing, cfg: dict | None = None) -> bool:
     """Esta impressão é COLEÇÃO — está na página, tem alvo, compra-se?
 
     O master set (bloco 1) e a coleção extra (bloco 2), que é tudo o que não
-    está escondido. É o âmbito das listas de compra (`a_subir.masterset`) e o
-    que a Venda protege até ao alvo. O que conta para a PERCENTAGEM é menos do
+    está escondido. É o âmbito das listas de compra (`a_subir.masterset`).
+    O que conta para a PERCENTAGEM é menos do
     que isto — só o bloco 1, ver `e_master`.
     """
     return not escondida(printing, cfg)
