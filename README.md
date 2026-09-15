@@ -105,8 +105,11 @@ na mesma — só as imagens é que não aparecem.
   cada**; depois **as artes alternativas, 1 de cada**. Os três contam para a
   percentagem. Só no fim vem o que está **fora da coleção** — os tokens (código
   `-T`), as signatures (código `*`), as **sobrenumeradas** (as «300/298») e as
-  **promos** (`VEN-SP4`) —, cada um com o seu contador "tens N de M" e a dizer
-  que **não** entra na percentagem.
+  **promos** (`VEN-SP4`) —, cada um com o seu contador e a dizer que **não**
+  entra na percentagem. O contador diz «tens N de M» (impressões de que tens
+  pelo menos uma cópia) e, quando o bloco pede playset, «· K no playset
+  completo» a seguir (2026-09-15: o número sozinho lia-se como «não tens
+  nenhuma»).
 - **Filtros:** Tudo / Faltas, e por tipo de impressão (Base, Arte alt.,
   Signature, Tokens/Promos). "Faltas" mostra tudo o que não está completo,
   tanto faz faltarem 3, 2 ou 1.
@@ -392,10 +395,14 @@ critério de ontem lê o código como ele está escrito. O denominador passou de
 para **1036** (VEN 196 → 190) e a que tens (`VEN-SP5` Ezreal, Prodigy) continua
 visível no bloco «Fora da coleção — promos», com alvo 1.
 
-**As runas promo do VEN (`VEN-R01..R06`) NÃO saíram com elas.** São outra
-categoria (`rune_promo`) e são elas que enchem o bloco «1 runa especial de cada»
-no Vendetta — a tua decisão de 2026-09-08. Se as quiseres fora também, é
-acrescentar `"-R"` à lista.
+**As runas promo do VEN (`VEN-R01..R06`) saíram a 2026-09-15**, por outra
+frase tua (*"Saiem as runas todas e deixam de contar para masterset […] menos
+as que tem numeração de masterset"*). O critério é a **numeração**: uma runa
+com número da edição (`OGN-007/298` e a arte alternativa dela) fica onde
+estava, com alvo 1; uma runa **sem** numeração (as `VEN-R`, código sem
+`/tamanho`) está **escondida** como os tokens e as signatures — `"-R"` passou
+de `fora_da_percentagem` para `escondidas`. O denominador não mexeu (já não
+contavam); o que desapareceu foi o bloco «runas especiais» do Vendetta.
 
 O nome antigo desta lista era `master_ignorar_variantes`; um config que ainda
 o traga continua a funcionar.
