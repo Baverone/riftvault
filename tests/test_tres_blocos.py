@@ -9,8 +9,12 @@
   1. MASTER SET — a sequência da edição. Alvo = playset do tipo, runas 1.
      Só isto conta para a percentagem e para os níveis.
   2. COLEÇÃO EXTRA — artes alternativas, runas especiais, sobrenumeradas,
-     promos. Mesmo alvo. Aparecem, compram-se, vendem-se acima do alvo, NÃO
-     contam para a percentagem.
+     promos. Mesmo alvo. Aparecem na grelha com «tenho N de alvo», vendem-se
+     acima do alvo, NÃO contam para a percentagem e — desde 2026-09-15 — NÃO
+     entram em lista de compra nenhuma: *"sobrenumeradas não entram na
+     wantlist, nem na % de coleção completa; apenas pedi para ser feito track
+     de playset para eu saber exatamente quantas tenho"*. Acompanhar não é
+     querer comprar (`listas_de_compra.so_master_set`).
   3. ESCONDIDAS — tokens e signatures. Não aparecem.
 
 Corre contra cópias (`tests.fixture.Vault`): o config real só é LIDO, nunca
@@ -213,24 +217,87 @@ class TestPercentagem(Base):
 
 
 class TestListasDeCompra(Base):
-    def test_a_colecao_extra_entra_a_playset(self):
+    """As listas de compra são SÓ o master set (André, 2026-09-15).
+
+    A coleção extra tem alvo de playset para ele VER quantas tem, não para
+    comprar. Até à noite de 2026-09-14 entrava inteira nas listas e a wantlist
+    passou de 3 337 € para 30 646 €; este ficheiro descrevia esse mundo.
+    """
+
+    def test_a_colecao_extra_nao_entra_na_lista_do_master_set(self):
         con = self.edicao()
-        itens = {x["printing_id"]: x
-                 for s in self.a_subir.master_faltas(con)["sets"] for x in s["items"]}
-        self.assertEqual(sorted(itens), sorted(self.MASTER + self.EXTRA))
-        self.assertEqual(itens["tst-001a-100"]["missing"], 3)
-        self.assertEqual(itens["tst-101-100"]["missing"], 3)
-        self.assertEqual(itens["tst-sp1-006"]["missing"], 3)
-        self.assertEqual(itens["tst-002a-100"]["missing"], 1)
+        p = self.a_subir.master_faltas(con)
+        itens = {x["printing_id"]: x for s in p["sets"] for x in s["items"]}
+        self.assertEqual(sorted(itens), sorted(self.MASTER))
+        # O master set continua a pedir o playset do tipo, e 1 nas runas.
+        self.assertEqual(itens["tst-001-100"]["missing"], 3)
         self.assertEqual(itens["tst-002-100"]["missing"], 1)
+        self.assertEqual(itens["tst-003-100"]["missing"], 1)
+        self.assertEqual(itens["tst-004-100"]["missing"], 1)
+        # E a página diz o que tirou, e de que bloco — uma lista que encolhe
+        # sem explicação parece um erro de contagem.
+        self.assertTrue(p["scope"]["so_master_set"])
+        self.assertEqual(p["scope"]["printings"], len(self.MASTER))
+        por_bloco = {x["criterio"]: x["n"] for x in p["scope"]["excluded_by"]}
+        self.assertEqual(por_bloco, {"rune_special": 2, "alt_art": 1,
+                                     "overnumbered": 1, "special": 1})
+        self.assertEqual(sorted(p["scope"]["excluded_blocks"]),
+                         ["alt_art", "overnumbered", "rune_special", "special"])
         con.close()
 
-    def test_a_wantlist_por_nivel_corta_a_colecao_extra_como_o_resto(self):
+    def test_a_colecao_extra_continua_na_grelha_com_o_alvo_de_playset(self):
+        """*"apenas pedi para ser feito track de playset"*: tenho 1 de 3."""
+        from riftvault import collection
         con = self.edicao()
-        w = self.a_subir.wantlist(con, "TST", nivel=1)
-        por_pid = {x["printing_id"]: x["missing"] for x in w["items"]}
-        self.assertEqual(por_pid["tst-101-100"], 1)
-        self.assertEqual(por_pid["tst-001-100"], 1)
+        collection.adjust(con, "tst-101-100", 1, source="test")
+        p = self.metrics.set_payload(con, "TST")
+        tiles = {pr["id"]: pr for g in p["groups"] for pr in g["printings"]}
+        self.assertEqual((tiles["tst-101-100"]["qty"], tiles["tst-101-100"]["target"]), (1, 3))
+        self.assertEqual((tiles["tst-001a-100"]["qty"], tiles["tst-001a-100"]["target"]), (0, 3))
+        self.assertEqual(tiles["tst-002a-100"]["target"], 1)
+        # … e mesmo com 1 de 3, as outras 2 não são para comprar.
+        faltas = {x["printing_id"] for s in self.a_subir.master_faltas(con)["sets"]
+                  for x in s["items"]}
+        self.assertNotIn("tst-101-100", faltas)
+        con.close()
+
+    def test_nem_na_wantlist_da_edicao_nem_por_nivel(self):
+        con = self.edicao()
+        for nivel in (None, 1, 2, 3):
+            with self.subTest(nivel=nivel):
+                w = self.a_subir.wantlist(con, "TST", nivel=nivel)
+                por_pid = {x["printing_id"]: x["missing"] for x in w["items"]}
+                self.assertEqual(sorted(por_pid), sorted(self.MASTER))
+                # A Unit segue o degrau; as de alvo 1 saem iguais em todos.
+                self.assertEqual(por_pid["tst-001-100"], min(nivel or 3, 3))
+                self.assertEqual(por_pid["tst-002-100"], 1)
+                for pid in self.EXTRA:
+                    self.assertNotIn(pid, w["text"], pid)
+        con.close()
+
+    def test_nem_no_a_subir(self):
+        """O «A subir» parte do mesmo âmbito: a coleção extra não é seguida."""
+        con = self.edicao()
+        p = self.a_subir.calcular(con)
+        self.assertTrue(p["scope"]["so_master_set"])
+        self.assertEqual(p["scope"]["printings"], len(self.MASTER))
+        seguidas = {x["printing_id"] for x in p.get("items", [])}
+        for pid in self.EXTRA:
+            self.assertNotIn(pid, seguidas, pid)
+        con.close()
+
+    def test_desligar_o_botao_volta_a_por_a_colecao_extra_nas_listas(self):
+        """`listas_de_compra.so_master_set: false` é o mundo de 2026-09-14."""
+        from riftvault import config
+        cfg = config.load()
+        cfg = {**cfg, "listas_de_compra": {"so_master_set": False}}
+        con = self.edicao()
+        p = self.a_subir.master_faltas(con, cfg)
+        itens = {x["printing_id"]: x for s in p["sets"] for x in s["items"]}
+        self.assertEqual(sorted(itens), sorted(self.MASTER + self.EXTRA))
+        self.assertEqual(itens["tst-101-100"]["missing"], 3)
+        self.assertEqual(itens["tst-002a-100"]["missing"], 1)
+        self.assertFalse(p["scope"]["so_master_set"])
         con.close()
 
 

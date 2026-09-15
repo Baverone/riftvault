@@ -13,9 +13,12 @@
           ÚNICO bloco que entra na percentagem de completo e nos níveis.
        2. a COLEÇÃO EXTRA («puramente coleção») — as runas especiais, as
           artes alternativas, as sobrenumeradas, as promos `VEN-SP`. Aparecem
-          na grelha com contagem própria, entram nas listas de compra e na
-          Venda como qualquer carta, mas NÃO contam para a percentagem.
-          Escreve-se em `master_set.fora_da_percentagem`.
+          na grelha com contagem própria («tenho 1 de 3») e entram na Venda
+          como qualquer carta, mas NÃO contam para a percentagem nem, desde
+          2026-09-15, entram nas listas de compra (André: *"apenas pedi para
+          ser feito track de playset para eu saber exatamente quantas
+          tenho"* — ver `a_subir.so_master_set`). Escreve-se em
+          `master_set.fora_da_percentagem`.
        3. as ESCONDIDAS — os tokens `-T` e as signatures `*`. Não aparecem na
           página (André, 2026-09-11: *"nunca vou colocar nenhuma, não vale a
           pena estarem lá"*). Escreve-se em `master_set.escondidas`.
@@ -516,12 +519,13 @@ def e_master(printing, cfg: dict | None = None) -> bool:
 
 
 def e_colecao(printing, cfg: dict | None = None) -> bool:
-    """Esta impressão é COLEÇÃO — está na página, tem alvo, compra-se?
+    """Esta impressão é COLEÇÃO — está na página e tem alvo?
 
     O master set (bloco 1) e a coleção extra (bloco 2), que é tudo o que não
-    está escondido. É o âmbito das listas de compra (`a_subir.masterset`) e o
-    que a Venda protege até ao alvo. O que conta para a PERCENTAGEM é menos do
-    que isto — só o bloco 1, ver `e_master`.
+    está escondido. É o que a grelha mostra e o que a Venda protege até ao
+    alvo. O que conta para a PERCENTAGEM é menos do que isto — só o bloco 1,
+    ver `e_master` — e o que se COMPRA também (2026-09-15): as listas de
+    compra partem daqui mas tiram o bloco 2 (`a_subir.so_master_set`).
     """
     return not escondida(printing, cfg)
 

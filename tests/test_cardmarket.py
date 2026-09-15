@@ -210,11 +210,15 @@ class TestShowcasesFora(Base):
         con.close()
 
     def test_com_as_signatures_de_volta_conta_se_uma_vez_por_criterio(self):
-        """A signature é das duas coisas — conta-se uma vez, pelo tipo.
+        """A signature é das TRÊS coisas — conta-se uma vez, pelo primeiro critério.
 
         Sem isto a soma dos critérios dava 3 numa lista que tirou 2 impressões.
         Fixa-se com o `master_set.fora` sem o `*`, que é o mundo em que a
-        signature ainda chega às exclusões.
+        signature ainda chega às exclusões. Desde 2026-09-15 o que lhe bate
+        primeiro é o BLOCO (`so_master_set`: a signature está fora do master
+        set, no bloco `signature` da grelha) — e esse bloco escreve-se igual
+        ao tipo `signature` do `excluir.tipos`, por isso o resumo não pode
+        listar o nome duas vezes.
         """
         self.com_config({"master_set": {"fora": ["-T"]}})
         con = self.montar()
@@ -223,6 +227,7 @@ class TestShowcasesFora(Base):
         self.assertEqual(fora["excluded_by"], [{"criterio": "signature", "n": 1},
                                                {"criterio": "showcase", "n": 1}])
         self.assertEqual(sum(c["n"] for c in fora["excluded_by"]), fora["excluded"])
+        self.assertEqual(fora["excluded_blocks"], ["signature"])
         con.close()
 
     def test_o_showcase_continua_a_contar_para_a_percentagem_de_set(self):
