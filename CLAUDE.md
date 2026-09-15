@@ -8,9 +8,11 @@ Gestor pessoal da coleção de **Riftbound** (TCG da Riot), do André. Python +
 SQLite, mesma arquitetura do `mtgvault`. Objetivo: ter **playsets**, incluindo
 artes normais **e** alternativas.
 
-Secções: **Coleção**, **Decks** e **Faltas**. (Houve uma **Venda**, apagada a
-2026-09-15 a pedido dele — ver a última secção deste ficheiro. As secções
-abaixo que falam dela são história.)
+Secções: **Coleção**, **Decks** e **Quanto custa** (chamou-se **Faltas** até
+2026-09-15 — as secções abaixo usam o nome antigo; o identificador interno
+continua `faltas` em todo o lado: rota, `api/faltas.json`, ids de DOM, chave
+de estado). (Houve uma **Venda**, apagada a 2026-09-15 a pedido dele — ver a
+última secção deste ficheiro. As secções abaixo que falam dela são história.)
 
 ## Regras de trabalho
 
@@ -2364,6 +2366,10 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   caiu); a grelha da Coleção diz que decks usam cada carta, com filtro «Em
   decks» e `riftvault stats --usadas`; a Venda não vende o que os decks usam
   da Coleção. `tests/test_partilha_compra.py`.
+- **Feito também:** o separador «Quanto custa» (2026-09-15, era «Faltas») —
+  abre na «Master set», com um botão por edição do catálogo (menos o OGS) e
+  «tudo», por raridade e por preço com inversor, subtotais e total, sem preço
+  no fim. Só apresentação: percentagem, wantlist e valor não mexem.
 - **Por fazer:** vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck,
   com as partilhadas assinaladas); e apagar decks pela interface (hoje apaga-se
   o `.txt`).
@@ -2545,4 +2551,64 @@ alternativas como bloco de playset).
 **O README continua a descrever os três blocos de 09-08** (três a contar,
 denominador 1036, `master_set.fora`) — está velho desde 14/09, não é desta
 ordem; fica anotado.
+
+## 15/09/2026 — o separador «Faltas» passa a «Quanto custa»
+
+Palavras dele: *"na aba faltas, Renomeia para algo que seja apelativo a ter
+atenção ao preço"* / *"fazes novamente para cada set (menos proving grounds)
+um botão"* / *"depois metes para cada raridade, as cartas por ordem de
+preço"*.
+
+**O nome.** O terceiro separador chama-se **«Quanto custa»** (escolha do
+supervisor da ordem: «faltas» descreve a ausência e não fala de dinheiro;
+«Quanto custa» põe a pergunta do preço em primeiro lugar). Mudou só a
+**etiqueta visível** — `index.html`, `app.js`, README, este ficheiro, o site
+gerado. **O identificador interno continua `faltas`** em todo o lado: a
+secção `#faltas`, o `#falta-tabs`, a chave `state.faltas`/`prefs.falta`, o
+`api/faltas.json`, o `faltas.py`. Mudá-lo arrastava a rota, o ficheiro
+publicado, os ids de DOM e vinte testes por uma palavra que ele não vê.
+
+**Os botões por edição já existiam** — a aba «Master set» tinha chips por
+edição desde 062688e (2026-09-08), com o OGS e um «todas», mas a secção abria
+nas Staples e ele não os via. O «novamente» resolveu-se aí: a **«Master set»
+passou a ser a primeira aba e a que abre por omissão**, e os chips passaram a
+vir do servidor. `a_subir.edicoes_quanto_custa` lê as edições do **catálogo**
+(uma edição nova ganha botão sozinha) menos `quanto_custa.sem_edicoes`
+(`["OGS"]`, com `_nota` no config: pedido dele a 15/09). Vai no payload em
+`master.quanto_custa` (`sets`, `sem_edicoes`, `rarity_order`). **«Tudo» é o
+que os botões mostram — sem o OGS**; as 13 cartas dele (18,03 €) continuam na
+wantlist da Coleção e a página diz-o. A escolha guardada (`prefs.masterSet`)
+sobrevive ao refresh; uma escolha que já não tenha botão cai em «tudo».
+
+**Por raridade, por preço.** `a_subir.por_raridade` (gémeo `qcGrupos` no
+`app.js`, comparado ao Python nas 10 combinações edição × ordem contra o
+`data/` real): raridades **da mais rara para a mais comum** (`epic, rare,
+uncommon, common` — a raridade é o primeiro sinal do preço, e as épicas
+custam mais; uma desconhecida vai para o fim), dentro de cada uma **pelo preço
+unitário**, do mais caro para o mais barato por omissão (é o que o faz reparar
+no preço), desempate pelo total e pelo código. O inversor («mais barato
+primeiro», `prefs.masterOrd`) só troca a ordem **dentro** de cada raridade —
+os cabeçalhos ficam no sítio. Cada raridade diz o subtotal (preço × cópias em
+falta), o fim diz o total e a soma por raridade. **Sem preço** vai para um
+grupo próprio no fim («sem oferta no CardTrader»), subtotal `None`, fora do
+total — não desaparece nem conta como zero. O preço passou a coluna a negrito
+e no telemóvel deixou de ser ele que se esconde (era o `.mf-preco`; agora é o
+total da linha). `a_subir.quanto_custa(con, cfg, set_id, ordem)` é a mesma
+coisa em Python, para o CLI e os testes.
+
+**NÃO É UMA LISTA NOVA.** São os itens do `master_faltas` arrumados de outra
+maneira: só o master set (`listas_de_compra.so_master_set`), mesma regra de
+carência, mesmas exclusões. **Medido a 2026-09-15 no `main` e no ramo, mesma
+corrida, mesmo `data/`:** níveis **850/766/689 de 928 = 91,6 / 82,5 /
+74,2 %**, wantlist «tudo» **229 linhas · 432 cópias · 1 629,47 €**, valor
+**2 144,86 €** — iguais nos dois. O que a página mostra: «tudo» (4 edições)
+216 impressões · 419 cópias · **1 611,44 €** (épicas 1 504,90 € + raras
+93,13 € + incomuns 12,74 € + comuns 0,67 €); OGN 783,58 €, SFD 360,41 €, UNL
+319,56 € (só épicas), VEN 147,89 €; zero sem preço hoje.
+
+`tests/test_quanto_custa.py` (21 testes, contra cópias e config temporário):
+botões, OGS fora, edição nova, «tudo» sem OGS, ordem por raridade e por
+preço (com os preços fora da ordem do número, para a ordenação apagada dar
+vermelho), inversor, unitário e não total, sem preço no fim, subtotais e
+total, a mesma lista do «Master set», a coleção extra fora, não escreve.
 

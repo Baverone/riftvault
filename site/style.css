@@ -664,13 +664,23 @@ body.readonly .dtile .steppers.enc { display: none; }
 .mf-nome .var { font-style: normal; opacity: .6; }
 .mf-tem { color: var(--dim); font-size: 11px; text-align: right; }
 .mf-falta { color: var(--accent-2); text-align: right; }
-.mf-preco { color: var(--dim); text-align: right; }
-.mf-total { text-align: right; }
+/* O preço de cada carta é a coluna que importa desde que o separador passou a
+   ser «Quanto custa» (2026-09-15): lê-se sem esforço, e no telemóvel é o total
+   da linha que sai, não ele. */
+.mf-preco { color: var(--text); font-weight: 600; font-size: 13.5px; text-align: right; }
+.mf-total { color: var(--dim); text-align: right; }
 
 @media (max-width: 560px) {
   .mf-row { grid-template-columns: 78px minmax(0, 1fr) 36px 76px; }
-  .mf-tem, .mf-preco { display: none; }
+  .mf-tem, .mf-total { display: none; }
 }
+
+/* «Quanto custa»: os botões por edição, o total e o inversor. */
+.qc-resumo .qc-total { font-size: 22px; color: var(--accent); }
+.qc-fim { margin-top: 14px; }
+.qc-ordem { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.qc-ordem-rotulo { font-size: 12px; color: var(--dim); margin-right: 2px; }
+.qc-rar span b { color: var(--text); }
 
 /* Os três botões das listas do Cardmarket, lado a lado. */
 .cm-botoes { display: flex; flex-wrap: wrap; gap: 8px; }
