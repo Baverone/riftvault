@@ -81,6 +81,10 @@ DEFAULTS: dict = {
     # coleção extra tem alvo para se VER, não para se comprar. Ver
     # `a_subir.so_master_set`.
     "listas_de_compra": {"so_master_set": True},
+    # O separador «Quanto custa» (2026-09-15): um botão por edição do catálogo,
+    # menos estas — o OGS (Proving Grounds) a pedido dele. Ver
+    # `a_subir.edicoes_quanto_custa`.
+    "quanto_custa": {"sem_edicoes": ["OGS"]},
     "token_card_keys": [],
     "faltas_ignorar_tipos": ["Rune"],
     "pimp_ignorar_tipos": ["signature", "rune_promo"],

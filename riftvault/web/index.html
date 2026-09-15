@@ -20,13 +20,16 @@
     <nav id="section-tabs" class="tabs tabs-section">
       <button class="tab is-on" data-section="colecao">Coleção</button>
       <button class="tab" data-section="decks">Decks</button>
-      <button class="tab" data-section="faltas">Faltas</button>
+      <!-- Chamava-se «Faltas» até 2026-09-15. «Quanto custa» põe a pergunta
+           do preço em primeiro lugar, que é o que ele quer ter presente ao
+           abrir o separador; o identificador interno continua `faltas`. -->
+      <button class="tab" data-section="faltas">Quanto custa</button>
     </nav>
   </div>
 
   <nav id="set-tabs" class="tabs tabs-set" aria-label="Edições"></nav>
   <nav id="deck-tabs" class="tabs tabs-set" aria-label="Decks" hidden></nav>
-  <nav id="falta-tabs" class="tabs tabs-set" aria-label="Faltas" hidden></nav>
+  <nav id="falta-tabs" class="tabs tabs-set" aria-label="Quanto custa" hidden></nav>
 </header>
 
 <main>
