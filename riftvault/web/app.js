@@ -705,7 +705,7 @@ function renderWantlists() {
 
     ${wlBloco('wl-tudo', 'Wantlist — tudo', todas,
       `As cinco edições seguidas, na ordem dos separadores. É a mesma lista da
-       aba <b>Faltas → Master set</b>, sem o filtro de edição.${doNivel}`, nivel)}`;
+       aba <b>Quanto custa → Master set</b>, sem o filtro de edição.${doNivel}`, nivel)}`;
 
   const rf = $('#wl-refresh');
   if (rf) rf.onclick = () => wlAtualizar(zona);

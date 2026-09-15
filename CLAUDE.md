@@ -8,9 +8,11 @@ Gestor pessoal da coleção de **Riftbound** (TCG da Riot), do André. Python +
 SQLite, mesma arquitetura do `mtgvault`. Objetivo: ter **playsets**, incluindo
 artes normais **e** alternativas.
 
-Secções: **Coleção**, **Decks** e **Faltas**. (Houve uma **Venda**, apagada a
-2026-09-15 a pedido dele — ver a última secção deste ficheiro. As secções
-abaixo que falam dela são história.)
+Secções: **Coleção**, **Decks** e **Quanto custa** (chamou-se **Faltas** até
+2026-09-15 — as secções abaixo usam o nome antigo; o identificador interno
+continua `faltas` em todo o lado: rota, `api/faltas.json`, ids de DOM, chave
+de estado). (Houve uma **Venda**, apagada a 2026-09-15 a pedido dele — ver a
+última secção deste ficheiro. As secções abaixo que falam dela são história.)
 
 ## Regras de trabalho
 

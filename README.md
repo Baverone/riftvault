@@ -117,9 +117,11 @@ na mesma — só as imagens é que não aparecem.
 
 As escolhas ficam guardadas no browser.
 
-## Faltas
+## Quanto custa
 
-Terceira secção, com seis abas:
+Terceira secção (chamava-se «Faltas» até 2026-09-15 — o nome novo põe o
+preço em primeiro lugar; o identificador interno continua `faltas`), com seis
+abas. Abre na **Master set**, que é a do preço:
 
 - **Staples** — cartas que **mais do que um deck** pede e que não tens em
   número suficiente. São as que rendem mais por euro: uma compra serve vários
@@ -144,10 +146,14 @@ Terceira secção, com seis abas:
   mesma regra da aba anterior (conta enquanto *cópias + a caminho < alvo*), sem
   o filtro de subida. As signatures e os showcases já nem chegam a esta lista:
   saíram todos da coleção (as signatures a 09-09, as sobrenumeradas a 10-09) e
-  os filtros de compra ficaram sem nada para tirar. Por **edição e número de
-  coleção**,
-  que é a ordem do binder. Filtro por edição, e os mesmos três botões de lista
-  para o Cardmarket.
+  os filtros de compra ficaram sem nada para tirar. Um botão por edição
+  (menos o OGS, a pedido dele — `quanto_custa.sem_edicoes`) e um para tudo;
+  dentro do que está escolhido as cartas vão **por raridade** (épicas
+  primeiro) e, dentro de cada raridade, **por preço**, do mais caro para o
+  mais barato — há um inversor para ir buscar os baratos de uma vez. Cada
+  raridade diz o subtotal, o fim diz o total, e as cartas sem oferta no
+  CardTrader ficam num grupo à parte no fim, sem contar como zero. Os mesmos
+  três botões de lista para o Cardmarket.
 - **A caminho** — o que já compraste e ainda não chegou. Não conta na Coleção
   (essa mede o que tens na caixa) mas já sai das faltas e das wantlists, para
   não comprares duas vezes. Quando chegar, carrega em **Chegou** na carta (ou em "Chegou tudo") e ela
@@ -214,9 +220,9 @@ gerador (`riftvault/cardmarket.py`):
   as faltas dessa edição já escritas na caixa, e a seguir **Wantlist — tudo**
   com as cinco edições seguidas. O cabeçalho da edição diz *N cópias a comprar
   nesta edição · X €* e leva-te ao bloco.
-- **Faltas → A subir** e **Faltas → Master set**, com três botões:
+- **Quanto custa → A subir** e **Quanto custa → Master set**, com três botões:
   **Copiar para o Cardmarket**, **Copiar com código** e **Descarregar CSV**.
-- **Faltas → Por deck** e **Pimp decks**, com o botão de sempre.
+- **Quanto custa → Por deck** e **Pimp decks**, com o botão de sempre.
 
 As wantlists da Coleção são a **mesma lista** da aba *Master set*, cortada por
 edição: os mesmos alvos dos três blocos (playset na sequência, 1 por runa, 1 por
