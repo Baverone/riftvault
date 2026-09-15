@@ -38,7 +38,7 @@ class TestContadorDoBloco(unittest.TestCase):
 
     def edicao(self):
         """Seis artes alternativas (alvo 3), seis promos (alvo 1) e uma runa
-        especial (alvo 1)."""
+        especial (alvo 3 desde 2026-09-15)."""
         con = self.v.connect()
         v = self.v
         v.add_printing(con, "tst-001-100", "TST", 1, "Uma Unit", size=100, api_sort=1)
@@ -101,19 +101,25 @@ class TestContadorDoBloco(unittest.TestCase):
         self.assertEqual(b["label"], "Coleção — promos — 1 de cada")
         con.close()
 
-    def test_num_bloco_de_alvo_1_os_dois_numeros_sao_o_mesmo(self):
-        """As runas especiais pedem 1: ter uma é ter o alvo — e o cabeçalho
-        não precisa de dizer duas vezes a mesma coisa (`max_target` 1).
+    def test_as_runas_especiais_pedem_3_como_a_base(self):
+        """A arte alternativa da runa numerada pede 3 desde 2026-09-15 (*"as
+        runas que estao no masterset […] vamos ate 3 como as outras cartas"*):
+        com uma cópia está na caixa mas não completa; com quatro está completa
+        e o cabeçalho leva o «no playset completo» (`max_target` 3). Até esse
+        dia pedia 1 e os dois números eram o mesmo.
 
         Só a arte alternativa da runa (numerada) enche o bloco; a promo
         `TST-R01` está escondida desde 2026-09-15 e nem entra na conta."""
         from riftvault import collection
         con = self.edicao()
-        collection.adjust(con, "tst-002a-100", 4, source="test")
+        collection.adjust(con, "tst-002a-100", 1, source="test")
         collection.adjust(con, "tst-r01", 4, source="test")
         b = self.blocos(con)["rune_special"]
+        self.assertEqual((b["owned"], b["done"], b["total"]), (1, 0, 1))
+        self.assertEqual(b["max_target"], 3)
+        collection.adjust(con, "tst-002a-100", 3, source="test")
+        b = self.blocos(con)["rune_special"]
         self.assertEqual((b["owned"], b["done"], b["total"]), (1, 1, 1))
-        self.assertEqual(b["max_target"], 1)
         con.close()
 
     def test_o_master_set_leva_as_mesmas_contas(self):
@@ -121,7 +127,7 @@ class TestContadorDoBloco(unittest.TestCase):
         con = self.edicao()
         collection.adjust(con, "tst-001-100", 1, source="test")
         b = self.blocos(con)["master"]
-        # A Unit (1 de 3) e a runa base (0 de 1).
+        # A Unit (1 de 3) e a runa base (0 de 3).
         self.assertEqual((b["owned"], b["done"], b["total"]), (1, 0, 2))
         self.assertEqual(b["max_target"], 3)
         self.assertTrue(b["counts"])
