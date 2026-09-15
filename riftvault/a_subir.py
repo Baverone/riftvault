@@ -656,6 +656,153 @@ def master_faltas(con: sqlite3.Connection, cfg: dict | None = None,
             **resumo_fora(excluidas, o["excluir"], o["so_master_set"]),
         },
         "sets": sets,
+        # Os botões do separador «Quanto custa» e a ordem das raridades: vêm
+        # daqui para o browser não ter uma segunda lista de edições nem uma
+        # segunda ordem. A lista em si não muda — é a mesma, arrumada de outra
+        # maneira pelo `por_raridade` (e pelo gémeo `qcGrupos` do app.js).
+        "quanto_custa": {**edicoes_quanto_custa(con, cfg),
+                         "rarity_order": list(RARIDADES_POR_PRECO)},
+    }
+
+
+# ---------------------------------------------------------------------------
+# «Quanto custa»: um botão por edição, por raridade, por preço (2026-09-15)
+# ---------------------------------------------------------------------------
+#
+# André: "na aba faltas, renomeia para algo que seja apelativo a ter atenção ao
+# preço" / "fazes novamente para cada set (menos proving grounds) um botão" /
+# "depois metes para cada raridade, as cartas por ordem de preço".
+#
+# NÃO É UMA LISTA NOVA. É o `master_faltas` — o mesmo âmbito (só o master set),
+# a mesma regra de carência, as mesmas exclusões, os mesmos itens — só arrumado
+# de outra maneira: por edição escolhida, por raridade, e dentro da raridade
+# por preço. A percentagem, a wantlist e o valor da coleção não sabem disto.
+
+# Configura-se no `riftvault_config.json`, bloco "quanto_custa".
+QUANTO_CUSTA_DEFAULTS: dict = {
+    # As edições SEM botão. O OGS (Proving Grounds) fica de fora a pedido dele
+    # (2026-09-15: "para cada set (menos proving grounds) um botão"). As outras
+    # nascem do catálogo — uma edição nova ganha botão sozinha.
+    "sem_edicoes": ["OGS"],
+}
+
+# Da mais rara para a mais comum. O separador existe para ele reparar no
+# preço, e a raridade é o primeiro sinal dele: as épicas custam mais, e
+# vêm primeiro pela mesma razão por que dentro de cada raridade o mais caro vem
+# primeiro. O que não estiver aqui («?», ou uma raridade nova) vai para o fim.
+RARIDADES_POR_PRECO = ("epic", "rare", "uncommon", "common")
+
+# O rótulo do grupo das que não têm oferta no CardTrader. Não é uma raridade:
+# é a gaveta do fim, para elas não desaparecerem nem fingirem que custam zero.
+SEM_OFERTA = "sem_oferta"
+
+
+def quanto_custa_opcoes(cfg: dict | None = None) -> dict:
+    cfg = cfg or config.load()
+    return {**QUANTO_CUSTA_DEFAULTS, **(cfg.get("quanto_custa") or {})}
+
+
+def edicoes_quanto_custa(con: sqlite3.Connection, cfg: dict | None = None) -> dict:
+    """As edições com botão, pela ordem dos separadores, e as que ficam sem ele.
+
+    Lê o CATÁLOGO, não uma lista escrita à mão: são as edições que existem,
+    menos as de `quanto_custa.sem_edicoes`. As siglas são comparadas em
+    maiúsculas para `ogs` no config valer o mesmo que `OGS`.
+    """
+    sem = {str(s).upper() for s in quanto_custa_opcoes(cfg)["sem_edicoes"]}
+    todas = [r[0] for r in con.execute(
+        "SELECT DISTINCT set_id FROM catalog.printings")]
+    todas.sort(key=lambda s: (config.set_order(s), s))
+    return {
+        "sets": [{"set": s, "name": config.set_name(s)} for s in todas if s not in sem],
+        "sem_edicoes": [s for s in todas if s in sem],
+    }
+
+
+def por_raridade(itens: list[dict], ordem: str = "desc") -> dict:
+    """Arruma os itens do `master_faltas` por raridade e, dentro dela, por preço.
+
+    `ordem` é `"desc"` (do mais caro para o mais barato — a omissão, porque o
+    que o faz reparar no preço é ver primeiro o que custa dinheiro) ou `"asc"`
+    (para ir buscar os baratos todos de uma vez). Inverte só a ordem DENTRO de
+    cada raridade; a ordem das raridades entre si é fixa
+    (`RARIDADES_POR_PRECO`), para os cabeçalhos ficarem sempre no mesmo sítio.
+
+    O preço que ordena é o de CADA CARTA (`price`, o unitário), que é o número
+    que ele lê; o desempate é o total da linha e depois o código, para a ordem
+    ser a mesma em Python e no browser. Uma carta SEM preço não entra em
+    raridade nenhuma: vai para um grupo próprio no fim (`SEM_OFERTA`), com
+    subtotal a `None` — não conta como zero.
+
+    Devolve os grupos e os totais do que recebeu: `cents` é a soma dos
+    subtotais, e cada subtotal a soma dos `total` das linhas do grupo.
+    """
+    if ordem not in ("desc", "asc"):
+        raise ValueError(f"ordem desconhecida: {ordem!r} (desc ou asc)")
+    grupos: dict[str | None, list[dict]] = {}
+    for it in itens:
+        chave = None if it.get("price") is None else (it.get("rarity") or "?")
+        grupos.setdefault(chave, []).append(it)
+
+    def posicao(r):
+        return RARIDADES_POR_PRECO.index(r) if r in RARIDADES_POR_PRECO else len(RARIDADES_POR_PRECO)
+
+    raridades = sorted((r for r in grupos if r is not None), key=lambda r: (posicao(r), r))
+    sinal = -1 if ordem == "desc" else 1
+    saida = []
+    for r in raridades:
+        linhas = sorted(grupos[r], key=lambda x: (sinal * x["price"], sinal * (x["total"] or 0),
+                                                  x["set"], x["cn"], x["code"]))
+        saida.append({
+            "rarity": r,
+            "cards": len(linhas),
+            "copies": sum(x["missing"] for x in linhas),
+            "cents": sum(x["total"] or 0 for x in linhas),
+            "items": linhas,
+        })
+    if None in grupos:
+        linhas = sorted(grupos[None], key=lambda x: (x["set"], x["cn"], x["code"]))
+        saida.append({
+            "rarity": SEM_OFERTA,
+            "cards": len(linhas),
+            "copies": sum(x["missing"] for x in linhas),
+            "cents": None,
+            "items": linhas,
+        })
+    return {
+        "order": ordem,
+        "groups": saida,
+        "cards": len(itens),
+        "copies": sum(x["missing"] for x in itens),
+        "cents": sum(g["cents"] or 0 for g in saida),
+        "no_price": len(grupos.get(None, [])),
+    }
+
+
+def quanto_custa(con: sqlite3.Connection, cfg: dict | None = None,
+                 set_id: str | None = None, ordem: str = "desc") -> dict:
+    """O separador «Quanto custa» em Python: uma edição (ou tudo), por raridade,
+    por preço. É o `master_faltas` cortado e arrumado — os itens são os mesmos.
+
+    `set_id=None` é o botão «tudo»: as edições COM botão, todas juntas. O OGS
+    não entra aí — ficou sem botão a pedido dele e «tudo» é o que os botões
+    mostram; as cartas dele continuam na wantlist da Coleção. Pedir uma edição
+    pelo nome devolve-a mesmo sem botão: é quem chama que está a perguntar por
+    ela, e é assim que se mede o que o «tudo» deixa de fora.
+    """
+    cfg = cfg or config.load()
+    p = master_faltas(con, cfg)
+    botoes = {s["set"] for s in p["quanto_custa"]["sets"]}
+    alvo = set_id.upper() if set_id else None
+    escolhidas = [d for d in p["sets"]
+                  if (d["set"] == alvo if alvo else d["set"] in botoes)]
+    itens = [x for d in escolhidas for x in d["items"]]
+    return {
+        "set": alvo,
+        "sets": p["quanto_custa"]["sets"],
+        "sem_edicoes": p["quanto_custa"]["sem_edicoes"],
+        "scope": p["scope"],
+        **por_raridade(itens, ordem),
     }
 
 
