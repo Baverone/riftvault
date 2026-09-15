@@ -40,11 +40,10 @@ class Base(unittest.TestCase):
     def setUp(self):
         self.v = Vault()
         self.addCleanup(self.v.close)
-        from riftvault import a_subir, config, metrics, venda
+        from riftvault import a_subir, config, metrics
         importlib.reload(metrics)
         importlib.reload(a_subir)
-        importlib.reload(venda)
-        self.metrics, self.a_subir, self.venda = metrics, a_subir, venda
+        self.metrics, self.a_subir = metrics, a_subir
         self.config = config
 
     def com_config(self, extra: dict):
@@ -208,27 +207,6 @@ class TestListasDeCompra(Base):
                 self.assertNotIn("tst-001-star-100",
                                  [x["printing_id"] for x in p["items"]])
                 self.assertNotIn("Defy (V.3)", p["text"])
-        con.close()
-
-
-class TestVenda(Base):
-    """A consequência que ele não pediu — e que hoje não tem efeito nenhum.
-
-    O âmbito da Venda é "não é o bloco `master`", e as signatures passaram a
-    estar nesse caso: uma que ele tenha e nenhum deck use aparece como candidata
-    a venda, como já acontecia com os tokens. **É pergunta para ele** — hoje ele
-    não tem signature nenhuma na caixa (medido a 2026-09-09), por isso a lista
-    não mexeu; fica fixado para não mudar sem se dar por isso.
-    """
-
-    def test_uma_signature_que_ele_tenha_aparece_como_candidata(self):
-        from riftvault import collection
-        con = self.edicao()
-        collection.adjust(con, "tst-001-star-100", 1, source="test")
-        itens = {x["printing_id"]: x for x in self.venda.listar(con)["items"]}
-        self.assertIn("tst-001-star-100", itens)
-        self.assertEqual(itens["tst-001-star-100"]["qty"], 1)
-        self.assertEqual(itens["tst-001-star-100"]["block"], "signature")
         con.close()
 
 

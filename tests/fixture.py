@@ -84,7 +84,7 @@ class Vault:
              kind, name.strip().casefold(), codigo, name,
              # A raridade IMPRESSA e a da BASE são a mesma na esmagadora
              # maioria; separam-se nas seis runas de arte alternativa do OGN
-             # (base `common`, impressa `showcase`) — ver `comuns.e_comum`.
+             # (base `common`, impressa `showcase`), como no catálogo real.
              rarity, base_rarity or rarity, card_type, "portrait",
              api_sort if api_sort is not None else cn,
              None if domains is None else json.dumps(list(domains))))

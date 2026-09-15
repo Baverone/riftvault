@@ -34,11 +34,10 @@ class Base(unittest.TestCase):
     def setUp(self):
         self.v = Vault()
         self.addCleanup(self.v.close)
-        from riftvault import a_subir, metrics, venda
+        from riftvault import a_subir, metrics
         importlib.reload(metrics)
         importlib.reload(a_subir)
-        importlib.reload(venda)
-        self.metrics, self.a_subir, self.venda = metrics, a_subir, venda
+        self.metrics, self.a_subir = metrics, a_subir
 
     def edicao(self):
         """Uma de cada coisa: master set, coleção extra e escondidas."""
@@ -231,40 +230,6 @@ class TestListasDeCompra(Base):
         por_pid = {x["printing_id"]: x["missing"] for x in w["items"]}
         self.assertEqual(por_pid["tst-101-100"], 1)
         self.assertEqual(por_pid["tst-001-100"], 1)
-        con.close()
-
-
-class TestVenda(Base):
-    def test_a_colecao_extra_so_sobra_acima_do_playset(self):
-        from riftvault import collection
-        con = self.edicao()
-        collection.adjust(con, "tst-101-100", 3, source="test")   # sobrenumerada
-        collection.adjust(con, "tst-001a-100", 3, source="test")  # alt art
-        self.assertEqual(self.venda.listar(con)["items"], [])
-        collection.adjust(con, "tst-101-100", 1, source="test")   # 4: sobra 1
-        v = self.venda.listar(con)
-        self.assertEqual([(x["printing_id"], x["qty"]) for x in v["items"]],
-                         [("tst-101-100", 1)])
-        con.close()
-
-    def test_a_runa_especial_sobra_acima_de_1(self):
-        from riftvault import collection
-        con = self.edicao()
-        collection.adjust(con, "tst-002a-100", 1, source="test")
-        self.assertEqual(self.venda.listar(con)["items"], [])
-        collection.adjust(con, "tst-002a-100", 1, source="test")
-        self.assertEqual([x["qty"] for x in self.venda.listar(con)["items"]], [1])
-        con.close()
-
-    def test_o_escondido_sobra_inteiro(self):
-        """Um token ou uma signature que ele tenha não são coleção: vendem-se."""
-        from riftvault import collection
-        con = self.edicao()
-        collection.adjust(con, "tst-t01-100", 2, source="test")
-        collection.adjust(con, "tst-001-star-100", 1, source="test")
-        v = self.venda.listar(con)
-        self.assertEqual(sorted((x["printing_id"], x["qty"]) for x in v["items"]),
-                         [("tst-001-star-100", 1), ("tst-t01-100", 2)])
         con.close()
 
 

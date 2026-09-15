@@ -30,11 +30,10 @@ class Base(unittest.TestCase):
     def setUp(self):
         self.v = Vault()
         self.addCleanup(self.v.close)
-        from riftvault import a_subir, config, metrics, venda
+        from riftvault import a_subir, config, metrics
         importlib.reload(metrics)
         importlib.reload(a_subir)
-        importlib.reload(venda)
-        self.metrics, self.a_subir, self.venda = metrics, a_subir, venda
+        self.metrics, self.a_subir = metrics, a_subir
         self.config = config
 
     def com_config(self, extra: dict):

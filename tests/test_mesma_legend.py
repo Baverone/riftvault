@@ -46,11 +46,11 @@ class Base(unittest.TestCase):
     def setUp(self):
         self.v = Vault()
         self.addCleanup(self.v.close)
-        from riftvault import decks, faltas, locais, metrics, pending, venda
-        for m in (metrics, locais, decks, faltas, pending, venda):
+        from riftvault import decks, faltas, locais, metrics, pending
+        for m in (metrics, locais, decks, faltas, pending):
             importlib.reload(m)
         self.decks, self.faltas, self.locais = decks, faltas, locais
-        self.metrics, self.pending, self.venda = metrics, pending, venda
+        self.metrics, self.pending = metrics, pending
 
     def catalogo(self, hidden: int = 2, defy: int = 3, ornn: bool = False):
         from riftvault import collection
@@ -250,8 +250,8 @@ class TestColecaoEVenda(Base):
         con = self.v.connect()
         con.close()
 
-    def test_a_venda_conta_as_copias_do_grupo_uma_vez(self):
-        """4 Hidden Blade na Coleção, o grupo usa 3: sobra 1 — não 4−6 < 0."""
+    def test_a_colecao_allocation_conta_as_copias_do_grupo_uma_vez(self):
+        """4 Hidden Blade na Coleção, o grupo usa 3 — não 6 (uma vez por lista)."""
         con = self.catalogo(hidden=4)
         usadas = self.decks.colecao_allocation(con)
         self.assertEqual(usadas["tst-001-100"],

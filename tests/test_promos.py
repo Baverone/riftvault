@@ -49,11 +49,10 @@ class Base(unittest.TestCase):
     def setUp(self):
         self.v = Vault()
         self.addCleanup(self.v.close)
-        from riftvault import a_subir, config, metrics, venda
+        from riftvault import a_subir, config, metrics
         importlib.reload(metrics)
         importlib.reload(a_subir)
-        importlib.reload(venda)
-        self.metrics, self.a_subir, self.venda = metrics, a_subir, venda
+        self.metrics, self.a_subir = metrics, a_subir
         self.config = config
 
     def com_config(self, extra: dict):
@@ -324,27 +323,6 @@ class TestListasDeCompra(Base):
         self.assertNotIn("tst-sp4-006", pids)
         self.assertIn("tst-r01", pids)
         self.assertEqual(m["scope"]["excluded"], 1)
-        con.close()
-
-
-class TestVenda(Base):
-    """Uma promo é coleção extra: só sobra acima do playset.
-
-    Até 2026-09-14 o alvo era 1 e a Venda propunha a segunda; e antes disso
-    (2026-09-10) propunha a primeira — a `VEN-SP5` que ele tem. Hoje a Coleção
-    pede-lhe as 3 e ela sai da Venda.
-    """
-
-    def test_so_sobra_acima_do_playset(self):
-        from riftvault import collection
-        con = self.edicao()
-        collection.adjust(con, "tst-sp4-006", 1, source="test")
-        self.assertEqual(self.venda.listar(con)["items"], [])
-        collection.adjust(con, "tst-sp4-006", 3, source="test")
-        itens = {x["printing_id"]: x for x in self.venda.listar(con)["items"]}
-        self.assertIn("tst-sp4-006", itens)
-        self.assertEqual(itens["tst-sp4-006"]["qty"], 1)
-        self.assertEqual(itens["tst-sp4-006"]["block"], "special")
         con.close()
 
 

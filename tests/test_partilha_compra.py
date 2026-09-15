@@ -42,11 +42,11 @@ class Base(unittest.TestCase):
     def setUp(self):
         self.v = Vault()
         self.addCleanup(self.v.close)
-        from riftvault import decks, faltas, locais, metrics, venda
-        for m in (metrics, locais, decks, faltas, venda):
+        from riftvault import decks, faltas, locais, metrics
+        for m in (metrics, locais, decks, faltas):
             importlib.reload(m)
         self.decks, self.faltas, self.locais = decks, faltas, locais
-        self.metrics, self.venda = metrics, venda
+        self.metrics = metrics
 
     def catalogo(self, defy: int = 3, precos: bool = True):
         """Uma edição pequena com `defy` cópias de Defy na Coleção."""
@@ -281,55 +281,33 @@ class TestColecaoDizOndeEUsada(Base):
         self.assertRegex(texto, r"Defy\s+3\s+Emperor of the Sands 3 · Forge Master 2 \(faltam 2\)")
 
 
-class TestVendaNaoVendeDisputadas(Base):
-    """O excedente é cópias − max(usadas nos decks, alvo) — usadas é a SOMA."""
+class TestColecaoAllocationSoma(Base):
+    """O que os decks usam da Coleção é a SOMA por deck, não o máximo.
 
-    def test_uma_copia_que_dois_decks_disputam_nao_se_vende(self):
-        # 4 Defy na Coleção, alvo 3: sem decks, sobrava 1. Com o azir a levar 3
-        # e o ornn 1, as 4 estão em uso — nada sobra. Com o MÁXIMO das procuras
-        # (3) em vez da soma (4), a quarta ia à venda: é isso que se fixa.
+    Era a conta de que a Venda vivia (apagada a 2026-09-15); fica fixada aqui
+    porque o `decks.colecao_allocation` continua a alimentar a grelha da
+    Coleção («Azir 3 · Ornn 1»).
+    """
+
+    def test_dois_decks_a_disputar_contam_os_dois(self):
+        # 4 Defy na Coleção: o azir leva 3 e o ornn 1 — as 4 estão em uso.
         con = self.catalogo(defy=4)
-        largo = {x["printing_id"]: x for x in self.venda.excedente(con, incluir_master=True)}
-        defy = largo["tst-001-100"]
-        self.assertEqual(defy["used"], 4)
-        self.assertEqual(defy["from_colecao"], 0)
-        self.assertEqual(defy["qty"], 0)
+        usadas = self.decks.colecao_allocation(con)["tst-001-100"]
+        self.assertEqual(sum(d["qty"] for d in usadas), 4)
+        self.assertEqual([(d["slug"], d["qty"]) for d in usadas],
+                         [("azir", 3), ("ornn", 1)])
         con.close()
 
-    def test_acima_do_que_os_decks_usam_e_do_alvo_sobra(self):
-        con = self.catalogo(defy=6)       # alvo 3, usadas 5 -> sobra 1
-        largo = {x["printing_id"]: x for x in self.venda.excedente(con, incluir_master=True)}
-        self.assertEqual(largo["tst-001-100"]["used"], 5)
-        self.assertEqual(largo["tst-001-100"]["qty"], 1)
-        con.close()
-
-    def test_a_alt_art_na_colecao_que_um_deck_joga_nao_se_vende(self):
-        """Só tem a arte alternativa: o deck joga com ela e ela não sobra."""
-        from riftvault import collection
-        con = self.catalogo(defy=0)
-        # O azir pede 3 e o ornn 2: as 5 estão em uso, e o alvo da alt art é 1.
-        collection.adjust(con, "tst-001a-100", 5, source="test")
-        v = self.venda.listar(con)
-        self.assertEqual([x["printing_id"] for x in v["items"]], [])
-        self.assertEqual(v["in_decks_copies"], 5)
-        # Uma sexta cópia já sobra: max(5 usadas, 1 alvo) = 5.
-        collection.adjust(con, "tst-001a-100", 1, source="test")
-        v = self.venda.listar(con)
-        self.assertEqual([(x["printing_id"], x["qty"]) for x in v["items"]],
-                         [("tst-001a-100", 1)])
-        con.close()
-
-    def test_a_sequencia_que_os_decks_jogam_nao_e_listada_como_dentro_de_um_deck(self):
-        """A lista «em uso nos decks» da Venda não repete a sequência inteira."""
-        con = self.catalogo(defy=3)
-        v = self.venda.listar(con)
-        self.assertEqual(v["kept"], [])
+    def test_nunca_leva_mais_do_que_os_decks_pedem(self):
+        con = self.catalogo(defy=6)       # os decks pedem 5 ao todo
+        usadas = self.decks.colecao_allocation(con)["tst-001-100"]
+        self.assertEqual(sum(d["qty"] for d in usadas), 5)
         con.close()
 
     def test_nao_mexe_na_base(self):
         con = self.catalogo(defy=4)
         antes = con.execute("SELECT printing_id, qty FROM copies ORDER BY 1").fetchall()
-        self.venda.excedente(con, incluir_master=True)
+        self.decks.colecao_allocation(con)
         self.decks.allocate(con)
         depois = con.execute("SELECT printing_id, qty FROM copies ORDER BY 1").fetchall()
         self.assertEqual([tuple(r) for r in antes], [tuple(r) for r in depois])

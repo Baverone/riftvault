@@ -87,8 +87,12 @@ class TestSiteDoPC(unittest.TestCase):
         self._build()
         for nome in ("index.html", "app.js", "style.css", ".nojekyll",
                      "api/index.json", "api/set/TST.json", "api/decks.json",
-                     "api/faltas.json", "api/venda.json"):
+                     "api/faltas.json", "api/encomendas.json"):
             self.assertTrue((self.out / nome).exists(), f"falta {nome} no site")
+        # A Venda saiu a 2026-09-15: um `venda.json` a aparecer aqui é código
+        # antigo a gerar um ficheiro que ninguém pede.
+        self.assertFalse((self.out / "api" / "venda.json").exists(),
+                         "a Venda foi apagada e o build ainda gera api/venda.json")
         index = json.loads((self.out / "api" / "index.json").read_text(
             encoding="utf-8"))
         self.assertFalse(index["editable"],
