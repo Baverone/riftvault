@@ -151,9 +151,39 @@ uma a seguir à outra.
 
 Na consola: `py -m riftvault quanto-custa [--edicao OGN]`.
 
-**As faltas não desapareceram — deixaram de ter separador.** As do master set
-estão na **wantlist do fim de cada edição** da Coleção (`api/wantlist.json`)
-e as dos decks nas abas do separador **Decks**, a seguir às Encomendas
+## Faltas
+
+Quarta secção (15/09/2026, fim da tarde): **o que falta, por edição, em três
+blocos** — *"quero as faltas por edicao e dividido em 3 partes / Masterset /
+Alt Art / OverNumbered"*. Não é o separador antigo (esse era por raridade e
+passou a ser o «Quanto custa»); é uma secção própria, com a **carta em
+imagem** e o crachá a dizer **quantas faltam**.
+
+- Um botão por edição (o OGS entra) e «Todas», cada edição com **Master set**
+  (a sequência, alvo do tipo — Unit/Spell/Gear 3, Legend e Battlefield 1,
+  runas numeradas 3), **Alt Art** (as artes alternativas, playset — as das
+  runas do OGN incluídas) e **OverNumbered** (as sobrenumeradas, 1 de cada).
+  Cada bloco diz quantas faltam e quanto custa fechar; a edição soma os três.
+- **O que vem a caminho conta.** Uma carta já encomendada aparece a azul
+  tracejado, «a caminho», e **não soma** ao que há a comprar; uma parcialmente
+  coberta diz «1 a caminho · 2 por comprar».
+- **Ver não é comprar.** Só o **Master set** entra na wantlist do fim de cada
+  edição, na «Wantlist — tudo» e no texto do Cardmarket; Alt Art e
+  OverNumbered são para **ver** quantas faltam (*"apenas pedi para ser feito
+  track de playset para eu saber exatamente quantas tenho"*). O cabeçalho
+  diz as duas contas — «fechar os três blocos» e «a comprar». Para os meter
+  nas compras é **uma linha** no config: `listas_de_compra.so_master_set:
+  false` (a mesma que manda nas wantlists).
+- As promos `VEN-SP` **não estão** em nenhum dos três blocos (ele nomeou
+  três); o rodapé diz quantas ficaram de fora.
+
+`api/faltas_edicao.json`; na consola, `py -m riftvault faltas [--edicao OGN]`.
+A conta é a **mesma** da wantlist (`a_subir.masterset` + os locais + o
+pendente) — não há segunda implementação, só outra arrumação.
+
+**As faltas dos decks não estão aqui.** As do master set estão também na
+**wantlist do fim de cada edição** da Coleção (`api/wantlist.json`) e as dos
+decks nas abas do separador **Decks**, a seguir às Encomendas
 (`api/compras.json`):
 
 - **Decks → Staples** — cartas que **mais do que um deck** pede e que não tens em

@@ -8,7 +8,10 @@ Gestor pessoal da coleção de **Riftbound** (TCG da Riot), do André. Python +
 SQLite, mesma arquitetura do `mtgvault`. Objetivo: ter **playsets**, incluindo
 artes normais **e** alternativas.
 
-Secções: **Coleção**, **Decks** e **Quanto custa** (chamou-se **Faltas** até
+Secções: **Coleção**, **Decks**, **Quanto custa** e **Faltas** (a quarta é de
+2026-09-15 ao fim da tarde — por edição, três blocos; id interno
+`faltas-edicao`, `api/faltas_edicao.json`, `faltas_edicao.py`; ver a última
+secção deste ficheiro). O «Quanto custa» (chamou-se **Faltas** até
 2026-09-15 de manhã e mostrou as faltas até à tarde desse dia; **desde
 2026-09-15 à tarde é a TABELA DE PREÇOS** — o top 5 mais caras por raridade,
 em cada edição, tenha ele ou não — ver a última secção deste ficheiro. As
@@ -2853,4 +2856,90 @@ sobrenumerada entra com `so_sequencia: false`, com o bloco na linha); a
 tabela não escreve nem mexe na wantlist/percentagem; a wantlist da Coleção,
 o `faltas.compras`, as Encomendas (com o «Chegou») e as rotas novas
 respondem, e `/api/faltas.json` dá 404; o `app.js` não pede o `faltas.json`.
+
+## 15/09/2026, fim da tarde — o separador «Faltas»: por edição, três blocos
+
+Palavras dele, horas depois de mandar apagar as faltas do «Quanto custa»:
+*"quero agora fazer uma seccao de faltas / quero as faltas por edicao e
+dividido em 3 partes / Masterset / Alt Art / OverNumbered"*. Ramo
+`ai-pc/faltas-nova-2026-09-15`; relatório em
+`ai-pc/work/revisao/riftvault-faltas-nova.md`.
+
+**Não é arrependimento nem `git revert`.** O que saiu do «Quanto custa» era
+uma vista por raridade (`a_subir.quanto_custa`/`por_raridade`, o
+`renderMasterFaltas` do `app.js`); o CÁLCULO das faltas nunca saiu —
+`a_subir.masterset`/`excluir`/`master_faltas` (a wantlist da Coleção) e o
+`faltas.py` (os decks). O separador novo é outra arrumação da mesma conta.
+
+**Onde vive:** `riftvault/faltas_edicao.py` (`payload`, `em_falta`,
+`bloco_das_faltas`), rota `/api/faltas_edicao.json`, `riftvault faltas
+[--edicao X]`, e no `app.js` `loadFaltasEdicao`/`renderFeTabs`/
+`renderFaltasEdicao`/`feTile`. **O id interno é `faltas-edicao`** (secção
+`#faltas-edicao`, `#fe-tabs`, `#fe-head`/`#fe-body`, `prefs.feSet`,
+`state.faltasEdicao`) porque `faltas` já é o id do «Quanto custa» e do
+`faltas.py` dos decks. O `#<secção>` no URL passou a abrir essa secção
+(`SECCOES` no `app.js`).
+
+**Os três blocos, pela ordem dele:**
+
+| bloco | o que é | alvo | entra nas compras? |
+|---|---|---|---|
+| `master` | a sequência (`metrics.BLOCO_MASTER`), com as exclusões da sequência (signatures/showcases, hoje zero) | do tipo (`metrics.alvo`) | **sim** |
+| `alt_art` | `variant_kind == "alt_art"` — **inclui as 6 artes alternativas das runas do OGN**, que a grelha arruma em «runas especiais»; ele nomeou três blocos e uma `OGN-007a` é uma arte alternativa | playset | não |
+| `overnumbered` | `metrics.BLOCO_OVER` | 1 (`um_de_cada`) | não |
+
+**As promos `VEN-SP` ficam de fora** — ele nomeou três e não as nomeou;
+`scope.fora` conta-as e a página diz «Fora deste separador: 6 promos». É
+pergunta para ele. Tokens, signatures e `VEN-R` continuam escondidos.
+**O OGS entra**: o `quanto_custa.sem_edicoes` foi pedido para aquele
+separador («menos proving grounds», de manhã, quando eram faltas).
+
+**Ver não é comprar.** `in_lists` por bloco vem do MESMO botão das listas
+(`listas_de_compra.so_master_set` via `a_subir.blocos_fora`): só o master set
+é `true`, e a wantlist «tudo», o Cardmarket e o «A subir» não mexeram. O
+cabeçalho diz as duas contas — `totals` (fechar os três) e `totals_lists` (a
+comprar) — e escreve a linha de config que troca isso. **Uma linha**:
+`so_master_set: false` põe os três `in_lists` e as alt arts/sobrenumeradas
+nas wantlists (há teste).
+
+**O pendente conta, e vê-se.** `em_falta` aqui é o gémeo do `a_subir.em_falta`
+com o pendente à parte: `have` (na Coleção, `locais.na_colecao`), `pending`
+(a caminho, cortado ao que falta), `missing = alvo − have − pending` (o que
+há a COMPRAR), `short = alvo − have`. Uma carta toda coberta fica na lista
+marcada «a caminho» (tile `.dtile.a-caminho`, azul tracejado, sem preço) e
+não soma a `copies`/`cents`; os cabeçalhos dizem «· K a caminho». **Por
+construção, o bloco `master` de cada edição é EXACTAMENTE a wantlist dessa
+edição** (`cards`/`copies`/`cents` iguais aos do `master_faltas` — teste).
+
+**O aspecto:** os tiles são os `dtile` dos decks (`artHTML`) — a carta com
+imagem, «faltam N» no canto (`.need`), o total no outro (`.price`), «tens
+H/T» em baixo (`.ja-tens`) —, como ele pediu nesse dia para o «Quanto custa»
+(*"gosto de ter em imagem da carta e nao apenas texto"*). Cada bloco tem um
+ponto de cor no cabeçalho (`.fe-bloco.master/.alt_art/.overnumbered`), à
+maneira da maqueta `quanto-custa-mockup.html`; os blocos «só para ver» levam
+o cabeçalho apagado e a etiqueta «só para ver». Nota: no `main` de hoje o
+«Quanto custa» ainda é linhas de texto (`qcLinha`) — a maqueta com imagens
+não estava implementada quando esta ordem correu.
+
+**Medido a 2026-09-15 no `main` (`ffef5b4`) e no ramo, mesma corrida, mesmo
+`data/` — os invariantes NÃO mexem:** níveis **91,8 / 82,8 / 74,2 %** (faltam
+76 / 225 / 453 · 382,34 / 1 067,14 / 1 891,51 €, denominador 928); wantlist
+«tudo» **228 linhas · 426 cópias · 1 528,84 €** (OGN 682,95, OGS 18,03, SFD
+360,41, UNL 319,56, VEN 147,89 €); valor **2 325,56 €** (2 312 cópias);
+decks **13 cópias de 6 cartas · 16,98 €**, 56 a caminho; Encomendas **59
+cópias · 27 impressões · 477,02 €**. O separador: fechar os três blocos
+**774 cópias · 413 impressões · 14 310,22 €**, a comprar (master set) **426
+· 228 · 1 528,84 €** (= a wantlist), 29 cópias a caminho em 19 impressões;
+por bloco, alt art 264 cópias · 1 521,99 € e sobrenumeradas 84 · 11 259,39 €
+(o UNL-238 Baron Nashor e companhia — é por isso que não se compram).
+
+`tests/test_faltas_nova.py` (17 testes, contra cópias e config temporário):
+os três blocos por edição e o OGS; 1 de 3 falta 2; sobrenumerada com 1 está
+completa e com 0 falta 1 (e com 2 não aparece); alt art 1 de 3 falta 2; a
+alt art de uma runa é Alt Art; a caminho marcada e não contada (coberta e
+parcial; pendente acima do alvo não conta a mais); wantlist e Cardmarket só
+master set e iguais ao bloco; `so_master_set: false` mete os três; blocos
+somam à edição e as edições ao total, com os números escritos; sem preço
+entra e é contada; promos fora e escondidas nem no âmbito; não escreve; não
+mexe nos níveis nem na wantlist; a rota, o `build` e o `index.html`/`app.js`.
 
