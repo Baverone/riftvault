@@ -54,10 +54,18 @@ DEFAULTS: dict = {
     #                           numeração de masterset"). As runas numeradas —
     #                           a base e a arte alternativa do OGN — ficam onde
     #                           estavam, com alvo 1.
+    #   `um_de_cada`          — o que pede 1 em vez do playset do tipo: as
+    #                           sobrenumeradas e as promos (2026-09-15:
+    #                           "overnumbered e promos (SP) voltamos a 1 de
+    #                           cada / se eu tiver mais adiciono na mesma").
+    #                           Só o ALVO; o bloco e a percentagem não mexem.
+    #                           As artes alternativas ficam a playset.
     # `fora` é o nome antigo da primeira (2026-09-08 a 2026-09-14) e continua a
-    # ser lido. Ver `metrics._fora`, `metrics.escondida` e `metrics.e_master`.
+    # ser lido. Ver `metrics._fora`, `metrics.escondida`, `metrics.e_master` e
+    # `metrics.e_um_de_cada`.
     "master_set": {"fora_da_percentagem": ["a", "overnumbered", "promo"],
-                   "escondidas": ["-T", "*", "-R"]},
+                   "escondidas": ["-T", "*", "-R"],
+                   "um_de_cada": ["overnumbered", "promo"]},
     # O bloco das runas especiais ("1 runa especial de cada para cada set",
     # 2026-09-08) e o alvo de TODAS as runas: 1 ("runas 1 de cada", 2026-09-14
     # à noite). `"playset"` dá as 12. Ver `metrics.RUNA_ESPECIAL`.

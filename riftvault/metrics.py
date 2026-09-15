@@ -28,11 +28,16 @@
 
      O ALVO é o mesmo nas duas primeiras: o playset do tipo da carta
      (Unit/Spell/Gear 3, Legend e Battlefield 1) — **excepto as runas, que
-     são 1 de cada**, base ou especial. Até 2026-09-14 de manhã as variantes
+     são 1 de cada**, base ou especial, **e, desde 2026-09-15, as
+     sobrenumeradas e as promos, que voltaram a 1** (André: *"overnumbered e
+     promos (SP) voltamos a 1 de cada / se eu tiver mais adiciono na mesma"*
+     — ver `master_set.um_de_cada` e `e_um_de_cada`). Ter mais do que 1
+     dessas não é excedente nem erro: a segunda cópia aparece na grelha e
+     conta no valor como qualquer outra. Até 2026-09-14 de manhã as variantes
      de dentro pediam 1 (decisões de 2026-09-08) e nessa tarde tudo pediu o
      playset, runas a 12 incluídas (*"muda tudo para playset"*); a frase da
-     noite é a que vale. Ver `master_target`, `escondida`, `fora_do_master`,
-     `e_master`, `bloco` e `conta_bloco`.
+     noite é a que vale, com a excepção do dia seguinte. Ver `master_target`,
+     `escondida`, `fora_do_master`, `e_master`, `bloco` e `conta_bloco`.
 
 São sempre calculadas e mostradas em paralelo. Nenhuma substitui a outra.
 """
@@ -178,6 +183,13 @@ FORA_OVERNUMBERED = "overnumbered"
 # `config._migrar_master_set`.
 LISTA_FORA = "fora_da_percentagem"
 LISTA_ESCONDIDAS = "escondidas"
+# A terceira lista, com a mesma gramática: o que pede **1 de cada** em vez do
+# playset do tipo (André, 2026-09-15: *"overnumbered e promos (SP) voltamos a 1
+# de cada"*). É só sobre o ALVO — não mexe no bloco, na percentagem nem nas
+# listas de compra. Hoje `["overnumbered", "promo"]`; as artes alternativas
+# ficam a playset porque ele não as nomeou.
+LISTA_UM = "um_de_cada"
+ALVO_UM = 1
 
 # Memo do `_ler_lista`: as listas do config não mudam dentro de uma corrida, e
 # a pergunta é feita uma vez por impressão (1180) por payload.
@@ -261,8 +273,11 @@ def master_target(printing_id: str, kind: str, card_type: str | None, is_token: 
 
     UMA regra (André, 2026-09-14, à noite): **se for runa, 1; senão, o playset
     do tipo** (`playset_targets_by_type`: Unit/Spell/Gear 3, Legend e
-    Battlefield 1). Vale igual no master set e na coleção extra — *"Alt Art,
-    overnumbered, etc etc mete Playset na contagem"* —, e é o mesmo número da
+    Battlefield 1) — **e, desde 2026-09-15, 1 também no que está em
+    `master_set.um_de_cada`**: as sobrenumeradas e as promos (*"overnumbered e
+    promos (SP) voltamos a 1 de cada"*). De resto vale igual no master set e
+    na coleção extra — *"Alt Art, overnumbered, etc etc mete Playset na
+    contagem"* fica de pé para as artes alternativas —, e é o mesmo número da
     métrica jogável, de propósito: colecionar 3 é ter as 3 que se jogam. Os
     tokens ficam com o `token_target` (1), como sempre.
 
@@ -273,7 +288,9 @@ def master_target(printing_id: str, kind: str, card_type: str | None, is_token: 
     num config, não fazem nada.
 
     Quem tem a LINHA do catálogo na mão deve chamar o `alvo()`, não isto; os
-    quatro escalares ficam para quem não a tem (e para os testes).
+    quatro escalares ficam para quem não a tem (e para os testes). Sem a linha,
+    a metade «sobrenumerada» do `um_de_cada` não se consegue responder (precisa
+    do `public_code`) e a resposta é «não é».
     """
     cfg = cfg or config.load()
     override = cfg.get("master_target_overrides", {}).get(printing_id)
@@ -288,6 +305,8 @@ def master_target(printing_id: str, kind: str, card_type: str | None, is_token: 
         if alvo_runa == ALVO_PLAYSET:
             return playset_target(card_type, is_token, cfg)
         return int(alvo_runa)
+    if e_um_de_cada(printing if printing is not None else {"variant_kind": kind}, cfg):
+        return ALVO_UM
     return playset_target(card_type, is_token, cfg)
 
 
@@ -398,6 +417,38 @@ def fora_overnumbered(cfg: dict | None = None) -> bool:
 def kinds_escondidas(cfg: dict | None = None) -> frozenset[str]:
     """Os `variant_kind` que não aparecem na página da Coleção — `escondidas`."""
     return _escondidas(cfg)[0]
+
+
+def _um_de_cada(cfg: dict | None = None) -> tuple[frozenset[str], bool]:
+    """O `master_set.um_de_cada` lido: (variantes, as sobrenumeradas também?)."""
+    cfg = cfg or config.load()
+    return _ler_lista(LISTA_UM, _lista(cfg, LISTA_UM))
+
+
+def e_um_de_cada(printing, cfg: dict | None = None) -> bool:
+    """Esta impressão pede **1** em vez do playset do tipo?
+
+    André, 2026-09-15: *"overnumbered e promos (SP) voltamos a 1 de cada"* e,
+    logo a seguir, *"se eu tiver mais adiciono na mesma"*. A segunda frase é a
+    que manda na leitura do número: 1 é o que ele QUER TER de cada, não um
+    tecto — uma segunda cópia continua a aparecer no tile («2/1», a verde,
+    como a quarta cópia de uma Unit da sequência) e a contar no valor. Nada a
+    marca como a mais.
+
+    Revoga, só para estes dois blocos, o *"Alt Art, overnumbered, etc etc mete
+    Playset na contagem"* de 2026-09-14: as artes alternativas continuam a
+    playset porque ele não as nomeou. É SÓ sobre o alvo — o bloco, a
+    percentagem e as listas de compra não perguntam aqui.
+
+    Escreve-se com a mesma gramática das outras duas listas do `master_set`
+    (`_ler_lista`), e a ordem dos critérios é a mesma do `fora_do_master`:
+    a variante primeiro, o número depois.
+    """
+    cfg = cfg or config.load()
+    kinds, over = _um_de_cada(cfg)
+    if campo(printing, "variant_kind", "unknown") in kinds:
+        return True
+    return bool(over and e_overnumbered(printing))
 
 
 def escondida(printing, cfg: dict | None = None) -> bool:
@@ -592,12 +643,16 @@ def _sufixo_alvo(bloco_id: str, cfg: dict) -> str:
 
     Lê-se do mesmo config que o `master_target` lê, para o título e o badge do
     tile não divergirem: as runas especiais dizem o `runas_especiais.alvo`, os
-    tokens o `token_target`, e todos os outros o playset do tipo.
+    tokens o `token_target`, os blocos do `um_de_cada` (as sobrenumeradas e as
+    promos, 2026-09-15) dizem 1, e todos os outros o playset do tipo.
     """
+    kinds_um, over_um = _um_de_cada(cfg)
     if bloco_id == BLOCO_RUNA:
         alvo_bloco = opcoes_runa(cfg).get("alvo", 1)
     elif bloco_id == "token":
         alvo_bloco = int(cfg.get("token_target", 1))
+    elif (bloco_id == BLOCO_OVER and over_um) or bloco_id in kinds_um:
+        alvo_bloco = ALVO_UM
     else:
         alvo_bloco = ALVO_PLAYSET
     if alvo_bloco == ALVO_PLAYSET:
