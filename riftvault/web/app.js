@@ -1057,9 +1057,11 @@ async function loadDecks() {
   const d = await getJSON('api/decks.json');
   state.decks = d.decks;
   renderDeckTabs();
-  const first = state.prefs.deck === 'encomendas' || state.decks.some(x => x.id === state.prefs.deck)
+  const first = state.prefs.deck === 'encomendas' || DECK_FALTA_IDS.includes(state.prefs.deck)
+    || state.decks.some(x => x.id === state.prefs.deck)
     ? state.prefs.deck : (state.decks[0] && state.decks[0].id);
   if (first === 'encomendas') await loadEncomendas();
+  else if (DECK_FALTA_IDS.includes(first)) await loadDeckFaltas(first);
   else if (first) await loadDeck(first);
   else $('#deck-body').innerHTML = '<p class="empty">Não há decks. Mete um .txt em <code>decks/</code>.</p>';
 }
@@ -1091,6 +1093,15 @@ function renderDeckTabs() {
   enc.innerHTML = `Encomendas<small>${aCaminho ? `${aCaminho} a caminho` : 'nada a caminho'}</small>`;
   enc.onclick = () => loadEncomendas();
   nav.appendChild(enc);
+  // As abas por deck que viviam no «Quanto custa» até 2026-09-15 (Staples,
+  // Por deck, Pimp decks): o contador só se sabe depois do `faltas.json`.
+  for (const t of DECK_FALTA_TABS) {
+    const b = document.createElement('button');
+    b.className = 'tab' + (state.deckId === t.id ? ' is-on' : '');
+    b.innerHTML = `${t.label}<small>${contadorFalta(t.id) || t.sub}</small>`;
+    b.onclick = () => loadDeckFaltas(t.id);
+    nav.appendChild(b);
+  }
 }
 
 async function loadDeck(deckId) {
@@ -1501,15 +1512,18 @@ function cardNome(ck) {
    Faltas e as wantlists da Coleção descontam o que vem a caminho. Recarrega-se
    o deck aberto e marca-se o resto como velho. */
 async function recarregarEncomendas() {
-  state.decks = (await getJSON('api/decks.json')).decks;
-  renderDeckTabs();
-  if (state.deckId === 'encomendas') await loadEncomendas();
-  else await loadDeck(state.deckId);
   // O `faltas.json` (secção Faltas e wantlists da Coleção) ficou velho: o que
   // vem a caminho sai das listas de compra. Marca-se e deita-se fora, para a
   // próxima visita o pedir de novo — não se pede já, são centenas de KB.
+  // Antes de redesenhar, porque uma aba por deck aberta no separador Decks
+  // pede-o outra vez já a seguir.
   wlDesatualizar();
   state.faltas = null;
+  state.decks = (await getJSON('api/decks.json')).decks;
+  renderDeckTabs();
+  if (state.deckId === 'encomendas') await loadEncomendas();
+  else if (DECK_FALTA_IDS.includes(state.deckId)) await loadDeckFaltas(state.deckId);
+  else await loadDeck(state.deckId);
 }
 
 /* «Chegou» numa linha do deck: tudo o que está a caminho DESSA carta entra na
@@ -1760,15 +1774,52 @@ function showSection(name) {
 
 /* A «Master set» vem primeiro e é a aba por omissão desde 2026-09-15: o
    separador passou a chamar-se «Quanto custa» e é ela que responde ao preço
-   (um botão por edição, por raridade, por preço). As outras cinco ficaram. */
+   (um botão por edição, por raridade, por preço).
+
+   As abas POR DECK — Staples, Por deck, Pimp decks — saíram daqui nessa tarde
+   (André: "quero as mais caras por edicao, nao por deck") e vivem no separador
+   Decks, a seguir às Encomendas (`DECK_FALTA_TABS`). São os mesmos dados do
+   `faltas.json` e as mesmas funções de desenho; o que muda é onde se escreve
+   (`faltaSaida`). Nada se perdeu: mudou de separador. */
 const FALTA_TABS = [
   { id: 'master', label: 'Master set', sub: 'o que falta à coleção, por preço' },
-  { id: 'staples', label: 'Staples', sub: 'pedidas por vários decks' },
-  { id: 'deck', label: 'Por deck', sub: 'o que falta a cada um' },
   { id: 'spike', label: 'A subir', sub: 'do master set, o que ainda não tens' },
-  { id: 'pimp', label: 'Pimp decks', sub: 'versões alteradas das cartas dos decks' },
   { id: 'caminho', label: 'A caminho', sub: 'comprado, ainda não chegou' },
 ];
+
+/* As abas dos DECKS que vivem do `faltas.json`. Os ids não podem colidir com
+   um slug de deck nem com 'encomendas' — é o `state.deckId` que os guarda. */
+const DECK_FALTA_TABS = [
+  { id: 'staples', label: 'Staples', sub: 'pedidas por vários decks' },
+  { id: 'pordeck', label: 'Por deck', sub: 'o que falta a cada um' },
+  { id: 'pimp', label: 'Pimp decks', sub: 'versões alteradas das cartas dos decks' },
+];
+const DECK_FALTA_IDS = DECK_FALTA_TABS.map(t => t.id);
+
+/* Onde as funções de desenho das faltas escrevem: o separador «Quanto custa»
+   ou, nas abas por deck, o separador Decks. Lê-se do estado no momento de
+   escrever — um clique num sub-botão («Todos juntos», um deck do Pimp) tem de
+   ir para o mesmo sítio onde a aba está, esteja onde estiver. */
+const faltaSaida = {
+  get emDecks() { return state.prefs.section === 'decks' && DECK_FALTA_IDS.includes(state.deckId); },
+  get head() { return this.emDecks ? '#deck-head' : '#falta-head'; },
+  get body() { return this.emDecks ? '#deck-body' : '#falta-body'; },
+};
+
+function contadorFalta(id) {
+  const f = state.faltas;
+  if (!f) return '';
+  if (id === 'staples') return plural(f.staples.length, 'carta', 'cartas');
+  if (id === 'pordeck') return plural(f.por_deck.reduce((s, d) => s + d.copies, 0), 'cópia', 'cópias');
+  if (id === 'spike') return f.a_subir.ready
+    ? plural(f.a_subir.items.length, 'carta', 'cartas') : 'sem histórico';
+  if (id === 'master') return plural(f.master.copies, 'cópia', 'cópias');
+  if (id === 'pimp') return plural(f.pimp.by_deck.reduce((s, d) => s + d.printings, 0),
+                                   'versão', 'versões');
+  if (id === 'caminho') return f.pending.copies
+    ? plural(f.pending.copies, 'cópia', 'cópias') : 'nada';
+  return '';
+}
 
 async function loadFaltas() {
   await garanteFaltas();
@@ -1779,24 +1830,38 @@ async function loadFaltas() {
 function renderFaltaTabs() {
   const nav = $('#falta-tabs');
   nav.innerHTML = '';
-  const f = state.faltas;
+  // Uma escolha guardada de uma aba que mudou de separador cai na primeira.
+  if (!FALTA_TABS.some(t => t.id === state.prefs.falta)) state.prefs.falta = FALTA_TABS[0].id;
   for (const t of FALTA_TABS) {
     const b = document.createElement('button');
     b.className = 'tab' + (t.id === state.prefs.falta ? ' is-on' : '');
-    let n = '';
-    if (t.id === 'staples') n = plural(f.staples.length, 'carta', 'cartas');
-    if (t.id === 'deck') n = plural(f.por_deck.reduce((s, d) => s + d.copies, 0), 'cópia', 'cópias');
-    if (t.id === 'spike') n = f.a_subir.ready
-      ? plural(f.a_subir.items.length, 'carta', 'cartas') : 'sem histórico';
-    if (t.id === 'master') n = plural(f.master.copies, 'cópia', 'cópias');
-    if (t.id === 'pimp') n = plural(f.pimp.by_deck.reduce((s, d) => s + d.printings, 0),
-                                    'versão', 'versões');
-    if (t.id === 'caminho') n = f.pending.copies
-      ? plural(f.pending.copies, 'cópia', 'cópias') : 'nada';
-    b.innerHTML = `${t.label}<small>${n}</small>`;
+    b.innerHTML = `${t.label}<small>${contadorFalta(t.id)}</small>`;
     b.onclick = () => { state.prefs.falta = t.id; savePrefs(); renderFaltaTabs(); renderFaltas(); };
     nav.appendChild(b);
   }
+}
+
+/* Uma das abas por deck, dentro do separador Decks. Passa pelo mesmo
+   `garanteFaltas` das wantlists e do «Quanto custa» — o ficheiro é um só. */
+async function loadDeckFaltas(id) {
+  state.deckId = id;
+  state.prefs.deck = id;
+  savePrefs();
+  renderDeckTabs();
+  $('#deck-head').innerHTML = '';
+  $('#deck-body').innerHTML = '<p class="empty">a carregar…</p>';
+  try {
+    await garanteFaltas();
+  } catch (err) {
+    $('#deck-body').innerHTML = `<p class="empty">${escapeHTML(err.message)}</p>`;
+    return;
+  }
+  if (state.deckId !== id) return;      // entretanto abriu outro separador
+  renderDeckTabs();                     // agora com os contadores
+  $(faltaSaida.head).innerHTML = FALTA_HEAD.includes(id) ? faltaHead() : '';
+  if (id === 'staples') renderStaples();
+  else if (id === 'pordeck') renderPorDeck();
+  else renderPimp();
 }
 
 /* O cabeçalho é a carência GLOBAL DOS DECKS (`faltas.shortfall`): tudo o que
@@ -1805,8 +1870,9 @@ function renderFaltaTabs() {
    Staples e o Por deck — e nas outras estava a mentir: por cima de «614 impressões em falta · 21 567,33 €»
    do master set lia-se «Falta comprar 25 cartas · 34 cópias · 356,91 €», que é
    outra pergunta. Por isso passou a ter o âmbito no título e a aparecer só
-   onde é a conta da página (ver `FALTA_HEAD`). */
-const FALTA_HEAD = ['staples', 'deck'];
+   onde é a conta da página (ver `FALTA_HEAD`) — e desde 2026-09-15 essas duas
+   abas vivem no separador Decks. */
+const FALTA_HEAD = ['staples', 'pordeck'];
 
 function faltaHead() {
   const f = state.faltas;
@@ -1830,33 +1896,24 @@ function faltaHead() {
   </div>`;
 }
 
-function renderFaltas() {
+function renderStaples() {
   const f = state.faltas;
+  $(faltaSaida.body).innerHTML = f.staples.length ? `
+    <p class="note">Cartas que <b>mais do que um deck</b> pede e que não tens
+      em número suficiente. São as que rendem mais por euro — uma compra
+      serve vários decks.</p>
+    <div class="grid deck-grid">${f.staples.map(staplTile).join('')}</div>`
+    : '<p class="empty">Nenhuma carta é pedida por dois decks ao mesmo tempo.</p>';
+}
+
+function renderFaltas() {
   const which = state.prefs.falta;
-  $('#falta-head').innerHTML = FALTA_HEAD.includes(which) ? faltaHead() : '';
-
-  if (which === 'staples') {
-    $('#falta-body').innerHTML = f.staples.length ? `
-      <p class="note">Cartas que <b>mais do que um deck</b> pede e que não tens
-        em número suficiente. São as que rendem mais por euro — uma compra
-        serve vários decks.</p>
-      <div class="grid deck-grid">${f.staples.map(staplTile).join('')}</div>`
-      : '<p class="empty">Nenhuma carta é pedida por dois decks ao mesmo tempo.</p>';
-    return;
-  }
-
-  if (which === 'deck') {
-    renderPorDeck();
-    return;
-  }
+  // Nenhuma das abas deste separador é a conta dos decks: o cabeçalho «Falta
+  // comprar aos decks» foi com elas para o separador Decks.
+  $('#falta-head').innerHTML = '';
 
   if (which === 'master') {
     renderMasterFaltas();
-    return;
-  }
-
-  if (which === 'pimp') {
-    renderPimp();
     return;
   }
 
@@ -1903,7 +1960,7 @@ function renderASubir() {
   const sp = state.faltas.a_subir;
 
   if (!sp.ready) {
-    $('#falta-body').innerHTML = `<div class="aviso">
+    $(faltaSaida.body).innerHTML = `<div class="aviso">
       <b>Ainda não há com que comparar.</b>
       <p>${sp.days_recorded
         ? `Já há ${sp.days_recorded === 1 ? 'um dia' : `${sp.days_recorded} dias`} de preços
@@ -1931,7 +1988,7 @@ function renderASubir() {
   // `prices.db` for novo são todas, e a página tem de o dizer.
   const parciais = lista.filter(x => !x.full_window).length;
 
-  $('#falta-body').innerHTML = `
+  $(faltaSaida.body).innerHTML = `
     <div class="seg seg-wrap">
       <button class="seg-btn ${ord === 'pct' ? 'is-on' : ''}" data-subir="pct">
         Por % <b>${sp.items.length}</b></button>
@@ -2272,7 +2329,7 @@ function qcGrupos(itens, ordem, rarityOrder) {
 function renderMasterFaltas() {
   const m = state.faltas.master;
   if (!m.copies) {
-    $('#falta-body').innerHTML = `<p class="empty">Não falta nada ao master set.</p>`;
+    $(faltaSaida.body).innerHTML = `<p class="empty">Não falta nada ao master set.</p>`;
     return;
   }
 
@@ -2299,7 +2356,7 @@ function renderMasterFaltas() {
 
   const rotulo = r => r === QC_SEM_OFERTA ? 'sem oferta no CardTrader' : r;
 
-  $('#falta-body').innerHTML = `
+  $(faltaSaida.body).innerHTML = `
     <div class="chips subir-rar qc-sets">
       <button class="chip-b ${sel === 'all' ? 'is-on' : ''}" data-mset="all">
         tudo <b>${eur(qcGrupos(m.sets.filter(s => comBotao.has(s.set)).flatMap(s => s.items),
@@ -2429,7 +2486,7 @@ function renderPorDeck() {
          ? 'O que um deck de cima já usa não conta para este: compra-se.'
          : 'É o primeiro da fila, por isso serve-se primeiro.'}${sobre}</p>`;
 
-  $('#falta-body').innerHTML = `
+  $(faltaSaida.body).innerHTML = `
     <div class="seg seg-wrap">${abas}</div>
     <div class="deck-card resumo">
       <b>${sel === 'todos' ? 'Todos ao mesmo tempo' : escapeHTML(f.por_deck[sel].name)}</b>
@@ -2451,7 +2508,7 @@ function renderPorDeck() {
     <p class="note total-linha">Somando as abas dos decks:
       <b>${copias} cópias · ${eur(um)}</b> para os ter todos montados.</p>`;
 
-  for (const b of document.querySelectorAll('#falta-body .seg-btn[data-fd]')) {
+  for (const b of document.querySelectorAll(faltaSaida.body + ' .seg-btn[data-fd]')) {
     b.onclick = () => {
       const v = b.dataset.fd;
       state.prefs.faltaDeck = v === 'todos' ? 'todos' : Number(v);
@@ -2533,7 +2590,7 @@ function mostrarWantlist(alvo, comVar = false) {
 function renderPimp() {
   const p = state.faltas.pimp;
   if (!p.printings) {
-    $('#falta-body').innerHTML = '<p class="empty">Nenhuma carta dos teus decks tem versão alterada.</p>';
+    $(faltaSaida.body).innerHTML = '<p class="empty">Nenhuma carta dos teus decks tem versão alterada.</p>';
     return;
   }
   // Mesma história do "Por deck": o índice guardado pode ter sobrevivido ao
@@ -2550,7 +2607,7 @@ function renderPimp() {
         ${d.priority}. ${escapeHTML(deckCurto(d.name))}
         <b>${d.printings}</b></button>`).join('');
 
-  $('#falta-body').innerHTML = `
+  $(faltaSaida.body).innerHTML = `
     <div class="seg seg-wrap">${abas}</div>
     <div class="deck-card resumo">
       <b>${sel === 'todos' ? 'Todas as versões alteradas' : escapeHTML(p.by_deck[sel].name)}</b>
@@ -2582,7 +2639,7 @@ function renderPimp() {
       <small class="nota" id="pimp-nota" hidden></small>
     </div>`;
 
-  for (const b of document.querySelectorAll('#falta-body .seg-btn[data-pd]')) {
+  for (const b of document.querySelectorAll(faltaSaida.body + ' .seg-btn[data-pd]')) {
     b.onclick = () => {
       const v = b.dataset.pd;
       state.prefs.pimpDeck = v === 'todos' ? 'todos' : Number(v);
@@ -2644,7 +2701,7 @@ function pimpTile(x, comDecks = true) {
 function renderCaminho() {
   const p = state.faltas.pending;
   if (!p.copies) {
-    $('#falta-body').innerHTML = `<p class="empty">Nada a caminho.<br>
+    $(faltaSaida.body).innerHTML = `<p class="empty">Nada a caminho.<br>
       <small>Compraste alguma carta? Carrega no <b>+</b> dela na página do deck
       (ou <code>riftvault encomendas --mais</code>).</small></p>`;
     return;
@@ -2656,7 +2713,7 @@ function renderCaminho() {
     porSet.get(it.set_id).push(it);
   }
 
-  $('#falta-body').innerHTML = `
+  $(faltaSaida.body).innerHTML = `
     <div class="deck-card resumo">
       <b>A caminho</b>
       <span>${p.copies} cópias em ${p.lines} linhas${p.cents ? ` · ${eur(p.cents)}` : ''}</span>
@@ -2675,7 +2732,7 @@ function renderCaminho() {
             ? ` · ${eur(itens.reduce((a, x) => a + (x.unit_cents || 0) * x.qty, 0))}` : ''}</span></h3>
       <div class="grid deck-grid">${itens.map(caminhoTile).join('')}</div>`).join('')}`;
 
-  for (const b of document.querySelectorAll('#falta-body [data-chegou]')) {
+  for (const b of document.querySelectorAll(faltaSaida.body + ' [data-chegou]')) {
     b.onclick = () => chegou(Number(b.dataset.chegou), b);
   }
   const tudo = $('#chegou-tudo');

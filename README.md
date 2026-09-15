@@ -120,14 +120,18 @@ As escolhas ficam guardadas no browser.
 ## Quanto custa
 
 Terceira secção (chamava-se «Faltas» até 2026-09-15 — o nome novo põe o
-preço em primeiro lugar; o identificador interno continua `faltas`), com seis
-abas. Abre na **Master set**, que é a do preço:
+preço em primeiro lugar; o identificador interno continua `faltas`), com três
+abas, todas **por edição**: Master set, A subir e A caminho. Abre na
+**Master set**, que é a do preço. As abas **por deck** (Staples, Por deck,
+Pimp decks) saíram daqui a 2026-09-15 à tarde (*"quero as mais caras por
+edicao, nao por deck"*) e vivem no separador **Decks**, a seguir às
+Encomendas — são os mesmos dados e o mesmo desenho, só mudaram de sítio:
 
-- **Staples** — cartas que **mais do que um deck** pede e que não tens em
+- **Decks → Staples** — cartas que **mais do que um deck** pede e que não tens em
   número suficiente. São as que rendem mais por euro: uma compra serve vários
   decks. Cada tile diz quantos decks a querem e quais.
-- **Por deck** — o que falta a cada deck, agrupado por edição.
-- **Pimp decks** — as versões **alteradas** das cartas que os teus decks usam:
+- **Decks → Por deck** — o que falta a cada deck, agrupado por edição.
+- **Decks → Pimp decks** — as versões **alteradas** das cartas que os teus decks usam:
   artes alternativas e showcase. Sem signatures e sem as runas promo do VEN
   — nas runas o que se pimpa é a arte alternativa. Dá para vetar impressões
   à peça em `pimp_ignorar_impressoes` (as sobrenumeradas caras); a carta
@@ -150,10 +154,17 @@ abas. Abre na **Master set**, que é a do preço:
   (menos o OGS, a pedido dele — `quanto_custa.sem_edicoes`) e um para tudo;
   dentro do que está escolhido as cartas vão **por raridade** (épicas
   primeiro) e, dentro de cada raridade, **por preço**, do mais caro para o
-  mais barato — há um inversor para ir buscar os baratos de uma vez. Cada
-  raridade diz o subtotal, o fim diz o total, e as cartas sem oferta no
+  mais barato — há um inversor para ir buscar os baratos de uma vez. Nas
+  raras, incomuns e comuns só se **mostram as 5 mais caras**
+  (`quanto_custa.top_por_raridade`; *"o top5 de mais caras de comuns, e top5
+  de incomuns, e top5 de Raras"*), com um rodapé a dizer quantas ficaram de
+  fora e quanto somam, e um **ver todas** que as abre; as épicas aparecem
+  todas (*"miticas e AltArt nao precisa fazer isto"* — as artes alternativas
+  já nem entram na lista). **O corte é só do que se vê**: o subtotal de cada
+  raridade, o total e a wantlist contam tudo. As cartas sem oferta no
   CardTrader ficam num grupo à parte no fim, sem contar como zero. Os mesmos
-  três botões de lista para o Cardmarket.
+  três botões de lista para o Cardmarket. Os preços são só de ofertas **em
+  inglês** (`precos.linguas`; *"apenas cartas versao ingles"*).
 - **A caminho** — o que já compraste e ainda não chegou. Não conta na Coleção
   (essa mede o que tens na caixa) mas já sai das faltas e das wantlists, para
   não comprares duas vezes. Quando chegar, carrega em **Chegou** na carta (ou em "Chegou tudo") e ela
@@ -222,7 +233,7 @@ gerador (`riftvault/cardmarket.py`):
   nesta edição · X €* e leva-te ao bloco.
 - **Quanto custa → A subir** e **Quanto custa → Master set**, com três botões:
   **Copiar para o Cardmarket**, **Copiar com código** e **Descarregar CSV**.
-- **Quanto custa → Por deck** e **Pimp decks**, com o botão de sempre.
+- **Decks → Por deck** e **Decks → Pimp decks**, com o botão de sempre.
 
 As wantlists da Coleção são a **mesma lista** da aba *Master set*, cortada por
 edição: os mesmos alvos dos três blocos (playset na sequência, 1 por runa, 1 por
