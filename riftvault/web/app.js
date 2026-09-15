@@ -58,15 +58,18 @@ const state = {
   faltasP: null, wlStale: false,
   prefs: { view: 'all', stateFilter: 'all',
            kinds: ['base', 'alt_art', 'signature', 'other'],
-           set: null, deck: null, falta: 'staples', faltaDeck: 0, pimpDeck: 'todos',
+           // «Quanto custa» abre na «Master set» (2026-09-15), que é a aba do preço.
+           set: null, deck: null, falta: 'master', faltaDeck: 0, pimpDeck: 'todos',
            // "A subir": qual das duas abas (por % / por valor) e o filtro de
            // raridade, ambos guardados como o resto das escolhas.
            subirOrd: 'pct', subirRar: 'all',
            // As wantlists da Coleção: até que nível se compra (1, 2, … ) ou
            // `null` para o alvo inteiro — o playset da sequência.
            wlNivel: null,
-           // "Master set": qual a edição escolhida no filtro da lista de faltas.
-           masterSet: 'all',
+           // "Master set" / «Quanto custa»: a edição escolhida (`all` = as que
+           // têm botão) e a ordem dentro de cada raridade (`desc` = mais caro
+           // primeiro, `asc` = mais barato primeiro). Sobrevivem ao refresh.
+           masterSet: 'all', masterOrd: 'desc',
            section: 'colecao' },
 };
 
@@ -1755,11 +1758,14 @@ function showSection(name) {
    exista num deck de cima (desde 2026-09-11 não há teto do playset, e a aba
    «Por deck» É a alocação por prioridade).                                  */
 
+/* A «Master set» vem primeiro e é a aba por omissão desde 2026-09-15: o
+   separador passou a chamar-se «Quanto custa» e é ela que responde ao preço
+   (um botão por edição, por raridade, por preço). As outras cinco ficaram. */
 const FALTA_TABS = [
+  { id: 'master', label: 'Master set', sub: 'o que falta à coleção, por preço' },
   { id: 'staples', label: 'Staples', sub: 'pedidas por vários decks' },
   { id: 'deck', label: 'Por deck', sub: 'o que falta a cada um' },
   { id: 'spike', label: 'A subir', sub: 'do master set, o que ainda não tens' },
-  { id: 'master', label: 'Master set', sub: 'tudo o que falta à coleção' },
   { id: 'pimp', label: 'Pimp decks', sub: 'versões alteradas das cartas dos decks' },
   { id: 'caminho', label: 'A caminho', sub: 'comprado, ainda não chegou' },
 ];
@@ -2208,6 +2214,57 @@ function hojeISO() {
    Sem imagens de propósito: são centenas de linhas, e o `faltas.json` é
    descarregado inteiro a cada visita.                                        */
 
+/* «Quanto custa» (2026-09-15): a mesma lista, arrumada pelo PREÇO. André:
+   "fazes novamente para cada set (menos proving grounds) um botão" / "depois
+   metes para cada raridade, as cartas por ordem de preço".
+
+   Os botões vêm do servidor (`master.quanto_custa.sets`, lidos do catálogo
+   menos `quanto_custa.sem_edicoes` — o OGS), para não haver uma segunda lista
+   de edições aqui. «tudo» é o que os botões mostram, sem o OGS. Dentro do que
+   está escolhido, por raridade (da mais rara para a mais comum, a ordem
+   também vem do servidor) e, dentro da raridade, por preço unitário — do mais
+   caro para o mais barato por omissão, porque o que o faz reparar no preço é
+   ver primeiro o que custa dinheiro; o inversor guarda-se como as outras
+   escolhas. As sem preço vão para um grupo próprio no fim.
+
+   O `qcGrupos` é o gémeo do `a_subir.por_raridade`: mesma ordem, mesmos
+   desempates, para os dois darem a mesma resposta. */
+const QC_SEM_OFERTA = 'sem_oferta';
+
+function qcGrupos(itens, ordem, rarityOrder) {
+  const pos = r => { const i = rarityOrder.indexOf(r); return i < 0 ? rarityOrder.length : i; };
+  const porRar = new Map();
+  const semPreco = [];
+  for (const x of itens) {
+    if (x.price == null) { semPreco.push(x); continue; }
+    const r = x.rarity || '?';
+    if (!porRar.has(r)) porRar.set(r, []);
+    porRar.get(r).push(x);
+  }
+  const sinal = ordem === 'asc' ? 1 : -1;
+  const cmp = (a, b) => sinal * (a.price - b.price)
+    || sinal * ((a.total || 0) - (b.total || 0))
+    || a.set.localeCompare(b.set) || (a.cn - b.cn) || a.code.localeCompare(b.code);
+  const rars = [...porRar.keys()].sort((a, b) => (pos(a) - pos(b)) || a.localeCompare(b));
+  const groups = rars.map(r => {
+    const items = porRar.get(r).sort(cmp);
+    return { rarity: r, cards: items.length,
+             copies: items.reduce((s, x) => s + x.missing, 0),
+             cents: items.reduce((s, x) => s + (x.total || 0), 0), items };
+  });
+  if (semPreco.length) {
+    semPreco.sort((a, b) => a.set.localeCompare(b.set) || (a.cn - b.cn) || a.code.localeCompare(b.code));
+    groups.push({ rarity: QC_SEM_OFERTA, cards: semPreco.length,
+                  copies: semPreco.reduce((s, x) => s + x.missing, 0),
+                  cents: null, items: semPreco });
+  }
+  return { order: ordem, groups,
+           cards: itens.length,
+           copies: itens.reduce((s, x) => s + x.missing, 0),
+           cents: groups.reduce((s, g) => s + (g.cents || 0), 0),
+           no_price: semPreco.length };
+}
+
 function renderMasterFaltas() {
   const m = state.faltas.master;
   if (!m.copies) {
@@ -2215,41 +2272,78 @@ function renderMasterFaltas() {
     return;
   }
 
-  const sel = state.prefs.masterSet || 'all';
-  const sets = m.sets.filter(s => sel === 'all' || s.set === sel);
+  // Um `faltas.json` antigo (antes de 2026-09-15) não traz `quanto_custa`:
+  // aí os botões são as edições da lista, todas.
+  const qc = m.quanto_custa || {
+    sets: m.sets.map(s => ({ set: s.set, name: s.name })), sem_edicoes: [],
+    rarity_order: ['epic', 'rare', 'uncommon', 'common'] };
+  const comBotao = new Set(qc.sets.map(b => b.set));
+  // Uma escolha guardada que já não tem botão (o OGS, ou uma edição que saiu
+  // do catálogo) cai em «tudo» em vez de deixar a página vazia.
+  let sel = state.prefs.masterSet || 'all';
+  if (sel !== 'all' && !comBotao.has(sel)) sel = 'all';
+  const ordem = state.prefs.masterOrd === 'asc' ? 'asc' : 'desc';
+
+  const porSet = new Map(m.sets.map(s => [s.set, s]));
+  const sets = m.sets.filter(s => sel === 'all' ? comBotao.has(s.set) : s.set === sel);
   const itens = sets.flatMap(s => s.items);
-  const copias = itens.reduce((a, x) => a + x.missing, 0);
-  const cents = itens.reduce((a, x) => a + (x.total || 0), 0);
-  const semPreco = itens.filter(x => x.price == null).length;
+  const q = qcGrupos(itens, ordem, qc.rarity_order);
+  const semBotao = (qc.sem_edicoes || []).map(id => porSet.get(id)).filter(Boolean);
+  const nome = sel === 'all'
+    ? (qc.sets.length === 1 ? qc.sets[0].name : `${qc.sets.length} edições`)
+    : (qc.sets.find(b => b.set === sel) || {}).name || sel;
+
+  const rotulo = r => r === QC_SEM_OFERTA ? 'sem oferta no CardTrader' : r;
 
   $('#falta-body').innerHTML = `
-    <div class="deck-card resumo">
-      <b>${itens.length} impressões em falta</b>
-      <span>${copias} cópia${copias === 1 ? '' : 's'} · ${eur(cents)} para as comprar hoje${
-        semPreco ? ` · ${semPreco} sem preço no CardTrader` : ''}</span>
+    <div class="chips subir-rar qc-sets">
+      <button class="chip-b ${sel === 'all' ? 'is-on' : ''}" data-mset="all">
+        tudo <b>${eur(qcGrupos(m.sets.filter(s => comBotao.has(s.set)).flatMap(s => s.items),
+                              'desc', qc.rarity_order).cents)}</b></button>
+      ${qc.sets.map(b => {
+        const s = porSet.get(b.set);
+        return `<button class="chip-b ${sel === b.set ? 'is-on' : ''}" data-mset="${escapeAttr(b.set)}">
+          ${escapeHTML(b.name)} <b>${s ? eur(s.cents) : '0 €'}</b></button>`; }).join('')}
     </div>
+
+    <div class="deck-card resumo qc-resumo">
+      <b class="qc-total">${eur(q.cents)}</b>
+      <span>para comprar o que falta ao <b>master set</b> — ${escapeHTML(nome)} ·
+        ${plural(q.cards, 'impressão', 'impressões')} · ${plural(q.copies, 'cópia', 'cópias')}${
+        q.no_price ? ` · ${q.no_price} sem preço, fora da conta` : ''}</span>
+    </div>
+
+    <div class="chips subir-rar qc-ordem" role="group" aria-label="Ordem dentro de cada raridade">
+      <span class="qc-ordem-rotulo">dentro de cada raridade:</span>
+      <button class="chip-b ${ordem === 'desc' ? 'is-on' : ''}" data-mord="desc">mais caro primeiro</button>
+      <button class="chip-b ${ordem === 'asc' ? 'is-on' : ''}" data-mord="asc">mais barato primeiro</button>
+    </div>
+
+    ${q.groups.length ? q.groups.map(g => `
+      <h3 class="section-head sub qc-rar ${g.rarity === QC_SEM_OFERTA ? 'fora' : ''}">${escapeHTML(rotulo(g.rarity))}
+        <span>${plural(g.cards, 'impressão', 'impressões')} · ${plural(g.copies, 'cópia', 'cópias')} ·
+          <b>${g.cents == null ? 'sem preço' : eur(g.cents)}</b></span></h3>
+      <div class="mf-lista">${g.items.map(mfLinha).join('')}</div>`).join('')
+      : `<p class="empty">Não falta nada desta edição ao master set.</p>`}
+
+    ${q.groups.length > 1 ? `<div class="deck-card resumo qc-resumo qc-fim">
+      <b class="qc-total">${eur(q.cents)}</b>
+      <span>ao todo — ${q.groups.filter(g => g.cents != null).map(g =>
+        `${escapeHTML(rotulo(g.rarity))} ${eur(g.cents)}`).join(' + ')}${
+        q.no_price ? ` · ${q.no_price} sem oferta, fora da conta` : ''}</span>
+    </div>` : ''}
 
     <p class="note">Tudo o que falta ao <b>master set</b> — o mesmo âmbito da
       barra de progresso da Coleção, com a mesma regra do filtro <i>Faltas</i>
-      da grelha: conta enquanto <b>cópias + a caminho &lt; alvo</b>.
-      Por edição e número de coleção.
+      da grelha: conta enquanto <b>cópias + a caminho &lt; alvo</b>. Por
+      raridade, da mais rara para a mais comum, e dentro de cada raridade por
+      preço de cada carta; o subtotal é preço × cópias em falta.
+      ${semBotao.length ? `<br>Sem botão, a pedido (2026-09-15): ${semBotao.map(s =>
+        `<b>${escapeHTML(s.name)}</b> — ${plural(s.copies, 'cópia', 'cópias')} · ${eur(s.cents)}`).join(', ')};
+        continua na wantlist do fim da Coleção.` : ''}
       ${foraTexto(m.scope)}
-      ${semPreco ? `<br>${semPreco} não têm oferta no CardTrader: entram na lista
-        mas não no total, por isso o custo é <i>pelo menos</i> isto.` : ''}</p>
-
-    <div class="chips subir-rar">
-      <button class="chip-b ${sel === 'all' ? 'is-on' : ''}" data-mset="all">
-        todas <b>${m.copies}</b></button>
-      ${m.sets.map(s => `
-        <button class="chip-b ${sel === s.set ? 'is-on' : ''}" data-mset="${escapeAttr(s.set)}">
-          ${escapeHTML(s.name)} <b>${s.copies}</b></button>`).join('')}
-    </div>
-
-    ${sets.map(s => `
-      <h3 class="section-head sub">${escapeHTML(s.name)}
-        <span>${s.copies} cópia${s.copies === 1 ? '' : 's'} de ${s.cards}
-          impress${s.cards === 1 ? 'ão' : 'ões'} · ${eur(s.cents)}</span></h3>
-      <div class="mf-lista">${s.items.map(mfLinha).join('')}</div>`).join('')}
+      ${q.no_price ? `<br>${q.no_price} não têm oferta no CardTrader: ficam no grupo do
+        fim e fora do total, por isso o custo é <i>pelo menos</i> isto.` : ''}</p>
 
     ${cmZonaHTML('mfalta')}`;
 
@@ -2258,7 +2352,13 @@ function renderMasterFaltas() {
       state.prefs.masterSet = b.dataset.mset; savePrefs(); renderMasterFaltas();
     };
   }
-  // A lista sai com o filtro de edição que estiver activo.
+  for (const b of document.querySelectorAll('[data-mord]')) {
+    b.onclick = () => {
+      state.prefs.masterOrd = b.dataset.mord; savePrefs(); renderMasterFaltas();
+    };
+  }
+  // A lista do Cardmarket sai com o filtro de edição que estiver activo, na
+  // ordem do binder (número de coleção) — é a ordem do gerador em Python.
   cmLigar('mfalta', () => itens, `riftvault-master-faltas-${hojeISO()}.csv`);
 }
 
