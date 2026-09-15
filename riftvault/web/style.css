@@ -681,6 +681,10 @@ body.readonly .dtile .steppers.enc { display: none; }
 .qc-ordem { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .qc-ordem-rotulo { font-size: 12px; color: var(--dim); margin-right: 2px; }
 .qc-rar span b { color: var(--text); }
+.qc-rar small { font-size: 11px; color: var(--dim); font-weight: 400; margin-left: 6px; }
+/* O rodapé de um grupo cortado ao topo: o que não se vê, e o «ver todas». */
+.qc-corte { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 4px 0 10px; }
+.btn.mini { padding: 2px 10px; font-size: 12px; }
 
 /* Os três botões das listas do Cardmarket, lado a lado. */
 .cm-botoes { display: flex; flex-wrap: wrap; gap: 8px; }

@@ -2370,6 +2370,12 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   abre na «Master set», com um botão por edição do catálogo (menos o OGS) e
   «tudo», por raridade e por preço com inversor, subtotais e total, sem preço
   no fim. Só apresentação: percentagem, wantlist e valor não mexem.
+- **Feito também:** o «Quanto custa» só por edição (2026-09-15, tarde) — as
+  abas por deck (Staples, Por deck, Pimp decks) passaram para o separador
+  Decks; nas raras, incomuns e comuns só se vêem as 5 mais caras de cada
+  (`quanto_custa.top_por_raridade`), com rodapé do que ficou de fora e «ver
+  todas»; épicas todas; subtotais, total e wantlist contam tudo. A língua
+  das ofertas passou a config (`precos.linguas`), já era só inglês.
 - **Por fazer:** vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck,
   com as partilhadas assinaladas); e apagar decks pela interface (hoje apaga-se
   o `.txt`).
@@ -2667,4 +2673,79 @@ leem-se «9/3» a verde — a leitura de «se eu tiver mais adiciono na mesma».
 `tests/test_runas_3.py` fixa a regra (era referido por cinco testes e não
 existia); `test_niveis`, `test_contador_bloco` e `test_wantlist_edicao`
 descreviam a runa a 1 e foram ajustados.
+
+## 15/09/2026, à tarde — «Quanto custa»: só inglês, por edição, top 5 por raridade
+
+Palavras dele: *"apenas cartas versao ingles"* / *"no quanto custa, quero as
+mais caras por edicao, nao por deck, e quero em cada edicao o top5 de mais
+caras de comuns, e top5 de incomuns, e top5 de Raras"* / *"miticas e AltArt
+nao precisa fazer isto"*. Ramo `ai-pc/top5-2026-09-15`; relatório em
+`ai-pc/work/revisao/riftvault-top5.md`.
+
+**1. Só inglês — já era, e passou a estar à vista.** O `prices._usable` já
+exigia `riftbound_language == "en"` desde 2026-08-31 (`LANGUAGE`, fixo no
+código): cada oferta do CardTrader traz a língua (`en`, `fr`, `zh-CN`, … —
+vê-se no `tests/fixtures/cardtrader-ogs-market.json`, que é um snapshot real)
+e as outras nunca entraram no preço nem nas contagens da oferta. A RiftScribe
+**não tem língua por impressão** — o catálogo é o das cartas em inglês, não
+há segunda língua para filtrar. Passou a `precos.linguas: ["en"]`
+(`riftvault_config.json` e `config.DEFAULTS`, lido por `prices.linguas`),
+com `_precos_nota`; a lista vazia rebenta. **Os preços e a wantlist NÃO
+mudaram com isto** — medido na mesma corrida, antes e depois: níveis
+850/763/686 de 928, wantlist «tudo» 231 · 436 · 1 629,91 €, valor
+2 144,86 €. Na lista do Cardmarket a língua **não se marca no texto** — é um
+filtro por entrada na interface deles, como o foil — e a nota por baixo da
+caixa passou a dizê-lo.
+
+**2. Por edição, não por deck.** O separador tinha seis abas e três eram por
+deck: Staples, Por deck e Pimp decks. Saíram daqui e **vivem no separador
+Decks, a seguir às Encomendas** (`DECK_FALTA_TABS` no `app.js`, ids
+`staples`/`pordeck`/`pimp` em `state.deckId`). Nada se apagou: são os mesmos
+dados do `faltas.json` e as mesmas funções de desenho (`renderStaples`,
+`renderPorDeck`, `renderPimp`); o que muda é onde escrevem — `faltaSaida`
+lê do estado se está no separador Decks e devolve `#deck-head`/`#deck-body`
+ou `#falta-head`/`#falta-body`. O cabeçalho «Falta comprar aos decks»
+(`FALTA_HEAD`) foi com elas. O «Quanto custa» ficou com **Master set, A subir
+e A caminho**; uma escolha guardada de uma aba que mudou de sítio cai na
+primeira. A página de cada deck já tinha o «Em falta, por edição» e o CSV —
+o que só existia aqui (Staples, «Todos juntos», Pimp) é o que se mudou.
+
+**3. Top 5 por raridade, em cada edição.** `quanto_custa.top_por_raridade: 5`
+e `quanto_custa.raridades_com_top: ["rare", "uncommon", "common"]`
+(`riftvault_config.json` e `config.DEFAULTS`, `_quanto_custa_top_nota`).
+`a_subir.por_raridade(itens, ordem, top)` mantém `items` inteiro no grupo e
+acrescenta `top`, `top_ids` (as que se vêem fechado — as `n` mais caras, as
+mesmas seja qual for o inversor) e `hidden` (`cards`/`copies`/`cents` do que
+não se vê); um grupo que caiba não leva corte. O gémeo `qcGrupos` do
+`app.js` faz o mesmo, comparado ao Python nas 10 combinações edição × ordem
+contra o `data/` real (0 diferenças). O rodapé de cada grupo cortado diz
+«mais N raras · K cópias · X € que não se vêem, mas contam no subtotal» com
+um **ver todas** (abre o grupo, não se guarda). **As épicas mostram-se
+todas** — é a raridade de topo no catálogo da RiftScribe, não há «mítica»;
+as artes alternativas já não chegam a este separador desde a manhã
+(`listas_de_compra.so_master_set`), confirmado: 0 no âmbito. **O subtotal de
+cada raridade, o total do separador e a wantlist contam tudo** — a wantlist
+sai dos `items`, não do que se vê; `test_top5` fixa que o total é o mesmo do
+`master_faltas` e maior que a soma do visível.
+
+**No «tudo»** (as quatro edições com botão) o top 5 é sobre as quatro
+juntas, não 5 por edição — ele pediu «em cada edição», e é isso que os
+botões por edição dão; o «tudo» é o resumo. Se quiser 5 por edição também no
+«tudo», é agrupar por `set` antes de cortar.
+
+**Medido a 2026-09-15 no `main` (`c0d8823`) e no ramo, mesma corrida, mesmo
+`data/`:** os três invariantes iguais (acima). «Quanto custa» «tudo» 218
+impressões · 423 cópias · **1 611,88 €** nos dois; o que o corte esconde do
+ecrã: raras 25 de 30 (8,37 €), incomuns 49 de 54 (9,83 €), comuns 3 de 8
+(0,33 €) — 18,53 € em 77 linhas, todos no subtotal. Por edição: OGN 784,02 €
+(raras 15 de 20 fora, incomuns 37 de 42, comuns 3 de 8), SFD 360,41 € (raras
+3 de 8, incomuns 7 de 12), UNL 319,56 € (só épicas, nada cortado), VEN
+147,89 € (2 raras, nada cortado).
+
+`tests/test_top5.py` (20 testes, contra cópias e config temporário): a
+oferta noutra língua não entra, a lista do config manda, vazia rebenta; sete
+comuns → cinco vistas e «mais 2» com a soma certa; subtotal e total contam as
+sete; épicas todas; um grupo que cabe não leva corte; `top_por_raridade: 3`
+corta a 3, `0` desliga; o inversor mostra as mesmas cinco ao contrário; o
+payload leva o corte; e o separador não tem abas por deck (lê o `app.js`).
 

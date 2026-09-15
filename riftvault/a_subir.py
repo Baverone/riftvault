@@ -661,7 +661,12 @@ def master_faltas(con: sqlite3.Connection, cfg: dict | None = None,
         # segunda ordem. A lista em si não muda — é a mesma, arrumada de outra
         # maneira pelo `por_raridade` (e pelo gémeo `qcGrupos` do app.js).
         "quanto_custa": {**edicoes_quanto_custa(con, cfg),
-                         "rarity_order": list(RARIDADES_POR_PRECO)},
+                         "rarity_order": list(RARIDADES_POR_PRECO),
+                         # O corte do topo (2026-09-15): o número e as raridades
+                         # vêm do config, para o `qcGrupos` do app.js cortar
+                         # igual ao `por_raridade`.
+                         "top": top_por_raridade(cfg)["n"],
+                         "top_rarities": sorted(top_por_raridade(cfg)["raridades"])},
     }
 
 
@@ -684,6 +689,14 @@ QUANTO_CUSTA_DEFAULTS: dict = {
     # (2026-09-15: "para cada set (menos proving grounds) um botão"). As outras
     # nascem do catálogo — uma edição nova ganha botão sozinha.
     "sem_edicoes": ["OGS"],
+    # O TOPO de cada raridade (2026-09-15, à tarde: "em cada edicao o top5 de
+    # mais caras de comuns, e top5 de incomuns, e top5 de Raras" / "miticas e
+    # AltArt nao precisa fazer isto"). Nas raridades de `raridades_com_top`
+    # mostram-se só as `top_por_raridade` mais caras; as épicas — a raridade de
+    # topo no catálogo da RiftScribe, não há «mítica» — não estão na lista e
+    # mostram-se todas. É SÓ o que se vê: os subtotais e o total contam tudo.
+    "top_por_raridade": 5,
+    "raridades_com_top": ["rare", "uncommon", "common"],
 }
 
 # Da mais rara para a mais comum. O separador existe para ele reparar no
@@ -719,7 +732,21 @@ def edicoes_quanto_custa(con: sqlite3.Connection, cfg: dict | None = None) -> di
     }
 
 
-def por_raridade(itens: list[dict], ordem: str = "desc") -> dict:
+def top_por_raridade(cfg: dict | None = None) -> dict:
+    """O corte do topo: `{"n": 5, "raridades": {"rare", "uncommon", "common"}}`.
+
+    `n` a 0 (ou `None`) desliga o corte. As raridades comparam-se em
+    minúsculas, como o catálogo as escreve.
+    """
+    o = quanto_custa_opcoes(cfg)
+    n = o.get("top_por_raridade")
+    n = int(n) if n else 0
+    if n < 0:
+        raise ValueError(f"quanto_custa.top_por_raridade não pode ser negativo: {n}")
+    return {"n": n, "raridades": {str(r).lower() for r in (o.get("raridades_com_top") or [])}}
+
+
+def por_raridade(itens: list[dict], ordem: str = "desc", top: dict | None = None) -> dict:
     """Arruma os itens do `master_faltas` por raridade e, dentro dela, por preço.
 
     `ordem` é `"desc"` (do mais caro para o mais barato — a omissão, porque o
@@ -733,6 +760,14 @@ def por_raridade(itens: list[dict], ordem: str = "desc") -> dict:
     ser a mesma em Python e no browser. Uma carta SEM preço não entra em
     raridade nenhuma: vai para um grupo próprio no fim (`SEM_OFERTA`), com
     subtotal a `None` — não conta como zero.
+
+    `top` (ver `top_por_raridade`) é o corte de 2026-09-15: nas raridades que
+    ele nomeou só se MOSTRAM as `n` mais caras. O grupo leva todas as linhas
+    na mesma — `items` é a lista inteira, e é dela que saem o subtotal, o
+    total e a wantlist —, mais `top_ids` (as que se vêem fechado) e `hidden`
+    (quantas ficaram de fora e quanto somam), para o rodapé dizer o que
+    cortou. Cortar sem dizer o que se cortou escondia-lhe dinheiro. Um grupo
+    que caiba inteiro não leva corte nenhum.
 
     Devolve os grupos e os totais do que recebeu: `cents` é a soma dos
     subtotais, e cada subtotal a soma dos `total` das linhas do grupo.
@@ -753,13 +788,27 @@ def por_raridade(itens: list[dict], ordem: str = "desc") -> dict:
     for r in raridades:
         linhas = sorted(grupos[r], key=lambda x: (sinal * x["price"], sinal * (x["total"] or 0),
                                                   x["set"], x["cn"], x["code"]))
-        saida.append({
+        g = {
             "rarity": r,
             "cards": len(linhas),
             "copies": sum(x["missing"] for x in linhas),
             "cents": sum(x["total"] or 0 for x in linhas),
             "items": linhas,
-        })
+        }
+        n = top["n"] if top and r in top["raridades"] else 0
+        if n and len(linhas) > n:
+            # As mais caras são as mesmas seja qual for a ordem do ecrã: o
+            # inversor muda como se lêem, não quais são.
+            caras = sorted(linhas, key=lambda x: (-x["price"], -(x["total"] or 0),
+                                                  x["set"], x["cn"], x["code"]))[:n]
+            ids = {x["printing_id"] for x in caras}
+            fora = [x for x in linhas if x["printing_id"] not in ids]
+            g["top"] = n
+            g["top_ids"] = [x["printing_id"] for x in linhas if x["printing_id"] in ids]
+            g["hidden"] = {"cards": len(fora),
+                           "copies": sum(x["missing"] for x in fora),
+                           "cents": sum(x["total"] or 0 for x in fora)}
+        saida.append(g)
     if None in grupos:
         linhas = sorted(grupos[None], key=lambda x: (x["set"], x["cn"], x["code"]))
         saida.append({
@@ -802,7 +851,7 @@ def quanto_custa(con: sqlite3.Connection, cfg: dict | None = None,
         "sets": p["quanto_custa"]["sets"],
         "sem_edicoes": p["quanto_custa"]["sem_edicoes"],
         "scope": p["scope"],
-        **por_raridade(itens, ordem),
+        **por_raridade(itens, ordem, top_por_raridade(cfg)),
     }
 
 

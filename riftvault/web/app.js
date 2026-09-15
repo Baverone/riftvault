@@ -1057,9 +1057,11 @@ async function loadDecks() {
   const d = await getJSON('api/decks.json');
   state.decks = d.decks;
   renderDeckTabs();
-  const first = state.prefs.deck === 'encomendas' || state.decks.some(x => x.id === state.prefs.deck)
+  const first = state.prefs.deck === 'encomendas' || DECK_FALTA_IDS.includes(state.prefs.deck)
+    || state.decks.some(x => x.id === state.prefs.deck)
     ? state.prefs.deck : (state.decks[0] && state.decks[0].id);
   if (first === 'encomendas') await loadEncomendas();
+  else if (DECK_FALTA_IDS.includes(first)) await loadDeckFaltas(first);
   else if (first) await loadDeck(first);
   else $('#deck-body').innerHTML = '<p class="empty">Não há decks. Mete um .txt em <code>decks/</code>.</p>';
 }
@@ -1091,6 +1093,15 @@ function renderDeckTabs() {
   enc.innerHTML = `Encomendas<small>${aCaminho ? `${aCaminho} a caminho` : 'nada a caminho'}</small>`;
   enc.onclick = () => loadEncomendas();
   nav.appendChild(enc);
+  // As abas por deck que viviam no «Quanto custa» até 2026-09-15 (Staples,
+  // Por deck, Pimp decks): o contador só se sabe depois do `faltas.json`.
+  for (const t of DECK_FALTA_TABS) {
+    const b = document.createElement('button');
+    b.className = 'tab' + (state.deckId === t.id ? ' is-on' : '');
+    b.innerHTML = `${t.label}<small>${contadorFalta(t.id) || t.sub}</small>`;
+    b.onclick = () => loadDeckFaltas(t.id);
+    nav.appendChild(b);
+  }
 }
 
 async function loadDeck(deckId) {
@@ -1501,15 +1512,18 @@ function cardNome(ck) {
    Faltas e as wantlists da Coleção descontam o que vem a caminho. Recarrega-se
    o deck aberto e marca-se o resto como velho. */
 async function recarregarEncomendas() {
-  state.decks = (await getJSON('api/decks.json')).decks;
-  renderDeckTabs();
-  if (state.deckId === 'encomendas') await loadEncomendas();
-  else await loadDeck(state.deckId);
   // O `faltas.json` (secção Faltas e wantlists da Coleção) ficou velho: o que
   // vem a caminho sai das listas de compra. Marca-se e deita-se fora, para a
   // próxima visita o pedir de novo — não se pede já, são centenas de KB.
+  // Antes de redesenhar, porque uma aba por deck aberta no separador Decks
+  // pede-o outra vez já a seguir.
   wlDesatualizar();
   state.faltas = null;
+  state.decks = (await getJSON('api/decks.json')).decks;
+  renderDeckTabs();
+  if (state.deckId === 'encomendas') await loadEncomendas();
+  else if (DECK_FALTA_IDS.includes(state.deckId)) await loadDeckFaltas(state.deckId);
+  else await loadDeck(state.deckId);
 }
 
 /* «Chegou» numa linha do deck: tudo o que está a caminho DESSA carta entra na
@@ -1760,15 +1774,52 @@ function showSection(name) {
 
 /* A «Master set» vem primeiro e é a aba por omissão desde 2026-09-15: o
    separador passou a chamar-se «Quanto custa» e é ela que responde ao preço
-   (um botão por edição, por raridade, por preço). As outras cinco ficaram. */
+   (um botão por edição, por raridade, por preço).
+
+   As abas POR DECK — Staples, Por deck, Pimp decks — saíram daqui nessa tarde
+   (André: "quero as mais caras por edicao, nao por deck") e vivem no separador
+   Decks, a seguir às Encomendas (`DECK_FALTA_TABS`). São os mesmos dados do
+   `faltas.json` e as mesmas funções de desenho; o que muda é onde se escreve
+   (`faltaSaida`). Nada se perdeu: mudou de separador. */
 const FALTA_TABS = [
   { id: 'master', label: 'Master set', sub: 'o que falta à coleção, por preço' },
-  { id: 'staples', label: 'Staples', sub: 'pedidas por vários decks' },
-  { id: 'deck', label: 'Por deck', sub: 'o que falta a cada um' },
   { id: 'spike', label: 'A subir', sub: 'do master set, o que ainda não tens' },
-  { id: 'pimp', label: 'Pimp decks', sub: 'versões alteradas das cartas dos decks' },
   { id: 'caminho', label: 'A caminho', sub: 'comprado, ainda não chegou' },
 ];
+
+/* As abas dos DECKS que vivem do `faltas.json`. Os ids não podem colidir com
+   um slug de deck nem com 'encomendas' — é o `state.deckId` que os guarda. */
+const DECK_FALTA_TABS = [
+  { id: 'staples', label: 'Staples', sub: 'pedidas por vários decks' },
+  { id: 'pordeck', label: 'Por deck', sub: 'o que falta a cada um' },
+  { id: 'pimp', label: 'Pimp decks', sub: 'versões alteradas das cartas dos decks' },
+];
+const DECK_FALTA_IDS = DECK_FALTA_TABS.map(t => t.id);
+
+/* Onde as funções de desenho das faltas escrevem: o separador «Quanto custa»
+   ou, nas abas por deck, o separador Decks. Lê-se do estado no momento de
+   escrever — um clique num sub-botão («Todos juntos», um deck do Pimp) tem de
+   ir para o mesmo sítio onde a aba está, esteja onde estiver. */
+const faltaSaida = {
+  get emDecks() { return state.prefs.section === 'decks' && DECK_FALTA_IDS.includes(state.deckId); },
+  get head() { return this.emDecks ? '#deck-head' : '#falta-head'; },
+  get body() { return this.emDecks ? '#deck-body' : '#falta-body'; },
+};
+
+function contadorFalta(id) {
+  const f = state.faltas;
+  if (!f) return '';
+  if (id === 'staples') return plural(f.staples.length, 'carta', 'cartas');
+  if (id === 'pordeck') return plural(f.por_deck.reduce((s, d) => s + d.copies, 0), 'cópia', 'cópias');
+  if (id === 'spike') return f.a_subir.ready
+    ? plural(f.a_subir.items.length, 'carta', 'cartas') : 'sem histórico';
+  if (id === 'master') return plural(f.master.copies, 'cópia', 'cópias');
+  if (id === 'pimp') return plural(f.pimp.by_deck.reduce((s, d) => s + d.printings, 0),
+                                   'versão', 'versões');
+  if (id === 'caminho') return f.pending.copies
+    ? plural(f.pending.copies, 'cópia', 'cópias') : 'nada';
+  return '';
+}
 
 async function loadFaltas() {
   await garanteFaltas();
@@ -1779,24 +1830,38 @@ async function loadFaltas() {
 function renderFaltaTabs() {
   const nav = $('#falta-tabs');
   nav.innerHTML = '';
-  const f = state.faltas;
+  // Uma escolha guardada de uma aba que mudou de separador cai na primeira.
+  if (!FALTA_TABS.some(t => t.id === state.prefs.falta)) state.prefs.falta = FALTA_TABS[0].id;
   for (const t of FALTA_TABS) {
     const b = document.createElement('button');
     b.className = 'tab' + (t.id === state.prefs.falta ? ' is-on' : '');
-    let n = '';
-    if (t.id === 'staples') n = plural(f.staples.length, 'carta', 'cartas');
-    if (t.id === 'deck') n = plural(f.por_deck.reduce((s, d) => s + d.copies, 0), 'cópia', 'cópias');
-    if (t.id === 'spike') n = f.a_subir.ready
-      ? plural(f.a_subir.items.length, 'carta', 'cartas') : 'sem histórico';
-    if (t.id === 'master') n = plural(f.master.copies, 'cópia', 'cópias');
-    if (t.id === 'pimp') n = plural(f.pimp.by_deck.reduce((s, d) => s + d.printings, 0),
-                                    'versão', 'versões');
-    if (t.id === 'caminho') n = f.pending.copies
-      ? plural(f.pending.copies, 'cópia', 'cópias') : 'nada';
-    b.innerHTML = `${t.label}<small>${n}</small>`;
+    b.innerHTML = `${t.label}<small>${contadorFalta(t.id)}</small>`;
     b.onclick = () => { state.prefs.falta = t.id; savePrefs(); renderFaltaTabs(); renderFaltas(); };
     nav.appendChild(b);
   }
+}
+
+/* Uma das abas por deck, dentro do separador Decks. Passa pelo mesmo
+   `garanteFaltas` das wantlists e do «Quanto custa» — o ficheiro é um só. */
+async function loadDeckFaltas(id) {
+  state.deckId = id;
+  state.prefs.deck = id;
+  savePrefs();
+  renderDeckTabs();
+  $('#deck-head').innerHTML = '';
+  $('#deck-body').innerHTML = '<p class="empty">a carregar…</p>';
+  try {
+    await garanteFaltas();
+  } catch (err) {
+    $('#deck-body').innerHTML = `<p class="empty">${escapeHTML(err.message)}</p>`;
+    return;
+  }
+  if (state.deckId !== id) return;      // entretanto abriu outro separador
+  renderDeckTabs();                     // agora com os contadores
+  $(faltaSaida.head).innerHTML = FALTA_HEAD.includes(id) ? faltaHead() : '';
+  if (id === 'staples') renderStaples();
+  else if (id === 'pordeck') renderPorDeck();
+  else renderPimp();
 }
 
 /* O cabeçalho é a carência GLOBAL DOS DECKS (`faltas.shortfall`): tudo o que
@@ -1805,8 +1870,9 @@ function renderFaltaTabs() {
    Staples e o Por deck — e nas outras estava a mentir: por cima de «614 impressões em falta · 21 567,33 €»
    do master set lia-se «Falta comprar 25 cartas · 34 cópias · 356,91 €», que é
    outra pergunta. Por isso passou a ter o âmbito no título e a aparecer só
-   onde é a conta da página (ver `FALTA_HEAD`). */
-const FALTA_HEAD = ['staples', 'deck'];
+   onde é a conta da página (ver `FALTA_HEAD`) — e desde 2026-09-15 essas duas
+   abas vivem no separador Decks. */
+const FALTA_HEAD = ['staples', 'pordeck'];
 
 function faltaHead() {
   const f = state.faltas;
@@ -1830,33 +1896,24 @@ function faltaHead() {
   </div>`;
 }
 
-function renderFaltas() {
+function renderStaples() {
   const f = state.faltas;
+  $(faltaSaida.body).innerHTML = f.staples.length ? `
+    <p class="note">Cartas que <b>mais do que um deck</b> pede e que não tens
+      em número suficiente. São as que rendem mais por euro — uma compra
+      serve vários decks.</p>
+    <div class="grid deck-grid">${f.staples.map(staplTile).join('')}</div>`
+    : '<p class="empty">Nenhuma carta é pedida por dois decks ao mesmo tempo.</p>';
+}
+
+function renderFaltas() {
   const which = state.prefs.falta;
-  $('#falta-head').innerHTML = FALTA_HEAD.includes(which) ? faltaHead() : '';
-
-  if (which === 'staples') {
-    $('#falta-body').innerHTML = f.staples.length ? `
-      <p class="note">Cartas que <b>mais do que um deck</b> pede e que não tens
-        em número suficiente. São as que rendem mais por euro — uma compra
-        serve vários decks.</p>
-      <div class="grid deck-grid">${f.staples.map(staplTile).join('')}</div>`
-      : '<p class="empty">Nenhuma carta é pedida por dois decks ao mesmo tempo.</p>';
-    return;
-  }
-
-  if (which === 'deck') {
-    renderPorDeck();
-    return;
-  }
+  // Nenhuma das abas deste separador é a conta dos decks: o cabeçalho «Falta
+  // comprar aos decks» foi com elas para o separador Decks.
+  $('#falta-head').innerHTML = '';
 
   if (which === 'master') {
     renderMasterFaltas();
-    return;
-  }
-
-  if (which === 'pimp') {
-    renderPimp();
     return;
   }
 
@@ -1903,7 +1960,7 @@ function renderASubir() {
   const sp = state.faltas.a_subir;
 
   if (!sp.ready) {
-    $('#falta-body').innerHTML = `<div class="aviso">
+    $(faltaSaida.body).innerHTML = `<div class="aviso">
       <b>Ainda não há com que comparar.</b>
       <p>${sp.days_recorded
         ? `Já há ${sp.days_recorded === 1 ? 'um dia' : `${sp.days_recorded} dias`} de preços
@@ -1931,7 +1988,7 @@ function renderASubir() {
   // `prices.db` for novo são todas, e a página tem de o dizer.
   const parciais = lista.filter(x => !x.full_window).length;
 
-  $('#falta-body').innerHTML = `
+  $(faltaSaida.body).innerHTML = `
     <div class="seg seg-wrap">
       <button class="seg-btn ${ord === 'pct' ? 'is-on' : ''}" data-subir="pct">
         Por % <b>${sp.items.length}</b></button>
@@ -2148,7 +2205,11 @@ function cmMostrar(id, itens, comCodigo, { foco = true, copiar = true } = {}) {
   const resumo = `${linhas.length} linhas · ${copias} cópias · ${eur(cents)}`
     + (comCodigo ? ' · com código, para desambiguar à mão (o Cardmarket não lê os [ ])' : '');
 
-  const destino = 'Cola na wantlist do Cardmarket.';
+  // A língua também não se marca no texto: no Cardmarket é um filtro por
+  // entrada, como o foil. Os preços daqui são só de ofertas em inglês
+  // (`precos.linguas`), por isso diz-se para ligar o mesmo lá.
+  const destino = 'Cola na wantlist do Cardmarket e liga o filtro de língua '
+    + '(inglês) — os preços daqui são só de ofertas em inglês.';
   if (!copiar) {
     nota.textContent = `${resumo} — carrega em copiar, ou seleciona e copia à mão.`;
   } else if (navigator.clipboard && window.isSecureContext) {
@@ -2228,10 +2289,19 @@ function hojeISO() {
    escolhas. As sem preço vão para um grupo próprio no fim.
 
    O `qcGrupos` é o gémeo do `a_subir.por_raridade`: mesma ordem, mesmos
-   desempates, para os dois darem a mesma resposta. */
+   desempates, para os dois darem a mesma resposta.
+
+   O TOPO (2026-09-15, à tarde): "em cada edicao o top5 de mais caras de
+   comuns, e top5 de incomuns, e top5 de Raras" / "miticas e AltArt nao
+   precisa fazer isto". `top` é `{ n, rarities }` (do servidor, que o lê do
+   config): nas raridades nomeadas só se MOSTRAM as `n` mais caras — o grupo
+   guarda as linhas todas (`items`), diz quais se vêem fechado (`top_ids`) e
+   quantas ficaram de fora e quanto somam (`hidden`). O subtotal, o total e a
+   wantlist contam tudo: cortar sem dizer o que se cortou escondia-lhe
+   dinheiro. As épicas não estão na lista e mostram-se todas. */
 const QC_SEM_OFERTA = 'sem_oferta';
 
-function qcGrupos(itens, ordem, rarityOrder) {
+function qcGrupos(itens, ordem, rarityOrder, top = null) {
   const pos = r => { const i = rarityOrder.indexOf(r); return i < 0 ? rarityOrder.length : i; };
   const porRar = new Map();
   const semPreco = [];
@@ -2245,12 +2315,26 @@ function qcGrupos(itens, ordem, rarityOrder) {
   const cmp = (a, b) => sinal * (a.price - b.price)
     || sinal * ((a.total || 0) - (b.total || 0))
     || a.set.localeCompare(b.set) || (a.cn - b.cn) || a.code.localeCompare(b.code);
+  // As mais caras são as mesmas seja qual for a ordem do ecrã.
+  const cmpCaro = (a, b) => (b.price - a.price) || ((b.total || 0) - (a.total || 0))
+    || a.set.localeCompare(b.set) || (a.cn - b.cn) || a.code.localeCompare(b.code);
   const rars = [...porRar.keys()].sort((a, b) => (pos(a) - pos(b)) || a.localeCompare(b));
   const groups = rars.map(r => {
     const items = porRar.get(r).sort(cmp);
-    return { rarity: r, cards: items.length,
-             copies: items.reduce((s, x) => s + x.missing, 0),
-             cents: items.reduce((s, x) => s + (x.total || 0), 0), items };
+    const g = { rarity: r, cards: items.length,
+                copies: items.reduce((s, x) => s + x.missing, 0),
+                cents: items.reduce((s, x) => s + (x.total || 0), 0), items };
+    const n = top && top.rarities.has(r) ? top.n : 0;
+    if (n && items.length > n) {
+      const ids = new Set([...items].sort(cmpCaro).slice(0, n).map(x => x.printing_id));
+      const fora = items.filter(x => !ids.has(x.printing_id));
+      g.top = n;
+      g.top_ids = items.filter(x => ids.has(x.printing_id)).map(x => x.printing_id);
+      g.hidden = { cards: fora.length,
+                   copies: fora.reduce((s, x) => s + x.missing, 0),
+                   cents: fora.reduce((s, x) => s + (x.total || 0), 0) };
+    }
+    return g;
   });
   if (semPreco.length) {
     semPreco.sort((a, b) => a.set.localeCompare(b.set) || (a.cn - b.cn) || a.code.localeCompare(b.code));
@@ -2268,7 +2352,7 @@ function qcGrupos(itens, ordem, rarityOrder) {
 function renderMasterFaltas() {
   const m = state.faltas.master;
   if (!m.copies) {
-    $('#falta-body').innerHTML = `<p class="empty">Não falta nada ao master set.</p>`;
+    $(faltaSaida.body).innerHTML = `<p class="empty">Não falta nada ao master set.</p>`;
     return;
   }
 
@@ -2287,15 +2371,41 @@ function renderMasterFaltas() {
   const porSet = new Map(m.sets.map(s => [s.set, s]));
   const sets = m.sets.filter(s => sel === 'all' ? comBotao.has(s.set) : s.set === sel);
   const itens = sets.flatMap(s => s.items);
-  const q = qcGrupos(itens, ordem, qc.rarity_order);
+  // O corte do topo vem do servidor (config). Um `faltas.json` antigo não o
+  // traz: aí não há corte, como não havia.
+  const top = qc.top ? { n: qc.top, rarities: new Set(qc.top_rarities || []) } : null;
+  const q = qcGrupos(itens, ordem, qc.rarity_order, top);
   const semBotao = (qc.sem_edicoes || []).map(id => porSet.get(id)).filter(Boolean);
   const nome = sel === 'all'
     ? (qc.sets.length === 1 ? qc.sets[0].name : `${qc.sets.length} edições`)
     : (qc.sets.find(b => b.set === sel) || {}).name || sel;
 
   const rotulo = r => r === QC_SEM_OFERTA ? 'sem oferta no CardTrader' : r;
+  const plRar = (n, r) => `${n} ${r === 'common' ? (n === 1 ? 'comum' : 'comuns')
+    : r === 'uncommon' ? (n === 1 ? 'incomum' : 'incomuns')
+    : r === 'rare' ? (n === 1 ? 'rara' : 'raras')
+    : r === 'epic' ? (n === 1 ? 'épica' : 'épicas') : escapeHTML(r)}`;
+  // «ver todas» abre o grupo até se mudar de edição — não se guarda: ele pediu
+  // o topo, e o topo é o que abre.
+  state.qcAbertos = state.qcAbertos || new Set();
+  const chave = g => `${sel}|${g.rarity}`;
+  const linhasDe = g => {
+    if (!g.top_ids || state.qcAbertos.has(chave(g))) return g.items;
+    const ids = new Set(g.top_ids);
+    return g.items.filter(x => ids.has(x.printing_id));
+  };
+  const rodape = g => {
+    if (!g.top_ids) return '';
+    const aberto = state.qcAbertos.has(chave(g));
+    return `<p class="note qc-corte">${aberto
+      ? `as ${g.cards} ${plRar(g.cards, g.rarity).replace(/^\d+ /, '')}, todas`
+      : `as <b>${g.top}</b> mais caras — mais <b>${plRar(g.hidden.cards, g.rarity)}</b> ·
+         ${plural(g.hidden.copies, 'cópia', 'cópias')} · <b>${eur(g.hidden.cents)}</b>
+         que não se vêem, mas contam no subtotal`}
+      <button class="btn mini" data-qcver="${escapeAttr(g.rarity)}">${aberto ? 'ver só o topo' : 'ver todas'}</button></p>`;
+  };
 
-  $('#falta-body').innerHTML = `
+  $(faltaSaida.body).innerHTML = `
     <div class="chips subir-rar qc-sets">
       <button class="chip-b ${sel === 'all' ? 'is-on' : ''}" data-mset="all">
         tudo <b>${eur(qcGrupos(m.sets.filter(s => comBotao.has(s.set)).flatMap(s => s.items),
@@ -2320,10 +2430,12 @@ function renderMasterFaltas() {
     </div>
 
     ${q.groups.length ? q.groups.map(g => `
-      <h3 class="section-head sub qc-rar ${g.rarity === QC_SEM_OFERTA ? 'fora' : ''}">${escapeHTML(rotulo(g.rarity))}
+      <h3 class="section-head sub qc-rar ${g.rarity === QC_SEM_OFERTA ? 'fora' : ''}">${escapeHTML(rotulo(g.rarity))}${
+        g.top_ids ? ` <small>top ${g.top}</small>` : ''}
         <span>${plural(g.cards, 'impressão', 'impressões')} · ${plural(g.copies, 'cópia', 'cópias')} ·
           <b>${g.cents == null ? 'sem preço' : eur(g.cents)}</b></span></h3>
-      <div class="mf-lista">${g.items.map(mfLinha).join('')}</div>`).join('')
+      <div class="mf-lista">${linhasDe(g).map(mfLinha).join('')}</div>
+      ${rodape(g)}`).join('')
       : `<p class="empty">Não falta nada desta edição ao master set.</p>`}
 
     ${q.groups.length > 1 ? `<div class="deck-card resumo qc-resumo qc-fim">
@@ -2338,6 +2450,10 @@ function renderMasterFaltas() {
       da grelha: conta enquanto <b>cópias + a caminho &lt; alvo</b>. Por
       raridade, da mais rara para a mais comum, e dentro de cada raridade por
       preço de cada carta; o subtotal é preço × cópias em falta.
+      ${top ? `Nas ${[...top.rarities].map(r => plRar(2, r).replace(/^\d+ /, '')).join(', ')}
+        só se vêem as <b>${top.n}</b> mais caras de cada — o subtotal e o total
+        contam as outras na mesma, e o rodapé de cada grupo diz quantas são.` : ''}
+      Preços só de ofertas em inglês.
       ${semBotao.length ? `<br>Sem botão, a pedido (2026-09-15): ${semBotao.map(s =>
         `<b>${escapeHTML(s.name)}</b> — ${plural(s.copies, 'cópia', 'cópias')} · ${eur(s.cents)}`).join(', ')};
         continua na wantlist do fim da Coleção.` : ''}
@@ -2355,6 +2471,13 @@ function renderMasterFaltas() {
   for (const b of document.querySelectorAll('[data-mord]')) {
     b.onclick = () => {
       state.prefs.masterOrd = b.dataset.mord; savePrefs(); renderMasterFaltas();
+    };
+  }
+  for (const b of document.querySelectorAll('[data-qcver]')) {
+    b.onclick = () => {
+      const k = `${sel}|${b.dataset.qcver}`;
+      if (state.qcAbertos.has(k)) state.qcAbertos.delete(k); else state.qcAbertos.add(k);
+      renderMasterFaltas();
     };
   }
   // A lista do Cardmarket sai com o filtro de edição que estiver activo, na
@@ -2425,7 +2548,7 @@ function renderPorDeck() {
          ? 'O que um deck de cima já usa não conta para este: compra-se.'
          : 'É o primeiro da fila, por isso serve-se primeiro.'}${sobre}</p>`;
 
-  $('#falta-body').innerHTML = `
+  $(faltaSaida.body).innerHTML = `
     <div class="seg seg-wrap">${abas}</div>
     <div class="deck-card resumo">
       <b>${sel === 'todos' ? 'Todos ao mesmo tempo' : escapeHTML(f.por_deck[sel].name)}</b>
@@ -2447,7 +2570,7 @@ function renderPorDeck() {
     <p class="note total-linha">Somando as abas dos decks:
       <b>${copias} cópias · ${eur(um)}</b> para os ter todos montados.</p>`;
 
-  for (const b of document.querySelectorAll('#falta-body .seg-btn[data-fd]')) {
+  for (const b of document.querySelectorAll(faltaSaida.body + ' .seg-btn[data-fd]')) {
     b.onclick = () => {
       const v = b.dataset.fd;
       state.prefs.faltaDeck = v === 'todos' ? 'todos' : Number(v);
@@ -2529,7 +2652,7 @@ function mostrarWantlist(alvo, comVar = false) {
 function renderPimp() {
   const p = state.faltas.pimp;
   if (!p.printings) {
-    $('#falta-body').innerHTML = '<p class="empty">Nenhuma carta dos teus decks tem versão alterada.</p>';
+    $(faltaSaida.body).innerHTML = '<p class="empty">Nenhuma carta dos teus decks tem versão alterada.</p>';
     return;
   }
   // Mesma história do "Por deck": o índice guardado pode ter sobrevivido ao
@@ -2546,7 +2669,7 @@ function renderPimp() {
         ${d.priority}. ${escapeHTML(deckCurto(d.name))}
         <b>${d.printings}</b></button>`).join('');
 
-  $('#falta-body').innerHTML = `
+  $(faltaSaida.body).innerHTML = `
     <div class="seg seg-wrap">${abas}</div>
     <div class="deck-card resumo">
       <b>${sel === 'todos' ? 'Todas as versões alteradas' : escapeHTML(p.by_deck[sel].name)}</b>
@@ -2578,7 +2701,7 @@ function renderPimp() {
       <small class="nota" id="pimp-nota" hidden></small>
     </div>`;
 
-  for (const b of document.querySelectorAll('#falta-body .seg-btn[data-pd]')) {
+  for (const b of document.querySelectorAll(faltaSaida.body + ' .seg-btn[data-pd]')) {
     b.onclick = () => {
       const v = b.dataset.pd;
       state.prefs.pimpDeck = v === 'todos' ? 'todos' : Number(v);
@@ -2640,7 +2763,7 @@ function pimpTile(x, comDecks = true) {
 function renderCaminho() {
   const p = state.faltas.pending;
   if (!p.copies) {
-    $('#falta-body').innerHTML = `<p class="empty">Nada a caminho.<br>
+    $(faltaSaida.body).innerHTML = `<p class="empty">Nada a caminho.<br>
       <small>Compraste alguma carta? Carrega no <b>+</b> dela na página do deck
       (ou <code>riftvault encomendas --mais</code>).</small></p>`;
     return;
@@ -2652,7 +2775,7 @@ function renderCaminho() {
     porSet.get(it.set_id).push(it);
   }
 
-  $('#falta-body').innerHTML = `
+  $(faltaSaida.body).innerHTML = `
     <div class="deck-card resumo">
       <b>A caminho</b>
       <span>${p.copies} cópias em ${p.lines} linhas${p.cents ? ` · ${eur(p.cents)}` : ''}</span>
@@ -2671,7 +2794,7 @@ function renderCaminho() {
             ? ` · ${eur(itens.reduce((a, x) => a + (x.unit_cents || 0) * x.qty, 0))}` : ''}</span></h3>
       <div class="grid deck-grid">${itens.map(caminhoTile).join('')}</div>`).join('')}`;
 
-  for (const b of document.querySelectorAll('#falta-body [data-chegou]')) {
+  for (const b of document.querySelectorAll(faltaSaida.body + ' [data-chegou]')) {
     b.onclick = () => chegou(Number(b.dataset.chegou), b);
   }
   const tudo = $('#chegou-tudo');
