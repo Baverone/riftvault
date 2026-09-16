@@ -19,7 +19,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from tests.fixture import Vault
+# Os decks jogam a BASE aqui: estes testes descrevem os binders com a partilha
+# de 2026-09-11, que desde 2026-09-16 só vale para as cartas sem arte
+# alternativa — e o Defy deste catálogo tem uma. Ver
+# `fixture.config_decks_sem_alt_art`. Até aqui liam o config a sério.
+from tests.fixture import Vault, config_decks_sem_alt_art  # noqa: E402
+
+config_decks_sem_alt_art()
 
 DECK_AZIR = """Legend:
 1 Emperor of the Sands

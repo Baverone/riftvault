@@ -157,15 +157,20 @@ class TestTresBlocos(Base):
         self.collection.adjust(con, "aaa-031", 1, source="test")
         self.assertIsNone(self.item(self.fe.payload(con), "AAA", "overnumbered", "aaa-031"))
 
-    def test_arte_alternativa_com_1_de_3_falta_2(self):
+    def test_arte_alternativa_com_0_de_1_falta_1_e_com_1_esta_completa(self):
+        """1 de cada desde 2026-09-16 (*"Alt Art e Overnumbered e assim quero
+        apenas 1 de cada"*); o que um deck lhe acrescenta está em
+        `test_altart_decks.py`."""
         con = self.montar()
-        self.collection.adjust(con, "aaa-001a", 1, source="test")
         p = self.fe.payload(con)
         x = self.item(p, "AAA", "alt_art", "aaa-001a")
-        self.assertEqual((x["have"], x["target"], x["missing"]), (1, 3, 2))
-        self.assertEqual(self.bloco(p, "AAA", "alt_art")["target_label"], "playset")
+        self.assertEqual((x["have"], x["target"], x["missing"]), (0, 1, 1))
+        self.assertEqual(self.bloco(p, "AAA", "alt_art")["target_label"],
+                         "1 de cada, ou o que os decks jogam")
         # E não está no bloco do master set, mesmo tendo o número da base.
         self.assertIsNone(self.item(p, "AAA", "master", "aaa-001a"))
+        self.collection.adjust(con, "aaa-001a", 1, source="test")
+        self.assertIsNone(self.item(self.fe.payload(con), "AAA", "alt_art", "aaa-001a"))
 
     def test_a_arte_alternativa_de_uma_runa_e_alt_art(self):
         # A grelha da Coleção arruma-a em «runas especiais»; aqui é «Alt Art»
@@ -214,7 +219,8 @@ class TestACaminho(Base):
 class TestSoOMasterSetSeCompra(Base):
     def test_a_wantlist_e_o_cardmarket_trazem_so_o_master_set(self):
         con = self.montar()
-        self.collection.adjust(con, "aaa-001a", 1, source="test")
+        # A alt art a 0 de 1 (2026-09-16): é ela que faz a diferença dos
+        # totais, abaixo.
         p = self.fe.payload(con)
         self.assertEqual([b["in_lists"] for b in p["blocks"]], [True, False, False])
         self.assertTrue(p["so_master_set"])
@@ -235,7 +241,7 @@ class TestSoOMasterSetSeCompra(Base):
         # Mas o separador vê-as, com valor: é a diferença entre os dois totais.
         self.assertGreater(p["totals"]["cents"], p["totals_lists"]["cents"])
         self.assertEqual(p["totals"]["cents"] - p["totals_lists"]["cents"],
-                         2 * 5000 + 20000 + 30000)
+                         1 * 5000 + 20000 + 30000)
 
     def test_a_linha_de_config_que_os_mete_nas_compras(self):
         con = self.montar({"listas_de_compra": {"so_master_set": False}})
@@ -266,10 +272,10 @@ class TestTotais(Base):
             self.assertEqual(p["totals_lists"][k], sum(s["lists"][k] for s in p["sets"]), k)
         # Os números concretos, para o teste poder falhar: AAA master
         # 2×100 + 3×200 + 2×300 + 1×1000 = 2400 (a 003 tem 1 a caminho); alt
-        # 3×5000; over 20000 + 30000.
+        # 1×5000 (1 de cada desde 2026-09-16); over 20000 + 30000.
         aaa = self.edicao(p, "AAA")
-        self.assertEqual(aaa["cents"], 2400 + 15000 + 50000)
-        self.assertEqual(aaa["copies"], 8 + 3 + 2)
+        self.assertEqual(aaa["cents"], 2400 + 5000 + 50000)
+        self.assertEqual(aaa["copies"], 8 + 1 + 2)
         self.assertEqual(aaa["pending_copies"], 1)
 
     def test_sem_preco_entra_na_lista_e_e_contada(self):

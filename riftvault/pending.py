@@ -76,14 +76,23 @@ def open_by_card(con: sqlite3.Connection) -> dict[str, int]:
 
     Junta o catálogo e as `market_only` — ele comprou runas do SFD que a
     RiftScribe não tem, e essas contam na mesma.
+
+    Conta só o que SERVE OS DECKS (`decks.joga_esta`, 2026-09-16): uma base
+    encomendada de uma carta com arte alternativa vai para o master set, não
+    para o deck, e não abate a falta dele.
     """
+    from . import decks
+
+    com_alt = decks.cartas_com_alt_art(con)
     out: dict[str, int] = {}
     for r in con.execute(
-        "SELECT p.card_key AS k, SUM(pe.qty) AS q FROM pending pe "
+        "SELECT p.card_key, p.card_key AS k, p.variant_kind, SUM(pe.qty) AS q "
+        "FROM pending pe "
         "JOIN catalog.printings p ON p.printing_id = pe.printing_id "
-        "WHERE pe.arrived_at IS NULL GROUP BY p.card_key"
+        "WHERE pe.arrived_at IS NULL GROUP BY p.printing_id"
     ):
-        out[r["k"]] = out.get(r["k"], 0) + r["q"]
+        if decks.joga_esta(r, com_alt):
+            out[r["k"]] = out.get(r["k"], 0) + r["q"]
     for r in con.execute(
         "SELECT m.card_key AS k, SUM(pe.qty) AS q FROM pending pe "
         "JOIN catalog.market_only m ON m.printing_id = pe.printing_id "
@@ -109,27 +118,36 @@ def impressao_para_encomendar(con: sqlite3.Connection,
                               card_keys) -> dict[str, dict]:
     """card_key -> a impressão em que o `+` grava a encomenda.
 
-    A BASE MAIS BARATA, e sem preço a da edição mais antiga — é a regra do
-    «Falta comprar, por edição» (`decks.missing_by_set`) e do `faltas._cheapest`:
-    a impressão onde ele a vai comprar. Se um dia quiser encomendar outra
-    versão, o `riftvault encomendas --mais OGN-045a` aceita qualquer código.
+    A BASE MAIS BARATA — ou, desde 2026-09-16, a ARTE ALTERNATIVA nas cartas
+    que a têm (`decks.compra_esta`: o deck joga em Alt Art) —, e sem preço a
+    da edição mais antiga. É a regra do «Falta comprar, por edição»
+    (`decks.missing_by_set`) e do `faltas._cheapest`: a impressão onde ele a
+    vai comprar. Se um dia quiser encomendar outra versão, o `riftvault
+    encomendas --mais OGN-045a` aceita qualquer código.
     """
+    from . import decks
+
     keys = list(dict.fromkeys(card_keys))
     if not keys:
         return {}
+    com_alt = decks.cartas_com_alt_art(con)
     ordens = {s: config.set_order(s) for s in
               (r["set_id"] for r in con.execute(
                   "SELECT DISTINCT set_id FROM catalog.printings"))}
     out: dict[str, dict] = {}
     ph = ",".join("?" * len(keys))
     for r in con.execute(
-        f"SELECT p.card_key, p.printing_id, p.public_code, p.set_id, pl.price_cents "
+        f"SELECT p.card_key, p.printing_id, p.public_code, p.set_id, p.variant_kind, "
+        f"       pl.price_cents "
         f"FROM catalog.printings p "
         f"LEFT JOIN catalog.price_latest pl ON pl.printing_id = p.printing_id "
-        f"WHERE p.card_key IN ({ph}) AND p.variant_kind = 'base'", keys
+        f"WHERE p.card_key IN ({ph})", keys
     ):
+        if not decks.compra_esta(r, com_alt):
+            continue
         cand = {"id": r["printing_id"], "code": r["public_code"],
-                "set": r["set_id"], "price": r["price_cents"]}
+                "set": r["set_id"], "price": r["price_cents"],
+                "alt_art": r["variant_kind"] == decks.KIND_ALT}
         rank = lambda c: (c["price"] is None,
                           c["price"] if c["price"] is not None else 0,
                           ordens.get(c["set"], 999), c["id"])
@@ -158,7 +176,7 @@ def encomendar(con: sqlite3.Connection, card_key: str | None = None,
         alvo = impressao_para_encomendar(con, [card_key]).get(card_key)
         if not alvo:
             raise collection.UnknownPrinting(
-                f"não há impressão base de {card_key!r} no catálogo")
+                f"não há impressão de {card_key!r} em que o deck compre")
         printing_id = alvo["id"]
     con.execute("BEGIN IMMEDIATE")
     con.execute(

@@ -180,11 +180,12 @@ class TestClassificacao(Base):
 
     def test_o_rotulo_dos_blocos_de_fora_diz_colecao_e_o_alvo(self):
         """É a palavra dele — *"é puramente coleção"* — e o alvo que pedem."""
+        # «1 de cada» desde 2026-09-16, mais o que os decks jogam — o bloco das
+        # runas especiais é feito de artes alternativas e diz o mesmo.
         self.assertEqual(self.metrics.rotulo("alt_art"),
-                         "Coleção — artes alternativas — playset")
-        # «playset» desde 2026-09-15: as runas pedem 3 como o resto.
+                         "Coleção — artes alternativas — 1 de cada, ou o que os decks jogam")
         self.assertEqual(self.metrics.rotulo("rune_special"),
-                         "Coleção — runas especiais — playset")
+                         "Coleção — runas especiais — 1 de cada, ou o que os decks jogam")
         # «1 de cada» desde 2026-09-15 (`master_set.um_de_cada`).
         self.assertEqual(self.metrics.rotulo("overnumbered"),
                          "Coleção — sobrenumeradas — 1 de cada")
@@ -256,19 +257,29 @@ class TestAlvos(Base):
     de ser caso especial a 2026-09-15 (*"vamos ate 3 como as outras cartas"*);
     a regra inteira está no `test_runas_3.py`."""
 
-    def test_a_runa_pede_3_base_ou_especial(self):
-        for kind in ("base", "alt_art", "rune_promo", "signature"):
+    def test_a_runa_pede_3_base_ou_promo(self):
+        """A arte alternativa da runa é uma arte alternativa: 1 desde
+        2026-09-16 (`test_a_arte_alternativa_pede_1`)."""
+        for kind in ("base", "rune_promo", "signature"):
             with self.subTest(kind=kind):
                 self.assertEqual(
                     self.metrics.master_target("x", kind, "Rune", False), 3)
 
-    def test_as_outras_cartas_pedem_o_playset_do_tipo_em_qualquer_variante(self):
-        for kind in ("base", "alt_art", "signature"):
+    def test_as_outras_cartas_pedem_o_playset_do_tipo_na_base_e_na_signature(self):
+        for kind in ("base", "signature"):
             with self.subTest(kind=kind):
                 self.assertEqual(self.metrics.master_target("x", kind, "Unit", False), 3)
                 self.assertEqual(self.metrics.master_target("x", kind, "Legend", False), 1)
                 self.assertEqual(
                     self.metrics.master_target("x", kind, "Battlefield", False), 1)
+
+    def test_a_arte_alternativa_pede_1(self):
+        """*"Alt Art e Overnumbered e assim quero apenas 1 de cada"* (2026-09-16),
+        runas incluídas. O que os decks lhe acrescentam é o `alvo()` com a
+        procura — `test_altart_decks.py`."""
+        for tipo in ("Unit", "Rune", "Legend"):
+            with self.subTest(tipo=tipo):
+                self.assertEqual(self.metrics.master_target("x", "alt_art", tipo, False), 1)
 
     def test_a_promo_pede_1(self):
         """*"overnumbered e promos (SP) voltamos a 1 de cada"* — `test_alvo_1.py`."""
@@ -284,10 +295,10 @@ class TestAlvos(Base):
     def test_os_botoes_antigos_deixaram_de_ser_lidos(self):
         """`master_targets_by_variant` e companhia não fazem nada — um config
         velho com eles não muda o alvo."""
-        self.com_config({"master_targets_by_variant": {"alt_art": 1, "base": 3},
-                         "master_variantes_playset": [],
+        self.com_config({"master_targets_by_variant": {"alt_art": 3, "base": 3},
+                         "master_variantes_playset": ["alt_art"],
                          "master_base_follows_type": False})
-        self.assertEqual(self.metrics.master_target("x", "alt_art", "Unit", False), 3)
+        self.assertEqual(self.metrics.master_target("x", "alt_art", "Unit", False), 1)
         self.assertEqual(self.metrics.master_target("x", "base", "Legend", False), 1)
 
     def test_o_override_por_impressao_continua_a_ganhar(self):
@@ -307,8 +318,10 @@ class TestAlvos(Base):
                 self.com_config({"runas_especiais": {"tipos": ["Rune"],
                                                      "excepto": ["base"],
                                                      "alvo": alvo}})
+                # A arte alternativa pede 1 (2026-09-16), venha o que vier
+                # no `alvo` velho; a base pede 3.
                 self.assertEqual(
-                    self.metrics.master_target("x", "alt_art", "Rune", False), 3)
+                    self.metrics.master_target("x", "alt_art", "Rune", False), 1)
                 self.assertEqual(
                     self.metrics.master_target("x", "base", "Rune", False), 3)
 
@@ -339,10 +352,11 @@ class TestRunasEspeciais(Base):
         self.assertEqual((o["tipos"], o["excepto"]), (["Rune"], ["base"]))
         self.assertNotIn("alvo", o)
 
-    def test_o_rotulo_do_bloco_diz_playset(self):
-        """O cabeçalho lê o mesmo alvo que o tile — 3, o do tipo."""
+    def test_o_rotulo_do_bloco_diz_1_de_cada(self):
+        """O cabeçalho lê o mesmo alvo que o tile — 1, o das artes
+        alternativas de que o bloco é feito (2026-09-16), mais os decks."""
         self.assertEqual(self.metrics.rotulo("rune_special"),
-                         "Coleção — runas especiais — playset")
+                         "Coleção — runas especiais — 1 de cada, ou o que os decks jogam")
 
     def test_lista_vazia_desliga_o_bloco(self):
         """Sem runas especiais, a alt art da runa volta para a cauda das alt arts."""
@@ -424,8 +438,10 @@ class TestOrdem(Base):
                          ["master", "rune_special", "alt_art"])
         # O primeiro não leva rótulo: é a sequência normal, sem cabeçalho.
         self.assertIsNone(p["blocks"][0]["label"])
-        self.assertEqual(p["blocks"][1]["label"], "Coleção — runas especiais — playset")
-        self.assertEqual(p["blocks"][2]["label"], "Coleção — artes alternativas — playset")
+        self.assertEqual(p["blocks"][1]["label"],
+                         "Coleção — runas especiais — 1 de cada, ou o que os decks jogam")
+        self.assertEqual(p["blocks"][2]["label"],
+                         "Coleção — artes alternativas — 1 de cada, ou o que os decks jogam")
         # E o payload diz quais é que contam para a percentagem: só o primeiro.
         self.assertEqual([b["counts"] for b in p["blocks"]], [True, False, False])
         con.close()
@@ -503,16 +519,16 @@ class TestPercentagem(Base):
         con.close()
 
     def test_os_alvos_de_cada_bloco(self):
-        """Playset em tudo, runas incluídas (2026-09-15) — dentro e fora da
-        percentagem."""
+        """Playset na sequência, runas incluídas (2026-09-15); 1 de cada nas
+        artes alternativas (2026-09-16) — sem decks a pedi-las."""
         con = self.edicao(com_runas=True)
         p = self.metrics.set_payload(con, "TST")
         alvos = {pr["id"]: pr["target"] for g in p["groups"] for pr in g["printings"]}
         self.assertEqual(alvos["tst-001-100"], 3)    # Unit base: playset
         self.assertEqual(alvos["tst-005-100"], 3)    # Rune base: 3, como as outras
-        self.assertEqual(alvos["tst-005a-100"], 3)   # runa especial: 3 também
+        self.assertEqual(alvos["tst-005a-100"], 1)   # runa especial: é alt art, 1
         self.assertNotIn("tst-r01-100", alvos)       # runa promo: escondida
-        self.assertEqual(alvos["tst-001a-100"], 3)   # alt art de Unit: playset
+        self.assertEqual(alvos["tst-001a-100"], 1)   # alt art de Unit: 1 de cada
         con.close()
 
     def test_valor_se_estivesse_completa_e_so_o_master_set(self):

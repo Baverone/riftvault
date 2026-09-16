@@ -327,28 +327,146 @@ def import_all(con: sqlite3.Connection, log=print) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def owned_by_card(con: sqlite3.Connection) -> dict[str, int]:
-    """card_key -> cópias FÍSICAS, de todos os locais.
+# ---------------------------------------------------------------------------
+# O que os decks JOGAM: a arte alternativa, sempre que existir (2026-09-16)
+# ---------------------------------------------------------------------------
+#
+# André: *"se jogar num deck, acrescentas as necessarias para o deck, e o deck
+# joga com Alt Art"*; perguntado: *"se o deck joga 3, vou ter que ter 3 normais
+# e 3 Alt Art"* e a Alt Art vale *"sempre que existir Alt Art"* — não é escolha
+# carta a carta nem por deck.
+#
+# Isto muda a partilha de 2026-09-11 (*"se há na coleção o deck usa"*) SÓ para
+# as cartas que têm arte alternativa: a cópia BASE da Coleção deixa de servir o
+# deck, porque o deck quer a Alt Art. O master set continua a pedir o playset
+# da base — são dois conjuntos, seis cópias, não três partilhadas. Para as
+# cartas sem Alt Art nada muda: qualquer cópia serve, como até aqui.
+#
+# Uma pergunta, uma resposta: `cartas_com_alt_art` diz QUAIS são as cartas;
+# `joga_esta` diz se uma impressão conta para os decks (os montes, o pendente,
+# as impressões que o deck pode usar); `compra_esta` diz em que impressão se
+# compra o que falta (o «Falta comprar, por edição», o `+` das encomendas, as
+# wantlists dos decks). Desliga-se em `decks.jogam_alt_art: false` — e aí tudo
+# volta a 2026-09-11.
+KIND_ALT = "alt_art"
 
-    É o "quantas destas cartas tenho ao todo" que o Pimp e a métrica de playset
-    jogável perguntam — e, desde 2026-09-11, é também o que os decks têm para se
-    montar: a soma dos três montes do `pool_dos_decks`.
+
+def jogam_alt_art(cfg: dict | None = None) -> bool:
+    cfg = cfg or config.load()
+    return bool((cfg.get("decks") or {}).get("jogam_alt_art", True))
+
+
+def cartas_com_alt_art(con: sqlite3.Connection, cfg: dict | None = None) -> frozenset[str]:
+    """As cartas lógicas que TÊM arte alternativa no catálogo — as que os decks
+    jogam em Alt Art. Vazio com a regra desligada, e aí nada muda.
+
+    `decks.alt_art_ignorar_tipos` tira tipos inteiros da regra (vazio por
+    omissão: ele disse *"sempre que existir Alt Art"*, e as runas do OGN têm
+    — é a maior fatia do que os decks passam a pedir, e fica anotado como
+    pergunta para ele).
     """
-    return {r["k"]: r["n"] for r in con.execute(
-        "SELECT p.card_key AS k, SUM(c.qty) AS n FROM copies c "
-        "JOIN catalog.printings p ON p.printing_id = c.printing_id "
-        "WHERE c.qty > 0 GROUP BY p.card_key")}
+    cfg = cfg or config.load()
+    if not jogam_alt_art(cfg):
+        return frozenset()
+    ignorar = set((cfg.get("decks") or {}).get("alt_art_ignorar_tipos") or ())
+    return frozenset(r["card_key"] for r in con.execute(
+        "SELECT DISTINCT p.card_key, c.type FROM catalog.printings p "
+        "JOIN catalog.cards c ON c.card_key = p.card_key WHERE p.variant_kind = ?",
+        (KIND_ALT,)) if r["type"] not in ignorar)
 
 
-def _por_carta(con: sqlite3.Connection, mapa: dict[str, int]) -> dict[str, int]:
-    """{printing_id: qty} -> {card_key: qty}, somando as impressões."""
-    chaves = {r["printing_id"]: r["card_key"] for r in con.execute(
-        "SELECT printing_id, card_key FROM catalog.printings")}
+def joga_esta(printing, com_alt) -> bool:
+    """Esta impressão serve um deck?
+
+    Se a carta tem arte alternativa, só a arte alternativa serve; se não tem,
+    serve qualquer impressão (base, showcase, signature — como sempre).
+    """
+    if printing["card_key"] in com_alt:
+        return printing["variant_kind"] == KIND_ALT
+    return True
+
+
+def compra_esta(printing, com_alt) -> bool:
+    """É nesta impressão que o deck COMPRA o que lhe falta?
+
+    A arte alternativa se a carta a tem, a base se não — e depois, entre as
+    candidatas, a mais barata (quem chama decide isso).
+    """
+    esperado = KIND_ALT if printing["card_key"] in com_alt else "base"
+    return printing["variant_kind"] == esperado
+
+
+def kind_de_compra(card_key: str, com_alt) -> str:
+    """A variante em que o deck compra esta carta — o gémeo do `compra_esta`
+    para quem tem só a chave da carta."""
+    return KIND_ALT if card_key in com_alt else "base"
+
+
+def procura_dos_decks(con: sqlite3.Connection, cfg: dict | None = None) -> dict[str, int]:
+    """card_key -> quantas ARTES ALTERNATIVAS os decks pedem dessa carta.
+
+    É o que faz subir o alvo da Alt Art na Coleção (`metrics.alvo`): *"se
+    jogar num deck, acrescentas as necessarias para o deck"* — um deck que
+    joga 3 põe o alvo da arte alternativa a 3. Só as cartas que TÊM arte
+    alternativa entram; as outras jogam a base e o alvo delas não mexe.
+
+    A conta é a da alocação (`allocate`): dentro de um grupo de Legend o
+    MÁXIMO entre as listas — os dois LeBlanc são o mesmo deck físico, 3 e 2
+    dão 3, não 5 —, e entre grupos diferentes a SOMA, porque são decks que se
+    jogam ao mesmo tempo e disputam as mesmas cópias (2026-09-11). É a mesma
+    quantidade que o «Falta comprar» dos decks acaba por pedir, para o bloco
+    das artes alternativas e a página dos decks dizerem o mesmo número.
+    Vazio com a regra desligada.
+    """
+    com_alt = cartas_com_alt_art(con, cfg)
+    if not com_alt:
+        return {}
+    out: dict[str, int] = {}
+    for g in grupos(con):
+        need: dict[str, int] = {}
+        for deck_id in g["deck_ids"]:
+            for ck, q in _need(con, deck_id).items():
+                if ck in com_alt:
+                    need[ck] = max(need.get(ck, 0), q)
+        for ck, q in need.items():
+            out[ck] = out.get(ck, 0) + q
+    return out
+
+
+def owned_by_card(con: sqlite3.Connection) -> dict[str, int]:
+    """card_key -> cópias que SERVEM OS DECKS, de todos os locais.
+
+    É o que os decks têm para se montar (a soma dos três montes do
+    `pool_dos_decks`) e o que a secção Faltas desconta. Desde 2026-09-16 uma
+    carta com arte alternativa conta SÓ as cópias da arte alternativa — o deck
+    joga em Alt Art (`joga_esta`). O «quantas destas cartas tenho ao todo»
+    (o playset jogável da Coleção, o `have_base` do Pimp) é o
+    `metrics.owned_by_card`, que continua a somar tudo.
+    """
+    com_alt = cartas_com_alt_art(con)
+    out: dict[str, int] = {}
+    for r in con.execute(
+        "SELECT p.card_key, p.variant_kind, c.qty FROM copies c "
+        "JOIN catalog.printings p ON p.printing_id = c.printing_id WHERE c.qty > 0"
+    ):
+        if joga_esta(r, com_alt):
+            out[r["card_key"]] = out.get(r["card_key"], 0) + r["qty"]
+    return out
+
+
+def _por_carta(con: sqlite3.Connection, mapa: dict[str, int],
+               com_alt=None) -> dict[str, int]:
+    """{printing_id: qty} -> {card_key: qty}, somando as impressões que servem
+    os decks (`joga_esta`)."""
+    if com_alt is None:
+        com_alt = cartas_com_alt_art(con)
+    linhas = {r["printing_id"]: r for r in con.execute(
+        "SELECT printing_id, card_key, variant_kind FROM catalog.printings")}
     out: dict[str, int] = {}
     for pid, n in mapa.items():
-        ck = chaves.get(pid)
-        if ck:
-            out[ck] = out.get(ck, 0) + n
+        r = linhas.get(pid)
+        if r and joga_esta(r, com_alt):
+            out[r["card_key"]] = out.get(r["card_key"], 0) + n
     return out
 
 
@@ -369,11 +487,17 @@ def pool_dos_decks(con: sqlite3.Connection) -> dict:
     """
     from . import locais
 
-    fixo = {slug: _por_carta(con, mapa) for slug, mapa in locais.por_deck(con).items()}
+    # Desde 2026-09-16 os três montes contam SÓ as impressões que o deck joga:
+    # a arte alternativa nas cartas que a têm (`joga_esta`). A cópia base de
+    # uma carta com Alt Art fica na Coleção a contar para o master set — e não
+    # serve o deck.
+    com_alt = cartas_com_alt_art(con)
+    fixo = {slug: _por_carta(con, mapa, com_alt)
+            for slug, mapa in locais.por_deck(con).items()}
     return {
         "fixo": fixo,
-        "binder": _por_carta(con, locais.em(con, locais.BINDER)),
-        "colecao": _por_carta(con, locais.na_colecao(con)),
+        "binder": _por_carta(con, locais.em(con, locais.BINDER), com_alt),
+        "colecao": _por_carta(con, locais.na_colecao(con), com_alt),
     }
 
 
@@ -387,13 +511,17 @@ def owned_printings(con: sqlite3.Connection,
     from . import locais as locais_mod
 
     onde = locais_mod.por_local(con) if locais_ok is not None else {}
+    com_alt = cartas_com_alt_art(con)
     out: dict[str, list[dict]] = {}
     for r in con.execute(
-        "SELECT p.card_key AS k, p.printing_id, p.public_code, p.set_id, "
-        "       p.variant_label, c.qty "
+        "SELECT p.card_key, p.card_key AS k, p.printing_id, p.public_code, p.set_id, "
+        "       p.variant_kind, p.variant_label, c.qty "
         "FROM copies c JOIN catalog.printings p ON p.printing_id = c.printing_id "
         "WHERE c.qty > 0 ORDER BY p.set_id, p.api_sort"
     ):
+        # A base de uma carta com Alt Art não é uma cópia que o deck use.
+        if not joga_esta(r, com_alt):
+            continue
         qty = r["qty"]
         if locais_ok is not None:
             qty = sum(n for loc, n in (onde.get(r["printing_id"]) or {}).items()
@@ -468,6 +596,7 @@ def _por_impressao(con: sqlite3.Connection, monte: str,
     impressões concretas desse local, artes base primeiro."""
     alloc = allocate(con)
     livre = dict(livre)
+    com_alt = cartas_com_alt_art(con)
     ordens = {s: config.set_order(s) for s in
               (r["set_id"] for r in con.execute(
                   "SELECT DISTINCT set_id FROM catalog.printings"))}
@@ -478,7 +607,9 @@ def _por_impressao(con: sqlite3.Connection, monte: str,
         key=lambda r: (0 if r["variant_kind"] == "base" else 1,
                        ordens.get(r["set_id"], 999), r["api_sort"])
     ):
-        if livre.get(r["printing_id"], 0) > 0:
+        # Só as impressões que o deck joga (2026-09-16): numa carta com Alt
+        # Art a base fica onde está, por muitas cópias que haja.
+        if livre.get(r["printing_id"], 0) > 0 and joga_esta(r, com_alt):
             por_carta.setdefault(r["card_key"], []).append(r["printing_id"])
 
     # Pelo GRUPO, lido no líder: dois decks com a mesma Legend levam as mesmas
@@ -775,23 +906,36 @@ def resumo_das_faltas(con: sqlite3.Connection) -> dict:
     prices = {r["printing_id"]: r["price_cents"] for r in con.execute(
         "SELECT printing_id, price_cents FROM catalog.price_latest "
         "WHERE price_cents IS NOT NULL")}
+    # Ao preço da impressão em que se compra (`compra_esta`): a base mais
+    # barata, ou a arte alternativa nas cartas que a têm (2026-09-16).
+    com_alt = cartas_com_alt_art(con)
     barato: dict[str, int] = {}
-    for r in con.execute("SELECT card_key, printing_id FROM catalog.printings "
-                         "WHERE variant_kind = 'base'"):
+    for r in con.execute("SELECT card_key, printing_id, variant_kind "
+                         "FROM catalog.printings"):
         p = prices.get(r["printing_id"])
-        if p is not None:
+        if p is not None and compra_esta(r, com_alt):
             barato[r["card_key"]] = min(barato.get(r["card_key"], p), p)
     cartas: set[str] = set()
     copias = cents = disputadas = encomendadas = 0
+    # Quantas das cópias em falta são artes alternativas — é o que a regra de
+    # 2026-09-16 acrescentou, e o número que ele quer ver à parte.
+    alt_cartas: set[str] = set()
+    alt_copias = alt_cents = 0
     for a in alloc.values():
         for ck, n in a["missing"].items():
             cartas.add(ck)
             copias += n
             cents += (barato.get(ck) or 0) * n
+            if ck in com_alt:
+                alt_cartas.add(ck)
+                alt_copias += n
+                alt_cents += (barato.get(ck) or 0) * n
         disputadas += sum(v["qty"] for v in a["shared"].values())
         encomendadas += sum(a["a_caminho"].values())
     return {"cards": len(cartas), "copies": copias, "cents": cents,
-            "disputed": disputadas, "ordered": encomendadas}
+            "disputed": disputadas, "ordered": encomendadas,
+            "alt_art": {"cards": len(alt_cartas), "copies": alt_copias,
+                        "cents": alt_cents}}
 
 
 # ---------------------------------------------------------------------------
@@ -829,18 +973,25 @@ def missing_by_set(con: sqlite3.Connection, deck_id: int,
               (r["set_id"] for r in con.execute("SELECT DISTINCT set_id FROM catalog.printings"))}
     nomes = {r["card_key"]: r["name"] for r in con.execute(
         "SELECT card_key, name FROM catalog.cards")}
+    # A impressão em que se compra: a base, ou a arte alternativa nas cartas
+    # que a têm (2026-09-16, `compra_esta`). A linha diz `alt_art` para o
+    # ecrã marcar o que passou a ser Alt Art.
+    com_alt = cartas_com_alt_art(con)
     opcoes: dict[str, list[dict]] = {}
     ph = ",".join("?" * len(falta))
     for r in con.execute(
         f"SELECT p.card_key, p.set_id, p.printing_id, p.public_code, p.orientation, "
-        f"       p.image_medium, p.image_large, p.image_url, pl.price_cents "
+        f"       p.variant_kind, p.image_medium, p.image_large, p.image_url, "
+        f"       pl.price_cents "
         f"FROM catalog.printings p "
         f"LEFT JOIN catalog.price_latest pl ON pl.printing_id = p.printing_id "
-        f"WHERE p.card_key IN ({ph}) AND p.variant_kind = 'base'", list(falta)
+        f"WHERE p.card_key IN ({ph})", list(falta)
     ):
+        if not compra_esta(r, com_alt):
+            continue
         opcoes.setdefault(r["card_key"], []).append({
             "set": r["set_id"], "price": r["price_cents"], "id": r["printing_id"],
-            "code": r["public_code"],
+            "code": r["public_code"], "alt_art": r["variant_kind"] == KIND_ALT,
             "landscape": (r["orientation"] or "").lower() == "landscape",
             "cdn": r["image_medium"] or r["image_large"] or r["image_url"],
         })
@@ -868,7 +1019,7 @@ def missing_by_set(con: sqlite3.Connection, deck_id: int,
             "code": melhor["code"], "price": melhor["price"],
             "total": (melhor["price"] or 0) * n,
             "img": f"img/{melhor['id']}.webp", "cdn": melhor["cdn"],
-            "landscape": melhor["landscape"],
+            "landscape": melhor["landscape"], "alt_art": melhor["alt_art"],
             # Existe noutras edições — dá para a ires buscar a outro lado.
             "also": sorted(sets - {melhor["set"]}),
         })
@@ -1145,10 +1296,13 @@ def shopping_list(con: sqlite3.Connection, deck_id: int | None = None) -> list[d
     prices = {r["printing_id"]: r["price_cents"] for r in con.execute(
         "SELECT printing_id, price_cents FROM catalog.price_latest "
         "WHERE price_cents IS NOT NULL")}
+    # Ao preço da impressão em que se compra (`compra_esta`, 2026-09-16).
+    com_alt = cartas_com_alt_art(con)
     barato: dict[str, int] = {}
-    for r in con.execute("SELECT card_key, printing_id FROM catalog.printings"):
+    for r in con.execute("SELECT card_key, printing_id, variant_kind "
+                         "FROM catalog.printings"):
         p = prices.get(r["printing_id"])
-        if p is not None:
+        if p is not None and compra_esta(r, com_alt):
             k = r["card_key"]
             barato[k] = min(barato.get(k, p), p)
 

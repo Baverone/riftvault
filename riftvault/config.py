@@ -64,15 +64,27 @@ DEFAULTS: dict = {
     #   `um_de_cada`          — o que pede 1 em vez do playset do tipo: as
     #                           sobrenumeradas e as promos (2026-09-15:
     #                           "overnumbered e promos (SP) voltamos a 1 de
-    #                           cada / se eu tiver mais adiciono na mesma").
-    #                           Só o ALVO; o bloco e a percentagem não mexem.
-    #                           As artes alternativas ficam a playset.
+    #                           cada / se eu tiver mais adiciono na mesma") e,
+    #                           desde 2026-09-16, as artes alternativas ("Alt
+    #                           Art e Overnumbered e assim quero apenas 1 de
+    #                           cada"). Só o ALVO; o bloco e a percentagem não
+    #                           mexem. Nas artes alternativas o alvo sobe ao
+    #                           que os decks pedem (`decks.jogam_alt_art`).
     # `fora` é o nome antigo da primeira (2026-09-08 a 2026-09-14) e continua a
     # ser lido. Ver `metrics._fora`, `metrics.escondida`, `metrics.e_master` e
     # `metrics.e_um_de_cada`.
     "master_set": {"fora_da_percentagem": ["a", "overnumbered", "promo"],
                    "escondidas": ["-T", "*", "-R"],
-                   "um_de_cada": ["overnumbered", "promo"]},
+                   "um_de_cada": ["a", "overnumbered", "promo"]},
+    # Os decks JOGAM EM ALT ART (André, 2026-09-16: "se jogar num deck,
+    # acrescentas as necessarias para o deck, e o deck joga com Alt Art" /
+    # "se o deck joga 3, vou ter que ter 3 normais e 3 Alt Art" / "sempre que
+    # existir Alt Art"). Numa carta com arte alternativa só a arte alternativa
+    # serve os decks, compra-se a arte alternativa, e o alvo dela na Coleção é
+    # o máximo entre 1 e o que os decks pedem; a base fica no master set. Nas
+    # cartas sem arte alternativa nada muda. Ver `decks.cartas_com_alt_art`,
+    # `decks.joga_esta`, `decks.compra_esta` e `decks.procura_dos_decks`.
+    "decks": {"jogam_alt_art": True, "alt_art_ignorar_tipos": []},
     # O bloco das runas especiais ("1 runa especial de cada para cada set",
     # 2026-09-08) — só o BLOCO. O `alvo` que aqui vivia (1, "runas 1 de cada")
     # deixou de ser lido a 2026-09-15: as runas pedem o alvo do tipo, como
