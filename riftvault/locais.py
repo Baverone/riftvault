@@ -487,9 +487,9 @@ def propor_deck(con: sqlite3.Connection, slug: str) -> dict:
         return {"deck": slug, "items": [], "erro": "não há deck com esse nome"}
     deck_id = row["deck_id"]
 
-    pedidas: dict[str, int] = {r["card_key"]: r["q"] for r in con.execute(
-        "SELECT card_key, SUM(qty) AS q FROM deck_cards WHERE deck_id = ? "
-        "GROUP BY card_key", (deck_id,))}
+    # Sem as runas (2026-09-17, à noite): não se contam nos decks, e propor
+    # sleevá-las era contá-las por outro caminho — ele organiza-as à mão.
+    pedidas = decks_mod._need(con, deck_id, decks_mod.cartas_nao_contadas(con))
     if not pedidas:
         return {"deck": slug, "items": []}
 

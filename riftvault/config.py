@@ -101,8 +101,20 @@ DEFAULTS: dict = {
     # `decks.versoes_dos_decks`. (O `jogam_alt_art`/`alt_art_ignorar_tipos`
     # de 2026-09-16 deixou de existir; um config que ainda os traga não faz
     # nada.)
+    #   `contar_runas`       — AS RUNAS SAEM DA CONTAGEM DOS DECKS (André,
+    #                          2026-09-17, à noite: "esquece as runas, nao
+    #                          facas contagem de runas nos decks, indica me so
+    #                          quantas sao e eu organizo isso sozinho a mao").
+    #                          Com `false` o Rune Pool continua a ler-se e a
+    #                          mostrar-se com as quantidades, mas não há
+    #                          tenho/faltam, alocação, disputa, falta a comprar
+    #                          nem euros para as runas, e o «tenho X de N» do
+    #                          deck conta só o resto. «Runa» é o
+    #                          `runas_especiais.tipos`. `true` volta a contar
+    #                          como até essa noite.
     "decks": {"so_normais_excepto": ["legend", "champion"],
-              "versoes_especiais": ["a", "overnumbered", "promo"]},
+              "versoes_especiais": ["a", "overnumbered", "promo"],
+              "contar_runas": False},
     # O bloco das runas especiais ("1 runa especial de cada para cada set",
     # 2026-09-08) — só o BLOCO. O `alvo` que aqui vivia (1, "runas 1 de cada")
     # deixou de ser lido a 2026-09-15: as runas pedem o alvo do tipo, como
@@ -131,8 +143,11 @@ DEFAULTS: dict = {
     "quanto_custa": {"sem_edicoes": ["OGS"], "top_por_raridade": 5},
     # O separador «A mais» (2026-09-17): o que ele tem acima do alvo e o que
     # os decks libertaram. Um botão por edição, menos estas (o OGS, como no
-    # «Quanto custa»); a edição sem botão continua em «Todas». Ver `a_mais.py`.
-    "a_mais": {"sem_edicoes": ["OGS"]},
+    # «Quanto custa»); a edição sem botão continua em «Todas». `sem_runas`
+    # (André, 2026-09-17, à noite: "no a mais nunca aparece Runas"): as runas
+    # não entram em nenhum dos dois blocos — nem no excedente nem nas
+    # libertadas —; ele trata delas à mão. Ver `a_mais.py`.
+    "a_mais": {"sem_edicoes": ["OGS"], "sem_runas": True},
     # O separador «Encomendas» (2026-09-17: "igual à coleção, mas só de Raras
     # para cima"): a grelha da Coleção cortada à raridade da BASE a partir
     # desta, na ordem `metrics.RARITY_ORDER` (common < uncommon < rare < epic

@@ -48,11 +48,17 @@ def _wanted(con: sqlite3.Connection) -> dict[str, dict]:
     for g in decks.grupos(con):
         for slug in g["slugs"]:
             grupo_de[slug] = g["legend"]
+    # As runas não se contam nos decks (2026-09-17, à noite) — nem aqui, nem
+    # no Pimp. O `faltas_ignorar_tipos` de 2026-09-01 já as tirava das abas;
+    # agora nem chegam a ser pedidas.
+    fora = decks.cartas_nao_contadas(con)
     out: dict[str, dict] = {}
     for r in con.execute(
         "SELECT dc.card_key, dc.qty, d.deck_id, d.display_name, d.name, d.priority "
         "FROM deck_cards dc JOIN decks d ON d.deck_id = dc.deck_id"
     ):
+        if r["card_key"] in fora:
+            continue
         e = out.setdefault(r["card_key"], {"qty": 0, "decks": {}, "grupos": {}})
         slot = e["decks"].setdefault(
             r["name"], {"deck": r["display_name"] or r["name"], "qty": 0})
@@ -642,13 +648,9 @@ def pimp(con: sqlite3.Connection) -> dict:
     # Vista por deck: só o que aquele deck usa.
     por_deck = []
     for d in decks.decks_index(con):
-        pedido = {}
-        for r in con.execute(
-            "SELECT card_key, SUM(qty) AS q FROM deck_cards WHERE deck_id = ? "
-            "GROUP BY card_key", (d["id"],)
-        ):
-            if r["card_key"] in alt_de:
-                pedido[r["card_key"]] = teto(r["card_key"], r["q"])
+        # `alt_de` só tem cartas do `quem`, que já não leva runas.
+        pedido = {ck: teto(ck, q) for ck, q in decks._need(con, d["id"]).items()
+                  if ck in alt_de}
         por_deck.append({"id": d["id"], "name": d["name"], "priority": d["priority"],
                          "legend_set": legend_set.get(d["id"]),
                          **montar(pedido, legend_set.get(d["id"]))})

@@ -136,7 +136,8 @@ class TestExcedente(Base):
         x = self.exc(con, "tst-t01")
         self.assertEqual((x["target"], x["extra"], x["hidden"]), (0, 1, True))
         p = self.a_mais.payload(con)
-        self.assertEqual(p["scope"], {"hidden_cards": 1, "hidden_copies": 1})
+        # O `scope` ganhou as runas a 2026-09-17 à noite (`test_runas_fora_decks`).
+        self.assertEqual((p["scope"]["hidden_cards"], p["scope"]["hidden_copies"]), (1, 1))
 
     def test_o_que_os_decks_levam_nunca_e_a_mais(self):
         # Dois decks de Legends diferentes pedem 3 Brutalizer cada… só o Azir
