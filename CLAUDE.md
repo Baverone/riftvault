@@ -3235,3 +3235,8 @@ listas jogam 1 Champion.
 `config_decks_sem_alt_art` escreve os defaults novos do bloco `decks` (o nome
 ficou, é chamada por três testes). Suite: 28 ficheiros, 498 testes.
 
+**Commits:** ramo `e15e716` (implementação), `fdb4228` e `a9a6d72` (testes),
+`7df99dc` (`app.js` + fixture), `920b1c4` (docs); **merge `--no-ff`:
+`f94bd02`** — é este que se reverte para a regra de 16/09 (os decks a jogar
+tudo em Alt Art, alvo `max(1, procura)`) voltar.
+
