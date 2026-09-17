@@ -1637,6 +1637,8 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
             "ordered": sum(a["a_caminho"].values()),
             "missing": sum(a["missing"].values()),
             "shared": sum(v["qty"] for v in a["shared"].values()),
+            # Lugares normais tapados por outra versão que ele tem.
+            "outras": sum(a["alloc_outras"].values()),
         },
     }
 

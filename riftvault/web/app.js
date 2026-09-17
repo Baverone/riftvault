@@ -1238,11 +1238,15 @@ function deckLocais(p) {
       ${l.ordered ? `<span class="chip-l caminho">a caminho ${l.ordered}</span>` : ''}
       ${chip(l.missing, `a comprar ${l.missing || 0}`)}
       ${l.shared ? chip(true, `${l.shared} disputadas com um deck de cima`) : ''}
+      ${l.outras ? `<span class="chip-l outra">noutra versão ${l.outras}</span>` : ''}
       ${l.extra ? chip(true, `a mais neste deck ${l.extra}`) : ''}
     </div>
     ${l.shared ? `<small class="nota">Das <b>${l.missing}</b> a comprar,
       <b>${l.shared}</b> existem na Coleção mas um deck de prioridade mais alta
       já as usa — compram-se na mesma.</small>` : ''}
+    ${l.outras ? `<small class="nota"><b>${l.outras}</b> ${l.outras === 1 ? 'cópia joga' : 'cópias jogam'}
+      noutra versão (Alt Art, sobrenumerada ou promo — nunca assinada) porque a
+      base não chega; as cartas repartidas dizem que versões as servem.</small>` : ''}
     ${l.ordered ? `<small class="nota">As <b>${l.ordered}</b> a caminho já estão
       compradas: não contam como tidas até chegarem, e já não estão na lista de
       compras. Quando chegarem, dá-lhes entrada no separador
@@ -1436,8 +1440,9 @@ function deckTile(c) {
       e.missing ? ' (a comprar)' : e.ordered ? ' (a caminho)' : ''}${
       alt.length ? ` · ou ${alt.join(', ')}` : ''}</div>`;
   }
+  nota += versoesNota(c);
 
-  return `<div class="dtile ${st}" data-ck="${escapeAttr(c.card_key)}">
+  return `<div class="dtile ${st}${c.outras ? ' outra-versao' : ''}" data-ck="${escapeAttr(c.card_key)}">
     <div class="art${c.landscape ? ' landscape' : ''}">
       ${src ? `<img src="${src}" alt="${escapeAttr(c.name)}" loading="lazy" decoding="async"
          ${alt ? `data-fallback="${escapeAttr(alt)}"` : ''}>` : ''}
@@ -1448,6 +1453,25 @@ function deckTile(c) {
     ${codeLine(c)}
     ${nota}
   </div>`;
+}
+
+/* «Separa as versões por Art» (André, 2026-09-17): uma linha do deck servida
+   por mais do que uma impressão reparte-se, uma sub-linha por versão —
+   «2 normal · UNL-176» / «1 Alt Art · UNL-176a». Servida por uma impressão
+   só, não se enche o tile: se essa única impressão for OUTRA versão (a base
+   não chegou e a alt art tapou tudo), diz-se numa linha corrida. */
+function versoesNota(c) {
+  const vs = c.versoes || [];
+  const cod = x => escapeHTML((x.code || x.id || '?').split('/')[0]);
+  if (vs.length > 1) {
+    return `<div class="onde versoes">${vs.map(x =>
+      `<span class="${x.lugar === 'outra' ? 'outra' : ''}">${x.qty} ${escapeHTML(x.label)} · ${cod(x)}</span>`
+    ).join('')}</div>`;
+  }
+  if (vs.length === 1 && c.outras) {
+    return `<div class="onde versoes"><span class="outra">em ${escapeHTML(vs[0].label)} · ${cod(vs[0])}</span></div>`;
+  }
+  return '';
 }
 
 /* Edição + número + preço, em texto legível. É por aqui que ele procura a
