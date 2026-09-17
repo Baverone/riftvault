@@ -32,6 +32,11 @@ data/encomendas.log
 data/decks.log
 data/serve.log
 
+# Seguir jogadores (2026-09-17): a última página HTML lida de cada endereço do
+# Piltover Archive fica aqui para o parser poder apontar-lhe quando rebentar. O
+# estado a sério é o `data/seguir/estado.json`, que vai para o Git.
+data/seguir/paginas/
+
 # O `site/` (build estático do modo publicado) NÃO entra aqui desde 2026-09-10:
 # é gerado no PC e commitado, e é ele que o GitHub Pages publica. Com o site a
 # vir do Git, o workflow deixou de precisar da RiftScribe — que esteve em baixo

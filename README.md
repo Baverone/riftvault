@@ -256,6 +256,33 @@ falta dos decks e o valor ficam iguais — e não é a Venda: não há preço de
 venda nem lista para o Cardmarket. `api/a_mais.json`; na consola,
 `py -m riftvault a-mais [--edicao OGN]`.
 
+## Seguir jogadores (Piltover Archive)
+
+17/09/2026: *"o @koko_lopez e um jogador muito bom, gostava de seguir os
+decks que ele coloca e que vai atualizando"* / *"nao preciso que me diga
+quanto custaria, mas sim o que falta"*. Por agora só na consola (a secção no
+site é a parte 2):
+
+```bash
+py -X utf8 -m riftvault seguir [--jogador NOME] [--so-mudados] [--sem-rede] [--json]
+```
+
+Os handles a seguir ficam em `seguir.jogadores` no `riftvault_config.json`.
+Para cada um lê o perfil (`/users/<nome>`), a listagem pública
+(`/decks?q=<nome>`, filtrada pelo autor) e a página de cada deck **novo ou
+actualizado** desde a última corrida — e diz, por deck, **o que te falta**
+para o montar: conta tudo o que tens (incluindo o que está nos teus decks),
+qualquer impressão menos assinada, e **nunca euros**. Um nome que não esteja
+no catálogo fica «por identificar», nunca adivinhado, e o deck diz em cima
+que a falta está incompleta. O estado fica em `data/seguir/estado.json`.
+
+Educação: só páginas HTML (a `/api/` deles está proibida no `robots.txt`),
+um pedido por segundo, User-Agent honesto, nada de contas. O perfil em HTML
+não traz a lista toda (o browser vai buscá-la à API), por isso a página diz
+quantos o perfil anuncia e quantos a listagem deu — hoje 18 e 17. Se o site
+mudar de forma, o comando **rebenta** com o nome da marca que faltou em vez
+de dizer «não te falta nada».
+
 ## Wantlist do Cardmarket
 
 Há listas em três sítios, todas com o mesmo formato porque saem do mesmo
@@ -676,6 +703,7 @@ riftvault shopping [--deck azir] [--csv f.csv]    # o que falta comprar
 riftvault a-subir [--cardmarket] [--todas]        # master set: a subir / tudo
 riftvault local [...]                             # onde está cada cópia
 riftvault map / prices / value                    # CardTrader
+riftvault seguir [--jogador NOME] [--so-mudados]  # decks dos jogadores seguidos: o que falta
 ```
 
 O `add`/`remove` aceitam qualquer forma de escrever a impressão: `OGN-7`,
@@ -691,6 +719,7 @@ riftvault/
   locais.py       onde está cada cópia: Coleção, deck, binder Decks/Venda
   metrics.py      as duas métricas, os blocos da grelha e os payloads
   a_subir.py      o que falta do master set (a subir, e a lista completa)
+  seguir.py       os decks dos jogadores seguidos no Piltover Archive e o que falta
   server.py       modo edição (Flask)
   build.py        modo publicado (estático)
   cli.py          linha de comandos
@@ -700,6 +729,7 @@ data/
   prices.db       histórico de preços. VAI para o Git. Só o robô escreve.
   catalog.db      cache do catálogo. NÃO vai (está no .gitignore).
   images/         cache das imagens. NÃO vai.
+  seguir/         estado.json (os decks seguidos; VAI) e paginas/ (HTML lido; NÃO vai)
 decks/            listas de deck em .txt
 docs/             spec da API e snapshot do catálogo, para referência
 ```
