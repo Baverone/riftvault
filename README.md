@@ -602,9 +602,17 @@ Frase tua: *"os decks apenas jogaram versoes normais, com excepcao da Legend
 e do Champion que serao Alt Art ou Overnumbered ou SP, mas nunca assinada"*.
 
 - **Tudo o que está no main, nos battlefields, no Rune Pool e no sideboard
-  joga a versão normal** — a base da edição, sem sobrenumeração. Uma arte
-  alternativa que tenhas dessa carta fica na Coleção, a contar para o alvo
-  dela (1 de cada), e **não** serve o deck.
+  joga a versão normal** — a base da edição, sem sobrenumeração — **primeiro**.
+  Desde a tarde de 2026-09-17 (*"caso um deck precise de uma carta, que não
+  há versão disponível em normal, mas esteja disponível em Alt.Art ou outra,
+  usa"*), **o que a base não tapar completa-se com outra versão que tenhas**
+  — Alt Art, sobrenumerada ou promo, nunca assinada — antes de ser falta; a
+  falta que sobrar aponta à base. Uma runa em Alt Art continua **retirada** e
+  não tapa nada. **A vista do deck separa as versões por arte**: uma carta
+  servida por mais do que uma impressão reparte-se em sub-linhas
+  («2 normal · UNL-176» / «1 Alt Art · UNL-176a», na CLI e no site); servida
+  por uma só, não. O alvo da Coleção não mexe — a arte alternativa continua a
+  pedir 1, jogue ou não.
 - **A Legend e o Champion jogam uma versão especial**: arte alternativa,
   sobrenumerada ou promo `VEN-SP` — **nunca uma assinada**. Se tens mais do
   que uma versão especial, qualquer uma serve; se não tens nenhuma, a falta
