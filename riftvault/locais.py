@@ -497,39 +497,43 @@ def propor_deck(con: sqlite3.Connection, slug: str) -> dict:
     colecao = na_colecao(con)
     card_key = {r["printing_id"]: r["card_key"] for r in con.execute(
         "SELECT printing_id, card_key FROM catalog.printings")}
-    ordens = {s: config.set_order(s) for s in
-              (r["set_id"] for r in con.execute(
-                  "SELECT DISTINCT set_id FROM catalog.printings"))}
 
-    # Só o que o deck JOGA (2026-09-16): numa carta com arte alternativa a
-    # proposta nunca tira a base da Coleção — o deck quer a Alt Art; e nunca
-    # uma retirada (a runa em alt art, 2026-09-17).
-    com_alt = decks_mod.cartas_com_alt_art(con)
-    por_carta: dict[str, list] = {}
-    for r in con.execute(
+    # Só o que o deck JOGA (2026-09-17, `decks.Versoes`): as normais nos
+    # lugares normais e UMA versão especial no lugar da Legend/Champion; nunca
+    # uma assinada nem uma retirada (a runa em alt art).
+    versoes = decks_mod.versoes_dos_decks(con)
+    especiais = decks_mod.cartas_especiais(con, deck_id, versoes.papeis)
+    linhas = {r["printing_id"]: r for r in con.execute(
         "SELECT printing_id, card_key, public_code, name, set_id, variant_kind, "
         "       variant_label, api_sort, orientation, image_medium, image_large, "
-        "       image_url FROM catalog.printings"
-    ):
-        if (r["card_key"] in pedidas and colecao.get(r["printing_id"], 0) > 0
-                and decks_mod.joga_esta(r, com_alt)):
-            por_carta.setdefault(r["card_key"], []).append(r)
+        "       image_url FROM catalog.printings")}
 
     itens = []
     for ck, n in sorted(pedidas.items()):
-        falta = n - sum(q for pid, q in ja_tem.items() if card_key.get(pid) == ck)
-        if falta <= 0:
-            continue
-        cands = sorted(por_carta.get(ck, []),
-                       key=lambda r: (0 if r["variant_kind"] == "base" else 1,
-                                      ordens.get(r["set_id"], 999), r["api_sort"]))
-        for r in cands:
-            if falta <= 0:
-                break
-            tira = min(falta, colecao.get(r["printing_id"], 0))
+        no_deck = {pid: q for pid, q in ja_tem.items() if card_key.get(pid) == ck}
+        # O lugar especial: uma cópia, se o deck ainda não tem lá nenhuma
+        # versão especial desta carta.
+        n_esp = 1 if ck in especiais and versoes.tem_especial(ck) else 0
+        tem_esp = sum(q for pid, q in no_deck.items() if pid in versoes.especiais_de(ck))
+        tem_norm = sum(q for pid, q in no_deck.items() if pid in versoes.normais_de(ck))
+        falta_esp = max(0, n_esp - tem_esp)
+        falta = max(0, n - n_esp - tem_norm)
+        cands = [(pid, True) for pid in versoes.especiais_de(ck)] if falta_esp else []
+        cands += [(pid, False) for pid in versoes.normais_de(ck)]
+        for pid, esp in cands:
+            r = linhas.get(pid)
+            if r is None:
+                continue
+            resto = falta_esp if esp else falta
+            if resto <= 0:
+                continue
+            tira = min(resto, colecao.get(r["printing_id"], 0))
             if tira <= 0:
                 continue
-            falta -= tira
+            if esp:
+                falta_esp -= tira
+            else:
+                falta -= tira
             itens.append({
                 "printing_id": r["printing_id"], "qty": tira,
                 "card_key": ck, "name": r["name"], "code": r["public_code"],

@@ -66,30 +66,37 @@ def _wanted(con: sqlite3.Connection) -> dict[str, dict]:
 
 
 
-def _cheapest(con: sqlite3.Connection, keys: list[str]) -> dict[str, dict]:
-    """card_key -> impressão mais barata em que se compra: a base, ou a arte
-    alternativa nas cartas que a têm (`decks.compra_esta`, 2026-09-16)."""
+def _cheapest(con: sqlite3.Connection, keys: list[str],
+              especial: bool = False) -> dict[str, dict]:
+    """card_key -> impressão mais barata em que se compra: a normal (a base,
+    sem sobrenumeração) ou, com `especial`, a versão especial da
+    Legend/Champion (`decks.Versoes.compra`, 2026-09-17)."""
     if not keys:
         return {}
-    com_alt = decks.cartas_com_alt_art(con)
-    ordens = {s: config.set_order(s) for s in
-              (r["set_id"] for r in con.execute("SELECT DISTINCT set_id FROM catalog.printings"))}
-    ph = ",".join("?" * len(keys))
-    best: dict[str, dict] = {}
-    for r in con.execute(
+    versoes = decks.versoes_dos_decks(con)
+    escolha = {ck: versoes.compra(ck, especial) for ck in keys}
+    pids = [pid for pid in escolha.values() if pid]
+    if not pids:
+        return {}
+    ph = ",".join("?" * len(pids))
+    linhas = {r["printing_id"]: r for r in con.execute(
         f"SELECT p.card_key, p.set_id, p.printing_id, p.public_code, p.orientation, "
         f"       p.variant_kind, p.image_medium, p.image_large, p.image_url, "
         f"       pl.price_cents, m.market_name, m.market_set, m.cardmarket_id "
         f"FROM catalog.printings p "
         f"LEFT JOIN catalog.price_latest pl ON pl.printing_id = p.printing_id "
         f"LEFT JOIN catalog.cardtrader_map m ON m.printing_id = p.printing_id "
-        f"WHERE p.card_key IN ({ph})", keys
-    ):
-        if not decks.compra_esta(r, com_alt):
+        f"WHERE p.printing_id IN ({ph})", pids)}
+    best: dict[str, dict] = {}
+    for ck, pid in escolha.items():
+        r = linhas.get(pid)
+        if r is None:
             continue
-        cand = {
+        best[ck] = {
             "set": r["set_id"], "id": r["printing_id"], "code": r["public_code"],
-            "price": r["price_cents"], "alt_art": r["variant_kind"] == decks.KIND_ALT,
+            "price": r["price_cents"], "especial": especial,
+            "alternativas": [x for x in versoes.alternativas(ck) if x["id"] != pid]
+            if especial else [],
             "landscape": (r["orientation"] or "").lower() == "landscape",
             "img": f"img/{r['printing_id']}.webp",
             "cdn": r["image_medium"] or r["image_large"] or r["image_url"],
@@ -99,24 +106,42 @@ def _cheapest(con: sqlite3.Connection, keys: list[str]) -> dict[str, dict]:
             "market_set": r["market_set"],
             "cardmarket_id": r["cardmarket_id"],
         }
-        atual = best.get(r["card_key"])
-        rank = lambda c: (c["price"] is None, c["price"] if c["price"] is not None else 0,
-                          ordens.get(c["set"], 999))
-        if atual is None or rank(cand) < rank(atual):
-            best[r["card_key"]] = cand
     return best
 
 
+def _falta_global(con: sqlite3.Connection) -> tuple[dict[str, int], dict[str, int]]:
+    """O que falta comprar AO TODO, por carta: (total, do qual na versão especial).
+
+    É a soma do `missing` dos grupos de Legend (lido no líder — os dois
+    LeBlanc contam uma vez), que já desconta o que ele tem E o que vem a
+    caminho, lugar a lugar. Desde 2026-09-17 a carência já não se conta por
+    carta às cegas (pedido − cópias): uma Legend com 3 cópias base e nenhuma
+    especial ainda compra a especial, e só a alocação sabe isso.
+    """
+    falta: dict[str, int] = {}
+    falta_esp: dict[str, int] = {}
+    for a in decks.allocate(con).values():
+        g = a["grupo"]
+        if not g["lider"]:
+            continue
+        for ck, n in g["missing"].items():
+            falta[ck] = falta.get(ck, 0) + n
+        for ck, n in g["missing_especial"].items():
+            falta_esp[ck] = falta_esp.get(ck, 0) + n
+    return falta, falta_esp
+
+
 def shortfall(con: sqlite3.Connection) -> list[dict]:
-    """O que falta comprar ao todo, com quantos decks pede cada carta."""
+    """O que falta comprar ao todo, com quantos decks pede cada carta.
+
+    Uma entrada por carta, com o `missing` total; quando parte disso é a
+    versão especial da Legend/Champion, `especial` diz quantas, em que
+    impressão, a quanto e que alternativas havia (2026-09-17), e o `total`
+    soma os dois preços.
+    """
     pedido = _wanted(con)
     if not pedido:
         return []
-    # O que já vem a caminho conta como tido: senão a lista mandava comprar
-    # outra vez enquanto a encomenda não chega.
-    tenho = decks.owned_by_card(con)
-    for k, q in pending.open_by_card(con).items():
-        tenho[k] = tenho.get(k, 0) + q
     nomes = {r["card_key"]: r["name"] for r in con.execute(
         "SELECT card_key, name FROM catalog.cards")}
 
@@ -141,23 +166,26 @@ def shortfall(con: sqlite3.Connection) -> list[dict]:
     # Continuam a contar na secção Decks e na Coleção.
     ignorar = set(cfg.get("faltas_ignorar_tipos", []))
 
-    em_falta = {}
-    for k, v in pedido.items():
-        if tipos.get(k, (None, False))[0] in ignorar:
-            continue
-        if v["qty"] > tenho.get(k, 0):
-            em_falta[k] = {**v, "alvo": v["qty"]}
+    falta_total, falta_esp = _falta_global(con)
+    em_falta = {k: v for k, v in pedido.items()
+                if falta_total.get(k, 0) > 0
+                and tipos.get(k, (None, False))[0] not in ignorar}
     onde = _cheapest(con, list(em_falta))
+    onde_esp = _cheapest(con, [k for k in em_falta if falta_esp.get(k)], especial=True)
 
     out = []
     for k, v in em_falta.items():
-        falta = v["alvo"] - tenho.get(k, 0)
+        falta = falta_total[k]
+        n_esp = min(falta, falta_esp.get(k, 0))
         c = onde.get(k) or {}
+        e = onde_esp.get(k) or {}
+        total = (c.get("price") or 0) * (falta - n_esp) + (e.get("price") or 0) * n_esp
         out.append({
             "card_key": k, "name": nomes.get(k, k),
             # `wanted` é o que os decks pedem ao todo, e é o alvo.
-            "wanted": v["qty"], "target": v["alvo"], "cap": playset(k),
-            "have": tenho.get(k, 0), "missing": falta,
+            "wanted": v["qty"], "target": v["qty"], "cap": playset(k),
+            # O que já cobre o pedido: cópias que servem e o que vem a caminho.
+            "have": max(0, v["qty"] - falta), "missing": falta,
             # Decks DIFERENTES (grupos de Legend), não listas: os dois LeBlanc
             # contam como um. A lista `decks` continua a mostrar as duas.
             "n_decks": v["n_grupos"],
@@ -165,11 +193,15 @@ def shortfall(con: sqlite3.Connection) -> list[dict]:
                       for slug, x in sorted(v["decks"].items(),
                                             key=lambda kv: -kv[1]["qty"])],
             "price": c.get("price"),
-            "total": (c.get("price") or 0) * falta,
+            "total": total,
             "set": c.get("set"), "code": c.get("code"),
             "img": c.get("img"), "cdn": c.get("cdn"),
             "landscape": c.get("landscape", False),
-            "alt_art": c.get("alt_art", False),
+            # A versão especial da Legend/Champion que falta (2026-09-17).
+            "especial": ({"qty": n_esp, "code": e.get("code"), "set": e.get("set"),
+                          "price": e.get("price"), "total": (e.get("price") or 0) * n_esp,
+                          "alternativas": e.get("alternativas", [])}
+                         if n_esp else None),
         })
     return out
 
@@ -186,28 +218,29 @@ def _tipos(con: sqlite3.Connection) -> dict[str, tuple]:
         "SELECT card_key, type, is_token FROM catalog.cards")}
 
 
-def _agrupar(con: sqlite3.Connection, falta: dict[str, int]) -> list[dict]:
+def _agrupar(con: sqlite3.Connection, falta: dict[str, int],
+             falta_esp: dict[str, int] | None = None) -> list[dict]:
     """{card_key: quantas comprar} -> lista por edição, com as cartas dentro.
 
     A edição escolhida é aquela onde a carta sai mais barata: é onde se compra.
+    `falta_esp` é a parte de `falta` que é a versão especial da
+    Legend/Champion (2026-09-17): sai numa LINHA PRÓPRIA, marcada `especial`,
+    na versão especial mais barata — para a wantlist do Cardmarket pedir
+    «2× base + 1× alt art» e não «3× base».
     """
     if not falta:
         return []
+    falta_esp = falta_esp or {}
     nomes = {r["card_key"]: r["name"] for r in con.execute(
         "SELECT card_key, name FROM catalog.cards")}
     onde = _cheapest(con, list(falta))
+    onde_esp = _cheapest(con, [k for k in falta if falta_esp.get(k)], especial=True)
 
     # Em que outras edições existe a carta — dá-lhe alternativa se não
     # encontrar a versão mais barata.
-    ph = ",".join("?" * len(falta))
-    com_alt = decks.cartas_com_alt_art(con)
-    edicoes: dict[str, set] = {}
-    for r in con.execute(
-        f"SELECT card_key, set_id, variant_kind FROM catalog.printings "
-        f"WHERE card_key IN ({ph})", list(falta)
-    ):
-        if decks.compra_esta(r, com_alt):
-            edicoes.setdefault(r["card_key"], set()).add(r["set_id"])
+    vs = decks.versoes_dos_decks(con)
+    edicoes = {k: {vs.info(p)["set"] for p in vs.normais_de(k)} for k in falta}
+    edicoes_esp = {k: {vs.info(p)["set"] for p in vs.especiais_de(k)} for k in falta}
     ordens = {s: config.set_order(s) for s in
               (r["set_id"] for r in con.execute("SELECT DISTINCT set_id FROM catalog.printings"))}
 
@@ -224,11 +257,8 @@ def _agrupar(con: sqlite3.Connection, falta: dict[str, int]) -> list[dict]:
         irmas.setdefault(r["card_key"], []).append(r)
 
     por_set: dict[str, dict] = {}
-    for k, n in falta.items():
-        c = onde.get(k)
-        if not c:
-            continue
 
+    def linha(k: str, n: int, c: dict, especial: bool) -> None:
         # As versões da MESMA edição onde se vai comprar: base, arte
         # alternativa, showcase, signature. É o que ele quer ver lado a lado.
         alt = []
@@ -252,8 +282,9 @@ def _agrupar(con: sqlite3.Connection, falta: dict[str, int]) -> list[dict]:
             "card_key": k, "name": nomes.get(k, k), "qty": n,
             "code": c["code"], "price": c["price"], "total": (c["price"] or 0) * n,
             "img": c["img"], "cdn": c["cdn"], "landscape": c["landscape"],
-            "alt_art": c.get("alt_art", False),
-            "also": sorted(edicoes.get(k, set()) - {c["set"]}),
+            "especial": especial,
+            "alternativas": c.get("alternativas", []),
+            "also": sorted((edicoes_esp if especial else edicoes).get(k, set()) - {c["set"]}),
             "market_name": c.get("market_name"), "market_set": c.get("market_set"),
             "cardmarket_id": c.get("cardmarket_id"),
             "v": (versoes.get(c["id"]) or {}).get("v"),
@@ -261,6 +292,13 @@ def _agrupar(con: sqlite3.Connection, falta: dict[str, int]) -> list[dict]:
             "foil_only": (versoes.get(c["id"]) or {}).get("foil_only", False),
             "outras_versoes": alt,
         })
+
+    for k, n in falta.items():
+        n_esp = min(n, falta_esp.get(k, 0))
+        if n_esp and onde_esp.get(k):
+            linha(k, n_esp, onde_esp[k], True)
+        if n - n_esp and onde.get(k):
+            linha(k, n - n_esp, onde[k], False)
     out = list(por_set.values())
     for d in out:
         d["items"].sort(key=lambda x: (-x["total"], x["name"]))
@@ -299,7 +337,7 @@ def por_deck(con: sqlite3.Connection) -> list[dict]:
     for d in decks.decks_index(con):
         comprar = {k: n for k, n in alloc[d["id"]]["missing"].items()
                    if tipos.get(k, (None, False))[0] not in ignorar}
-        by_set = _agrupar(con, comprar)
+        by_set = _agrupar(con, comprar, alloc[d["id"]]["missing_especial"])
         out.append({
             "id": d["id"], "name": d["name"], "priority": d["priority"],
             "have": d["have"], "wanted": d["wanted"],
@@ -323,18 +361,13 @@ def todos_juntos(con: sqlite3.Connection) -> dict:
     cfg = config.load()
     ignorar = set(cfg.get("faltas_ignorar_tipos", []))
     tipos = _tipos(con)
-    tenho = dict(decks.owned_by_card(con))
-    for k, q in pending.open_by_card(con).items():
-        tenho[k] = tenho.get(k, 0) + q
-
-    pedido: dict[str, int] = {}
-    for k, v in _wanted(con).items():
-        if tipos.get(k, (None, False))[0] in ignorar:
-            continue
-        pedido[k] = v["qty"]
-
-    comprar = {k: q - tenho.get(k, 0) for k, q in pedido.items() if q > tenho.get(k, 0)}
-    by_set = _agrupar(con, comprar)
+    # A soma do `missing` dos grupos (2026-09-17, `_falta_global`): é a mesma
+    # conta que a soma das abas, lugar a lugar — a especial da Legend/Champion
+    # à parte.
+    falta, falta_esp = _falta_global(con)
+    comprar = {k: n for k, n in falta.items()
+               if tipos.get(k, (None, False))[0] not in ignorar}
+    by_set = _agrupar(con, comprar, falta_esp)
     return {
         "cards": sum(len(g["items"]) for g in by_set),
         "copies": sum(g["copies"] for g in by_set),

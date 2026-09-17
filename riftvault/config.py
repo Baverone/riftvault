@@ -64,30 +64,42 @@ DEFAULTS: dict = {
     #   `um_de_cada`          — o que pede 1 em vez do playset do tipo: as
     #                           sobrenumeradas e as promos (2026-09-15:
     #                           "overnumbered e promos (SP) voltamos a 1 de
-    #                           cada / se eu tiver mais adiciono na mesma") e,
-    #                           desde 2026-09-16, as artes alternativas ("Alt
-    #                           Art e Overnumbered e assim quero apenas 1 de
-    #                           cada"). Só o ALVO; o bloco e a percentagem não
-    #                           mexem. Nas artes alternativas o alvo sobe ao
-    #                           que os decks pedem (`decks.jogam_alt_art`).
+    #                           cada / se eu tiver mais adiciono na mesma") e
+    #                           as artes alternativas (2026-09-16, reafirmado
+    #                           a 2026-09-17: "as Alt Art, Overnumbered e SP
+    #                           voltam a 1 de cada, mesmo que joguem nos
+    #                           decks"). Só o ALVO; o bloco e a percentagem
+    #                           não mexem. O alvo NUNCA sobe por causa dos
+    #                           decks (o «max(1, procura dos decks)» de
+    #                           2026-09-16 saiu a 2026-09-17).
     # `fora` é o nome antigo da primeira (2026-09-08 a 2026-09-14) e continua a
     # ser lido. Ver `metrics._fora`, `metrics.escondida`, `metrics.e_master` e
     # `metrics.e_um_de_cada`.
     "master_set": {"fora_da_percentagem": ["a", "overnumbered", "promo"],
                    "escondidas": ["-T", "*", "-R"],
                    "um_de_cada": ["a", "overnumbered", "promo"]},
-    # Os decks JOGAM EM ALT ART (André, 2026-09-16: "se jogar num deck,
-    # acrescentas as necessarias para o deck, e o deck joga com Alt Art" /
-    # "se o deck joga 3, vou ter que ter 3 normais e 3 Alt Art" / "sempre que
-    # existir Alt Art"). Numa carta com arte alternativa só a arte alternativa
-    # serve os decks, compra-se a arte alternativa, e o alvo dela na Coleção é
-    # o máximo entre 1 e o que os decks pedem; a base fica no master set. Nas
-    # cartas sem arte alternativa nada muda. Ver `decks.cartas_com_alt_art`,
-    # `decks.joga_esta`, `decks.compra_esta` e `decks.procura_dos_decks`. As
-    # runas não entram: a arte alternativa delas está RETIRADA (a seguir) e
-    # os decks jogam-nas na base. (O `runas_alt_art_da_edicao_da_legend` da
-    # manhã de 2026-09-17 ficou sem objecto nessa tarde e deixou de existir.)
-    "decks": {"jogam_alt_art": True, "alt_art_ignorar_tipos": []},
+    # O que os decks JOGAM (André, 2026-09-17, "vamos voltar atras"): "os decks
+    # apenas jogaram versoes normais, com excepcao da Legend e do Champion que
+    # serao Alt Art ou Overnumbered ou SP, mas nunca assinada".
+    #   `so_normais_excepto` — os PAPÉIS da lista do deck que jogam uma versão
+    #                          especial; todos os outros papéis (main,
+    #                          battlefields, runas, sideboard) jogam a base.
+    #                          Vazio: os decks jogam tudo na base.
+    #   `versoes_especiais`  — o que conta como «versão especial», na gramática
+    #                          das listas do `master_set` (sufixo, palavra ou
+    #                          nome da variante, mais `overnumbered`). A
+    #                          signature (`*`) NUNCA entra — «nunca assinada»
+    #                          é regra, não config — e escrevê-la aqui rebenta.
+    # Só UMA cópia por papel é especial (a Legend é 1 por deck; um Champion
+    # que a lista jogue mais vezes tem as restantes na base); qualquer das
+    # versões especiais serve, e o que falta compra-se na mais barata. Sem
+    # versão especial no catálogo, o deck joga a base e não há falta. As runas
+    # em alt art continuam retiradas (a seguir). Ver `decks.Versoes` e
+    # `decks.versoes_dos_decks`. (O `jogam_alt_art`/`alt_art_ignorar_tipos`
+    # de 2026-09-16 deixou de existir; um config que ainda os traga não faz
+    # nada.)
+    "decks": {"so_normais_excepto": ["legend", "champion"],
+              "versoes_especiais": ["a", "overnumbered", "promo"]},
     # O bloco das runas especiais ("1 runa especial de cada para cada set",
     # 2026-09-08) — só o BLOCO. O `alvo` que aqui vivia (1, "runas 1 de cada")
     # deixou de ser lido a 2026-09-15: as runas pedem o alvo do tipo, como

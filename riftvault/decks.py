@@ -336,190 +336,246 @@ def import_all(con: sqlite3.Connection, log=print) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# O que os decks JOGAM: a arte alternativa, sempre que existir (2026-09-16)
+# O que os decks JOGAM: a versão normal — menos a Legend e o Champion (2026-09-17)
 # ---------------------------------------------------------------------------
 #
-# André: *"se jogar num deck, acrescentas as necessarias para o deck, e o deck
-# joga com Alt Art"*; perguntado: *"se o deck joga 3, vou ter que ter 3 normais
-# e 3 Alt Art"* e a Alt Art vale *"sempre que existir Alt Art"* — não é escolha
-# carta a carta nem por deck.
+# André, 2026-09-17 («vamos voltar atras»): *"as Alt Art, Overnumbered e SP
+# voltam a 1 de cada, mesmo que joguem nos decks"* e *"os decks apenas jogaram
+# versoes normais, com excepcao da Legend e do Champion que serao Alt Art ou
+# Overnumbered ou SP, mas nunca assinada"*.
 #
-# Isto muda a partilha de 2026-09-11 (*"se há na coleção o deck usa"*) SÓ para
-# as cartas que têm arte alternativa: a cópia BASE da Coleção deixa de servir o
-# deck, porque o deck quer a Alt Art. O master set continua a pedir o playset
-# da base — são dois conjuntos, seis cópias, não três partilhadas. Para as
-# cartas sem Alt Art nada muda: qualquer cópia serve, como até aqui.
+# Isto reverte o «o deck joga em Alt Art sempre que existir» de 2026-09-16
+# (que punha o alvo da alt art a subir ao que os decks pediam e obrigava a
+# «3 normais e 3 Alt Art»). A regra que vale:
 #
-# Uma pergunta, uma resposta: `cartas_com_alt_art` diz QUAIS são as cartas;
-# `joga_esta` diz se uma impressão conta para os decks (os montes, o pendente,
-# as impressões que o deck pode usar); `compra_esta` diz em que impressão se
-# compra o que falta (o «Falta comprar, por edição», o `+` das encomendas, as
-# wantlists dos decks). Desliga-se em `decks.jogam_alt_art: false` — e aí tudo
-# volta a 2026-09-11.
+#   1. O alvo da coleção extra é 1 de cada, ponto final — nunca sobe por
+#      causa dos decks (`metrics.alvo` deixou de receber a procura).
+#   2. Os decks jogam a impressão NORMAL (a base, sem sobrenumeração), com
+#      duas excepções — a Legend e o Champion —, que jogam UMA versão
+#      especial: Alt Art, sobrenumerada ou promo, qualquer delas serve.
+#   3. Nunca uma assinada. A signature não serve deck nenhum, para nada.
+#   4. As runas em alt art continuam RETIRADAS (`metrics.retirada`, a mesma
+#      manhã): uma runa não é Legend nem Champion e os decks jogam a base.
 #
-# AS RUNAS EM ALT ART NÃO EXISTEM (2026-09-17). A regra de 16/09 punha as
-# runas dos decks em alt art (40 das 47 cópias a comprar); a resposta dele de
-# manhã («da edição da Legend») deixou-as todas a zero, porque as Legends dele
-# são SFD/UNL/VEN e a RiftScribe só tem runas em alt art no OGN; e à tarde
-# fechou: *"deixa as runas Alt Art, nao incluas em nada"*. Uma runa em alt art
-# é uma impressão RETIRADA (`metrics.retirada`): não serve deck nenhum, não se
-# compra, não faz subir alvo nenhum — a runa fica sem arte alternativa aos
-# olhos dos decks e joga-se na BASE, como a 2026-09-11. A regra «da edição da
-# Legend» ficou sem objecto e saiu; o que dela ficou é o `AltArt` (uma
-# pergunta, uma resposta, com as retiradas lá dentro) e a alocação a consumir
-# os montes POR IMPRESSÃO, que é o que deixa uma cópia retirada ficar na
-# caixa sem ninguém a levar.
-KIND_ALT = "alt_art"
+# O que o André NÃO disse, e como se resolveu (dúvidas assinaladas no
+# relatório, decididas com o supervisor):
+#   (a) um Champion que a lista jogue mais do que uma vez: só UMA cópia é
+#       especial, as restantes são normais — é a única leitura compatível com
+#       «1 de cada mesmo que joguem nos decks»;
+#   (b) uma carta com várias versões especiais: qualquer uma serve; se ele
+#       tem uma, está satisfeito; se não tem nenhuma, a falta aponta à mais
+#       barata e as outras ficam em `alternativas`.
+#   Sem versão especial nenhuma no catálogo, a Legend/Champion joga a base e
+#   não há falta — não se inventa uma compra impossível.
+#
+# Uma pergunta, uma resposta: `Versoes` (o objecto) sabe, por carta, que
+# impressões servem um lugar NORMAL e que impressões servem um lugar ESPECIAL;
+# `versoes_dos_decks` constrói-o a partir do catálogo e do config
+# (`decks.versoes_especiais`); `papeis_especiais` diz que papéis da lista
+# jogam a especial (`decks.so_normais_excepto`). A alocação (`allocate`)
+# serve os dois lugares separadamente — o especial primeiro — e devolve, a
+# par do `missing` total, o `missing_especial`: a parte que se compra numa
+# versão especial. É a maquinaria de 2026-09-17 de manhã (a alocação a
+# consumir os montes POR IMPRESSÃO) reaproveitada; o que saiu foi o
+# `procura_dos_decks` e o «só a alt art serve».
+PAPEIS_ESPECIAIS = "so_normais_excepto"
+LISTA_ESPECIAIS = "versoes_especiais"
+KIND_SIGNATURE = "signature"
 
 
-def jogam_alt_art(cfg: dict | None = None) -> bool:
+def _opcoes_decks(cfg: dict | None = None) -> dict:
     cfg = cfg or config.load()
-    return bool((cfg.get("decks") or {}).get("jogam_alt_art", True))
+    return cfg.get("decks") or {}
 
 
-class AltArt(frozenset):
-    """As cartas que os decks jogam em Alt Art, e as impressões que não existem.
+def papeis_especiais(cfg: dict | None = None) -> frozenset[str]:
+    """Os papéis da lista (`ROLE_ORDER`) que jogam uma versão especial — hoje
+    `legend` e `champion`. Um papel desconhecido rebenta, como as listas do
+    `master_set`: um erro de escrita não pode passar a «nenhum»."""
+    papeis = frozenset(_opcoes_decks(cfg).get(PAPEIS_ESPECIAIS) or ())
+    estranhos = papeis - set(ROLE_ORDER)
+    if estranhos:
+        raise ValueError(f"decks.{PAPEIS_ESPECIAIS}: papel desconhecido "
+                         f"{sorted(estranhos)} (aceita {ROLE_ORDER})")
+    return papeis
 
-    É um `frozenset` de `card_key` (as cartas com arte alternativa que entram
-    na regra), para `ck in com_alt` continuar a ler-se como sempre; leva
-    `retiradas` — os `printing_id` que deixaram de existir para o riftvault
-    (`metrics.retirada`, as runas em alt art) — para `joga` e `compra`
-    dizerem «não» a essas antes de qualquer regra, mesmo com a regra do Alt
-    Art desligada.
+
+def kinds_especiais(cfg: dict | None = None) -> tuple[frozenset[str], bool]:
+    """O `decks.versoes_especiais` lido: (variantes, as sobrenumeradas também?).
+
+    A signature nunca pode estar aqui — *"nunca assinada"* é regra, não
+    config — e escrevê-la rebenta em vez de passar em silêncio.
+    """
+    from . import metrics
+
+    kinds, over = metrics._ler_lista(f"decks.{LISTA_ESPECIAIS}",
+                                     tuple(_opcoes_decks(cfg).get(LISTA_ESPECIAIS) or ()))
+    if KIND_SIGNATURE in kinds:
+        raise ValueError(f"decks.{LISTA_ESPECIAIS}: uma assinada nunca serve um "
+                         f"deck (André, 2026-09-17: 'nunca assinada')")
+    return kinds, over
+
+
+class Versoes:
+    """Que impressões servem os decks, por carta e por lugar.
+
+    `normais[ck]` são as impressões que servem um lugar normal (a base, sem
+    sobrenumeração — pela ordem do catálogo, edição mais antiga primeiro);
+    `especiais[ck]` as que servem o lugar da Legend/Champion (alt art,
+    sobrenumerada, promo — a mais barata primeiro, que é a que se compra).
+    Uma signature ou uma retirada não está em lado nenhum. Uma carta sem
+    impressão normal nenhuma (não acontece no catálogo de hoje) serve-se de
+    qualquer não-assinada, para o deck nunca ficar impossível de montar.
     """
 
-    def __new__(cls, cartas=(), retiradas=()):
-        self = super().__new__(cls, cartas)
+    def __init__(self, normais: dict[str, list[str]], especiais: dict[str, list[str]],
+                 retiradas=(), papeis=(), linha_de: dict | None = None):
+        self.normais = normais
+        self.especiais = especiais
         self.retiradas = frozenset(retiradas)
-        return self
+        self.papeis = frozenset(papeis)
+        # printing_id -> linha do catálogo (código, edição, preço), para quem
+        # mostra a versão escolhida sem voltar à base de dados.
+        self.linha_de = linha_de or {}
 
     def retirada(self, printing) -> bool:
         from . import metrics
 
         return metrics.campo(printing, "printing_id") in self.retiradas
 
-    def em_alt_art(self, ck: str) -> bool:
-        """Os decks jogam esta carta em Alt Art?"""
-        return ck in self
+    def tem_especial(self, ck: str) -> bool:
+        return bool(self.especiais.get(ck))
 
-    def joga(self, printing) -> bool:
-        """Esta impressão serve um deck?
+    def normais_de(self, ck: str) -> list[str]:
+        return self.normais.get(ck, [])
 
-        Uma retirada nunca. Se a carta tem arte alternativa, só a arte
-        alternativa serve; se não tem, serve qualquer impressão (base,
-        showcase, signature — como sempre).
-        """
-        if self.retirada(printing):
-            return False
-        if printing["card_key"] not in self:
-            return True
-        return printing["variant_kind"] == KIND_ALT
+    def especiais_de(self, ck: str) -> list[str]:
+        return self.especiais.get(ck, [])
 
-    def compra(self, printing) -> bool:
-        """É nesta impressão que o deck COMPRA o que lhe falta?
+    def joga(self, printing, especial: bool = False) -> bool:
+        """Esta impressão serve um lugar do deck — normal, ou o especial?"""
+        pid = printing["printing_id"]
+        ck = printing["card_key"]
+        lista = self.especiais if especial else self.normais
+        return pid in lista.get(ck, ())
 
-        Nunca numa retirada. A arte alternativa se a carta a tem, a base se
-        não — e depois, entre as candidatas, a mais barata (quem chama decide
-        isso).
-        """
-        if self.retirada(printing):
-            return False
-        kind = printing["variant_kind"]
-        if printing["card_key"] not in self:
-            return kind == "base"
-        return kind == KIND_ALT
+    def serve(self, printing) -> bool:
+        """Serve algum lugar de algum deck? (o «conta para os decks» cru)"""
+        return self.joga(printing) or self.joga(printing, especial=True)
+
+    def compra(self, ck: str, especial: bool = False) -> str | None:
+        """A impressão em que se COMPRA o que falta a esta carta: a normal
+        mais barata, ou — no lugar especial — a versão especial mais barata."""
+        lista = self.especiais_de(ck) if especial else self.normais_de(ck)
+        if not lista:
+            return None
+        if especial:
+            return lista[0]
+        return min(lista, key=lambda pid: self._preco_rank(pid))
+
+    def _preco_rank(self, pid: str) -> tuple:
+        r = self.linha_de.get(pid)
+        preco = r["price_cents"] if r is not None else None
+        return (preco is None, preco if preco is not None else 0,
+                config.set_order(r["set_id"]) if r is not None else 999, pid)
+
+    def info(self, pid: str | None) -> dict:
+        r = self.linha_de.get(pid) if pid else None
+        if r is None:
+            return {"id": pid, "code": None, "set": None, "price": None, "kind": None}
+        return {"id": pid, "code": r["public_code"], "set": r["set_id"],
+                "price": r["price_cents"], "kind": r["variant_kind"]}
+
+    def alternativas(self, ck: str) -> list[dict]:
+        """As versões especiais desta carta, da mais barata para a mais cara —
+        o que o relatório e a linha da falta mostram como alternativa."""
+        return [self.info(pid) for pid in self.especiais_de(ck)]
 
 
-def cartas_com_alt_art(con: sqlite3.Connection, cfg: dict | None = None) -> AltArt:
-    """As cartas lógicas que TÊM arte alternativa no catálogo — as que os decks
-    jogam em Alt Art (`AltArt`). Uma arte alternativa RETIRADA não conta como
-    arte alternativa: a runa do OGN fica «sem alt art» e joga-se na base
-    (2026-09-17). Com a regra desligada só as retiradas ficam, e aí o resto
-    volta a 2026-09-11.
+def versoes_dos_decks(con: sqlite3.Connection, cfg: dict | None = None) -> Versoes:
+    """Constrói o `Versoes` a partir do catálogo e do config.
 
-    `decks.alt_art_ignorar_tipos` tira tipos inteiros da regra (vazio por
-    omissão: ele disse *"sempre que existir Alt Art"*).
+    Normal = `variant_kind == "base"` e NÃO sobrenumerada (uma «300/298» é
+    uma reimpressão de topo, que ele chama OverNumbered — versão especial).
+    Especial = o que `decks.versoes_especiais` disser (alt art, sobrenumerada,
+    promo). Signature e retiradas ficam de fora das duas listas.
     """
     from . import metrics
 
     cfg = cfg or config.load()
     retiradas = metrics.retiradas_ids(con, cfg)
-    if not jogam_alt_art(cfg):
-        return AltArt((), retiradas)
-    ignorar = set((cfg.get("decks") or {}).get("alt_art_ignorar_tipos") or ())
-    cartas = {r["card_key"] for r in con.execute(
-        "SELECT p.printing_id, p.card_key, c.type FROM catalog.printings p "
-        "JOIN catalog.cards c ON c.card_key = p.card_key WHERE p.variant_kind = ?",
-        (KIND_ALT,))
-        if r["type"] not in ignorar and r["printing_id"] not in retiradas}
-    return AltArt(cartas, retiradas)
+    kinds, over = kinds_especiais(cfg)
+    ordens = {s: config.set_order(s) for s in
+              (r["set_id"] for r in con.execute(
+                  "SELECT DISTINCT set_id FROM catalog.printings"))}
+    linhas = con.execute(
+        "SELECT p.printing_id, p.card_key, p.variant_kind, p.set_id, p.api_sort, "
+        "       p.public_code, p.collector_number, pl.price_cents "
+        "FROM catalog.printings p "
+        "LEFT JOIN catalog.price_latest pl ON pl.printing_id = p.printing_id").fetchall()
+    linha_de = {r["printing_id"]: r for r in linhas}
+    normais: dict[str, list] = {}
+    especiais: dict[str, list] = {}
+    restantes: dict[str, list] = {}
+    for r in linhas:
+        if r["printing_id"] in retiradas or r["variant_kind"] == KIND_SIGNATURE:
+            continue
+        over_esta = metrics.e_overnumbered(r)
+        if r["variant_kind"] in kinds or (over and over_esta):
+            especiais.setdefault(r["card_key"], []).append(r)
+        elif r["variant_kind"] == "base" and not over_esta:
+            normais.setdefault(r["card_key"], []).append(r)
+        else:
+            restantes.setdefault(r["card_key"], []).append(r)
+    # Sem impressão normal nenhuma, o lugar normal aceita o que houver de
+    # não-assinado (as promo de runa `VEN-R`, por exemplo): um deck nunca pede
+    # uma compra impossível.
+    for ck, rs in restantes.items():
+        if ck not in normais:
+            normais[ck] = rs
+    por_catalogo = lambda r: (ordens.get(r["set_id"], 999), r["api_sort"])
+    por_preco = lambda r: (r["price_cents"] is None,
+                           r["price_cents"] if r["price_cents"] is not None else 0,
+                           ordens.get(r["set_id"], 999), r["api_sort"])
+    return Versoes(
+        {ck: [r["printing_id"] for r in sorted(rs, key=por_catalogo)]
+         for ck, rs in normais.items()},
+        {ck: [r["printing_id"] for r in sorted(rs, key=por_preco)]
+         for ck, rs in especiais.items()},
+        retiradas, papeis_especiais(cfg), linha_de)
 
 
-def joga_esta(printing, com_alt) -> bool:
-    """Esta impressão serve um deck? Ver `AltArt.joga`."""
-    return com_alt.joga(printing)
-
-
-def compra_esta(printing, com_alt) -> bool:
-    """É nesta impressão que o deck COMPRA o que lhe falta? Ver `AltArt.compra`."""
-    return com_alt.compra(printing)
-
-
-def kind_de_compra(card_key: str, com_alt) -> str:
-    """A variante em que o deck compra esta carta — o gémeo do `compra_esta`
-    para quem tem só a chave da carta."""
-    return KIND_ALT if com_alt.em_alt_art(card_key) else "base"
-
-
-def procura_dos_decks(con: sqlite3.Connection, cfg: dict | None = None) -> dict[str, int]:
-    """card_key -> quantas ARTES ALTERNATIVAS os decks pedem dessa carta.
-
-    É o que faz subir o alvo da Alt Art na Coleção (`metrics.alvo`): *"se
-    jogar num deck, acrescentas as necessarias para o deck"* — um deck que
-    joga 3 põe o alvo da arte alternativa a 3. Só as cartas que TÊM arte
-    alternativa entram; as outras jogam a base e o alvo delas não mexe.
-
-    A conta é a da alocação (`allocate`): dentro de um grupo de Legend o
-    MÁXIMO entre as listas — os dois LeBlanc são o mesmo deck físico, 3 e 2
-    dão 3, não 5 —, e entre grupos diferentes a SOMA, porque são decks que se
-    jogam ao mesmo tempo e disputam as mesmas cópias (2026-09-11). É a mesma
-    quantidade que o «Falta comprar» dos decks acaba por pedir, para o bloco
-    das artes alternativas e a página dos decks dizerem o mesmo número.
-    Vazio com a regra desligada. As runas nunca entram: a arte alternativa
-    delas está retirada (2026-09-17) e os decks jogam-nas na base.
-    """
-    com_alt = cartas_com_alt_art(con, cfg)
-    if not com_alt:
-        return {}
-    out: dict[str, int] = {}
-    for g in grupos(con):
-        need: dict[str, int] = {}
-        for deck_id in g["deck_ids"]:
-            for ck, q in _need(con, deck_id).items():
-                if com_alt.em_alt_art(ck):
-                    need[ck] = max(need.get(ck, 0), q)
-        for ck, q in need.items():
-            out[ck] = out.get(ck, 0) + q
-    return out
+def cartas_especiais(con: sqlite3.Connection, deck_id: int,
+                     papeis=None) -> set[str]:
+    """As cartas que ESTE deck joga numa versão especial: as das linhas cujo
+    papel está em `decks.so_normais_excepto` (a Legend e o Champion)."""
+    if papeis is None:
+        papeis = papeis_especiais()
+    if not papeis:
+        return set()
+    ph = ",".join("?" * len(papeis))
+    return {r["card_key"] for r in con.execute(
+        f"SELECT DISTINCT card_key FROM deck_cards WHERE deck_id = ? AND role IN ({ph})",
+        (deck_id, *sorted(papeis)))}
 
 
 def owned_by_card(con: sqlite3.Connection) -> dict[str, int]:
-    """card_key -> cópias que SERVEM OS DECKS, de todos os locais.
+    """card_key -> cópias que podem SERVIR OS DECKS, de todos os locais.
 
-    É o que os decks têm para se montar (a soma dos três montes do
-    `pool_dos_decks`) e o que a secção Faltas desconta. Desde 2026-09-16 uma
-    carta com arte alternativa conta SÓ as cópias da arte alternativa — o deck
-    joga em Alt Art (`joga_esta`); uma retirada não conta nunca. O «quantas
-    destas cartas tenho ao todo» (o playset jogável da Coleção, o `have_base`
-    do Pimp) é o `metrics.owned_by_card`, que soma tudo menos as retiradas.
+    Conta as impressões que servem algum lugar — normal ou especial
+    (`Versoes.serve`); nunca uma signature nem uma retirada. É informação
+    (o `riftvault stats --usadas`); quem decide o que falta é a alocação,
+    porque o lugar especial e o normal não se substituem. O «quantas destas
+    cartas tenho ao todo» (o playset jogável, o `have_base` do Pimp) é o
+    `metrics.owned_by_card`, que soma tudo menos as retiradas.
     """
-    com_alt = cartas_com_alt_art(con)
+    versoes = versoes_dos_decks(con)
     out: dict[str, int] = {}
     for r in con.execute(
-        "SELECT p.printing_id, p.card_key, p.variant_kind, p.set_id, c.qty FROM copies c "
+        "SELECT p.printing_id, p.card_key, c.qty FROM copies c "
         "JOIN catalog.printings p ON p.printing_id = c.printing_id WHERE c.qty > 0"
     ):
-        if joga_esta(r, com_alt):
+        if versoes.serve(r):
             out[r["card_key"]] = out.get(r["card_key"], 0) + r["qty"]
     return out
 
@@ -541,9 +597,9 @@ def pool_dos_decks(con: sqlite3.Connection) -> dict:
 
     Até 2026-09-17 os montes vinham somados por carta lógica, já filtrados
     pelo que os decks jogam. Passaram a vir por impressão, crus: é o
-    `allocate` que escolhe de que impressões cada carta se serve
-    (`AltArt.joga`), e uma impressão retirada fica no monte sem ninguém a
-    levar.
+    `allocate` que escolhe de que impressões cada lugar se serve
+    (`Versoes.joga`), e uma impressão retirada ou assinada fica no monte sem
+    ninguém a levar.
     """
     from . import locais
 
@@ -552,23 +608,6 @@ def pool_dos_decks(con: sqlite3.Connection) -> dict:
         "binder": dict(locais.em(con, locais.BINDER)),
         "colecao": dict(locais.na_colecao(con)),
     }
-
-
-def impressoes_por_carta(con: sqlite3.Connection) -> dict[str, list[sqlite3.Row]]:
-    """card_key -> as impressões do catálogo, artes base primeiro, depois por
-    edição e ordem da API — a ordem por que um deck se serve delas."""
-    ordens = {s: config.set_order(s) for s in
-              (r["set_id"] for r in con.execute(
-                  "SELECT DISTINCT set_id FROM catalog.printings"))}
-    out: dict[str, list] = {}
-    for r in sorted(con.execute(
-        "SELECT printing_id, card_key, variant_kind, set_id, api_sort "
-        "FROM catalog.printings").fetchall(),
-        key=lambda r: (0 if r["variant_kind"] == "base" else 1,
-                       ordens.get(r["set_id"], 999), r["api_sort"])
-    ):
-        out.setdefault(r["card_key"], []).append(r)
-    return out
 
 
 def owned_printings(con: sqlite3.Connection,
@@ -581,7 +620,7 @@ def owned_printings(con: sqlite3.Connection,
     from . import locais as locais_mod
 
     onde = locais_mod.por_local(con) if locais_ok is not None else {}
-    com_alt = cartas_com_alt_art(con)
+    versoes = versoes_dos_decks(con)
     out: dict[str, list[dict]] = {}
     for r in con.execute(
         "SELECT p.card_key, p.card_key AS k, p.printing_id, p.public_code, p.set_id, "
@@ -589,8 +628,8 @@ def owned_printings(con: sqlite3.Connection,
         "FROM copies c JOIN catalog.printings p ON p.printing_id = c.printing_id "
         "WHERE c.qty > 0 ORDER BY p.set_id, p.api_sort"
     ):
-        # A base de uma carta com Alt Art não é uma cópia que o deck use.
-        if not joga_esta(r, com_alt):
+        # Uma assinada ou uma retirada não é uma cópia que o deck use.
+        if not versoes.serve(r):
             continue
         qty = r["qty"]
         if locais_ok is not None:
@@ -778,13 +817,12 @@ def allocate(con: sqlite3.Connection) -> dict:
     from . import pending
 
     # Os montes vêm POR IMPRESSÃO (2026-09-17) e cada grupo serve-se só das
-    # impressões que a regra lhe dá (`AltArt.joga`): numa carta com arte
-    # alternativa só a alt art; nunca uma retirada (a runa em alt art fica no
-    # monte e ninguém a leva).
+    # impressões que a regra lhe dá (`Versoes.joga`): as normais nos lugares
+    # normais, uma especial no lugar da Legend/Champion; nunca uma assinada
+    # nem uma retirada (ficam no monte e ninguém as leva).
     p = pool_dos_decks(con)
-    com_alt = cartas_com_alt_art(con)
-    por_carta = impressoes_por_carta(con)
-    linha_de = {r["printing_id"]: r for rs in por_carta.values() for r in rs}
+    versoes = versoes_dos_decks(con)
+    linha_de = versoes.linha_de
     binder = dict(p["binder"])
     colecao = dict(p["colecao"])
     # O pendente por impressão; as `market_only` (sem linha no catálogo — as
@@ -828,9 +866,13 @@ def allocate(con: sqlite3.Connection) -> dict:
         for nd in needs.values():
             for ck, q in nd.items():
                 need[ck] = max(need.get(ck, 0), q)
-        # As impressões de cada carta que servem ESTE grupo.
-        serve = {ck: [r["printing_id"] for r in por_carta.get(ck, [])
-                      if com_alt.joga(r)] for ck in need}
+        # As cartas que algum membro joga numa versão especial (a Legend e o
+        # Champion) — e só as que TÊM versão especial no catálogo: sem ela a
+        # carta joga-se na base e não há falta a inventar.
+        especiais_de = {d["deck_id"]: cartas_especiais(con, d["deck_id"], versoes.papeis)
+                        for d in membros}
+        need_especial = {ck: 1 for ck in set().union(*especiais_de.values())
+                         if ck in need and versoes.tem_especial(ck)}
         # O que está sleevado em qualquer dos membros é do grupo: é o mesmo
         # deck físico com duas listas.
         fixo: dict[str, int] = {}
@@ -840,14 +882,53 @@ def allocate(con: sqlite3.Connection) -> dict:
 
         alloc, no_deck, no_binder, na_colecao, a_caminho = {}, {}, {}, {}, {}
         shared, missing = {}, {}
+        alloc_especial, a_caminho_especial, missing_especial, especial_em = {}, {}, {}, {}
         impressoes = {"no_deck": {}, "no_binder": {}, "na_colecao": {}}
-        for ck, qty in need.items():
-            pids = serve[ck]
-            do_deck = tirar(fixo, pids, qty, impressoes["no_deck"])
-            do_binder = tirar(binder, pids, qty - do_deck, impressoes["no_binder"])
-            da_colecao = tirar(colecao, pids, qty - do_deck - do_binder,
-                               impressoes["na_colecao"])
 
+        def servir(pids: list[str], qty: int, registo_esp: dict | None = None) -> tuple:
+            """Serve `qty` cópias pelas impressões `pids`, pela ordem dos montes
+            (deck, binder, Coleção) e depois pelo que vem a caminho. Devolve
+            (do_deck, do_binder, da_colecao, encomendada)."""
+            dd = tirar(fixo, pids, qty, impressoes["no_deck"])
+            db = tirar(binder, pids, qty - dd, impressoes["no_binder"])
+            dc = tirar(colecao, pids, qty - dd - db, impressoes["na_colecao"])
+            # O que vem a caminho serve o primeiro grupo que ainda a peça — é
+            # uma cópia da Coleção como as outras, só que ainda não chegou.
+            # Fica fora do `alloc`: o deck não a TEM, só já não a compra.
+            enc = tirar(caminho, pids, qty - dd - db - dc, registo_esp)
+            return dd, db, dc, enc
+
+        for ck, qty in need.items():
+            # O lugar ESPECIAL primeiro (a Legend/Champion): uma cópia, de
+            # qualquer versão especial — a que ele tiver serve.
+            n_esp = min(need_especial.get(ck, 0), qty)
+            e_deck = e_binder = e_col = e_enc = 0
+            if n_esp:
+                pids_e = versoes.especiais_de(ck)
+                antes = {m: dict(impressoes[m]) for m in impressoes}
+                reg_e: dict[str, int] = {}
+                e_deck, e_binder, e_col, e_enc = servir(pids_e, n_esp, reg_e)
+                # Que versão especial ficou a servir: a que saiu dos montes ou
+                # a que vem a caminho — para a página do deck dizer qual é.
+                usada = [pid for m in impressoes for pid in impressoes[m]
+                         if impressoes[m][pid] != antes[m].get(pid, 0)]
+                usada += list(reg_e)
+                if usada:
+                    especial_em[ck] = usada[0]
+                if e_deck + e_binder + e_col:
+                    alloc_especial[ck] = e_deck + e_binder + e_col
+                if e_enc:
+                    a_caminho_especial[ck] = e_enc
+                falta_e = n_esp - e_deck - e_binder - e_col - e_enc
+                if falta_e:
+                    missing_especial[ck] = falta_e
+
+            # Os lugares NORMAIS: a base.
+            pids = versoes.normais_de(ck)
+            do_deck, do_binder, da_colecao, encomendada = servir(pids, qty - n_esp)
+            do_deck += e_deck
+            do_binder += e_binder
+            da_colecao += e_col
             take = do_deck + do_binder + da_colecao
             if take:
                 alloc[ck] = take
@@ -861,10 +942,8 @@ def allocate(con: sqlite3.Connection) -> dict:
                     {"deck": g["rotulo"], "slug": por_id[g["lider"]]["name"],
                      "grupo": g["legend"], "qty": take, "priority": g["priority"]})
 
-            # O que vem a caminho serve o primeiro grupo que ainda a peça — é
-            # uma cópia da Coleção como as outras, só que ainda não chegou.
-            # Fica fora do `alloc`: o deck não a TEM, só já não a compra.
-            encomendada = tirar(caminho, pids, qty - take)
+            # As `market_only` a caminho contam por carta, só no lugar normal.
+            encomendada += e_enc
             fora = min(qty - take - encomendada, caminho_fora.get(ck, 0))
             caminho_fora[ck] = caminho_fora.get(ck, 0) - fora
             encomendada += fora
@@ -883,26 +962,50 @@ def allocate(con: sqlite3.Connection) -> dict:
                 shared[ck] = {"qty": min(falta, sum(h["qty"] for h in noutro)),
                               "em": noutro}
 
+        # O lugar especial vai à parte (`*_especial`): é a parte do `alloc`,
+        # do `a_caminho` e do `missing` — que continuam a ser os totais — que
+        # é a Legend/Champion numa versão especial. `especial_em` diz que
+        # impressão ficou a servir esse lugar (ou vem a caminho para ele).
         resultado = {"alloc": alloc, "no_deck": no_deck, "no_binder": no_binder,
                      "na_colecao": na_colecao, "a_caminho": a_caminho,
                      "missing": missing, "shared": shared, "need": need,
-                     "impressoes": impressoes}
+                     "impressoes": impressoes,
+                     "need_especial": need_especial, "alloc_especial": alloc_especial,
+                     "a_caminho_especial": a_caminho_especial,
+                     "missing_especial": missing_especial, "especial_em": especial_em}
 
         # Espalha-se pelos membros, cortado ao que CADA lista pede. As fontes
         # repartem-se pela mesma ordem (deck, binder, Coleção); o `missing` de
         # um membro é o máximo que o grupo ainda compra para aquela carta, e
-        # por isso igual nos dois quando pedem a mesma quantidade.
+        # por isso igual nos dois quando pedem a mesma quantidade. O lugar
+        # especial só é do membro cuja lista o tem nesse papel.
         for d in membros:
             nd = needs[d["deck_id"]]
             m_alloc, m_deck, m_binder, m_col, m_cam, m_miss, m_shared = {}, {}, {}, {}, {}, {}, {}
+            m_need_e, m_alloc_e, m_cam_e, m_miss_e = {}, {}, {}, {}
             partilhada: dict[str, list[dict]] = {}
             for ck, qty in nd.items():
-                take = min(qty, alloc.get(ck, 0))
+                n_esp = min(qty, need_especial.get(ck, 0)) if ck in especiais_de[d["deck_id"]] else 0
+                if n_esp:
+                    m_need_e[ck] = n_esp
+                take_e = min(n_esp, alloc_especial.get(ck, 0))
+                enc_e = min(n_esp - take_e, a_caminho_especial.get(ck, 0))
+                falta_e = n_esp - take_e - enc_e
+                resto = qty - n_esp
+                take_n = min(resto, alloc.get(ck, 0) - alloc_especial.get(ck, 0))
+                enc_n = min(resto - take_n, a_caminho.get(ck, 0) - a_caminho_especial.get(ck, 0))
+                take = take_e + take_n
+                enc = enc_e + enc_n
                 dd = min(take, no_deck.get(ck, 0))
                 db = min(take - dd, no_binder.get(ck, 0))
                 dc = take - dd - db
-                enc = min(qty - take, a_caminho.get(ck, 0))
                 falta = qty - take - enc
+                if take_e:
+                    m_alloc_e[ck] = take_e
+                if enc_e:
+                    m_cam_e[ck] = enc_e
+                if falta_e:
+                    m_miss_e[ck] = falta_e
                 if take:
                     m_alloc[ck] = take
                 if dd:
@@ -929,7 +1032,7 @@ def allocate(con: sqlite3.Connection) -> dict:
             proprio: dict[str, int] = {}
             for pid, n in (p["fixo"].get(d["name"]) or {}).items():
                 r = linha_de.get(pid)
-                if r is not None and com_alt.joga(r):
+                if r is not None and versoes.serve(r):
                     proprio[r["card_key"]] = proprio.get(r["card_key"], 0) + n
             sobra = {ck: n - min(n, nd.get(ck, 0)) for ck, n in proprio.items()
                      if n - min(n, nd.get(ck, 0)) > 0}
@@ -937,6 +1040,9 @@ def allocate(con: sqlite3.Connection) -> dict:
                 "alloc": m_alloc, "no_deck": m_deck, "no_binder": m_binder,
                 "na_colecao": m_col, "a_caminho": m_cam, "missing": m_miss,
                 "shared": m_shared, "extra": sobra, "partilhada": partilhada,
+                "need_especial": m_need_e, "alloc_especial": m_alloc_e,
+                "a_caminho_especial": m_cam_e, "missing_especial": m_miss_e,
+                "especial_em": {ck: especial_em[ck] for ck in m_need_e if ck in especial_em},
                 "grupo": {**resultado, "legend": g["legend"], "rotulo": g["rotulo"],
                           "membros": g["nomes"], "slugs": g["slugs"],
                           "variantes": g["variantes"],
@@ -996,52 +1102,41 @@ def resumo_das_faltas(con: sqlite3.Connection) -> dict:
     a mesma carta e conta uma vez (2026-09-11, noite).
     """
     alloc = {k: a["grupo"] for k, a in allocate(con).items() if a["grupo"]["lider"]}
-    # Ao preço da impressão em que se compra (`compra_esta`): a base mais
-    # barata, ou a arte alternativa nas cartas que a têm (2026-09-16).
-    com_alt = cartas_com_alt_art(con)
-    barato = preco_de_compra(con, com_alt)
+    # Ao preço da impressão em que se compra (`Versoes.compra`): a normal
+    # mais barata, e a versão especial mais barata no lugar da Legend/Champion.
+    versoes = versoes_dos_decks(con)
+    barato = preco_de_compra(versoes)
     cartas: set[str] = set()
     copias = cents = disputadas = encomendadas = 0
-    # Quantas das cópias em falta são artes alternativas — é o que a regra de
-    # 2026-09-16 acrescentou, e o número que ele quer ver à parte.
-    alt_cartas: set[str] = set()
-    alt_copias = alt_cents = 0
+    # Quantas das cópias em falta são a versão ESPECIAL da Legend/Champion —
+    # o número que se quer ver à parte (2026-09-17).
+    esp_cartas: set[str] = set()
+    esp_copias = esp_cents = 0
     for a in alloc.values():
         for ck, n in a["missing"].items():
             cartas.add(ck)
             copias += n
-            preco = barato(ck) or 0
-            cents += preco * n
-            if com_alt.em_alt_art(ck):
-                alt_cartas.add(ck)
-                alt_copias += n
-                alt_cents += preco * n
+            n_esp = min(n, a["missing_especial"].get(ck, 0))
+            cents += (barato(ck) or 0) * (n - n_esp)
+            if n_esp:
+                esp_cartas.add(ck)
+                esp_copias += n_esp
+                esp_cents += (barato(ck, especial=True) or 0) * n_esp
         disputadas += sum(v["qty"] for v in a["shared"].values())
         encomendadas += sum(a["a_caminho"].values())
+    cents += esp_cents
     return {"cards": len(cartas), "copies": copias, "cents": cents,
             "disputed": disputadas, "ordered": encomendadas,
-            "alt_art": {"cards": len(alt_cartas), "copies": alt_copias,
-                        "cents": alt_cents}}
+            "especiais": {"cards": len(esp_cartas), "copies": esp_copias,
+                          "cents": esp_cents}}
 
 
-def preco_de_compra(con: sqlite3.Connection, com_alt: AltArt):
-    """`card_key -> cêntimos` da impressão mais barata em que um deck compra a
-    carta (`AltArt.compra`); `None` sem preço."""
-    prices = {r["printing_id"]: r["price_cents"] for r in con.execute(
-        "SELECT printing_id, price_cents FROM catalog.price_latest "
-        "WHERE price_cents IS NOT NULL")}
-    linhas: dict[str, list] = {}
-    for r in con.execute("SELECT card_key, printing_id, variant_kind, set_id "
-                         "FROM catalog.printings"):
-        linhas.setdefault(r["card_key"], []).append(r)
-    cache: dict[str, int | None] = {}
+def preco_de_compra(versoes: Versoes):
+    """`(card_key, especial) -> cêntimos` da impressão mais barata em que um
+    deck compra a carta nesse lugar (`Versoes.compra`); `None` sem preço."""
 
-    def preco(ck: str) -> int | None:
-        if ck not in cache:
-            ps = [prices[r["printing_id"]] for r in linhas.get(ck, [])
-                  if r["printing_id"] in prices and com_alt.compra(r)]
-            cache[ck] = min(ps) if ps else None
-        return cache[ck]
+    def preco(ck: str, especial: bool = False) -> int | None:
+        return versoes.info(versoes.compra(ck, especial))["price"]
 
     return preco
 
@@ -1069,7 +1164,9 @@ def missing_by_set(con: sqlite3.Connection, deck_id: int,
     os dois LeBlanc não contarem a dobrar.
     """
     a = allocate(con)[deck_id]
-    falta = a["grupo"]["missing"] if grupo else a["missing"]
+    lado = a["grupo"] if grupo else a
+    falta = lado["missing"]
+    falta_esp = lado["missing_especial"]
     if ignore_types:
         tipos = {r["card_key"]: r["type"] for r in con.execute(
             "SELECT card_key, type FROM catalog.cards")}
@@ -1077,60 +1174,57 @@ def missing_by_set(con: sqlite3.Connection, deck_id: int,
     if not falta:
         return []
 
-    ordens = {s: config.set_order(s) for s in
-              (r["set_id"] for r in con.execute("SELECT DISTINCT set_id FROM catalog.printings"))}
     nomes = {r["card_key"]: r["name"] for r in con.execute(
         "SELECT card_key, name FROM catalog.cards")}
-    # A impressão em que se compra: a base, ou a arte alternativa nas cartas
-    # que a têm (2026-09-16, `compra_esta`). A linha diz `alt_art` para o
-    # ecrã marcar o que passou a ser Alt Art.
-    com_alt = cartas_com_alt_art(con)
-    opcoes: dict[str, list[dict]] = {}
-    ph = ",".join("?" * len(falta))
-    for r in con.execute(
-        f"SELECT p.card_key, p.set_id, p.printing_id, p.public_code, p.orientation, "
-        f"       p.variant_kind, p.image_medium, p.image_large, p.image_url, "
-        f"       pl.price_cents "
-        f"FROM catalog.printings p "
-        f"LEFT JOIN catalog.price_latest pl ON pl.printing_id = p.printing_id "
-        f"WHERE p.card_key IN ({ph})", list(falta)
-    ):
-        if not compra_esta(r, com_alt):
-            continue
-        opcoes.setdefault(r["card_key"], []).append({
-            "set": r["set_id"], "price": r["price_cents"], "id": r["printing_id"],
-            "code": r["public_code"], "alt_art": r["variant_kind"] == KIND_ALT,
-            "landscape": (r["orientation"] or "").lower() == "landscape",
+    versoes = versoes_dos_decks(con)
+    # A impressão em que se compra (`Versoes.compra`): a normal mais barata
+    # nos lugares normais e, para a Legend/Champion, a versão especial mais
+    # barata — numa LINHA PRÓPRIA, marcada `especial`, com as outras versões
+    # especiais em `alternativas` (2026-09-17). Uma carta pode dar duas
+    # linhas: «2× base» e «1× alt art».
+    imagens = {r["printing_id"]: r for r in con.execute(
+        "SELECT printing_id, orientation, image_medium, image_large, image_url "
+        "FROM catalog.printings")}
+
+    def linha(ck: str, n: int, especial: bool) -> dict | None:
+        pid = versoes.compra(ck, especial)
+        if pid is None:
+            return None
+        i = versoes.info(pid)
+        r = imagens[pid]
+        sets = {versoes.info(p)["set"] for p in
+                (versoes.especiais_de(ck) if especial else versoes.normais_de(ck))}
+        return {
+            "card_key": ck, "name": nomes.get(ck, ck), "qty": n,
+            "set": i["set"], "code": i["code"], "price": i["price"],
+            "total": (i["price"] or 0) * n,
+            "img": f"img/{pid}.webp",
             "cdn": r["image_medium"] or r["image_large"] or r["image_url"],
-        })
+            "landscape": (r["orientation"] or "").lower() == "landscape",
+            "especial": especial,
+            "alternativas": [x for x in versoes.alternativas(ck) if x["id"] != pid]
+            if especial else [],
+            # Existe noutras edições — dá para a ires buscar a outro lado.
+            "also": sorted(sets - {i["set"]}),
+            "multi": len(sets) > 1,
+        }
 
     por_set: dict[str, dict] = {}
     for ck, n in falta.items():
-        cands = opcoes.get(ck) or []
-        if not cands:
-            continue
-        sets = {c["set"] for c in cands}
-        # Mais barata primeiro; sem preço, a edição mais antiga.
-        melhor = min(cands, key=lambda c: (c["price"] is None,
-                                           c["price"] if c["price"] is not None else 0,
-                                           ordens.get(c["set"], 999)))
-        d = por_set.setdefault(melhor["set"], {"set": melhor["set"], "cards": 0,
+        n_esp = min(n, falta_esp.get(ck, 0))
+        for it in (linha(ck, n_esp, True) if n_esp else None,
+                   linha(ck, n - n_esp, False) if n - n_esp else None):
+            if it is None:
+                continue
+            d = por_set.setdefault(it["set"], {"set": it["set"], "cards": 0,
                                                "copies": 0, "cents": 0, "multi": 0,
                                                "items": []})
-        d["cards"] += 1
-        d["copies"] += n
-        d["cents"] += (melhor["price"] or 0) * n
-        if len(sets) > 1:
-            d["multi"] += 1
-        d["items"].append({
-            "card_key": ck, "name": nomes.get(ck, ck), "qty": n,
-            "code": melhor["code"], "price": melhor["price"],
-            "total": (melhor["price"] or 0) * n,
-            "img": f"img/{melhor['id']}.webp", "cdn": melhor["cdn"],
-            "landscape": melhor["landscape"], "alt_art": melhor["alt_art"],
-            # Existe noutras edições — dá para a ires buscar a outro lado.
-            "also": sorted(sets - {melhor["set"]}),
-        })
+            d["cards"] += 1
+            d["copies"] += it["qty"]
+            d["cents"] += it["total"]
+            if it.pop("multi"):
+                d["multi"] += 1
+            d["items"].append(it)
 
     out = list(por_set.values())
     for d in out:
@@ -1175,6 +1269,14 @@ def decks_index(con: sqlite3.Connection) -> list[dict]:
             "missing": sum(a["missing"].values()),
             # A parte do `missing` que existe num deck de cima: disputada.
             "shared": sum(v["qty"] for v in a["shared"].values()),
+            # O lugar da Legend/Champion numa versão especial (2026-09-17):
+            # quantos pede, quantos tem, quantos vêm a caminho, quantos compra.
+            "especial": {
+                "wanted": sum(a["need_especial"].values()),
+                "have": sum(a["alloc_especial"].values()),
+                "ordered": sum(a["a_caminho_especial"].values()),
+                "missing": sum(a["missing_especial"].values()),
+            },
             # O grupo de Legend a que pertence (2026-09-11, noite): os irmãos
             # partilham as cartas e o total geral conta o grupo uma vez, pelo
             # líder. `partilhadas` é quantas cópias desta lista o irmão também
@@ -1204,11 +1306,15 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
     from . import locais, pending
 
     a = allocate(con)[deck_id]
-    # A impressão em que o `+` de cada linha grava a encomenda (a base mais
-    # barata), para o ecrã dizer qual é antes de ele carregar.
+    # A impressão em que o `+` de cada linha grava a encomenda (a normal mais
+    # barata; na Legend/Champion a versão especial mais barata), para o ecrã
+    # dizer qual é antes de ele carregar.
     chaves = [r["card_key"] for r in con.execute(
         "SELECT DISTINCT card_key FROM deck_cards WHERE deck_id = ?", (deck_id,))]
     encomendar_em = pending.impressao_para_encomendar(con, chaves)
+    encomendar_esp = pending.impressao_para_encomendar(con, list(a["need_especial"]),
+                                                       especial=True)
+    versoes = versoes_dos_decks(con)
     # As impressões que ESTE deck pode usar: as que estão nele, as do binder
     # Decks/Venda e as da Coleção — os três montes (2026-09-11).
     prints = owned_printings(con, {locais.deck_local(d["name"]), locais.BINDER,
@@ -1253,6 +1359,11 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
     usado_deck: dict[str, int] = {}
     usado_binder: dict[str, int] = {}
     usado_caminho: dict[str, int] = {}
+    # O lugar especial (a Legend e o Champion, 2026-09-17) serve-se primeiro:
+    # as linhas desses papéis vêm antes no `ROLE_ORDER`, e é UMA cópia por
+    # carta — a segunda cópia de um Champion, no main, já é normal.
+    usado_esp: dict[str, int] = {}
+    usado_cam_esp: dict[str, int] = {}
     sections = []
     for role in ROLE_ORDER:
         rows = con.execute(
@@ -1263,9 +1374,24 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
         cards = []
         for r in rows:
             ck = r["card_key"]
-            disponivel = max(0, a["alloc"].get(ck, 0) - usado.get(ck, 0))
-            tenho = min(r["qty"], disponivel)
-            usado[ck] = usado.get(ck, 0) + tenho
+            # Esta linha é o lugar especial? Só nos papéis do config, só se a
+            # carta tiver versão especial, e só a primeira cópia.
+            n_esp = 0
+            if role in versoes.papeis and ck in a["need_especial"]:
+                n_esp = min(r["qty"], max(0, a["need_especial"][ck] - usado_esp.get(ck, 0)))
+            tenho_esp = min(n_esp, max(0, a["alloc_especial"].get(ck, 0) - usado_esp.get(ck, 0)))
+            enc_esp = min(n_esp - tenho_esp,
+                          max(0, a["a_caminho_especial"].get(ck, 0) - usado_cam_esp.get(ck, 0)))
+            usado_esp[ck] = usado_esp.get(ck, 0) + n_esp
+            usado_cam_esp[ck] = usado_cam_esp.get(ck, 0) + enc_esp
+            falta_esp = n_esp - tenho_esp - enc_esp
+
+            # O resto da linha são lugares normais: a base.
+            normais = r["qty"] - n_esp
+            disponivel = max(0, a["alloc"].get(ck, 0) - a["alloc_especial"].get(ck, 0)
+                             - usado.get(ck, 0))
+            tenho = min(normais, disponivel) + tenho_esp
+            usado[ck] = usado.get(ck, 0) + tenho - tenho_esp
             # De onde vem o que tem: já sleevada no deck, por ir buscar ao
             # binder Decks/Venda, ou na Coleção. Os três somam o `have`; são
             # três sítios diferentes onde ele a vai encontrar.
@@ -1276,12 +1402,29 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
             usado_binder[ck] = usado_binder.get(ck, 0) + no_binder
             # O que vem a caminho para esta linha: depois do que tem, e pela
             # mesma ordem de papéis. Não é `have`, e já não é `missing`.
-            encomendada = min(r["qty"] - tenho,
-                              max(0, a["a_caminho"].get(ck, 0) - usado_caminho.get(ck, 0)))
+            encomendada = min(normais - (tenho - tenho_esp),
+                              max(0, a["a_caminho"].get(ck, 0) - a["a_caminho_especial"].get(ck, 0)
+                                  - usado_caminho.get(ck, 0)))
             usado_caminho[ck] = usado_caminho.get(ck, 0) + encomendada
+            encomendada += enc_esp
             falta = r["qty"] - tenho - encomendada
             info = names.get(ck) or {}
-            alvo = encomendar_em.get(ck) or {}
+            # Onde o `+` grava a encomenda: a normal mais barata — ou, se o
+            # que falta nesta linha é o lugar especial, a versão especial mais
+            # barata.
+            alvo = (encomendar_esp.get(ck) if falta_esp else encomendar_em.get(ck)) or {}
+            especial = None
+            if n_esp:
+                em = a["especial_em"].get(ck)
+                especial = {
+                    "wanted": n_esp, "have": tenho_esp, "ordered": enc_esp,
+                    "missing": falta_esp,
+                    # A versão que serve (ou vem a caminho), e as que serviam.
+                    **({"code": versoes.info(em)["code"], "id": em} if em
+                       else {"code": alvo.get("code"), "id": alvo.get("id")}),
+                    "alternativas": [x["code"] for x in versoes.alternativas(ck)
+                                     if x["id"] != (em or alvo.get("id"))],
+                }
             cards.append({
                 "card_key": ck,
                 "name": (info["name"] if info else r["raw_line"]),
@@ -1291,8 +1434,11 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
                 "ordered": encomendada,
                 "no_deck": no_deck, "no_binder": no_binder,
                 "na_colecao": tenho - no_deck - no_binder,
-                # Onde o `+` grava a encomenda: a impressão base mais barata.
+                # O lugar especial desta linha (a Legend/Champion), ou `None`.
+                "especial": especial,
+                # Onde o `+` grava a encomenda.
                 "order_code": alvo.get("code"), "order_price": alvo.get("price"),
+                "order_especial": bool(falta_esp),
                 # Onde está o que falta, quando existe num deck de cima.
                 "shared": a["shared"].get(ck) if falta else None,
                 # Os irmãos do grupo (mesma Legend) que também pedem esta
@@ -1401,9 +1547,10 @@ def set_order(con: sqlite3.Connection, ordered_ids: list[int]) -> None:
 def shopping_list(con: sqlite3.Connection, deck_id: int | None = None) -> list[dict]:
     """O que falta comprar. Sem deck_id, junta todos os decks."""
     alloc = allocate(con)
-    # Ao preço da impressão em que se compra (`compra_esta`, 2026-09-16).
-    com_alt = cartas_com_alt_art(con)
-    barato = preco_de_compra(con, com_alt)
+    # Ao preço da impressão em que se compra (`Versoes.compra`); a versão
+    # especial da Legend/Champion é uma linha à parte (2026-09-17).
+    versoes = versoes_dos_decks(con)
+    barato = preco_de_compra(versoes)
 
     names = {r["card_key"]: r["name"] for r in con.execute(
         "SELECT card_key, name FROM catalog.cards")}
@@ -1416,13 +1563,19 @@ def shopping_list(con: sqlite3.Connection, deck_id: int | None = None) -> list[d
             continue
         if not deck_id and not a["grupo"]["lider"]:
             continue
-        falta = a["missing"] if deck_id else a["grupo"]["missing"]
-        for ck, q in falta.items():
-            k = (ck, barato(ck))
-            juntos[k] = juntos.get(k, 0) + q
+        lado = a if deck_id else a["grupo"]
+        for ck, q in lado["missing"].items():
+            n_esp = min(q, lado["missing_especial"].get(ck, 0))
+            if n_esp:
+                k = (ck, True, barato(ck, especial=True))
+                juntos[k] = juntos.get(k, 0) + n_esp
+            if q - n_esp:
+                k = (ck, False, barato(ck))
+                juntos[k] = juntos.get(k, 0) + q - n_esp
 
     return sorted(
-        [{"card_key": ck, "name": names.get(ck, ck), "qty": q,
+        [{"card_key": ck, "name": names.get(ck, ck), "qty": q, "especial": esp,
+          "code": versoes.info(versoes.compra(ck, esp))["code"],
           "price_cents": preco, "total_cents": (preco or 0) * q}
-         for (ck, preco), q in juntos.items()],
+         for (ck, esp, preco), q in juntos.items()],
         key=lambda x: -x["total_cents"])

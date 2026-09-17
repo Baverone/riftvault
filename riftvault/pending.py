@@ -77,14 +77,15 @@ def open_by_card(con: sqlite3.Connection) -> dict[str, int]:
     Junta o catálogo e as `market_only` — ele comprou runas do SFD que a
     RiftScribe não tem, e essas contam na mesma.
 
-    Conta só o que SERVE OS DECKS (`decks.joga_esta`, 2026-09-16): uma base
-    encomendada de uma carta com arte alternativa vai para o master set, não
-    para o deck, e não abate a falta dele; uma runa em alt art encomendada não
-    conta para nada (retirada, 2026-09-17).
+    Conta só o que pode SERVIR OS DECKS (`decks.Versoes.serve`): uma assinada
+    ou uma runa em alt art (retirada, 2026-09-17) encomendada não conta para
+    nada. É informação; quem desconta o pendente lugar a lugar (a versão
+    especial da Legend/Champion não abate uma falta normal, nem o contrário)
+    é a alocação, por impressão (`open_qty`).
     """
     from . import decks
 
-    com_alt = decks.cartas_com_alt_art(con)
+    versoes = decks.versoes_dos_decks(con)
     out: dict[str, int] = {}
     for r in con.execute(
         "SELECT p.printing_id, p.card_key, p.card_key AS k, p.variant_kind, p.set_id, "
@@ -93,7 +94,7 @@ def open_by_card(con: sqlite3.Connection) -> dict[str, int]:
         "JOIN catalog.printings p ON p.printing_id = pe.printing_id "
         "WHERE pe.arrived_at IS NULL GROUP BY p.printing_id"
     ):
-        if decks.joga_esta(r, com_alt):
+        if versoes.serve(r):
             out[r["k"]] = out.get(r["k"], 0) + r["q"]
     for r in con.execute(
         "SELECT m.card_key AS k, SUM(pe.qty) AS q FROM pending pe "
@@ -116,55 +117,45 @@ def _card_key(con: sqlite3.Connection, printing_id: str) -> str | None:
     return row["card_key"] if row else None
 
 
-def impressao_para_encomendar(con: sqlite3.Connection, card_keys) -> dict[str, dict]:
+def impressao_para_encomendar(con: sqlite3.Connection, card_keys,
+                              especial: bool = False) -> dict[str, dict]:
     """card_key -> a impressão em que o `+` grava a encomenda.
 
-    A BASE MAIS BARATA — ou, desde 2026-09-16, a ARTE ALTERNATIVA nas cartas
-    que a têm (`decks.compra_esta`: o deck joga em Alt Art) —, e sem preço a
-    da edição mais antiga. É a regra do «Falta comprar, por edição»
-    (`decks.missing_by_set`) e do `faltas._cheapest`: a impressão onde ele a
-    vai comprar. Se um dia quiser encomendar outra versão, o `riftvault
-    encomendas --mais OGN-045a` aceita qualquer código.
+    A NORMAL MAIS BARATA (a base, sem sobrenumeração; sem preço a da edição
+    mais antiga) — ou, com `especial`, a VERSÃO ESPECIAL mais barata (alt
+    art, sobrenumerada, promo), que é o que a Legend e o Champion jogam
+    (2026-09-17, `decks.Versoes.compra`). É a regra do «Falta comprar, por
+    edição» (`decks.missing_by_set`) e do `faltas._cheapest`: a impressão
+    onde ele a vai comprar. Se um dia quiser encomendar outra versão, o
+    `riftvault encomendas --mais OGN-045a` aceita qualquer código.
     """
     from . import decks
 
     keys = list(dict.fromkeys(card_keys))
     if not keys:
         return {}
-    com_alt = decks.cartas_com_alt_art(con)
-    ordens = {s: config.set_order(s) for s in
-              (r["set_id"] for r in con.execute(
-                  "SELECT DISTINCT set_id FROM catalog.printings"))}
+    versoes = decks.versoes_dos_decks(con)
     out: dict[str, dict] = {}
-    ph = ",".join("?" * len(keys))
-    for r in con.execute(
-        f"SELECT p.card_key, p.printing_id, p.public_code, p.set_id, p.variant_kind, "
-        f"       pl.price_cents "
-        f"FROM catalog.printings p "
-        f"LEFT JOIN catalog.price_latest pl ON pl.printing_id = p.printing_id "
-        f"WHERE p.card_key IN ({ph})", keys
-    ):
-        if not decks.compra_esta(r, com_alt):
+    for ck in keys:
+        pid = versoes.compra(ck, especial)
+        if pid is None:
             continue
-        cand = {"id": r["printing_id"], "code": r["public_code"],
-                "set": r["set_id"], "price": r["price_cents"],
-                "alt_art": r["variant_kind"] == decks.KIND_ALT}
-        rank = lambda c: (c["price"] is None,
-                          c["price"] if c["price"] is not None else 0,
-                          ordens.get(c["set"], 999), c["id"])
-        atual = out.get(r["card_key"])
-        if atual is None or rank(cand) < rank(atual):
-            out[r["card_key"]] = cand
+        i = versoes.info(pid)
+        out[ck] = {"id": pid, "code": i["code"], "set": i["set"], "price": i["price"],
+                   "especial": especial}
     return out
 
 
 def encomendar(con: sqlite3.Connection, card_key: str | None = None,
                printing_id: str | None = None, qty: int = 1,
-               source: str = "web", note: str | None = None) -> dict:
+               source: str = "web", note: str | None = None,
+               especial: bool = False) -> dict:
     """O `+`: mais `qty` cópias a caminho desta carta.
 
-    Com `printing_id` grava nessa impressão; só com `card_key`, na base mais
-    barata (`impressao_para_encomendar`). Devolve o que ficou aberto.
+    Com `printing_id` grava nessa impressão; só com `card_key`, na normal
+    mais barata — ou, com `especial`, na versão especial mais barata, que é o
+    `+` da linha da Legend/Champion (`impressao_para_encomendar`). Devolve o
+    que ficou aberto.
     """
     if qty <= 0:
         raise ValueError("a quantidade tem de ser positiva")
@@ -174,10 +165,11 @@ def encomendar(con: sqlite3.Connection, card_key: str | None = None,
     else:
         if not card_key:
             raise ValueError("falta a carta")
-        alvo = impressao_para_encomendar(con, [card_key]).get(card_key)
+        alvo = impressao_para_encomendar(con, [card_key], especial).get(card_key)
         if not alvo:
             raise collection.UnknownPrinting(
-                f"não há impressão de {card_key!r} em que o deck compre")
+                f"não há impressão de {card_key!r} em que o deck compre"
+                + (" a versão especial" if especial else ""))
         printing_id = alvo["id"]
     con.execute("BEGIN IMMEDIATE")
     con.execute(
@@ -191,12 +183,15 @@ def encomendar(con: sqlite3.Connection, card_key: str | None = None,
 
 def anular(con: sqlite3.Connection, card_key: str | None = None,
            printing_id: str | None = None, qty: int = 1,
-           source: str = "web") -> dict:
+           source: str = "web", especial: bool | None = None) -> dict:
     """O `−`: menos `qty` a caminho. Tira das linhas abertas mais recentes.
 
     Com `printing_id` tira só dessa impressão; só com `card_key`, de qualquer
-    impressão da carta. Nunca vai abaixo de zero: se não há nada aberto,
-    `SemEncomenda`; se há menos do que `qty`, tira o que há e diz quanto.
+    impressão da carta — ou, com `especial` `True`/`False`, só das versões
+    especiais / só das normais (o `−` da linha da Legend/Champion não pode
+    tirar a encomenda de uma cópia normal, nem o contrário; 2026-09-17).
+    Nunca vai abaixo de zero: se não há nada aberto, `SemEncomenda`; se há
+    menos do que `qty`, tira o que há e diz quanto.
     """
     if qty <= 0:
         raise ValueError("a quantidade tem de ser positiva")
@@ -210,11 +205,19 @@ def anular(con: sqlite3.Connection, card_key: str | None = None,
         if not card_key:
             raise ValueError("falta a carta")
         linhas = con.execute(
-            "SELECT pe.id, pe.printing_id, pe.qty FROM pending pe "
+            "SELECT pe.id, pe.printing_id, pe.qty, p.card_key FROM pending pe "
             "LEFT JOIN catalog.printings p ON p.printing_id = pe.printing_id "
             "LEFT JOIN catalog.market_only m ON m.printing_id = pe.printing_id "
             "WHERE pe.arrived_at IS NULL AND COALESCE(p.card_key, m.card_key) = ? "
             "ORDER BY pe.id DESC", (card_key,)).fetchall()
+        if especial is not None:
+            from . import decks
+
+            versoes = decks.versoes_dos_decks(con)
+            # Uma `market_only` (sem linha no catálogo) é sempre uma normal.
+            linhas = [r for r in linhas
+                      if (r["card_key"] is None and not especial)
+                      or (r["card_key"] is not None and versoes.joga(r, especial=especial))]
     if not linhas:
         raise SemEncomenda(f"não há nada a caminho de {card_key or printing_id!r}")
 
