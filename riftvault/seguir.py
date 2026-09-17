@@ -670,3 +670,10 @@ def correr(con: sqlite3.Connection, buscar: Callable[[str], str], *, cfg: dict |
 def cliente(cfg: dict | None = None, pasta: Path | None = None) -> Cliente:
     op = opcoes(cfg)
     return Cliente(op["intervalo_segundos"], pasta if pasta is not None else config.SEGUIR_DIR)
+
+
+def sem_rede(url: str) -> str:
+    """O `buscar` de quem não quer ir à rede: qualquer pedido é erro. Com
+    `correr(..., sem_rede=True)` nunca chega a ser chamado; está aqui para o
+    engano ser visível se chegar."""
+    raise SeguirError(f"sem rede: não se pediu {url}")

@@ -15,11 +15,13 @@
     riftvault faltas [--edicao OGN]
     riftvault local [REF N --para deck:azir] [--deck azir --propor|--marcar ...]
     riftvault encomendas [--mais REF [N] | --menos REF [N] | --chegou [REF]]
+    riftvault seguir [--jogador NOME] [--so-mudados] [--sem-rede] [--json]
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
 
@@ -31,6 +33,7 @@ from . import faltas as faltas_mod
 from . import faltas_edicao
 from . import locais as locais_mod
 from . import metrics, pending as pending_mod, prices, quanto_custa as quanto_custa_mod
+from . import seguir as seguir_mod
 from . import server
 
 
@@ -792,6 +795,73 @@ def cmd_a_mais(args) -> int:
     return 0
 
 
+def cmd_seguir(args) -> int:
+    """Seguir jogadores no Piltover Archive (2026-09-17): os decks de cada um,
+    o que mudou desde a última corrida, e o que FALTA ao André para montar
+    cada deck. Nunca euros — ele pediu «o que falta», não «quanto custa»."""
+    con = db.connect()
+    if db.catalog_is_empty(con):
+        print("catálogo vazio — corre `riftvault sync`.", file=sys.stderr)
+        return 1
+    cfg = config.load()
+    nomes = args.jogador or seguir_mod.opcoes(cfg)["jogadores"]
+    if not nomes:
+        print("ninguém para seguir: escreve os handles em `seguir.jogadores` no "
+              "riftvault_config.json, ou passa --jogador NOME.", file=sys.stderr)
+        return 1
+    buscar = seguir_mod.sem_rede if args.sem_rede else seguir_mod.cliente(cfg)
+    try:
+        p = seguir_mod.correr(con, buscar, cfg=cfg, jogadores=nomes, sem_rede=args.sem_rede,
+                              log=lambda s: print(s, file=sys.stderr))
+    except seguir_mod.SeguirError as exc:
+        print(f"seguir: {exc}", file=sys.stderr)
+        return 1
+    finally:
+        con.close()
+    if args.json:
+        print(json.dumps(p, ensure_ascii=False, indent=1))
+        return 0
+    for j in p["players"]:
+        c = j["counts"]
+        conta = (f"{j['found']} decks" + (f" (o perfil diz {j['public_decks']} públicos)"
+                                          if j["public_decks"] is not None and j["public_decks"] != j["found"]
+                                          else ""))
+        mudou = " · ".join(f"{n} {k}" for k, n in c.items() if n)
+        print(f"{j['display']} (@{j['player']}) — {j['url']}")
+        print(f"  {conta} · {mudou or 'nada'}"
+              + (f" · {len(j['gone'])} já não aparecem" if j["gone"] else "")
+              + (" · listagem cortada (seguir.max_paginas)" if j["truncated"] else "")
+              + (" · sem rede: o que estava guardado" if j["offline"] else ""))
+        for d in j["decks"]:
+            if args.so_mudados and d["estado"] not in ("novo", "actualizado"):
+                continue
+            print()
+            data = (d["edited_at"] or "")[:10]
+            print(f"== {d['title']}  [{d['estado']}" + (f" · editado a {data}" if data else "") + "]")
+            print(f"   {d['url']}")
+            f = d["faltas"]
+            if f is None:
+                print("   (sem lista guardada — corre sem --sem-rede para a ir buscar)")
+                continue
+            legend = f" · Legend: {d['legend']}" if d.get("legend") else ""
+            if f["complete"]:
+                print(f"   {f['wanted_copies']} cartas{legend} · TENS TUDO")
+            else:
+                print(f"   {f['wanted_copies']} cartas{legend} · faltam {f['missing_copies']} cópias "
+                      f"de {f['missing_cards']} cartas"
+                      + (f" · {len(f['unidentified'])} POR IDENTIFICAR ({f['unidentified_copies']} cópias) "
+                         f"— a falta está incompleta" if f["unidentified"] else ""))
+            for x in f["missing"]:
+                print(f"     {x['missing']}x {x['catalog_name'][:40]:<40} {cardmarket.codigo(x['code'] or ''):<10}"
+                      f" tens {x['have']} de {x['qty']}")
+            for x in f["unidentified"]:
+                print(f"     ?  {x['qty']}x {x['name'][:40]:<40} {x['code'] or '':<10} {x['motivo']}")
+        for g in j["gone"]:
+            print(f"\n-- já não aparece na listagem (desde {g['ausente_desde'][:10]}): {g['title']}  {g['url']}")
+        print()
+    return 0
+
+
 def cmd_faltas(args) -> int:
     """O separador «Faltas» na consola: por edição, os três blocos — master
     set, alt art, sobrenumeradas — com o que falta de cada (2026-09-15, fim
@@ -1254,6 +1324,17 @@ def main(argv: list[str] | None = None) -> int:
                                       "acima do alvo e as cartas libertadas dos decks")
     p.add_argument("--edicao", help="só esta edição (OGN, SFD, …)")
     p.set_defaults(func=cmd_a_mais)
+
+    p = sub.add_parser("seguir", help="os decks dos jogadores seguidos no Piltover "
+                                      "Archive e o que falta para os montar")
+    p.add_argument("--jogador", action="append", metavar="NOME",
+                   help="só este handle (repetível); sem ele, os de seguir.jogadores")
+    p.add_argument("--so-mudados", dest="so_mudados", action="store_true",
+                   help="só os decks novos ou actualizados nesta corrida")
+    p.add_argument("--sem-rede", dest="sem_rede", action="store_true",
+                   help="não vai ao site: mostra o que ficou guardado da última corrida")
+    p.add_argument("--json", action="store_true", help="o payload em JSON, em vez do texto")
+    p.set_defaults(func=cmd_seguir)
 
     p = sub.add_parser("pending", help="encomendas a caminho")
     p.add_argument("--chegou", nargs="?", type=int, const=0, default=None,
