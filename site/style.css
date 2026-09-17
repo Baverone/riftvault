@@ -351,6 +351,8 @@ body.readonly .steppers { display: none; }
 }
 .chip-l.ok { color: var(--ok); border-color: rgba(62, 207, 142, .4); }
 .chip-l.bad { color: var(--bad); border-color: rgba(255, 107, 107, .45); }
+/* Lugares tapados por outra versão (2026-09-17): nem tenho-a-base nem falta. */
+.chip-l.outra { color: var(--accent-2); border-color: rgba(240, 180, 41, .45); }
 
 /* Quantas cópias faltam por edição — cada carta conta na edição onde sai mais
    barata, que é onde ele a vai comprar. */
@@ -458,6 +460,10 @@ body.readonly .deck-actions .btn[data-loc] { display: none; }
 .onde.falta { color: var(--bad); }
 .onde.shared { color: var(--accent-2); }
 .onde.tenho { color: var(--dim); opacity: .8; }
+/* As versões que servem uma linha do deck, uma por sub-linha (2026-09-17):
+   a base a cinzento, a que tapou um buraco («outra») em destaque. */
+.onde.versoes span { display: block; padding-left: 6px; border-left: 2px solid var(--line); }
+.onde.versoes span.outra { color: var(--accent-2); border-left-color: var(--accent-2); }
 
 
 /* ------------------------------------------------------------------ faltas */
