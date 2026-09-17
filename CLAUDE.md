@@ -12,8 +12,11 @@ Secções: **Coleção**, **Decks**, **Quanto custa**, **Faltas** (a quarta é d
 2026-09-15 ao fim da tarde — por edição, três blocos; id interno
 `faltas-edicao`, `api/faltas_edicao.json`, `faltas_edicao.py`) e **A mais**
 (2026-09-17 — o excedente acima do alvo e as cartas libertadas dos decks; id
-`a-mais`, `api/a_mais.json`, `a_mais.py` + `uso_decks.py`; ver a última
-secção deste ficheiro). O «Quanto custa» (chamou-se **Faltas** até
+`a-mais`, `api/a_mais.json`, `a_mais.py` + `uso_decks.py`; ver a secção
+própria no fim deste ficheiro). Há ainda o **seguir jogadores** do Piltover
+Archive (2026-09-17, `seguir.py`, `riftvault seguir`; por agora só na
+consola — a secção no site é a parte 2, por fazer; ver a última secção deste
+ficheiro). O «Quanto custa» (chamou-se **Faltas** até
 2026-09-15 de manhã e mostrou as faltas até à tarde desse dia; **desde
 2026-09-15 à tarde é a TABELA DE PREÇOS** — o top 5 mais caras por raridade,
 em cada edição, tenha ele ou não — ver a última secção deste ficheiro. As
@@ -2393,7 +2396,12 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   (`quanto_custa.top_por_raridade`), com rodapé do que ficou de fora e «ver
   todas»; épicas todas; subtotais, total e wantlist contam tudo. A língua
   das ofertas passou a config (`precos.linguas`), já era só inglês.
-- **Por fazer:** vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck,
+- **Feito também:** seguir jogadores no Piltover Archive (2026-09-17, parte 1
+  de 2) — `seguir.py`, `riftvault seguir`, `seguir.jogadores` no config, o
+  estado em `data/seguir/estado.json`; só o motor e a CLI. Ver a última
+  secção deste ficheiro.
+- **Por fazer:** a parte 2 do seguir — o separador no site e a tarefa diária;
+  vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck,
   com as partilhadas assinaladas); e apagar decks pela interface (hoje apaga-se
   o `.txt`).
 - **Por fazer, da revisão:** registar uma encomenda («a caminho») pela
@@ -3301,4 +3309,107 @@ escrevem as listas em pastas temporárias (`fixture.py`), e o caso «deck
 apagado liberta tudo» já estava fixado em
 `test_a_mais.test_apagar_o_deck_liberta_tudo_com_o_rotulo`. Os «Azir 3 ·
 Kennen 2» nos comentários são exemplos e ficam.
+
+## 17/09/2026 — seguir jogadores no Piltover Archive (parte 1 de 2: o motor e a CLI)
+
+Palavras dele: *"o @koko_lopez e um jogador muito bom, gostava de seguir os
+decks que ele coloca e que vai atualizando"* / *"nao preciso que me diga
+quanto custaria, mas sim **o que falta**"*. Ramo `ai-pc/seguir-2026-09-17`;
+relatório em `ai-pc/work/revisao/riftvault-seguir.md`. **Esta parte é só o
+módulo, a CLI e os testes** — o separador no site e a tarefa diária são a
+parte 2, por fazer.
+
+**Onde vive:** `riftvault/seguir.py`; `riftvault seguir [--jogador NOME]
+[--so-mudados] [--sem-rede] [--json]`; `seguir.jogadores` /
+`intervalo_segundos` / `max_paginas` no `riftvault_config.json` e no
+`config.DEFAULTS`; `config.SEGUIR_DIR` (`data/seguir/`, `RIFTVAULT_SEGUIR`):
+`estado.json` **vai para o Git** (é o registo do que se viu; é texto, o robô
+da parte 2 pode commitá-lo sem tocar no `vault.db`) e `paginas/` **não vai**
+(a última página HTML lida de cada endereço, para o parser poder apontar-lhe
+quando rebentar). `tests/test_seguir.py`, 44 testes, contra as três páginas
+reais de 2026-09-17 guardadas em `tests/fixtures/piltoverarchive-*.html`
+(~1,2 MB) — nunca contra a rede.
+
+### O site: só páginas, nunca a API — e o que cada página dá
+
+O `robots.txt` do piltoverarchive.com (lido a 17/09) permite as páginas
+públicas e proíbe `/api/`, `/admin/`, `/_next/` e `/static/`. **O
+`riftdecks.com` está VEDADO** pelo `robots.txt` deles ao ClaudeBot e ao
+`anthropic-ai`: não se lhe toca, nem para testar.
+
+As páginas são Next.js: o HTML visível é pouco e **o que interessa vem no
+payload RSC** — os `self.__next_f.push([1,"..."])` no fim do HTML, JSON
+dentro de uma string de JavaScript. `seguir.rsc_texto` descodifica-os e
+cola-os; lê-se DAÍ, não das classes do HTML (Tailwind, mudam a cada build).
+
+| página | o que dá | a marca (`seguir.MARCAS`) |
+|---|---|---|
+| `/users/<nome>` | `profile.identity.username`/`displayName`, `profile.decks.featured` + `latest` (os **3 últimos CRIADOS** — por `createdAt`, não `editedAt`: o «Kennen Post Ban» editado a 16/09 não estava lá a 17/09), `"publicDecks":18` noutro objecto (a barra de separadores) | `"profile":{` com `identity` e `decks`; `"decks":{"featured":` |
+| `/decks?q=<nome>&page=N` | a listagem pública com pesquisa; o `q` casa com o TÍTULO **e com o AUTOR** — com `q=koko_lopez` vieram 30 decks, **17 dele** e 13 de outros com «Koko Lopez» no título; filtra-se pelo `userOwners[].handle`; 12 por página, links `?q=…&page=N` (a página em que se está não é link) | `"currentFilters":{`; entradas `{"id":"<uuid>","name":"…` com `editedAt`/`userOwners`; **verificação cruzada** — os `href="/decks/view/<id>"` do HTML têm de estar todos nas entradas lidas, senão rebenta |
+| `/decks/view/<id>` | o objecto `deck`: `name`, `authorName`, `editedAt` (com prefixo `$D`), `legend{variantNumber, card{name}}`, e as secções `champions`, `battlefields`, `runes`, `maindeck`, `sideboard`, `bench`, cada entrada com `quantity`, `variantId` e `card{name, type, cardVariants[{id, variantNumber}]}` — o código impresso da versão que o autor escolheu (`UNL-147a` quando escolheu a alt art) | `"deck":{` com `id`, `legend` e `maindeck` (há mais do que um `"deck":{` na página) |
+
+**A lista dos 18 decks do perfil é carregada pelo browser através da API
+(tRPC)** — vedada —, por isso o HTML do perfil só traz o destaque e os 3
+últimos criados. A listagem `/decks?q=` é a única lista por autor que existe
+em HTML: deu **17 dos 18**; o 18.º não aparece em página nenhuma que se
+possa ler, e a página diz «17 decks (o perfil diz 18 públicos)» em vez de
+fingir. O `bench` deles vinha vazio e não se sabe o que é: lê-se e guarda-se,
+**não conta para a falta**.
+
+**`editedAt` é a edição do conteúdo; `updatedAt` mexe com views/likes.** O
+«novo / actualizado / igual» compara o `editedAt` da listagem com o guardado
+(`seguir.classificar`); só se vai buscar a página do deck quando é novo ou
+mudou, e se a lista de cartas sair igual (mudou só o título) fica «igual».
+Um deck conhecido que deixe de aparecer fica no estado com `ausente_desde` e
+a página diz «já não aparece».
+
+**O parser REBENTA (`SiteMudou`) quando uma marca falta**, com o nome da
+marca e o caminho de `data/seguir/paginas/`; nunca devolve uma lista vazia
+como se estivesse tudo bem — isso lia-se «não te falta nada». Zero
+resultados na listagem com a marca presente é «não há decks», e a
+verificação cruzada com os `href` apanha a ordem das chaves a mudar.
+
+### Educação
+
+`seguir.Cliente`: **um pedido de cada vez, pelo menos 1 s entre dois**
+(`INTERVALO_MINIMO`; o config só pode alargar), User-Agent
+`riftvault/1.0 (colecao pessoal; +github)` — ASCII, nunca a fingir browser
+—, e **recusa qualquer endereço debaixo dos prefixos vedados ou fora do
+site**, mesmo que alguém lho peça (há teste). Nada de contas nem de páginas
+privadas. Medido a 17/09: a primeira corrida foram **21 pedidos** (perfil +
+3 páginas de listagem + 17 decks); a segunda **4** (só perfil e listagem —
+os decks vieram do estado).
+
+### As três decisões (ver o relatório)
+
+1. **«Ter» = tudo o que ele possui, INCLUINDO as cópias nos decks dele**
+   (`seguir.possuidas`: `copies` inteiro, sem olhar aos locais). Um deck de
+   outra pessoa é hipotético, não disputa a Coleção com os dele. O pendente
+   **não** conta (ainda não é dele).
+2. **Qualquer impressão que não seja assinada serve** (`variant_kind !=
+   "signature"`); as runas em Alt Art **retiradas** continuam a não existir
+   (`metrics.retirada`). A regra da Legend/Champion em versão especial é
+   dos decks DELE (`decks.Versoes`) e não se aplica aqui. Main, battlefields,
+   runas e sideboard somam por carta lógica (como no `decks.allocate`).
+3. **Nomes que não casam NUNCA se adivinham** (`seguir.resolver`: pelo nome
+   — `decks.resolve`, com o «Kennen, Heart of the Tempest» → «Heart of the
+   Tempest» — e, se o nome falhar, pelo código impresso via
+   `printing_aliases`; **se os dois casarem em cartas diferentes não se
+   escolhe**). Ficam em «não identificadas», à parte, e o deck diz em cima
+   «N POR IDENTIFICAR — a falta está incompleta». Medido no `koko_lopez`:
+   **zero** por identificar nos 17 decks.
+
+**Nunca euros.** O payload não leva `cents`/`price` e a saída não escreve
+`€` (há teste).
+
+### Medido a 2026-09-17 contra cópias dos três `.db` reais (`_revisao\_seguir_real.py`)
+
+`koko_lopez`: **17 decks (o perfil diz 18)**, 0 por identificar. Dois
+completos («Ornn TheManland list», 56 cartas; «Squirtle's azir deck»); os
+outros 15 faltam entre 2 e 16 cópias — o que mais se repete são as runas
+(Fury Rune ×4–6, Body Rune ×5–6: ele tem 2 de cada), **Astral Heron**
+`VEN-044`, **Zhonya's Hourglass** `OGN-077`, **Defiant Dance** `SFD-196` (0
+de 3, nos três Irelia), **Last Rites** `SFD-150` (0, nos Kennen e Draven),
+**Sabotage** `OGN-156` (0 de 3), **Falling Star** `OGN-029`. Tabela inteira
+no relatório.
 
