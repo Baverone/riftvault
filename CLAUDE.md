@@ -222,7 +222,7 @@ saber exatamente quantas tenho"*.
 | 1. master set | o resto | a sequência da edição | sim, alvo = playset do tipo (as runas numeradas do OGN a **3** desde 15/09 à tarde) | **sim** | **sim** |
 | 2. coleção extra | `master_set.fora_da_percentagem` = `["a", "overnumbered", "promo"]` | artes alternativas, sobrenumeradas, promos | sim — **1 de cada desde 15–16/09** (`master_set.um_de_cada`); **os decks nunca levantam este alvo** (17/09 — ver a última secção deste ficheiro: os decks jogam a base, e a Legend/Champion uma versão especial) | não | **não** (15/09) |
 | 3. escondidas | `master_set.escondidas` = `["-T", "*", "-R"]` | tokens, signatures e — desde 15/09 à tarde — as runas sem numeração de master set (`VEN-R01..R06`) | não | não | não |
-| 4. retiradas | `runas_especiais.retiradas` = `["a"]` (`metrics.retirada`) | as **runas em Alt Art** (`OGN-007a..214a`, e as `SFD/UNL/VEN-R0Xa` do CardTrader) — desde 17/09 | **não** | não | não — e **não contam no valor nem no playset jogável**, nem no A mais, nem no Pimp; os decks jogam a runa base |
+| 4. retiradas | `runas_especiais.retiradas` = `["a"]` (`metrics.retirada`) | as **runas em Alt Art** (`OGN-007a..214a`, e as `SFD/UNL/VEN-R0Xa` do CardTrader) — desde 17/09 | **não** | não | não — e **não contam no valor nem no playset jogável**, nem no A mais, nem no Pimp; os decks jogam a runa base (e desde a noite de 17/09 **não contam runa nenhuma** — ver a última secção deste ficheiro) |
 
 (O `-R` passou da lista 2 para a 3 a 2026-09-15 — ver a secção "As runas sem
 numeração saem", no fim deste ficheiro. O alvo 1 das sobrenumeradas e das
@@ -2413,7 +2413,13 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   fim da tarde) — um lugar normal que a base não tape serve-se de outra
   versão (Alt Art, sobrenumerada, promo; nunca assinada nem retirada) antes
   de ser falta, e a vista do deck (CLI e site) reparte cada carta pelas
-  impressões que a servem. Ver a última secção deste ficheiro.
+  impressões que a servem. Ver a penúltima secção deste ficheiro.
+- **Feito também:** as runas saem da contagem dos decks (2026-09-17, à
+  noite) — o Rune Pool lê-se e mostra-se só com as quantidades, sem
+  tenho/faltam, alocação, disputa, compra nem euros; o «tenho X de N» conta
+  só o resto (54/54 · 12 runas); e as runas nunca aparecem no «A mais».
+  `decks.contar_runas: false`, `a_mais.sem_runas: true`. Ver a última
+  secção deste ficheiro.
 - **Por fazer:** a parte 2 do seguir — o separador no site e a tarefa diária;
   vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck,
   com as partilhadas assinaladas); e apagar decks pela interface (hoje apaga-se
@@ -3609,4 +3615,120 @@ tapar; o Champion com 2 especiais e 0 base fica a faltar 1, não 2),
 retirar, as 6 Calm Rune alt art passam a 2 a mais) e `test_a_mais` (uma alt
 art que o deck passa a jogar deixa de estar a mais) ajustados. Suite: 31
 ficheiros.
+
+## 17/09/2026, à noite — as runas saem da contagem dos decks (`decks.contar_runas`), e nunca aparecem no «A mais» (`a_mais.sem_runas`)
+
+Palavras dele: *"esquece as runas, **nao facas contagem de runas nos decks**,
+indica me so quantas sao e eu organizo isso sozinho a mao"* e, logo a seguir,
+*"**no a mais nunca aparece Runas**"*. Ramo `ai-pc/runas-fora-decks-2026-09-17`;
+relatório em `ai-pc/work/revisao/riftvault-runas-fora-decks.md`.
+
+**Isto FECHA a tensão que estava anotada na secção anterior** («as runas, em
+destaque»): «as runas em Alt Art saem de tudo» (de manhã) contra «o deck usa
+a versão que eu tiver» (à tarde). Ele resolveu-a pelo caminho mais simples —
+as runas deixam de ser contabilizadas nos decks —, e a pergunta «as retiradas
+tapariam 8 das 9 faltas de runas?» deixou de existir: não há faltas de runas.
+
+**A regra, em quatro linhas:**
+
+1. **O Rune Pool continua a ler-se e a mostrar-se**, com as quantidades que
+   a lista pede («9 Calm Rune, 3 Order Rune»), e a legalidade continua a
+   dizer «runas 12/12» — ele quer ver QUANTAS SÃO.
+2. **Deixa de haver contabilidade.** Uma runa não entra no `need` de deck
+   nenhum: sem tenho/faltam, sem alocação da Coleção, sem disputa entre
+   decks, sem entrar na falta a comprar, sem a caminho, sem euros, sem
+   proposta de marcação (`locais.propor_deck`), sem Pimp, e a grelha da
+   Coleção deixou de dizer «Azir 9» numa runa (`uso_por_carta`).
+3. **O «tenho X de 66» passou a «tenho X de 54 · 12 runas».** Decisão minha
+   entre as duas que a ordem deixava: o denominador DESCE para o que se conta
+   (`decks_index.wanted` sem as runas) e as runas dizem-se ao lado
+   (`runas: {copies, cards, contadas}`), em vez de ficarem num bloco à parte
+   dentro dos 66. Porquê: com o 66 e as runas a 0 no «tenho», a barra lia-se
+   «faltam 12» — exactamente o que a ordem diz que não pode acontecer; com o
+   54, o Ornn lê-se «54/54» e é verdade. O «· 12 runas» fica no separador, na
+   barra e num chip do «Onde estão as cartas», para o 54 não parecer um deck
+   incompleto.
+4. **No «A mais» as runas não aparecem em NENHUM dos dois blocos** — nem no
+   excedente, esteja a runa na sequência (`OGN-042` a 9, alvo 3) ou escondida
+   (`VEN-R01`), nem nas libertadas dos decks (as 12 do LeBlanc apagado). O
+   cabeçalho e o CLI dizem quantas ficaram de fora (`scope.runas`), em vez de
+   as apagar em silêncio. O registo `deck_need_log` continua a guardá-las — é
+   o rasto das listas —, só não se mostram.
+
+**Onde vive.** `decks.cartas_nao_contadas(con, cfg)` → o conjunto de
+`card_key` das runas (`runas_especiais.tipos`, a MESMA definição de «runa» da
+Coleção) quando `decks.contar_runas` é `false`; `decks._need(con, deck_id,
+fora)` salta-as, e é o `_need` que alimenta o `allocate` (por isso nada do
+que dele deriva — `missing`, `shared`, `a_caminho`, `versoes_em`,
+`resumo_das_faltas`, `shopping_list`, `missing_by_set`, `faltas.compras`,
+`pending.encomendas`, `a_mais._usadas` — vê runas), o `uso_por_carta`, o
+`owned_by_card` dos decks, o `propor_deck` e o `faltas._wanted`/`pimp`. O
+`deck_payload` marca cada linha com `contado` (a runa: `wanted` e mais nada —
+`have/missing/ordered` a 0, `price/versoes/printings` vazios) e cada secção
+com `nao_contadas`; o payload e o `decks_index` levam `runas`. No `app.js`:
+`runasCurto`/`runasNaoContadas` (separador, barra, chip), o cabeçalho do Rune
+Pool («12 · não se contam, organizas à mão»), o tile `.dtile.neutro
+.nao-contada` só com o «9×», o CSV salta-as. Na CLI: coluna «runas» no
+`riftvault decks`, linha «runas: 12 (2 cartas) — não se contam» e o Rune Pool
+com `- 9 Calm Rune` no `riftvault deck`, e o «fora, por serem runas» no
+`riftvault a-mais`. `a_mais.excedente/libertadas(…, todas=True)` devolvem-nas
+marcadas `runa`, para o `payload` contar o `scope.runas`. Config:
+`riftvault_config.json` e `config.DEFAULTS` (`decks.contar_runas: false`,
+`a_mais.sem_runas: true`, `_decks_runas_nota`, `_a_mais_nota`). `true`/`false`
+voltam ao que era. **Uma carta sleevada num deck que seja runa não é
+«extra»** (a lista pede-a, só não se conta) — há teste.
+
+**O que NÃO mudou, de propósito:** as 6 runas base do OGN a **3** no master
+set, a contar para a percentagem e para as wantlists (`master_targets_by_type`);
+as runas em Alt Art **retiradas** (`f1dbd5b`); a Legend e o Champion numa
+versão especial; «o deck completa com Alt Art/OverNumbered/SP que ele tenha»
+para o que não é runa; `faltas_ignorar_tipos: ["Rune"]` continua a ser lido
+(já não tira nada); o `seguir.py` (os decks dos OUTROS continuam a contar as
+runas na falta — ele falou dos decks dele; fica anotado como dúvida no
+relatório).
+
+**Medido a 2026-09-17 contra cópias (`_revisao\_medir_runas_fora_decks.py`),
+`main` (`28248e6`) e ramo na mesma corrida, em TRÊS cenários — antes; meio
+(ramo com `a_mais.sem_runas: false`, para separar os dois efeitos); depois
+— e os invariantes NÃO mexem em nenhum:** denominador **928**, níveis
+**860/780/715 = 92,7 / 84,1 / 77,0 %** (faltam 68/206/409 ·
+267,73/824,22/1 485,58 €), wantlist «tudo» **213 · 406 · 1 392,96 €** (OGN
+625,31 · OGS 17,69 · SFD 330,74 · UNL 278,68 · VEN 140,54), valor **2 959,97 €
+· 2 391 cópias**, Faltas por edição **349 · 542 · 12 391,36 €** (a comprar
+213 · 406 · 1 392,96 €), Staples/Por deck/Pimp **iguais** (6 cartas · 9
+cópias · 232,13 €; Pimp 10 · 11 · 749,73 €) — já não levavam runas.
+
+**O que mexe:**
+
+| | antes | depois |
+|---|---|---|
+| falta dos decks | 18 cópias · 10 cartas · 233,18 € · 13 disputadas | **9 · 6 · 232,13 € · 5 disputadas** |
+| as 9 que saem | 6 Calm Rune (Azir), 1 Mind Rune (LeBlanc BH), 1 Chaos Rune e 1 Order Rune (Kennen) — 1,05 € | — |
+| Ornn | 66/66 | **54/54 · 12 runas** |
+| Azir | 59/66 · falta 6 · 6 disputadas · 1 a caminho | **53/54 · falta 0 · 1 a caminho** |
+| LeBlanc Baited Hook | 60/66 · falta 5 · 4 disputadas | **49/54 · falta 4 · 3 disputadas** |
+| Kennen Post Ban | 58/66 · falta 7 · 3 disputadas | **48/54 · falta 5 · 2 disputadas** |
+| grelha da Coleção nas runas | «Ornn 8 · Azir 7 (faltam 6)» na Calm Rune, etc. | nada |
+| runas que os decks prendiam | `OGN-042` 9 · `089` 7 · `166` 8 · `214` 15 = 39 cópias | 0 |
+
+**O «A mais», nos dois sentidos, separados:**
+
+| | excedente | libertadas | escondidas |
+|---|---|---|---|
+| antes | 69 impressões · 135 cópias (runas: `VEN-R01`, `VEN-R04` ×1, escondidas) | 39 cartas · 80 cópias (runas: Order Rune 8 e Mind Rune 4 do `leblanc.txt` apagado) | 12 · 16 |
+| meio (as runas soltam-se) | **73 · 162** — entram `OGN-042` +6 (tem 9, alvo 3), `089` +4 (7), `166` +5 (8), `214` +12 (15) = **+27** | 39 · 80 | 12 · 16 |
+| depois (e saem) | **67 · 133** — saem as 4 do OGN (27) e as 2 `VEN-R` (2) = **−29** | **37 · 68** = **−12** | 10 · 14 |
+
+Saldo antes → depois: excedente **−2 cópias** (só as duas `VEN-R`; as 27
+soltas nunca chegaram a ver-se), libertadas **−12**. `scope.runas` diz
+exactamente isto: excedente 6 impressões · 29 cópias, libertadas 2 cartas · 12
+cópias.
+
+`tests/test_runas_fora_decks.py` (27 testes, contra cópias e config
+temporário); `test_versoes_deck` (os dois testes da runa reescritos: a runa
+nem entra, e a tensão fechou — só com `contar_runas: true` é que a alt art
+tapava), `test_runas_alt_fora` (a classe `TestOsDecks` liga `contar_runas`
+para continuar a ver o MECANISMO da retirada nos decks; o A mais «sem
+retirar» liga os dois botões) e `test_a_mais` (o `scope` cresceu) ajustados.
+Suite: 32 ficheiros.
 

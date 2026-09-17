@@ -42,14 +42,17 @@ CONFIG = Path(tempfile.gettempdir()) / "riftvault-versoes-deck.json"
 REPO = Path(__file__).resolve().parent.parent
 
 
-def escrever_config(retiradas=("a",)) -> None:
+def escrever_config(retiradas=("a",), contar_runas=False) -> None:
+    # `contar_runas` é o default de 2026-09-17 à noite (as runas não se contam
+    # nos decks); os testes da runa ligam-no para ver o MECANISMO.
     CONFIG.write_text(json.dumps({
         "master_set": {"fora_da_percentagem": ["a", "overnumbered", "promo"],
                        "escondidas": ["-T", "*", "-R"],
                        "um_de_cada": ["a", "overnumbered", "promo"]},
         "master_targets_by_type": {"Rune": 3},
         "decks": {"so_normais_excepto": ["legend", "champion"],
-                  "versoes_especiais": ["a", "overnumbered", "promo"]},
+                  "versoes_especiais": ["a", "overnumbered", "promo"],
+                  "contar_runas": contar_runas},
         "runas_especiais": {"tipos": ["Rune"], "excepto": ["base"],
                             "retiradas": list(retiradas)},
         "listas_de_compra": {"so_master_set": True},
@@ -235,22 +238,49 @@ class TestNuncaAssinadaNemRetirada(Base):
         self.assertNotIn(VI_STAR, self.decks.versoes_dos_decks(con).outras_de("vi"))
         con.close()
 
-    def test_a_runa_em_alt_art_retirada_nao_tapa_o_rune_pool(self):
-        """3 Calm Rune base + 6 em alt art (retiradas): falta 1, e as 6 ficam
-        no monte sem ninguém as levar — «não incluas em nada»."""
+    def test_a_runa_nao_se_conta__nem_a_base_nem_a_alt_art(self):
+        """3 Calm Rune base + 6 em alt art: desde 2026-09-17 à noite («nao
+        facas contagem de runas nos decks») a runa nem entra no `need` — não
+        falta, não se aloca, não se reparte —, e as 6 alt arts ficam no monte
+        sem ninguém as levar (`test_runas_fora_decks.py`). O MECANISMO da
+        retirada nos decks continua lá, e vê-se com `contar_runas: true`:
+        falta 1 e a alt art retirada não tapa — «não incluas em nada»."""
+        con = self.catalogo(copias={**self.QUASE, RUNA: 3, RUNA_A: 6})
+        a = self.aloc(con)
+        self.assertNotIn("calm rune", a["missing"])
+        self.assertNotIn("calm rune", a["alloc"])
+        self.assertEqual(self.versoes(a, "calm rune"), [])
+        self.assertNotIn(RUNA_A, a["grupo"]["impressoes"]["na_colecao"])
+        self.assertNotIn(RUNA_A, self.decks.versoes_dos_decks(con).outras_de("calm rune"))
+        con.close()
+        escrever_config(contar_runas=True)
+        self.recarregar()
+        self.v = Vault()
+        self.addCleanup(self.v.close)
         con = self.catalogo(copias={**self.QUASE, RUNA: 3, RUNA_A: 6})
         a = self.aloc(con)
         self.assertEqual(a["missing"]["calm rune"], 1)
         self.assertEqual(self.versoes(a, "calm rune"), [(RUNA, 3, "normal")])
         self.assertNotIn(RUNA_A, a["grupo"]["impressoes"]["na_colecao"])
-        self.assertNotIn(RUNA_A, self.decks.versoes_dos_decks(con).outras_de("calm rune"))
         con.close()
 
-    def test_se_a_runa_deixasse_de_estar_retirada_tapava(self):
-        """A tensão anotada no relatório: com `retiradas: []` a mesma alt art
-        tapa a runa que falta. É decisão dele, não do código."""
+    def test_a_tensao_da_runa_fechou__so_com_as_runas_a_contar_e_que_a_alt_art_tapava(self):
+        """A tensão anotada no relatório de 2026-09-17 à tarde («se a runa
+        deixasse de estar retirada, tapava») fechou-se nessa noite: as runas
+        não se contam, por isso `retiradas: []` sozinho não muda nada nos
+        decks. Só com `contar_runas: true` E sem retirar é que a alt art
+        tapava — fica fixado para se saber o que a config faz."""
         escrever_config(retiradas=())
         self.recarregar()
+        con = self.catalogo(copias={**self.QUASE, RUNA: 3, RUNA_A: 6})
+        a = self.aloc(con)
+        self.assertNotIn("calm rune", a["missing"])
+        self.assertEqual(self.versoes(a, "calm rune"), [])
+        con.close()
+        escrever_config(retiradas=(), contar_runas=True)
+        self.recarregar()
+        self.v = Vault()
+        self.addCleanup(self.v.close)
         con = self.catalogo(copias={**self.QUASE, RUNA: 3, RUNA_A: 6})
         a = self.aloc(con)
         self.assertNotIn("calm rune", a["missing"])

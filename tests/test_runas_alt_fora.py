@@ -39,19 +39,24 @@ CONFIG = Path(tempfile.gettempdir()) / "riftvault-runas-alt-fora.json"
 
 
 def escrever_config(retiradas=("a",), tipos=("Rune",),
-                    papeis=("legend", "champion")) -> None:
+                    papeis=("legend", "champion"),
+                    contar_runas=False, sem_runas=True) -> None:
+    # `contar_runas`/`sem_runas` são os defaults de 2026-09-17 à noite (as
+    # runas não se contam nos decks nem aparecem no «A mais»); os testes do
+    # MECANISMO da retirada nos decks ligam a contagem para o poderem ver.
     CONFIG.write_text(json.dumps({
         "master_set": {"fora_da_percentagem": ["a", "overnumbered", "promo"],
                        "escondidas": ["-T", "*", "-R"],
                        "um_de_cada": ["a", "overnumbered", "promo"]},
         "master_targets_by_type": {"Rune": 3},
         "decks": {"so_normais_excepto": list(papeis),
-                  "versoes_especiais": ["a", "overnumbered", "promo"]},
+                  "versoes_especiais": ["a", "overnumbered", "promo"],
+                  "contar_runas": contar_runas},
         "runas_especiais": {"tipos": list(tipos), "excepto": ["base"],
                             "retiradas": list(retiradas)},
         "listas_de_compra": {"so_master_set": True},
         "quanto_custa": {"sem_edicoes": [], "top_por_raridade": 5},
-        "a_mais": {"sem_edicoes": []},
+        "a_mais": {"sem_edicoes": [], "sem_runas": sem_runas},
     }), encoding="utf-8")
     os.environ["RIFTVAULT_CONFIG"] = str(CONFIG)
 
@@ -216,15 +221,19 @@ class TestAMaisEOValor(Base):
         am = self.a_mais.payload(con)
         self.assertNotIn(RUNA_ALT, json.dumps(am, ensure_ascii=False))
         self.assertEqual(am["totals"]["excedente"], {"cards": 0, "copies": 0})
-        self.assertEqual(am["scope"], {"hidden_cards": 0, "hidden_copies": 0})
+        self.assertEqual((am["scope"]["hidden_cards"], am["scope"]["hidden_copies"]), (0, 0))
+        # Uma retirada não é uma runa «fora do A mais»: não conta nem aí.
+        self.assertEqual(am["scope"]["runas"]["excedente"], {"cards": 0, "copies": 0})
         con.close()
-        # Sem retirar, as mesmas 6 cópias dão 2 a mais: o alvo da alt art é 1
-        # e não sobe com o que o Azir joga (2026-09-17, «voltar atrás»), mas
-        # desde a tarde desse dia o Azir, sem Calm Rune base, TAPA as 4 do
-        # Rune Pool com as alt arts — e uma cópia em uso não é a mais
-        # (`cópias − max(usadas, alvo)` = 6 − 4). É o que aconteceria às runas
-        # dele se deixassem de estar retiradas.
-        escrever_config(retiradas=())
+        # Sem retirar — e com as runas a contar nos decks e a aparecer no «A
+        # mais», que deixaram de ser o default a 2026-09-17 à noite —, as
+        # mesmas 6 cópias dão 2 a mais: o alvo da alt art é 1 e não sobe com o
+        # que o Azir joga (2026-09-17, «voltar atrás»), mas desde a tarde desse
+        # dia o Azir, sem Calm Rune base, TAPA as 4 do Rune Pool com as alt
+        # arts — e uma cópia em uso não é a mais (`cópias − max(usadas, alvo)`
+        # = 6 − 4). É o que aconteceria às runas dele se deixassem de estar
+        # retiradas E voltassem a contar.
+        escrever_config(retiradas=(), contar_runas=True, sem_runas=False)
         self.recarregar()
         self.v = Vault()
         self.addCleanup(self.v.close)
@@ -257,7 +266,19 @@ class TestAMaisEOValor(Base):
 
 class TestOsDecks(Base):
     """8: os decks jogam a runa base; a alt art não serve, não se compra, não
-    se propõe, não se encomenda. E não está no Pimp."""
+    se propõe, não se encomenda. E não está no Pimp.
+
+    Desde 2026-09-17 à noite as runas NEM SE CONTAM nos decks
+    (`decks.contar_runas: false`, `test_runas_fora_decks.py`) — a runa não
+    falta nem se compra, seja base ou alt art. Estes testes são do MECANISMO
+    da retirada nos decks e ligam a contagem (`contar_runas: true`) para o
+    verem: se um dia as runas voltarem a contar, a retirada continua a valer.
+    """
+
+    def setUp(self):
+        super().setUp()
+        escrever_config(contar_runas=True)
+        self.recarregar()
 
     def test_a_alt_art_nao_serve_e_a_base_serve(self):
         con = self.catalogo(copias=SEIS)
@@ -327,7 +348,7 @@ class TestOsDecks(Base):
         con.close()
 
     def test_com_os_decks_todos_na_base_continua_retirada(self):
-        escrever_config(papeis=())
+        escrever_config(papeis=(), contar_runas=True)
         self.recarregar()
         con = self.catalogo(copias=SEIS)
         self.assertEqual(self.falta_de(con, "azir").get("calm rune"), 4)

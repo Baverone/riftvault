@@ -231,11 +231,21 @@ nos últimos 30 dias) saiu do site com o separador; a conta continua na
 consola, `py -m riftvault a-subir [--cardmarket]`, com as mesmas exclusões
 (`a_subir.excluir`) e a mesma regra de «ainda não tenho».
 
-**As runas não entram nas abas dos decks** (Staples, Por deck e as wantlists)
-— são baratas e compram-se a granel, e a 12 por deck enchiam os staples.
-Continuam a contar na secção Decks, na Coleção e no `riftvault a-subir`, que
-mede o master set e não os decks. O que fica de fora está em
-`faltas_ignorar_tipos`, no config.
+**As runas não se contam nos decks** (17/09/2026, à noite — frase tua:
+*"esquece as runas, nao facas contagem de runas nos decks, indica me so
+quantas sao e eu organizo isso sozinho a mao"*). O Rune Pool de cada deck
+continua a ler-se e a mostrar-se com as quantidades da lista («9 Chaos Rune,
+3 Order Rune») e o cabeçalho continua a validar as 12 runas — mas não há
+tenho/faltam, alocação da Coleção, disputa entre decks, falta a comprar nem
+euros para uma runa, e a grelha da Coleção deixou de dizer «Azir 9» numa
+runa. O «tenho X de N» do deck conta só o resto — **54 de 54** num deck de
+66, com «· 12 runas» ao lado —; o denominador desce de propósito, porque
+deixar o 66 dizia que faltavam 12. É `decks.contar_runas: false` no config
+(`true` volta a contá-las). Já antes disso as runas não entravam nas abas
+Staples/Por deck (`faltas_ignorar_tipos`, 01/09/2026 — eram baratas e
+enchiam os staples); esse botão fica, mas com este já não tira nada. A
+Coleção **não** mexe: as 6 runas base do OGN continuam a 3 no master set, a
+contar para a percentagem e para as wantlists.
 
 **Os decks que pedem a mesma carta compram o que a Coleção não chega para
 todos** (11/09/2026). Cinco decks a pedir 3 Defy com 3 na Coleção são 12 Defy a
@@ -256,11 +266,15 @@ sem botão mas aparece em «Todas»), e em cada edição dois blocos, com a
 - **Excedente** — impressões de que tens **mais cópias do que o alvo** que a
   Coleção e os decks já usam: playset na sequência, 1 nas artes alternativas
   e sobrenumeradas (os decks não levantam este alvo), e o que está
-  escondido (tokens, signatures, runas sem numeração) não tem alvo e sobra
-  inteiro, marcado. A conta é `cópias − max(usadas nos decks, alvo)`: **o que
-  os decks levam nunca é a mais**, o que está no binder Decks/Venda e nenhum
-  deck pede é, e o que está sleevado num deck nunca aparece. «tens 5, queres
-  3 → 2 a mais».
+  escondido (tokens, signatures) não tem alvo e sobra inteiro, marcado. A
+  conta é `cópias − max(usadas nos decks, alvo)`: **o que os decks levam
+  nunca é a mais**, o que está no binder Decks/Venda e nenhum deck pede é, e
+  o que está sleevado num deck nunca aparece. «tens 5, queres 3 → 2 a mais».
+- **Sem runas, nunca** (17/09/2026, à noite — *"no a mais nunca aparece
+  Runas"*): uma runa não aparece em nenhum dos dois blocos, esteja na
+  sequência (as 9 Calm Rune de que a Coleção pede 3) ou escondida (as
+  `VEN-R`), nem nas libertadas. O cabeçalho diz quantas ficaram de fora por
+  isso. É `a_mais.sem_runas: true` no config.
 - **Libertadas dos decks** — o que uma lista de deck **pedia e deixou de
   pedir** (carta tirada da lista, quantidade baixada, ou o deck apagado), com
   a data, quantas tens e quem ainda a pede. **O registo nasceu a
@@ -596,13 +610,27 @@ site diz em que deck está a que existe (*"caso algum deck ou decks já estão a
 usar as cartas disponíveis na coleção, o próximo passa a marcar como faltas
 para comprar"*). Mudar a ordem refaz a alocação toda.
 
+### As runas não se contam (2026-09-17, à noite)
+
+Frase tua: *"esquece as runas, nao facas contagem de runas nos decks, indica
+me so quantas sao e eu organizo isso sozinho a mao"*. O **Rune Pool** de cada
+deck continua a aparecer com as quantidades da lista e o cabeçalho continua a
+validar as 12 — e mais nada: uma runa não tem tenho/faltam, não se serve da
+Coleção, não disputa com outro deck, não entra na falta a comprar, não tem
+preço, não se propõe para marcar, não vai ao Pimp. A barra «cartas alocadas a
+este deck» conta só o resto (**54/54** com **· 12 runas** ao lado), e os tiles
+das runas têm a moldura neutra com só o «9×». `decks.contar_runas: false` no
+config; `true` volta a contá-las. A Coleção não mexe (as runas base do OGN
+continuam a 3), e as runas em Alt Art continuam retiradas.
+
 ### Que versão joga cada carta (2026-09-17)
 
 Frase tua: *"os decks apenas jogaram versoes normais, com excepcao da Legend
 e do Champion que serao Alt Art ou Overnumbered ou SP, mas nunca assinada"*.
 
-- **Tudo o que está no main, nos battlefields, no Rune Pool e no sideboard
-  joga a versão normal** — a base da edição, sem sobrenumeração — **primeiro**.
+- **Tudo o que está no main, nos battlefields e no sideboard joga a versão
+  normal** — a base da edição, sem sobrenumeração — **primeiro** (o Rune Pool
+  deixou de se contar nessa noite, ver acima).
   Desde a tarde de 2026-09-17 (*"caso um deck precise de uma carta, que não
   há versão disponível em normal, mas esteja disponível em Alt.Art ou outra,
   usa"*), **o que a base não tapar completa-se com outra versão que tenhas**

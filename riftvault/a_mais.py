@@ -40,6 +40,15 @@ A CONTA DO EXCEDENTE, por impressão
     signatures, runas sem numeração) tem alvo 0 e sobra inteiro, marcado. O
     que está RETIRADO (as runas em alt art, 2026-09-17) nem aparece.
 
+AS RUNAS NUNCA APARECEM (2026-09-17, à noite)
+    André: *"no a mais nunca aparece Runas"*. Com `a_mais.sem_runas: true`
+    (o default) uma runa (`runas_especiais.tipos`) não entra em NENHUM dos
+    dois blocos — nem no excedente, esteja na sequência ou escondida, nem nas
+    libertadas dos decks. É a mesma noite em que as runas saíram da contagem
+    dos decks (`decks.contar_runas`): ele trata delas à mão e não as quer a
+    fazer barulho aqui. `scope.runas` diz quantas linhas e cópias ficaram de
+    fora por isso — a página e o CLI dizem-no em vez de esconder em silêncio.
+
 Cartas só em inglês, como o resto: o catálogo da RiftScribe não tem outra
 língua, e os preços (`precos.linguas`) já são só de ofertas em inglês. Os
 preços aparecem só como informação da carta, não como total a vender.
@@ -58,7 +67,18 @@ DEFAULTS: dict = {
     # grounds"). Aqui a edição sem botão continua a aparecer em «Todas» — um
     # excedente que não se vê é o contrário do que o separador é.
     "sem_edicoes": ["OGS"],
+    # As runas ficam fora dos dois blocos (2026-09-17, à noite).
+    "sem_runas": True,
 }
+
+
+def sem_runas(cfg: dict | None = None) -> bool:
+    return bool(opcoes(cfg)["sem_runas"])
+
+
+def _e_runa(r, cfg: dict) -> bool:
+    """Esta linha (impressão ou carta, com `type`) é uma runa que fica de fora?"""
+    return sem_runas(cfg) and metrics.e_runa(r, cfg)
 
 
 def opcoes(cfg: dict | None = None) -> dict:
@@ -101,8 +121,14 @@ def _usadas(con: sqlite3.Connection) -> dict[str, dict]:
     return out
 
 
-def excedente(con: sqlite3.Connection, cfg: dict | None = None) -> list[dict]:
-    """As impressões com cópias a mais, e quantas — a conta da Venda, sem a Venda."""
+def excedente(con: sqlite3.Connection, cfg: dict | None = None,
+              todas: bool = False) -> list[dict]:
+    """As impressões com cópias a mais, e quantas — a conta da Venda, sem a Venda.
+
+    Sem as runas, com `sem_runas` (2026-09-17, à noite). `todas=True` devolve
+    também as runas, marcadas `runa`, para quem quer contar o que ficou de
+    fora (`payload`, `scope.runas`).
+    """
     cfg = cfg or config.load()
     usadas = _usadas(con)
     no_binder = locais.em(con, locais.BINDER)
@@ -119,6 +145,11 @@ def excedente(con: sqlite3.Connection, cfg: dict | None = None) -> list[dict]:
         # nada"*) não é excedente nem escondida: não existe. As 6 `OGN-042a`
         # dele ficam no `copies` e não aparecem aqui.
         if metrics.retirada(r, cfg):
+            continue
+        # Uma runa nunca aparece (*"no a mais nunca aparece Runas"*), esteja
+        # na sequência ou escondida — fica só se quem chama pedir `todas`.
+        runa = _e_runa(r, cfg)
+        if runa and not todas:
             continue
         pid = r["printing_id"]
         u = usadas.get(pid) or {"no_deck": 0, "no_binder": 0, "na_colecao": 0, "decks": []}
@@ -154,6 +185,7 @@ def excedente(con: sqlite3.Connection, cfg: dict | None = None) -> list[dict]:
             # `extra` é o número do crachá: quantas estão a mais.
             "extra": sobra,
             "price": preco,
+            "runa": runa,
         })
     return itens
 
@@ -175,9 +207,15 @@ def _impressao_da_carta(con: sqlite3.Connection, card_key: str) -> sqlite3.Row |
                                         config.set_order(r["set_id"]), r["api_sort"]))[0]
 
 
-def libertadas(con: sqlite3.Connection, cfg: dict | None = None) -> list[dict]:
+def libertadas(con: sqlite3.Connection, cfg: dict | None = None,
+               todas: bool = False) -> list[dict]:
     """As cartas que uma lista pedia e deixou de pedir, com a carta no ecrã e o
-    contexto de hoje: quantas ele tem e o que os outros decks ainda pedem."""
+    contexto de hoje: quantas ele tem e o que os outros decks ainda pedem.
+
+    Sem as runas, com `sem_runas`: o registo (`deck_need_log`) continua a
+    guardá-las — é o rasto do que as listas pedem —, só não se mostram.
+    `todas=True` devolve-as, marcadas `runa`.
+    """
     cfg = cfg or config.load()
     tenho = metrics.owned_by_card(con)
     pedido = uso_decks.pedido_atual(con)
@@ -185,14 +223,20 @@ def libertadas(con: sqlite3.Connection, cfg: dict | None = None) -> list[dict]:
     for (slug, ck), info in pedido.items():
         ainda.setdefault(ck, []).append({"slug": slug, "deck": info["deck"], "qty": info["qty"]})
     precos = metrics.prices_map(con)
+    tipos = {r["card_key"]: r["type"] for r in con.execute(
+        "SELECT card_key, type FROM catalog.cards")}
     out = []
     for x in uso_decks.libertadas(con):
+        runa = _e_runa({"type": tipos.get(x["card_key"])}, cfg)
+        if runa and not todas:
+            continue
         r = _impressao_da_carta(con, x["card_key"])
         if r is None:
             continue
         pid = r["printing_id"]
         out.append({
             **x,
+            "runa": runa,
             "printing_id": pid,
             "name": r["name"], "code": r["public_code"],
             "set": r["set_id"], "cn": r["collector_number"],
@@ -220,8 +264,14 @@ def payload(con: sqlite3.Connection, cfg: dict | None = None) -> dict:
     """O separador inteiro: por edição, os dois blocos."""
     cfg = cfg or config.load()
     ed = edicoes(con, cfg)
-    exc = excedente(con, cfg)
-    lib = libertadas(con, cfg)
+    # Lê-se tudo uma vez e separa-se: o que se mostra, e as runas que ficaram
+    # de fora — para o cabeçalho dizer quantas em vez de as apagar em silêncio.
+    exc_todas = excedente(con, cfg, todas=True)
+    lib_todas = libertadas(con, cfg, todas=True)
+    exc = [x for x in exc_todas if not x["runa"]]
+    lib = [x for x in lib_todas if not x["runa"]]
+    runas_exc = [x for x in exc_todas if x["runa"]]
+    runas_lib = [x for x in lib_todas if x["runa"]]
 
     sets = []
     for s in ed["sets"]:
@@ -242,5 +292,9 @@ def payload(con: sqlite3.Connection, cfg: dict | None = None) -> dict:
         "scope": {
             "hidden_cards": sum(1 for x in exc if x["hidden"]),
             "hidden_copies": sum(x["extra"] for x in exc if x["hidden"]),
+            # As runas que ficaram de fora dos dois blocos (`sem_runas`).
+            "sem_runas": sem_runas(cfg),
+            "runas": {"excedente": _soma(runas_exc, "extra"),
+                      "libertadas": _soma(runas_lib, "qty")},
         },
     }

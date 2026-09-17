@@ -38,6 +38,16 @@ QUE VERSÃO JOGA CADA LUGAR (2026-09-17)
     Coleção não sobe por isto (a alt art continua a pedir 1). A página do
     deck reparte cada linha pelas impressões que a servem (`versoes_em`).
 
+AS RUNAS NÃO SE CONTAM (2026-09-17, à noite)
+    *"esquece as runas, nao facas contagem de runas nos decks, indica me so
+    quantas sao e eu organizo isso sozinho a mao"*. O Rune Pool lê-se e
+    mostra-se com as quantidades da lista, e a legalidade continua a dizer
+    «runas 12/12»; mas uma runa (`runas_especiais.tipos`) não entra no `need`
+    — sem tenho/faltam, sem alocação, sem disputa, sem compra, sem euros, e o
+    «tenho X de N» conta só o resto (`decks_index.wanted`, com `runas` ao
+    lado). `decks.contar_runas: true` volta a contá-las. Ver
+    `cartas_nao_contadas`.
+
 DECKS COM A MESMA LEGEND SÃO O MESMO DECK FÍSICO — PARTILHAM, NÃO DISPUTAM
     Palavras do André (2026-09-11, à noite): *"deck com o mesmo Legend,
     partilham cartas. Os 2 decks de LeBlanc partilham as mesmas cartas, são só
@@ -393,6 +403,18 @@ def import_all(con: sqlite3.Connection, log=print) -> dict:
 PAPEIS_ESPECIAIS = "so_normais_excepto"
 LISTA_ESPECIAIS = "versoes_especiais"
 KIND_SIGNATURE = "signature"
+# AS RUNAS SAEM DA CONTAGEM DOS DECKS (André, 2026-09-17, à noite): *"esquece
+# as runas, nao facas contagem de runas nos decks, indica me so quantas sao e
+# eu organizo isso sozinho a mao"*. Com `decks.contar_runas: false` (o
+# default) o Rune Pool continua a ler-se e a mostrar-se com as quantidades da
+# lista, mas uma runa não entra em `need`: não se aloca, não se disputa, não
+# falta, não se compra, não se propõe. O «tenho X de N» conta só o resto
+# (`decks_index`, `wanted` sem as runas, `runas` ao lado). «Runa» é o
+# `runas_especiais.tipos` — a mesma definição da Coleção, onde as runas base
+# do OGN continuam a 3 e a contar. Isto fecha a tensão entre «as runas em Alt
+# Art saem de tudo» (`metrics.retirada`, que fica) e «o deck usa a versão que
+# eu tiver» (`Versoes.outras_de`, que fica para o que não é runa).
+CONTAR_RUNAS = "contar_runas"
 # O nome de cada versão na vista do deck (`Versoes.rotulo`); a sobrenumerada
 # decide-se pelo número, não pela variante.
 ROTULO_VERSAO = {"base": "normal", "alt_art": "Alt Art", "special": "promo",
@@ -402,6 +424,32 @@ ROTULO_VERSAO = {"base": "normal", "alt_art": "Alt Art", "special": "promo",
 def _opcoes_decks(cfg: dict | None = None) -> dict:
     cfg = cfg or config.load()
     return cfg.get("decks") or {}
+
+
+def contar_runas(cfg: dict | None = None) -> bool:
+    """Os decks contam as runas? `False` desde 2026-09-17 à noite."""
+    return bool(_opcoes_decks(cfg).get(CONTAR_RUNAS, False))
+
+
+def cartas_nao_contadas(con: sqlite3.Connection, cfg: dict | None = None) -> frozenset[str]:
+    """As cartas que os decks NÃO contam — as runas, com `contar_runas: false`.
+
+    Uma carta daqui fica fora do `need` de todos os decks: a lista continua a
+    pedi-la (e a página diz quantas), mas não há tenho/faltam, alocação,
+    disputa nem compra. Sem «runa» (`runas_especiais.tipos` vazio) ou com
+    `contar_runas: true` o conjunto é vazio e tudo conta como sempre.
+    """
+    from . import metrics
+
+    cfg = cfg or config.load()
+    if contar_runas(cfg):
+        return frozenset()
+    tipos = tuple(metrics.opcoes_runa(cfg).get("tipos") or ())
+    if not tipos:
+        return frozenset()
+    ph = ",".join("?" * len(tipos))
+    return frozenset(r["card_key"] for r in con.execute(
+        f"SELECT card_key FROM catalog.cards WHERE type IN ({ph})", tipos))
 
 
 def papeis_especiais(cfg: dict | None = None) -> frozenset[str]:
@@ -611,12 +659,14 @@ def owned_by_card(con: sqlite3.Connection) -> dict[str, int]:
     `metrics.owned_by_card`, que soma tudo menos as retiradas.
     """
     versoes = versoes_dos_decks(con)
+    # As runas não se contam nos decks (2026-09-17, à noite).
+    nao_contadas = cartas_nao_contadas(con)
     out: dict[str, int] = {}
     for r in con.execute(
         "SELECT p.printing_id, p.card_key, c.qty FROM copies c "
         "JOIN catalog.printings p ON p.printing_id = c.printing_id WHERE c.qty > 0"
     ):
-        if versoes.serve(r):
+        if versoes.serve(r) and r["card_key"] not in nao_contadas:
             out[r["card_key"]] = out.get(r["card_key"], 0) + r["qty"]
     return out
 
@@ -807,11 +857,16 @@ def grupo_de(con: sqlite3.Connection, deck_id: int) -> dict:
     return next(g for g in grupos(con) if deck_id in g["deck_ids"])
 
 
-def _need(con: sqlite3.Connection, deck_id: int) -> dict[str, int]:
-    """card_key -> quanto ESTE deck pede, todos os papéis somados."""
+def _need(con: sqlite3.Connection, deck_id: int,
+          fora: frozenset[str] = frozenset()) -> dict[str, int]:
+    """card_key -> quanto ESTE deck pede, todos os papéis somados.
+
+    `fora` são as cartas que não se contam (`cartas_nao_contadas` — as
+    runas): a lista pede-as, a contabilidade não as vê.
+    """
     return {r["card_key"]: r["q"] for r in con.execute(
         "SELECT card_key, SUM(qty) AS q FROM deck_cards WHERE deck_id = ? "
-        "GROUP BY card_key", (deck_id,))}
+        "GROUP BY card_key", (deck_id,)) if r["card_key"] not in fora}
 
 
 def _cortar(entradas: list[dict], inicio: int, n: int) -> list[dict]:
@@ -891,6 +946,9 @@ def allocate(con: sqlite3.Connection) -> dict:
     p = pool_dos_decks(con)
     versoes = versoes_dos_decks(con)
     linha_de = versoes.linha_de
+    # As runas não se contam (2026-09-17, à noite): ficam fora do `need` e por
+    # isso de tudo o que se segue — nem se alocam nem faltam.
+    nao_contadas = cartas_nao_contadas(con)
     binder = dict(p["binder"])
     colecao = dict(p["colecao"])
     # O pendente por impressão; as `market_only` (sem linha no catálogo — as
@@ -927,7 +985,7 @@ def allocate(con: sqlite3.Connection) -> dict:
 
     for g in grupos(con):
         membros = [por_id[i] for i in g["deck_ids"]]
-        needs = {d["deck_id"]: _need(con, d["deck_id"]) for d in membros}
+        needs = {d["deck_id"]: _need(con, d["deck_id"], nao_contadas) for d in membros}
         # A procura do grupo: o MÁXIMO entre as listas, carta a carta. A
         # alocação é por carta lógica, não por papel: uma carta que esteja no
         # main e no sideboard disputa o mesmo stock.
@@ -1150,7 +1208,9 @@ def allocate(con: sqlite3.Connection) -> dict:
             proprio: dict[str, int] = {}
             for pid, n in (p["fixo"].get(d["name"]) or {}).items():
                 r = linha_de.get(pid)
-                if r is not None and versoes.serve(r):
+                # Uma runa sleevada no deck não é «a mais»: a lista pede-a, só
+                # não se conta.
+                if r is not None and versoes.serve(r) and r["card_key"] not in nao_contadas:
                     proprio[r["card_key"]] = proprio.get(r["card_key"], 0) + n
             sobra = {ck: n - min(n, nd.get(ck, 0)) for ck, n in proprio.items()
                      if n - min(n, nd.get(ck, 0)) > 0}
@@ -1186,6 +1246,7 @@ def uso_por_carta(con: sqlite3.Connection) -> dict[str, list[dict]]:
     """
     alloc = allocate(con)
     por_slug = {d["name"]: d for d in deck_rows(con)}
+    fora = cartas_nao_contadas(con)
     out: dict[str, list[dict]] = {}
     for d in deck_rows(con):
         a = alloc[d["deck_id"]]
@@ -1196,7 +1257,7 @@ def uso_por_carta(con: sqlite3.Connection) -> dict[str, list[dict]]:
                  for s in g["slugs"]}
         pedem: dict[str, list[int]] = {}
         for i in nomes:
-            for ck in _need(con, i):
+            for ck in _need(con, i, fora):
                 pedem.setdefault(ck, []).append(i)
         for ck, qty in g["need"].items():
             quem = [nomes[i] for i in pedem.get(ck, [])]
@@ -1372,12 +1433,24 @@ def rules() -> dict:
 def decks_index(con: sqlite3.Connection) -> list[dict]:
     alloc = allocate(con)
     por_slug = {d["name"]: d["deck_id"] for d in deck_rows(con)}
+    fora = cartas_nao_contadas(con)
     out = []
     for d in deck_rows(con):
         a = alloc[d["deck_id"]]
-        pedidas = con.execute(
-            "SELECT COALESCE(SUM(qty),0) AS q FROM deck_cards WHERE deck_id = ?",
-            (d["deck_id"],)).fetchone()["q"]
+        # O «tenho X de N» conta só o que se conta: as runas saem do `wanted`
+        # (2026-09-17, à noite) e vão à parte em `runas`, só como quantidade —
+        # 54 de 54 num deck de 66, e «12 runas» ao lado. O denominador desce
+        # de propósito: deixar o 66 dizia que faltavam 12.
+        pedidas = runas = 0
+        for r in con.execute(
+            "SELECT card_key, SUM(qty) AS q FROM deck_cards WHERE deck_id = ? "
+            "GROUP BY card_key", (d["deck_id"],)
+        ):
+            if r["card_key"] in fora:
+                runas += r["q"]
+            else:
+                pedidas += r["q"]
+        n_runas = sum(1 for ck in _need(con, d["deck_id"]) if ck in fora)
         tenho = sum(a["alloc"].values())
         out.append({
             "id": d["deck_id"], "slug": d["name"],
@@ -1385,6 +1458,9 @@ def decks_index(con: sqlite3.Connection) -> list[dict]:
             "legend": d["legend"], "champion": d["champion"],
             "priority": d["priority"],
             "wanted": pedidas, "have": tenho,
+            # As runas que a lista pede e NÃO se contam: cópias e cartas
+            # distintas, para o ecrã dizer «12 runas (3 cartas), à mão».
+            "runas": {"copies": runas, "cards": n_runas, "contadas": not fora},
             # De onde vem o que está alocado — os três somam o `have`.
             "no_deck": sum(a["no_deck"].values()),
             "no_binder": sum(a["no_binder"].values()),
@@ -1494,6 +1570,10 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
     # carta — a segunda cópia de um Champion, no main, já é normal.
     usado_esp: dict[str, int] = {}
     usado_cam_esp: dict[str, int] = {}
+    # As runas não se contam (2026-09-17, à noite): a linha fica na lista com
+    # a quantidade que a lista pede — «indica me so quantas sao» — e mais
+    # nada: sem tenho, sem falta, sem a caminho, sem preço, sem versões.
+    fora = cartas_nao_contadas(con)
     sections = []
     for role in ROLE_ORDER:
         rows = con.execute(
@@ -1504,6 +1584,22 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
         cards = []
         for r in rows:
             ck = r["card_key"]
+            if ck in fora:
+                info = names.get(ck) or {}
+                cards.append({
+                    "card_key": ck,
+                    "name": (info["name"] if info else r["raw_line"]),
+                    "raw": r["raw_line"],
+                    "type": info["type"] if info else None,
+                    "wanted": r["qty"], "have": 0, "missing": 0, "ordered": 0,
+                    "no_deck": 0, "no_binder": 0, "na_colecao": 0,
+                    "contado": False,
+                    "especial": None, "versoes": [], "outras": 0,
+                    "order_code": None, "order_price": None, "order_especial": False,
+                    "shared": None, "partilhada": None, "printings": [],
+                    **{**imagem(ck), "price": None},
+                })
+                continue
             # Esta linha é o lugar especial? Só nos papéis do config, só se a
             # carta tiver versão especial, e só a primeira cópia.
             n_esp = 0
@@ -1583,6 +1679,7 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
                 "ordered": encomendada,
                 "no_deck": no_deck, "no_binder": no_binder,
                 "na_colecao": tenho - no_deck - no_binder,
+                "contado": True,
                 # O lugar especial desta linha (a Legend/Champion), ou `None`.
                 "especial": especial,
                 # As impressões que servem esta linha, por versão, e quantas
@@ -1600,18 +1697,29 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
                 "printings": prints.get(ck, []),
                 **imagem(ck),
             })
+        # Os totais da secção são só do que se conta; `nao_contadas` diz
+        # quantas cópias a lista pede e ficam de fora (o Rune Pool inteiro).
+        contadas = [c for c in cards if c["contado"]]
         sections.append({"role": role, "label": ROLE_LABEL[role], "cards": cards,
-                         "wanted": sum(c["wanted"] for c in cards),
-                         "have": sum(c["have"] for c in cards),
-                         "ordered": sum(c["ordered"] for c in cards),
-                         "no_deck": sum(c["no_deck"] for c in cards),
-                         "no_binder": sum(c["no_binder"] for c in cards),
-                         "na_colecao": sum(c["na_colecao"] for c in cards)})
+                         "wanted": sum(c["wanted"] for c in contadas),
+                         "have": sum(c["have"] for c in contadas),
+                         "ordered": sum(c["ordered"] for c in contadas),
+                         "no_deck": sum(c["no_deck"] for c in contadas),
+                         "no_binder": sum(c["no_binder"] for c in contadas),
+                         "na_colecao": sum(c["na_colecao"] for c in contadas),
+                         "nao_contadas": sum(c["wanted"] for c in cards
+                                             if not c["contado"])})
 
     return {
         "id": deck_id, "slug": d["name"], "name": d["display_name"] or d["name"],
         "legend": d["legend"], "champion": d["champion"], "priority": d["priority"],
         "sections": sections,
+        # As runas que a lista pede e não se contam (2026-09-17, à noite): o
+        # mesmo bloco do `decks_index`, para o cabeçalho dizer «12 runas».
+        "runas": {"copies": sum(s["nao_contadas"] for s in sections),
+                  "cards": len({c["card_key"] for s in sections for c in s["cards"]
+                                if not c["contado"]}),
+                  "contadas": not fora},
         "missing_by_set": missing_by_set(con, deck_id),
         "legality": legality(con, deck_id),
         "unresolved": json.loads(d["missing_json"] or "[]"),
