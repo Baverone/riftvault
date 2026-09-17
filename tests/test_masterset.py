@@ -29,6 +29,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from tests.fixture import Vault
 
+SEM_RETIRADAS = {"runas_especiais": {"tipos": ["Rune"], "excepto": ["base"],
+                                     "retiradas": []}}
+
 
 class Base(unittest.TestCase):
     def setUp(self):
@@ -39,6 +42,13 @@ class Base(unittest.TestCase):
         importlib.reload(a_subir)
         self.metrics, self.a_subir = metrics, a_subir
         self.config = config
+        # Estes testes descrevem o BLOCO das runas especiais com a arte
+        # alternativa da runa lá dentro — o mecanismo continua a existir, mas
+        # desde 2026-09-17 à tarde essa alt art está RETIRADA de tudo
+        # (`runas_especiais.retiradas: ["a"]`, `test_runas_alt_fora.py`) e o
+        # bloco fica vazio no catálogo real. Aqui desliga-se a retirada para
+        # o bloco continuar testável; um `com_config` num teste substitui isto.
+        self.com_config(SEM_RETIRADAS)
 
     def com_config(self, extra: dict):
         import os

@@ -104,12 +104,14 @@ class Base(unittest.TestCase):
                     "VALUES ('tst-101-100', 200000)")
         return con
 
-    # O master set (conta), a coleção extra (aparece, não conta) e a escondida.
+    # O master set (conta), a coleção extra (aparece, não conta), a escondida
+    # e as retiradas (as alt arts das runas, 2026-09-17: nem aparecem).
     MASTER = ("tst-001-100", "tst-005-100")
-    EXTRA = ("tst-001a-100", "tst-005a-100", "tst-101-100", "tst-105a-100")
+    EXTRA = ("tst-001a-100", "tst-101-100")
     ESCONDIDAS = ("tst-101-star-100",)
-    # As duas que estão acima do tamanho E na página.
-    ACIMA = ("tst-101-100", "tst-105a-100")
+    RETIRADAS = ("tst-005a-100", "tst-105a-100")
+    # A que está acima do tamanho E na página.
+    ACIMA = ("tst-101-100",)
 
     def blocos(self, con):
         p = self.metrics.set_payload(con, "TST")
@@ -186,8 +188,9 @@ class TestARegra(Base):
                  for pr in g["printings"]}
         self.assertEqual(tiles["tst-101-100"]["target"], 1)
         self.assertEqual(tiles["tst-001-100"]["target"], 3)
-        # A runa sobrenumerada é runa: 1, como todas as runas.
-        self.assertEqual(tiles["tst-105a-100"]["target"], 1)
+        # A runa sobrenumerada em alt art está retirada (2026-09-17): não
+        # tem alvo porque não está na página.
+        self.assertNotIn("tst-105a-100", tiles)
         con.close()
 
 
@@ -201,18 +204,18 @@ class TestColecao(Base):
                          "Coleção — sobrenumeradas — 1 de cada")   # 2026-09-15
         con.close()
 
-    def test_a_alt_art_de_uma_runa_sobrenumerada_fica_nas_runas_especiais(self):
-        """É coleção extra pelos dois motivos; o bloco é o das runas.
-
-        Antes de 2026-09-14 a saída ganhava ao bloco 2 porque «fora» era
-        fora da página; hoje os dois blocos são a mesma coisa (coleção extra,
-        não conta) e a runa especial ganha à arte alternativa, como sempre.
+    def test_a_alt_art_de_uma_runa_sobrenumerada_esta_retirada(self):
+        """Ficou no bloco das runas especiais (coleção extra pelos dois
+        motivos) até 2026-09-17 à tarde; desde então a alt art de uma runa
+        está retirada de tudo, sobrenumerada ou não (`test_runas_alt_fora`).
         """
         con = self.edicao()
         b = self.blocos(con)
-        self.assertEqual(b["tst-005a-100"], "rune_special")
-        self.assertEqual(b["tst-105a-100"], "rune_special")
-        self.assertFalse(self.metrics.e_master(self.linhas(con)["tst-105a-100"]))
+        self.assertNotIn("tst-005a-100", b)
+        self.assertNotIn("tst-105a-100", b)
+        for pid in ("tst-005a-100", "tst-105a-100"):
+            self.assertTrue(self.metrics.retirada(self.linhas(con)[pid]))
+            self.assertFalse(self.metrics.e_master(self.linhas(con)[pid]))
         con.close()
 
     def test_a_signature_continua_escondida_e_nao_muda_de_motivo(self):
@@ -320,6 +323,7 @@ class TestListasDeCompra(Base):
                         if self.metrics.e_colecao(r)}
         self.assertEqual(escopo, pela_metrica)
         self.assertEqual(escopo, set(self.MASTER + self.EXTRA))
+        self.assertEqual(escopo & set(self.RETIRADAS), set())
         con.close()
 
     def test_a_sobrenumerada_nao_entra_em_lista_de_compra_nenhuma(self):
@@ -344,15 +348,15 @@ class TestListasDeCompra(Base):
         self.assertEqual(m["cents"], 0)
         con.close()
 
-    def test_sai_com_o_motivo_sobrenumerada_e_a_alt_art_de_runa_com_o_dela(self):
-        """A página diz quantas TIROU e de que bloco; a signature nunca chega."""
+    def test_sai_com_o_motivo_sobrenumerada_e_a_alt_art_com_o_dela(self):
+        """A página diz quantas TIROU e de que bloco; a signature nunca chega,
+        nem as alt arts das runas (retiradas, 2026-09-17)."""
         con = self.edicao()
         m = self.a_subir.master_faltas(con)
         self.assertEqual(m["scope"]["excluded"], len(self.EXTRA))
         self.assertTrue(m["scope"]["so_master_set"])
         motivos = {c["criterio"]: c["n"] for c in m["scope"]["excluded_by"]}
-        # A alt art de runa sobrenumerada está no bloco das runas, não neste.
-        self.assertEqual(motivos, {"overnumbered": 1, "rune_special": 2, "alt_art": 1})
+        self.assertEqual(motivos, {"overnumbered": 1, "alt_art": 1})
         self.assertEqual(m["scope"]["excluded_labels"]["overnumbered"], "sobrenumeradas")
         con.close()
 
@@ -368,7 +372,9 @@ class TestListasDeCompra(Base):
         m = self.a_subir.master_faltas(con)
         pids = {x["printing_id"] for s in m["sets"] for x in s["items"]}
         self.assertNotIn("tst-101-100", pids)
-        self.assertIn("tst-105a-100", pids)
+        # A alt art da runa sobrenumerada não volta por aqui: está retirada
+        # de tudo (2026-09-17), e isto é só o botão das listas.
+        self.assertNotIn("tst-105a-100", pids)
         self.assertIn("tst-001a-100", pids)
         self.assertEqual(m["scope"]["excluded"], 1)
         self.assertFalse(m["scope"]["so_master_set"])
@@ -387,7 +393,8 @@ class TestVoltarAtras(Base):
         self.assertFalse(self.metrics.fora_overnumbered())
         b = self.blocos(con)
         self.assertEqual(b["tst-101-100"], "master")
-        self.assertEqual(b["tst-105a-100"], "rune_special")
+        # A alt art da runa não volta: é a lista das retiradas, não esta.
+        self.assertNotIn("tst-105a-100", b)
         # A signature continua escondida: é a outra lista.
         self.assertNotIn("tst-101-star-100", b)
         # A barra passa a contar as três da sequência: base, runa base e a
