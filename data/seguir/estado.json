@@ -1,0 +1,4132 @@
+{
+ "corrida_em": "2026-09-17T13:49:50+00:00",
+ "jogadores": {
+  "koko_lopez": {
+   "decks": {
+    "0244f0c5-8d33-4963-bd8c-e52403ee27eb": {
+     "ausente_desde": null,
+     "author": "Koko_Lopez",
+     "cards": [
+      {
+       "code": "SFD-197",
+       "name": "Azir, Emperor of the Sands",
+       "qty": 1,
+       "role": "legend",
+       "type": "Legend"
+      },
+      {
+       "code": "SFD-177",
+       "name": "Azir, Sovereign",
+       "qty": 1,
+       "role": "champion",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-294",
+       "name": "Trifarian War Camp",
+       "qty": 1,
+       "role": "battlefields",
+       "type": "Battlefield"
+      },
+      {
+       "code": "SFD-210",
+       "name": "Hall of Legends",
+       "qty": 1,
+       "role": "battlefields",
+       "type": "Battlefield"
+      },
+      {
+       "code": "SFD-217",
+       "name": "Seat of Power",
+       "qty": 1,
+       "role": "battlefields",
+       "type": "Battlefield"
+      },
+      {
+       "code": "OGN-042",
+       "name": "Calm Rune",
+       "qty": 7,
+       "role": "runes",
+       "type": "Rune"
+      },
+      {
+       "code": "OGN-214",
+       "name": "Order Rune",
+       "qty": 5,
+       "role": "runes",
+       "type": "Rune"
+      },
+      {
+       "code": "OGN-045",
+       "name": "Defy",
+       "qty": 3,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-058",
+       "name": "Discipline",
+       "qty": 3,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-213",
+       "name": "Hidden Blade",
+       "qty": 3,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "SFD-033",
+       "name": "Doran's Shield",
+       "qty": 3,
+       "role": "main",
+       "type": "Gear"
+      },
+      {
+       "code": "SFD-042",
+       "name": "Brutalizer",
+       "qty": 3,
+       "role": "main",
+       "type": "Gear"
+      },
+      {
+       "code": "SFD-153",
+       "name": "Eye of the Herald",
+       "qty": 3,
+       "role": "main",
+       "type": "Gear"
+      },
+      {
+       "code": "SFD-154",
+       "name": "Guards!",
+       "qty": 3,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "SFD-161",
+       "name": "B.F. Sword",
+       "qty": 3,
+       "role": "main",
+       "type": "Gear"
+      },
+      {
+       "code": "SFD-198",
+       "name": "Arise!",
+       "qty": 3,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "UNL-039",
+       "name": "Soul Sword",
+       "qty": 3,
+       "role": "main",
+       "type": "Gear"
+      },
+      {
+       "code": "UNL-042",
+       "name": "Back Off",
+       "qty": 3,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-046",
+       "name": "En Garde",
+       "qty": 2,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "SFD-163",
+       "name": "Deathgrip",
+       "qty": 2,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "VEN-027",
+       "name": "Hand Hammer",
+       "qty": 1,
+       "role": "main",
+       "type": "Gear"
+      },
+      {
+       "code": "UNL-176",
+       "name": "Vi, Peacekeeper",
+       "qty": 1,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "VEN-131",
+       "name": "Decree of Unity",
+       "qty": 3,
+       "role": "sideboard",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-224",
+       "name": "Salvage",
+       "qty": 2,
+       "role": "sideboard",
+       "type": "Spell"
+      },
+      {
+       "code": "VEN-040",
+       "name": "Decree of Focus",
+       "qty": 2,
+       "role": "sideboard",
+       "type": "Spell"
+      },
+      {
+       "code": "SFD-058",
+       "name": "Ornn, Blacksmith",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Unit"
+      },
+      {
+       "code": "UNL-169",
+       "name": "Ashe, Focused",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Unit"
+      },
+      {
+       "code": "VEN-037",
+       "name": "Tomb-Raider Barbara",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Unit"
+      }
+     ],
+     "created_at": "2026-09-09T20:56:01.864Z",
+     "edited_at": "2026-09-09T20:56:01.864Z",
+     "handles": [
+      "koko_lopez"
+     ],
+     "id": "0244f0c5-8d33-4963-bd8c-e52403ee27eb",
+     "legend": "Azir, Emperor of the Sands",
+     "legend_code": "SFD-197",
+     "lido_em": "2026-09-17T13:49:50+00:00",
+     "status": "public",
+     "title": "Squirtle's azir deck",
+     "ultima_mudanca": {
+      "o_que": "novo",
+      "quando": "2026-09-17T13:49:50+00:00"
+     },
+     "url": "https://piltoverarchive.com/decks/view/0244f0c5-8d33-4963-bd8c-e52403ee27eb"
+    },
+    "03863fc2-649b-4864-8527-d231d2f26258": {
+     "ausente_desde": null,
+     "author": "Koko_Lopez",
+     "cards": [
+      {
+       "code": "OGS-019",
+       "name": "Master Yi, Wuju Bladesman",
+       "qty": 1,
+       "role": "legend",
+       "type": "Legend"
+      },
+      {
+       "code": "UNL-113",
+       "name": "Master Yi, Tempered",
+       "qty": 1,
+       "role": "champion",
+       "type": "Unit"
+      },
+      {
+       "code": "SFD-207",
+       "name": "Emperor's Dais",
+       "qty": 1,
+       "role": "battlefields",
+       "type": "Battlefield"
+      },
+      {
+       "code": "SFD-217",
+       "name": "Seat of Power",
+       "qty": 1,
+       "role": "battlefields",
+       "type": "Battlefield"
+      },
+      {
+       "code": "UNL-215",
+       "name": "Star Spring",
+       "qty": 1,
+       "role": "battlefields",
+       "type": "Battlefield"
+      },
+      {
+       "code": "OGN-126",
+       "name": "Body Rune",
+       "qty": 7,
+       "role": "runes",
+       "type": "Rune"
+      },
+      {
+       "code": "OGN-042",
+       "name": "Calm Rune",
+       "qty": 5,
+       "role": "runes",
+       "type": "Rune"
+      },
+      {
+       "code": "OGN-043",
+       "name": "Charm",
+       "qty": 3,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-045",
+       "name": "Defy",
+       "qty": 3,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-058",
+       "name": "Discipline",
+       "qty": 3,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-132",
+       "name": "First Mate",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-136",
+       "name": "Pit Rookie",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-156",
+       "name": "Sabotage",
+       "qty": 3,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "SFD-036",
+       "name": "Lonely Poro",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "SFD-097",
+       "name": "Punch First",
+       "qty": 3,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "UNL-053",
+       "name": "Scuttle Crab",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-046",
+       "name": "En Garde",
+       "qty": 2,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-077",
+       "name": "Zhonya's Hourglass",
+       "qty": 2,
+       "role": "main",
+       "type": "Gear"
+      },
+      {
+       "code": "SFD-105",
+       "name": "Ruin Runner",
+       "qty": 2,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "VEN-083",
+       "name": "Rampage",
+       "qty": 2,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "VEN-081",
+       "name": "Onslaught",
+       "qty": 1,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "UNL-120",
+       "name": "Rengar, Trophy Hunter",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "SFD-032",
+       "name": "Disarming Rake",
+       "qty": 3,
+       "role": "sideboard",
+       "type": "Unit"
+      },
+      {
+       "code": "SFD-110",
+       "name": "Fiora, Peerless",
+       "qty": 2,
+       "role": "sideboard",
+       "type": "Unit"
+      },
+      {
+       "code": "VEN-085",
+       "name": "Decree of Strength",
+       "qty": 2,
+       "role": "sideboard",
+       "type": "Spell"
+      },
+      {
+       "code": "SFD-105",
+       "name": "Ruin Runner",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Unit"
+      },
+      {
+       "code": "UNL-192",
+       "name": "Alpha Strike",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Spell"
+      },
+      {
+       "code": "VEN-040",
+       "name": "Decree of Focus",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Spell"
+      }
+     ],
+     "created_at": "2026-07-21T04:27:00.187Z",
+     "edited_at": "2026-08-31T14:52:10.495Z",
+     "handles": [
+      "koko_lopez"
+     ],
+     "id": "03863fc2-649b-4864-8527-d231d2f26258",
+     "legend": "Master Yi, Wuju Bladesman",
+     "legend_code": "OGS-019",
+     "lido_em": "2026-09-17T13:49:50+00:00",
+     "status": "public",
+     "title": "PG yi Minh’s Barca List",
+     "ultima_mudanca": {
+      "o_que": "novo",
+      "quando": "2026-09-17T13:49:50+00:00"
+     },
+     "url": "https://piltoverarchive.com/decks/view/03863fc2-649b-4864-8527-d231d2f26258"
+    },
+    "118b1a82-76ed-457e-aa82-b47acb7638c9": {
+     "ausente_desde": null,
+     "author": "Koko_Lopez",
+     "cards": [
+      {
+       "code": "SFD-195",
+       "name": "Irelia, Blade Dancer",
+       "qty": 1,
+       "role": "legend",
+       "type": "Legend"
+      },
+      {
+       "code": "SFD-057",
+       "name": "Irelia, Fervent",
+       "qty": 1,
+       "role": "champion",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-289",
+       "name": "Targon's Peak",
+       "qty": 1,
+       "role": "battlefields",
+       "type": "Battlefield"
+      },
+      {
+       "code": "SFD-218",
+       "name": "Sunken Temple",
+       "qty": 1,
+       "role": "battlefields",
+       "type": "Battlefield"
+      },
+      {
+       "code": "UNL-205",
+       "name": "Abandoned Hall",
+       "qty": 1,
+       "role": "battlefields",
+       "type": "Battlefield"
+      },
+      {
+       "code": "OGN-042",
+       "name": "Calm Rune",
+       "qty": 6,
+       "role": "runes",
+       "type": "Rune"
+      },
+      {
+       "code": "OGN-166",
+       "name": "Chaos Rune",
+       "qty": 6,
+       "role": "runes",
+       "type": "Rune"
+      },
+      {
+       "code": "OGN-045",
+       "name": "Defy",
+       "qty": 3,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-058",
+       "name": "Discipline",
+       "qty": 3,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-199",
+       "name": "Tideturner",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "SFD-048",
+       "name": "Stellacorn Herder",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "SFD-051",
+       "name": "Guardian Angel",
+       "qty": 3,
+       "role": "main",
+       "type": "Gear"
+      },
+      {
+       "code": "SFD-196",
+       "name": "Defiant Dance",
+       "qty": 3,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "UNL-053",
+       "name": "Scuttle Crab",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-043",
+       "name": "Charm",
+       "qty": 2,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-046",
+       "name": "En Garde",
+       "qty": 3,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-173",
+       "name": "Ride the Wind",
+       "qty": 1,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "SFD-045",
+       "name": "Not So Fast",
+       "qty": 2,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "SFD-133",
+       "name": "Boots of Swiftness",
+       "qty": 2,
+       "role": "main",
+       "type": "Gear"
+      },
+      {
+       "code": "UNL-128",
+       "name": "Star-Crossed",
+       "qty": 3,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "SFD-136",
+       "name": "Hard Bargain",
+       "qty": 1,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "SFD-130",
+       "name": "Treasure Hunter",
+       "qty": 2,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "UNL-143a",
+       "name": "Kha'Zix, Mutating Horror",
+       "qty": 2,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-056",
+       "name": "Adaptatron",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-169",
+       "name": "Gust",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Spell"
+      },
+      {
+       "code": "UNL-150",
+       "name": "Vex, Apathetic",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Unit"
+      },
+      {
+       "code": "SFD-146",
+       "name": "Vex, Cheerless",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Unit"
+      },
+      {
+       "code": "SFD-032",
+       "name": "Disarming Rake",
+       "qty": 2,
+       "role": "sideboard",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-172",
+       "name": "Rebuke",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Spell"
+      },
+      {
+       "code": "SFD-145",
+       "name": "Switcheroo",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Spell"
+      }
+     ],
+     "created_at": "2026-05-25T12:51:13.560Z",
+     "edited_at": "2026-07-06T06:54:37.775Z",
+     "handles": [
+      "koko_lopez"
+     ],
+     "id": "118b1a82-76ed-457e-aa82-b47acb7638c9",
+     "legend": "Irelia, Blade Dancer",
+     "legend_code": "SFD-195",
+     "lido_em": "2026-09-17T13:49:50+00:00",
+     "status": "public",
+     "title": "Koko's Irelia 6th place Ppg Dallas Showdown 25k",
+     "ultima_mudanca": {
+      "o_que": "novo",
+      "quando": "2026-09-17T13:49:50+00:00"
+     },
+     "url": "https://piltoverarchive.com/decks/view/118b1a82-76ed-457e-aa82-b47acb7638c9"
+    },
+    "1dd0ec85-491d-478e-868f-b45be83cdbfa": {
+     "ausente_desde": null,
+     "author": "Koko_Lopez",
+     "cards": [
+      {
+       "code": "VEN-155",
+       "name": "Kennen, Heart of the Tempest",
+       "qty": 1,
+       "role": "legend",
+       "type": "Legend"
+      },
+      {
+       "code": "VEN-113",
+       "name": "Kennen, Storm of Shuriken",
+       "qty": 1,
+       "role": "champion",
+       "type": "Unit"
+      },
+      {
+       "code": "SFD-212",
+       "name": "Minefield",
+       "qty": 1,
+       "role": "battlefields",
+       "type": "Battlefield"
+      },
+      {
+       "code": "VEN-165",
+       "name": "Shadow Temple",
+       "qty": 1,
+       "role": "battlefields",
+       "type": "Battlefield"
+      },
+      {
+       "code": "OGN-298",
+       "name": "Zaun Warrens",
+       "qty": 1,
+       "role": "battlefields",
+       "type": "Battlefield"
+      },
+      {
+       "code": "OGN-166",
+       "name": "Chaos Rune",
+       "qty": 9,
+       "role": "runes",
+       "type": "Rune"
+      },
+      {
+       "code": "OGN-214",
+       "name": "Order Rune",
+       "qty": 3,
+       "role": "runes",
+       "type": "Rune"
+      },
+      {
+       "code": "OGN-185",
+       "name": "Traveling Merchant",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-195",
+       "name": "Rhasa the Sunderer",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-204",
+       "name": "Seal of Discord",
+       "qty": 3,
+       "role": "main",
+       "type": "Gear"
+      },
+      {
+       "code": "SFD-130",
+       "name": "Treasure Hunter",
+       "qty": 1,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "VEN-156",
+       "name": "Lightning Rush",
+       "qty": 3,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "SFD-145",
+       "name": "Switcheroo",
+       "qty": 2,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "SFD-150",
+       "name": "Last Rites",
+       "qty": 2,
+       "role": "main",
+       "type": "Gear"
+      },
+      {
+       "code": "OGN-198",
+       "name": "The Harrowing",
+       "qty": 1,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-199",
+       "name": "Tideturner",
+       "qty": 1,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "OGS-011",
+       "name": "Flash",
+       "qty": 1,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "UNL-147",
+       "name": "Baron Nashor",
+       "qty": 1,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "VEN-095",
+       "name": "Shadow Order Disciple",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "SFD-140",
+       "name": "Fizz, Trickster",
+       "qty": 2,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-169",
+       "name": "Gust",
+       "qty": 1,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "VEN-099",
+       "name": "Tornado Warrior",
+       "qty": 2,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "VEN-104",
+       "name": "Tail-Cloaked Matriarch",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "SFD-149",
+       "name": "Ezreal, Prodigy",
+       "qty": 2,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "UNL-128",
+       "name": "Star-Crossed",
+       "qty": 2,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "VEN-103",
+       "name": "Shadows of the Past",
+       "qty": 1,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-173",
+       "name": "Ride the Wind",
+       "qty": 1,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-224",
+       "name": "Salvage",
+       "qty": 1,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "VEN-102",
+       "name": "Ravenbloom Prefect",
+       "qty": 3,
+       "role": "sideboard",
+       "type": "Unit"
+      },
+      {
+       "code": "VEN-131",
+       "name": "Decree of Unity",
+       "qty": 2,
+       "role": "sideboard",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-224",
+       "name": "Salvage",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Spell"
+      },
+      {
+       "code": "SFD-136",
+       "name": "Hard Bargain",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Spell"
+      },
+      {
+       "code": "UNL-132",
+       "name": "Angler Beast",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Unit"
+      },
+      {
+       "code": "SFD-145",
+       "name": "Switcheroo",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-169",
+       "name": "Gust",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-216",
+       "name": "Soaring Scout",
+       "qty": 1,
+       "role": "bench",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-209",
+       "name": "Cull the Weak",
+       "qty": 1,
+       "role": "bench",
+       "type": "Spell"
+      }
+     ],
+     "created_at": "2026-09-03T14:59:50.693Z",
+     "edited_at": "2026-09-16T23:10:46.783Z",
+     "handles": [
+      "koko_lopez"
+     ],
+     "id": "1dd0ec85-491d-478e-868f-b45be83cdbfa",
+     "legend": "Kennen, Heart of the Tempest",
+     "legend_code": "VEN-155",
+     "lido_em": "2026-09-17T13:49:50+00:00",
+     "status": "public",
+     "title": "Koko’s Kennen Post Ban",
+     "ultima_mudanca": {
+      "o_que": "novo",
+      "quando": "2026-09-17T13:49:50+00:00"
+     },
+     "url": "https://piltoverarchive.com/decks/view/1dd0ec85-491d-478e-868f-b45be83cdbfa"
+    },
+    "4be50e0e-139d-440f-bd16-221689706f7f": {
+     "ausente_desde": null,
+     "author": "Koko_Lopez",
+     "cards": [
+      {
+       "code": "UNL-199",
+       "name": "LeBlanc, Deceiver",
+       "qty": 1,
+       "role": "legend",
+       "type": "Legend"
+      },
+      {
+       "code": "UNL-172",
+       "name": "LeBlanc, Fragmented",
+       "qty": 1,
+       "role": "champion",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-297",
+       "name": "Windswept Hillock",
+       "qty": 1,
+       "role": "battlefields",
+       "type": "Battlefield"
+      },
+      {
+       "code": "UNL-210",
+       "name": "Forbidding Waste",
+       "qty": 1,
+       "role": "battlefields",
+       "type": "Battlefield"
+      },
+      {
+       "code": "UNL-215",
+       "name": "Star Spring",
+       "qty": 1,
+       "role": "battlefields",
+       "type": "Battlefield"
+      },
+      {
+       "code": "OGN-214",
+       "name": "Order Rune",
+       "qty": 8,
+       "role": "runes",
+       "type": "Rune"
+      },
+      {
+       "code": "OGN-089",
+       "name": "Mind Rune",
+       "qty": 4,
+       "role": "runes",
+       "type": "Rune"
+      },
+      {
+       "code": "OGN-216",
+       "name": "Soaring Scout",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-234",
+       "name": "Harnessed Dragon",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-242",
+       "name": "Baited Hook",
+       "qty": 3,
+       "role": "main",
+       "type": "Gear"
+      },
+      {
+       "code": "SFD-155",
+       "name": "Honest Broker",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "SFD-165",
+       "name": "Glasc Mixologist",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "UNL-067",
+       "name": "Ruined Rex",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "UNL-173",
+       "name": "Sacrifice",
+       "qty": 3,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-096",
+       "name": "Watchful Sentry",
+       "qty": 2,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-116",
+       "name": "Thousand-Tailed Watcher",
+       "qty": 2,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-213",
+       "name": "Hidden Blade",
+       "qty": 2,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "UNL-152",
+       "name": "Black Rose Dignitary",
+       "qty": 2,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "UNL-179",
+       "name": "Rift Herald",
+       "qty": 2,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "UNL-200",
+       "name": "Mirror Image",
+       "qty": 2,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-236",
+       "name": "Karthus, Eternal",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "UNL-176",
+       "name": "Vi, Peacekeeper",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "SFD-074",
+       "name": "Pickpocket",
+       "qty": 2,
+       "role": "sideboard",
+       "type": "Unit"
+      },
+      {
+       "code": "VEN-131",
+       "name": "Decree of Unity",
+       "qty": 2,
+       "role": "sideboard",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-116",
+       "name": "Thousand-Tailed Watcher",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-224",
+       "name": "Salvage",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Spell"
+      },
+      {
+       "code": "SFD-163",
+       "name": "Deathgrip",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Spell"
+      },
+      {
+       "code": "UNL-090",
+       "name": "LeBlanc, Everywhere at Once",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Unit"
+      },
+      {
+       "code": "UNL-170",
+       "name": "Atakhan",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Unit"
+      },
+      {
+       "code": "VEN-061",
+       "name": "Decree of Insight",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Spell"
+      }
+     ],
+     "created_at": "2026-09-16T23:38:53.821Z",
+     "edited_at": "2026-09-16T23:39:28.029Z",
+     "handles": [
+      "koko_lopez"
+     ],
+     "id": "4be50e0e-139d-440f-bd16-221689706f7f",
+     "legend": "LeBlanc, Deceiver",
+     "legend_code": "UNL-199",
+     "lido_em": "2026-09-17T13:49:50+00:00",
+     "status": "public",
+     "title": "Leblanc 6th place scg showdown",
+     "ultima_mudanca": {
+      "o_que": "novo",
+      "quando": "2026-09-17T13:49:50+00:00"
+     },
+     "url": "https://piltoverarchive.com/decks/view/4be50e0e-139d-440f-bd16-221689706f7f"
+    },
+    "501203aa-5c4a-4516-8e12-6decfa588470": {
+     "ausente_desde": null,
+     "author": "Koko_Lopez",
+     "cards": [
+      {
+       "code": "SFD-185",
+       "name": "Draven, Glorious Executioner",
+       "qty": 1,
+       "role": "legend",
+       "type": "Legend"
+      },
+      {
+       "code": "OGN-028",
+       "name": "Draven, Showboat",
+       "qty": 1,
+       "role": "champion",
+       "type": "Unit"
+      },
+      {
+       "code": "SFD-208",
+       "name": "Forge of the Fluft",
+       "qty": 1,
+       "role": "battlefields",
+       "type": "Battlefield"
+      },
+      {
+       "code": "OGN-287",
+       "name": "Sigil of the Storm",
+       "qty": 1,
+       "role": "battlefields",
+       "type": "Battlefield"
+      },
+      {
+       "code": "UNL-215",
+       "name": "Star Spring",
+       "qty": 1,
+       "role": "battlefields",
+       "type": "Battlefield"
+      },
+      {
+       "code": "OGN-166",
+       "name": "Chaos Rune",
+       "qty": 6,
+       "role": "runes",
+       "type": "Rune"
+      },
+      {
+       "code": "OGN-007",
+       "name": "Fury Rune",
+       "qty": 6,
+       "role": "runes",
+       "type": "Rune"
+      },
+      {
+       "code": "SFD-003",
+       "name": "Blood Rush",
+       "qty": 1,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-004",
+       "name": "Cleave",
+       "qty": 1,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "SFD-139",
+       "name": "Edge of Night",
+       "qty": 2,
+       "role": "main",
+       "type": "Gear"
+      },
+      {
+       "code": "UNL-141",
+       "name": "Evelynn, Entrancing",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-029",
+       "name": "Falling Star",
+       "qty": 2,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-039",
+       "name": "Kai'Sa, Survivor",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "UNL-143",
+       "name": "Kha'Zix, Mutating Horror",
+       "qty": 1,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-012",
+       "name": "Noxus Hopeful",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "SFD-128",
+       "name": "Overzealous Fan",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "UNL-028",
+       "name": "Pyke, Dockside Butcher",
+       "qty": 1,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "UNL-145",
+       "name": "Pyke, Returned",
+       "qty": 2,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-172",
+       "name": "Rebuke",
+       "qty": 3,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "SFD-029",
+       "name": "Rek'Sai, Breacher",
+       "qty": 1,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "SFD-025",
+       "name": "Rengar, Pouncing",
+       "qty": 1,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "SFD-186",
+       "name": "Spinning Axe",
+       "qty": 3,
+       "role": "main",
+       "type": "Gear"
+      },
+      {
+       "code": "OGN-183",
+       "name": "Stacked Deck",
+       "qty": 3,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-199",
+       "name": "Tideturner",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "UNL-150",
+       "name": "Vex, Apathetic",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "UNL-131",
+       "name": "Abandon",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Spell"
+      },
+      {
+       "code": "VEN-003",
+       "name": "Brittle Steel",
+       "qty": 2,
+       "role": "sideboard",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-026",
+       "name": "Brynhir Thundersong",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-029",
+       "name": "Falling Star",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Spell"
+      },
+      {
+       "code": "SFD-021",
+       "name": "Ferrous Forerunner",
+       "qty": 2,
+       "role": "sideboard",
+       "type": "Unit"
+      },
+      {
+       "code": "VEN-102",
+       "name": "Ravenbloom Prefect",
+       "qty": 3,
+       "role": "sideboard",
+       "type": "Unit"
+      }
+     ],
+     "created_at": "2026-09-09T21:17:22.256Z",
+     "edited_at": "2026-09-09T21:17:22.256Z",
+     "handles": [
+      "koko_lopez"
+     ],
+     "id": "501203aa-5c4a-4516-8e12-6decfa588470",
+     "legend": "Draven, Glorious Executioner",
+     "legend_code": "SFD-185",
+     "lido_em": "2026-09-17T13:49:50+00:00",
+     "status": "public",
+     "title": "best of draven",
+     "ultima_mudanca": {
+      "o_que": "novo",
+      "quando": "2026-09-17T13:49:50+00:00"
+     },
+     "url": "https://piltoverarchive.com/decks/view/501203aa-5c4a-4516-8e12-6decfa588470"
+    },
+    "590ef4fc-c22d-4f63-9580-98ddc196853e": {
+     "ausente_desde": null,
+     "author": "Koko_Lopez",
+     "cards": [
+      {
+       "code": "SFD-242",
+       "name": "Draven, Glorious Executioner",
+       "qty": 1,
+       "role": "legend",
+       "type": "Legend"
+      },
+      {
+       "code": "SFD-020a",
+       "name": "Draven, Vanquisher",
+       "qty": 1,
+       "role": "champion",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-284",
+       "name": "Obelisk of Power",
+       "qty": 1,
+       "role": "battlefields",
+       "type": "Battlefield"
+      },
+      {
+       "code": "OGN-298",
+       "name": "Zaun Warrens",
+       "qty": 1,
+       "role": "battlefields",
+       "type": "Battlefield"
+      },
+      {
+       "code": "OGN-289",
+       "name": "Targon's Peak",
+       "qty": 1,
+       "role": "battlefields",
+       "type": "Battlefield"
+      },
+      {
+       "code": "OGN-007",
+       "name": "Fury Rune",
+       "qty": 4,
+       "role": "runes",
+       "type": "Rune"
+      },
+      {
+       "code": "OGN-166",
+       "name": "Chaos Rune",
+       "qty": 8,
+       "role": "runes",
+       "type": "Rune"
+      },
+      {
+       "code": "OGN-182",
+       "name": "Scrapheap",
+       "qty": 3,
+       "role": "main",
+       "type": "Gear"
+      },
+      {
+       "code": "OGN-204",
+       "name": "Seal of Discord",
+       "qty": 3,
+       "role": "main",
+       "type": "Gear"
+      },
+      {
+       "code": "SFD-186",
+       "name": "Spinning Axe",
+       "qty": 1,
+       "role": "main",
+       "type": "Gear"
+      },
+      {
+       "code": "SFD-004",
+       "name": "Bushwhack",
+       "qty": 1,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "SFD-122",
+       "name": "Called Shot",
+       "qty": 3,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "SFD-136",
+       "name": "Hard Bargain",
+       "qty": 1,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "SFD-023",
+       "name": "Piercing Light",
+       "qty": 1,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "SFD-012",
+       "name": "Battering Ram",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-185",
+       "name": "Traveling Merchant",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-195",
+       "name": "Rhasa the Sunderer",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "SFD-140",
+       "name": "Fizz, Trickster",
+       "qty": 2,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "SFD-149",
+       "name": "Ezreal, Prodigy",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-194",
+       "name": "Nocturne, Horrifying",
+       "qty": 2,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-012",
+       "name": "Noxus Hopeful",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-172",
+       "name": "Rebuke",
+       "qty": 1,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-168",
+       "name": "Fight or Flight",
+       "qty": 3,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-183",
+       "name": "Stacked Deck",
+       "qty": 3,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "SFD-136",
+       "name": "Hard Bargain",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-026",
+       "name": "Brynhir Thundersong",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-029",
+       "name": "Falling Star",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Spell"
+      },
+      {
+       "code": "SFD-186",
+       "name": "Spinning Axe",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Gear"
+      },
+      {
+       "code": "OGN-201",
+       "name": "Invert Timelines",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Spell"
+      },
+      {
+       "code": "SFD-150",
+       "name": "Last Rites",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Gear"
+      },
+      {
+       "code": "OGN-172",
+       "name": "Rebuke",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-022",
+       "name": "Thermo Beam",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Spell"
+      }
+     ],
+     "created_at": "2026-02-22T09:23:14.244Z",
+     "edited_at": "2026-04-30T10:51:55.851Z",
+     "handles": [
+      "koko_lopez"
+     ],
+     "id": "590ef4fc-c22d-4f63-9580-98ddc196853e",
+     "legend": "Draven, Glorious Executioner",
+     "legend_code": "SFD-242",
+     "lido_em": "2026-09-17T13:49:50+00:00",
+     "status": "public",
+     "title": "Koko's Miracle D 2nd place Ccs 25k",
+     "ultima_mudanca": {
+      "o_que": "novo",
+      "quando": "2026-09-17T13:49:50+00:00"
+     },
+     "url": "https://piltoverarchive.com/decks/view/590ef4fc-c22d-4f63-9580-98ddc196853e"
+    },
+    "6610a83a-c0e8-4017-a9d1-73c3c08f35e6": {
+     "ausente_desde": null,
+     "author": "Koko_Lopez",
+     "cards": [
+      {
+       "code": "SFD-185",
+       "name": "Draven, Glorious Executioner",
+       "qty": 1,
+       "role": "legend",
+       "type": "Legend"
+      },
+      {
+       "code": "OGN-028",
+       "name": "Draven, Showboat",
+       "qty": 1,
+       "role": "champion",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-289",
+       "name": "Targon's Peak",
+       "qty": 1,
+       "role": "battlefields",
+       "type": "Battlefield"
+      },
+      {
+       "code": "OGN-298",
+       "name": "Zaun Warrens",
+       "qty": 1,
+       "role": "battlefields",
+       "type": "Battlefield"
+      },
+      {
+       "code": "OGN-276",
+       "name": "Aspirant's Climb",
+       "qty": 1,
+       "role": "battlefields",
+       "type": "Battlefield"
+      },
+      {
+       "code": "OGN-166",
+       "name": "Chaos Rune",
+       "qty": 6,
+       "role": "runes",
+       "type": "Rune"
+      },
+      {
+       "code": "OGN-007",
+       "name": "Fury Rune",
+       "qty": 6,
+       "role": "runes",
+       "type": "Rune"
+      },
+      {
+       "code": "OGN-026",
+       "name": "Brynhir Thundersong",
+       "qty": 1,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-004",
+       "name": "Cleave",
+       "qty": 1,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-027",
+       "name": "Darius, Trifarian",
+       "qty": 2,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-029",
+       "name": "Falling Star",
+       "qty": 1,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "SFD-021",
+       "name": "Ferrous Forerunner",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "SFD-136",
+       "name": "Hard Bargain",
+       "qty": 1,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-039",
+       "name": "Kai'Sa, Survivor",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-012",
+       "name": "Noxus Hopeful",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "SFD-128",
+       "name": "Overzealous Fan",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-172",
+       "name": "Rebuke",
+       "qty": 3,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "SFD-186",
+       "name": "Spinning Axe",
+       "qty": 3,
+       "role": "main",
+       "type": "Gear"
+      },
+      {
+       "code": "OGN-183",
+       "name": "Stacked Deck",
+       "qty": 3,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-199",
+       "name": "Tideturner",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "SFD-029",
+       "name": "Rek'Sai, Breacher",
+       "qty": 2,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "SFD-003",
+       "name": "Blood Rush",
+       "qty": 1,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGS-011",
+       "name": "Flash",
+       "qty": 1,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "SFD-007",
+       "name": "Gem Jammer",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "SFD-132",
+       "name": "Beast Below",
+       "qty": 1,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "SFD-145",
+       "name": "Switcheroo",
+       "qty": 1,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "SFD-135",
+       "name": "Factory Recall",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Spell"
+      },
+      {
+       "code": "SFD-136",
+       "name": "Hard Bargain",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-022",
+       "name": "Thermo Beam",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Spell"
+      },
+      {
+       "code": "SFD-150",
+       "name": "Last Rites",
+       "qty": 2,
+       "role": "sideboard",
+       "type": "Gear"
+      },
+      {
+       "code": "SFD-001",
+       "name": "Against the Odds",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Spell"
+      },
+      {
+       "code": "SFD-132",
+       "name": "Beast Below",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-026",
+       "name": "Brynhir Thundersong",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Unit"
+      }
+     ],
+     "created_at": "2026-04-11T17:07:12.252Z",
+     "edited_at": "2026-04-30T10:54:22.960Z",
+     "handles": [
+      "koko_lopez"
+     ],
+     "id": "6610a83a-c0e8-4017-a9d1-73c3c08f35e6",
+     "legend": "Draven, Glorious Executioner",
+     "legend_code": "SFD-185",
+     "lido_em": "2026-09-17T13:49:50+00:00",
+     "status": "public",
+     "title": "Koko’s Midrange D RQ ATL 2nd place",
+     "ultima_mudanca": {
+      "o_que": "novo",
+      "quando": "2026-09-17T13:49:50+00:00"
+     },
+     "url": "https://piltoverarchive.com/decks/view/6610a83a-c0e8-4017-a9d1-73c3c08f35e6"
+    },
+    "6683ed99-c663-4374-b3e4-6ea83dcf2271": {
+     "ausente_desde": null,
+     "author": "Koko_Lopez",
+     "cards": [
+      {
+       "code": "VEN-197",
+       "name": "Kennen, Heart of the Tempest",
+       "qty": 1,
+       "role": "legend",
+       "type": "Legend"
+      },
+      {
+       "code": "VEN-113",
+       "name": "Kennen, Storm of Shuriken",
+       "qty": 1,
+       "role": "champion",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-298",
+       "name": "Zaun Warrens",
+       "qty": 1,
+       "role": "battlefields",
+       "type": "Battlefield"
+      },
+      {
+       "code": "OGN-291",
+       "name": "The Candlelit Sanctum",
+       "qty": 1,
+       "role": "battlefields",
+       "type": "Battlefield"
+      },
+      {
+       "code": "SFD-212",
+       "name": "Minefield",
+       "qty": 1,
+       "role": "battlefields",
+       "type": "Battlefield"
+      },
+      {
+       "code": "OGN-166",
+       "name": "Chaos Rune",
+       "qty": 9,
+       "role": "runes",
+       "type": "Rune"
+      },
+      {
+       "code": "OGN-214",
+       "name": "Order Rune",
+       "qty": 3,
+       "role": "runes",
+       "type": "Rune"
+      },
+      {
+       "code": "OGN-185",
+       "name": "Traveling Merchant",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-195",
+       "name": "Rhasa the Sunderer",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-194",
+       "name": "Nocturne, Horrifying",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-204",
+       "name": "Seal of Discord",
+       "qty": 3,
+       "role": "main",
+       "type": "Gear"
+      },
+      {
+       "code": "OGN-213",
+       "name": "Hidden Blade",
+       "qty": 1,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "SFD-130",
+       "name": "Treasure Hunter",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "SFD-140",
+       "name": "Fizz, Trickster",
+       "qty": 2,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "UNL-128",
+       "name": "Star-Crossed",
+       "qty": 1,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "UNL-147a",
+       "name": "Baron Nashor",
+       "qty": 2,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "VEN-156",
+       "name": "Lightning Rush",
+       "qty": 3,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-183",
+       "name": "Stacked Deck",
+       "qty": 3,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-209",
+       "name": "Cull the Weak",
+       "qty": 1,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-198",
+       "name": "The Harrowing",
+       "qty": 1,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-224",
+       "name": "Salvage",
+       "qty": 1,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-199",
+       "name": "Tideturner",
+       "qty": 1,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "SFD-150",
+       "name": "Last Rites",
+       "qty": 2,
+       "role": "main",
+       "type": "Gear"
+      },
+      {
+       "code": "OGN-173",
+       "name": "Ride the Wind",
+       "qty": 1,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "VEN-100",
+       "name": "Up from the Deep",
+       "qty": 3,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "SFD-136",
+       "name": "Hard Bargain",
+       "qty": 1,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGS-011",
+       "name": "Flash",
+       "qty": 1,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "VEN-102",
+       "name": "Ravenbloom Prefect",
+       "qty": 2,
+       "role": "sideboard",
+       "type": "Unit"
+      },
+      {
+       "code": "VEN-132",
+       "name": "Fallen Feline",
+       "qty": 2,
+       "role": "sideboard",
+       "type": "Unit"
+      },
+      {
+       "code": "UNL-128",
+       "name": "Star-Crossed",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-209",
+       "name": "Cull the Weak",
+       "qty": 2,
+       "role": "sideboard",
+       "type": "Spell"
+      },
+      {
+       "code": "SFD-136",
+       "name": "Hard Bargain",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-201",
+       "name": "Invert Timelines",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Spell"
+      },
+      {
+       "code": "VEN-116",
+       "name": "Dragon Form",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Spell"
+      },
+      {
+       "code": "SFD-163",
+       "name": "Deathgrip",
+       "qty": 1,
+       "role": "bench",
+       "type": "Spell"
+      }
+     ],
+     "created_at": "2026-07-14T05:04:55.095Z",
+     "edited_at": "2026-08-03T18:51:11.187Z",
+     "handles": [
+      "koko_lopez"
+     ],
+     "id": "6683ed99-c663-4374-b3e4-6ea83dcf2271",
+     "legend": "Kennen, Heart of the Tempest",
+     "legend_code": "VEN-197",
+     "lido_em": "2026-09-17T13:49:50+00:00",
+     "status": "public",
+     "title": "Koko's Nation Clash Kennen List",
+     "ultima_mudanca": {
+      "o_que": "novo",
+      "quando": "2026-09-17T13:49:50+00:00"
+     },
+     "url": "https://piltoverarchive.com/decks/view/6683ed99-c663-4374-b3e4-6ea83dcf2271"
+    },
+    "6b5686db-f3f3-472d-86ba-ad0afc437f8e": {
+     "ausente_desde": null,
+     "author": "Koko_Lopez",
+     "cards": [
+      {
+       "code": "SFD-189",
+       "name": "Ornn, Fire Below the Mountain",
+       "qty": 1,
+       "role": "legend",
+       "type": "Legend"
+      },
+      {
+       "code": "SFD-058",
+       "name": "Ornn, Blacksmith",
+       "qty": 1,
+       "role": "champion",
+       "type": "Unit"
+      },
+      {
+       "code": "SFD-217",
+       "name": "Seat of Power",
+       "qty": 1,
+       "role": "battlefields",
+       "type": "Battlefield"
+      },
+      {
+       "code": "SFD-221",
+       "name": "Veiled Temple",
+       "qty": 1,
+       "role": "battlefields",
+       "type": "Battlefield"
+      },
+      {
+       "code": "SFD-213",
+       "name": "Ornn's Forge",
+       "qty": 1,
+       "role": "battlefields",
+       "type": "Battlefield"
+      },
+      {
+       "code": "OGN-042",
+       "name": "Calm Rune",
+       "qty": 8,
+       "role": "runes",
+       "type": "Rune"
+      },
+      {
+       "code": "OGN-089",
+       "name": "Mind Rune",
+       "qty": 4,
+       "role": "runes",
+       "type": "Rune"
+      },
+      {
+       "code": "OGN-091",
+       "name": "Pit Crew",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "SFD-061",
+       "name": "Aspiring Engineer",
+       "qty": 2,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-044",
+       "name": "Clockwork Keeper",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "UNL-053",
+       "name": "Scuttle Crab",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "VEN-058",
+       "name": "Patched Porobot",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit Gear"
+      },
+      {
+       "code": "OGN-043",
+       "name": "Charm",
+       "qty": 2,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-045",
+       "name": "Defy",
+       "qty": 3,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-104",
+       "name": "Retreat",
+       "qty": 1,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "SFD-056",
+       "name": "Sterak's Gage",
+       "qty": 3,
+       "role": "main",
+       "type": "Gear"
+      },
+      {
+       "code": "OGN-060",
+       "name": "Mask of Foresight",
+       "qty": 1,
+       "role": "main",
+       "type": "Gear"
+      },
+      {
+       "code": "SFD-042",
+       "name": "Brutalizer",
+       "qty": 3,
+       "role": "main",
+       "type": "Gear"
+      },
+      {
+       "code": "SFD-051",
+       "name": "Guardian Angel",
+       "qty": 2,
+       "role": "main",
+       "type": "Gear"
+      },
+      {
+       "code": "UNL-078",
+       "name": "Sprite Fountain",
+       "qty": 3,
+       "role": "main",
+       "type": "Gear"
+      },
+      {
+       "code": "SFD-046",
+       "name": "Poro Snax",
+       "qty": 3,
+       "role": "main",
+       "type": "Gear"
+      },
+      {
+       "code": "SFD-064",
+       "name": "Cloth Armor",
+       "qty": 1,
+       "role": "main",
+       "type": "Gear"
+      },
+      {
+       "code": "OGN-081",
+       "name": "Seal of Focus",
+       "qty": 3,
+       "role": "main",
+       "type": "Gear"
+      }
+     ],
+     "created_at": "2026-09-09T21:28:54.272Z",
+     "edited_at": "2026-09-09T21:28:54.272Z",
+     "handles": [
+      "koko_lopez"
+     ],
+     "id": "6b5686db-f3f3-472d-86ba-ad0afc437f8e",
+     "legend": "Ornn, Fire Below the Mountain",
+     "legend_code": "SFD-189",
+     "lido_em": "2026-09-17T13:49:50+00:00",
+     "status": "public",
+     "title": "Ornn TheManland list",
+     "ultima_mudanca": {
+      "o_que": "novo",
+      "quando": "2026-09-17T13:49:50+00:00"
+     },
+     "url": "https://piltoverarchive.com/decks/view/6b5686db-f3f3-472d-86ba-ad0afc437f8e"
+    },
+    "6cccb793-7069-418b-a4ef-146ca1378f3c": {
+     "ausente_desde": null,
+     "author": "Koko_Lopez",
+     "cards": [
+      {
+       "code": "SFD-195",
+       "name": "Irelia, Blade Dancer",
+       "qty": 1,
+       "role": "legend",
+       "type": "Legend"
+      },
+      {
+       "code": "SFD-057",
+       "name": "Irelia, Fervent",
+       "qty": 1,
+       "role": "champion",
+       "type": "Unit"
+      },
+      {
+       "code": "UNL-205",
+       "name": "Abandoned Hall",
+       "qty": 1,
+       "role": "battlefields",
+       "type": "Battlefield"
+      },
+      {
+       "code": "OGN-289",
+       "name": "Targon's Peak",
+       "qty": 1,
+       "role": "battlefields",
+       "type": "Battlefield"
+      },
+      {
+       "code": "SFD-218",
+       "name": "Sunken Temple",
+       "qty": 1,
+       "role": "battlefields",
+       "type": "Battlefield"
+      },
+      {
+       "code": "OGN-166",
+       "name": "Chaos Rune",
+       "qty": 7,
+       "role": "runes",
+       "type": "Rune"
+      },
+      {
+       "code": "OGN-042",
+       "name": "Calm Rune",
+       "qty": 5,
+       "role": "runes",
+       "type": "Rune"
+      },
+      {
+       "code": "UNL-145",
+       "name": "Pyke, Returned",
+       "qty": 1,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "UNL-150",
+       "name": "Vex, Apathetic",
+       "qty": 1,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "VEN-044",
+       "name": "Astral Heron",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "SFD-048",
+       "name": "Stellacorn Herder",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "SFD-130",
+       "name": "Treasure Hunter",
+       "qty": 2,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-199",
+       "name": "Tideturner",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "UNL-053",
+       "name": "Scuttle Crab",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "SFD-045",
+       "name": "Not So Fast",
+       "qty": 1,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "SFD-145",
+       "name": "Switcheroo",
+       "qty": 2,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-045",
+       "name": "Defy",
+       "qty": 2,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-058",
+       "name": "Discipline",
+       "qty": 3,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-172",
+       "name": "Rebuke",
+       "qty": 2,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-173",
+       "name": "Ride the Wind",
+       "qty": 2,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "SFD-133",
+       "name": "Boots of Swiftness",
+       "qty": 3,
+       "role": "main",
+       "type": "Gear"
+      },
+      {
+       "code": "SFD-139",
+       "name": "Edge of Night",
+       "qty": 2,
+       "role": "main",
+       "type": "Gear"
+      },
+      {
+       "code": "OGN-077",
+       "name": "Zhonya's Hourglass",
+       "qty": 3,
+       "role": "main",
+       "type": "Gear"
+      },
+      {
+       "code": "SFD-196",
+       "name": "Defiant Dance",
+       "qty": 3,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "UNL-145",
+       "name": "Pyke, Returned",
+       "qty": 2,
+       "role": "sideboard",
+       "type": "Unit"
+      },
+      {
+       "code": "UNL-150",
+       "name": "Vex, Apathetic",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-056",
+       "name": "Adaptatron",
+       "qty": 2,
+       "role": "sideboard",
+       "type": "Unit"
+      },
+      {
+       "code": "UNL-128",
+       "name": "Star-Crossed",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Spell"
+      },
+      {
+       "code": "UNL-131",
+       "name": "Abandon",
+       "qty": 2,
+       "role": "sideboard",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-172",
+       "name": "Rebuke",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-173",
+       "name": "Ride the Wind",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Spell"
+      }
+     ],
+     "created_at": "2026-09-09T21:25:21.665Z",
+     "edited_at": "2026-09-09T21:25:21.665Z",
+     "handles": [
+      "koko_lopez"
+     ],
+     "id": "6cccb793-7069-418b-a4ef-146ca1378f3c",
+     "legend": "Irelia, Blade Dancer",
+     "legend_code": "SFD-195",
+     "lido_em": "2026-09-17T13:49:50+00:00",
+     "status": "public",
+     "title": "irelia Wuhan Regional 1st place list",
+     "ultima_mudanca": {
+      "o_que": "novo",
+      "quando": "2026-09-17T13:49:50+00:00"
+     },
+     "url": "https://piltoverarchive.com/decks/view/6cccb793-7069-418b-a4ef-146ca1378f3c"
+    },
+    "cd52f392-06f3-401a-9370-ba628839f2cc": {
+     "ausente_desde": null,
+     "author": "Koko_Lopez",
+     "cards": [
+      {
+       "code": "VEN-145",
+       "name": "Nasus, Curator of the Sands",
+       "qty": 1,
+       "role": "legend",
+       "type": "Legend"
+      },
+      {
+       "code": "VEN-046",
+       "name": "Nasus, Ascended",
+       "qty": 1,
+       "role": "champion",
+       "type": "Unit"
+      },
+      {
+       "code": "UNL-206",
+       "name": "Altar of Blood",
+       "qty": 1,
+       "role": "battlefields",
+       "type": "Battlefield"
+      },
+      {
+       "code": "SFD-209",
+       "name": "Forgotten Monument",
+       "qty": 1,
+       "role": "battlefields",
+       "type": "Battlefield"
+      },
+      {
+       "code": "OGN-295",
+       "name": "Vilemaw's Lair",
+       "qty": 1,
+       "role": "battlefields",
+       "type": "Battlefield"
+      },
+      {
+       "code": "OGN-089",
+       "name": "Mind Rune",
+       "qty": 7,
+       "role": "runes",
+       "type": "Rune"
+      },
+      {
+       "code": "OGN-042",
+       "name": "Calm Rune",
+       "qty": 5,
+       "role": "runes",
+       "type": "Rune"
+      },
+      {
+       "code": "VEN-032",
+       "name": "Frostcoat Mother",
+       "qty": 2,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "VEN-043",
+       "name": "Steel Paws",
+       "qty": 2,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "VEN-044",
+       "name": "Astral Heron",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "UNL-053",
+       "name": "Scuttle Crab",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-116",
+       "name": "Thousand-Tailed Watcher",
+       "qty": 2,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "UNL-042",
+       "name": "Back Off",
+       "qty": 1,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-043",
+       "name": "Charm",
+       "qty": 2,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-047",
+       "name": "Find Your Center",
+       "qty": 3,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-058",
+       "name": "Discipline",
+       "qty": 3,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-105",
+       "name": "Singularity",
+       "qty": 1,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-122",
+       "name": "Time Warp",
+       "qty": 2,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "VEN-146",
+       "name": "Siphoning Strike",
+       "qty": 1,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-045",
+       "name": "Defy",
+       "qty": 3,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-104",
+       "name": "Retreat",
+       "qty": 2,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-077",
+       "name": "Zhonya's Hourglass",
+       "qty": 2,
+       "role": "main",
+       "type": "Gear"
+      },
+      {
+       "code": "OGN-103",
+       "name": "Ravenbloom Student",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-095",
+       "name": "Stupefy",
+       "qty": 3,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-087",
+       "name": "Lecturing Yordle",
+       "qty": 1,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "VEN-037",
+       "name": "Tomb-Raider Barbara",
+       "qty": 3,
+       "role": "sideboard",
+       "type": "Unit"
+      },
+      {
+       "code": "SFD-045",
+       "name": "Not So Fast",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-105",
+       "name": "Singularity",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Spell"
+      },
+      {
+       "code": "VEN-045",
+       "name": "Helm of Suppression",
+       "qty": 2,
+       "role": "sideboard",
+       "type": "Gear"
+      },
+      {
+       "code": "OGN-087",
+       "name": "Lecturing Yordle",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Unit"
+      },
+      {
+       "code": "SFD-056",
+       "name": "Sterak's Gage",
+       "qty": 2,
+       "role": "sideboard",
+       "type": "Gear"
+      }
+     ],
+     "created_at": "2026-08-12T16:37:55.733Z",
+     "edited_at": "2026-08-12T16:37:55.733Z",
+     "handles": [
+      "koko_lopez"
+     ],
+     "id": "cd52f392-06f3-401a-9370-ba628839f2cc",
+     "legend": "Nasus, Curator of the Sands",
+     "legend_code": "VEN-145",
+     "lido_em": "2026-09-17T13:49:50+00:00",
+     "status": "public",
+     "title": "1st Guangzhou City Challenge Nasus list",
+     "ultima_mudanca": {
+      "o_que": "novo",
+      "quando": "2026-09-17T13:49:50+00:00"
+     },
+     "url": "https://piltoverarchive.com/decks/view/cd52f392-06f3-401a-9370-ba628839f2cc"
+    },
+    "cfb771c1-7740-4719-9f25-dfdfe5fae429": {
+     "ausente_desde": null,
+     "author": "Koko_Lopez",
+     "cards": [
+      {
+       "code": "SFD-195",
+       "name": "Irelia, Blade Dancer",
+       "qty": 1,
+       "role": "legend",
+       "type": "Legend"
+      },
+      {
+       "code": "SFD-057",
+       "name": "Irelia, Fervent",
+       "qty": 1,
+       "role": "champion",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-289",
+       "name": "Targon's Peak",
+       "qty": 1,
+       "role": "battlefields",
+       "type": "Battlefield"
+      },
+      {
+       "code": "UNL-205",
+       "name": "Abandoned Hall",
+       "qty": 1,
+       "role": "battlefields",
+       "type": "Battlefield"
+      },
+      {
+       "code": "SFD-218",
+       "name": "Sunken Temple",
+       "qty": 1,
+       "role": "battlefields",
+       "type": "Battlefield"
+      },
+      {
+       "code": "OGN-042",
+       "name": "Calm Rune",
+       "qty": 6,
+       "role": "runes",
+       "type": "Rune"
+      },
+      {
+       "code": "OGN-166",
+       "name": "Chaos Rune",
+       "qty": 6,
+       "role": "runes",
+       "type": "Rune"
+      },
+      {
+       "code": "OGN-045",
+       "name": "Defy",
+       "qty": 2,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-058",
+       "name": "Discipline",
+       "qty": 3,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-199",
+       "name": "Tideturner",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "SFD-048",
+       "name": "Stellacorn Herder",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "SFD-196",
+       "name": "Defiant Dance",
+       "qty": 3,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "UNL-053",
+       "name": "Scuttle Crab",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "UNL-128",
+       "name": "Star-Crossed",
+       "qty": 1,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "SFD-045",
+       "name": "Not So Fast",
+       "qty": 1,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "SFD-133",
+       "name": "Boots of Swiftness",
+       "qty": 2,
+       "role": "main",
+       "type": "Gear"
+      },
+      {
+       "code": "OGN-173",
+       "name": "Ride the Wind",
+       "qty": 1,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-056",
+       "name": "Adaptatron",
+       "qty": 1,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-077",
+       "name": "Zhonya's Hourglass",
+       "qty": 3,
+       "role": "main",
+       "type": "Gear"
+      },
+      {
+       "code": "OGN-169",
+       "name": "Gust",
+       "qty": 1,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-172",
+       "name": "Rebuke",
+       "qty": 1,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGS-011",
+       "name": "Flash",
+       "qty": 1,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "SFD-036",
+       "name": "Lonely Poro",
+       "qty": 2,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "SFD-139",
+       "name": "Edge of Night",
+       "qty": 2,
+       "role": "main",
+       "type": "Gear"
+      },
+      {
+       "code": "SFD-145",
+       "name": "Switcheroo",
+       "qty": 2,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "UNL-145a",
+       "name": "Pyke, Returned",
+       "qty": 1,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "VEN-044",
+       "name": "Astral Heron",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "VEN-102",
+       "name": "Ravenbloom Prefect",
+       "qty": 2,
+       "role": "sideboard",
+       "type": "Unit"
+      },
+      {
+       "code": "UNL-150",
+       "name": "Vex, Apathetic",
+       "qty": 2,
+       "role": "sideboard",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-169",
+       "name": "Gust",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Spell"
+      },
+      {
+       "code": "SFD-136",
+       "name": "Hard Bargain",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-056",
+       "name": "Adaptatron",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Unit"
+      },
+      {
+       "code": "SFD-146",
+       "name": "Vex, Cheerless",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Unit"
+      },
+      {
+       "code": "UNL-128",
+       "name": "Star-Crossed",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Spell"
+      },
+      {
+       "code": "VEN-031",
+       "name": "Twilight Shroud",
+       "qty": 2,
+       "role": "bench",
+       "type": "Spell"
+      },
+      {
+       "code": "VEN-028",
+       "name": "Mournful Witness",
+       "qty": 1,
+       "role": "bench",
+       "type": "Unit"
+      },
+      {
+       "code": "VEN-107",
+       "name": "Decree of Discord",
+       "qty": 2,
+       "role": "bench",
+       "type": "Spell"
+      },
+      {
+       "code": "UNL-132",
+       "name": "Angler Beast",
+       "qty": 1,
+       "role": "bench",
+       "type": "Unit"
+      },
+      {
+       "code": "UNL-042",
+       "name": "Back Off",
+       "qty": 2,
+       "role": "bench",
+       "type": "Spell"
+      }
+     ],
+     "created_at": "2026-07-21T03:30:28.283Z",
+     "edited_at": "2026-09-17T00:40:13.524Z",
+     "handles": [
+      "koko_lopez"
+     ],
+     "id": "cfb771c1-7740-4719-9f25-dfdfe5fae429",
+     "legend": "Irelia, Blade Dancer",
+     "legend_code": "SFD-195",
+     "lido_em": "2026-09-17T13:49:50+00:00",
+     "status": "public",
+     "title": "Koko’s Irelia post ban",
+     "ultima_mudanca": {
+      "o_que": "novo",
+      "quando": "2026-09-17T13:49:50+00:00"
+     },
+     "url": "https://piltoverarchive.com/decks/view/cfb771c1-7740-4719-9f25-dfdfe5fae429"
+    },
+    "eb612650-8153-4735-86ee-2b56d45af38c": {
+     "ausente_desde": null,
+     "author": "Koko_Lopez",
+     "cards": [
+      {
+       "code": "VEN-139",
+       "name": "Akali, Rogue Assassin",
+       "qty": 1,
+       "role": "legend",
+       "type": "Legend"
+      },
+      {
+       "code": "VEN-021",
+       "name": "Akali, Deadly Weapon",
+       "qty": 1,
+       "role": "champion",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-287",
+       "name": "Sigil of the Storm",
+       "qty": 1,
+       "role": "battlefields",
+       "type": "Battlefield"
+      },
+      {
+       "code": "SFD-209",
+       "name": "Forgotten Monument",
+       "qty": 1,
+       "role": "battlefields",
+       "type": "Battlefield"
+      },
+      {
+       "code": "OGN-296",
+       "name": "Void Gate",
+       "qty": 1,
+       "role": "battlefields",
+       "type": "Battlefield"
+      },
+      {
+       "code": "OGN-007",
+       "name": "Fury Rune",
+       "qty": 6,
+       "role": "runes",
+       "type": "Rune"
+      },
+      {
+       "code": "OGN-042",
+       "name": "Calm Rune",
+       "qty": 6,
+       "role": "runes",
+       "type": "Rune"
+      },
+      {
+       "code": "VEN-044",
+       "name": "Astral Heron",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-027",
+       "name": "Darius, Trifarian",
+       "qty": 1,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-067",
+       "name": "Blitzcrank, Impassive",
+       "qty": 2,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-012",
+       "name": "Noxus Hopeful",
+       "qty": 1,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-039",
+       "name": "Kai'Sa, Survivor",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "SFD-048",
+       "name": "Stellacorn Herder",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "UNL-003",
+       "name": "Mischievous Marai",
+       "qty": 2,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "VEN-028",
+       "name": "Mournful Witness",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "UNL-042",
+       "name": "Back Off",
+       "qty": 2,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-029",
+       "name": "Falling Star",
+       "qty": 2,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-057",
+       "name": "Block",
+       "qty": 1,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-058",
+       "name": "Discipline",
+       "qty": 3,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "SFD-045",
+       "name": "Not So Fast",
+       "qty": 1,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-045",
+       "name": "Defy",
+       "qty": 3,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "VEN-140",
+       "name": "Shuriken Flip",
+       "qty": 3,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "SFD-056",
+       "name": "Sterak's Gage",
+       "qty": 1,
+       "role": "main",
+       "type": "Gear"
+      },
+      {
+       "code": "OGN-077",
+       "name": "Zhonya's Hourglass",
+       "qty": 3,
+       "role": "main",
+       "type": "Gear"
+      },
+      {
+       "code": "SFD-022",
+       "name": "Long Sword",
+       "qty": 2,
+       "role": "main",
+       "type": "Gear"
+      },
+      {
+       "code": "SFD-021",
+       "name": "Ferrous Forerunner",
+       "qty": 2,
+       "role": "sideboard",
+       "type": "Unit"
+      },
+      {
+       "code": "SFD-032",
+       "name": "Disarming Rake",
+       "qty": 2,
+       "role": "sideboard",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-022",
+       "name": "Thermo Beam",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-046",
+       "name": "En Garde",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Spell"
+      },
+      {
+       "code": "SFD-001",
+       "name": "Against the Odds",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Spell"
+      },
+      {
+       "code": "SFD-045",
+       "name": "Not So Fast",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Spell"
+      },
+      {
+       "code": "VEN-038",
+       "name": "Akali, Silent",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Unit"
+      },
+      {
+       "code": "VEN-040",
+       "name": "Decree of Focus",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Spell"
+      }
+     ],
+     "created_at": "2026-09-09T21:27:43.810Z",
+     "edited_at": "2026-09-09T21:27:43.810Z",
+     "handles": [
+      "koko_lopez"
+     ],
+     "id": "eb612650-8153-4735-86ee-2b56d45af38c",
+     "legend": "Akali, Rogue Assassin",
+     "legend_code": "VEN-139",
+     "lido_em": "2026-09-17T13:49:50+00:00",
+     "status": "public",
+     "title": "Akali Goricа list",
+     "ultima_mudanca": {
+      "o_que": "novo",
+      "quando": "2026-09-17T13:49:50+00:00"
+     },
+     "url": "https://piltoverarchive.com/decks/view/eb612650-8153-4735-86ee-2b56d45af38c"
+    },
+    "ee40f927-5ccb-4b12-bab3-eb75dabbc377": {
+     "ausente_desde": null,
+     "author": "Koko_Lopez",
+     "cards": [
+      {
+       "code": "VEN-141",
+       "name": "Renekton, Butcher of the Sands",
+       "qty": 1,
+       "role": "legend",
+       "type": "Legend"
+      },
+      {
+       "code": "VEN-019",
+       "name": "Renekton, Rage Fueled",
+       "qty": 1,
+       "role": "champion",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-298",
+       "name": "Zaun Warrens",
+       "qty": 1,
+       "role": "battlefields",
+       "type": "Battlefield"
+      },
+      {
+       "code": "SFD-217",
+       "name": "Seat of Power",
+       "qty": 1,
+       "role": "battlefields",
+       "type": "Battlefield"
+      },
+      {
+       "code": "VEN-162",
+       "name": "Protective Sands",
+       "qty": 1,
+       "role": "battlefields",
+       "type": "Battlefield"
+      },
+      {
+       "code": "OGN-126",
+       "name": "Body Rune",
+       "qty": 7,
+       "role": "runes",
+       "type": "Rune"
+      },
+      {
+       "code": "OGN-007",
+       "name": "Fury Rune",
+       "qty": 5,
+       "role": "runes",
+       "type": "Rune"
+      },
+      {
+       "code": "OGN-004",
+       "name": "Cleave",
+       "qty": 3,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-012",
+       "name": "Noxus Hopeful",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-163",
+       "name": "Seal of Strength",
+       "qty": 3,
+       "role": "main",
+       "type": "Gear"
+      },
+      {
+       "code": "SFD-007",
+       "name": "Gem Jammer",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "SFD-097",
+       "name": "Punch First",
+       "qty": 3,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "UNL-112",
+       "name": "Irresistible Faefolk",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-026",
+       "name": "Brynhir Thundersong",
+       "qty": 2,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-040",
+       "name": "Seal of Rage",
+       "qty": 2,
+       "role": "main",
+       "type": "Gear"
+      },
+      {
+       "code": "OGN-136",
+       "name": "Pit Rookie",
+       "qty": 2,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "SFD-105",
+       "name": "Ruin Runner",
+       "qty": 2,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "UNL-097",
+       "name": "Kinkou Initiate",
+       "qty": 2,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "VEN-083",
+       "name": "Rampage",
+       "qty": 2,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "VEN-142",
+       "name": "Dominus",
+       "qty": 2,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "VEN-081",
+       "name": "Onslaught",
+       "qty": 1,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-039",
+       "name": "Kai'Sa, Survivor",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "UNL-120",
+       "name": "Rengar, Trophy Hunter",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-156",
+       "name": "Sabotage",
+       "qty": 3,
+       "role": "sideboard",
+       "type": "Spell"
+      },
+      {
+       "code": "SFD-021",
+       "name": "Ferrous Forerunner",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Unit"
+      },
+      {
+       "code": "VEN-003",
+       "name": "Brittle Steel",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Spell"
+      },
+      {
+       "code": "VEN-085",
+       "name": "Decree of Strength",
+       "qty": 2,
+       "role": "sideboard",
+       "type": "Spell"
+      },
+      {
+       "code": "VEN-015",
+       "name": "Decree of Rage",
+       "qty": 2,
+       "role": "sideboard",
+       "type": "Spell"
+      },
+      {
+       "code": "VEN-086",
+       "name": "Gangplank, Naval",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Unit"
+      }
+     ],
+     "created_at": "2026-08-31T14:50:22.660Z",
+     "edited_at": "2026-08-31T14:50:22.660Z",
+     "handles": [
+      "koko_lopez"
+     ],
+     "id": "ee40f927-5ccb-4b12-bab3-eb75dabbc377",
+     "legend": "Renekton, Butcher of the Sands",
+     "legend_code": "VEN-141",
+     "lido_em": "2026-09-17T13:49:50+00:00",
+     "status": "public",
+     "title": "Renektminh set 4 test",
+     "ultima_mudanca": {
+      "o_que": "novo",
+      "quando": "2026-09-17T13:49:50+00:00"
+     },
+     "url": "https://piltoverarchive.com/decks/view/ee40f927-5ccb-4b12-bab3-eb75dabbc377"
+    },
+    "ee4a21a7-8789-40f2-972f-a52ec3b4df88": {
+     "ausente_desde": null,
+     "author": "Koko_Lopez",
+     "cards": [
+      {
+       "code": "UNL-183",
+       "name": "Rengar, Pridestalker",
+       "qty": 1,
+       "role": "legend",
+       "type": "Legend"
+      },
+      {
+       "code": "UNL-120",
+       "name": "Rengar, Trophy Hunter",
+       "qty": 1,
+       "role": "champion",
+       "type": "Unit"
+      },
+      {
+       "code": "SFD-217",
+       "name": "Seat of Power",
+       "qty": 1,
+       "role": "battlefields",
+       "type": "Battlefield"
+      },
+      {
+       "code": "UNL-215",
+       "name": "Star Spring",
+       "qty": 1,
+       "role": "battlefields",
+       "type": "Battlefield"
+      },
+      {
+       "code": "SFD-207",
+       "name": "Emperor's Dais",
+       "qty": 1,
+       "role": "battlefields",
+       "type": "Battlefield"
+      },
+      {
+       "code": "OGN-007",
+       "name": "Fury Rune",
+       "qty": 4,
+       "role": "runes",
+       "type": "Rune"
+      },
+      {
+       "code": "OGN-126",
+       "name": "Body Rune",
+       "qty": 8,
+       "role": "runes",
+       "type": "Rune"
+      },
+      {
+       "code": "OGN-012",
+       "name": "Noxus Hopeful",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-027",
+       "name": "Darius, Trifarian",
+       "qty": 1,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-039",
+       "name": "Kai'Sa, Survivor",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-132",
+       "name": "First Mate",
+       "qty": 2,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-135",
+       "name": "Pakaa Cub",
+       "qty": 1,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-136",
+       "name": "Pit Rookie",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-156",
+       "name": "Sabotage",
+       "qty": 2,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "SFD-021",
+       "name": "Ferrous Forerunner",
+       "qty": 1,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "SFD-097",
+       "name": "Punch First",
+       "qty": 3,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "UNL-002",
+       "name": "Inferna",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "UNL-021",
+       "name": "Grim Apothecary",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "UNL-028",
+       "name": "Pyke, Dockside Butcher",
+       "qty": 1,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "UNL-097",
+       "name": "Kinkou Initiate",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "UNL-112",
+       "name": "Irresistible Faefolk",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "UNL-114",
+       "name": "Nidalee, Cat Form",
+       "qty": 2,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "UNL-184",
+       "name": "Thrill of the Hunt",
+       "qty": 3,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "VEN-083",
+       "name": "Rampage",
+       "qty": 2,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "VEN-003",
+       "name": "Brittle Steel",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-026",
+       "name": "Brynhir Thundersong",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Unit"
+      },
+      {
+       "code": "VEN-085",
+       "name": "Decree of Strength",
+       "qty": 2,
+       "role": "sideboard",
+       "type": "Spell"
+      },
+      {
+       "code": "SFD-021",
+       "name": "Ferrous Forerunner",
+       "qty": 2,
+       "role": "sideboard",
+       "type": "Unit"
+      },
+      {
+       "code": "VEN-080",
+       "name": "Noxian Demolitionist",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Unit"
+      },
+      {
+       "code": "UNL-028",
+       "name": "Pyke, Dockside Butcher",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Unit"
+      },
+      {
+       "code": "VEN-083",
+       "name": "Rampage",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-156",
+       "name": "Sabotage",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Spell"
+      }
+     ],
+     "created_at": "2026-08-12T16:35:00.178Z",
+     "edited_at": "2026-09-09T21:02:45.071Z",
+     "handles": [
+      "koko_lopez"
+     ],
+     "id": "ee4a21a7-8789-40f2-972f-a52ec3b4df88",
+     "legend": "Rengar, Pridestalker",
+     "legend_code": "UNL-183",
+     "lido_em": "2026-09-17T13:49:50+00:00",
+     "status": "public",
+     "title": "pris rengar list",
+     "ultima_mudanca": {
+      "o_que": "novo",
+      "quando": "2026-09-17T13:49:50+00:00"
+     },
+     "url": "https://piltoverarchive.com/decks/view/ee4a21a7-8789-40f2-972f-a52ec3b4df88"
+    },
+    "f968c99a-d2c0-4f6b-91e4-263e03f300c5": {
+     "ausente_desde": null,
+     "author": "Koko_Lopez",
+     "cards": [
+      {
+       "code": "VEN-155",
+       "name": "Kennen, Heart of the Tempest",
+       "qty": 1,
+       "role": "legend",
+       "type": "Legend"
+      },
+      {
+       "code": "VEN-113",
+       "name": "Kennen, Storm of Shuriken",
+       "qty": 1,
+       "role": "champion",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-298",
+       "name": "Zaun Warrens",
+       "qty": 1,
+       "role": "battlefields",
+       "type": "Battlefield"
+      },
+      {
+       "code": "SFD-212",
+       "name": "Minefield",
+       "qty": 1,
+       "role": "battlefields",
+       "type": "Battlefield"
+      },
+      {
+       "code": "VEN-164",
+       "name": "Sandswept Tomb",
+       "qty": 1,
+       "role": "battlefields",
+       "type": "Battlefield"
+      },
+      {
+       "code": "OGN-166",
+       "name": "Chaos Rune",
+       "qty": 9,
+       "role": "runes",
+       "type": "Rune"
+      },
+      {
+       "code": "OGN-214",
+       "name": "Order Rune",
+       "qty": 3,
+       "role": "runes",
+       "type": "Rune"
+      },
+      {
+       "code": "OGN-183",
+       "name": "Stacked Deck",
+       "qty": 3,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-185",
+       "name": "Traveling Merchant",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-195",
+       "name": "Rhasa the Sunderer",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-204",
+       "name": "Seal of Discord",
+       "qty": 3,
+       "role": "main",
+       "type": "Gear"
+      },
+      {
+       "code": "SFD-130",
+       "name": "Treasure Hunter",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "VEN-100",
+       "name": "Up from the Deep",
+       "qty": 2,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "VEN-156",
+       "name": "Lightning Rush",
+       "qty": 3,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "SFD-150",
+       "name": "Last Rites",
+       "qty": 2,
+       "role": "main",
+       "type": "Gear"
+      },
+      {
+       "code": "UNL-147",
+       "name": "Baron Nashor",
+       "qty": 1,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-173",
+       "name": "Ride the Wind",
+       "qty": 3,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-198",
+       "name": "The Harrowing",
+       "qty": 1,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-199",
+       "name": "Tideturner",
+       "qty": 1,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "OGS-011",
+       "name": "Flash",
+       "qty": 1,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "UNL-128",
+       "name": "Star-Crossed",
+       "qty": 1,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-194",
+       "name": "Nocturne, Horrifying",
+       "qty": 3,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "SFD-140",
+       "name": "Fizz, Trickster",
+       "qty": 2,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "SFD-136",
+       "name": "Hard Bargain",
+       "qty": 1,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "SFD-145",
+       "name": "Switcheroo",
+       "qty": 2,
+       "role": "main",
+       "type": "Spell"
+      },
+      {
+       "code": "VEN-095",
+       "name": "Shadow Order Disciple",
+       "qty": 1,
+       "role": "main",
+       "type": "Unit"
+      },
+      {
+       "code": "VEN-102",
+       "name": "Ravenbloom Prefect",
+       "qty": 2,
+       "role": "sideboard",
+       "type": "Unit"
+      },
+      {
+       "code": "OGN-201",
+       "name": "Invert Timelines",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Spell"
+      },
+      {
+       "code": "UNL-128",
+       "name": "Star-Crossed",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-169",
+       "name": "Gust",
+       "qty": 2,
+       "role": "sideboard",
+       "type": "Spell"
+      },
+      {
+       "code": "VEN-131",
+       "name": "Decree of Unity",
+       "qty": 2,
+       "role": "sideboard",
+       "type": "Spell"
+      },
+      {
+       "code": "UNL-131",
+       "name": "Abandon",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Spell"
+      },
+      {
+       "code": "OGN-224",
+       "name": "Salvage",
+       "qty": 1,
+       "role": "sideboard",
+       "type": "Spell"
+      }
+     ],
+     "created_at": "2026-08-03T18:54:59.370Z",
+     "edited_at": "2026-09-03T14:54:22.251Z",
+     "handles": [
+      "koko_lopez"
+     ],
+     "id": "f968c99a-d2c0-4f6b-91e4-263e03f300c5",
+     "legend": "Kennen, Heart of the Tempest",
+     "legend_code": "VEN-155",
+     "lido_em": "2026-09-17T13:49:50+00:00",
+     "status": "public",
+     "title": "Koko’s Kennen RQ Barcelona 2nd place",
+     "ultima_mudanca": {
+      "o_que": "novo",
+      "quando": "2026-09-17T13:49:50+00:00"
+     },
+     "url": "https://piltoverarchive.com/decks/view/f968c99a-d2c0-4f6b-91e4-263e03f300c5"
+    }
+   },
+   "display": "Koko_Lopez",
+   "public_decks": 18,
+   "visto_em": "2026-09-17T13:49:50+00:00"
+  }
+ },
+ "versao": 1
+}
