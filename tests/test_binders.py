@@ -38,6 +38,8 @@ MainDeck:
 
 class Base(unittest.TestCase):
     def setUp(self):
+        # Outra vez aqui: um ficheiro corrido antes pode ter limpo a variável.
+        config_decks_sem_alt_art(self)
         self.v = Vault()
         self.addCleanup(self.v.close)
         from riftvault import a_subir, decks, locais, metrics

@@ -47,6 +47,8 @@ ORNN = ("Legend:\n1 Forge Master\n\nChampion:\n1 Spirit Blade\n\n"
 
 class Base(unittest.TestCase):
     def setUp(self):
+        # Outra vez aqui: um ficheiro corrido antes pode ter limpo a variável.
+        config_decks_sem_alt_art(self)
         self.v = Vault()
         self.addCleanup(self.v.close)
         from riftvault import a_subir, decks, faltas, locais, metrics, pending

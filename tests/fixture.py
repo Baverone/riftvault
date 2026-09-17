@@ -17,7 +17,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 
 
-def config_decks_sem_alt_art() -> Path:
+def config_decks_sem_alt_art(caso=None) -> Path:
     """Um config temporário com os decks a jogar a BASE (`jogam_alt_art: false`).
 
     Desde 2026-09-16 os decks jogam em Alt Art sempre que ela existe (André:
@@ -29,11 +29,14 @@ def config_decks_sem_alt_art() -> Path:
     causa de uma linha do catálogo, desligam a regra nova e ficam a descrever
     a partilha; a regra nova tem os testes dela em `test_altart_decks.py`,
     contra config próprio. Chamar ANTES do `Vault`, que é quem recarrega o
-    `config`.
+    `config`. Com `caso` (o TestCase) a variável é limpa no fim do teste, para
+    o ficheiro seguinte da suite voltar a ler o config real.
     """
     caminho = Path(tempfile.gettempdir()) / "riftvault-decks-sem-alt-art.json"
     caminho.write_text(json.dumps({"decks": {"jogam_alt_art": False}}), encoding="utf-8")
     os.environ["RIFTVAULT_CONFIG"] = str(caminho)
+    if caso is not None:
+        caso.addCleanup(lambda: os.environ.pop("RIFTVAULT_CONFIG", None))
     return caminho
 
 
