@@ -124,10 +124,11 @@ class TestColecao(Base):
         con.close()
 
     def test_a_signature_de_uma_runa_tambem_sai(self):
-        """A runa especial ganha à alt art, mas o escondido ganha às duas."""
+        """O escondido ganha ao bloco das runas especiais — e a alt art da
+        runa está retirada de tudo desde 2026-09-17 (`test_runas_alt_fora`)."""
         con = self.edicao()
         b = self.blocos(con)
-        self.assertEqual(b["tst-005a-100"], "rune_special")
+        self.assertNotIn("tst-005a-100", b)
         self.assertNotIn("tst-005-star-100", b)
         con.close()
 
@@ -187,7 +188,9 @@ class TestListasDeCompra(Base):
         escopo = self.a_subir.masterset(con)
         self.assertNotIn("tst-001-star-100", escopo)
         self.assertNotIn("tst-005-star-100", escopo)
-        self.assertEqual(len(escopo), 4)
+        # A base, a alt art dela, a runa base; a alt art da runa está
+        # retirada (2026-09-17).
+        self.assertEqual(len(escopo), 3)
         con.close()
 
     def test_a_lista_do_master_set_nao_leva_signatures(self):
@@ -197,12 +200,13 @@ class TestListasDeCompra(Base):
         self.assertNotIn("tst-001-star-100", pids)
         self.assertNotIn("tst-005-star-100", pids)
         # E não são contadas como "excluídas": nunca estiveram no âmbito. O que
-        # a página conta como excluído são as duas alt arts — a coleção extra,
+        # a página conta como excluído é a alt art da Unit — a coleção extra,
         # que desde 2026-09-15 fica fora das listas (`so_master_set`) —, e
-        # nenhuma pelo critério `signature`.
-        self.assertEqual(m["scope"]["excluded"], 2)
+        # nenhuma pelo critério `signature`. A alt art da runa nem chega ao
+        # âmbito: retirada (2026-09-17).
+        self.assertEqual(m["scope"]["excluded"], 1)
         self.assertEqual({x["criterio"]: x["n"] for x in m["scope"]["excluded_by"]},
-                         {"alt_art": 1, "rune_special": 1})
+                         {"alt_art": 1})
         self.assertEqual(pids, ["tst-001-100", "tst-005-100"])
         con.close()
 
@@ -227,8 +231,10 @@ class TestVoltarAtras(Base):
         self.assertTrue(self.metrics.e_master(
             {"variant_kind": "signature", "is_token": 0}))
         self.assertEqual(self.blocos(con)["tst-001-star-100"], "master")
+        # 5 e não 6: a alt art da runa está retirada (2026-09-17), e isso não
+        # é o asterisco.
         self.assertEqual(
-            self.metrics.set_payload(con, "TST")["progress"]["master"]["total"], 6)
+            self.metrics.set_payload(con, "TST")["progress"]["master"]["total"], 5)
         # E aí voltam a sair das listas de compra pelo `a_subir.excluir`, que é
         # a decisão de 2026-09-08 e continua de pé.
         m = self.a_subir.master_faltas(con)
@@ -238,12 +244,13 @@ class TestVoltarAtras(Base):
         # A da sequência sai pelo TIPO `signature`. A signature da RUNA volta
         # para o bloco das runas especiais, onde o `so_no_master` não a
         # excluía — era exactamente a confusão que a saída resolve —, e hoje
-        # sai com o bloco inteiro, como as duas alt arts: a coleção extra não
-        # entra nas listas (`so_master_set`, 2026-09-15). Cada uma conta uma
-        # vez, e a soma dos critérios é o total.
+        # sai com o bloco inteiro, como a alt art da Unit: a coleção extra não
+        # entra nas listas (`so_master_set`, 2026-09-15). A alt art da runa
+        # nem chega cá (retirada, 2026-09-17). Cada uma conta uma vez, e a
+        # soma dos critérios é o total.
         por_criterio = {x["criterio"]: x["n"] for x in m["scope"]["excluded_by"]}
-        self.assertEqual(por_criterio, {"signature": 1, "rune_special": 2, "alt_art": 1})
-        self.assertEqual(m["scope"]["excluded"], 4)
+        self.assertEqual(por_criterio, {"signature": 1, "rune_special": 1, "alt_art": 1})
+        self.assertEqual(m["scope"]["excluded"], 3)
         self.assertEqual(sum(por_criterio.values()), m["scope"]["excluded"])
         self.assertEqual(pids, ["tst-001-100", "tst-005-100"])
         con.close()

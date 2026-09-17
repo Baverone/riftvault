@@ -119,25 +119,17 @@ class TestContadorDoBloco(unittest.TestCase):
         self.assertEqual(b["label"], "Coleção — promos — 1 de cada")
         con.close()
 
-    def test_as_runas_especiais_pedem_3_como_a_base(self):
-        """A arte alternativa da runa numerada pede 3 desde 2026-09-15 (*"as
-        runas que estao no masterset […] vamos ate 3 como as outras cartas"*):
-        com uma cópia está na caixa mas não completa; com quatro está completa
-        e o cabeçalho leva o «no playset completo» (`max_target` 3). Até esse
-        dia pedia 1 e os dois números eram o mesmo.
-
-        Só a arte alternativa da runa (numerada) enche o bloco; a promo
-        `TST-R01` está escondida desde 2026-09-15 e nem entra na conta."""
+    def test_o_bloco_das_runas_especiais_nao_aparece(self):
+        """A arte alternativa da runa numerada encheu este bloco até
+        2026-09-17 à tarde; desde então está RETIRADA de tudo (*"deixa as
+        runas Alt Art, nao incluas em nada"*, `test_runas_alt_fora.py`) e a
+        promo `TST-R01` está escondida desde 2026-09-15: o bloco fica vazio e
+        os vazios não aparecem, tenha ele as cópias que tiver."""
         from riftvault import collection
         con = self.edicao()
-        collection.adjust(con, "tst-002a-100", 1, source="test")
+        collection.adjust(con, "tst-002a-100", 4, source="test")
         collection.adjust(con, "tst-r01", 4, source="test")
-        b = self.blocos(con)["rune_special"]
-        self.assertEqual((b["owned"], b["done"], b["total"]), (1, 0, 1))
-        self.assertEqual(b["max_target"], 3)
-        collection.adjust(con, "tst-002a-100", 3, source="test")
-        b = self.blocos(con)["rune_special"]
-        self.assertEqual((b["owned"], b["done"], b["total"]), (1, 1, 1))
+        self.assertNotIn("rune_special", self.blocos(con))
         con.close()
 
     def test_o_master_set_leva_as_mesmas_contas(self):

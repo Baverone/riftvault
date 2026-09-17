@@ -94,18 +94,19 @@ class TestRunaSemNumeracao(Base):
         self.assertTrue(self.metrics.escondida(self.linha(con, self.RUNA_PROMO)))
         self.assertNotIn(self.RUNA_PROMO, self.ids_na_grelha(con))
         p = self.metrics.set_payload(con, "TST")
-        # Só a alt art enche o bloco das runas especiais; nem «rune_promo» nem
-        # «runas especiais» com a promo lá dentro.
+        # Nem «rune_promo» nem «runas especiais» com a promo lá dentro — e o
+        # bloco das runas especiais está vazio desde que a alt art da runa
+        # foi retirada (2026-09-17), por isso nem aparece.
         self.assertNotIn("rune_promo", [b["id"] for b in p["blocks"]])
-        blocos = {b["id"]: b for b in p["blocks"]}
-        self.assertEqual(blocos["rune_special"]["total"], 1)
+        self.assertNotIn("rune_special", [b["id"] for b in p["blocks"]])
         self.assertIn("rune_promo", p["hidden_kinds"])
         con.close()
 
     def test_nem_no_separador(self):
         con = self.edicao()
         n = {s["id"]: s["n_printings"] for s in self.metrics.sets_payload(con)}
-        self.assertEqual(n["TST"], 3)
+        # A Unit e a runa base; a alt art da runa está retirada (2026-09-17).
+        self.assertEqual(n["TST"], 2)
         con.close()
 
     def test_nem_no_denominador_nem_nos_niveis(self):
@@ -172,13 +173,15 @@ class TestRunaComNumeracao(Base):
                 self.assertEqual(por_pid[self.UNIT], min(nivel or 3, 3))
         con.close()
 
-    def test_a_arte_alternativa_fica_nas_runas_especiais_como_estava(self):
+    def test_a_arte_alternativa_esta_retirada_desde_a_tarde_de_17(self):
+        """Ficou nas runas especiais nesta ordem (de manhã); à tarde de
+        2026-09-17 ele mandou-a sair de tudo (`test_runas_alt_fora.py`)."""
         con = self.edicao()
         r = self.linha(con, self.RUNA_ALT)
-        self.assertEqual(self.metrics.bloco(r), "rune_special")
+        self.assertTrue(self.metrics.retirada(r))
         self.assertFalse(self.metrics.e_master(r))
-        self.assertFalse(self.metrics.escondida(r))
-        self.assertIn(self.RUNA_ALT, self.ids_na_grelha(con))
+        self.assertTrue(self.metrics.escondida(r))
+        self.assertNotIn(self.RUNA_ALT, self.ids_na_grelha(con))
         con.close()
 
     def test_a_unit_base_continua_em_tudo(self):

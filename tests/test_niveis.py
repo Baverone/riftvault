@@ -436,11 +436,11 @@ class TestOsNiveisSaoSoOMasterSet(Base):
         self.v.rebuild(con)
         p = self.metrics.set_payload(con, "TST")
         blocos = {b["id"]: b["counts"] for b in p["blocks"]}
-        self.assertEqual(blocos, {"master": True, "rune_special": False,
-                                  "alt_art": False})
+        # A alt art da runa está retirada desde 2026-09-17 (nem bloco tem).
+        self.assertEqual(blocos, {"master": True, "alt_art": False})
         ls = p["progress"]["levels"]
-        # Só a Unit base e a runa base: as outras duas estão nos blocos que
-        # não contam.
+        # Só a Unit base e a runa base: a alt art está num bloco que não
+        # conta e a alt art da runa nem está na página.
         self.assertEqual([lv["total"] for lv in ls], [2, 2, 2])
         # Nada em casa: no nível 1 faltam as 2, no 2 a segunda de cada (a runa
         # pede 3 como a Unit, desde 2026-09-15), e no playset a terceira.

@@ -172,16 +172,17 @@ class TestTresBlocos(Base):
         self.collection.adjust(con, "aaa-001a", 1, source="test")
         self.assertIsNone(self.item(self.fe.payload(con), "AAA", "alt_art", "aaa-001a"))
 
-    def test_a_arte_alternativa_de_uma_runa_e_alt_art(self):
-        # A grelha da Coleção arruma-a em «runas especiais»; aqui é «Alt Art»
-        # — ele nomeou três blocos e esta é uma arte alternativa.
+    def test_a_arte_alternativa_de_uma_runa_nao_aparece(self):
+        # Até 2026-09-17 à tarde era «Alt Art» aqui (e «runas especiais» na
+        # grelha); desde então está RETIRADA de tudo (*"deixa as runas Alt
+        # Art, nao incluas em nada"*, `test_runas_alt_fora.py`). A base fica.
         con = self.montar()
         self.v.add_printing(con, "aaa-005", "AAA", 5, "Runa", card_type="Rune", size=30)
         self.v.add_printing(con, "aaa-005a", "AAA", 5, "Runa", variant="a",
                             kind="alt_art", card_type="Rune", size=30)
         self.v.rebuild(con)
         p = self.fe.payload(con)
-        self.assertIsNotNone(self.item(p, "AAA", "alt_art", "aaa-005a"))
+        self.assertIsNone(self.item(p, "AAA", "alt_art", "aaa-005a"))
         self.assertIsNotNone(self.item(p, "AAA", "master", "aaa-005"))
 
 
