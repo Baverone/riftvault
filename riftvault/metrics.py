@@ -351,7 +351,12 @@ def alvo(printing, cfg: dict | None = None, procura: dict[str, int] | None = Non
                       campo(printing, "type"), bool(campo(printing, "is_token")),
                       cfg, printing=printing)
     if procura and printing["variant_kind"] == "alt_art":
-        return max(n, procura.get(campo(printing, "card_key"), 0))
+        pedido = procura.get(campo(printing, "card_key"), 0)
+        # Numa runa presa à edição da Legend (2026-09-17) a procura vem por
+        # edição: só a alt art DESSA edição sobe.
+        if isinstance(pedido, dict):
+            pedido = pedido.get(campo(printing, "set_id"), 0)
+        return max(n, pedido)
     return n
 
 

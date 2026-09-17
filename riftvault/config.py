@@ -84,7 +84,16 @@ DEFAULTS: dict = {
     # o máximo entre 1 e o que os decks pedem; a base fica no master set. Nas
     # cartas sem arte alternativa nada muda. Ver `decks.cartas_com_alt_art`,
     # `decks.joga_esta`, `decks.compra_esta` e `decks.procura_dos_decks`.
-    "decks": {"jogam_alt_art": True, "alt_art_ignorar_tipos": []},
+    #
+    # `runas_alt_art_da_edicao_da_legend` (André, 2026-09-17: "sim, as runas
+    # dos Decks em Alt Art da edicao da Legend"): as RUNAS de um deck pedem a
+    # arte alternativa DA EDIÇÃO DA LEGEND desse deck; se a runa não tiver
+    # arte alternativa nessa edição, o deck pede a BASE — não vai buscar a alt
+    # art de outra edição. Só as runas (`runas_especiais.tipos`); o resto do
+    # deck continua a jogar alt art de qualquer edição. Ver `decks.AltArt` e
+    # `decks.edicao_da_legend`.
+    "decks": {"jogam_alt_art": True, "alt_art_ignorar_tipos": [],
+              "runas_alt_art_da_edicao_da_legend": True},
     # O bloco das runas especiais ("1 runa especial de cada para cada set",
     # 2026-09-08) — só o BLOCO. O `alvo` que aqui vivia (1, "runas 1 de cada")
     # deixou de ser lido a 2026-09-15: as runas pedem o alvo do tipo, como
