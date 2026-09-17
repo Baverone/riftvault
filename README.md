@@ -225,6 +225,34 @@ A carência aqui é **global** — soma-se o que todos os decks pedem e desconta
 o que tens — e dá a mesma soma que a secção Decks: a alocação por prioridade
 diz quem fica com o quê, e o que sobra por deck é o que esse deck compra.
 
+## A mais
+
+Quinta secção (17/09/2026): *"todas as cartas que estao listadas a mais ou
+que estavam num deck e deixaram de estar"*. Um botão por edição (o OGS fica
+sem botão mas aparece em «Todas»), e em cada edição dois blocos, com a
+**carta em imagem** e o crachá a dizer o número:
+
+- **Excedente** — impressões de que tens **mais cópias do que o alvo** que a
+  Coleção e os decks já usam: playset na sequência, 1 nas artes alternativas
+  e sobrenumeradas (ou o que os decks jogam, nas alt arts), e o que está
+  escondido (tokens, signatures, runas sem numeração) não tem alvo e sobra
+  inteiro, marcado. A conta é `cópias − max(usadas nos decks, alvo)`: **o que
+  os decks levam nunca é a mais**, o que está no binder Decks/Venda e nenhum
+  deck pede é, e o que está sleevado num deck nunca aparece. «tens 5, queres
+  3 → 2 a mais».
+- **Libertadas dos decks** — o que uma lista de deck **pedia e deixou de
+  pedir** (carta tirada da lista, quantidade baixada, ou o deck apagado), com
+  a data, quantas tens e quem ainda a pede. **O registo nasceu a
+  17/09/2026 e começa vazio**: o riftvault não guardava o que os decks
+  pediam — a alocação é recalculada a cada leitura —, por isso só sabe do
+  que mudou desde então. Escreve-se no fim de cada importação das listas
+  (`deck_need_log` no vault.db; cópia legível em `data/decks.log`).
+
+**Só mostra.** Não muda alvos nem contas — a percentagem, a wantlist, a
+falta dos decks e o valor ficam iguais — e não é a Venda: não há preço de
+venda nem lista para o Cardmarket. `api/a_mais.json`; na consola,
+`py -m riftvault a-mais [--edicao OGN]`.
+
 ## Wantlist do Cardmarket
 
 Há listas em três sítios, todas com o mesmo formato porque saem do mesmo
