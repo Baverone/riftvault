@@ -3240,3 +3240,65 @@ ficou, é chamada por três testes). Suite: 28 ficheiros, 498 testes.
 `f94bd02`** — é este que se reverte para a regra de 16/09 (os decks a jogar
 tudo em Alt Art, alvo `max(1, procura)`) voltar.
 
+## 17/09/2026 — saem dois decks: o Kennen e o LeBlanc sem `Nome:` (ficam três)
+
+Palavras dele: *"para ja apaga o deck de Kennen, e o deck de LeBlanc que nao
+usa Baited Hook"*. Ramo `ai-pc/menos-decks-2026-09-17`; relatório em
+`ai-pc/work/revisao/riftvault-menos-decks.md`.
+
+**Saíram `decks/kennen.txt` e `decks/leblanc.txt`** (Leblanc, Deceiver ·
+LeBlanc, Fragmented — o que NÃO tinha a linha `Nome:`); **fica o
+`decks/leblanc-baited-hook.txt`**. Ficam três decks: Ornn (1), Azir (2) e
+LeBlanc Baited Hook (3). Os dois LeBlanc eram um grupo (mesma Legend, 11/09);
+o grupo passou a ter um membro só e o rótulo perde o `··`.
+
+**Como se apagou, e como se recupera.** Os `.txt` dos decks estão
+**versionados** (`git ls-files decks`), por isso foi `git rm` + commit
+(`cc1f0b3` no ramo) — recupera-se com `git checkout cc1f0b3~1 --
+decks/kennen.txt decks/leblanc.txt` e uma importação (o servidor relê sozinho;
+o `build` e o CLI importam sempre). **Não foi preciso mexer na base à mão:**
+o `decks.import_all` apaga as linhas de `decks`/`deck_cards` dos ficheiros que
+desapareceram e o `uso_decks.registar` escreve a descida a 0 de cada carta no
+`deck_need_log` (63 linhas, `qty_after = 0`, com o rótulo guardado). A
+`copy_locations` estava vazia (nada sleevado a marcar). O `deck_need_log`
+**não se limpa**: é exactamente o registo que o «A mais» lê.
+
+**A primeira vez que as «Libertadas dos decks» têm conteúdo a sério: 63
+cartas · 132 cópias** (Kennen 32 · 66; LeBlanc 31 · 66), cada uma a dizer
+quantas ele tem e quem ainda a pede (`still_wanted`). Nenhuma foi limpa nem
+inventada — vem toda da comparação do pedido de hoje com as 146 linhas de
+partida escritas às 08:01 desse dia.
+
+**Medido a 2026-09-17 contra cópias (`_revisao\_medir_menos_decks.py`),
+`main` (`d744c2e`) com os 5 decks e o ramo com 3, mesma corrida — os
+invariantes NÃO mexem:** denominador **928**, níveis **858/776/711 = 92,5 /
+83,6 / 76,6 %**, wantlist «tudo» **213 · 406 · 1 392,96 €**, valor
+**2 825,78 € · 2 379 cópias**, Faltas por edição **349 · 542 · 12 391,36 €**
+(a comprar 213 · 406 · 1 392,96 €). O que mexe:
+
+| | antes (5 decks) | depois (3 decks) |
+|---|---|---|
+| falta dos decks | 22 cópias · 12 cartas · 237,60 € (especiais 2 · 216,99 €) | **12 · 6 · 18,97 €** (especiais 0) |
+| disputadas · a caminho | 18 · 15 | 11 · 3 |
+| A mais, excedente | 131 cópias · 65 impressões | **142 · 70** |
+| A mais, libertadas | 0 | **132 cópias · 63 cartas** |
+| Staples | 5 | 3 |
+| Pimp | 8 · 8 · 681,58 € (6 feitas) | 5 · 5 · 195,67 € (5 feitas) |
+
+Carta a carta na falta dos decks: some o Kennen inteiro (7 cópias ·
+218,23 € — a Legend `VEN-197/166` a 210,63 €, o Champion `VEN-113a` a
+6,36 €, 1 Salvage, 1 Order Rune, 1 Chaos Rune, 2 Decree of Unity) e o grupo
+LeBlanc perde 3 cópias · 0,40 € que só o `leblanc.txt` pedia: 1 Deathgrip (o
+Baited Hook não a joga), 1 Decree of Unity (o máximo do grupo desce de 3
+para 2) e 1 Decree of Insight (de 2 para 1). O Azir continua a faltar 6 Calm
+Rune. No excedente do A mais entram 11 cópias em 5 impressões que o Kennen e o
+LeBlanc levavam: Chaos Rune +5 (tem 8, ninguém pede), Order Rune +2 (15, o
+Azir e o Baited Hook levam 13), Salvage +2 (5, levam 3), B.F. Sword +1 e
+Deathgrip +1 (tem 4 de cada, alvo 3).
+
+**Nenhum teste precisou de ajuste**: nenhum lê a pasta `decks/` real — todos
+escrevem as listas em pastas temporárias (`fixture.py`), e o caso «deck
+apagado liberta tudo» já estava fixado em
+`test_a_mais.test_apagar_o_deck_liberta_tudo_com_o_rotulo`. Os «Azir 3 ·
+Kennen 2» nos comentários são exemplos e ficam.
+
