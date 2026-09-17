@@ -36,7 +36,8 @@ A CONTA DO EXCEDENTE, por impressão
     a Venda tirava-a por omissão porque a pergunta lá era outra. O alvo de
     uma arte alternativa já leva o que os decks jogam (`procura`), por isso
     uma alt art que um deck use nunca sobra. O que está escondido (tokens,
-    signatures, runas sem numeração) tem alvo 0 e sobra inteiro, marcado.
+    signatures, runas sem numeração) tem alvo 0 e sobra inteiro, marcado. O
+    que está RETIRADO (as runas em alt art, 2026-09-17) nem aparece.
 
 Cartas só em inglês, como o resto: o catálogo da RiftScribe não tem outra
 língua, e os preços (`precos.linguas`) já são só de ofertas em inglês. Os
@@ -114,6 +115,11 @@ def excedente(con: sqlite3.Connection, cfg: dict | None = None) -> list[dict]:
         "JOIN catalog.printings p ON p.printing_id = c.printing_id "
         "WHERE c.qty > 0 ORDER BY p.set_id, p.api_sort"
     ):
+        # Uma RETIRADA (a runa em alt art, 2026-09-17: *"nao incluas em
+        # nada"*) não é excedente nem escondida: não existe. As 6 `OGN-042a`
+        # dele ficam no `copies` e não aparecem aqui.
+        if metrics.retirada(r, cfg):
+            continue
         pid = r["printing_id"]
         u = usadas.get(pid) or {"no_deck": 0, "no_binder": 0, "na_colecao": 0, "decks": []}
         escondida = not metrics.e_colecao(r, cfg)

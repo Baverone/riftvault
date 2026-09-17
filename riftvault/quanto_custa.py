@@ -140,6 +140,10 @@ def ambito(con: sqlite3.Connection, cfg: dict | None = None) -> tuple[list[dict]
         "       variant_kind, variant_label, rarity, type, is_token "
         "FROM catalog.printings"
     ):
+        # Uma retirada (a runa em alt art, 2026-09-17) não existe: nem se
+        # conta no rodapé.
+        if metrics.retirada(r, cfg):
+            continue
         if not metrics.e_colecao(r, cfg):
             fora["escondidas"] += 1
             continue

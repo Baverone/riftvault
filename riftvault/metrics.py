@@ -25,6 +25,14 @@
           nenhuma, não vale a pena estarem lá"*; 2026-09-15: *"Saiem as runas
           todas e deixam de contar para masterset […] menos as que tem
           numeração de masterset"*). Escreve-se em `master_set.escondidas`.
+          As cópias continuam no `copies` e no valor.
+       4. as RETIRADAS — as runas em arte alternativa (as `OGN-007a..214a`),
+          desde 2026-09-17 (André: *"deixa as runas Alt Art, nao incluas em
+          nada"*). Mais fundo do que escondidas: não aparecem, não contam
+          para nada — nem para o valor, nem para o playset jogável, nem para
+          o «A mais» — e os decks não as pedem nem se servem delas: jogam a
+          runa base. Escreve-se em `runas_especiais.retiradas`; ver
+          `retirada`.
 
      O ALVO do master set é o alvo de COLEÇÃO do tipo da carta
      (`alvo_do_tipo`: Unit/Spell/Gear/Rune 3, Legend e Battlefield 1). A
@@ -128,17 +136,24 @@ BLOCO_CURTO = {
 #
 #   `tipos`   — o que É uma runa (`e_runa`).
 #   `excepto` — quais é que ficam na SEQUÊNCIA do master set (só a base). O
-#               resto vai para o bloco «runas especiais» (`e_runa_especial`) —
-#               hoje só as artes alternativas do OGN: as promo do VEN estão
-#               escondidas desde 2026-09-15 (não têm numeração de master set),
-#               e a RiftScribe não tem runas no SFD nem no UNL (ver "BURACO
-#               NO CATÁLOGO" no CLAUDE.md).
+#               resto vai para o bloco «runas especiais» (`e_runa_especial`).
+#   `retiradas` — as variantes de runa que DEIXAM DE EXISTIR para o riftvault
+#               (André, 2026-09-17: *"deixa as runas Alt Art, nao incluas em
+#               nada"*): a mesma gramática das listas do `master_set`
+#               (`_ler_lista`), hoje `["a"]`. Ver `retirada`.
 #
-# Muda-se em `runas_especiais` no config. `tipos: []` desfaz o bloco e as
-# artes alternativas das runas caem na cauda das artes alternativas. O `alvo`
-# que este bloco tinha (1 de 2026-09-08 a 2026-09-15, com um `"playset"` na
-# tarde de 14/09) deixou de ser lido: um config que ainda o traga não faz nada.
-RUNA_ESPECIAL: dict = {"tipos": ["Rune"], "excepto": ["base"]}
+# Com isto o bloco «runas especiais» ficou VAZIO no catálogo de hoje: era feito
+# das 6 artes alternativas do OGN (retiradas) — as promo do VEN estão escondidas
+# desde 2026-09-15 (não têm numeração de master set) e a RiftScribe não tem
+# runas no SFD nem no UNL (ver "BURACO NO CATÁLOGO" no CLAUDE.md). O bloco fica
+# na lista para o caso de uma edição nova trazer outra variante de runa.
+#
+# Muda-se em `runas_especiais` no config. `tipos: []` desfaz o bloco E a
+# retirada — deixa de haver «runa». O `alvo` que este bloco tinha (1 de
+# 2026-09-08 a 2026-09-15, com um `"playset"` na tarde de 14/09) deixou de ser
+# lido: um config que ainda o traga não faz nada.
+RUNA_ESPECIAL: dict = {"tipos": ["Rune"], "excepto": ["base"], "retiradas": ["a"]}
+LISTA_RETIRADAS = "retiradas"
 
 # O rótulo do sufixo de um bloco cujo alvo é o do tipo de cada carta («—
 # playset»), por oposição aos blocos que pedem um número fixo («— 1 de cada»).
@@ -260,6 +275,45 @@ def e_runa_especial(printing, cfg: dict | None = None) -> bool:
     return campo(printing, "variant_kind") not in excepto
 
 
+def retirada(printing, cfg: dict | None = None) -> bool:
+    """Esta impressão DEIXOU DE EXISTIR para o riftvault — é uma runa em Alt Art?
+
+    André, 2026-09-17, depois de ver que a regra «alt art da edição da Legend»
+    deixava as runas em alt art a zero nos decks: *"deixa as runas Alt Art,
+    nao incluas em nada"*. É a mesma frase das runas sem numeração de
+    2026-09-15 (*"todas as outras runas podes retirar"*), mais funda: uma
+    escondida ainda conta no valor e aparece no «A mais»; uma retirada não
+    aparece nem conta em lado NENHUM — Coleção, percentagem, wantlists,
+    Faltas, Quanto custa, A mais, playset jogável, valor — e os decks não a
+    pedem nem se servem dela (jogam a runa base, `decks.AltArt`).
+
+    É a única resposta a esta pergunta: o `escondida` (a página e as listas),
+    o `owned_by_card` (o playset jogável), o `prices.collection_value` (o
+    valor), o `a_mais.excedente` e o `decks.AltArt.joga`/`compra` perguntam
+    todos aqui. As cópias NÃO saem do `copies` — nada se apaga do vault —,
+    simplesmente ninguém as lê.
+
+    Escreve-se em `runas_especiais.retiradas` (hoje `["a"]`), com a gramática
+    das listas do `master_set`. `tipos: []` desliga: sem «runa» não há runa
+    retirada.
+    """
+    if not e_runa(printing, cfg):
+        return False
+    kinds, _ = _ler_lista(f"runas_especiais.{LISTA_RETIRADAS}",
+                          tuple(opcoes_runa(cfg).get(LISTA_RETIRADAS) or ()))
+    return campo(printing, "variant_kind", "unknown") in kinds
+
+
+def retiradas_ids(con: sqlite3.Connection, cfg: dict | None = None) -> frozenset[str]:
+    """Os `printing_id` retirados — para quem conta em SQL (o valor, os totais)
+    e para os decks, que recebem linhas sem `type`."""
+    cfg = cfg or config.load()
+    return frozenset(
+        r["printing_id"] for r in con.execute(
+            "SELECT printing_id, type, variant_kind FROM catalog.printings")
+        if retirada(r, cfg))
+
+
 def playset_target(card_type: str | None, is_token: bool, cfg: dict | None = None) -> int:
     cfg = cfg or config.load()
     # Tokens: 1 de cada (decisão do André). É o ALVO — desde 2026-09-08 os que
@@ -351,12 +405,7 @@ def alvo(printing, cfg: dict | None = None, procura: dict[str, int] | None = Non
                       campo(printing, "type"), bool(campo(printing, "is_token")),
                       cfg, printing=printing)
     if procura and printing["variant_kind"] == "alt_art":
-        pedido = procura.get(campo(printing, "card_key"), 0)
-        # Numa runa presa à edição da Legend (2026-09-17) a procura vem por
-        # edição: só a alt art DESSA edição sobe.
-        if isinstance(pedido, dict):
-            pedido = pedido.get(campo(printing, "set_id"), 0)
-        return max(n, pedido)
+        return max(n, procura.get(campo(printing, "card_key"), 0))
     return n
 
 
@@ -502,9 +551,13 @@ def escondida(printing, cfg: dict | None = None) -> bool:
     É a única resposta a esta pergunta: o `set_payload` (a grelha), o
     `sets_payload` (o «N impressões» do separador) e as listas de compra
     (`a_subir.masterset`) perguntam aqui. O que sai daqui não desaparece do
-    vault: as cópias continuam no `copies` e contam para o valor.
+    vault: as cópias continuam no `copies` e contam para o valor — excepto as
+    RETIRADAS (`retirada`), que ficam fora da página por aqui e fora do resto
+    por elas.
     """
     cfg = cfg or config.load()
+    if retirada(printing, cfg):
+        return True
     kinds, over = _escondidas(cfg)
     if campo(printing, "variant_kind", "unknown") in kinds:
         return True
@@ -906,7 +959,9 @@ def sets_payload(con: sqlite3.Connection, cfg: dict | None = None) -> list[dict]
     cfg = cfg or config.load()
     por_set: dict[str, int] = {}
     for r in con.execute(
-        "SELECT set_id, variant_kind, collector_number, public_code "
+        # O `type` é o que a `retirada` precisa — sem ele as runas em alt art
+        # contavam aqui e o separador dizia 340 por cima de 334 tiles.
+        "SELECT set_id, variant_kind, collector_number, public_code, type "
         "FROM catalog.printings"
     ):
         if not escondida(r, cfg):
@@ -920,14 +975,19 @@ def sets_payload(con: sqlite3.Connection, cfg: dict | None = None) -> list[dict]
     return out
 
 
-def owned_by_card(con: sqlite3.Connection) -> dict[str, int]:
-    """Cópias por carta lógica, somando TODAS as impressões de TODAS as edições."""
-    rows = con.execute(
-        "SELECT p.card_key AS k, SUM(c.qty) AS n FROM copies c "
+def owned_by_card(con: sqlite3.Connection, cfg: dict | None = None) -> dict[str, int]:
+    """Cópias por carta lógica, somando TODAS as impressões de TODAS as edições
+    — menos as retiradas (`retirada`), que não existem para o riftvault."""
+    cfg = cfg or config.load()
+    out: dict[str, int] = {}
+    for r in con.execute(
+        "SELECT p.card_key AS k, p.type, p.variant_kind, c.qty FROM copies c "
         "JOIN catalog.printings p ON p.printing_id = c.printing_id "
-        "WHERE c.qty > 0 GROUP BY p.card_key"
-    ).fetchall()
-    return {r["k"]: r["n"] for r in rows}
+        "WHERE c.qty > 0"
+    ):
+        if not retirada(r, cfg):
+            out[r["k"]] = out.get(r["k"], 0) + r["qty"]
+    return out
 
 
 def prices_map(con: sqlite3.Connection) -> dict[str, int]:
@@ -978,13 +1038,14 @@ def set_payload(con: sqlite3.Connection, set_id: str, editable: bool = True,
     # para a grelha — nem para um bloco de fora. Guarda-se à parte só para o
     # VALOR: uma cópia que ele tenha continua na caixa e vale o mesmo, e o
     # total desta edição tem de bater certo com o `prices.collection_value`,
-    # que lê o `copies` inteiro.
+    # que lê o `copies` inteiro. As RETIRADAS (as runas em alt art,
+    # 2026-09-17) nem para o valor: não existem para o riftvault.
     escondidas_valor: list[tuple[int, int]] = []
     groups: dict[str, dict] = {}
     for r in rows:
         if escondida(r, cfg):
             preco = price.get(r["printing_id"])
-            if preco is not None:
+            if preco is not None and not retirada(r, cfg):
                 escondidas_valor.append((totais.get(r["printing_id"], 0), preco))
             continue
         g = groups.get(r["group_key"])

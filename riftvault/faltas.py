@@ -459,7 +459,7 @@ def pimp(con: sqlite3.Connection) -> dict:
     ph = ",".join("?" * len(usados))
     linhas = [dict(r) for r in con.execute(
         f"SELECT p.card_key, p.printing_id, p.set_id, p.api_sort, p.variant_kind, "
-        f"       p.variant_label, p.public_code, p.orientation, p.name, "
+        f"       p.variant_label, p.public_code, p.orientation, p.name, p.type, "
         f"       p.image_medium, p.image_large, p.image_url, pl.price_cents "
         f"FROM catalog.printings p "
         f"LEFT JOIN catalog.price_latest pl ON pl.printing_id = p.printing_id "
@@ -469,21 +469,27 @@ def pimp(con: sqlite3.Connection) -> dict:
     for r in linhas:
         por_carta.setdefault(r["card_key"], []).append(r)
 
-    # As versões alteradas de cada carta, uma vez só.
+    # As versões alteradas de cada carta, uma vez só. Uma RETIRADA — a runa em
+    # alt art (2026-09-17: *"nao incluas em nada"*) — não é versão para pimpar:
+    # os decks jogam a runa base.
     alt_de: dict[str, list] = {}
     for ck, lst in por_carta.items():
         lst.sort(key=lambda r: (ordens.get(r["set_id"], 999), r["api_sort"]))
         canonica = next((r for r in lst if r["variant_kind"] == "base"), lst[0])
         alt = [r for r in lst if r["printing_id"] != canonica["printing_id"]
                and r["variant_kind"] not in fora
-               and r["printing_id"] not in fora_ids]
+               and r["printing_id"] not in fora_ids
+               and not metrics.retirada(r, cfg)]
         if alt:
             alt_de[ck] = alt
 
     # Artes alternativas que só o CardTrader lista — as runas do SFD, UNL e
-    # VEN. Ficam fora do catálogo (não contam para métricas nenhumas) mas
-    # entram aqui, porque é o que o André quer pimpar quando o Legend do deck
-    # é dessa edição.
+    # VEN. Ficam fora do catálogo (não contam para métricas nenhumas) e
+    # entravam aqui, porque era o que o André queria pimpar quando o Legend
+    # do deck é dessa edição. Desde 2026-09-17 uma runa em alt art está
+    # retirada seja de que fonte for, por isso hoje este ciclo não acrescenta
+    # nenhuma; fica para uma carta que não seja runa, se o CardTrader a tiver
+    # e a RiftScribe não.
     precos_mo = {r["printing_id"]: r["price_cents"] for r in con.execute(
         "SELECT printing_id, price_cents FROM catalog.price_latest")}
     for r in con.execute(
@@ -493,6 +499,9 @@ def pimp(con: sqlite3.Connection) -> dict:
         "WHERE card_key IS NOT NULL AND version LIKE '%Alternate Art%'"
     ):
         if r["card_key"] not in quem:
+            continue
+        if metrics.retirada({"type": tipos.get(r["card_key"], (None,))[0],
+                             "variant_kind": "alt_art"}, cfg):
             continue
         alt_de.setdefault(r["card_key"], []).append({
             "card_key": r["card_key"], "printing_id": r["printing_id"],
