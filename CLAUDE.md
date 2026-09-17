@@ -2985,4 +2985,84 @@ O alvo somado das 102 alt arts passa de 306 para 151 (95 a 1; as runas a
 
 **Pergunta para ele:** as runas em alt art são 40 das 47 cópias. Se não as
 quiser em alt art nos decks, é `decks.alt_art_ignorar_tipos: ["Rune"]`.
+(**Respondida a 17/09** — ver a secção a seguir: as runas ficam em alt art,
+mas só da edição da Legend.)
+
+## 17/09/2026 — as runas dos decks em Alt Art DA EDIÇÃO DA LEGEND (`decks.runas_alt_art_da_edicao_da_legend`)
+
+Palavras dele, em resposta ao relatório do `altart-decks`: *"sim, as runas
+dos Decks em Alt Art **da edicao da Legend**"*. Ramo
+`ai-pc/runas-legend-2026-09-17`; relatório em
+`ai-pc/work/revisao/riftvault-runas-legend.md`.
+
+**A regra numa frase:** a Legend do deck define a edição de referência
+(`decks.edicao_da_legend` — a edição das impressões da linha `Legend:`, a
+mais antiga pelo `order` se houver várias); as RUNAS do deck
+(`runas_especiais.tipos`) pedem a arte alternativa DESSA edição; se a runa
+não tiver alt art nessa edição no catálogo, o deck pede a BASE — a alt art de
+outra edição **não serve e não se compra**. Só as runas mudam: o resto do deck
+continua a jogar alt art sempre que existir, de qualquer edição (16/09). A
+Coleção não mexe: alt art e sobrenumeradas a 1, master set a playset da base,
+os dois conjuntos separados. `decks.runas_alt_art_da_edicao_da_legend: true`
+(`riftvault_config.json`, com `_decks_runas_legend_nota`, e
+`config.DEFAULTS`); `false` volta a 16/09.
+
+**O que isto obrigou a mudar por baixo — a resposta passou a depender do
+deck.** Até aqui «que impressão serve o deck» era uma pergunta por carta
+(`com_alt`, um `frozenset` de `card_key`); agora a mesma Calm Rune serve-se de
+impressões diferentes num deck de Legend do OGN e num de Legend do SFD. Por
+isso:
+
+- `decks.cartas_com_alt_art` devolve um `decks.AltArt` — continua a ser um
+  `frozenset` (o `ck in com_alt` lê-se igual) e leva `sets` (por carta, as
+  edições com a alt art), `runas` (as presas à edição) e `edicoes` (as das
+  Legends dos decks). `joga(printing, edicao)` e `compra(printing, edicao)`
+  respondem com a edição do deck na mão; sem ela (`decks.QUALQUER`) respondem
+  «serve/compra-se para ALGUM deck», que é o que o `owned_by_card`, o
+  `pending.open_by_card` e as abas dos decks do `faltas.py` (que nem levam
+  runas) perguntam. `joga_esta`/`compra_esta`/`kind_de_compra` ganharam o
+  parâmetro `edicao` e delegam.
+- **A alocação consome os montes POR IMPRESSÃO.** `pool_dos_decks` passou a
+  devolver `{printing_id: qty}` cru, e o `allocate` escolhe, com a edição do
+  grupo (`grupos()[…]["edicao"]`), de que impressões cada carta se serve —
+  dois grupos que joguem a mesma runa em impressões diferentes **não
+  disputam**. O que cada grupo tirou fica em `grupo.impressoes` (por monte),
+  e é daí que o `_por_impressao` (o «Azir 3 · Ornn 1» da grelha) lê agora, em
+  vez de redistribuir. O pendente entra por impressão (`pending.open_qty`); as
+  `market_only` continuam a contar por carta, para qualquer deck.
+- `procura_dos_decks` (o que sobe o alvo da alt art na Coleção) devolve, numa
+  runa presa à edição, `{edição: quantidade}` em vez de um número — só a alt
+  art DESSA edição sobe; `metrics.alvo` lê as duas formas. `missing_by_set`,
+  `shopping_list` (uma linha por impressão de compra), `resumo_das_faltas`
+  (`decks.preco_de_compra`), `deck_payload`, `owned_printings`,
+  `pending.impressao_para_encomendar(…, edicao)` e `locais.propor_deck`
+  levam a edição do deck.
+
+**Medido a 2026-09-17 contra uma cópia do `data/` real, `main` (`5f23937`)
+e ramo na mesma corrida — os invariantes NÃO mexem:** níveis **858/776/711
+de 928 = 92,5 / 83,6 / 76,6 %** (faltam 70/212/419 · 309,58/910,08/1 616,09 €),
+wantlist «tudo» **213 linhas · 406 cópias · 1 392,96 €**, valor
+**2 861,10 €**. A falta dos decks passa de **57 cópias · 14 cartas ·
+216,57 €** (47 · 9 · 200,51 € em alt art) para **26 · 14 · 80,41 €** (7 · 5
+· 63,30 € em alt art — Vi ×3, Rift Herald, LeBlanc, Ornn Blacksmith, Kennen;
+nenhuma runa).
+
+**As 40 runas em alt art caíram TODAS para a base, e é o catálogo.** As
+quatro Legends dele são SFD (Ornn, Azir), UNL (LeBlanc) e VEN (Kennen); a
+RiftScribe só tem runas com arte alternativa no **OGN** (BURACO NO CATÁLOGO —
+as `SFD-R0Xa` do CardTrader vivem no `market_only`, fora das métricas).
+Zero runas em alt art; ficam a comprar **9 runas base** a 0,11–0,14 €: Azir 6
+Calm Rune, LeBlanc 1 Mind Rune, Kennen 1 Chaos + 1 Order Rune. Os alvos das
+alt arts das runas do OGN na Coleção voltam a 1 (`OGN-042a` estava a 15,
+`089a` a 8, `166a` a 9, `214a` a 16).
+
+**Perguntas para ele (no relatório):** (1) as 6 `OGN-042a` que ele tem
+deixaram de servir o Azir/Ornn (SFD) — pela letra da ordem a alt art de
+outra edição não serve, e ele compra 6 Calm Rune base a 0,11 €; se preferir
+que a alt art de outra edição sirva quando a da Legend não existe, é uma
+linha no `AltArt.joga`; (2) as `SFD-R0Xa` do CardTrader SÃO a alt art da
+edição do Ornn/Azir, mas estão fora do catálogo — a regra lê a RiftScribe;
+(3) uma runa que caia para a base aceita qualquer impressão que não seja alt
+art (a base e as `VEN-R` escondidas), como antes de 16/09.
+`tests/test_runas_legend.py` (15 testes, contra cópias e config temporário).
 
