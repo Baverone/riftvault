@@ -25,6 +25,22 @@ chegou; assim consigo contigo organizar melhor as compras"*.
     «Chegou» passa a encomenda a cópia real pelo `collection.adjust` — fica no
     `ops`, dá para desfazer — e nunca dá entrada duas vezes: só apanha linhas
     com `arrived_at` a NULL.
+
+O SEPARADOR «ENCOMENDAS» (André, 2026-09-17): *"uma aba 'encomendas', em que
+é igual à coleção, mas só tem de Raras para cima, e nas quais eu coloco o que
+comprei (para não me perder), e assim que chegam, eu coloco lá que chegaram,
+e acrescentas à coleção"* / *"e tiras esta funcionalidade dos decks"*.
+
+    Os `+`/`−` saíram dos tiles dos decks e passaram a viver num separador
+    próprio, que é a GRELHA DA COLEÇÃO (`grelha`: o `metrics.set_payload`
+    tal e qual — as mesmas edições, blocos, tiles e ordem, tenha ele a carta
+    ou não) cortada à raridade da base a partir de
+    `encomendas.raridade_minima`, com o que vem a caminho por impressão
+    (`ordered`) ao lado do que tem. O `+` grava NA IMPRESSÃO do tile — é ele
+    que escolhe a versão que comprou —, o `−` tira dela, e o «Chegou» dá
+    entrada dessa impressão (`arrive(printing_id=...)`). O registo é o mesmo
+    de sempre, a `pending`: o «a caminho» dos decks, das Faltas e das
+    wantlists lê daqui.
 """
 
 from __future__ import annotations
@@ -280,15 +296,18 @@ def listar(con: sqlite3.Connection, incluir_chegadas: bool = False) -> list[dict
 
 
 def arrive(con: sqlite3.Connection, pending_id: int | list[int] | None = None,
-           source: str = "cli", card_key: str | None = None) -> list[dict]:
+           source: str = "cli", card_key: str | None = None,
+           printing_id: str | None = None) -> list[dict]:
     """Marca como chegada e passa para a coleção.
 
-    Sem `pending_id` nem `card_key`, dá entrada em tudo o que está aberto; com
-    `card_key`, em tudo o que está aberto dessa carta (o «Chegou» da linha do
-    deck); com uma lista de ids, só nessas linhas (a tabela «Encomendas»). A
-    entrada passa pelo `collection.adjust`, por isso fica no log e dá para
-    desfazer. É idempotente por construção: só apanha linhas ainda sem
-    `arrived_at`, e a segunda chamada não encontra nenhuma.
+    Sem `pending_id`, `card_key` nem `printing_id`, dá entrada em tudo o que
+    está aberto (o «Chegou tudo»); com `printing_id`, em tudo o que está
+    aberto dessa impressão (o «Chegou» do tile do separador «Encomendas»,
+    2026-09-17); com `card_key`, em tudo o que está aberto dessa carta, seja
+    de que impressão for; com uma lista de ids, só nessas linhas. A entrada
+    passa pelo `collection.adjust`, por isso fica no log e dá para desfazer.
+    É idempotente por construção: só apanha linhas ainda sem `arrived_at`, e
+    a segunda chamada não encontra nenhuma.
     """
     sql = ("SELECT pe.* FROM pending pe "
            "LEFT JOIN catalog.printings p ON p.printing_id = pe.printing_id "
@@ -303,6 +322,9 @@ def arrive(con: sqlite3.Connection, pending_id: int | list[int] | None = None,
     elif pending_id:
         sql += " AND pe.id = ?"
         params = (pending_id,)
+    elif printing_id:
+        sql += " AND pe.printing_id = ?"
+        params = (collection.resolve_printing(con, printing_id),)
     elif card_key:
         sql += " AND COALESCE(p.card_key, m.card_key) = ?"
         params = (card_key,)
@@ -325,6 +347,127 @@ def totals(con: sqlite3.Connection) -> dict:
         "       COALESCE(SUM(qty * COALESCE(unit_cents,0)),0) AS cents "
         "FROM pending WHERE arrived_at IS NULL").fetchone()
     return {"copies": r["copias"], "lines": r["linhas"], "cents": r["cents"]}
+
+
+# ---------------------------------------------------------------------------
+# O separador «Encomendas» (2026-09-17): a grelha da Coleção, de Rara para
+# cima, com o que vem a caminho por impressão
+# ---------------------------------------------------------------------------
+
+# O que cada tile precisa. É o tile da Coleção (`tileHTML` no app.js) mais o
+# `ordered`; o resto do `set_payload` (locais, `in_decks`, `sort`, `head`) não
+# se lê aqui e ficava a pesar em cinco ficheiros que vão para o Git.
+_CAMPOS_IMPRESSAO = ("id", "code", "kind", "label", "name", "rarity", "landscape",
+                     "price", "qty", "qty_total", "target", "block", "img", "cdn")
+_CAMPOS_GRUPO = ("key", "cn", "card_key", "name", "type", "rarity", "is_token",
+                 "decks", "playset")
+
+
+def raridade_minima(cfg: dict | None = None) -> str:
+    cfg = cfg or config.load()
+    return str((cfg.get("encomendas") or {}).get("raridade_minima") or "rare")
+
+
+def raridades(cfg: dict | None = None) -> frozenset[str]:
+    """As raridades que entram no separador: da `raridade_minima` para cima,
+    na ordem do catálogo (`metrics.RARITY_ORDER`: common < uncommon < rare <
+    epic < showcase). Uma raridade que o catálogo não conhece rebenta — como
+    nas listas do `master_set`, um valor mal escrito não pode contar em
+    silêncio."""
+    from . import metrics
+
+    minima = raridade_minima(cfg)
+    if minima not in metrics.RARITY_ORDER:
+        raise ValueError(
+            f"encomendas.raridade_minima = {minima!r} não é uma raridade do catálogo "
+            f"({', '.join(metrics.RARITY_ORDER)})")
+    return frozenset(metrics.RARITY_ORDER[metrics.RARITY_ORDER.index(minima):])
+
+
+def grelha(con: sqlite3.Connection, set_id: str, editable: bool = True,
+           image_mode: str = "local", cfg: dict | None = None) -> dict:
+    """A grelha de UMA edição para o separador «Encomendas».
+
+    É o `metrics.set_payload` — os mesmos grupos, os mesmos blocos e a mesma
+    ordem da Coleção, tenha ele a carta ou não — cortado pela raridade da
+    BASE de cada carta (a mesma que a Coleção usa nos chips de raridade: a
+    `showcase` de uma arte alternativa não muda a raridade da carta), com o
+    que vem a caminho de cada impressão em `ordered`. O `qty` continua a ser
+    o que está NA COLEÇÃO, como na grelha: encomendar não é ter.
+
+    O que vier a caminho desta edição FORA da grelha — uma comum encomendada
+    pela CLI, uma runa do CardTrader que a RiftScribe não tem — vai em
+    `fora`, com nome e quantidade, para não haver encomenda que não se veja.
+    """
+    from . import metrics
+
+    cfg = cfg or config.load()
+    p = metrics.set_payload(con, set_id, editable=editable, image_mode=image_mode)
+    abertas = open_qty(con)
+    entram = raridades(cfg)
+
+    groups: list[dict] = []
+    na_grelha: set[str] = set()
+    for g in p["groups"]:
+        if (g["rarity"] or "") not in entram:
+            continue
+        prints = []
+        for pr in g["printings"]:
+            na_grelha.add(pr["id"])
+            prints.append({**{k: pr[k] for k in _CAMPOS_IMPRESSAO},
+                           "ordered": abertas.get(pr["id"], 0)})
+        groups.append({**{k: g[k] for k in _CAMPOS_GRUPO}, "printings": prints})
+
+    por_bloco: dict[str, list[int]] = {}
+    for g in groups:
+        for pr in g["printings"]:
+            slot = por_bloco.setdefault(pr["block"], [0, 0, 0])
+            slot[0] += 1
+            slot[1] += pr["ordered"]
+            slot[2] += 1 if pr["ordered"] else 0
+    blocks = [
+        {"id": b["id"], "label": b["label"], "short": b["short"], "counts": b["counts"],
+         "printings": por_bloco[b["id"]][0], "ordered": por_bloco[b["id"]][1],
+         "ordered_printings": por_bloco[b["id"]][2]}
+        for b in p["blocks"] if b["id"] in por_bloco
+    ]
+
+    fora = [{"printing_id": it["printing_id"], "name": it["name"], "code": it["code"],
+             "label": it["label"], "market_only": bool(it["market_only"]),
+             "qty": it["qty"]}
+            for it in listar(con)
+            if it["set_id"] == set_id and it["printing_id"] not in na_grelha]
+    # A mesma impressão pode ter várias linhas abertas: uma por compra.
+    fora_por_pid: dict[str, dict] = {}
+    for f in fora:
+        e = fora_por_pid.get(f["printing_id"])
+        if e is None:
+            fora_por_pid[f["printing_id"]] = dict(f)
+        else:
+            e["qty"] += f["qty"]
+
+    return {
+        "editable": editable,
+        "image_mode": image_mode,
+        "generated_at": p["generated_at"],
+        "set": p["set"],
+        "price_badge_min": p["price_badge_min"],
+        "rarity_min": raridade_minima(cfg),
+        "rarities": [r for r in metrics.RARITY_ORDER if r in entram],
+        "blocks": blocks,
+        "groups": groups,
+        "hidden_kinds": p["hidden_kinds"],
+        "totals": {
+            "cards": len(groups),
+            "printings": sum(b["printings"] for b in blocks),
+            "ordered": sum(b["ordered"] for b in blocks),
+            "ordered_printings": sum(b["ordered_printings"] for b in blocks),
+            # As impressões da página da Coleção que o corte tirou — para o
+            # cabeçalho dizer «174 de 334».
+            "printings_colecao": sum(len(g["printings"]) for g in p["groups"]),
+        },
+        "fora": sorted(fora_por_pid.values(), key=lambda x: (x["code"] or "", x["name"] or "")),
+    }
 
 
 # ---------------------------------------------------------------------------

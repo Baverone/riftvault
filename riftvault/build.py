@@ -186,13 +186,25 @@ def _gerar(out_dir: Path | str, log=print, imagens: bool = True) -> dict:
     (out / "api" / "encomendas.json").write_text(
         json.dumps(encomendas, ensure_ascii=False, separators=(",", ":")),
         encoding="utf-8")
+    # O separador «Encomendas» (2026-09-17): a grelha da Coleção de Rara para
+    # cima, uma por edição, com o que vem a caminho. Sem controlos no site
+    # publicado — o `editable: False` é o mesmo flag da Coleção.
+    enc_dir = out / "api" / "encomendas"
+    enc_dir.mkdir(parents=True, exist_ok=True)
+    n_enc = 0
+    for s in index["sets"]:
+        g = pending.grelha(con, s["id"], editable=False, image_mode=image_mode, cfg=cfg)
+        (enc_dir / f"{s['id']}.json").write_text(
+            json.dumps(g, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+        n_enc += g["totals"]["printings"]
     con.close()
     log(f"  api/decks.json  ({len(index_decks)} decks) + api/wantlist.json"
         f" + api/compras.json + api/quanto_custa.json ({tabela['scope']['printings']} "
         f"impressões com preço) + api/faltas_edicao.json ({fe['totals']['copies']} "
         f"cópias a comprar) + api/a_mais.json ({am['totals']['excedente']['copies']} "
         f"cópias a mais) + api/encomendas.json "
-        f"({encomendas['totals']['copies']} cópias a caminho)")
+        f"({encomendas['totals']['copies']} cópias a caminho) + api/encomendas/*.json "
+        f"({n_enc} impressões de Rara para cima)")
 
     n_img = 0
     if imagens and image_mode == "local" and config.IMAGES_DIR.exists():

@@ -183,23 +183,37 @@ def api_encomendas():
     return jsonify({"editable": True, **pending.encomendas(con)})
 
 
+@app.get("/api/encomendas/<set_id>.json")
+def api_encomendas_edicao(set_id: str):
+    """A grelha de uma edição do separador «Encomendas» (2026-09-17): a da
+    Coleção, de Rara para cima, com o que vem a caminho por impressão."""
+    con = get_con()
+    _reimport_if_changed(con)
+    return jsonify(pending.grelha(con, set_id.upper(), editable=True, image_mode="local"))
+
+
 @app.post("/api/pending/arrive")
 def api_pending_arrive():
     """Confirma a chegada: passa do `pending` para a coleção.
 
-    Sem `id`, `ids` nem `card_key`, dá entrada em tudo o que está aberto; com
-    `card_key`, no que está aberto dessa carta (o «Chegou» da linha do deck);
-    com `ids`, só nessas linhas (a tabela «Encomendas»). A entrada passa pelo
-    `collection.adjust`, portanto fica no log e dá para desfazer. Idempotente:
-    a segunda chamada não encontra nada e dá 404.
+    Sem `id`, `ids`, `printing_id` nem `card_key`, dá entrada em tudo o que
+    está aberto (o «Chegou tudo»); com `printing_id`, no que está aberto
+    dessa impressão (o «Chegou» do tile do separador «Encomendas»); com
+    `card_key`, no que está aberto dessa carta; com `ids`, só nessas linhas.
+    A entrada passa pelo `collection.adjust`, portanto fica no log e dá para
+    desfazer. Idempotente: a segunda chamada não encontra nada e dá 404.
     """
     data = request.get_json(silent=True) or {}
     pid = data.get("id")
     ids = data.get("ids")
     con = get_con()
     alvo = [int(i) for i in ids] if isinstance(ids, list) else (int(pid) if pid else None)
-    feitas = pending.arrive(con, alvo, source="web",
-                            card_key=data.get("card_key") or None)
+    try:
+        feitas = pending.arrive(con, alvo, source="web",
+                                card_key=data.get("card_key") or None,
+                                printing_id=data.get("printing_id") or None)
+    except collection.UnknownPrinting as exc:
+        return jsonify({"error": str(exc)}), 404
     if not feitas:
         return jsonify({"error": "não havia nada por chegar"}), 404
     return jsonify({"arrived": feitas, "pending": pending.totals(con)})
@@ -207,13 +221,16 @@ def api_pending_arrive():
 
 @app.post("/api/encomenda")
 def api_encomenda():
-    """Os `+`/`−` dos decks (André, 2026-09-11): `{card_key | printing_id,
-    delta, deck?}`.
+    """Os `+`/`−` das encomendas: `{card_key | printing_id, delta, deck?}`.
 
-    `delta > 0` regista mais cópias a caminho (na impressão base mais barata da
-    carta, ou na `printing_id` dada); `delta < 0` tira das linhas abertas mais
-    recentes, e nunca vai abaixo de zero — sem nada a caminho é 400, com a
-    razão escrita. O `deck` é só a origem do clique, para o rasto.
+    Nasceram nos tiles dos decks (André, 2026-09-11) e desde 2026-09-17 vivem
+    no separador «Encomendas», que manda sempre a `printing_id` do tile —
+    ele é que escolhe a versão que comprou. Por `card_key` continua a
+    responder (a CLI, e a impressão normal mais barata da carta).
+
+    `delta > 0` regista mais cópias a caminho; `delta < 0` tira das linhas
+    abertas mais recentes, e nunca vai abaixo de zero — sem nada a caminho é
+    400, com a razão escrita. O `deck` é só a origem do clique, para o rasto.
     """
     data = request.get_json(silent=True) or {}
     try:
