@@ -2943,3 +2943,46 @@ somam à edição e as edições ao total, com os números escritos; sem preço
 entra e é contada; promos fora e escondidas nem no âmbito; não escreve; não
 mexe nos níveis nem na wantlist; a rota, o `build` e o `index.html`/`app.js`.
 
+## 16/09/2026 — Alt Art a 1 de cada, e os decks jogam em Alt Art (`decks.jogam_alt_art`)
+
+Palavras dele: *"Alt Art e Overnumbered e assim quero apenas 1 de cada / se
+jogar num deck, acrescentas as necessarias para o deck, e o deck joga com Alt
+Art"* · *"se o deck joga 3, vou ter que ter 3 normais e 3 Alt Art"* · vale
+*"sempre que existir Alt Art"*. Ramo `ai-pc/altart-decks-2026-09-16` (correu
+a 16/09 à noite e esgotou os turnos; fechado a 17/09 — relatório em
+`ai-pc/work/revisao/riftvault-altart-decks.md`).
+
+- **Alt Art a 1 de cada.** O `a` entrou em `master_set.um_de_cada`
+  (`riftvault_config.json` e `config.DEFAULTS`), **runas incluídas**: a
+  `OGN-007a` é uma arte alternativa e pede 1; o 3 de 15/09 fica na runa BASE.
+  Revoga o «Alt Art […] mete Playset» de 14/09 para o último bloco que o
+  tinha. Bloco, percentagem e listas de compra não mexem.
+- **O alvo de uma Alt Art é `max(1, procura dos decks)`** (`metrics.alvo`
+  com `procura`, `decks.procura_dos_decks`; grupos da mesma Legend contam o
+  máximo, não a soma). Sem alt art no catálogo, nada muda.
+- **Os decks jogam em Alt Art** (`decks.jogam_alt_art: true`,
+  `alt_art_ignorar_tipos: []`): numa carta COM arte alternativa só as cópias
+  da alt art servem os decks (montes, pendente, proposta de marcação), e o
+  que falta compra-se em alt art (`faltas.shortfall` marca `alt_art`;
+  `decks.resumo_das_faltas` leva `alt_art: {cards, copies, cents}`). A base
+  fica no master set — **dois conjuntos separados**, a base não abate a falta
+  da alt art. `tests/test_altart_decks.py`; `test_partilha_compra`,
+  `test_binders` e `test_encomendas` correm com `jogam_alt_art: false`
+  (`fixture.config_decks_sem_alt_art`) porque descrevem a partilha das cartas
+  SEM alt art e o Defy do catálogo deles tem uma.
+
+**Medido a 2026-09-17 no `data/` real, `main` (`52b6c78`) e ramo na mesma
+corrida — os invariantes NÃO mexem:** níveis **858/776/711 de 928** (faltam
+70/212/419 · 309,58/910,08/1 616,09 €), wantlist «tudo» **213 linhas · 406
+cópias · 1 392,96 €**, valor **2 861,10 €**. A falta dos decks passa de
+**11 cópias · 6 cartas · 16,20 €** para **57 · 14 · 216,57 €**, das quais
+**47 cópias · 9 cartas · 200,51 € são Alt Art** — 3× `UNL-176a` Vi,
+`UNL-179a` Rift Herald, `VEN-113a` Kennen, `UNL-090a` LeBlanc, `SFD-058a`
+Ornn, e as runas em alt art (o Rune Pool de 12 por deck é onde a conta
+engorda). Sem runas (`faltas.shortfall`): 10 cartas · 17 cópias · 79,36 €.
+O alvo somado das 102 alt arts passa de 306 para 151 (95 a 1; as runas a
+8–16).
+
+**Pergunta para ele:** as runas em alt art são 40 das 47 cópias. Se não as
+quiser em alt art nos decks, é `decks.alt_art_ignorar_tipos: ["Rune"]`.
+
