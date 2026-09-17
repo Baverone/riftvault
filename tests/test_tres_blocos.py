@@ -31,6 +31,7 @@ que fixava a decisão da tarde desse dia («muda tudo para playset»).
 from __future__ import annotations
 
 import importlib
+import json
 import sys
 import unittest
 from pathlib import Path
@@ -39,15 +40,41 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from tests.fixture import Vault
 
+SEM_RETIRADAS = {"runas_especiais": {"tipos": ["Rune"], "excepto": ["base"],
+                                     "retiradas": []}}
+
 
 class Base(unittest.TestCase):
     def setUp(self):
         self.v = Vault()
         self.addCleanup(self.v.close)
-        from riftvault import a_subir, metrics
+        from riftvault import a_subir, config, metrics
         importlib.reload(metrics)
         importlib.reload(a_subir)
         self.metrics, self.a_subir = metrics, a_subir
+        self.config = config
+        # Estes testes descrevem os três blocos com a arte alternativa da runa
+        # no bloco das runas especiais — o mecanismo continua a existir, mas
+        # desde 2026-09-17 à tarde essa alt art está RETIRADA de tudo
+        # (`runas_especiais.retiradas: ["a"]`, `test_runas_alt_fora.py`) e o
+        # bloco fica vazio no catálogo real. Aqui desliga-se a retirada para
+        # o bloco continuar testável, como no `test_masterset.py`.
+        self.com_config(SEM_RETIRADAS)
+
+    def com_config(self, extra: dict):
+        import os
+        caminho = self.v.root / "config.json"
+        caminho.write_text(json.dumps(extra), encoding="utf-8")
+        os.environ["RIFTVAULT_CONFIG"] = str(caminho)
+        importlib.reload(self.config)
+        self.config.load.cache_clear()
+
+        def repor():
+            os.environ.pop("RIFTVAULT_CONFIG", None)
+            importlib.reload(self.config)
+            self.config.load.cache_clear()
+
+        self.addCleanup(repor)
 
     def edicao(self):
         """Uma de cada coisa: master set, coleção extra e escondidas."""

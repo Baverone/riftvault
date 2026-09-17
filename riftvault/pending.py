@@ -79,14 +79,16 @@ def open_by_card(con: sqlite3.Connection) -> dict[str, int]:
 
     Conta só o que SERVE OS DECKS (`decks.joga_esta`, 2026-09-16): uma base
     encomendada de uma carta com arte alternativa vai para o master set, não
-    para o deck, e não abate a falta dele.
+    para o deck, e não abate a falta dele; uma runa em alt art encomendada não
+    conta para nada (retirada, 2026-09-17).
     """
     from . import decks
 
     com_alt = decks.cartas_com_alt_art(con)
     out: dict[str, int] = {}
     for r in con.execute(
-        "SELECT p.card_key, p.card_key AS k, p.variant_kind, p.set_id, SUM(pe.qty) AS q "
+        "SELECT p.printing_id, p.card_key, p.card_key AS k, p.variant_kind, p.set_id, "
+        "       SUM(pe.qty) AS q "
         "FROM pending pe "
         "JOIN catalog.printings p ON p.printing_id = pe.printing_id "
         "WHERE pe.arrived_at IS NULL GROUP BY p.printing_id"
@@ -114,8 +116,7 @@ def _card_key(con: sqlite3.Connection, printing_id: str) -> str | None:
     return row["card_key"] if row else None
 
 
-def impressao_para_encomendar(con: sqlite3.Connection,
-                              card_keys, edicao=None) -> dict[str, dict]:
+def impressao_para_encomendar(con: sqlite3.Connection, card_keys) -> dict[str, dict]:
     """card_key -> a impressão em que o `+` grava a encomenda.
 
     A BASE MAIS BARATA — ou, desde 2026-09-16, a ARTE ALTERNATIVA nas cartas
@@ -124,10 +125,6 @@ def impressao_para_encomendar(con: sqlite3.Connection,
     (`decks.missing_by_set`) e do `faltas._cheapest`: a impressão onde ele a
     vai comprar. Se um dia quiser encomendar outra versão, o `riftvault
     encomendas --mais OGN-045a` aceita qualquer código.
-
-    `edicao` é a da Legend do deck que encomenda (2026-09-17): nas runas
-    decide entre a alt art dessa edição e a base. Sem ela (`None`), a
-    resposta para algum deck (`decks.QUALQUER`).
     """
     from . import decks
 
@@ -135,8 +132,6 @@ def impressao_para_encomendar(con: sqlite3.Connection,
     if not keys:
         return {}
     com_alt = decks.cartas_com_alt_art(con)
-    if edicao is None:
-        edicao = decks.QUALQUER
     ordens = {s: config.set_order(s) for s in
               (r["set_id"] for r in con.execute(
                   "SELECT DISTINCT set_id FROM catalog.printings"))}
@@ -149,7 +144,7 @@ def impressao_para_encomendar(con: sqlite3.Connection,
         f"LEFT JOIN catalog.price_latest pl ON pl.printing_id = p.printing_id "
         f"WHERE p.card_key IN ({ph})", keys
     ):
-        if not decks.compra_esta(r, com_alt, edicao):
+        if not decks.compra_esta(r, com_alt):
             continue
         cand = {"id": r["printing_id"], "code": r["public_code"],
                 "set": r["set_id"], "price": r["price_cents"],

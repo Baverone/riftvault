@@ -175,22 +175,23 @@ class TestAlvosDosTresBlocos(Base):
             "tst-002-100": (1, 1),          # Legend na sequência: 1
             "tst-003-100": (3, 3),          # runa numerada: 3, como a Unit
         })
-        # A runa especial e a arte alternativa ficam de fora, e a lista diz-o.
+        # A arte alternativa fica de fora, e a lista diz-o; a alt art da runa
+        # está retirada de tudo (2026-09-17) e nem chega ao âmbito.
         self.assertTrue(p["scope"]["so_master_set"])
         self.assertEqual({x["criterio"]: x["n"] for x in p["scope"]["excluded_by"]},
-                         {"rune_special": 1, "alt_art": 1})
+                         {"alt_art": 1})
         con.close()
 
     def test_a_colecao_extra_tem_o_alvo_na_grelha_nao_na_lista(self):
-        """«tenho 0 de 1» na arte alternativa e «0 de 1» na runa especial
-        (é a arte alternativa da runa: 1 de cada desde 2026-09-16, *"Alt Art
-        e Overnumbered e assim quero apenas 1 de cada"*; nenhum deck a pede
-        aqui) — e nenhuma das duas na wantlist, mesmo com tudo a zero."""
+        """«tenho 0 de 1» na arte alternativa (1 de cada desde 2026-09-16,
+        *"Alt Art e Overnumbered e assim quero apenas 1 de cada"*; nenhum deck
+        a pede aqui) e não na wantlist, mesmo a zero. A arte alternativa da
+        runa não está na grelha nem na lista: retirada (2026-09-17)."""
         con = self.montar()
         g = self.metrics.set_payload(con, "TST")
         tiles = {pr["id"]: pr for grp in g["groups"] for pr in grp["printings"]}
         self.assertEqual((tiles["tst-004-100"]["qty"], tiles["tst-004-100"]["target"]), (0, 1))
-        self.assertEqual((tiles["tst-003a-100"]["qty"], tiles["tst-003a-100"]["target"]), (0, 1))
+        self.assertNotIn("tst-003a-100", tiles)
         self.assertFalse(self.metrics.conta_bloco(tiles["tst-004-100"]["block"]))
         pids = [x["printing_id"] for x in self.a_subir.wantlist(con, "TST")["items"]]
         self.assertNotIn("tst-004-100", pids)

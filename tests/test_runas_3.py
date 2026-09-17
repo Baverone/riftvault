@@ -81,15 +81,15 @@ class Base(unittest.TestCase):
 
 
 class TestOAlvo(Base):
-    def test_a_runa_numerada_pede_3_e_a_arte_alternativa_1(self):
+    def test_a_runa_numerada_pede_3_e_a_arte_alternativa_nao_esta(self):
         con = self.edicao()
         t = self.tiles(con)
         self.assertEqual(t["tst-007-100"]["target"], 3)
         # A Unit ao lado pede o mesmo: a runa deixou de ser caso especial.
         self.assertEqual(t["tst-001-100"]["target"], 3)
-        # A arte alternativa é uma alt art (2026-09-16): 1 de cada, e nenhum
-        # deck a pede neste catálogo.
-        self.assertEqual(t["tst-007a-100"]["target"], 1)
+        # A arte alternativa da runa está retirada de tudo (2026-09-17 à
+        # tarde, `test_runas_alt_fora.py`): não tem alvo porque não está.
+        self.assertNotIn("tst-007a-100", t)
         con.close()
 
     def test_o_bloco_nao_mudou_so_o_alvo(self):
@@ -97,7 +97,7 @@ class TestOAlvo(Base):
         con = self.edicao()
         t = self.tiles(con)
         self.assertEqual(t["tst-007-100"]["block"], "master")
-        self.assertEqual(t["tst-007a-100"]["block"], "rune_special")
+        self.assertNotIn("tst-007a-100", t)  # retirada (2026-09-17)
         self.assertNotIn("tst-r01", t)      # escondida: nem chega à grelha
         con.close()
 
@@ -156,17 +156,15 @@ class TestAsContas(Base):
         self.assertNotIn("tst-r01", alvos)
         con.close()
 
-    def test_o_contador_do_bloco_das_runas_especiais_e_1_de_cada(self):
-        """A arte alternativa da runa pede 1 (2026-09-16): com uma cópia o
-        bloco está feito, e o `max_target` é 1 — o cabeçalho não escreve o
-        «· K no playset completo»."""
+    def test_o_bloco_das_runas_especiais_ficou_vazio(self):
+        """A arte alternativa da runa enchia este bloco; desde 2026-09-17 à
+        tarde está retirada de tudo e o bloco, vazio, não aparece — mesmo
+        com uma cópia dela na caixa."""
         from riftvault import collection
         con = self.edicao()
         collection.adjust(con, "tst-007a-100", 1, source="test")
         b = {b["id"]: b for b in self.metrics.set_payload(con, "TST")["blocks"]}
-        self.assertEqual((b["rune_special"]["owned"], b["rune_special"]["done"],
-                          b["rune_special"]["total"], b["rune_special"]["max_target"]),
-                         (1, 1, 1, 1))
+        self.assertNotIn("rune_special", b)
         con.close()
 
 

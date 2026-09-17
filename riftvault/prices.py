@@ -485,8 +485,21 @@ def _guardar_oferta(con: sqlite3.Connection, pid: str, day: str,
 # ---------------------------------------------------------------------------
 
 
+def _sem_retiradas(con: sqlite3.Connection) -> tuple[str, list[str]]:
+    """O pedaço de SQL que tira do `copies` o que não existe para o riftvault —
+    as runas em alt art (`metrics.retirada`, 2026-09-17: *"nao incluas em
+    nada"*, e o valor é «nada» também). (cláusula, parâmetros)."""
+    from . import metrics
+
+    ids = sorted(metrics.retiradas_ids(con))
+    if not ids:
+        return "", []
+    return " AND c.printing_id NOT IN (" + ",".join("?" * len(ids)) + ")", ids
+
+
 def collection_value(con: sqlite3.Connection) -> dict:
-    """Valor total da coleção: soma de quantidade x preço."""
+    """Valor total da coleção: soma de quantidade x preço — sem as retiradas."""
+    fora, params = _sem_retiradas(con)
     row = con.execute(
         "SELECT COALESCE(SUM(c.qty * p.price_cents), 0) AS cents, "
         "       COALESCE(SUM(CASE WHEN p.price_cents IS NULL THEN c.qty ELSE 0 END), 0) AS sem_preco, "
@@ -497,7 +510,7 @@ def collection_value(con: sqlite3.Connection) -> dict:
         "       COALESCE(SUM(CASE WHEN p.from_foil = 1 THEN c.qty * p.price_cents ELSE 0 END), 0) AS cents_foil, "
         "       COALESCE(SUM(CASE WHEN p.from_foil = 1 THEN c.qty ELSE 0 END), 0) AS copias_foil "
         "FROM copies c LEFT JOIN catalog.price_latest p ON p.printing_id = c.printing_id "
-        "WHERE c.qty > 0"
+        "WHERE c.qty > 0" + fora, params
     ).fetchone()
     day = con.execute("SELECT MAX(day) AS d FROM catalog.price_latest").fetchone()
     return {"cents": row["cents"] or 0, "currency": "EUR",
@@ -507,25 +520,27 @@ def collection_value(con: sqlite3.Connection) -> dict:
 
 
 def value_by_set(con: sqlite3.Connection) -> dict[str, int]:
+    fora, params = _sem_retiradas(con)
     rows = con.execute(
         "SELECT pr.set_id AS s, COALESCE(SUM(c.qty * p.price_cents), 0) AS cents "
         "FROM copies c "
         "JOIN catalog.printings pr ON pr.printing_id = c.printing_id "
         "LEFT JOIN catalog.price_latest p ON p.printing_id = c.printing_id "
-        "WHERE c.qty > 0 GROUP BY pr.set_id"
+        "WHERE c.qty > 0" + fora + " GROUP BY pr.set_id", params
     ).fetchall()
     return {r["s"]: r["cents"] or 0 for r in rows}
 
 
 def top_value(con: sqlite3.Connection, limit: int = 15) -> list[dict]:
+    fora, params = _sem_retiradas(con)
     rows = con.execute(
         "SELECT pr.public_code, pr.name, pr.variant_label, c.qty, p.price_cents, "
         "       c.qty * p.price_cents AS total, p.from_foil "
         "FROM copies c "
         "JOIN catalog.printings pr ON pr.printing_id = c.printing_id "
         "JOIN catalog.price_latest p ON p.printing_id = c.printing_id "
-        "WHERE c.qty > 0 AND p.price_cents IS NOT NULL "
-        "ORDER BY total DESC LIMIT ?", (limit,)).fetchall()
+        "WHERE c.qty > 0 AND p.price_cents IS NOT NULL" + fora +
+        " ORDER BY total DESC LIMIT ?", [*params, limit]).fetchall()
     return [dict(r) for r in rows]
 
 

@@ -114,14 +114,14 @@ class TestAlvo(Base):
     def test_as_runas_base_nao_sao_um_de_cada(self):
         """O `um_de_cada` não toca na runa BASE: pede o do tipo — 3 desde a
         ordem seguinte do mesmo dia (`test_runas_3.py`). A arte alternativa da
-        runa é uma arte alternativa e pede 1 desde 2026-09-16, no bloco das
-        runas especiais na mesma."""
+        runa está RETIRADA desde 2026-09-17 (`test_runas_alt_fora.py`): não
+        aparece na página, seja qual for o alvo que o `um_de_cada` lhe desse."""
         con = self.edicao()
         a = {pid: self.metrics.alvo(r) for pid, r in self.linhas(con).items()}
-        self.assertEqual((a["tst-002-100"], a[self.RUNA_ALT]), (3, 1))
+        self.assertEqual(a["tst-002-100"], 3)
         self.assertFalse(self.metrics.e_um_de_cada(self.linhas(con)["tst-002-100"]))
-        self.assertTrue(self.metrics.e_um_de_cada(self.linhas(con)[self.RUNA_ALT]))
-        self.assertEqual(self.metrics.bloco(self.linhas(con)[self.RUNA_ALT]), "rune_special")
+        self.assertTrue(self.metrics.retirada(self.linhas(con)[self.RUNA_ALT]))
+        self.assertTrue(self.metrics.escondida(self.linhas(con)[self.RUNA_ALT]))
         con.close()
 
     def test_um_legend_sobrenumerado_ja_pedia_1_e_continua(self):
