@@ -12,6 +12,12 @@ a base `OGN-007/298` fica na sequência e conta; a arte alternativa
 `OGN-007a/298` fica no bloco «runas especiais», coleção extra; a promo
 `VEN-R01`, sem `/tamanho`, está escondida e não pede nada a ninguém.
 
+**Desde 2026-09-16 a arte alternativa da runa pede 1, não 3** — é uma arte
+alternativa, e *"Alt Art e Overnumbered e assim quero apenas 1 de cada"*
+(`master_set.um_de_cada` leva o `a`, runas incluídas; `test_altart_decks`).
+O 3 desta ordem ficou para a runa BASE, a que está no master set — que foi a
+que ele nomeou (*"as runas que estao no masterset"*).
+
 Corre contra um catálogo de brincar — nunca contra o `data/` real.
 """
 
@@ -75,13 +81,15 @@ class Base(unittest.TestCase):
 
 
 class TestOAlvo(Base):
-    def test_a_runa_numerada_pede_3_base_e_arte_alternativa(self):
+    def test_a_runa_numerada_pede_3_e_a_arte_alternativa_1(self):
         con = self.edicao()
         t = self.tiles(con)
         self.assertEqual(t["tst-007-100"]["target"], 3)
-        self.assertEqual(t["tst-007a-100"]["target"], 3)
         # A Unit ao lado pede o mesmo: a runa deixou de ser caso especial.
         self.assertEqual(t["tst-001-100"]["target"], 3)
+        # A arte alternativa é uma alt art (2026-09-16): 1 de cada, e nenhum
+        # deck a pede neste catálogo.
+        self.assertEqual(t["tst-007a-100"]["target"], 1)
         con.close()
 
     def test_o_bloco_nao_mudou_so_o_alvo(self):
@@ -105,6 +113,12 @@ class TestOAlvo(Base):
         self.com_config({"runas_especiais": {"tipos": ["Rune"], "excepto": ["base"],
                                              "alvo": 1}})
         self.assertEqual(self.metrics.master_target("x", "base", "Rune", False), 3)
+        # A arte alternativa pede 1 pelo `um_de_cada` (2026-09-16), não por este
+        # campo: sem o `a` nessa lista voltava aos 3 do tipo.
+        self.assertEqual(self.metrics.master_target("x", "alt_art", "Rune", False), 1)
+        self.com_config({"runas_especiais": {"tipos": ["Rune"], "excepto": ["base"],
+                                             "alvo": 1},
+                         "master_set": {"um_de_cada": ["overnumbered", "promo"]}})
         self.assertEqual(self.metrics.master_target("x", "alt_art", "Rune", False), 3)
 
     def test_sem_master_targets_by_type_a_runa_cai_no_playset_jogavel(self):
@@ -142,14 +156,17 @@ class TestAsContas(Base):
         self.assertNotIn("tst-r01", alvos)
         con.close()
 
-    def test_o_contador_do_bloco_das_runas_especiais_conta_playsets(self):
+    def test_o_contador_do_bloco_das_runas_especiais_e_1_de_cada(self):
+        """A arte alternativa da runa pede 1 (2026-09-16): com uma cópia o
+        bloco está feito, e o `max_target` é 1 — o cabeçalho não escreve o
+        «· K no playset completo»."""
         from riftvault import collection
         con = self.edicao()
         collection.adjust(con, "tst-007a-100", 1, source="test")
         b = {b["id"]: b for b in self.metrics.set_payload(con, "TST")["blocks"]}
         self.assertEqual((b["rune_special"]["owned"], b["rune_special"]["done"],
                           b["rune_special"]["total"], b["rune_special"]["max_target"]),
-                         (1, 0, 1, 3))
+                         (1, 1, 1, 1))
         con.close()
 
 
