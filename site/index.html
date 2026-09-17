@@ -34,6 +34,11 @@
       <!-- O separador «A mais» (2026-09-17): por edição, o excedente acima
            do alvo e as cartas que os decks libertaram. Só mostra. -->
       <button class="tab" data-section="a-mais">A mais</button>
+      <!-- O separador «Encomendas» (2026-09-17): a grelha da Coleção, de Rara
+           para cima, onde ele marca o que comprou e ainda não chegou, e dá
+           entrada quando chega. Os `+`/`−` da encomenda viveram nos tiles
+           dos decks de 2026-09-11 a este dia. -->
+      <button class="tab" data-section="encomendas">Encomendas</button>
     </nav>
   </div>
 
@@ -42,6 +47,7 @@
   <nav id="falta-tabs" class="tabs tabs-set" aria-label="Quanto custa — edições" hidden></nav>
   <nav id="fe-tabs" class="tabs tabs-set" aria-label="Faltas — edições" hidden></nav>
   <nav id="am-tabs" class="tabs tabs-set" aria-label="A mais — edições" hidden></nav>
+  <nav id="enc-tabs" class="tabs tabs-set" aria-label="Encomendas — edições" hidden></nav>
 </header>
 
 <main>
@@ -134,6 +140,23 @@
   <section id="a-mais" hidden>
     <div id="am-head"></div>
     <div id="am-body"></div>
+  </section>
+
+  <!-- «Encomendas»: a mesma grelha da Coleção (edição a edição), de Rara para
+       cima, com os controlos do que está a caminho em cada tile. -->
+  <section id="encomendas" hidden>
+    <div id="enc-head"></div>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Encomendas — o que mostrar">
+        <button class="seg-btn is-on" data-enc-filter="all">Tudo</button>
+        <button class="seg-btn" data-enc-filter="ordered">A caminho</button>
+        <button class="seg-btn" data-enc-filter="missing">Faltas</button>
+      </div>
+      <input id="enc-search" type="search" placeholder="Procurar carta ou código…" autocomplete="off">
+    </div>
+    <p id="enc-count" class="count-line"></p>
+    <div id="enc-grid" class="grid"></div>
+    <p id="enc-empty" class="empty" hidden>Nada corresponde a estes filtros.</p>
   </section>
 </main>
 
