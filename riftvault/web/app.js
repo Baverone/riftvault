@@ -57,6 +57,8 @@ const state = {
   wantlist: null, wantlistP: null, compras: null, comprasP: null, quantoCusta: null,
   // O separador «Faltas» (2026-09-15, fim da tarde): `api/faltas_edicao.json`.
   faltasEdicao: null,
+  // O separador «A mais» (2026-09-17): `api/a_mais.json`.
+  aMais: null,
   // As encomendas (2026-09-11): a lista «Encomendas» da secção Decks, e os
   // `+`/`−` de cada linha — pedidos em fila por carta (`encFila`) e quantos
   // ainda estão em voo (`encVoo`), para só o último recarregar o deck.
@@ -74,6 +76,8 @@ const state = {
            qcSet: 'all',
            // «Faltas»: a edição escolhida, como no «Quanto custa».
            feSet: 'all',
+           // «A mais»: a edição escolhida, como nos outros dois.
+           amSet: 'all',
            section: 'colecao' },
 };
 
@@ -964,7 +968,7 @@ function wireControls() {
   // Imagem local em falta cai para o CDN (e vice-versa no modo publicado).
   // Qualquer secção com artes tem de estar nesta lista: uma imagem que o cache
   // local ainda não tivesse aparecia partida e não caía para o CDN.
-  for (const alvo of ['#grid', '#deck-body', '#falta-body', '#fe-body']) {
+  for (const alvo of ['#grid', '#deck-body', '#falta-body', '#fe-body', '#am-body']) {
     $(alvo).addEventListener('error', imgFallback, true);
   }
 
@@ -1755,8 +1759,9 @@ async function chegouTudo(botao) {
 }
 
 /* Os separadores de cima. `faltas` é o «Quanto custa» (o id ficou de quando
-   era as faltas); `faltas-edicao` é o separador «Faltas» de 2026-09-15. */
-const SECCOES = ['colecao', 'decks', 'faltas', 'faltas-edicao'];
+   era as faltas); `faltas-edicao` é o separador «Faltas» de 2026-09-15;
+   `a-mais` é o «A mais» de 2026-09-17. */
+const SECCOES = ['colecao', 'decks', 'faltas', 'faltas-edicao', 'a-mais'];
 
 function showSection(name) {
   state.prefs.section = name;
@@ -1766,6 +1771,7 @@ function showSection(name) {
   $('#deck-tabs').hidden = name !== 'decks';
   $('#falta-tabs').hidden = name !== 'faltas';
   $('#fe-tabs').hidden = name !== 'faltas-edicao';
+  $('#am-tabs').hidden = name !== 'a-mais';
   for (const b of document.querySelectorAll('#section-tabs .tab')) {
     b.classList.toggle('is-on', b.dataset.section === name);
   }
@@ -1775,6 +1781,8 @@ function showSection(name) {
     $('#falta-body').innerHTML = `<p class="empty">${escapeHTML(err.message)}</p>`);
   if (name === 'faltas-edicao' && !state.faltasEdicao) loadFaltasEdicao().catch(err =>
     $('#fe-body').innerHTML = `<p class="empty">${escapeHTML(err.message)}</p>`);
+  if (name === 'a-mais' && !state.aMais) loadAMais().catch(err =>
+    $('#am-body').innerHTML = `<p class="empty">${escapeHTML(err.message)}</p>`);
 }
 
 
@@ -2074,6 +2082,148 @@ function feTile(x) {
       x.price != null ? ` · ${eur(x.price)}` : ' · sem preço'}</div>
     ${x.pending ? `<div class="onde caminho">${x.pending} a caminho${
       x.missing > 0 ? ` · ${x.missing} por comprar` : ''}</div>` : ''}
+  </div>`;
+}
+
+
+/* ====================================================== «A MAIS»
+
+   André, 2026-09-17: "cria um botao que e o 'a mais' onde vai todas as cartas
+   que estao listadas a mais ou que estavam num deck e deixaram de estar".
+   Vem tudo do servidor (`api/a_mais.json`, `a_mais.payload`): por edição, dois
+   blocos — o EXCEDENTE (mais cópias do que o alvo que a Coleção e os decks já
+   usam: «tens 5, queres 3 -> 2 a mais») e as LIBERTADAS DOS DECKS (o que uma
+   lista pedia e deixou de pedir, lido do registo `deck_need_log`, que nasceu
+   nesta ordem e começa vazio). Só mostra: não muda alvos, não vende nada.
+
+   Os tiles são os `dtile` das Faltas — a carta com imagem, o crachá no canto
+   com o número que interessa (quantas a mais / quantas libertadas).       */
+
+async function loadAMais() {
+  $('#am-body').innerHTML = '<p class="empty">a carregar…</p>';
+  state.aMais = await getJSON('api/a_mais.json');
+  renderAmTabs();
+  renderAMais();
+}
+
+function renderAmTabs() {
+  const nav = $('#am-tabs');
+  const p = state.aMais;
+  nav.innerHTML = '';
+  const comBotao = p.sets.filter(s => s.button);
+  if (state.prefs.amSet !== 'all' && !comBotao.some(s => s.set === state.prefs.amSet)) {
+    state.prefs.amSet = 'all';
+  }
+  const botoes = [{ set: 'all', name: 'Todas', sub: amCurto(p.totals) },
+                  ...comBotao.map(s => ({ ...s, sub: amCurto({ excedente: s.excedente, libertadas: s.libertadas }) }))];
+  for (const s of botoes) {
+    const b = document.createElement('button');
+    b.className = 'tab' + (s.set === state.prefs.amSet ? ' is-on' : '');
+    b.innerHTML = `${escapeHTML(s.name)}<small>${escapeHTML(s.sub)}</small>`;
+    b.onclick = () => { state.prefs.amSet = s.set; savePrefs(); renderAmTabs(); renderAMais(); };
+    nav.appendChild(b);
+  }
+}
+
+/* «12 a mais · 3 libertadas» — o resumo curto de uma edição ou do total. */
+function amCurto(t) {
+  const partes = [];
+  if (t.excedente.copies) partes.push(`${t.excedente.copies} a mais`);
+  if (t.libertadas.copies) partes.push(`${t.libertadas.copies} libertadas`);
+  return partes.length ? partes.join(' · ') : 'nada a mais';
+}
+
+function renderAMais() {
+  const p = state.aMais;
+  const sel = state.prefs.amSet;
+  // «Todas» inclui a edição sem botão (o OGS): um excedente que não se vê é o
+  // contrário do que este separador é. Diz-se no cabeçalho dela.
+  const sets = p.sets.filter(s => sel === 'all' || s.set === sel);
+  const t = p.totals, h = p.history || {};
+  const semBotao = p.sets.filter(s => !s.button).map(s => s.name);
+
+  $('#am-head').innerHTML = `<div class="deck-card">
+    <div class="deck-title"><b>A mais</b>
+      <span class="prio">${plural(t.excedente.copies, 'cópia', 'cópias')} a mais · ${
+        plural(t.libertadas.copies, 'libertada', 'libertadas')} dos decks</span></div>
+    <div class="deck-meta">
+      <span><i>Excedente</i>${plural(t.excedente.cards, 'impressão', 'impressões')} · ${
+        plural(t.excedente.copies, 'cópia', 'cópias')}</span>
+      <span><i>Libertadas dos decks</i>${plural(t.libertadas.cards, 'carta', 'cartas')} · ${
+        plural(t.libertadas.copies, 'cópia', 'cópias')}</span>
+      <span><i>Registo dos decks</i>${h.since
+        ? `desde ${h.since.slice(0, 10)} · ${plural(h.events, 'mudança', 'mudanças')}`
+        : 'ainda vazio'}</span>
+    </div>
+    <small class="nota"><b>Excedente</b>: cópias acima do alvo que a Coleção e os decks
+      já usam — playset na sequência, 1 nas artes alternativas e sobrenumeradas
+      (ou o que os decks jogam), e o que está escondido (tokens, signatures, runas
+      sem numeração) não tem alvo. O que os decks levam nunca conta como a mais.
+      <b>Libertadas dos decks</b>: o que uma lista pedia e deixou de pedir — o
+      registo nasceu a 2026-09-17 e só sabe do que mudou desde então.
+      Isto só mostra: não muda alvos nem contas, e não é uma lista de venda.${
+      semBotao.length ? `<br>Sem botão próprio: ${semBotao.map(escapeHTML).join(', ')} — aparece em «Todas».` : ''}</small>
+  </div>`;
+
+  $('#am-body').innerHTML = sets.map(s => `
+    <h2 class="section-head qc-set fe-set">${escapeHTML(s.name)}
+      <span>${amResumo(s)}</span></h2>
+    <h3 class="section-head sub fe-bloco am-excedente">Excedente
+      <small>mais cópias do que o alvo</small>
+      <span>${s.excedente.copies ? `<b>${plural(s.excedente.copies, 'cópia', 'cópias')}</b> a mais em ${
+        plural(s.excedente.cards, 'impressão', 'impressões')}` : 'nada a mais'}</span></h3>
+    ${s.excedente.items.length
+      ? `<div class="grid deck-grid fe-grid">${s.excedente.items.map(amTile).join('')}</div>`
+      : '<p class="empty fe-vazio">Nada acima do alvo nesta edição.</p>'}
+    <h3 class="section-head sub fe-bloco am-libertadas">Libertadas dos decks
+      <small>estavam numa lista e deixaram de estar</small>
+      <span>${s.libertadas.copies ? `<b>${plural(s.libertadas.copies, 'cópia', 'cópias')}</b> de ${
+        plural(s.libertadas.cards, 'carta', 'cartas')}` : 'nenhuma'}</span></h3>
+    ${s.libertadas.items.length
+      ? `<div class="grid deck-grid fe-grid">${s.libertadas.items.map(amLibTile).join('')}</div>`
+      : `<p class="empty fe-vazio">${h.since
+          ? 'Nenhum deck libertou cartas desta edição desde que há registo.'
+          : 'O registo do que os decks pedem ainda está vazio — enche a partir da próxima vez que uma lista mudar.'}</p>`}`).join('');
+}
+
+function amResumo(s) {
+  const partes = [];
+  if (s.excedente.copies) partes.push(`<b>${s.excedente.copies}</b> a mais`);
+  if (s.libertadas.copies) partes.push(`<b>${s.libertadas.copies}</b> libertadas`);
+  return partes.length ? partes.join(' · ') : 'nada a mais';
+}
+
+/* Um tile do excedente: a arte, «N a mais» no canto, «tens H/T» em baixo, e
+   de onde vem (Coleção / binder) e o que os decks levam. */
+function amTile(x) {
+  const origem = [x.from_colecao ? `${x.from_colecao} na Coleção` : '',
+                  x.from_binder ? `${x.from_binder} no binder` : ''].filter(Boolean).join(' · ');
+  return `<div class="dtile a-mais${x.hidden ? ' escondida' : ''}">
+    ${artHTML(x, `<span class="need">${x.extra} a mais</span>
+      <span class="ja-tens">tens ${x.have}/${x.hidden ? '–' : x.target}</span>`)}
+    <div class="tname" title="${escapeAttr(x.name)}">${escapeHTML(x.name)}${
+      x.label && x.label !== 'Base' ? ` <i class="var">${escapeHTML(x.label)}</i>` : ''}</div>
+    <div class="codigo">${escapeHTML((x.code || '').split('/')[0])}${
+      x.price != null ? ` · ${eur(x.price)}` : ''}</div>
+    <div class="onde tenho">${escapeHTML(origem)}${
+      x.used ? ` · ${x.used} nos decks` : ''}${
+      x.hidden ? ` · <i>${escapeHTML(x.block_label)}, sem alvo</i>` : ''}</div>
+  </div>`;
+}
+
+/* Um tile das libertadas: a carta, «N libertadas» no canto, de que deck saiu
+   e quando, e quem ainda a pede. */
+function amLibTile(x) {
+  const ainda = (x.still_wanted || []).map(d => `${escapeHTML(deckCurto(d.deck))} ${d.qty}`).join(' · ');
+  return `<div class="dtile a-mais libertada">
+    ${artHTML(x, `<span class="need">${x.qty} ${x.qty === 1 ? 'libertada' : 'libertadas'}</span>
+      <span class="ja-tens">tens ${x.have}</span>`)}
+    <div class="tname" title="${escapeAttr(x.name)}">${escapeHTML(x.name)}</div>
+    <div class="codigo">${escapeHTML((x.code || '').split('/')[0])}${
+      x.price != null ? ` · ${eur(x.price)}` : ''}</div>
+    <div class="onde tenho" title="${escapeAttr(x.deck)}">saiu de ${
+      escapeHTML(deckCurto(x.deck))} a ${escapeHTML((x.ts || '').slice(0, 10))}</div>
+    <div class="onde ${ainda ? 'shared' : 'tenho'}">${ainda ? `ainda pedida: ${ainda}` : 'nenhum deck a pede'}</div>
   </div>`;
 }
 

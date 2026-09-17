@@ -27,6 +27,9 @@ data/locais.log
 # O mesmo para as encomendas (2026-09-11): o registo a sério é a tabela
 # `pending` e o `ops` do vault.db; o CSV é só para ler.
 data/encomendas.log
+# E para o que cada deck pede (2026-09-17, «A mais»): a tabela `deck_need_log`
+# do vault.db é o registo; o CSV é a cópia legível.
+data/decks.log
 data/serve.log
 
 # O `site/` (build estático do modo publicado) NÃO entra aqui desde 2026-09-10:

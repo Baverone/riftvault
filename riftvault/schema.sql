@@ -102,6 +102,31 @@ CREATE TABLE IF NOT EXISTS deck_cards (
     PRIMARY KEY (deck_id, card_key, role)
 );
 
+-- O HISTÓRICO do que cada deck PEDE (2026-09-17, para o separador «A mais»:
+-- *"cartas que estavam num deck e deixaram de estar"*).
+--
+-- Até aqui não havia registo nenhum: a alocação aos decks é recalculada a
+-- cada leitura a partir dos `decks/*.txt`, e a `copy_locations` só guarda o
+-- que o André marca à mão (vazia no vault.db real). Uma carta que saía de uma
+-- lista desaparecia sem rasto. Isto é o rasto: uma linha por (deck, carta)
+-- de cada vez que a quantidade PEDIDA muda, escrita no fim do
+-- `decks.import_all` — o único sítio por onde as listas entram. A última
+-- linha por (deck, carta) é o estado; uma descida é uma libertação.
+--
+-- É o que a lista PEDE, não o que está alocado: a alocação também desce quando
+-- ele vende uma cópia, e isso não é «saiu do deck». Um deck apagado deixa
+-- todas as cartas dele a 0, com o rótulo guardado para o ecrã.
+CREATE TABLE IF NOT EXISTS deck_need_log (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts          TEXT    NOT NULL,
+    slug        TEXT    NOT NULL,
+    deck        TEXT    NOT NULL,   -- rótulo na altura (o deck pode já não existir)
+    card_key    TEXT    NOT NULL,
+    qty_before  INTEGER NOT NULL,
+    qty_after   INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ix_deck_need_log_carta ON deck_need_log(slug, card_key, id DESC);
+
 -- O histórico de preços vive no `prices.db` (ver riftvault/prices_schema.sql):
 -- é escrito pelo robô do GitHub Actions, e não pode partilhar ficheiro com a
 -- coleção sob pena de conflitos binários que custariam dados ao André.

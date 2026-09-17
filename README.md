@@ -46,20 +46,14 @@ Tudo o que carregares nos `+` e `−` é escrito no `data/vault.db`.
 No Windows há o atalho `riftvault.cmd`, por isso dá para escrever só
 `riftvault serve`.
 
-### Chegar ao servidor de fora de casa
+### O modo edição é só para casa
 
 **O riftvault não tem autenticação.** Quem chegar ao URL pode escrever na
 coleção. Em casa não faz diferença; exposto à internet faz toda.
 
 Por isso: **não abras o porto no router**, e não uses ngrok nem tunnels
-públicos sem autenticação por cima. Usa uma rede privada:
-
-1. Instala o [Tailscale](https://tailscale.com/download) no PC e no telemóvel
-2. Entra com a mesma conta nos dois
-3. O `riftvault serve` passa a mostrar-te o endereço `100.x.y.z` e o QR
-
-Funciona em qualquer rede e nada fica exposto. O PC tem de estar ligado com o
-servidor a correr.
+públicos sem autenticação por cima. O `riftvault serve` mostra só os
+endereços da rede local; o da LAN nunca vai para o site publicado.
 
 Se lá fora só quiseres **consultar**, o modo publicado (GitHub Pages) chega e
 não precisa do PC ligado.
@@ -230,6 +224,34 @@ essa data ficou revogado. Cada carta mostra o que os decks pedem ao todo.
 A carência aqui é **global** — soma-se o que todos os decks pedem e desconta-se
 o que tens — e dá a mesma soma que a secção Decks: a alocação por prioridade
 diz quem fica com o quê, e o que sobra por deck é o que esse deck compra.
+
+## A mais
+
+Quinta secção (17/09/2026): *"todas as cartas que estao listadas a mais ou
+que estavam num deck e deixaram de estar"*. Um botão por edição (o OGS fica
+sem botão mas aparece em «Todas»), e em cada edição dois blocos, com a
+**carta em imagem** e o crachá a dizer o número:
+
+- **Excedente** — impressões de que tens **mais cópias do que o alvo** que a
+  Coleção e os decks já usam: playset na sequência, 1 nas artes alternativas
+  e sobrenumeradas (ou o que os decks jogam, nas alt arts), e o que está
+  escondido (tokens, signatures, runas sem numeração) não tem alvo e sobra
+  inteiro, marcado. A conta é `cópias − max(usadas nos decks, alvo)`: **o que
+  os decks levam nunca é a mais**, o que está no binder Decks/Venda e nenhum
+  deck pede é, e o que está sleevado num deck nunca aparece. «tens 5, queres
+  3 → 2 a mais».
+- **Libertadas dos decks** — o que uma lista de deck **pedia e deixou de
+  pedir** (carta tirada da lista, quantidade baixada, ou o deck apagado), com
+  a data, quantas tens e quem ainda a pede. **O registo nasceu a
+  17/09/2026 e começa vazio**: o riftvault não guardava o que os decks
+  pediam — a alocação é recalculada a cada leitura —, por isso só sabe do
+  que mudou desde então. Escreve-se no fim de cada importação das listas
+  (`deck_need_log` no vault.db; cópia legível em `data/decks.log`).
+
+**Só mostra.** Não muda alvos nem contas — a percentagem, a wantlist, a
+falta dos decks e o valor ficam iguais — e não é a Venda: não há preço de
+venda nem lista para o Cardmarket. `api/a_mais.json`; na consola,
+`py -m riftvault a-mais [--edicao OGN]`.
 
 ## Wantlist do Cardmarket
 

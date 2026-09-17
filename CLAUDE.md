@@ -8,9 +8,11 @@ Gestor pessoal da coleção de **Riftbound** (TCG da Riot), do André. Python +
 SQLite, mesma arquitetura do `mtgvault`. Objetivo: ter **playsets**, incluindo
 artes normais **e** alternativas.
 
-Secções: **Coleção**, **Decks**, **Quanto custa** e **Faltas** (a quarta é de
+Secções: **Coleção**, **Decks**, **Quanto custa**, **Faltas** (a quarta é de
 2026-09-15 ao fim da tarde — por edição, três blocos; id interno
-`faltas-edicao`, `api/faltas_edicao.json`, `faltas_edicao.py`; ver a última
+`faltas-edicao`, `api/faltas_edicao.json`, `faltas_edicao.py`) e **A mais**
+(2026-09-17 — o excedente acima do alvo e as cartas libertadas dos decks; id
+`a-mais`, `api/a_mais.json`, `a_mais.py` + `uso_decks.py`; ver a última
 secção deste ficheiro). O «Quanto custa» (chamou-se **Faltas** até
 2026-09-15 de manhã e mostrou as faltas até à tarde desse dia; **desde
 2026-09-15 à tarde é a TABELA DE PREÇOS** — o top 5 mais caras por raridade,
@@ -66,13 +68,17 @@ UDP encontram a interface secundária quando a principal tem métrica melhor —
 os dois foram testados. É preciso perguntar ao sistema (`ipconfig` no Windows,
 `ip -4 -o addr` no resto).
 
-Isto continua a acontecer enquanto for DHCP. A cura é o Tailscale, que dá um
-endereço fixo.
+Isto continua a acontecer enquanto for DHCP; o `serve` lista os endereços
+todos e é isso que há.
 
-Para acesso de fora, a resposta é **Tailscale** (rede privada entre os
-dispositivos dele), não port forwarding nem tunnels públicos. O
-`server.tailscale_ip()` deteta a tailnet e o banner de arranque mostra esse
-endereço e o QR quando existe.
+**O Tailscale saiu (2026-09-17).** Esteve recomendado como o caminho para
+chegar ao servidor de fora de casa (rede privada entre os dispositivos dele);
+o André mandou esquecê-lo e desinstalou-o do PC. O `server.tailscale_ip()` e
+as linhas do banner que o mencionavam foram apagados nesse dia: o banner
+mostra só o acesso local. Não há hoje maneira de chegar ao modo edição de
+fora de casa, e é assim de propósito — sem autenticação, o modo edição é só
+para a LAN; port forwarding e tunnels públicos continuam fora de questão. O
+IP da LAN nunca vai para nada que se publique no GitHub Pages.
 
 Se algum dia for preciso expor mesmo, aí sim é preciso autenticação primeiro —
 não inverter a ordem.
@@ -3065,4 +3071,67 @@ edição do Ornn/Azir, mas estão fora do catálogo — a regra lê a RiftScribe
 (3) uma runa que caia para a base aceita qualquer impressão que não seja alt
 art (a base e as `VEN-R` escondidas), como antes de 16/09.
 `tests/test_runas_legend.py` (15 testes, contra cópias e config temporário).
+
+## 17/09/2026 — o separador «A mais» (`a_mais.py`, `uso_decks.py`)
+
+Palavras dele: *"agora cria um botao que e o 'a mais' onde vai todas as
+cartas que estao listadas a mais ou que estavam num deck e deixaram de
+estar"*. Ramo `ai-pc/a-mais-2026-09-17`; relatório em
+`ai-pc/work/revisao/riftvault-a-mais.md`.
+
+**Quinta secção**, id `a-mais` (`#a-mais`, `#am-tabs`, `#am-head`/`#am-body`,
+`prefs.amSet`, `state.aMais`), rota `/api/a_mais.json`, `riftvault a-mais
+[--edicao X]`. Um botão por edição menos o OGS (`a_mais.sem_edicoes`, como
+no «Quanto custa») — **mas o OGS aparece em «Todas»**: um excedente que não
+se vê é o contrário do que o separador é. Os tiles são os `dtile` das Faltas
+(`artHTML`), com o crachá a dizer o número; dois blocos por edição com ponto
+de cor (`.fe-bloco.am-excedente/.am-libertadas`).
+
+**1. Excedente — a conta da Venda, sem a Venda.** A Venda (apagada a 15/09)
+tinha o `venda.excedente`; o que se reaproveitou foi a FRASE, `cópias −
+max(usadas nos decks, alvo)`, com as duas origens (binder Decks/Venda que
+nenhum deck pede; Coleção acima do alvo) e o sleevado num deck nunca a
+aparecer. Diferenças: **a sequência do master set entra** (a quarta cópia de
+uma Unit é a mais — a Venda tirava-a por omissão), o alvo é o
+`metrics.alvo(r, cfg, procura)` da grelha (uma alt art que um deck joga
+nunca sobra), o escondido tem alvo 0 e sobra inteiro marcado (`hidden`), e as
+usadas lêem-se de UMA `decks.allocate` (`grupo.impressoes`, pelo líder) em
+vez das três `*_allocation`. **Ficou de fora:** vender, totais em euros como
+argumento, comuns e incomuns, texto do Cardmarket. O preço aparece só na
+linha da carta.
+
+**2. Libertadas dos decks — NÃO HAVIA HISTÓRICO, e passou a haver.** A
+alocação é recalculada a cada leitura; a `copy_locations`/`location_ops`
+guardam só o que ele marca à mão e estão VAZIAS no vault.db real; a `ops`
+conta cópias, não pedidos. Não se adivinhou o passado: a tabela
+`deck_need_log` (vault.db, committada; CSV legível `data/decks.log`, no
+`.gitignore`) regista uma linha por (deck, carta) de cada vez que a
+quantidade PEDIDA pela lista muda, escrita no fim do `decks.import_all` — o
+único sítio por onde as listas entram (servidor, build, CLI). Só escreve
+quando difere da última linha, por isso a regra de «importação sem
+alterações não toca no vault.db» fica de pé. **É o PEDIDO, não a alocação**:
+a alocação desce quando ele vende uma cópia, e isso não é «saiu do deck».
+Um deck apagado deixa todas as cartas dele a 0, com o rótulo guardado.
+Libertada = a última linha por (deck, carta) é uma descida; voltar a pôr a
+carta tira-a; a página diz quantas ele tem e quem ainda a pede
+(`still_wanted`). **O bloco começa vazio** — a primeira importação depois do
+merge escreve o ponto de partida (146 linhas no `data/` real, `0 -> N`, que
+não são libertações) e só o que mudar a partir daí aparece. A página e o
+CLI dizem desde quando há registo (`history.since`).
+
+**Medido a 2026-09-17 contra uma cópia do `data/` real, `main` (`9cb6c2a`)
+e ramo na mesma corrida — os invariantes NÃO mexem:** denominador **928**
+(298+24+221+219+166), níveis **92,5 / 83,6 / 76,6 %** (faltam 70/212/419 ·
+309,58/910,08/1 616,09 €), wantlist «tudo» **213 linhas · 406 cópias ·
+1 392,96 €**, valor **2 861,10 €**, falta dos decks **26 cópias · 14 cartas ·
+80,41 €**. O separador: **136 cópias a mais em 66 impressões** — OGN 18/8,
+OGS 0, SFD 9/5, UNL 104/48, VEN 5/5 —, das quais 16 escondidas (8 tokens
+`UNL-T`, o `SFD-T03` ×5, `VEN-T04`, `VEN-R01`, `VEN-R04`); libertadas **0**
+(registo acabado de nascer).
+
+**O Tailscale saiu no mesmo ramo** — `server.tailscale_ip()` e as linhas do
+banner, o README e a secção «Sem autenticação» deste ficheiro; o banner
+mostra só o acesso local.
+
+`tests/test_a_mais.py` (16 testes, contra cópias e config temporário).
 
