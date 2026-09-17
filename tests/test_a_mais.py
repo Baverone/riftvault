@@ -181,12 +181,15 @@ class TestExcedente(Base):
         # O deck leva a sleevada + 2 da Coleção; a Coleção tem 5 − max(2, 3) = 2 a mais.
         self.assertEqual((x["from_binder"], x["from_colecao"], x["extra"]), (0, 2, 2))
 
-    def test_a_alt_art_que_o_deck_joga_sobe_o_alvo_e_nao_sobra(self):
+    def test_a_alt_art_de_uma_carta_do_main_sobra_acima_de_1_mesmo_com_deck(self):
+        """O main joga a base (2026-09-17, «voltar atrás»): o alvo da Alt Art
+        é 1 e não sobe com o deck, e as 3 alt arts do Defy dão 2 a mais — o
+        deck não as usa. (De 16/09 a 17/09 o deck jogava-as e nada sobrava.)"""
         con = self.montar(decks={"azir": AZIR})
         self.ter(con, "tst-001a-100", 3)
         self.ter(con, "tst-003-100", 1)
-        # O deck joga em Alt Art (2026-09-16): alvo 3, usa 3 -> nada a mais.
-        self.assertIsNone(self.exc(con, "tst-001a-100"))
+        x = self.exc(con, "tst-001a-100")
+        self.assertEqual((x["target"], x["used"], x["extra"]), (1, 0, 2))
         (self.v.decks_dir / "azir.txt").unlink()
         self.decks.import_all(con, log=lambda *_: None)
         x = self.exc(con, "tst-001a-100")
@@ -271,9 +274,9 @@ class TestNaoMexe(Base):
         self.assertEqual(self.decks.resumo_das_faltas(con), falta)
         self.assertEqual(con.execute("SELECT SUM(qty) FROM copies").fetchone()[0], valor)
         # E a alocação dos decks não vê o excedente como coisa nenhuma: o
-        # Brutalizer a mais não desconta nem soma à falta — que é 3 Defy em
-        # Alt Art (a base não serve, 2026-09-16) e o Legend.
-        self.assertEqual(falta["copies"], 4)
+        # Brutalizer a mais não desconta nem soma à falta — que é 2 Defy (a
+        # base serve, 2026-09-17; ele tem 1) e o Legend (só existe em base).
+        self.assertEqual(falta["copies"], 3)
 
     def test_o_ogs_fica_sem_botao_mas_aparece_em_todas(self):
         con = self.montar()

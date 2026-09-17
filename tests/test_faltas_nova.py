@@ -159,14 +159,13 @@ class TestTresBlocos(Base):
 
     def test_arte_alternativa_com_0_de_1_falta_1_e_com_1_esta_completa(self):
         """1 de cada desde 2026-09-16 (*"Alt Art e Overnumbered e assim quero
-        apenas 1 de cada"*); o que um deck lhe acrescenta está em
-        `test_altart_decks.py`."""
+        apenas 1 de cada"*) — e desde 2026-09-17 os decks não lhe acrescentam
+        nada (`test_voltar_1.py`)."""
         con = self.montar()
         p = self.fe.payload(con)
         x = self.item(p, "AAA", "alt_art", "aaa-001a")
         self.assertEqual((x["have"], x["target"], x["missing"]), (0, 1, 1))
-        self.assertEqual(self.bloco(p, "AAA", "alt_art")["target_label"],
-                         "1 de cada, ou o que os decks jogam")
+        self.assertEqual(self.bloco(p, "AAA", "alt_art")["target_label"], "1 de cada")
         # E não está no bloco do master set, mesmo tendo o número da base.
         self.assertIsNone(self.item(p, "AAA", "master", "aaa-001a"))
         self.collection.adjust(con, "aaa-001a", 1, source="test")
