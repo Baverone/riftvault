@@ -94,9 +94,11 @@ na mesma — só as imagens é que não aparecem.
 
 ## Ordenar e filtrar a grelha
 
-- **Ordem:** três blocos seguidos, nunca intercalados. Primeiro a **sequência
-  do master set**, por número de coleção; depois **as runas especiais, 1 de
-  cada**; depois **as artes alternativas, 1 de cada**. Os três contam para a
+- **Ordem:** blocos seguidos, nunca intercalados. Primeiro a **sequência
+  do master set**, por número de coleção; depois **as runas especiais**
+  (bloco que hoje está **vazio** — as artes alternativas das runas do OGN
+  saíram de tudo a 2026-09-17, ver «As runas em Alt Art» abaixo); depois
+  **as artes alternativas, 1 de cada**. Só a sequência conta para a
   percentagem. Só no fim vem o que está **fora da coleção** — os tokens (código
   `-T`), as signatures (código `*`), as **sobrenumeradas** (as «300/298») e as
   **promos** (`VEN-SP4`) —, cada um com o seu contador e a dizer que **não**
@@ -155,8 +157,9 @@ imagem** e o crachá a dizer **quantas faltam**.
 
 - Um botão por edição (o OGS entra) e «Todas», cada edição com **Master set**
   (a sequência, alvo do tipo — Unit/Spell/Gear 3, Legend e Battlefield 1,
-  runas numeradas 3), **Alt Art** (as artes alternativas, playset — as das
-  runas do OGN incluídas) e **OverNumbered** (as sobrenumeradas, 1 de cada).
+  runas numeradas 3), **Alt Art** (as artes alternativas, 1 de cada — ou o
+  que os decks pedem, se for mais; **sem as das runas**, que saíram de tudo
+  a 2026-09-17) e **OverNumbered** (as sobrenumeradas, 1 de cada).
   Cada bloco diz quantas faltam e quanto custa fechar; a edição soma os três.
 - **O que vem a caminho conta.** Uma carta já encomendada aparece a azul
   tracejado, «a caminho», e **não soma** ao que há a comprar; uma parcialmente
@@ -185,15 +188,15 @@ decks nas abas do separador **Decks**, a seguir às Encomendas
   decks. Cada tile diz quantos decks a querem e quais.
 - **Decks → Por deck** — o que falta a cada deck, agrupado por edição.
 - **Decks → Pimp decks** — as versões **alteradas** das cartas que os teus decks usam:
-  artes alternativas e showcase. Sem signatures e sem as runas promo do VEN
-  — nas runas o que se pimpa é a arte alternativa. Dá para vetar impressões
-  à peça em `pimp_ignorar_impressoes` (as sobrenumeradas caras); a carta
-  continua lá pelas outras versões. Muda-se em
-  `pimp_ignorar_tipos`. Mostra só **o que falta comprar**: desconta o que já tens e o que vem a
-  caminho. Nas runas mostra a versão da **edição do Legend do deck**. Algumas dessas
-  impressões (as runas do SFD, UNL e VEN) a RiftScribe ainda não tem; vêm do
-  CardTrader e aparecem marcadas **"fora do catálogo"** — não contam para as
-  métricas da Coleção, só servem para comprar.
+  artes alternativas e showcase. Sem signatures e sem promos de runa
+  (`pimp_ignorar_tipos`), e **sem runas nenhumas desde 2026-09-17**: a runa
+  em arte alternativa está retirada de tudo (ver «As runas em Alt Art»
+  abaixo) e não é versão para pimpar — nem as do catálogo (`OGN-042a`) nem
+  as que só o CardTrader tem (`SFD-R02a`), que antes apareciam marcadas
+  **"fora do catálogo"**. Dá para vetar impressões à peça em
+  `pimp_ignorar_impressoes` (as sobrenumeradas caras); a carta continua lá
+  pelas outras versões. Mostra só **o que falta comprar**: desconta o que já
+  tens e o que vem a caminho.
 
   Arrumado **por deck**, nunca por edição: a vista **Todas** tem uma
   secção por deck, e há sub-abas para veres um de cada vez com a quantidade
@@ -269,8 +272,9 @@ gerador (`riftvault/cardmarket.py`):
   `--todas` (tudo o que falta ao master set).
 
 As wantlists da Coleção são a lista completa do que falta ao master set
-(`a_subir.master_faltas`), cortada por edição: os mesmos alvos dos três blocos (playset na sequência, 1 por runa, 1 por
-runa especial, 1 por arte alternativa), a mesma regra *cópias + a caminho <
+(`a_subir.master_faltas`), cortada por edição: só a sequência (as runas
+numeradas a 3, como o resto; a coleção extra fica fora por
+`listas_de_compra.so_master_set`), a mesma regra *cópias + a caminho <
 alvo* e a mesma exclusão dos showcases. Em modo edição, um `+` ou
 um `−` marca-as como desatualizadas e aparece um botão **Atualizar** — não se
 volta a pedir o ficheiro sozinho.
@@ -348,9 +352,9 @@ Unit/Spell/Gear 3, Battlefield 1, Legend 1, Rune 12, tokens 1.
 
 | bloco | o que é | alvo por impressão |
 |---|---|---|
-| 1 | a sequência do master set, por número de coleção | o **playset do tipo** (Unit/Spell/Gear 3, Legend e Battlefield 1) — **menos as runas, que são 1** |
-| 2 | as runas especiais (a runa que não é a base), por edição | **1** |
-| 3 | as artes alternativas | **1** |
+| 1 | a sequência do master set, por número de coleção | o **playset do tipo** (Unit/Spell/Gear 3, Legend e Battlefield 1, **runas 3** desde 2026-09-15 — `master_targets_by_type`) |
+| 2 | as runas especiais (a runa que não é a base), por edição | **1** — bloco **vazio** desde 2026-09-17, ver «As runas em Alt Art» abaixo |
+| 3 | as artes alternativas | **1** (2026-09-16), ou o que os decks pedem se for mais |
 
 Os três contam para a percentagem: hoje são **1036 impressões** no denominador.
 As runas promo (`VEN-R01`) estão no bloco 2, com as outras runas especiais.
@@ -367,8 +371,9 @@ overnumbered"*), que aparecem em blocos informativos no fim da grelha, com alvo
 diferentes, e são as 12 que enchem o Rune Pool de um deck.
 
 Os ajustes: `master_targets_by_variant` é o alvo fixo por variante,
-`runas_especiais` é a regra das runas (o que é runa, que alvo tem, e quais
-ficam na sequência), `master_variantes_playset` diz quais as variantes que
+`runas_especiais` é a regra das runas (`tipos`: o que é runa; `excepto`: quais
+ficam na sequência; `retiradas`: quais deixam de existir para o riftvault —
+hoje `["a"]`), `master_variantes_playset` diz quais as variantes que
 seguem o playset em vez do alvo fixo (está **vazio**), e `master_set.fora` é o
 que fica fora da coleção.
 
@@ -456,6 +461,34 @@ contavam); o que desapareceu foi o bloco «runas especiais» do Vendetta.
 
 O nome antigo desta lista era `master_ignorar_variantes`; um config que ainda
 o traga continua a funcionar.
+
+### As runas em Alt Art saíram de tudo (2026-09-17)
+
+Frase tua: *"deixa as runas Alt Art, **nao incluas em nada**"*. Uma runa em
+arte alternativa (`OGN-007a..214a`, e as `SFD/UNL/VEN-R0Xa` que só o
+CardTrader tem) é uma impressão **retirada**: não aparece na Coleção, não
+conta para o master set nem para o denominador, não entra em wantlist
+nenhuma, não aparece no Faltas, no Quanto custa, no A mais nem no Pimp, **não
+conta para o valor nem para o playset jogável**, e os decks jogam a runa
+**base**. É mais do que «escondida» — um token escondido ainda vale dinheiro e
+aparece no A mais; uma retirada não existe para o riftvault. As cópias que
+tens **não saem da base** (as 6 `OGN-042a` continuam gravadas), só ninguém
+as lê.
+
+O que **não** mudou: as runas base do master set (as 6 do OGN) pedem **3**,
+como as outras cartas; as artes alternativas e as sobrenumeradas de cartas
+que não são runas continuam a **1 de cada**, e os decks pedem a arte
+alternativa por cima sempre que ela existir (2026-09-16).
+
+Escreve-se em `runas_especiais.retiradas` (hoje `["a"]`, com a mesma
+gramática das listas do `master_set`); a pergunta responde-se numa função só,
+`metrics.retirada`, a que a Coleção, o valor, os decks, o Pimp e o A mais
+perguntam todos. `tipos: []` desliga — sem «runa» não há runa retirada. Para
+elas voltarem a tudo é reverter o merge `f1dbd5b`.
+
+Houve nessa manhã uma regra intermédia — os decks a pedir a arte alternativa
+da runa **da edição da Legend** — que durou umas horas e saiu inteira do
+código com esta; não existe.
 
 Não se distingue foil de normal: uma cópia é uma cópia.
 
