@@ -501,13 +501,17 @@ def propor_deck(con: sqlite3.Connection, slug: str) -> dict:
               (r["set_id"] for r in con.execute(
                   "SELECT DISTINCT set_id FROM catalog.printings"))}
 
+    # Só o que o deck JOGA (2026-09-16): numa carta com arte alternativa a
+    # proposta nunca tira a base da Coleção — o deck quer a Alt Art.
+    com_alt = decks_mod.cartas_com_alt_art(con)
     por_carta: dict[str, list] = {}
     for r in con.execute(
         "SELECT printing_id, card_key, public_code, name, set_id, variant_kind, "
         "       variant_label, api_sort, orientation, image_medium, image_large, "
         "       image_url FROM catalog.printings"
     ):
-        if r["card_key"] in pedidas and colecao.get(r["printing_id"], 0) > 0:
+        if (r["card_key"] in pedidas and colecao.get(r["printing_id"], 0) > 0
+                and decks_mod.joga_esta(r, com_alt)):
             por_carta.setdefault(r["card_key"], []).append(r)
 
     itens = []

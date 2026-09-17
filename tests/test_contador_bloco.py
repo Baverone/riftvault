@@ -30,6 +30,24 @@ from tests.fixture import Vault
 
 class TestContadorDoBloco(unittest.TestCase):
     def setUp(self):
+        # O config de 2026-09-15: as artes alternativas a PLAYSET. Desde
+        # 2026-09-16 pedem 1 de cada (`um_de_cada` leva o "a") e já nenhum
+        # bloco pede playset por omissão — mas o cabeçalho com as duas contas
+        # («tens 2 de 6 · 0 no playset completo») continua a existir para um
+        # bloco que peça mais do que 1, e é isso que aqui se fixa. Escreve-se
+        # um config próprio; o real nunca se toca.
+        import json
+        import os
+        import tempfile
+        caminho = Path(tempfile.gettempdir()) / "riftvault-contador-bloco.json"
+        # O `master_set` substitui-se inteiro (o `config.load` funde só o
+        # primeiro nível), por isso vão as três listas.
+        caminho.write_text(json.dumps(
+            {"master_set": {"fora_da_percentagem": ["a", "overnumbered", "promo"],
+                            "escondidas": ["-T", "*", "-R"],
+                            "um_de_cada": ["overnumbered", "promo"]}}), encoding="utf-8")
+        os.environ["RIFTVAULT_CONFIG"] = str(caminho)
+        self.addCleanup(lambda: os.environ.pop("RIFTVAULT_CONFIG", None))
         self.v = Vault()
         self.addCleanup(self.v.close)
         from riftvault import metrics

@@ -67,25 +67,29 @@ def _wanted(con: sqlite3.Connection) -> dict[str, dict]:
 
 
 def _cheapest(con: sqlite3.Connection, keys: list[str]) -> dict[str, dict]:
-    """card_key -> impressão base mais barata (onde se vai comprar)."""
+    """card_key -> impressão mais barata em que se compra: a base, ou a arte
+    alternativa nas cartas que a têm (`decks.compra_esta`, 2026-09-16)."""
     if not keys:
         return {}
+    com_alt = decks.cartas_com_alt_art(con)
     ordens = {s: config.set_order(s) for s in
               (r["set_id"] for r in con.execute("SELECT DISTINCT set_id FROM catalog.printings"))}
     ph = ",".join("?" * len(keys))
     best: dict[str, dict] = {}
     for r in con.execute(
         f"SELECT p.card_key, p.set_id, p.printing_id, p.public_code, p.orientation, "
-        f"       p.image_medium, p.image_large, p.image_url, pl.price_cents, "
-        f"       m.market_name, m.market_set, m.cardmarket_id "
+        f"       p.variant_kind, p.image_medium, p.image_large, p.image_url, "
+        f"       pl.price_cents, m.market_name, m.market_set, m.cardmarket_id "
         f"FROM catalog.printings p "
         f"LEFT JOIN catalog.price_latest pl ON pl.printing_id = p.printing_id "
         f"LEFT JOIN catalog.cardtrader_map m ON m.printing_id = p.printing_id "
-        f"WHERE p.card_key IN ({ph}) AND p.variant_kind = 'base'", keys
+        f"WHERE p.card_key IN ({ph})", keys
     ):
+        if not decks.compra_esta(r, com_alt):
+            continue
         cand = {
             "set": r["set_id"], "id": r["printing_id"], "code": r["public_code"],
-            "price": r["price_cents"],
+            "price": r["price_cents"], "alt_art": r["variant_kind"] == decks.KIND_ALT,
             "landscape": (r["orientation"] or "").lower() == "landscape",
             "img": f"img/{r['printing_id']}.webp",
             "cdn": r["image_medium"] or r["image_large"] or r["image_url"],
@@ -165,6 +169,7 @@ def shortfall(con: sqlite3.Connection) -> list[dict]:
             "set": c.get("set"), "code": c.get("code"),
             "img": c.get("img"), "cdn": c.get("cdn"),
             "landscape": c.get("landscape", False),
+            "alt_art": c.get("alt_art", False),
         })
     return out
 
@@ -195,12 +200,14 @@ def _agrupar(con: sqlite3.Connection, falta: dict[str, int]) -> list[dict]:
     # Em que outras edições existe a carta — dá-lhe alternativa se não
     # encontrar a versão mais barata.
     ph = ",".join("?" * len(falta))
+    com_alt = decks.cartas_com_alt_art(con)
     edicoes: dict[str, set] = {}
     for r in con.execute(
-        f"SELECT card_key, set_id FROM catalog.printings "
-        f"WHERE card_key IN ({ph}) AND variant_kind = 'base'", list(falta)
+        f"SELECT card_key, set_id, variant_kind FROM catalog.printings "
+        f"WHERE card_key IN ({ph})", list(falta)
     ):
-        edicoes.setdefault(r["card_key"], set()).add(r["set_id"])
+        if decks.compra_esta(r, com_alt):
+            edicoes.setdefault(r["card_key"], set()).add(r["set_id"])
     ordens = {s: config.set_order(s) for s in
               (r["set_id"] for r in con.execute("SELECT DISTINCT set_id FROM catalog.printings"))}
 
@@ -245,6 +252,7 @@ def _agrupar(con: sqlite3.Connection, falta: dict[str, int]) -> list[dict]:
             "card_key": k, "name": nomes.get(k, k), "qty": n,
             "code": c["code"], "price": c["price"], "total": (c["price"] or 0) * n,
             "img": c["img"], "cdn": c["cdn"], "landscape": c["landscape"],
+            "alt_art": c.get("alt_art", False),
             "also": sorted(edicoes.get(k, set()) - {c["set"]}),
             "market_name": c.get("market_name"), "market_set": c.get("market_set"),
             "cardmarket_id": c.get("cardmarket_id"),
@@ -432,7 +440,9 @@ def pimp(con: sqlite3.Connection) -> dict:
     # continua no Pimp pelas outras versões que tenha (ver `pimp_ignorar_impressoes`).
     fora_ids = set(cfg.get("pimp_ignorar_impressoes", []))
     tipos = _tipos(con)
-    tenho_carta = decks.owned_by_card(con)
+    # O «quantas tenho ao todo» — físico, de qualquer impressão. Não é o
+    # `decks.owned_by_card`, que desde 2026-09-16 só conta o que o deck joga.
+    tenho_carta = metrics.owned_by_card(con)
     ordens = {s: config.set_order(s) for s in
               (r["set_id"] for r in con.execute("SELECT DISTINCT set_id FROM catalog.printings"))}
     versoes = cardmarket.versoes(con)

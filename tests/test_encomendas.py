@@ -29,9 +29,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 # Antes do `Vault`, que é quem recarrega o `config` com as variáveis postas.
-os.environ["RIFTVAULT_CONFIG"] = str(Path(tempfile.gettempdir()) / "riftvault-nao-existe.json")
+# Os decks jogam a BASE aqui: estes testes descrevem as encomendas com a
+# partilha de 2026-09-11, que desde 2026-09-16 só vale para as cartas sem
+# arte alternativa — e o Defy deste catálogo tem uma. Ver
+# `fixture.config_decks_sem_alt_art`.
+from tests.fixture import Vault, config_decks_sem_alt_art  # noqa: E402
 
-from tests.fixture import Vault  # noqa: E402
+config_decks_sem_alt_art()
 
 AZIR = "Legend:\n1 Emperor of the Sands\n\nMainDeck:\n3 Defy\n3 Brutalizer\n"
 # OUTRA Legend (2026-09-11, noite): dois decks com a mesma Legend partilham
@@ -43,6 +47,8 @@ ORNN = ("Legend:\n1 Forge Master\n\nChampion:\n1 Spirit Blade\n\n"
 
 class Base(unittest.TestCase):
     def setUp(self):
+        # Outra vez aqui: um ficheiro corrido antes pode ter limpo a variável.
+        config_decks_sem_alt_art(self)
         self.v = Vault()
         self.addCleanup(self.v.close)
         from riftvault import a_subir, decks, faltas, locais, metrics, pending

@@ -101,22 +101,26 @@ class TestAlvo(Base):
         self.assertEqual(self.metrics.alvo(r), 1)
         con.close()
 
-    def test_a_arte_alternativa_continua_a_playset(self):
-        """Ele não as nomeou: *"Alt Art […] mete Playset na contagem"* fica."""
+    def test_a_arte_alternativa_pede_1_desde_2026_09_16(self):
+        """Ficou a playset a 09-15 porque ele não a nomeou; a 09-16 nomeou-a:
+        *"Alt Art e Overnumbered e assim quero apenas 1 de cada"*. O que os
+        decks lhe acrescentam está em `test_altart_decks.py`."""
         con = self.edicao()
         r = self.linhas(con)[self.ALT]
-        self.assertFalse(self.metrics.e_um_de_cada(r))
-        self.assertEqual(self.metrics.alvo(r), 3)
+        self.assertTrue(self.metrics.e_um_de_cada(r))
+        self.assertEqual(self.metrics.alvo(r), 1)
         con.close()
 
-    def test_as_runas_nao_sao_um_de_cada(self):
-        """O `um_de_cada` não lhes toca: pedem o do tipo — 3 desde a ordem
-        seguinte do mesmo dia (`test_runas_3.py`)."""
+    def test_as_runas_base_nao_sao_um_de_cada(self):
+        """O `um_de_cada` não toca na runa BASE: pede o do tipo — 3 desde a
+        ordem seguinte do mesmo dia (`test_runas_3.py`). A arte alternativa da
+        runa é uma arte alternativa e pede 1 desde 2026-09-16, no bloco das
+        runas especiais na mesma."""
         con = self.edicao()
         a = {pid: self.metrics.alvo(r) for pid, r in self.linhas(con).items()}
-        self.assertEqual((a["tst-002-100"], a[self.RUNA_ALT]), (3, 3))
-        for pid in ("tst-002-100", self.RUNA_ALT):
-            self.assertFalse(self.metrics.e_um_de_cada(self.linhas(con)[pid]))
+        self.assertEqual((a["tst-002-100"], a[self.RUNA_ALT]), (3, 1))
+        self.assertFalse(self.metrics.e_um_de_cada(self.linhas(con)["tst-002-100"]))
+        self.assertTrue(self.metrics.e_um_de_cada(self.linhas(con)[self.RUNA_ALT]))
         self.assertEqual(self.metrics.bloco(self.linhas(con)[self.RUNA_ALT]), "rune_special")
         con.close()
 
@@ -129,9 +133,10 @@ class TestAlvo(Base):
         self.assertEqual(self.metrics.rotulo("overnumbered"),
                          "Coleção — sobrenumeradas — 1 de cada")
         self.assertEqual(self.metrics.rotulo("special"), "Coleção — promos — 1 de cada")
-        # E o das artes alternativas continua a dizer playset.
+        # E o das artes alternativas diz 1 de cada desde 2026-09-16 — mais o
+        # que os decks jogam (`test_altart_decks.py`).
         self.assertEqual(self.metrics.rotulo("alt_art"),
-                         "Coleção — artes alternativas — playset")
+                         "Coleção — artes alternativas — 1 de cada, ou o que os decks jogam")
 
     def test_sem_a_lista_no_config_voltam_ao_playset(self):
         """`um_de_cada` é só o alvo: tirá-la do config é o mundo de 09-14."""
