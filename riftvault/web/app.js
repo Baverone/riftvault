@@ -1426,7 +1426,8 @@ function deckTile(c) {
     if (c.no_binder) partes.push(`${c.no_binder} por ir buscar ao binder Decks/Venda`);
     if (c.na_colecao) partes.push(`${c.na_colecao} na Coleção`);
     nota = `<div class="onde tenho">${partes.join(' · ')}</div>`;
-  } else if (c.printings.length) {
+  } else if (c.printings.length && (c.versoes || []).length <= 1) {
+    // Com a linha repartida por versão (abaixo) esta lista dizia o mesmo.
     nota = `<div class="onde tenho">${c.printings
       .map(x => `${x.qty}× ${escapeHTML(x.code || x.id)}`).join(' · ')}</div>`;
   }
