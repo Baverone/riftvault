@@ -116,6 +116,10 @@ DEFAULTS: dict = {
     # catálogo, menos estas — o OGS (Proving Grounds) a pedido dele, de quando
     # isto eram faltas. Ver `quanto_custa.py`.
     "quanto_custa": {"sem_edicoes": ["OGS"], "top_por_raridade": 5},
+    # O separador «A mais» (2026-09-17): o que ele tem acima do alvo e o que
+    # os decks libertaram. Um botão por edição, menos estas (o OGS, como no
+    # «Quanto custa»); a edição sem botão continua em «Todas». Ver `a_mais.py`.
+    "a_mais": {"sem_edicoes": ["OGS"]},
     # As línguas cujas ofertas do CardTrader entram no preço (2026-09-15:
     # "apenas cartas versao ingles"). Era 'en' fixo no código desde o início.
     "precos": {"linguas": ["en"]},

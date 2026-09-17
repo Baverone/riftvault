@@ -319,7 +319,15 @@ def import_all(con: sqlite3.Connection, log=print) -> dict:
         con.execute("DELETE FROM decks WHERE deck_id = ?", (did,))
         log(f"  (removido: {name} — o ficheiro já não existe)")
 
-    return {"decks": results, "removed": gone}
+    # O rasto do que cada lista pede (2026-09-17, «A mais»): só escreve quando
+    # o pedido mudou, por isso continua a valer a regra de não tocar no
+    # vault.db numa importação sem alterações.
+    from . import uso_decks
+    mudancas = uso_decks.registar(con)
+    if mudancas:
+        log(f"  (registo dos decks: {len(mudancas)} mudanças no que as listas pedem)")
+
+    return {"decks": results, "removed": gone, "need_changes": mudancas}
 
 
 # ---------------------------------------------------------------------------

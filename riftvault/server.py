@@ -18,7 +18,7 @@ from datetime import datetime, timezone
 
 from flask import Flask, g, jsonify, redirect, request, send_from_directory
 
-from . import (a_subir, collection, config, db, decks, faltas, faltas_edicao,
+from . import (a_mais, a_subir, collection, config, db, decks, faltas, faltas_edicao,
                locais, metrics, pending, quanto_custa)
 
 app = Flask(__name__, static_folder=None)
@@ -134,6 +134,16 @@ def api_faltas_edicao():
     blocos — master set, alt art, sobrenumeradas. Lê os locais e o pendente,
     não os decks."""
     return jsonify(faltas_edicao.payload(get_con()))
+
+
+@app.get("/api/a_mais.json")
+def api_a_mais():
+    """O separador «A mais» (2026-09-17): por edição, o excedente acima do alvo
+    e as cartas que os decks libertaram. Relê as listas primeiro, porque o
+    bloco das libertadas vive do registo que o `import_all` escreve."""
+    con = get_con()
+    _reimport_if_changed(con)
+    return jsonify(a_mais.payload(con))
 
 
 @app.get("/api/wantlist.json")

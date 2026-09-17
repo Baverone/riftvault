@@ -23,6 +23,7 @@ import argparse
 import re
 import sys
 
+from . import a_mais as a_mais_mod
 from . import a_subir as a_subir_mod
 from . import build as build_mod
 from . import cardmarket, catalog, collection, config, db, decks as decks_mod
@@ -750,6 +751,47 @@ def cmd_quanto_custa(args) -> int:
     return 0
 
 
+def cmd_a_mais(args) -> int:
+    """O separador «A mais» (2026-09-17): por edição, o que ele tem acima do
+    alvo e o que os decks libertaram. Só mostra."""
+    con = db.connect()
+    if db.catalog_is_empty(con):
+        print("catálogo vazio — corre `riftvault sync`.", file=sys.stderr)
+        return 1
+    decks_mod.import_all(con, log=lambda *_: None)
+    p = a_mais_mod.payload(con)
+    alvo = args.edicao.upper() if args.edicao else None
+    sets = [s for s in p["sets"] if alvo is None or s["set"] == alvo]
+    if alvo and not sets:
+        print(f"{alvo}: não existe no catálogo.", file=sys.stderr)
+        return 1
+    for s in sets:
+        e, l_ = s["excedente"], s["libertadas"]
+        print(f"{s['name']} — {e['copies']} cópias a mais em {e['cards']} impressões · "
+              f"{l_['copies']} libertadas dos decks em {l_['cards']} cartas"
+              + ("" if s["button"] else "   (sem botão no site; em «Todas»)"))
+        for x in e["items"]:
+            onde = " + ".join(p_ for p_, n in (("binder", x["from_binder"]),
+                                                ("Coleção", x["from_colecao"])) if n)
+            print(f"    {cardmarket.codigo(x['code']):<12} {x['name'][:34]:<34} "
+                  f"tens {x['have']}/{x['target']}  a mais {x['extra']}  ({onde}"
+                  + (f", {x['used']} nos decks" if x["used"] else "")
+                  + (", escondida" if x["hidden"] else "") + ")")
+        for x in l_["items"]:
+            ainda = ", ".join(f"{d['deck']} {d['qty']}" for d in x["still_wanted"])
+            print(f"    {cardmarket.codigo(x['code']):<12} {x['name'][:34]:<34} "
+                  f"saiu de {x['deck']} ({x['qty']}) a {x['ts'][:10]}  tens {x['have']}"
+                  + (f"  ainda pedida: {ainda}" if ainda else ""))
+        print()
+    t, h = p["totals"], p["history"]
+    print(f"a mais: {t['excedente']['copies']} cópias em {t['excedente']['cards']} impressões · "
+          f"libertadas: {t['libertadas']['copies']} em {t['libertadas']['cards']} cartas.")
+    print("registo dos decks: " + (f"desde {h['since'][:10]}, {h['events']} mudanças"
+                                   if h["since"] else "ainda vazio — começa na próxima "
+                                   "importação das listas"), file=sys.stderr)
+    return 0
+
+
 def cmd_faltas(args) -> int:
     """O separador «Faltas» na consola: por edição, os três blocos — master
     set, alt art, sobrenumeradas — com o que falta de cada (2026-09-15, fim
@@ -1207,6 +1249,11 @@ def main(argv: list[str] | None = None) -> int:
                                       "ao master set, às alt art e às sobrenumeradas")
     p.add_argument("--edicao", help="só esta edição (OGN, SFD, …)")
     p.set_defaults(func=cmd_faltas)
+
+    p = sub.add_parser("a-mais", help="o separador A mais: por edição, o excedente "
+                                      "acima do alvo e as cartas libertadas dos decks")
+    p.add_argument("--edicao", help="só esta edição (OGN, SFD, …)")
+    p.set_defaults(func=cmd_a_mais)
 
     p = sub.add_parser("pending", help="encomendas a caminho")
     p.add_argument("--chegou", nargs="?", type=int, const=0, default=None,
