@@ -23,6 +23,9 @@ PRICES_DB = Path(os.environ.get("RIFTVAULT_PRICES", DATA_DIR / "prices.db"))
 IMAGES_DIR = Path(os.environ.get("RIFTVAULT_IMAGES", DATA_DIR / "images"))
 DECKS_DIR = Path(os.environ.get("RIFTVAULT_DECKS", ROOT / "decks"))
 CONFIG_PATH = Path(os.environ.get("RIFTVAULT_CONFIG", ROOT / "riftvault_config.json"))
+# O «seguir jogadores» (2026-09-17): o estado (`estado.json`, vai para o Git)
+# e a última página lida de cada endereço (`paginas/`, não vai). Ver `seguir.py`.
+SEGUIR_DIR = Path(os.environ.get("RIFTVAULT_SEGUIR", DATA_DIR / "seguir"))
 
 # Usados quando o ficheiro de config não existe ou não tem a chave.
 DEFAULTS: dict = {
@@ -133,6 +136,15 @@ DEFAULTS: dict = {
     # As línguas cujas ofertas do CardTrader entram no preço (2026-09-15:
     # "apenas cartas versao ingles"). Era 'en' fixo no código desde o início.
     "precos": {"linguas": ["en"]},
+    # Seguir jogadores no Piltover Archive (André, 2026-09-17: "o @koko_lopez e
+    # um jogador muito bom, gostava de seguir os decks que ele coloca e que vai
+    # atualizando" / "nao preciso que me diga quanto custaria, mas sim o que
+    # falta"). `jogadores` são os handles (o `/users/<nome>` do site);
+    # `intervalo_segundos` é o mínimo entre dois pedidos ao site (nunca menos
+    # de 1 — é a regra de educação, `seguir.INTERVALO_MINIMO`); `max_paginas`
+    # trava a listagem `/decks?q=<nome>` para um nome muito comum não puxar
+    # centenas de páginas. Ver `seguir.py`.
+    "seguir": {"jogadores": [], "intervalo_segundos": 1.0, "max_paginas": 10},
     "token_card_keys": [],
     "faltas_ignorar_tipos": ["Rune"],
     "pimp_ignorar_tipos": ["signature", "rune_promo"],
