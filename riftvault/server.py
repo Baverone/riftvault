@@ -500,24 +500,6 @@ def lan_ips() -> list[str]:
     return [principal] + sorted(x for x in todos if x != principal and util(x))
 
 
-def tailscale_ip() -> str | None:
-    """Endereço na tailnet, se o Tailscale estiver a correr.
-
-    É a forma recomendada de chegar ao servidor de fora de casa: rede privada
-    entre os dispositivos do André, sem abrir nada à internet. Sem isto, o
-    servidor ficaria acessível a qualquer pessoa — não há autenticação nenhuma.
-    """
-    try:
-        out = subprocess.run(["tailscale", "ip", "-4"], capture_output=True,
-                             text=True, timeout=5)
-    except (OSError, subprocess.SubprocessError):
-        return None
-    if out.returncode != 0:
-        return None
-    ip = (out.stdout or "").strip().splitlines()
-    return ip[0].strip() if ip and ip[0].strip() else None
-
-
 def ascii_qr(url: str) -> str:
     """QR em texto para apontar o telemóvel. Nunca deve impedir o arranque."""
     try:
@@ -544,11 +526,11 @@ def serve(host: str = "0.0.0.0", port: int = 8770) -> None:
     if empty:
         print("O catálogo está vazio. Corre primeiro:  riftvault sync\n")
 
+    # Só o acesso local (2026-09-17: o Tailscale saiu do PC e da recomendação).
+    # O endereço da LAN fica aqui, na consola dele — nunca em nada que vá para
+    # o GitHub Pages.
     ips = lan_ips()
     lan = f"http://{ips[0]}:{port}/"
-    ts = tailscale_ip()
-    # Fora de casa é o endereço da tailnet que serve; o da LAN não chega lá.
-    url = f"http://{ts}:{port}/" if ts else lan
 
     print("=" * 60)
     print("  riftvault — MODO EDIÇÃO (escreve no vault.db)")
@@ -559,13 +541,8 @@ def serve(host: str = "0.0.0.0", port: int = 8770) -> None:
         print(f"     ou:               http://{extra}:{port}/")
     if len(ips) > 1:
         print("     (redes diferentes — usa a que o telemóvel alcança)")
-    if ts:
-        print(f"  Telemóvel (qualquer rede): {url}   [Tailscale]")
-    else:
-        print("  Telemóvel (fora de casa): instala o Tailscale nos dois")
-        print("                            aparelhos — tailscale.com/download")
     print()
-    print(ascii_qr(url))
+    print(ascii_qr(lan))
     print("  Sem palavra-passe: quem chegar ao URL pode escrever na coleção.")
     print("  Não abras este porto no router.")
     print("  Ctrl+C para parar.")

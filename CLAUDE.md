@@ -66,13 +66,17 @@ UDP encontram a interface secundária quando a principal tem métrica melhor —
 os dois foram testados. É preciso perguntar ao sistema (`ipconfig` no Windows,
 `ip -4 -o addr` no resto).
 
-Isto continua a acontecer enquanto for DHCP. A cura é o Tailscale, que dá um
-endereço fixo.
+Isto continua a acontecer enquanto for DHCP; o `serve` lista os endereços
+todos e é isso que há.
 
-Para acesso de fora, a resposta é **Tailscale** (rede privada entre os
-dispositivos dele), não port forwarding nem tunnels públicos. O
-`server.tailscale_ip()` deteta a tailnet e o banner de arranque mostra esse
-endereço e o QR quando existe.
+**O Tailscale saiu (2026-09-17).** Esteve recomendado como o caminho para
+chegar ao servidor de fora de casa (rede privada entre os dispositivos dele);
+o André mandou esquecê-lo e desinstalou-o do PC. O `server.tailscale_ip()` e
+as linhas do banner que o mencionavam foram apagados nesse dia: o banner
+mostra só o acesso local. Não há hoje maneira de chegar ao modo edição de
+fora de casa, e é assim de propósito — sem autenticação, o modo edição é só
+para a LAN; port forwarding e tunnels públicos continuam fora de questão. O
+IP da LAN nunca vai para nada que se publique no GitHub Pages.
 
 Se algum dia for preciso expor mesmo, aí sim é preciso autenticação primeiro —
 não inverter a ordem.

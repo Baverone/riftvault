@@ -46,20 +46,14 @@ Tudo o que carregares nos `+` e `−` é escrito no `data/vault.db`.
 No Windows há o atalho `riftvault.cmd`, por isso dá para escrever só
 `riftvault serve`.
 
-### Chegar ao servidor de fora de casa
+### O modo edição é só para casa
 
 **O riftvault não tem autenticação.** Quem chegar ao URL pode escrever na
 coleção. Em casa não faz diferença; exposto à internet faz toda.
 
 Por isso: **não abras o porto no router**, e não uses ngrok nem tunnels
-públicos sem autenticação por cima. Usa uma rede privada:
-
-1. Instala o [Tailscale](https://tailscale.com/download) no PC e no telemóvel
-2. Entra com a mesma conta nos dois
-3. O `riftvault serve` passa a mostrar-te o endereço `100.x.y.z` e o QR
-
-Funciona em qualquer rede e nada fica exposto. O PC tem de estar ligado com o
-servidor a correr.
+públicos sem autenticação por cima. O `riftvault serve` mostra só os
+endereços da rede local; o da LAN nunca vai para o site publicado.
 
 Se lá fora só quiseres **consultar**, o modo publicado (GitHub Pages) chega e
 não precisa do PC ligado.
