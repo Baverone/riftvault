@@ -42,10 +42,10 @@
      (*"Alt Art e Overnumbered e assim quero apenas 1 de cada"*) — ver
      `master_set.um_de_cada` e `e_um_de_cada`. Ter mais do que 1 dessas não é
      excedente nem erro: a segunda cópia aparece na grelha e conta no valor
-     como qualquer outra. **Uma arte alternativa que um deck jogue pede o que
-     o deck joga** (2026-09-16: *"se jogar num deck, acrescentas as
-     necessarias para o deck, e o deck joga com Alt Art"*) — ver `alvo` e
-     `decks.procura_dos_decks`.
+     como qualquer outra. **O alvo nunca sobe por causa dos decks** (2026-09-17,
+     *"voltam a 1 de cada, mesmo que joguem nos decks"*): o que os decks jogam
+     — a base, e uma versão especial na Legend e no Champion — é pergunta do
+     `decks.Versoes`, não do alvo.
      **As runas deixaram de ser caso especial a 2026-09-15** (André: *"as
      runas que estao no masterset […] vamos ate 3 como as outras cartas"*):
      pediram 1 de 2026-09-08 a 2026-09-14 de manhã, 12 nessa tarde, 1 outra
@@ -285,11 +285,11 @@ def retirada(printing, cfg: dict | None = None) -> bool:
     escondida ainda conta no valor e aparece no «A mais»; uma retirada não
     aparece nem conta em lado NENHUM — Coleção, percentagem, wantlists,
     Faltas, Quanto custa, A mais, playset jogável, valor — e os decks não a
-    pedem nem se servem dela (jogam a runa base, `decks.AltArt`).
+    pedem nem se servem dela (jogam a runa base, `decks.Versoes`).
 
     É a única resposta a esta pergunta: o `escondida` (a página e as listas),
     o `owned_by_card` (o playset jogável), o `prices.collection_value` (o
-    valor), o `a_mais.excedente` e o `decks.AltArt.joga`/`compra` perguntam
+    valor), o `a_mais.excedente` e o `decks.versoes_dos_decks` perguntam
     todos aqui. As cópias NÃO saem do `copies` — nada se apaga do vault —,
     simplesmente ninguém as lê.
 
@@ -387,7 +387,7 @@ def master_target(printing_id: str, kind: str, card_type: str | None, is_token: 
     return alvo_do_tipo(card_type, is_token, cfg)
 
 
-def alvo(printing, cfg: dict | None = None, procura: dict[str, int] | None = None) -> int:
+def alvo(printing, cfg: dict | None = None) -> int:
     """O alvo de uma LINHA do catálogo — a porta de entrada.
 
     É o `master_target` com o que a linha traz. Toda a produção passa por aqui
@@ -395,25 +395,15 @@ def alvo(printing, cfg: dict | None = None, procura: dict[str, int] | None = Non
     contas do mesmo alvo. `printing` pode ser um dicionário mínimo com
     `printing_id`, `variant_kind`, `type` e `is_token`.
 
-    `procura` é o `decks.procura_dos_decks` (2026-09-16): numa ARTE
-    ALTERNATIVA o alvo é o máximo entre o 1 de cada e o que os decks pedem
-    dessa carta — *"se jogar num deck, acrescentas as necessarias para o
-    deck, e o deck joga com Alt Art"*. Sem `procura` fica o 1; quem tem a
-    ligação na mão passa-a (`procura_dos_decks`).
+    **O alvo nunca sobe por causa dos decks.** De 2026-09-16 a 2026-09-17
+    recebia a procura dos decks e punha a arte alternativa a
+    `max(1, procura)`; o André voltou atrás (*"as Alt Art, Overnumbered e SP
+    voltam a 1 de cada, mesmo que joguem nos decks"*) e o parâmetro saiu. O
+    que os decks jogam é pergunta do `decks.Versoes`, não do alvo.
     """
-    n = master_target(printing["printing_id"], printing["variant_kind"],
-                      campo(printing, "type"), bool(campo(printing, "is_token")),
-                      cfg, printing=printing)
-    if procura and printing["variant_kind"] == "alt_art":
-        return max(n, procura.get(campo(printing, "card_key"), 0))
-    return n
-
-
-def procura_dos_decks(con: sqlite3.Connection, cfg: dict | None = None) -> dict[str, int]:
-    """O que os decks pedem em Alt Art, para o `alvo` — ver `decks.procura_dos_decks`."""
-    from . import decks
-
-    return decks.procura_dos_decks(con, cfg)
+    return master_target(printing["printing_id"], printing["variant_kind"],
+                         campo(printing, "type"), bool(campo(printing, "is_token")),
+                         cfg, printing=printing)
 
 
 def _ler_lista(nome: str, bruto: tuple) -> tuple[frozenset[str], bool]:
@@ -757,12 +747,9 @@ def _sufixo_alvo(bloco_id: str, cfg: dict) -> str:
         alvo_bloco = ALVO_PLAYSET
     if alvo_bloco == ALVO_PLAYSET:
         return " — playset"
-    sufixo = f" — {int(alvo_bloco)} de cada"
-    # Nas artes alternativas o alvo sobe ao que os decks jogam (2026-09-16);
-    # o cabeçalho diz-o, e o tile diz o número.
-    if kind_do_bloco == "alt_art" and bool((cfg.get("decks") or {}).get("jogam_alt_art", True)):
-        sufixo += ", ou o que os decks jogam"
-    return sufixo
+    # (De 2026-09-16 a 2026-09-17 dizia «, ou o que os decks jogam» nas artes
+    # alternativas; o alvo deixou de subir com os decks e o sufixo saiu.)
+    return f" — {int(alvo_bloco)} de cada"
 
 
 def rotulo(bloco_id: str, cfg: dict | None = None) -> str | None:
@@ -1023,11 +1010,8 @@ def set_payload(con: sqlite3.Connection, set_id: str, editable: bool = True,
     try:
         nos_decks = decks.printing_allocation(con)
         uso = decks.uso_por_carta(con)
-        # O que os decks pedem em Alt Art faz subir o alvo da arte
-        # alternativa (2026-09-16) — ver `alvo`.
-        procura = decks.procura_dos_decks(con, cfg)
     except sqlite3.OperationalError:
-        nos_decks, uso, procura = {}, {}, {}
+        nos_decks, uso = {}, {}
 
     rows = con.execute(
         "SELECT * FROM catalog.printings WHERE set_id = ? ORDER BY api_sort", (set_id,)
@@ -1090,7 +1074,7 @@ def set_payload(con: sqlite3.Connection, set_id: str, editable: bool = True,
                 for loc, n in sorted(
                     (locais_por_pid.get(r["printing_id"]) or {}).items(),
                     key=lambda kv: (kv[0] != locais.COLECAO, kv[0]))],
-            "target": alvo(r, cfg, procura),
+            "target": alvo(r, cfg),
             # O bloco da grelha: `master` para o que conta, e um bloco próprio
             # para cada pedaço da coleção extra. É o mesmo campo que diz se
             # entra na percentagem (ver `conta_bloco`).

@@ -190,12 +190,13 @@ class TestClassificacao(Base):
 
     def test_o_rotulo_dos_blocos_de_fora_diz_colecao_e_o_alvo(self):
         """É a palavra dele — *"é puramente coleção"* — e o alvo que pedem."""
-        # «1 de cada» desde 2026-09-16, mais o que os decks jogam — o bloco das
-        # runas especiais é feito de artes alternativas e diz o mesmo.
+        # «1 de cada» desde 2026-09-16 (e sem o «ou o que os decks jogam»
+        # desde 2026-09-17) — o bloco das runas especiais é feito de artes
+        # alternativas e diz o mesmo.
         self.assertEqual(self.metrics.rotulo("alt_art"),
-                         "Coleção — artes alternativas — 1 de cada, ou o que os decks jogam")
+                         "Coleção — artes alternativas — 1 de cada")
         self.assertEqual(self.metrics.rotulo("rune_special"),
-                         "Coleção — runas especiais — 1 de cada, ou o que os decks jogam")
+                         "Coleção — runas especiais — 1 de cada")
         # «1 de cada» desde 2026-09-15 (`master_set.um_de_cada`).
         self.assertEqual(self.metrics.rotulo("overnumbered"),
                          "Coleção — sobrenumeradas — 1 de cada")
@@ -364,9 +365,9 @@ class TestRunasEspeciais(Base):
 
     def test_o_rotulo_do_bloco_diz_1_de_cada(self):
         """O cabeçalho lê o mesmo alvo que o tile — 1, o das artes
-        alternativas de que o bloco é feito (2026-09-16), mais os decks."""
+        alternativas de que o bloco é feito (2026-09-16)."""
         self.assertEqual(self.metrics.rotulo("rune_special"),
-                         "Coleção — runas especiais — 1 de cada, ou o que os decks jogam")
+                         "Coleção — runas especiais — 1 de cada")
 
     def test_lista_vazia_desliga_o_bloco(self):
         """Sem runas especiais, a alt art da runa volta para a cauda das alt arts."""
@@ -449,9 +450,9 @@ class TestOrdem(Base):
         # O primeiro não leva rótulo: é a sequência normal, sem cabeçalho.
         self.assertIsNone(p["blocks"][0]["label"])
         self.assertEqual(p["blocks"][1]["label"],
-                         "Coleção — runas especiais — 1 de cada, ou o que os decks jogam")
+                         "Coleção — runas especiais — 1 de cada")
         self.assertEqual(p["blocks"][2]["label"],
-                         "Coleção — artes alternativas — 1 de cada, ou o que os decks jogam")
+                         "Coleção — artes alternativas — 1 de cada")
         # E o payload diz quais é que contam para a percentagem: só o primeiro.
         self.assertEqual([b["counts"] for b in p["blocks"]], [True, False, False])
         con.close()

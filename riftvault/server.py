@@ -225,14 +225,19 @@ def api_encomenda():
     if not data.get("card_key") and not data.get("printing_id"):
         return jsonify({"error": "falta card_key ou printing_id"}), 400
     origem = "web" + (f" deck:{data['deck']}" if data.get("deck") else "")
+    # `especial` vem do `+`/`−` da linha da Legend/Champion (2026-09-17): a
+    # encomenda grava-se na versão especial mais barata, e o `−` só tira de
+    # uma especial. Sem a chave, o comportamento de sempre (a normal).
+    especial = data.get("especial")
     con = get_con()
     try:
         if delta > 0:
             res = pending.encomendar(con, data.get("card_key"), data.get("printing_id"),
-                                     delta, source=origem)
+                                     delta, source=origem, especial=bool(especial))
         else:
             res = pending.anular(con, data.get("card_key"), data.get("printing_id"),
-                                 -delta, source=origem)
+                                 -delta, source=origem,
+                                 especial=None if especial is None else bool(especial))
     except pending.SemEncomenda as exc:
         return jsonify({"error": str(exc)}), 400
     except collection.UnknownPrinting as exc:

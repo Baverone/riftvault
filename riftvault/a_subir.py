@@ -196,10 +196,6 @@ def masterset(con: sqlite3.Connection, cfg: dict | None = None) -> dict[str, dic
     dizer quantas tirou e de que bloco.
     """
     cfg = cfg or config.load()
-    # O alvo de uma arte alternativa sobe ao que os decks pedem (2026-09-16):
-    # é assim que o separador Faltas diz «faltam 2» numa Alt Art que um deck
-    # joga 3 vezes. As listas de compra não a levam na mesma (`so_master_set`).
-    procura = metrics.procura_dos_decks(con, cfg)
     out: dict[str, dict] = {}
     for r in con.execute(
         "SELECT printing_id, set_id, collector_number, public_code, name, card_key, "
@@ -207,7 +203,7 @@ def masterset(con: sqlite3.Connection, cfg: dict | None = None) -> dict[str, dic
         "       is_token, orientation, image_medium, image_large, image_url "
         "FROM catalog.printings"
     ):
-        alvo = metrics.alvo(r, cfg, procura)
+        alvo = metrics.alvo(r, cfg)
         if alvo <= 0 or not metrics.e_colecao(r, cfg):
             continue
         out[r["printing_id"]] = {**dict(r), "target": alvo,

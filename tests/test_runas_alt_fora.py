@@ -38,13 +38,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 CONFIG = Path(tempfile.gettempdir()) / "riftvault-runas-alt-fora.json"
 
 
-def escrever_config(retiradas=("a",), tipos=("Rune",), jogam_alt_art=True) -> None:
+def escrever_config(retiradas=("a",), tipos=("Rune",),
+                    papeis=("legend", "champion")) -> None:
     CONFIG.write_text(json.dumps({
         "master_set": {"fora_da_percentagem": ["a", "overnumbered", "promo"],
                        "escondidas": ["-T", "*", "-R"],
                        "um_de_cada": ["a", "overnumbered", "promo"]},
         "master_targets_by_type": {"Rune": 3},
-        "decks": {"jogam_alt_art": jogam_alt_art},
+        "decks": {"so_normais_excepto": list(papeis),
+                  "versoes_especiais": ["a", "overnumbered", "promo"]},
         "runas_especiais": {"tipos": list(tipos), "excepto": ["base"],
                             "retiradas": list(retiradas)},
         "listas_de_compra": {"so_master_set": True},
@@ -216,15 +218,16 @@ class TestAMaisEOValor(Base):
         self.assertEqual(am["totals"]["excedente"], {"cards": 0, "copies": 0})
         self.assertEqual(am["scope"], {"hidden_cards": 0, "hidden_copies": 0})
         con.close()
-        # Sem retirar, as mesmas 6 cópias davam 2 a mais: o alvo da alt art
-        # subia ao que o Azir joga (4, regra de 2026-09-16).
+        # Sem retirar, as mesmas 6 cópias davam 5 a mais: o alvo da alt art é
+        # 1 e não sobe com o que o Azir joga (2026-09-17, «voltar atrás»; de
+        # 16/09 a 17/09 subia a 4 e eram 2 a mais).
         escrever_config(retiradas=())
         self.recarregar()
         self.v = Vault()
         self.addCleanup(self.v.close)
         con = self.catalogo(copias=SEIS)
         self.assertEqual(self.a_mais.payload(con)["totals"]["excedente"],
-                         {"cards": 1, "copies": 2})
+                         {"cards": 1, "copies": 5})
         con.close()
 
     def test_nao_conta_no_valor_nem_nos_totais(self):
@@ -268,7 +271,7 @@ class TestOsDecks(Base):
         azir = self.idx(con)["azir"]["id"]
         item = {x["card_key"]: x for d in self.decks.missing_by_set(con, azir)
                 for x in d["items"]}["calm rune"]
-        self.assertEqual((item["code"], item["qty"], item["price"], item["alt_art"]),
+        self.assertEqual((item["code"], item["qty"], item["price"], item["especial"]),
                          ("AAA-001/100", 4, 10, False))
         self.assertEqual(self.pending.impressao_para_encomendar(
             con, ["calm rune"])["calm rune"]["id"], "aaa-001-100")
@@ -276,9 +279,11 @@ class TestOsDecks(Base):
                   if x["card_key"] == "calm rune"]
         self.assertEqual(linhas, [(4, 10)])
         r = self.decks.resumo_das_faltas(con)
-        # Só o Defy é alt art em falta: 3 × 2000.
-        self.assertEqual(r["alt_art"], {"cards": 1, "copies": 3, "cents": 6000})
-        self.assertEqual(self.metrics.procura_dos_decks(con), {"defy": 3})
+        # Nada se compra em versão especial: a Legend deste catálogo só existe
+        # em base, e o Defy é main — joga-se e compra-se na base (2026-09-17).
+        self.assertEqual(r["especiais"], {"cards": 0, "copies": 0, "cents": 0})
+        # 4 Calm Rune + 4 Order Rune a 0,10 €, 3 Defy base a 1,50 €, a Legend.
+        self.assertEqual(r["cents"], 8 * 10 + 3 * 150 + 1000)
         con.close()
 
     def test_uma_encomenda_da_alt_art_nao_abate_e_a_proposta_nao_a_tira(self):
@@ -296,19 +301,22 @@ class TestOsDecks(Base):
         self.assertIn("aaa-004a-100", pm)
         con.close()
 
-    def test_as_outras_alt_arts_continuam_a_servir_os_decks(self):
+    def test_as_outras_alt_arts_nao_sao_retiradas_mas_o_main_joga_a_base(self):
+        """A alt art do Defy continua a existir (alvo 1, aparece na grelha);
+        só que o main joga a base (2026-09-17) — as 3 bases servem, as 3 alt
+        arts sozinhas não."""
         con = self.catalogo(copias={"aaa-004a-100": 3, "aaa-004-100": 3})
         self.assertNotIn("defy", self.falta_de(con, "azir"))
-        self.assertEqual(self.tiles(con)["aaa-004a-100"]["target"], 3)
+        self.assertEqual(self.tiles(con)["aaa-004a-100"]["target"], 1)
         con.close()
         self.v = Vault()
         self.addCleanup(self.v.close)
-        con = self.catalogo(copias={"aaa-004-100": 3})
+        con = self.catalogo(copias={"aaa-004a-100": 3})
         self.assertEqual(self.falta_de(con, "azir").get("defy"), 3)
         con.close()
 
-    def test_com_a_regra_do_alt_art_desligada_continua_retirada(self):
-        escrever_config(jogam_alt_art=False)
+    def test_com_os_decks_todos_na_base_continua_retirada(self):
+        escrever_config(papeis=())
         self.recarregar()
         con = self.catalogo(copias=SEIS)
         self.assertEqual(self.falta_de(con, "azir").get("calm rune"), 4)

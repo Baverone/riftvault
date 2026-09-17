@@ -133,10 +133,10 @@ class TestAlvo(Base):
         self.assertEqual(self.metrics.rotulo("overnumbered"),
                          "Coleção — sobrenumeradas — 1 de cada")
         self.assertEqual(self.metrics.rotulo("special"), "Coleção — promos — 1 de cada")
-        # E o das artes alternativas diz 1 de cada desde 2026-09-16 — mais o
-        # que os decks jogam (`test_altart_decks.py`).
+        # E o das artes alternativas diz 1 de cada desde 2026-09-16 — só isso,
+        # desde 2026-09-17: o alvo já não sobe com os decks (`test_voltar_1.py`).
         self.assertEqual(self.metrics.rotulo("alt_art"),
-                         "Coleção — artes alternativas — 1 de cada, ou o que os decks jogam")
+                         "Coleção — artes alternativas — 1 de cada")
 
     def test_sem_a_lista_no_config_voltam_ao_playset(self):
         """`um_de_cada` é só o alvo: tirá-la do config é o mundo de 09-14."""

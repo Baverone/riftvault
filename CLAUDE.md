@@ -213,7 +213,7 @@ saber exatamente quantas tenho"*.
 | categoria | config | o que é | grelha | % e níveis | listas de compra |
 |---|---|---|---|---|---|
 | 1. master set | o resto | a sequência da edição | sim, alvo = playset do tipo (as runas numeradas do OGN a **3** desde 15/09 à tarde) | **sim** | **sim** |
-| 2. coleção extra | `master_set.fora_da_percentagem` = `["a", "overnumbered", "promo"]` | artes alternativas, sobrenumeradas, promos | sim — **1 de cada desde 15–16/09** (`master_set.um_de_cada`); uma alt art que um deck jogue pede `max(1, procura dos decks)` | não | **não** (15/09) |
+| 2. coleção extra | `master_set.fora_da_percentagem` = `["a", "overnumbered", "promo"]` | artes alternativas, sobrenumeradas, promos | sim — **1 de cada desde 15–16/09** (`master_set.um_de_cada`); **os decks nunca levantam este alvo** (17/09 — ver a última secção deste ficheiro: os decks jogam a base, e a Legend/Champion uma versão especial) | não | **não** (15/09) |
 | 3. escondidas | `master_set.escondidas` = `["-T", "*", "-R"]` | tokens, signatures e — desde 15/09 à tarde — as runas sem numeração de master set (`VEN-R01..R06`) | não | não | não |
 | 4. retiradas | `runas_especiais.retiradas` = `["a"]` (`metrics.retirada`) | as **runas em Alt Art** (`OGN-007a..214a`, e as `SFD/UNL/VEN-R0Xa` do CardTrader) — desde 17/09 | **não** | não | não — e **não contam no valor nem no playset jogável**, nem no A mais, nem no Pimp; os decks jogam a runa base |
 
@@ -2951,52 +2951,26 @@ somam à edição e as edições ao total, com os números escritos; sem preço
 entra e é contada; promos fora e escondidas nem no âmbito; não escreve; não
 mexe nos níveis nem na wantlist; a rota, o `build` e o `index.html`/`app.js`.
 
-## 16/09/2026 — Alt Art a 1 de cada, e os decks jogam em Alt Art (`decks.jogam_alt_art`)
+## 16/09/2026 — Alt Art a 1 de cada (fica); «os decks jogam em Alt Art» (durou um dia, SAIU)
 
 Palavras dele: *"Alt Art e Overnumbered e assim quero apenas 1 de cada / se
 jogar num deck, acrescentas as necessarias para o deck, e o deck joga com Alt
-Art"* · *"se o deck joga 3, vou ter que ter 3 normais e 3 Alt Art"* · vale
-*"sempre que existir Alt Art"*. Ramo `ai-pc/altart-decks-2026-09-16` (correu
-a 16/09 à noite e esgotou os turnos; fechado a 17/09 — relatório em
-`ai-pc/work/revisao/riftvault-altart-decks.md`).
+Art"*. Ramo `ai-pc/altart-decks-2026-09-16`, relatório
+`ai-pc/work/revisao/riftvault-altart-decks.md`.
 
-- **Alt Art a 1 de cada.** O `a` entrou em `master_set.um_de_cada`
-  (`riftvault_config.json` e `config.DEFAULTS`), **runas incluídas**: a
-  `OGN-007a` é uma arte alternativa e pede 1; o 3 de 15/09 fica na runa BASE.
-  Revoga o «Alt Art […] mete Playset» de 14/09 para o último bloco que o
-  tinha. Bloco, percentagem e listas de compra não mexem.
-- **O alvo de uma Alt Art é `max(1, procura dos decks)`** (`metrics.alvo`
-  com `procura`, `decks.procura_dos_decks`; grupos da mesma Legend contam o
-  máximo, não a soma). Sem alt art no catálogo, nada muda.
-- **Os decks jogam em Alt Art** (`decks.jogam_alt_art: true`,
-  `alt_art_ignorar_tipos: []`): numa carta COM arte alternativa só as cópias
-  da alt art servem os decks (montes, pendente, proposta de marcação), e o
-  que falta compra-se em alt art (`faltas.shortfall` marca `alt_art`;
-  `decks.resumo_das_faltas` leva `alt_art: {cards, copies, cents}`). A base
-  fica no master set — **dois conjuntos separados**, a base não abate a falta
-  da alt art. `tests/test_altart_decks.py`; `test_partilha_compra`,
-  `test_binders` e `test_encomendas` correm com `jogam_alt_art: false`
-  (`fixture.config_decks_sem_alt_art`) porque descrevem a partilha das cartas
-  SEM alt art e o Defy do catálogo deles tem uma.
+**O que fica:** o `a` em `master_set.um_de_cada` — as artes alternativas
+pedem 1, o bloco, a percentagem e as listas de compra não mexem. (As das
+runas foram retiradas de tudo a 17/09, secção a seguir.)
 
-**Medido a 2026-09-17 no `data/` real, `main` (`52b6c78`) e ramo na mesma
-corrida — os invariantes NÃO mexem:** níveis **858/776/711 de 928** (faltam
-70/212/419 · 309,58/910,08/1 616,09 €), wantlist «tudo» **213 linhas · 406
-cópias · 1 392,96 €**, valor **2 861,10 €**. A falta dos decks passa de
-**11 cópias · 6 cartas · 16,20 €** para **57 · 14 · 216,57 €**, das quais
-**47 cópias · 9 cartas · 200,51 € são Alt Art** — 3× `UNL-176a` Vi,
-`UNL-179a` Rift Herald, `VEN-113a` Kennen, `UNL-090a` LeBlanc, `SFD-058a`
-Ornn, e as runas em alt art (o Rune Pool de 12 por deck é onde a conta
-engorda). Sem runas (`faltas.shortfall`): 10 cartas · 17 cópias · 79,36 €.
-O alvo somado das 102 alt arts passa de 306 para 151 (95 a 1; as runas a
-8–16).
-
-**Pergunta para ele:** as runas em alt art são 40 das 47 cópias. Se não as
-quiser em alt art nos decks, é `decks.alt_art_ignorar_tipos: ["Rune"]`.
-(**Respondida a 17/09, em dois tempos** — ver a secção a seguir: de manhã
-«só da edição da Legend», e horas depois *"deixa as runas Alt Art, nao
-incluas em nada"*. As runas em alt art saíram de tudo; a `OGN-007a` já não
-está em `um_de_cada` porque já não está em lado nenhum.)
+**O que saiu, e é história:** os decks a jogar tudo em Alt Art
+(`decks.jogam_alt_art`, `alt_art_ignorar_tipos`, `decks.AltArt`) e o alvo
+da alt art a subir a `max(1, procura dos decks)` (`decks.procura_dos_decks`,
+o `procura` do `metrics.alvo`). Durou um dia: a 17/09 ele disse *"vamos
+voltar atras"* e a regra saiu **inteira** do código no merge do
+`ai-pc/voltar-1-2026-09-17` (ver a última secção deste ficheiro — é lá que
+está a regra que vale: os decks jogam a base, só a Legend e o Champion jogam
+uma versão especial). Um config que ainda traga `jogam_alt_art` não faz nada.
+`test_altart_decks.py` foi apagado. **Não voltar a construir sem ele pedir.**
 
 ## 17/09/2026 — as runas em Alt Art saem de tudo (`metrics.retirada`, `runas_especiais.retiradas`)
 
@@ -3032,9 +3006,9 @@ voltar a construir sem ele pedir.
    outras cartas (`master_targets_by_type: {"Rune": 3}`, 15/09 à tarde). O
    playset jogável da runa continua 12 (Rune Pool).
 3. **Alt Art e OverNumbered de cartas que NÃO são runas continuam a alvo 1**
-   (`master_set.um_de_cada`), com os decks a pedir alt art por cima sempre
-   que existir (16/09): o alvo de uma alt art é `max(1, procura dos decks)`
-   e o que falta compra-se em alt art. Nada disto mexeu.
+   (`master_set.um_de_cada`). (Nesse dia ainda com os decks a pedir alt art
+   por cima e o alvo a `max(1, procura dos decks)` — a regra de 16/09, que
+   saiu horas depois com o `voltar-1`; ver a última secção deste ficheiro.)
 
 **Onde vive no código — uma pergunta, uma função.** `metrics.retirada(printing,
 cfg)`: é runa (`runas_especiais.tipos`) e a variante está em
@@ -3053,12 +3027,13 @@ não há runa retirada. Quem pergunta:
 | A mais | `a_mais.excedente` faz `continue` — não é excedente nem escondida |
 | Faltas por edição / Quanto custa | fora do âmbito (`e_colecao`); o rodapé do Quanto custa não as conta |
 | Pimp | `faltas.pimp`: não é versão para pimpar — nem as do catálogo (`OGN-0XXa`) nem as `market_only` do CardTrader (`SFD/UNL/VEN-R0Xa`) |
-| decks | `decks.AltArt` leva `retiradas`; `joga`/`compra` respondem `False`, a runa fica SEM alt art aos olhos dos decks e joga-se a base; `procura_dos_decks` não sobe alvo nenhum |
+| decks | `decks.Versoes` (desde o `voltar-1`; era o `decks.AltArt`) leva `retiradas`: uma retirada não está em `normais` nem em `especiais`, a runa joga-se na base e ninguém a tira do monte |
 | pendente, locais | `pending.open_by_card` ignora uma encomenda de uma retirada, `impressao_para_encomendar` e `locais.propor_deck` nunca a escolhem |
 
-**O que ficou da manhã, de propósito:** o `decks.AltArt` como objecto (um
-`frozenset` de `card_key` com as `retiradas` ao lado — o sítio onde «que
-impressões servem os decks» tem uma resposta só), e **a alocação a consumir os
+**O que ficou da manhã, de propósito:** o «que impressões servem os decks»
+como um objecto só, com as `retiradas` ao lado (era o `decks.AltArt`; desde o
+`voltar-1` é o `decks.Versoes`, que responde também por lugar — normal ou
+especial), e **a alocação a consumir os
 montes POR IMPRESSÃO** (`pool_dos_decks` cru, `grupo.impressoes`,
 `pending.open_qty`; o `_por_impressao` da grelha lê daí) — é exactamente o
 que deixa uma cópia retirada ficar no monte sem ninguém a levar; com montes
@@ -3148,4 +3123,115 @@ banner, o README e a secção «Sem autenticação» deste ficheiro; o banner
 mostra só o acesso local.
 
 `tests/test_a_mais.py` (16 testes, contra cópias e config temporário).
+
+## 17/09/2026 — voltar atrás: alvo 1 sempre, os decks jogam a versão NORMAL menos a Legend e o Champion (`decks.Versoes`)
+
+Palavras dele, em resposta ao relatório do `altart-decks` de 16/09: *"vamos
+voltar atras"* — *"as Alt Art, Overnumbered e SP voltam a 1 de cada, mesmo
+que joguem nos decks"* / *"os decks apenas jogaram versoes normais, com
+excepcao da Legend e do Champion que serao Alt Art ou Overnumbered ou SP, mas
+nunca assinada"*. Escolhas confirmadas por ele nessa conversa: (a) se o deck
+joga mais do que uma cópia do Champion, **só uma** é especial; (b) com várias
+versões especiais **qualquer uma serve**, e sem nenhuma a falta aponta à
+**mais barata**. Ramo `ai-pc/voltar-1-2026-09-17`, três ordens; relatório em
+`ai-pc/work/revisao/riftvault-voltar-1.md` (o commit do merge — o que se
+reverte para a regra de 16/09 voltar — está lá e no fim desta secção).
+
+**A regra, em quatro linhas:**
+
+1. **O alvo da Coleção NUNCA sobe por causa dos decks.** Alt Art,
+   OverNumbered e promos pedem **1 de cada** (`master_set.um_de_cada`),
+   joguem ou não. O `procura` do `metrics.alvo` e o `decks.procura_dos_decks`
+   de 16/09 **saíram**; o `metrics.alvo(printing, cfg)` voltou a ter dois
+   argumentos.
+2. **Main, battlefields, Rune Pool e sideboard jogam a versão NORMAL** — a
+   base da edição, sem sobrenumeração. A partilha de 11/09 (*"se há na
+   coleção o deck usa"*) volta a valer para TODAS as cartas: uma alt art que
+   ele tenha fica na Coleção a contar para o alvo 1 dela e **não serve** um
+   lugar normal.
+3. **A Legend e o Champion jogam UMA versão especial** — alt art,
+   sobrenumerada ou promo, **nunca signature**. Qualquer que ele tenha serve
+   (a que sai dos montes primeiro é a mais barata); sem nenhuma, a falta é
+   **1 cópia da mais barata**, com as outras em `alternativas`. Sem versão
+   especial no catálogo, joga a base e não há falta a inventar.
+4. **As runas em Alt Art continuam retiradas** (`f1dbd5b`, secção acima);
+   as runas base do OGN continuam a 3 no master set e a 12 no Rune Pool.
+
+**Onde vive no código.** `decks.Versoes` (construído por
+`decks.versoes_dos_decks(con, cfg)`): `normais[ck]` e `especiais[ck]` são as
+impressões que servem cada LUGAR — normal = `variant_kind == "base"` e não
+sobrenumerada (ordem do catálogo); especial = o que `decks.versoes_especiais`
+disser (da mais barata para a mais cara); signature e retiradas em nenhuma
+das duas. `joga(printing, especial)`, `serve`, `compra(ck, especial)` (a
+impressão em que se compra o que falta), `alternativas(ck)`. Os papéis que
+jogam especial vêm de `decks.papeis_especiais` (`decks.so_normais_excepto`,
+hoje `["legend", "champion"]`; vazio = tudo na base; um papel fora do
+`ROLE_ORDER` rebenta) e `decks.cartas_especiais(con, deck_id)` diz que cartas
+de um deck estão nesses papéis. `decks.kinds_especiais` lê a lista com a
+gramática do `master_set` e **rebenta se lá estiver `"*"`** — «nunca
+assinada» é regra, não config. Config: `riftvault_config.json` e
+`config.DEFAULTS` (`"decks": {"so_normais_excepto": [...],
+"versoes_especiais": ["a", "overnumbered", "promo"]}`, `_decks_nota`).
+
+**A alocação (`decks.allocate`) serve o lugar especial PRIMEIRO**, por grupo
+de Legend: `need_especial[ck] = 1` para as cartas dos papéis especiais que
+TÊM versão especial no catálogo; `servir(especiais_de(ck), 1)` tira dos
+montes por impressão (deck, binder, Coleção, a caminho) e o resto (`qty − 1`)
+serve-se das `normais_de(ck)`. Sai à parte em `alloc_especial`,
+`a_caminho_especial`, `missing_especial` e `especial_em` (a impressão que
+ficou a servir, ou que vem a caminho) — os totais `alloc`/`a_caminho`/
+`missing` continuam a incluir tudo. Quem lê: `resumo_das_faltas` (leva
+`especiais: {cards, copies, cents}` — o `alt_art` de 16/09 saiu),
+`missing_by_set` (uma linha própria marcada `especial`, com `alternativas`),
+`deck_payload` (`especial` por carta: `wanted/have/ordered/missing/code/id/
+alternativas`; `order_especial` diz onde o `+` grava), `faltas.shortfall`/
+`_cheapest(especial=True)`/`staples`/`por_deck`/`wantlist` (a wantlist do
+Cardmarket pede a versão especial na linha dela), `pending.impressao_para_
+encomendar`, `locais.propor_deck`, `a_mais` (as usadas nos decks lêem-se do
+`grupo.impressoes`). No `app.js`: `deckTile` («versão especial: `<código>`
+(a comprar | a caminho) · ou …», `data-esp="1"` nos steppers), `faltaTile` +
+`especialNota`, `staplTile`.
+
+**Medido a 2026-09-17 contra cópias dos três `.db` e da pasta `decks/`,
+`main` (`756fbc5`) e ramo (`7df99dc`) na mesma corrida, cada lado a ler o SEU
+config (`_revisao\_medir_voltar_1.py`) — os invariantes NÃO mexem:**
+denominador **928**, níveis **858/776/711 de 928 = 92,5 / 83,6 / 76,6 %**
+(faltam 70/212/419 · 309,58/910,08/1 616,09 €), wantlist «tudo» **213 linhas
+· 406 cópias · 1 392,96 €** (OGN 625,31 · OGS 17,69 · SFD 330,74 · UNL 278,68
+· VEN 140,54), valor **2 825,78 € · 2 379 cópias**, A mais **131 cópias em 65
+impressões** (OGN 13, SFD 9, UNL 104, VEN 5; 16 escondidas), Pimp **8 · 8 ·
+681,58 € · 6 feitas**. Os três primeiros só podiam não mexer: o denominador
+conta a sequência, a wantlist é só master set (`so_master_set`), o valor
+conta cópias e nenhuma cópia entrou ou saiu.
+
+**O que mexe, e fecha à cópia e ao cêntimo com a regra:**
+
+| | antes (16/09) | depois | quem |
+|---|---|---|---|
+| falta dos decks | 26 cópias · 14 cartas · 80,41 € (alt art 7 · 5 · 63,30 €) | **22 · 12 · 237,60 €** (especiais **2 · 2 · 216,99 €**) | −1 `SFD-058a` Ornn, Blacksmith no Azir (sideboard; a base `SFD-058` ×1 passa a servir, −1,39 €); Vi, Peacekeeper no grupo LeBlanc **3× `UNL-176a` (39,57 €) → 1× `UNL-176` base (3,50 €)** (tem 3 base + 1 alt: o Azir leva 1 base, o LeBlanc 2, falta 1 base); −1 `UNL-179a` Rift Herald (tem 2 base, −9,95 €); −1 `UNL-090a` LeBlanc, Everywhere at Once (sideboard, tem 1 base, −6,03 €); `VEN-113a` Kennen, Storm of Shuriken fica (agora **especial** do Champion, 6,36 €); **+1 `VEN-197/166` Heart of the Tempest, a Legend do Kennen, 210,63 €** — a única versão especial dela é a sobrenumerada, e ele tem só a base `VEN-155`. Conta: 80,41 − 1,39 − 39,57 + 3,50 − 9,95 − 6,03 + 210,63 = 237,60 € |
+| disputadas · a caminho | 19 · 14 | **18 · 15** | a Ornn, Blacksmith do Azir deixa de ser disputada; a `SFD-247/221` Emperor of the Sands que ele tem **a caminho** passa a servir o lugar da Legend do Azir |
+| alvo das alt arts (tiles) | `SFD-058a` 2, `UNL-176a` 4, `UNL-179a` 2 | **1, 1, 1** | as três que os decks pediam; as outras 99 já estavam a 1 |
+| Faltas por edição, fechar os três blocos | 352 impressões · 547 cópias · 12 442,27 € | **349 · 542 · 12 391,36 €** | as mesmas três, todas com 1 cópia: `SFD-058a` (2→1, −1,39 €), `UNL-176a` (4→1, −3 cópias · 39,57 €), `UNL-179a` (2→1, −9,95 €); a comprar (master set) igual à wantlist |
+| por deck (falta) | Ornn 0 · Azir 7 · LeBlanc BH 10 · Kennen 6 · LeBlanc 9 | **0 · 6 · 6 · 7 · 7** | |
+
+**Deck a deck, a versão especial que cada Legend e Champion passa a pedir**
+(no `data/` real de 17/09):
+
+| deck | Legend | Champion |
+|---|---|---|
+| 1. Ornn | Fire Below the Mountain → **`SFD-244/221`** (sobrenumerada, 80,64 €) — **tem 1** | Ornn, Blacksmith → **`SFD-058a/221`** (alt art, 1,39 €) — **tem 1** |
+| 2. Azir | Emperor of the Sands → **`SFD-247/221`** (sobrenumerada, 75,00 €) — tem 0, **1 a caminho** | Azir, Sovereign → **`SFD-177a/221`** (alt art, 4,11 €) — **tem 2** |
+| 3./5. LeBlanc BH ·· LeBlanc (mesmo grupo) | Deceiver → **`UNL-235/219`** (sobrenumerada, 134,53 €) — **tem 1**; a `UNL-235*` (1 200,64 €) nunca | LeBlanc, Fragmented → **`UNL-172a/219`** (alt art, 3,76 €) — **tem 1** |
+| 4. Kennen | Heart of the Tempest → **`VEN-197/166`** (sobrenumerada, **210,63 €**) — tem 0, **falta 1** | Kennen, Storm of Shuriken → **`VEN-113a/166`** (alt art, 6,36 €) — tem 0 (tem 2 base), **falta 1** |
+
+Nenhuma Legend/Champion dele tem mais do que uma versão especial no
+catálogo, por isso a escolha (b) («qualquer uma serve», «a mais barata») não
+tem hoje caso real — só nos testes. A escolha (a) também não: as cinco
+listas jogam 1 Champion.
+
+`tests/test_voltar_1.py` (29 testes, contra cópias e config temporário);
+`test_alvo_1`, `test_masterset`, `test_faltas_nova`, `test_runas_alt_fora` e
+`test_a_mais` ajustados; `test_altart_decks.py` apagado; a fixture
+`config_decks_sem_alt_art` escreve os defaults novos do bloco `decks` (o nome
+ficou, é chamada por três testes). Suite: 28 ficheiros, 498 testes.
 

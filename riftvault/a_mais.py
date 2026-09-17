@@ -33,9 +33,10 @@ A CONTA DO EXCEDENTE, por impressão
     a mais         = do binder + da Coleção
 
     A sequência do master set ENTRA (a quarta cópia de uma Unit é «a mais»);
-    a Venda tirava-a por omissão porque a pergunta lá era outra. O alvo de
-    uma arte alternativa já leva o que os decks jogam (`procura`), por isso
-    uma alt art que um deck use nunca sobra. O que está escondido (tokens,
+    a Venda tirava-a por omissão porque a pergunta lá era outra. Uma versão
+    especial que a Legend/Champion de um deck jogue conta nas «usadas»
+    (2026-09-17) e por isso nunca sobra; o alvo dela é 1 e não sobe com os
+    decks. O que está escondido (tokens,
     signatures, runas sem numeração) tem alvo 0 e sobra inteiro, marcado. O
     que está RETIRADO (as runas em alt art, 2026-09-17) nem aparece.
 
@@ -106,7 +107,6 @@ def excedente(con: sqlite3.Connection, cfg: dict | None = None) -> list[dict]:
     usadas = _usadas(con)
     no_binder = locais.em(con, locais.BINDER)
     na_colecao = locais.na_colecao(con)
-    procura = metrics.procura_dos_decks(con, cfg)
     precos = metrics.prices_map(con)
 
     itens: list[dict] = []
@@ -125,7 +125,7 @@ def excedente(con: sqlite3.Connection, cfg: dict | None = None) -> list[dict]:
         escondida = not metrics.e_colecao(r, cfg)
         # O alvo da página inteira — master set e coleção extra —; 0 no que
         # está escondido, que a Coleção não pede.
-        alvo = 0 if escondida else metrics.alvo(r, cfg, procura)
+        alvo = 0 if escondida else metrics.alvo(r, cfg)
         do_binder = max(0, no_binder.get(pid, 0) - u["no_binder"])
         da_colecao = max(0, na_colecao.get(pid, 0) - max(u["na_colecao"], alvo))
         sobra = do_binder + da_colecao
