@@ -181,19 +181,23 @@ class TestExcedente(Base):
         # O deck leva a sleevada + 2 da Coleção; a Coleção tem 5 − max(2, 3) = 2 a mais.
         self.assertEqual((x["from_binder"], x["from_colecao"], x["extra"]), (0, 2, 2))
 
-    def test_a_alt_art_de_uma_carta_do_main_sobra_acima_de_1_mesmo_com_deck(self):
+    def test_a_alt_art_de_uma_carta_do_main_sobra_acima_de_1_menos_o_que_o_deck_tapa(self):
         """O main joga a base (2026-09-17, «voltar atrás»): o alvo da Alt Art
-        é 1 e não sobe com o deck, e as 3 alt arts do Defy dão 2 a mais — o
-        deck não as usa. (De 16/09 a 17/09 o deck jogava-as e nada sobrava.)"""
+        é 1 e não sobe com o deck. Mas desde a tarde desse dia o que a base
+        não tapa serve-se das alt arts — e uma cópia em uso não é a mais
+        (`cópias − max(usadas, alvo)`). Sem Defy base nenhuma o Azir leva as 3
+        alt arts e nada sobra; com 2 bases leva 1 e sobram 2; sem o deck, 2."""
         con = self.montar(decks={"azir": AZIR})
         self.ter(con, "tst-001a-100", 3)
         self.ter(con, "tst-003-100", 1)
+        self.assertIsNone(self.exc(con, "tst-001a-100"))
+        self.ter(con, "tst-001-100", 2)
         x = self.exc(con, "tst-001a-100")
-        self.assertEqual((x["target"], x["used"], x["extra"]), (1, 0, 2))
+        self.assertEqual((x["target"], x["used"], x["extra"]), (1, 1, 2))
         (self.v.decks_dir / "azir.txt").unlink()
         self.decks.import_all(con, log=lambda *_: None)
         x = self.exc(con, "tst-001a-100")
-        self.assertEqual((x["target"], x["extra"]), (1, 2))
+        self.assertEqual((x["target"], x["used"], x["extra"]), (1, 0, 2))
 
 
 class TestLibertadas(Base):

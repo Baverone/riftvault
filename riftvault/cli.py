@@ -389,12 +389,25 @@ def cmd_decks(args) -> int:
               + (f" ({tot['disputed']} disputadas com um deck de cima)"
                  if tot["disputed"] else "")
               + (f" — {tot['ordered']} já a caminho" if tot["ordered"] else ""))
+    # Lugares normais tapados por outra versão que ele tem (2026-09-17, tarde)
+    # — sem esta regra eram falta.
+    if tot["outras"]["copies"]:
+        o = tot["outras"]
+        print(f"{o['copies']} {'cópia joga' if o['copies'] == 1 else 'cópias jogam'} "
+              f"noutra versão (Alt Art, sobrenumerada ou promo) porque a base não "
+              f"chega — {o['cards']} {'carta' if o['cards'] == 1 else 'cartas'}; "
+              f"`riftvault deck <slug>` reparte-as.")
     extra = sum(d["extra"] for d in idx)
     if extra:
         print(f"{extra} cópias estão marcadas num deck que já não as pede — "
               f"a lista mudou.")
     con.close()
     return 0
+
+
+def _codigo_curto(code) -> str:
+    """`UNL-176a/219` -> `UNL-176a`: o denominador não ajuda a encontrar a carta."""
+    return str(code or "?").split("/")[0]
 
 
 def cmd_deck(args) -> int:
@@ -433,6 +446,10 @@ def cmd_deck(args) -> int:
     if lc["na_colecao"]:
         print(f"  para sleevar as da Coleção: `riftvault local --deck "
               f"{p['slug']} --propor`")
+    if lc.get("outras"):
+        print(f"  {lc['outras']} {'cópia joga' if lc['outras'] == 1 else 'cópias jogam'} "
+              f"noutra versão porque a base não chega (Alt Art, sobrenumerada ou "
+              f"promo — nunca assinada).")
     if lc["extra"]:
         print(f"  {lc['extra']} cópias estão marcadas neste deck e ele já não "
               f"as pede.")
@@ -484,7 +501,19 @@ def cmd_deck(args) -> int:
                 if args.onde:
                     extra += "  " + " · ".join(f"{x['qty']}x {x['code']}"
                                                for x in c["printings"])
+            # Uma linha servida por UMA só outra versão (a base não chegou e
+            # a alt art tapou tudo) diz-o na própria linha; não há nada para
+            # repartir.
+            versoes = c.get("versoes") or []
+            if len(versoes) == 1 and c.get("outras"):
+                extra += f"  em {versoes[0]['label']} ({_codigo_curto(versoes[0]['code'])})"
             print(f"  {marca} {c['wanted']:>2} {c['name'][:38]:<38} {c['have']}/{c['wanted']}{extra}")
+            # «Separa as versões por Art» (André, 2026-09-17): uma carta
+            # servida por mais do que uma impressão reparte-se, uma sub-linha
+            # por versão. Servida por uma só, não se enche a vista.
+            if len(versoes) > 1:
+                for x in versoes:
+                    print(f"        {x['qty']} {x['label']} ({_codigo_curto(x['code'])})")
     con.close()
     return 0
 

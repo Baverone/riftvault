@@ -11,7 +11,9 @@ A regra, por extenso:
   1. o alvo de uma Alt Art, sobrenumerada ou promo é 1 — e NÃO sobe por
      causa dos decks (reverte o `max(1, procura)` de 2026-09-16);
   2. os decks jogam a impressão normal (a base, sem sobrenumeração): a cópia
-     base da Coleção serve o deck, mesmo que a carta tenha Alt Art;
+     base da Coleção serve o deck, mesmo que a carta tenha Alt Art — e, desde
+     a tarde de 2026-09-17, o que a base não tapar completa-se com outra
+     versão que ele tenha, antes de ser falta (`test_versoes_deck.py`);
   3. a Legend e o Champion jogam UMA versão especial — Alt Art, sobrenumerada
      ou promo, qualquer delas serve; sem nenhuma, a falta aponta à mais
      barata e as outras ficam em `alternativas`;
@@ -191,9 +193,21 @@ class TestOsDecksJogamABase(Base):
         self.assertEqual((tile["qty"], tile["target"]), (0, 1))
         con.close()
 
-    def test_uma_alt_art_do_defy_nao_serve_um_lugar_normal(self):
-        """Ele tem 2 Defy base e 1 Defy Alt Art: o deck fica a faltar 1 base."""
+    def test_uma_alt_art_do_defy_tapa_o_que_a_base_nao_chega(self):
+        """Ele tem 2 Defy base e 1 Defy Alt Art: até à tarde de 2026-09-17 o
+        deck ficava a faltar 1 base; desde então a alt art tapa o buraco
+        (*"esteja disponível em Alt Art ou outra, usa"*) e a linha reparte-se
+        por versão — ver `test_versoes_deck.py`."""
         con = self.catalogo(copias={**self.BASE_DO_AZIR, DEFY: 2, DEFY_A: 1})
+        a = self.aloc(con, "azir")
+        self.assertNotIn("defy", a["missing"])
+        self.assertEqual(a["alloc_outras"].get("defy"), 1)
+        self.assertEqual([(x["id"], x["qty"], x["lugar"]) for x in a["versoes_em"]["defy"]],
+                         [(DEFY, 2, "normal"), (DEFY_A, 1, "outra")])
+        con.close()
+
+    def test_sem_outra_versao_a_falta_aponta_a_base(self):
+        con = self.catalogo(copias={**self.BASE_DO_AZIR, DEFY: 2})
         a = self.aloc(con, "azir")
         self.assertEqual(a["missing"].get("defy"), 1)
         self.assertNotIn("defy", a["missing_especial"])
@@ -202,10 +216,15 @@ class TestOsDecksJogamABase(Base):
         self.assertEqual((item["code"], item["qty"], item["especial"]), ("TST-001/100", 1, False))
         con.close()
 
-    def test_uma_sobrenumerada_nao_e_normal(self):
-        """A «101/100» é OverNumbered — versão especial, não serve o main."""
+    def test_uma_sobrenumerada_tapa_um_lugar_normal_depois_da_base(self):
+        """A «101/100» é OverNumbered — versão especial; serve o main só
+        quando a base não chega (2026-09-17, tarde), e a base serve-se
+        primeiro."""
         con = self.catalogo(copias={**self.BASE_DO_AZIR, DEFY: 2, DEFY_OVER: 1})
-        self.assertEqual(self.aloc(con, "azir")["missing"].get("defy"), 1)
+        a = self.aloc(con, "azir")
+        self.assertNotIn("defy", a["missing"])
+        self.assertEqual(a["versoes_em"]["defy"][0], {"id": DEFY, "qty": 2, "lugar": "normal"})
+        self.assertEqual(a["versoes_em"]["defy"][1], {"id": DEFY_OVER, "qty": 1, "lugar": "outra"})
         con.close()
 
 
@@ -300,14 +319,20 @@ class TestNuncaAssinada(Base):
 class TestUmaSoEspecial(Base):
     """Regra 5, a dúvida (a): o Champion jogado 3 vezes tem 1 especial + 2 normais."""
 
-    def test_duas_especiais_e_nenhuma_base__falta_2_normais(self):
+    def test_duas_especiais_e_nenhuma_base__uma_e_o_champion_a_outra_tapa_o_main(self):
+        """A promo (a mais barata) serve o lugar do Champion; a sobrenumerada
+        tapa um dos dois lugares normais (2026-09-17, tarde) e falta 1 base."""
         con = self.catalogo(copias={**self.BASE_DO_AZIR, SOV: 0, SOV_SP: 1, SOV_OVER: 1})
         a = self.aloc(con, "azir")
-        self.assertEqual(a["missing"]["sovereign"], 2)
+        self.assertEqual(a["missing"]["sovereign"], 1)
         self.assertNotIn("sovereign", a["missing_especial"])
+        self.assertEqual(a["alloc_especial"]["sovereign"], 1)
+        self.assertEqual(a["alloc_outras"]["sovereign"], 1)
+        self.assertEqual([(x["id"], x["lugar"]) for x in a["versoes_em"]["sovereign"]],
+                         [(SOV_SP, "especial"), (SOV_OVER, "outra")])
         item = next(x for d in self.decks.missing_by_set(con, self.idx(con)["azir"]["id"])
                     for x in d["items"] if x["card_key"] == "sovereign")
-        self.assertEqual((item["code"], item["qty"], item["especial"]), ("TST-004/100", 2, False))
+        self.assertEqual((item["code"], item["qty"], item["especial"]), ("TST-004/100", 1, False))
         con.close()
 
     def test_a_falta_de_um_champion_sem_nada_e_1_especial_mais_2_normais(self):

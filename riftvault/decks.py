@@ -26,6 +26,18 @@ A REGRA CENTRAL — OS DECKS PARTILHAM A COLEÇÃO, E O QUE NÃO CHEGA COMPRA-SE
     incluindo o sideboard); a comprar = max(0, procura_total − cópias que
     existem), distribuída pelos decks de prioridade mais baixa.
 
+QUE VERSÃO JOGA CADA LUGAR (2026-09-17)
+    A Legend e o Champion jogam UMA versão especial — Alt Art, sobrenumerada
+    ou promo, nunca assinada (`Versoes.especiais`). Os outros lugares jogam a
+    base (`Versoes.normais`) e, desde a tarde desse dia, o que a base não
+    tapar completa-se com OUTRA versão que ele tenha (`Versoes.outras_de` —
+    as mesmas especiais, nunca assinada nem retirada): *"caso um deck precise
+    de uma carta, que não há versão disponível em normal, mas esteja
+    disponível em Alt Art ou outra, usa, mas no deck separa as versões por
+    Art"*. Só depois disso é falta, e a falta aponta à base. O alvo da
+    Coleção não sobe por isto (a alt art continua a pedir 1). A página do
+    deck reparte cada linha pelas impressões que a servem (`versoes_em`).
+
 DECKS COM A MESMA LEGEND SÃO O MESMO DECK FÍSICO — PARTILHAM, NÃO DISPUTAM
     Palavras do André (2026-09-11, à noite): *"deck com o mesmo Legend,
     partilham cartas. Os 2 decks de LeBlanc partilham as mesmas cartas, são só
@@ -381,6 +393,10 @@ def import_all(con: sqlite3.Connection, log=print) -> dict:
 PAPEIS_ESPECIAIS = "so_normais_excepto"
 LISTA_ESPECIAIS = "versoes_especiais"
 KIND_SIGNATURE = "signature"
+# O nome de cada versão na vista do deck (`Versoes.rotulo`); a sobrenumerada
+# decide-se pelo número, não pela variante.
+ROTULO_VERSAO = {"base": "normal", "alt_art": "Alt Art", "special": "promo",
+                 "rune_promo": "runa promo", "token": "token"}
 
 
 def _opcoes_decks(cfg: dict | None = None) -> dict:
@@ -426,6 +442,13 @@ class Versoes:
     Uma signature ou uma retirada não está em lado nenhum. Uma carta sem
     impressão normal nenhuma (não acontece no catálogo de hoje) serve-se de
     qualquer não-assinada, para o deck nunca ficar impossível de montar.
+
+    Desde 2026-09-17 (tarde) as `especiais` são também as OUTRAS que tapam um
+    lugar normal quando a base não chega (`outras_de`): *"caso um deck precise
+    de uma carta, que não há versão disponível em normal, mas esteja
+    disponível em Alt Art ou outra, usa"*. É a mesma lista — o que serve a
+    Legend serve um buraco do main —, só o LUGAR é outro, e a falta que sobrar
+    compra-se sempre na base (`compra`).
     """
 
     def __init__(self, normais: dict[str, list[str]], especiais: dict[str, list[str]],
@@ -451,6 +474,24 @@ class Versoes:
 
     def especiais_de(self, ck: str) -> list[str]:
         return self.especiais.get(ck, [])
+
+    def outras_de(self, ck: str) -> list[str]:
+        """As impressões que tapam um lugar NORMAL quando a base não chega: as
+        mesmas versões especiais (alt art, sobrenumerada, promo), pela mesma
+        ordem — a mais barata primeiro, para a mais cara ficar na Coleção."""
+        return self.especiais_de(ck)
+
+    def rotulo(self, pid: str | None) -> str:
+        """Como a vista do deck chama a esta versão: «normal», «Alt Art»,
+        «sobrenumerada», «promo» — as palavras dele."""
+        from . import metrics
+
+        r = self.linha_de.get(pid) if pid else None
+        if r is None:
+            return "?"
+        if metrics.e_overnumbered(r):
+            return "sobrenumerada"
+        return ROTULO_VERSAO.get(r["variant_kind"], r["variant_kind"])
 
     def joga(self, printing, especial: bool = False) -> bool:
         """Esta impressão serve um lugar do deck — normal, ou o especial?"""
@@ -565,7 +606,7 @@ def owned_by_card(con: sqlite3.Connection) -> dict[str, int]:
     Conta as impressões que servem algum lugar — normal ou especial
     (`Versoes.serve`); nunca uma signature nem uma retirada. É informação
     (o `riftvault stats --usadas`); quem decide o que falta é a alocação,
-    porque o lugar especial e o normal não se substituem. O «quantas destas
+    porque uma base nunca serve o lugar especial. O «quantas destas
     cartas tenho ao todo» (o playset jogável, o `have_base` do Pimp) é o
     `metrics.owned_by_card`, que soma tudo menos as retiradas.
     """
@@ -773,6 +814,33 @@ def _need(con: sqlite3.Connection, deck_id: int) -> dict[str, int]:
         "GROUP BY card_key", (deck_id,))}
 
 
+def _cortar(entradas: list[dict], inicio: int, n: int) -> list[dict]:
+    """As `n` cópias de `entradas` a partir da posição `inicio`, entrada a
+    entrada, com a `qty` cortada — para repartir por papéis uma lista que a
+    alocação fez por carta."""
+    out: list[dict] = []
+    pos = 0
+    alvo = inicio + n
+    for e in entradas:
+        if pos >= alvo:
+            break
+        fim = pos + e["qty"]
+        q = min(fim, alvo) - max(pos, inicio)
+        if q > 0:
+            out.append({**e, "qty": q})
+        pos = fim
+    return out
+
+
+def _fatiar(servidas: list[dict], take_e: int, take_n: int) -> list[dict]:
+    """A parte de `servidas` (as impressões que serviram uma carta ao grupo,
+    por lugar) que cabe a UM membro: `take_e` do lugar especial e `take_n` do
+    resto (normais primeiro, outras depois), pela ordem em que se serviram."""
+    esp = [x for x in servidas if x["lugar"] == "especial"]
+    resto = [x for x in servidas if x["lugar"] != "especial"]
+    return _cortar(esp, 0, take_e) + _cortar(resto, 0, take_n)
+
+
 def allocate(con: sqlite3.Connection) -> dict:
     """Distribui as cópias pelos decks, por ordem de prioridade.
 
@@ -841,9 +909,9 @@ def allocate(con: sqlite3.Connection) -> dict:
     out = {}
 
     def tirar(monte: dict[str, int], pids: list[str], qty: int,
-              registo: dict[str, int] | None = None) -> int:
+              *registos: dict[str, int] | None) -> int:
         """Tira até `qty` de `monte` pelas impressões `pids`, por ordem, e diz
-        quanto tirou; `registo` guarda de que impressões."""
+        quanto tirou; cada `registo` guarda de que impressões."""
         tirado = 0
         for pid in pids:
             if tirado >= qty:
@@ -852,8 +920,9 @@ def allocate(con: sqlite3.Connection) -> dict:
             if n > 0:
                 monte[pid] -= n
                 tirado += n
-                if registo is not None:
-                    registo[pid] = registo.get(pid, 0) + n
+                for registo in registos:
+                    if registo is not None:
+                        registo[pid] = registo.get(pid, 0) + n
         return tirado
 
     for g in grupos(con):
@@ -883,36 +952,48 @@ def allocate(con: sqlite3.Connection) -> dict:
         alloc, no_deck, no_binder, na_colecao, a_caminho = {}, {}, {}, {}, {}
         shared, missing = {}, {}
         alloc_especial, a_caminho_especial, missing_especial, especial_em = {}, {}, {}, {}
+        alloc_outras, versoes_em = {}, {}
         impressoes = {"no_deck": {}, "no_binder": {}, "na_colecao": {}}
 
-        def servir(pids: list[str], qty: int, registo_esp: dict | None = None) -> tuple:
+        def servir(pids: list[str], qty: int, reg: dict | None = None,
+                   reg_cam: dict | None = None) -> tuple:
             """Serve `qty` cópias pelas impressões `pids`, pela ordem dos montes
             (deck, binder, Coleção) e depois pelo que vem a caminho. Devolve
-            (do_deck, do_binder, da_colecao, encomendada)."""
-            dd = tirar(fixo, pids, qty, impressoes["no_deck"])
-            db = tirar(binder, pids, qty - dd, impressoes["no_binder"])
-            dc = tirar(colecao, pids, qty - dd - db, impressoes["na_colecao"])
+            (do_deck, do_binder, da_colecao, encomendada); `reg` guarda de que
+            impressões saíram as cópias físicas, `reg_cam` as que vêm a caminho."""
+            dd = tirar(fixo, pids, qty, impressoes["no_deck"], reg)
+            db = tirar(binder, pids, qty - dd, impressoes["no_binder"], reg)
+            dc = tirar(colecao, pids, qty - dd - db, impressoes["na_colecao"], reg)
             # O que vem a caminho serve o primeiro grupo que ainda a peça — é
             # uma cópia da Coleção como as outras, só que ainda não chegou.
             # Fica fora do `alloc`: o deck não a TEM, só já não a compra.
-            enc = tirar(caminho, pids, qty - dd - db - dc, registo_esp)
+            enc = tirar(caminho, pids, qty - dd - db - dc, reg_cam)
             return dd, db, dc, enc
 
         for ck, qty in need.items():
+            # As impressões que ficaram a servir esta carta, pela ordem em que
+            # se serviram: [{id, qty, lugar}], com `lugar` em `especial`
+            # (a Legend/Champion), `normal` (a base) ou `outra` (uma versão
+            # que tapou um buraco de base). É o que a página do deck reparte.
+            servidas: list[dict] = []
+
+            def anotar(reg: dict[str, int], lugar: str) -> None:
+                for pid, n in reg.items():
+                    servidas.append({"id": pid, "qty": n, "lugar": lugar})
+
             # O lugar ESPECIAL primeiro (a Legend/Champion): uma cópia, de
             # qualquer versão especial — a que ele tiver serve.
             n_esp = min(need_especial.get(ck, 0), qty)
             e_deck = e_binder = e_col = e_enc = 0
             if n_esp:
                 pids_e = versoes.especiais_de(ck)
-                antes = {m: dict(impressoes[m]) for m in impressoes}
                 reg_e: dict[str, int] = {}
-                e_deck, e_binder, e_col, e_enc = servir(pids_e, n_esp, reg_e)
+                reg_e_cam: dict[str, int] = {}
+                e_deck, e_binder, e_col, e_enc = servir(pids_e, n_esp, reg_e, reg_e_cam)
+                anotar(reg_e, "especial")
                 # Que versão especial ficou a servir: a que saiu dos montes ou
                 # a que vem a caminho — para a página do deck dizer qual é.
-                usada = [pid for m in impressoes for pid in impressoes[m]
-                         if impressoes[m][pid] != antes[m].get(pid, 0)]
-                usada += list(reg_e)
+                usada = list(reg_e) + list(reg_e_cam)
                 if usada:
                     especial_em[ck] = usada[0]
                 if e_deck + e_binder + e_col:
@@ -923,9 +1004,31 @@ def allocate(con: sqlite3.Connection) -> dict:
                 if falta_e:
                     missing_especial[ck] = falta_e
 
-            # Os lugares NORMAIS: a base.
+            # Os lugares NORMAIS: a base primeiro...
+            reg_n: dict[str, int] = {}
             pids = versoes.normais_de(ck)
-            do_deck, do_binder, da_colecao, encomendada = servir(pids, qty - n_esp)
+            do_deck, do_binder, da_colecao, encomendada = servir(pids, qty - n_esp, reg_n)
+            anotar(reg_n, "normal")
+            # ...e o que a base não tapar, com OUTRAS impressões que ele tenha
+            # — Alt Art, sobrenumerada, promo; nunca assinada nem retirada
+            # (André, 2026-09-17: *"caso um deck precise de uma carta, que não
+            # há versão disponível em normal, mas esteja disponível em Alt Art
+            # ou outra, usa"*). Só depois disto é que há falta a comprar, e a
+            # falta continua a apontar à base. O alvo da Coleção não sabe
+            # disto: a alt art continua a pedir 1, jogue ou não.
+            resto = qty - n_esp - do_deck - do_binder - da_colecao - encomendada
+            if resto > 0:
+                reg_o: dict[str, int] = {}
+                o_deck, o_binder, o_col, o_enc = servir(versoes.outras_de(ck), resto, reg_o)
+                anotar(reg_o, "outra")
+                if o_deck + o_binder + o_col:
+                    alloc_outras[ck] = o_deck + o_binder + o_col
+                do_deck += o_deck
+                do_binder += o_binder
+                da_colecao += o_col
+                encomendada += o_enc
+            if servidas:
+                versoes_em[ck] = servidas
             do_deck += e_deck
             do_binder += e_binder
             da_colecao += e_col
@@ -966,13 +1069,17 @@ def allocate(con: sqlite3.Connection) -> dict:
         # do `a_caminho` e do `missing` — que continuam a ser os totais — que
         # é a Legend/Champion numa versão especial. `especial_em` diz que
         # impressão ficou a servir esse lugar (ou vem a caminho para ele).
+        # `alloc_outras` é a parte do `alloc` que tapou um lugar normal com
+        # outra versão (2026-09-17, tarde), e `versoes_em` reparte o `alloc`
+        # inteiro por impressão, para a vista do deck separar as artes.
         resultado = {"alloc": alloc, "no_deck": no_deck, "no_binder": no_binder,
                      "na_colecao": na_colecao, "a_caminho": a_caminho,
                      "missing": missing, "shared": shared, "need": need,
                      "impressoes": impressoes,
                      "need_especial": need_especial, "alloc_especial": alloc_especial,
                      "a_caminho_especial": a_caminho_especial,
-                     "missing_especial": missing_especial, "especial_em": especial_em}
+                     "missing_especial": missing_especial, "especial_em": especial_em,
+                     "alloc_outras": alloc_outras, "versoes_em": versoes_em}
 
         # Espalha-se pelos membros, cortado ao que CADA lista pede. As fontes
         # repartem-se pela mesma ordem (deck, binder, Coleção); o `missing` de
@@ -983,6 +1090,7 @@ def allocate(con: sqlite3.Connection) -> dict:
             nd = needs[d["deck_id"]]
             m_alloc, m_deck, m_binder, m_col, m_cam, m_miss, m_shared = {}, {}, {}, {}, {}, {}, {}
             m_need_e, m_alloc_e, m_cam_e, m_miss_e = {}, {}, {}, {}
+            m_alloc_o, m_versoes = {}, {}
             partilhada: dict[str, list[dict]] = {}
             for ck, qty in nd.items():
                 n_esp = min(qty, need_especial.get(ck, 0)) if ck in especiais_de[d["deck_id"]] else 0
@@ -1006,6 +1114,16 @@ def allocate(con: sqlite3.Connection) -> dict:
                     m_cam_e[ck] = enc_e
                 if falta_e:
                     m_miss_e[ck] = falta_e
+                # As impressões deste membro: as especiais cortadas ao lugar
+                # especial dele, e as normais + outras cortadas ao resto — a
+                # base serve-se primeiro, por isso as «outras» são as últimas
+                # a entrar e as primeiras a sair quando a lista pede menos.
+                fatias = _fatiar(versoes_em.get(ck, []), take_e, take_n)
+                if fatias:
+                    m_versoes[ck] = fatias
+                outras = sum(x["qty"] for x in fatias if x["lugar"] == "outra")
+                if outras:
+                    m_alloc_o[ck] = outras
                 if take:
                     m_alloc[ck] = take
                 if dd:
@@ -1043,6 +1161,7 @@ def allocate(con: sqlite3.Connection) -> dict:
                 "need_especial": m_need_e, "alloc_especial": m_alloc_e,
                 "a_caminho_especial": m_cam_e, "missing_especial": m_miss_e,
                 "especial_em": {ck: especial_em[ck] for ck in m_need_e if ck in especial_em},
+                "alloc_outras": m_alloc_o, "versoes_em": m_versoes,
                 "grupo": {**resultado, "legend": g["legend"], "rotulo": g["rotulo"],
                           "membros": g["nomes"], "slugs": g["slugs"],
                           "variantes": g["variantes"],
@@ -1112,6 +1231,10 @@ def resumo_das_faltas(con: sqlite3.Connection) -> dict:
     # o número que se quer ver à parte (2026-09-17).
     esp_cartas: set[str] = set()
     esp_copias = esp_cents = 0
+    # E quantos lugares normais estão tapados por outra versão que ele tem —
+    # faltas que deixaram de o ser a 2026-09-17 (tarde).
+    outras_cartas: set[str] = set()
+    outras_copias = 0
     for a in alloc.values():
         for ck, n in a["missing"].items():
             cartas.add(ck)
@@ -1122,13 +1245,17 @@ def resumo_das_faltas(con: sqlite3.Connection) -> dict:
                 esp_cartas.add(ck)
                 esp_copias += n_esp
                 esp_cents += (barato(ck, especial=True) or 0) * n_esp
+        for ck, n in a["alloc_outras"].items():
+            outras_cartas.add(ck)
+            outras_copias += n
         disputadas += sum(v["qty"] for v in a["shared"].values())
         encomendadas += sum(a["a_caminho"].values())
     cents += esp_cents
     return {"cards": len(cartas), "copies": copias, "cents": cents,
             "disputed": disputadas, "ordered": encomendadas,
             "especiais": {"cards": len(esp_cartas), "copies": esp_copias,
-                          "cents": esp_cents}}
+                          "cents": esp_cents},
+            "outras": {"cards": len(outras_cartas), "copies": outras_copias}}
 
 
 def preco_de_compra(versoes: Versoes):
@@ -1277,6 +1404,9 @@ def decks_index(con: sqlite3.Connection) -> list[dict]:
                 "ordered": sum(a["a_caminho_especial"].values()),
                 "missing": sum(a["missing_especial"].values()),
             },
+            # Lugares normais tapados por OUTRA versão (2026-09-17, tarde):
+            # cópias que ele tem e que, sem esta regra, eram falta.
+            "outras": sum(a["alloc_outras"].values()),
             # O grupo de Legend a que pertence (2026-09-11, noite): os irmãos
             # partilham as cartas e o total geral conta o grupo uma vez, pelo
             # líder. `partilhadas` é quantas cópias desta lista o irmão também
@@ -1382,16 +1512,35 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
             tenho_esp = min(n_esp, max(0, a["alloc_especial"].get(ck, 0) - usado_esp.get(ck, 0)))
             enc_esp = min(n_esp - tenho_esp,
                           max(0, a["a_caminho_especial"].get(ck, 0) - usado_cam_esp.get(ck, 0)))
+            # Quantas especiais as linhas anteriores já levaram — o ponto de
+            # partida desta na lista das impressões servidas.
+            ini_esp = min(usado_esp.get(ck, 0), a["alloc_especial"].get(ck, 0))
             usado_esp[ck] = usado_esp.get(ck, 0) + n_esp
             usado_cam_esp[ck] = usado_cam_esp.get(ck, 0) + enc_esp
             falta_esp = n_esp - tenho_esp - enc_esp
 
-            # O resto da linha são lugares normais: a base.
+            # O resto da linha são lugares normais: a base — e, se a base não
+            # chegar, outra versão que ele tenha (2026-09-17, tarde).
             normais = r["qty"] - n_esp
             disponivel = max(0, a["alloc"].get(ck, 0) - a["alloc_especial"].get(ck, 0)
                              - usado.get(ck, 0))
             tenho = min(normais, disponivel) + tenho_esp
+            ini_n = usado.get(ck, 0)
             usado[ck] = usado.get(ck, 0) + tenho - tenho_esp
+            # As impressões que servem ESTA linha, repartidas por versão —
+            # «2 normal (UNL-176) · 1 Alt Art (UNL-176a)». A alocação é por
+            # carta; corta-se a lista dela ao que esta linha leva, pela ordem
+            # dos papéis. Uma linha servida por uma impressão só leva uma
+            # entrada, e a vista não a reparte.
+            servidas = a["versoes_em"].get(ck, [])
+            fatia = (_cortar([x for x in servidas if x["lugar"] == "especial"], ini_esp, tenho_esp)
+                     + _cortar([x for x in servidas if x["lugar"] != "especial"],
+                               ini_n, tenho - tenho_esp))
+            versoes_linha = [{
+                "id": x["id"], "code": versoes.info(x["id"])["code"],
+                "kind": versoes.info(x["id"])["kind"], "label": versoes.rotulo(x["id"]),
+                "qty": x["qty"], "lugar": x["lugar"],
+            } for x in fatia]
             # De onde vem o que tem: já sleevada no deck, por ir buscar ao
             # binder Decks/Venda, ou na Coleção. Os três somam o `have`; são
             # três sítios diferentes onde ele a vai encontrar.
@@ -1436,6 +1585,10 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
                 "na_colecao": tenho - no_deck - no_binder,
                 # O lugar especial desta linha (a Legend/Champion), ou `None`.
                 "especial": especial,
+                # As impressões que servem esta linha, por versão, e quantas
+                # cópias vieram de OUTRA versão por a base não chegar.
+                "versoes": versoes_linha,
+                "outras": sum(x["qty"] for x in versoes_linha if x["lugar"] == "outra"),
                 # Onde o `+` grava a encomenda.
                 "order_code": alvo.get("code"), "order_price": alvo.get("price"),
                 "order_especial": bool(falta_esp),
@@ -1484,6 +1637,8 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
             "ordered": sum(a["a_caminho"].values()),
             "missing": sum(a["missing"].values()),
             "shared": sum(v["qty"] for v in a["shared"].values()),
+            # Lugares normais tapados por outra versão que ele tem.
+            "outras": sum(a["alloc_outras"].values()),
         },
     }
 

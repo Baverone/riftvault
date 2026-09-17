@@ -218,16 +218,20 @@ class TestAMaisEOValor(Base):
         self.assertEqual(am["totals"]["excedente"], {"cards": 0, "copies": 0})
         self.assertEqual(am["scope"], {"hidden_cards": 0, "hidden_copies": 0})
         con.close()
-        # Sem retirar, as mesmas 6 cópias davam 5 a mais: o alvo da alt art é
-        # 1 e não sobe com o que o Azir joga (2026-09-17, «voltar atrás»; de
-        # 16/09 a 17/09 subia a 4 e eram 2 a mais).
+        # Sem retirar, as mesmas 6 cópias dão 2 a mais: o alvo da alt art é 1
+        # e não sobe com o que o Azir joga (2026-09-17, «voltar atrás»), mas
+        # desde a tarde desse dia o Azir, sem Calm Rune base, TAPA as 4 do
+        # Rune Pool com as alt arts — e uma cópia em uso não é a mais
+        # (`cópias − max(usadas, alvo)` = 6 − 4). É o que aconteceria às runas
+        # dele se deixassem de estar retiradas.
         escrever_config(retiradas=())
         self.recarregar()
         self.v = Vault()
         self.addCleanup(self.v.close)
         con = self.catalogo(copias=SEIS)
         self.assertEqual(self.a_mais.payload(con)["totals"]["excedente"],
-                         {"cards": 1, "copies": 5})
+                         {"cards": 1, "copies": 2})
+        self.assertNotIn("calm rune", self.falta_de(con, "azir"))
         con.close()
 
     def test_nao_conta_no_valor_nem_nos_totais(self):
@@ -301,18 +305,25 @@ class TestOsDecks(Base):
         self.assertIn("aaa-004a-100", pm)
         con.close()
 
-    def test_as_outras_alt_arts_nao_sao_retiradas_mas_o_main_joga_a_base(self):
-        """A alt art do Defy continua a existir (alvo 1, aparece na grelha);
-        só que o main joga a base (2026-09-17) — as 3 bases servem, as 3 alt
-        arts sozinhas não."""
+    def test_as_outras_alt_arts_nao_sao_retiradas__o_main_joga_a_base_e_elas_tapam(self):
+        """A alt art do Defy continua a existir (alvo 1, aparece na grelha); o
+        main joga a base primeiro (2026-09-17) e, desde a tarde desse dia, as
+        alt arts tapam o que a base não chega — as 3 alt arts sozinhas servem
+        o Defy (`test_versoes_deck.py`). A runa em alt art, retirada, NÃO tapa
+        nada: é a diferença entre «retirada» e «outra versão»."""
         con = self.catalogo(copias={"aaa-004a-100": 3, "aaa-004-100": 3})
-        self.assertNotIn("defy", self.falta_de(con, "azir"))
+        a = self.decks.allocate(con)[self.idx(con)["azir"]["id"]]
+        self.assertNotIn("defy", a["missing"])
+        self.assertNotIn("defy", a["alloc_outras"])
         self.assertEqual(self.tiles(con)["aaa-004a-100"]["target"], 1)
         con.close()
         self.v = Vault()
         self.addCleanup(self.v.close)
-        con = self.catalogo(copias={"aaa-004a-100": 3})
-        self.assertEqual(self.falta_de(con, "azir").get("defy"), 3)
+        con = self.catalogo(copias={"aaa-004a-100": 3, RUNA_ALT: 6})
+        a = self.decks.allocate(con)[self.idx(con)["azir"]["id"]]
+        self.assertNotIn("defy", a["missing"])
+        self.assertEqual(a["alloc_outras"].get("defy"), 3)
+        self.assertEqual(a["missing"].get("calm rune"), 4)
         con.close()
 
     def test_com_os_decks_todos_na_base_continua_retirada(self):

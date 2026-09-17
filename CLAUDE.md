@@ -2409,6 +2409,11 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   por impressão; os controlos saíram dos tiles dos decks. Ver a última
   secção deste ficheiro. (Fecha o «registar uma encomenda pela interface» da
   revisão de 09-09 — já se fazia nos decks desde 11/09, agora faz-se aqui.)
+- **Feito também:** o deck aproveita as versões que ele tem (2026-09-17, ao
+  fim da tarde) — um lugar normal que a base não tape serve-se de outra
+  versão (Alt Art, sobrenumerada, promo; nunca assinada nem retirada) antes
+  de ser falta, e a vista do deck (CLI e site) reparte cada carta pelas
+  impressões que a servem. Ver a última secção deste ficheiro.
 - **Por fazer:** a parte 2 do seguir — o separador no site e a tarefa diária;
   vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck,
   com as partilhadas assinaladas); e apagar decks pela interface (hoje apaga-se
@@ -3163,7 +3168,8 @@ reverte para a regra de 16/09 voltar — está lá e no fim desta secção).
    base da edição, sem sobrenumeração. A partilha de 11/09 (*"se há na
    coleção o deck usa"*) volta a valer para TODAS as cartas: uma alt art que
    ele tenha fica na Coleção a contar para o alvo 1 dela e **não serve** um
-   lugar normal.
+   lugar normal. (**Desde a tarde de 17/09 serve, mas só depois da base** —
+   ver a secção seguinte, «o deck aproveita as versões que ele tem».)
 3. **A Legend e o Champion jogam UMA versão especial** — alt art,
    sobrenumerada ou promo, **nunca signature**. Qualquer que ele tenha serve
    (a que sai dos montes primeiro é a mais barata); sem nenhuma, a falta é
@@ -3522,4 +3528,85 @@ impressão, o `fora`, encomendar não é ter, a grelha não escreve, as rotas, o
 `build` sem controlos, e o `app.js`/`index.html` (separador existe, os
 tiles dos decks sem `data-enc`/`data-chegou` mas com «a caminho», sem a aba
 nos Decks). `test_site_do_pc` pede o `api/encomendas/TST.json`.
+
+## 17/09/2026, ao fim da tarde — o deck aproveita as versões que ele tem, e separa-as por arte (`Versoes.outras_de`, `versoes_em`)
+
+Palavras dele: *"caso um deck precise de uma carta, que não há versão
+disponível em normal, mas esteja disponível em Alt.Art ou outra, usa, mas no
+deck **separa as versões por Art**"*. Ramo `ai-pc/versoes-deck-2026-09-17`;
+relatório em `ai-pc/work/revisao/riftvault-versoes-deck.md`.
+
+**A regra, para uma carta que NÃO é a Legend nem o Champion:** (1) serve-se
+primeiro com as cópias normais (base) que ele tem; (2) o que a base não tapar
+completa-se com **outras impressões que ele tenha** — Alt Art, sobrenumerada,
+promo — em vez de ser falta; (3) **nunca assinada**, e uma runa em Alt Art
+**retirada** (`f1dbd5b`) também não tapa nada; (4) só depois disso é falta a
+comprar, e a falta aponta à **base**. **O alvo da Coleção não mexe** — Alt
+Art, OverNumbered e SP continuam a 1 de cada, joguem ou não (*"mesmo que
+joguem nos decks"*, 17/09). A Legend e o Champion continuam a jogar UMA versão
+especial, servida primeiro.
+
+**Onde vive.** `decks.Versoes.outras_de(ck)` é a MESMA lista das
+`especiais_de` (a mais barata primeiro, para a mais cara ficar na Coleção) —
+não há terceira lista; o que serve a Legend serve um buraco do main, só o
+lugar é outro. No `decks.allocate`, depois de `servir(normais_de(ck))`, o
+resto faz `servir(outras_de(ck))`; o `servir` passou a registar de que
+impressões saiu cada cópia (`tirar(..., *registos)`), e o grupo leva
+`versoes_em[ck] = [{id, qty, lugar}]` (`lugar` ∈ `especial`/`normal`/`outra`)
+e `alloc_outras[ck]`. Por membro, `_fatiar` corta essa lista ao que a lista
+dele leva (especiais primeiro, depois normais, depois outras — o irmão que
+pede menos fica com as normais). O `deck_payload` corta-a outra vez por
+papel (`_cortar`, com o offset das linhas anteriores) e cada linha leva
+`versoes` (`id/code/kind/label/qty/lugar`) e `outras`; `Versoes.rotulo`
+dá as palavras dele («normal», «Alt Art», «sobrenumerada», «promo»).
+`resumo_das_faltas` e `decks_index` levam `outras` (cartas/cópias), o
+`locais` do payload também. **Uma alt art a caminho tapa como a base a
+caminho** (o `servir` é o mesmo): fica «a caminho», não «a comprar».
+
+**A vista.** `riftvault deck <slug>`: sub-linhas indentadas por versão
+(`2 normal (UNL-176)` / `1 Alt Art (UNL-176a)`) **só quando a linha se
+reparte por mais do que uma impressão**; servida por UMA só outra versão,
+diz-se na própria linha (`em Alt Art (UNL-176a)`). `riftvault decks` e o
+cabeçalho do deck dizem «N cópias jogam noutra versão». No site, `versoesNota`
+no `deckTile` (uma sub-linha por versão, a «outra» a amarelo,
+`.onde.versoes`), a lista das impressões que ele tem sai quando há
+repartição, o chip «noutra versão N» e uma nota no `deckLocais`.
+
+**Medido a 2026-09-17 contra cópias (`_revisao\_medir_versoes_deck.py`),
+`main` (`62f07c3`) e ramo, mesma corrida, 4 decks (o Kennen Post Ban está de
+volta) — os invariantes NÃO mexem:** denominador **928**, níveis
+**860/780/715 = 92,7 / 84,1 / 77,0 %** (faltam 68/206/409 ·
+267,73/824,22/1 485,58 €), wantlist «tudo» **213 · 406 · 1 392,96 €**, valor
+**2 959,97 € · 2 391 cópias**, Faltas por edição **349 · 542 · 12 391,36 €**,
+A mais **135 a mais · 80 libertadas** (nenhum item muda — as versões que
+entraram estavam a 1 cópia, alvo 1, e não eram a mais). **O que mexe:** falta
+dos decks **20 cópias · 11 cartas · 245,20 € → 18 · 10 · 233,18 €** — o
+Kennen tapa **2 Ezreal, Prodigy** (tinha 1 `SFD-149` base, 1 `SFD-149a` alt
+art e 1 `VEN-SP5` promo paradas; −2 × 6,01 €). O caso da Vi, Peacekeeper do
+pedido já não existia à hora da medição: ele meteu cartas na Coleção nessa
+tarde.
+
+**As runas, em destaque — a tensão que ele já conhece.** Faltam-lhe nos decks
+**Calm Rune 6 (Azir), Mind Rune 1 (LeBlanc BH), Chaos Rune 1 e Order Rune 1
+(Kennen)** — 9 cópias. Tem em Alt Art: `OGN-042a` ×6, `OGN-089a` ×1,
+`OGN-166a` ×1 (catálogo, **retiradas**) e `SFD-R02a` ×12, `SFD-R03a` ×4,
+`SFD-R06a` ×7 (CardTrader, `market_only`). Medido com
+`runas_especiais.retiradas: []` no mesmo `data/`: a falta dos decks passa a
+**10 cópias · 7 cartas** — **8 das 9 faltas de runas tapadas** (as 6 Calm
+Rune, a Mind Rune e a Chaos Rune, todas pelas `OGN-0XXa`); só a Order Rune
+fica, porque as 7 que ele tem são do CardTrader e as `market_only` nunca
+servem decks (não estão no `catalog.printings`; só o pendente delas conta,
+por carta). Nesse cenário o valor sobe para 2 995,29 € (+8 cópias), que é a
+regra das retiradas, não esta. **Implementou-se como estava escrito — as
+retiradas ficam de fora**; mudar é uma linha de config e é decisão dele.
+`test_versoes_deck.test_se_a_runa_deixasse_de_estar_retirada_tapava` fixa o
+que aconteceria.
+
+`tests/test_versoes_deck.py` (22 testes, contra cópias e config temporário);
+`test_voltar_1` (3 testes reescritos: a alt art e a sobrenumerada passam a
+tapar; o Champion com 2 especiais e 0 base fica a faltar 1, não 2),
+`test_runas_alt_fora` (as alt arts do Defy tapam, a runa retirada não; sem
+retirar, as 6 Calm Rune alt art passam a 2 a mais) e `test_a_mais` (uma alt
+art que o deck passa a jogar deixa de estar a mais) ajustados. Suite: 31
+ficheiros.
 
