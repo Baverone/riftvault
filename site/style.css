@@ -661,6 +661,24 @@ body.readonly .dtile .steppers.enc { display: none; }
   .fe-bloco span { margin-left: 0; text-align: left; flex-basis: 100%; }
 }
 
+/* --------------------------------------------------------------- «A mais»
+
+   (2026-09-17) A mesma linguagem das Faltas: os `dtile` com a carta, o
+   crachá a dizer quantas a mais ou quantas libertadas, um ponto de cor por
+   bloco. Uma carta a mais não está em falta nem a caminho — a arte fica a
+   cores, com a moldura na cor do bloco. */
+.fe-bloco.am-excedente { --cor: var(--accent); }
+.fe-bloco.am-libertadas { --cor: #c07cff; }
+.dtile.a-mais .art { border-color: rgba(124, 140, 255, .55); }
+.dtile.a-mais .art img { filter: none; }
+.dtile.a-mais .need { background: rgba(124, 140, 255, .92); color: #0f1016; }
+.dtile.a-mais.libertada .art { border-color: rgba(192, 124, 255, .55); }
+.dtile.a-mais.libertada .need { background: rgba(192, 124, 255, .92); color: #1a0a26; }
+/* O que está escondido da Coleção (tokens, runas sem numeração) não tem alvo:
+   a moldura apagada diz que é a mais por não ser coleção, não por passar um número. */
+.dtile.a-mais.escondida .art { border-color: var(--line); border-style: dashed; }
+.dtile.a-mais .onde i { font-style: normal; color: var(--dim); opacity: .8; }
+
 /* Os três botões das listas do Cardmarket, lado a lado. */
 .cm-botoes { display: flex; flex-wrap: wrap; gap: 8px; }
 .btn.ghost { background: transparent; }

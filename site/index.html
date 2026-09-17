@@ -31,6 +31,9 @@
            passou a ser a tabela de preços); o id é `faltas-edicao` porque
            `faltas` já é o do «Quanto custa». -->
       <button class="tab" data-section="faltas-edicao">Faltas</button>
+      <!-- O separador «A mais» (2026-09-17): por edição, o excedente acima
+           do alvo e as cartas que os decks libertaram. Só mostra. -->
+      <button class="tab" data-section="a-mais">A mais</button>
     </nav>
   </div>
 
@@ -38,6 +41,7 @@
   <nav id="deck-tabs" class="tabs tabs-set" aria-label="Decks" hidden></nav>
   <nav id="falta-tabs" class="tabs tabs-set" aria-label="Quanto custa — edições" hidden></nav>
   <nav id="fe-tabs" class="tabs tabs-set" aria-label="Faltas — edições" hidden></nav>
+  <nav id="am-tabs" class="tabs tabs-set" aria-label="A mais — edições" hidden></nav>
 </header>
 
 <main>
@@ -125,6 +129,11 @@
   <section id="faltas-edicao" hidden>
     <div id="fe-head"></div>
     <div id="fe-body"></div>
+  </section>
+
+  <section id="a-mais" hidden>
+    <div id="am-head"></div>
+    <div id="am-body"></div>
   </section>
 </main>
 
