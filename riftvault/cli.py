@@ -939,10 +939,11 @@ def cmd_encomendas(args) -> int:
     """As encomendas (André, 2026-09-11): o que está a caminho, para que deck
     vai, e o que ainda falta encomendar.
 
-    `--mais REF [N]` / `--menos REF [N]` são os `+`/`−` dos decks na consola —
-    a REF é um código de impressão (`OGN-045`) ou o nome da carta (aí vai para
-    a base mais barata, como no site). `--chegou [REF]` dá entrada do que está
-    a caminho dessa carta, ou de tudo.
+    `--mais REF [N]` / `--menos REF [N]` são os `+`/`−` do separador
+    «Encomendas» na consola — a REF é um código de impressão (`OGN-045`, como
+    o tile do site) ou o nome da carta (aí vai para a normal mais barata).
+    `--chegou [REF]` dá entrada do que está a caminho dessa impressão (por
+    código, como o «Chegou» do tile), dessa carta (por nome), ou de tudo.
     """
     con = db.connect()
     if db.catalog_is_empty(con):
@@ -981,12 +982,12 @@ def cmd_encomendas(args) -> int:
         return 0
 
     if args.chegou is not None:
-        ck = None
+        ck = pid = None
         if args.chegou:
             ck, pid = carta_ou_impressao(args.chegou)
-            if pid and ck is None:
-                ck = pending_mod._card_key(con, pid)
-        feitas = pending_mod.arrive(con, None, source="cli", card_key=ck)
+        # Por código é só essa impressão (o «Chegou» do tile, 2026-09-17);
+        # por nome é a carta inteira, seja de que impressão for.
+        feitas = pending_mod.arrive(con, None, source="cli", card_key=ck, printing_id=pid)
         if not feitas:
             print("não havia nada por chegar.")
             return 1

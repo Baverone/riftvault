@@ -5,6 +5,10 @@ Palavras dele:
     encomendado (comprado), mas que ainda não chegou; assim consigo contigo
     organizar melhor as compras"*
 
+(Desde 2026-09-17 os `+`/`−` e o «Chegou» vivem no separador «Encomendas»,
+não nos tiles dos decks — ver `test_encomendas_separador.py`; a mecânica que
+se fixa aqui é a mesma.)
+
 O mecanismo é a tabela `pending` que já existia; o que se fixa aqui é que os
 `+`/`−` sobem e descem sem ir abaixo de zero, que o `missing` do deck desconta
 a encomenda, que a encomenda serve o deck de prioridade mais alta, que «Chegou»

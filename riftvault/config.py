@@ -133,6 +133,11 @@ DEFAULTS: dict = {
     # os decks libertaram. Um botão por edição, menos estas (o OGS, como no
     # «Quanto custa»); a edição sem botão continua em «Todas». Ver `a_mais.py`.
     "a_mais": {"sem_edicoes": ["OGS"]},
+    # O separador «Encomendas» (2026-09-17: "igual à coleção, mas só de Raras
+    # para cima"): a grelha da Coleção cortada à raridade da BASE a partir
+    # desta, na ordem `metrics.RARITY_ORDER` (common < uncommon < rare < epic
+    # < showcase). Ver `pending.grelha`.
+    "encomendas": {"raridade_minima": "rare"},
     # As línguas cujas ofertas do CardTrader entram no preço (2026-09-15:
     # "apenas cartas versao ingles"). Era 'en' fixo no código desde o início.
     "precos": {"linguas": ["en"]},

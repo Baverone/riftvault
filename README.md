@@ -3,7 +3,8 @@
 Gestor da minha coleção de **Riftbound**. Objetivo: ter playsets, incluindo as
 artes normais **e** as alternativas.
 
-Duas secções: **Coleção** e **Decks**. O catálogo vem da API pública da
+Secções: **Coleção**, **Decks**, **Quanto custa**, **Faltas**, **A mais** e
+**Encomendas**. O catálogo vem da API pública da
 [RiftScribe](https://riftscribe.gg) e os preços do
 [CardTrader](https://www.cardtrader.com).
 
@@ -180,7 +181,7 @@ pendente) — não há segunda implementação, só outra arrumação.
 
 **As faltas dos decks não estão aqui.** As do master set estão também na
 **wantlist do fim de cada edição** da Coleção (`api/wantlist.json`) e as dos
-decks nas abas do separador **Decks**, a seguir às Encomendas
+decks nas abas do separador **Decks**, a seguir aos decks
 (`api/compras.json`):
 
 - **Decks → Staples** — cartas que **mais do que um deck** pede e que não tens em
@@ -201,12 +202,29 @@ decks nas abas do separador **Decks**, a seguir às Encomendas
   Arrumado **por deck**, nunca por edição: a vista **Todas** tem uma
   secção por deck, e há sub-abas para veres um de cada vez com a quantidade
   que esse deck usa. Cada sub-aba tem a sua lista para a wantlist.
-- **Decks → Encomendas** — o que já compraste e ainda não chegou, para que
-  deck vai, e o que ainda falta encomendar. Não conta na Coleção (essa mede o
-  que tens na caixa) mas já sai das faltas e das wantlists, para não comprares
-  duas vezes. Quando chegar, carrega em **Chegou** na linha (ou em "Chegou
-  tudo") e ela passa para a Coleção. Também dá pela linha de comandos:
-  `py -m riftvault encomendas` e `py -m riftvault pending --chegou [ID]`.
+### Encomendas (2026-09-17)
+
+O separador **Encomendas** é **a grelha da Coleção, de Rara para cima** — as
+mesmas edições, os mesmos blocos, os mesmos tiles com imagem, tenhas a carta
+ou não — onde marcas **o que compraste e ainda não chegou**. Em cada tile:
+
+- o crachá continua a ser o da Coleção (`1/3`): **encomendar não é ter**;
+- o **+** marca mais uma cópia comprada **dessa versão** (a alt art é a alt
+  art, a base é a base), o **−** tira-a, e «+2» a azul diz quantas vêm a caminho;
+- **Chegou (N)** dá entrada dessa impressão na Coleção — passa pelo mesmo
+  `+` da grelha, fica no histórico e dá para anular.
+
+Uma encomenda **não conta** para a percentagem, os níveis nem o valor até
+chegar; **desconta** das listas de compra (wantlists, Faltas, «falta
+comprar» dos decks). O corte é pela raridade da base a partir de
+`encomendas.raridade_minima` (`rare`: raras, míticas e as `showcase`); o que
+vier a caminho fora da grelha (uma comum pela consola, uma runa do CardTrader)
+aparece no cabeçalho com o seu «Chegou». No site publicado é só leitura.
+
+Os `+`/`−` e o «Chegou» viveram nos tiles dos **decks** de 11 a 17/09; lá
+ficou só a informação «N a caminho». Na consola: `py -m riftvault encomendas
+[--mais REF [N] | --menos REF [N] | --chegou [REF]]` (por código é só essa
+impressão, por nome é a carta) e `py -m riftvault pending --chegou [ID]`.
 
 A aba **A subir** (do master set, o que ainda não tens e subiu 10% ou mais
 nos últimos 30 dias) saiu do site com o separador; a conta continua na

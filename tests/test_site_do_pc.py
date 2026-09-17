@@ -88,7 +88,7 @@ class TestSiteDoPC(unittest.TestCase):
         for nome in ("index.html", "app.js", "style.css", ".nojekyll",
                      "api/index.json", "api/set/TST.json", "api/decks.json",
                      "api/wantlist.json", "api/compras.json", "api/quanto_custa.json",
-                     "api/encomendas.json"):
+                     "api/encomendas.json", "api/encomendas/TST.json"):
             self.assertTrue((self.out / nome).exists(), f"falta {nome} no site")
         # O `faltas.json` saiu a 2026-09-15 (à tarde) com o separador das faltas:
         # partiu-se em wantlist.json, compras.json e quanto_custa.json.

@@ -559,35 +559,45 @@ body.readonly .btn.chegou { display: none; }
 
 .price.pago { background: rgba(124, 140, 255, .92); color: #0f1016; }
 
-/* Os `+`/`−` da encomenda numa linha do deck (2026-09-11): mais baixos que os
-   da Coleção, porque aqui não é a acção principal — é «comprei uma». O «a
-   caminho» leva o azul das encomendas, para não se confundir com falta. */
-.dtile .steppers.enc { margin-top: 2px; }
-.dtile .steppers.enc .step { min-height: 30px; font-size: 15px; }
-.dtile .steppers.enc .step:disabled { opacity: .3; cursor: default; }
-.dtile .steppers.enc .step.plus { color: var(--accent); }
+/* O «a caminho» leva o azul das encomendas em todo o lado, para não se
+   confundir com falta (vermelho) nem com tenho (verde). */
 .onde.caminho, .onde .caminho { color: #9aa8ff; }
 .chip-l.caminho { color: #9aa8ff; border-color: rgba(124, 140, 255, .5); }
 .dtile.a-caminho .badge { background: rgba(124, 140, 255, .25); color: #9aa8ff; }
-body.readonly .dtile .steppers.enc { display: none; }
 
-/* A lista «Encomendas»: tabela, não grelha — aqui lêem-se números e
-   destinos, não artes. */
-.enc-tabela {
-  width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 14px;
-  font-variant-numeric: tabular-nums;
+/* --------------------------------------------------------- «Encomendas»
+
+   O separador (2026-09-17): a grelha da Coleção, de Rara para cima. O tile é o
+   `.tile` da Coleção — mesma arte, mesma etiqueta, mesmo crachá `q/alvo` — e o
+   que muda são os botões: o `+`/`−` é do que ele COMPROU E AINDA NÃO CHEGOU
+   e o «Chegou» dá entrada. Os `+`/`−` levam o azul das encomendas para nunca
+   se confundirem com os da Coleção, que somam à caixa. */
+.tile.enc.a-caminho .art { border-color: rgba(124, 140, 255, .7); border-style: dashed; }
+.tile.enc.a-caminho.none .art img { filter: grayscale(.6) brightness(.6); }
+.tile.enc .steppers.enc .step.plus { color: #9aa8ff; border-color: rgba(124, 140, 255, .45); }
+.tile.enc .steppers.enc .step.plus:active { background: #9aa8ff; color: #0f1016; }
+.tile.enc .steppers.enc .step:disabled { opacity: .3; cursor: default; }
+.tile.enc .onde { text-align: center; }
+.tile.enc .onde.tenho { opacity: .5; }
+.tile.enc .btn.chegou { width: 100%; }
+/* «+2» a caminho, ao lado do crachá da Coleção — em azul, nunca no crachá:
+   encomendar não é ter. */
+.enc-n {
+  position: absolute; right: 4px; bottom: 28px;
+  font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums;
+  background: rgba(124, 140, 255, .92); color: #0f1016;
+  border-radius: 6px; padding: 2px 6px;
 }
-.enc-tabela th, .enc-tabela td {
-  text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line);
-  vertical-align: top;
+/* O que vem a caminho desta edição fora da grelha (abaixo da raridade mínima
+   ou fora do catálogo): uma linha por impressão, com o «Chegou» ao lado. */
+.enc-fora { margin-top: 10px; font-size: 12px; color: var(--dim); line-height: 1.7; }
+.enc-fora b { color: var(--text); display: block; margin-bottom: 2px; }
+.enc-fora-item {
+  display: inline-flex; align-items: center; gap: 6px; margin: 0 10px 4px 0;
+  padding: 2px 8px; border: 1px solid var(--line); border-radius: 8px; color: var(--text);
 }
-.enc-tabela th { font-size: 10px; color: var(--dim); font-weight: 500; text-transform: uppercase; }
-.enc-tabela .num { text-align: right; white-space: nowrap; }
-.enc-tabela .cod { color: var(--dim); white-space: nowrap; }
-.enc-tabela .para { color: #9aa8ff; }
-.enc-tabela .var { font-style: normal; color: var(--dim); font-size: 11px; }
-.enc-tabela .btn.chegou { width: auto; padding: 4px 8px; font-size: 11px; }
-.enc-tabela small { color: var(--dim); }
+.enc-fora-item i { font-style: normal; color: var(--dim); font-size: 11px; }
+.btn.chegou.mini { width: auto; padding: 3px 8px; font-size: 11px; }
 /* Impressões que não são dele: sobem na mesma, mas sem alarme de cor. */
 .dtile.neutro .art { border-color: var(--line); }
 .dtile.neutro .art img { filter: none; }
