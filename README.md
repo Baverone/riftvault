@@ -157,8 +157,8 @@ imagem** e o crachá a dizer **quantas faltam**.
 
 - Um botão por edição (o OGS entra) e «Todas», cada edição com **Master set**
   (a sequência, alvo do tipo — Unit/Spell/Gear 3, Legend e Battlefield 1,
-  runas numeradas 3), **Alt Art** (as artes alternativas, 1 de cada — ou o
-  que os decks pedem, se for mais; **sem as das runas**, que saíram de tudo
+  runas numeradas 3), **Alt Art** (as artes alternativas, **1 de cada** —
+  os decks nunca levantam este alvo; **sem as das runas**, que saíram de tudo
   a 2026-09-17) e **OverNumbered** (as sobrenumeradas, 1 de cada).
   Cada bloco diz quantas faltam e quanto custa fechar; a edição soma os três.
 - **O que vem a caminho conta.** Uma carta já encomendada aparece a azul
@@ -237,7 +237,7 @@ sem botão mas aparece em «Todas»), e em cada edição dois blocos, com a
 
 - **Excedente** — impressões de que tens **mais cópias do que o alvo** que a
   Coleção e os decks já usam: playset na sequência, 1 nas artes alternativas
-  e sobrenumeradas (ou o que os decks jogam, nas alt arts), e o que está
+  e sobrenumeradas (os decks não levantam este alvo), e o que está
   escondido (tokens, signatures, runas sem numeração) não tem alvo e sobra
   inteiro, marcado. A conta é `cópias − max(usadas nos decks, alvo)`: **o que
   os decks levam nunca é a mais**, o que está no binder Decks/Venda e nenhum
@@ -354,7 +354,7 @@ Unit/Spell/Gear 3, Battlefield 1, Legend 1, Rune 12, tokens 1.
 |---|---|---|
 | 1 | a sequência do master set, por número de coleção | o **playset do tipo** (Unit/Spell/Gear 3, Legend e Battlefield 1, **runas 3** desde 2026-09-15 — `master_targets_by_type`) |
 | 2 | as runas especiais (a runa que não é a base), por edição | **1** — bloco **vazio** desde 2026-09-17, ver «As runas em Alt Art» abaixo |
-| 3 | as artes alternativas | **1** (2026-09-16), ou o que os decks pedem se for mais |
+| 3 | as artes alternativas | **1** (2026-09-16; a 2026-09-17 ficou fixo — os decks nunca o levantam, ver «Que versão joga cada carta») |
 
 Os três contam para a percentagem: hoje são **1036 impressões** no denominador.
 As runas promo (`VEN-R01`) estão no bloco 2, com as outras runas especiais.
@@ -477,8 +477,9 @@ as lê.
 
 O que **não** mudou: as runas base do master set (as 6 do OGN) pedem **3**,
 como as outras cartas; as artes alternativas e as sobrenumeradas de cartas
-que não são runas continuam a **1 de cada**, e os decks pedem a arte
-alternativa por cima sempre que ela existir (2026-09-16).
+que não são runas continuam a **1 de cada**. (Os decks pediram a arte
+alternativa por cima entre 2026-09-16 e 2026-09-17; já não pedem — ver «Que
+versão joga cada carta», na secção Decks.)
 
 Escreve-se em `runas_especiais.retiradas` (hoje `["a"]`, com a mesma
 gramática das listas do `master_set`); a pergunta responde-se numa função só,
@@ -549,6 +550,34 @@ porque o deck 1 a levou, ela vai **para a lista de compras** desse deck, e o
 site diz em que deck está a que existe (*"caso algum deck ou decks já estão a
 usar as cartas disponíveis na coleção, o próximo passa a marcar como faltas
 para comprar"*). Mudar a ordem refaz a alocação toda.
+
+### Que versão joga cada carta (2026-09-17)
+
+Frase tua: *"os decks apenas jogaram versoes normais, com excepcao da Legend
+e do Champion que serao Alt Art ou Overnumbered ou SP, mas nunca assinada"*.
+
+- **Tudo o que está no main, nos battlefields, no Rune Pool e no sideboard
+  joga a versão normal** — a base da edição, sem sobrenumeração. Uma arte
+  alternativa que tenhas dessa carta fica na Coleção, a contar para o alvo
+  dela (1 de cada), e **não** serve o deck.
+- **A Legend e o Champion jogam uma versão especial**: arte alternativa,
+  sobrenumerada ou promo `VEN-SP` — **nunca uma assinada**. Se tens mais do
+  que uma versão especial, qualquer uma serve; se não tens nenhuma, a falta
+  aponta à **mais barata**, e a página do deck diz qual é e quais as outras
+  («versão especial: `VEN-113a/166` (a comprar) · ou …»). Sem versão especial
+  no catálogo, joga a base e não há falta.
+- **Só uma cópia é especial.** A Legend é uma por deck; um Champion que a
+  lista jogue mais vezes tem as restantes na base.
+- **O alvo da Coleção nunca sobe por causa dos decks.** Alt Art, OverNumbered
+  e promos pedem 1 de cada, joguem ou não num deck. (Entre 2026-09-16 e
+  2026-09-17 os decks jogavam tudo em Alt Art e o alvo subia ao que eles
+  pediam — durou um dia, saiu inteiro do código e não volta sem pedires.)
+
+No config: `decks.so_normais_excepto` (os papéis que jogam a versão
+especial, hoje `["legend", "champion"]`; vazio = tudo na base) e
+`decks.versoes_especiais` (o que conta como especial, na gramática das listas
+do `master_set`: `["a", "overnumbered", "promo"]`; escrever `"*"` aí dá erro
+de propósito). No código, `decks.Versoes` e `decks.versoes_dos_decks`.
 
 Para reordenar, usa os botões **Tornar principal / Subir / Descer** no site,
 ou:
