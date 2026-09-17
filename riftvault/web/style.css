@@ -353,6 +353,10 @@ body.readonly .steppers { display: none; }
 .chip-l.bad { color: var(--bad); border-color: rgba(255, 107, 107, .45); }
 /* Lugares tapados por outra versão (2026-09-17): nem tenho-a-base nem falta. */
 .chip-l.outra { color: var(--accent-2); border-color: rgba(240, 180, 41, .45); }
+/* As runas não se contam (2026-09-17, à noite): nem ok, nem falta — à mão. */
+.chip-l.neutra { color: var(--dim); }
+.bar-label .dim { font-style: normal; color: var(--dim); font-weight: normal; }
+.dtile.nao-contada .need { background: rgba(255, 255, 255, .18); color: var(--text); }
 
 /* Quantas cópias faltam por edição — cada carta conta na edição onde sai mais
    barata, que é onde ele a vai comprar. */

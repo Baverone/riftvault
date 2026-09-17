@@ -365,17 +365,26 @@ def cmd_decks(args) -> int:
     # falta que existe num deck de cima — informação, não desconto. "a caminho"
     # (2026-09-11) é o que já está encomendado para este deck: não é tenho,
     # já não é falta.
+    # As runas não se contam (2026-09-17, à noite: *"indica me so quantas
+    # sao"*): o «tenho» é só do resto, e a coluna «runas» diz quantas a lista
+    # pede — à mão.
     print(f"{'#':<3} {'deck':<40} {'tenho':>12} {'deck':>5} {'binder':>7} "
-          f"{'coleção':>8} {'a caminho':>9} {'falta':>6} {'disputadas':>10}")
+          f"{'coleção':>8} {'a caminho':>9} {'falta':>6} {'disputadas':>10} "
+          f"{'runas':>6}")
     idx = decks_mod.decks_index(con)
     for d in idx:
         # Os membros de um grupo de Legend (2026-09-11, noite) levam «··» à
         # frente: partilham as cartas e o total conta-os uma vez.
         nome = ("·· " if d["grupo"]["variantes"] else "") + d["name"]
+        runas = d.get("runas") or {}
         print(f"{d['priority']:<3} {nome[:40]:<40} "
               f"{d['have']:>5}/{d['wanted']:<6} {d['no_deck']:>5} "
               f"{d['no_binder']:>7} {d['na_colecao']:>8} {d['ordered']:>9} "
-              f"{d['missing']:>6} {d['shared']:>10}")
+              f"{d['missing']:>6} {d['shared']:>10} "
+              f"{(runas.get('copies') or '') if not runas.get('contadas') else '':>6}")
+    if any(not (d.get("runas") or {}).get("contadas", True) for d in idx):
+        print("(as runas não se contam nos decks — «tenho» é sem elas; a coluna "
+              "«runas» diz quantas a lista pede, para organizares à mão)")
     grupos = [g for g in decks_mod.grupos(con) if g["variantes"]]
     for g in grupos:
         lider = next(d for d in idx if d["id"] == g["lider"])
@@ -453,6 +462,12 @@ def cmd_deck(args) -> int:
     if lc["extra"]:
         print(f"  {lc['extra']} cópias estão marcadas neste deck e ele já não "
               f"as pede.")
+    # As runas não se contam (2026-09-17, à noite): diz-se quantas a lista
+    # pede, e mais nada — ele organiza-as à mão.
+    ru = p.get("runas") or {}
+    if ru.get("copies") and not ru.get("contadas"):
+        print(f"  runas: {ru['copies']} ({ru['cards']} {'carta' if ru['cards'] == 1 else 'cartas'}) "
+              f"— não se contam, organizas à mão")
 
     if p["missing_by_set"]:
         print("\nFalta comprar, por edição:")
@@ -464,8 +479,17 @@ def cmd_deck(args) -> int:
                   f"  {prices.eur(m['cents']):>9}{extra}")
 
     for s in p["sections"]:
-        print(f"\n{s['label']}  ({s['have']}/{s['wanted']})")
+        nao = s.get("nao_contadas", 0)
+        if nao and not s["wanted"]:
+            # O Rune Pool inteiro: só as quantidades (2026-09-17, à noite).
+            print(f"\n{s['label']}  ({nao} — não se contam, organizas à mão)")
+        else:
+            print(f"\n{s['label']}  ({s['have']}/{s['wanted']})"
+                  + (f"  + {nao} não contadas" if nao else ""))
         for c in s["cards"]:
+            if not c.get("contado", True):
+                print(f"  - {c['wanted']:>2} {c['name'][:38]:<38}")
+                continue
             # De onde vem o que tem — os três somam o `have`.
             onde = " · ".join(f"{n} {sitio}" for n, sitio in (
                 (c["no_deck"], "no deck"), (c["no_binder"], "no binder Decks/Venda"),
@@ -818,6 +842,15 @@ def cmd_a_mais(args) -> int:
     t, h = p["totals"], p["history"]
     print(f"a mais: {t['excedente']['copies']} cópias em {t['excedente']['cards']} impressões · "
           f"libertadas: {t['libertadas']['copies']} em {t['libertadas']['cards']} cartas.")
+    # As runas ficam de fora dos dois blocos (2026-09-17, à noite: *"no a mais
+    # nunca aparece Runas"*) — diz-se quantas, em vez de as apagar em silêncio.
+    ru = (p.get("scope") or {}).get("runas") or {}
+    if p.get("scope", {}).get("sem_runas") and (
+            ru.get("excedente", {}).get("copies") or ru.get("libertadas", {}).get("copies")):
+        print(f"fora, por serem runas: {ru['excedente']['copies']} cópias a mais em "
+              f"{ru['excedente']['cards']} impressões · {ru['libertadas']['copies']} "
+              f"libertadas em {ru['libertadas']['cards']} cartas — organizas à mão.",
+              file=sys.stderr)
     print("registo dos decks: " + (f"desde {h['since'][:10]}, {h['events']} mudanças"
                                    if h["since"] else "ainda vazio — começa na próxima "
                                    "importação das listas"), file=sys.stderr)

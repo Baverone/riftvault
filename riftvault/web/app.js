@@ -1109,10 +1109,12 @@ function renderDeckTabs() {
     // Membros de um grupo de Legend (2026-09-11, noite) levam «··»: são
     // listas do mesmo deck físico e partilham as cartas.
     const grupo = d.grupo && d.grupo.variantes;
+    // As runas não se contam (2026-09-17, à noite): o «tenho X de N» é sem
+    // elas, e o separador diz só quantas há.
     b.innerHTML = `${d.priority === 1 ? '★ ' : ''}${grupo ? '<span class="grupo-marca" title="' +
       escapeAttr(`A mesma Legend que ${d.grupo.irmaos.join(', ')}: partilham as cartas`) + '">··</span> ' : ''}${
       escapeHTML(d.name)}<small>${pct}% · ${d.have}/${d.wanted}${
-      d.ordered ? ` · ${d.ordered} a caminho` : ''}</small>`;
+      d.ordered ? ` · ${d.ordered} a caminho` : ''}${runasCurto(d.runas)}</small>`;
     b.onclick = () => loadDeck(d.id);
     nav.appendChild(b);
   }
@@ -1127,6 +1129,18 @@ function renderDeckTabs() {
     b.onclick = () => loadDeckFaltas(t.id);
     nav.appendChild(b);
   }
+}
+
+/* «· 12 runas» — as que a lista pede e NÃO se contam (André, 2026-09-17, à
+   noite: «indica me so quantas sao e eu organizo isso sozinho a mao»). Vazio
+   quando não há runas, ou quando elas contam (`decks.contar_runas: true`). */
+function runasCurto(r) {
+  if (!runasNaoContadas(r)) return '';
+  return ` · ${r.copies} runas`;
+}
+
+function runasNaoContadas(r) {
+  return !!(r && !r.contadas && r.copies);
 }
 
 async function loadDeck(deckId) {
@@ -1164,8 +1178,9 @@ function renderDeck() {
         <span><i>Champion</i> ${escapeHTML(p.champion || '—')}</span>
         <span><i>Domínios</i> ${(L.dominios.legend || []).join(' + ') || '—'}</span>
       </div>
-      <div class="bar-label"><span>Cartas alocadas a este deck</span>
-        <b>${idx.have || 0}/${idx.wanted || 0}</b></div>
+      <div class="bar-label"><span>Cartas alocadas a este deck${
+        runasNaoContadas(p.runas) ? ' <i class="dim">(sem as runas)</i>' : ''}</span>
+        <b>${idx.have || 0}/${idx.wanted || 0}${runasCurto(p.runas)}</b></div>
       <div class="bar"><i style="width:${pct}%"></i></div>
       <div class="chips-l">
         ${chip(L.main.ok, `main ${L.main.n}/${L.main.alvo}`)}
@@ -1196,9 +1211,17 @@ function renderDeck() {
       </div>
     </div>`;
 
+  // O Rune Pool não se conta (2026-09-17, à noite): o cabeçalho diz só
+  // quantas runas a lista pede — «12 · organizas à mão» — em vez de «0/12».
+  const cabec = s => {
+    const nao = s.nao_contadas || 0;
+    if (nao && !s.wanted) return `${nao} · não se contam, organizas à mão`;
+    return `${s.have}/${s.wanted}${s.ordered ? ` · ${s.ordered} a caminho` : ''}${
+      nao ? ` · ${nao} não contadas` : ''}`;
+  };
   const listas = p.sections.map(s => `
     <h2 class="section-head">${s.label}
-      <span>${s.have}/${s.wanted}${s.ordered ? ` · ${s.ordered} a caminho` : ''}</span></h2>
+      <span>${cabec(s)}</span></h2>
     <div class="grid deck-grid">${s.cards.map(deckTile).join('')}</div>`).join('');
 
   // Depois do deck, o mesmo em falta mas arrumado por edição — é a vista de
@@ -1240,7 +1263,11 @@ function deckLocais(p) {
       ${l.shared ? chip(true, `${l.shared} disputadas com um deck de cima`) : ''}
       ${l.outras ? `<span class="chip-l outra">noutra versão ${l.outras}</span>` : ''}
       ${l.extra ? chip(true, `a mais neste deck ${l.extra}`) : ''}
+      ${runasNaoContadas(p.runas) ? `<span class="chip-l neutra">${p.runas.copies} runas à mão</span>` : ''}
     </div>
+    ${runasNaoContadas(p.runas) ? `<small class="nota">As <b>${p.runas.copies}</b> runas
+      do Rune Pool não se contam: não entram no tenho, na falta nem na lista de
+      compras — a lista diz só quantas são, e organizas as runas à mão.</small>` : ''}
     ${l.shared ? `<small class="nota">Das <b>${l.missing}</b> a comprar,
       <b>${l.shared}</b> existem na Coleção mas um deck de prioridade mais alta
       já as usa — compram-se na mesma.</small>` : ''}
@@ -1397,12 +1424,27 @@ async function recarregarDepoisDeMover() {
    moldura azul tracejada quando tudo o que faltava já vem a caminho. O
    `missing` do deck já vem descontado do servidor; aqui só se mostra. */
 function deckTile(c) {
+  const src = state.imageMode === 'remote' ? (c.cdn || c.img) : (c.img || c.cdn);
+  const alt = state.imageMode === 'remote' ? (c.img || '') : (c.cdn || '');
+  // Uma runa não se conta (2026-09-17, à noite): a carta com o «N×» que a
+  // lista pede, moldura neutra, sem crachá tenho/faltam, sem preço — ele
+  // organiza-as à mão. Não pode dizer que falta, nem que está ok.
+  if (c.contado === false) {
+    return `<div class="dtile neutro nao-contada" data-ck="${escapeAttr(c.card_key)}">
+      <div class="art${c.landscape ? ' landscape' : ''}">
+        ${src ? `<img src="${src}" alt="${escapeAttr(c.name)}" loading="lazy" decoding="async"
+           ${alt ? `data-fallback="${escapeAttr(alt)}"` : ''}>` : ''}
+        <span class="need">${c.wanted}×</span>
+      </div>
+      <div class="tname" title="${escapeAttr(c.name)}">${escapeHTML(c.name)}</div>
+      ${codeLine(c)}
+      <div class="onde tenho">não se conta — organizas à mão</div>
+    </div>`;
+  }
   // O que falta é para comprar, sempre (2026-09-11). «shared» é só a cor: a
   // falta existe num deck de cima, e a nota diz onde. Com tudo o que falta já
   // a caminho, a moldura fica a azul tracejado — nem tenho, nem falta.
   const st = c.missing ? (c.shared ? 'shared' : 'gone') : (c.ordered ? 'a-caminho' : 'ok');
-  const src = state.imageMode === 'remote' ? (c.cdn || c.img) : (c.img || c.cdn);
-  const alt = state.imageMode === 'remote' ? (c.img || '') : (c.cdn || '');
 
   // O irmão do grupo (mesma Legend) que também pede esta carta: é a mesma
   // compra, não uma disputa (2026-09-11, noite). Diz-se na linha da falta.
@@ -1541,7 +1583,8 @@ function exportCSV() {
   const linhas = [['seccao', 'carta', 'pedidas', 'tenho', 'faltam', 'onde_estao']];
   for (const s of p.sections) {
     for (const c of s.cards) {
-      if (!c.missing) continue;
+      // Uma runa não se conta — nem falta, nem entra na lista de compras.
+      if (!c.missing || c.contado === false) continue;
       linhas.push([s.label, c.name, c.wanted, c.have, c.missing,
         c.shared ? c.shared.em.map(h => `${h.qty}x ${h.deck}`).join(' | ') : '']);
     }
@@ -2342,6 +2385,15 @@ function renderAMais() {
   const sets = p.sets.filter(s => sel === 'all' || s.set === sel);
   const t = p.totals, h = p.history || {};
   const semBotao = p.sets.filter(s => !s.button).map(s => s.name);
+  // As runas ficam de fora dos dois blocos (2026-09-17, à noite: «no a mais
+  // nunca aparece Runas»). Diz-se quantas ficaram de fora, não se escondem.
+  const sc = p.scope || {}, ru = sc.runas || {};
+  const runasFora = sc.sem_runas && ((ru.excedente || {}).copies || (ru.libertadas || {}).copies)
+    ? `<br>Sem runas, de propósito — organizas as runas à mão. Ficaram de fora ${
+        plural(ru.excedente.copies, 'cópia', 'cópias')} a mais em ${
+        plural(ru.excedente.cards, 'impressão', 'impressões')} de runa${
+        ru.libertadas.copies ? ` e ${plural(ru.libertadas.copies, 'runa libertada', 'runas libertadas')} dos decks` : ''}.`
+    : (sc.sem_runas ? '<br>Sem runas, de propósito — organizas as runas à mão.' : '');
 
   $('#am-head').innerHTML = `<div class="deck-card">
     <div class="deck-title"><b>A mais</b>
@@ -2357,12 +2409,12 @@ function renderAMais() {
         : 'ainda vazio'}</span>
     </div>
     <small class="nota"><b>Excedente</b>: cópias acima do alvo que a Coleção e os decks
-      já usam — playset na sequência, 1 nas artes alternativas e sobrenumeradas
-      (ou o que os decks jogam), e o que está escondido (tokens, signatures, runas
-      sem numeração) não tem alvo. O que os decks levam nunca conta como a mais.
+      já usam — playset na sequência, 1 nas artes alternativas e sobrenumeradas,
+      e o que está escondido (tokens, signatures) não tem alvo. O que os decks
+      levam nunca conta como a mais.
       <b>Libertadas dos decks</b>: o que uma lista pedia e deixou de pedir — o
       registo nasceu a 2026-09-17 e só sabe do que mudou desde então.
-      Isto só mostra: não muda alvos nem contas, e não é uma lista de venda.${
+      Isto só mostra: não muda alvos nem contas, e não é uma lista de venda.${runasFora}${
       semBotao.length ? `<br>Sem botão próprio: ${semBotao.map(escapeHTML).join(', ')} — aparece em «Todas».` : ''}</small>
   </div>`;
 

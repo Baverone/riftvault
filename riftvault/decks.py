@@ -659,12 +659,14 @@ def owned_by_card(con: sqlite3.Connection) -> dict[str, int]:
     `metrics.owned_by_card`, que soma tudo menos as retiradas.
     """
     versoes = versoes_dos_decks(con)
+    # As runas não se contam nos decks (2026-09-17, à noite).
+    nao_contadas = cartas_nao_contadas(con)
     out: dict[str, int] = {}
     for r in con.execute(
         "SELECT p.printing_id, p.card_key, c.qty FROM copies c "
         "JOIN catalog.printings p ON p.printing_id = c.printing_id WHERE c.qty > 0"
     ):
-        if versoes.serve(r):
+        if versoes.serve(r) and r["card_key"] not in nao_contadas:
             out[r["card_key"]] = out.get(r["card_key"], 0) + r["qty"]
     return out
 
