@@ -1412,11 +1412,24 @@ function deckTile(c) {
     nota = `<div class="onde tenho">${c.printings
       .map(x => `${x.qty}× ${escapeHTML(x.code || x.id)}`).join(' · ')}</div>`;
   }
+  // A Legend e o Champion jogam UMA versão especial — Alt Art, sobrenumerada
+  // ou promo, nunca assinada (2026-09-17). A linha diz qual serve (ou qual se
+  // compra) e que outras serviam.
+  if (c.especial) {
+    const e = c.especial;
+    const alt = (e.alternativas || []).map(a => escapeHTML((a || '').split('/')[0]));
+    nota += `<div class="onde especial">versão especial: ${escapeHTML((e.code || '?').split('/')[0])}${
+      e.missing ? ' (a comprar)' : e.ordered ? ' (a caminho)' : ''}${
+      alt.length ? ` · ou ${alt.join(', ')}` : ''}</div>`;
+  }
 
   // Os botões só onde há o que encomendar ou o que anular. O `+` diz no
   // `title` em que impressão grava; o `−` desliga-se a zero (nunca vai abaixo).
+  // `data-esp` marca a linha da Legend/Champion cujo `+` grava na versão
+  // especial (e cujo `−` só tira de uma especial).
+  const esp = c.especial ? 1 : 0;
   const enc = state.editable && (c.missing || c.ordered) ? `
-    <div class="steppers enc" data-ck="${escapeAttr(c.card_key)}">
+    <div class="steppers enc" data-ck="${escapeAttr(c.card_key)}" data-esp="${esp}">
       <button class="step minus" data-enc="-1" ${c.ordered ? '' : 'disabled'}
               aria-label="menos uma encomendada de ${escapeAttr(c.name)}"
               title="menos uma a caminho">−</button>
@@ -1585,8 +1598,20 @@ function faltaTile(x) {
     </div>
     <div class="tname" title="${escapeAttr(x.name)}">${escapeHTML(x.name)}</div>
     ${codeLine(x)}
+    ${especialNota(x)}
     ${(x.also || []).length ? `<div class="onde tenho">também em ${x.also.join(', ')}</div>` : ''}
   </div>`;
+}
+
+/* A linha de compra que é a VERSÃO ESPECIAL da Legend/Champion (2026-09-17):
+   diz que o é, e que outras versões especiais serviam na mesma — qualquer
+   uma serve, a lista aponta à mais barata. */
+function especialNota(x) {
+  if (!x.especial) return '';
+  const alt = (x.alternativas || []).map(a =>
+    `${escapeHTML((a.code || '').split('/')[0])}${a.price != null ? ` ${eur(a.price)}` : ''}`);
+  return `<div class="onde especial">versão especial (Legend/Champion)${
+    alt.length ? ` · ou ${alt.join(', ')}` : ''}</div>`;
 }
 
 async function deckAction(act) {
@@ -2698,6 +2723,9 @@ function staplTile(x) {
     <div class="tname" title="${escapeAttr(x.name)}">${escapeHTML(x.name)}</div>
     <div class="onde tenho">${x.decks.map(d =>
       `${d.qty}× ${escapeHTML(deckCurto(d.deck))}`).join('<br>')}</div>
+    ${x.especial ? `<div class="onde especial">${x.especial.qty}× em versão especial (${
+      escapeHTML((x.especial.code || '').split('/')[0])}${
+      x.especial.price != null ? ` · ${eur(x.especial.price)}` : ''})</div>` : ''}
   </div>`;
 }
 
