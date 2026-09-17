@@ -392,9 +392,11 @@ def cmd_decks(args) -> int:
     # Lugares normais tapados por outra versão que ele tem (2026-09-17, tarde)
     # — sem esta regra eram falta.
     if tot["outras"]["copies"]:
-        print(f"{tot['outras']['copies']} cópias de {tot['outras']['cards']} cartas "
-              f"jogam noutra versão (Alt Art, sobrenumerada ou promo) porque a "
-              f"base não chega — `riftvault deck <slug>` reparte-as.")
+        o = tot["outras"]
+        print(f"{o['copies']} {'cópia joga' if o['copies'] == 1 else 'cópias jogam'} "
+              f"noutra versão (Alt Art, sobrenumerada ou promo) porque a base não "
+              f"chega — {o['cards']} {'carta' if o['cards'] == 1 else 'cartas'}; "
+              f"`riftvault deck <slug>` reparte-as.")
     extra = sum(d["extra"] for d in idx)
     if extra:
         print(f"{extra} cópias estão marcadas num deck que já não as pede — "
@@ -445,8 +447,9 @@ def cmd_deck(args) -> int:
         print(f"  para sleevar as da Coleção: `riftvault local --deck "
               f"{p['slug']} --propor`")
     if lc.get("outras"):
-        print(f"  {lc['outras']} cópias jogam noutra versão porque a base não "
-              f"chega (Alt Art, sobrenumerada ou promo — nunca assinada).")
+        print(f"  {lc['outras']} {'cópia joga' if lc['outras'] == 1 else 'cópias jogam'} "
+              f"noutra versão porque a base não chega (Alt Art, sobrenumerada ou "
+              f"promo — nunca assinada).")
     if lc["extra"]:
         print(f"  {lc['extra']} cópias estão marcadas neste deck e ele já não "
               f"as pede.")

@@ -370,7 +370,7 @@ class TestAVistaReparte(Base):
         txt = saida.getvalue()
         self.assertIn("2 normal (TST-001)", txt)
         self.assertIn("1 Alt Art (TST-001a)", txt)
-        self.assertIn("1 cópias jogam noutra versão", txt)
+        self.assertIn("1 cópia joga noutra versão", txt)
         # O Brutalizer, servido só pela base, não ganha sub-linha.
         self.assertNotIn("3 normal (TST-002)", txt)
 
