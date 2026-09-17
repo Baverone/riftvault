@@ -11,7 +11,11 @@
      `test_runas_3.py`; o «runas 1 de cada» desta frase foi revogado).
      Só isto conta para a percentagem e para os níveis.
   2. COLEÇÃO EXTRA — artes alternativas, runas especiais, sobrenumeradas,
-     promos. Mesmo alvo. Aparecem na grelha com «tenho N de alvo», vendem-se
+     promos. O «mete Playset» foi revogado às fatias: sobrenumeradas e promos
+     a 1 de cada a 2026-09-15 (`test_alvo_1.py`), artes alternativas (runas
+     incluídas) a 2026-09-16 (*"Alt Art e Overnumbered e assim quero apenas 1
+     de cada"*, `test_altart_decks.py` — sobe ao que os decks pedem). Aparecem
+     na grelha com «tenho N de alvo», vendem-se
      acima do alvo, NÃO contam para a percentagem e — desde 2026-09-15 — NÃO
      entram em lista de compra nenhuma: *"sobrenumeradas não entram na
      wantlist, nem na % de coleção completa; apenas pedi para ser feito track
@@ -97,10 +101,13 @@ class TestAlvos(Base):
         self.assertTrue(self.metrics.e_master(r))
         con.close()
 
-    def test_uma_alt_art_de_unit_pede_3_e_nao_conta(self):
+    def test_uma_alt_art_de_unit_pede_1_e_nao_conta(self):
+        """Pediu 3 de 2026-09-14 à noite até 2026-09-16 (*"Alt Art e
+        Overnumbered e assim quero apenas 1 de cada"*); sobe ao que os decks
+        pedem, e aqui nenhum a pede — ver `test_altart_decks.py`."""
         con = self.edicao()
         r = self.linhas(con)["tst-001a-100"]
-        self.assertEqual(self.metrics.alvo(r), 3)
+        self.assertEqual(self.metrics.alvo(r), 1)
         self.assertFalse(self.metrics.e_master(r))
         self.assertTrue(self.metrics.e_colecao(r))
         con.close()
@@ -131,10 +138,12 @@ class TestAlvos(Base):
         self.assertTrue(self.metrics.e_master(r))
         con.close()
 
-    def test_a_runa_especial_pede_3_e_nao_conta(self):
+    def test_a_runa_especial_pede_1_e_nao_conta(self):
+        """A runa especial é a arte alternativa da runa: 1 de cada desde
+        2026-09-16, como qualquer alt art (o 3 é da runa BASE, `test_runas_3`)."""
         con = self.edicao()
         r = self.linhas(con)["tst-002a-100"]
-        self.assertEqual(self.metrics.alvo(r), 3)
+        self.assertEqual(self.metrics.alvo(r), 1)
         self.assertFalse(self.metrics.e_master(r))
         self.assertEqual(self.metrics.bloco(r), "rune_special")
         # A runa promo, sem numeração, já não é runa especial: está escondida.
@@ -149,15 +158,17 @@ class TestAlvos(Base):
         self.assertEqual((a["tst-003-100"], a["tst-004-100"]), (1, 1))
         con.close()
 
-    def test_o_alvo_e_o_mesmo_dentro_e_fora_da_percentagem(self):
-        """*"Alt Art, overnumbered, etc etc mete Playset na contagem"* — desde
-        2026-09-15 só para as artes alternativas: as sobrenumeradas e as
-        promos voltaram a 1 (`test_alvo_1.py`)."""
+    def test_a_colecao_extra_pede_1_e_o_master_set_o_playset(self):
+        """*"Alt Art, overnumbered, etc etc mete Playset na contagem"*
+        (2026-09-14) foi revogado às fatias: as sobrenumeradas e as promos a
+        2026-09-15 (`test_alvo_1.py`), as artes alternativas a 2026-09-16
+        (`test_altart_decks.py`). Hoje a coleção extra pede toda 1 de cada e o
+        master set continua a pedir o playset — dois conjuntos separados."""
         con = self.edicao()
         a = self.alvos(con)
-        self.assertEqual(a["tst-001-100"], a["tst-001a-100"])
-        self.assertEqual(a["tst-002-100"], a["tst-002a-100"])
-        self.assertNotEqual(a["tst-001-100"], a["tst-101-100"])
+        self.assertEqual((a["tst-001-100"], a["tst-002-100"]), (3, 3))
+        self.assertEqual((a["tst-001a-100"], a["tst-002a-100"], a["tst-101-100"],
+                          a["tst-sp1-006"]), (1, 1, 1, 1))
         con.close()
 
 
@@ -256,18 +267,19 @@ class TestListasDeCompra(Base):
         con.close()
 
     def test_a_colecao_extra_continua_na_grelha_com_o_alvo_dela(self):
-        """*"apenas pedi para ser feito track de playset"*: a arte alternativa
-        diz «tenho 0 de 3»; a sobrenumerada, desde 2026-09-15, «tenho 0 de 1»
-        — e com zero cópias continua a não ser para comprar."""
+        """*"apenas pedi para ser feito track"*: a coleção extra continua na
+        grelha com o alvo dela — 1 de cada em todos os blocos desde 2026-09-16
+        (a sobrenumerada desde 2026-09-15) —, e com zero cópias continua a não
+        ser para comprar."""
         from riftvault import collection
         con = self.edicao()
         collection.adjust(con, "tst-001a-100", 1, source="test")
         p = self.metrics.set_payload(con, "TST")
         tiles = {pr["id"]: pr for g in p["groups"] for pr in g["printings"]}
-        self.assertEqual((tiles["tst-001a-100"]["qty"], tiles["tst-001a-100"]["target"]), (1, 3))
+        self.assertEqual((tiles["tst-001a-100"]["qty"], tiles["tst-001a-100"]["target"]), (1, 1))
         self.assertEqual((tiles["tst-101-100"]["qty"], tiles["tst-101-100"]["target"]), (0, 1))
-        self.assertEqual(tiles["tst-002a-100"]["target"], 3)
-        # … e mesmo com 1 de 3 (a alt art) ou 0 de 1 (a sobrenumerada), nada
+        self.assertEqual(tiles["tst-002a-100"]["target"], 1)
+        # … e mesmo com 1 de 1 (a alt art) ou 0 de 1 (a sobrenumerada), nada
         # disto é para comprar.
         faltas = {x["printing_id"] for s in self.a_subir.master_faltas(con)["sets"]
                   for x in s["items"]}
@@ -311,12 +323,12 @@ class TestListasDeCompra(Base):
         p = self.a_subir.master_faltas(con, cfg)
         itens = {x["printing_id"]: x for s in p["sets"] for x in s["items"]}
         self.assertEqual(sorted(itens), sorted(self.MASTER + self.EXTRA))
-        # Com o alvo de cada bloco: a alt art de Unit pede 3, a sobrenumerada
-        # e a promo pedem 1 (2026-09-15), a runa especial 3 (2026-09-15).
-        self.assertEqual(itens["tst-001a-100"]["missing"], 3)
+        # Com o alvo de cada bloco: a sobrenumerada e a promo pedem 1
+        # (2026-09-15), a alt art de Unit e a runa especial também (2026-09-16).
+        self.assertEqual(itens["tst-001a-100"]["missing"], 1)
         self.assertEqual(itens["tst-101-100"]["missing"], 1)
         self.assertEqual(itens["tst-sp1-006"]["missing"], 1)
-        self.assertEqual(itens["tst-002a-100"]["missing"], 3)
+        self.assertEqual(itens["tst-002a-100"]["missing"], 1)
         self.assertFalse(p["scope"]["so_master_set"])
         con.close()
 
