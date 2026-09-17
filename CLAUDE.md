@@ -13,7 +13,11 @@ Secções: **Coleção**, **Decks**, **Quanto custa**, **Faltas** (a quarta é d
 `faltas-edicao`, `api/faltas_edicao.json`, `faltas_edicao.py`) e **A mais**
 (2026-09-17 — o excedente acima do alvo e as cartas libertadas dos decks; id
 `a-mais`, `api/a_mais.json`, `a_mais.py` + `uso_decks.py`; ver a secção
-própria no fim deste ficheiro). Há ainda o **seguir jogadores** do Piltover
+própria no fim deste ficheiro) e **Encomendas** (2026-09-17, à tarde — a
+grelha da Coleção de Rara para cima com os `+`/`−` do que comprou e o
+«Chegou»; id `encomendas`, `api/encomendas/<SET>.json` + `api/encomendas.json`,
+`pending.grelha`; os controlos SAÍRAM dos tiles dos decks — ver a última
+secção deste ficheiro). Há ainda o **seguir jogadores** do Piltover
 Archive (2026-09-17, `seguir.py`, `riftvault seguir`; por agora só na
 consola — a secção no site é a parte 2, por fazer; ver a última secção deste
 ficheiro). O «Quanto custa» (chamou-se **Faltas** até
@@ -2400,12 +2404,15 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   de 2) — `seguir.py`, `riftvault seguir`, `seguir.jogadores` no config, o
   estado em `data/seguir/estado.json`; só o motor e a CLI. Ver a última
   secção deste ficheiro.
+- **Feito também:** o separador «Encomendas» (2026-09-17, à tarde) — a grelha
+  da Coleção de Rara para cima, com os `+`/`−` do que comprou e o «Chegou»
+  por impressão; os controlos saíram dos tiles dos decks. Ver a última
+  secção deste ficheiro. (Fecha o «registar uma encomenda pela interface» da
+  revisão de 09-09 — já se fazia nos decks desde 11/09, agora faz-se aqui.)
 - **Por fazer:** a parte 2 do seguir — o separador no site e a tarefa diária;
   vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck,
   com as partilhadas assinaladas); e apagar decks pela interface (hoje apaga-se
   o `.txt`).
-- **Por fazer, da revisão:** registar uma encomenda («a caminho») pela
-  interface — hoje só pelo `riftvault pending`, e ele compra no telemóvel.
 
 ## `Nome:` no ficheiro do deck, e a chave de um deck é o SLUG (2026-09-11)
 
@@ -3412,4 +3419,107 @@ outros 15 faltam entre 2 e 16 cópias — o que mais se repete são as runas
 de 3, nos três Irelia), **Last Rites** `SFD-150` (0, nos Kennen e Draven),
 **Sabotage** `OGN-156` (0 de 3), **Falling Star** `OGN-029`. Tabela inteira
 no relatório.
+
+## 17/09/2026, à tarde — o separador «Encomendas» (`pending.grelha`); os `+`/`−` saem dos decks
+
+Palavras dele: *"que cries uma aba 'encomendas', em que é igual à coleção,
+mas só tem de Raras para cima, e nas quais eu coloco o que comprei (para não
+me perder), e assim que chegam, eu coloco lá que chegaram, e acrescentas à
+coleção"* / *"e tiras esta funcionalidade dos decks"*. Ramo
+`ai-pc/encomendas-2026-09-17`; relatório em
+`ai-pc/work/revisao/riftvault-encomendas.md`.
+
+**Não é registo novo — é a `pending` de 2026-09-11 com outra casa.** O que
+já existia e se reaproveitou inteiro: a tabela `pending` (uma linha por
+compra, por impressão), `pending.encomendar`/`anular` (os `+`/`−`),
+`pending.arrive` (o «Chegou», pelo `collection.adjust`, fica no `ops`), a
+rota `POST /api/encomenda` e `POST /api/pending/arrive`, o desconto do
+pendente em todas as listas de compra (alocação dos decks, wantlists,
+Faltas), a informação «N a caminho» nos decks e na Coleção. O que mudou é
+**onde se encomenda e que aspecto tem**.
+
+**O separador (id `encomendas`, sexto de topo)** é a GRELHA DA COLEÇÃO:
+`pending.grelha(con, set_id)` chama o `metrics.set_payload` tal e qual —
+as mesmas edições nos separadores (`state.index.sets`, o OGS incluído), os
+mesmos blocos (master, alt art, sobrenumeradas, promos), os mesmos grupos e
+tiles com imagem, a mesma ordem, **tenha ele a carta ou não** — e corta os
+grupos pela raridade da BASE a partir de `encomendas.raridade_minima`
+(`rare`, `riftvault_config.json` e `config.DEFAULTS`), na ordem
+`metrics.RARITY_ORDER` (`common < uncommon < rare < epic < showcase`). O
+`qty` de cada tile continua a ser o que está NA COLEÇÃO (`locais.na_colecao`)
+e leva ao lado `ordered` (`pending.open_qty`). Rota `GET
+/api/encomendas/<SET>.json`; o `build` escreve `api/encomendas/<SET>.json`
+por edição com `editable: False`. O `api/encomendas.json` (a lista antiga,
+`pending.encomendas`) fica: é o que a CLI lê e é o resumo dos separadores
+(«N a caminho» por edição) e do cabeçalho (total, «Chegou tudo»).
+
+**As raridades a sério e o corte.** O catálogo da RiftScribe tem cinco:
+`common`, `uncommon`, `rare`, `epic` e `showcase` — a `showcase` não é
+raridade de jogo, é o tratamento das 42 reimpressões de topo do OGN e do
+SFD, mas o `RARITY_ORDER` já a punha acima da `epic`. «De Raras para cima»
+com `rare` dá **rare, epic e showcase**, pela raridade da base do grupo (a
+alt art `showcase` de uma rara entra pela rara; as seis runas alt art são
+retiradas de qualquer maneira). Ficam de fora as comuns e incomuns — **as
+sobrenumeradas comuns do UNL (os seis Poros, 100–285 €) também**, porque
+são comuns; é o literal da ordem e fica anotado como dúvida. Uma raridade
+desconhecida no config rebenta.
+
+**Medido a 2026-09-17 contra cópias (`_revisao\_medir_encomendas.py`), `main`
+e ramo na mesma corrida — os invariantes NÃO mexem** (nem podiam: é
+apresentação e fluxo): denominador **928**, níveis **860/780/715 de 928**
+(faltam 68/206/409 · 267,73/824,22/1 485,58 €), wantlist «tudo» **213 · 406 ·
+1 392,96 €**, valor **2 956,47 € · 2 390 cópias**, falta dos decks **21
+cópias · 12 cartas · 248,70 € · 3 a caminho** (com o Kennen Post Ban de
+volta, `dd1016b`), A mais **135 a mais · 80 libertadas**, Faltas **542 ·
+12 391,36 € · 4 a caminho**, separadores 334/24/275/268/221. **O separador
+mostra 596 impressões de 1 122** (138+16+128+109+109 = 500 cartas): OGN 162
+(126 sequência + 24 alt art + 12 sobrenumeradas), OGS 16, SFD 152 (98+24+30),
+UNL 139 (96+30+13 — os 6 Poros comuns ficam de fora), VEN 127 (72+18+31+6
+promos). Hoje: 4 cópias a caminho em 3 impressões (OGN 1, SFD 3), nenhuma
+fora da grelha.
+
+**Os controlos, por impressão — ele escolhe a versão no tile.** O `+` manda
+`{printing_id, delta: 1}` e grava NESSA impressão (a alt art é a alt art);
+o `−` tira dela e nunca vai abaixo de zero (`SemEncomenda` → 400); «Chegou
+(N)» manda `{printing_id}` ao `/api/pending/arrive` (parâmetro novo do
+`arrive`, ao lado de `ids`/`card_key`) e dá entrada só dessa impressão;
+«Chegou tudo» dá entrada de tudo, todas as edições. Ecrã otimista com fila
+por impressão (`state.enc.fila`/`voo`), como o `adjust` da Coleção. Depois
+de qualquer um, `encMarcaVelhos`: decks, compras, wantlist, Faltas e a
+Coleção (`state.colecaoVelha`, relida ao voltar lá) ficam por reler; só o
+resumo se volta a pedir já. **O que vier a caminho fora da grelha** (uma
+comum encomendada pela CLI, uma runa `market_only` do CardTrader) vai em
+`fora`, no cabeçalho, com o seu «Chegou» — não há encomenda sem sítio. A
+CLI acompanha: `riftvault encomendas --chegou OGN-045` dá entrada só dessa
+impressão (era a carta inteira), por nome continua a ser a carta.
+
+**Encomendar NÃO é ter — provado em teste** (`test_nada_mexe_ate_ao_chegou`):
+grelha, barra, valor, níveis e denominador iguais antes e durante; wantlist,
+Faltas «a comprar» e falta dos decks descontam; ao «Chegou» tudo entra. Nota
+da regra dos decks: a Legend joga a versão ESPECIAL, por isso encomendar a
+base do Legend abate a wantlist da Coleção mas não a falta do deck.
+
+**O que saiu dos decks (`deckTile`):** os `.steppers.enc` (`data-enc`) e o
+`Chegou (N)` (`data-chegou-ck`), e as funções `encomendar`/`encomendaLocal`/
+`ligarEncomendas`/`cardNome`/`chegouCarta`/`recarregarEncomendas` do
+`app.js`; a aba «Encomendas» do separador Decks (a tabela de texto com
+«para» e «falta encomendar») e o CSS `.enc-tabela`. **O que ficou:** a linha
+«N a caminho» e a moldura azul tracejada no tile, o «a caminho» nos
+separadores dos decks, nas secções, no `deckLocais` (as notas passaram a
+apontar ao separador, com `href="#encomendas"` — o `boot` ganhou um
+`hashchange`). **Onde mais há controlos de encomenda:** só na CLI
+(`riftvault encomendas --mais/--menos/--chegou`, `riftvault pending`). As
+Faltas e o «Quanto custa» só mostram «a caminho».
+
+**No site publicado** a grelha vai com `editable: False`; os `.steppers` e os
+`.btn.chegou` já estavam escondidos pelo `body.readonly` — o mesmo flag da
+Coleção, sem caminho novo.
+
+`tests/test_encomendas_separador.py` (16 testes, contra cópias e config
+temporário): o corte (grupos, ordem e blocos da Coleção; raridade da base;
+`raridade_minima` do config; desconhecida rebenta), `+`/`−`/«Chegou» por
+impressão, o `fora`, encomendar não é ter, a grelha não escreve, as rotas, o
+`build` sem controlos, e o `app.js`/`index.html` (separador existe, os
+tiles dos decks sem `data-enc`/`data-chegou` mas com «a caminho», sem a aba
+nos Decks). `test_site_do_pc` pede o `api/encomendas/TST.json`.
 
