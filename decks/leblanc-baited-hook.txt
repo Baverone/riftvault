@@ -34,9 +34,9 @@ Rune Pool:
 
 Sideboard:
 1 Atakhan
+1 Deathgrip
 1 Decree of Insight
 2 Decree of Unity
-1 Hidden Blade
 1 LeBlanc, Everywhere at Once
 2 Pickpocket
 1 Salvage
