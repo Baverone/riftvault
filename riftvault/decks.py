@@ -820,15 +820,14 @@ def _cortar(entradas: list[dict], inicio: int, n: int) -> list[dict]:
     alocação fez por carta."""
     out: list[dict] = []
     pos = 0
+    alvo = inicio + n
     for e in entradas:
-        if n <= 0:
+        if pos >= alvo:
             break
         fim = pos + e["qty"]
-        if fim > inicio:
-            q = min(fim, inicio + n) - max(pos, inicio)
-            if q > 0:
-                out.append({**e, "qty": q})
-                n -= q
+        q = min(fim, alvo) - max(pos, inicio)
+        if q > 0:
+            out.append({**e, "qty": q})
         pos = fim
     return out
 

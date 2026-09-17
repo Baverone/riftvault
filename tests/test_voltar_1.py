@@ -204,8 +204,9 @@ class TestOsDecksJogamABase(Base):
         self.assertEqual(a["alloc_outras"].get("defy"), 1)
         self.assertEqual([(x["id"], x["qty"], x["lugar"]) for x in a["versoes_em"]["defy"]],
                          [(DEFY, 2, "normal"), (DEFY_A, 1, "outra")])
-        # Sem Alt Art nenhuma, a falta continua a apontar à base.
         con.close()
+
+    def test_sem_outra_versao_a_falta_aponta_a_base(self):
         con = self.catalogo(copias={**self.BASE_DO_AZIR, DEFY: 2})
         a = self.aloc(con, "azir")
         self.assertEqual(a["missing"].get("defy"), 1)
