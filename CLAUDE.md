@@ -220,15 +220,16 @@ saber exatamente quantas tenho"*.
 | categoria | config | o que é | grelha | % e níveis | listas de compra |
 |---|---|---|---|---|---|
 | 1. master set | o resto | a sequência da edição | sim, alvo = playset do tipo (as runas numeradas do OGN a **3** desde 15/09 à tarde) | **sim** | **sim** |
-| 2. coleção extra | `master_set.fora_da_percentagem` = `["a", "overnumbered", "promo"]` | artes alternativas, sobrenumeradas, promos | sim — o alvo é **por categoria**, `master_set.um_de_cada` = `["overnumbered", "promo"]`: sobrenumeradas e promos **1 de cada** (15/09), **artes alternativas a playset** (18/09 — *"muda novamente: Alt Art para playset"*; pediram 1 de 16/09 a 18/09; ver a última secção deste ficheiro); **os decks nunca levantam este alvo** (17/09: os decks jogam a base, e a Legend/Champion uma versão especial) | não | **não** (15/09) |
+| 2. coleção extra | `master_set.fora_da_percentagem` = `["a", "overnumbered", "promo"]` | artes alternativas, sobrenumeradas, promos | sim — o alvo é **por categoria**, `master_set.um_de_cada` = `["overnumbered"]`: sobrenumeradas **1 de cada** (15/09), **artes alternativas a playset** (18/09 — *"muda novamente: Alt Art para playset"*; pediram 1 de 16/09 a 18/09) e **promos a playset** (18/09, mais tarde — *"as promos SP podes meter 3 de cada"*; pediram 1 de 15/09 a 18/09; ver a última secção deste ficheiro); **os decks nunca levantam este alvo** (17/09: os decks jogam a base, e a Legend/Champion uma versão especial) | não | **não** (15/09) |
 | 3. escondidas | `master_set.escondidas` = `["-T", "*", "-R"]` | tokens, signatures e — desde 15/09 à tarde — as runas sem numeração de master set (`VEN-R01..R06`) | não | não | não |
 | 4. retiradas | `runas_especiais.retiradas` = `["a"]` (`metrics.retirada`) | as **runas em Alt Art** (`OGN-007a..214a`, e as `SFD/UNL/VEN-R0Xa` do CardTrader) — desde 17/09 | **não** | não | não — e **não contam no valor nem no playset jogável**, nem no A mais, nem no Pimp; os decks jogam a runa base (e desde a noite de 17/09 **não contam runa nenhuma** — ver «as runas saem da contagem dos decks», no fim deste ficheiro) |
 
 (O `-R` passou da lista 2 para a 3 a 2026-09-15 — ver a secção "As runas sem
 numeração saem", no fim deste ficheiro. O alvo 1 das sobrenumeradas e das
 promos é da mesma tarde — ver "Sobrenumeradas e promos voltam a 1 de cada",
-a seguir a essa; o das artes alternativas é de 16/09. A categoria 4 é de
-17/09 — ver "As runas em Alt Art saem de tudo", no fim.)
+a seguir a essa; o das artes alternativas é de 16/09; as duas voltaram ao
+playset a 18/09, em duas ordens — ver as duas últimas secções. A categoria 4
+é de 17/09 — ver "As runas em Alt Art saem de tudo", no fim.)
 
 **Acompanhar não é querer comprar.** Na noite de 14/09 a coleção extra entrou
 inteira nas listas de compra (a leitura foi «um alvo sem lista de compra é um
@@ -2424,7 +2425,11 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
 - **Feito também:** as Alt Art voltam ao playset (2026-09-18) — o `a` saiu
   do `master_set.um_de_cada`, que é o alvo por categoria da coleção extra;
   sobrenumeradas e promos continuam a 1; percentagem, wantlist e valor não
-  mexem. Ver a última secção deste ficheiro.
+  mexem. Ver a penúltima secção deste ficheiro.
+- **Feito também:** as promos SP a playset (2026-09-18, mais tarde) — o
+  `promo` saiu do `master_set.um_de_cada`; só as sobrenumeradas ficam a 1;
+  as 6 são Units, «3 de cada» = playset; nada mais mexe. Ver a última secção
+  deste ficheiro.
 - **Por fazer:** a parte 2 do seguir — o separador no site e a tarefa diária;
   vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck,
   com as partilhadas assinaladas); e apagar decks pela interface (hoje apaga-se
@@ -3761,7 +3766,8 @@ continua 1 de cada**"*. Ramo `ai-pc/altart-playset-2026-09-18`; relatório em
    ele não as nomeou desta vez, e a 15/09 disse *"overnumbered e promos (SP)
    voltamos a 1 de cada"*: as duas andaram sempre juntas. **É dúvida no
    relatório**, não decisão dele; se quiser as promos a playset, é tirar
-   `"promo"` da lista.
+   `"promo"` da lista. (**Respondida horas depois**: *"as promos SP podes
+   meter 3 de cada"* — o `"promo"` saiu; ver a secção a seguir.)
 3. **As runas em Alt Art continuam retiradas de tudo** (`f1dbd5b`); o
    playset não lhes toca.
 
@@ -3823,4 +3829,76 @@ Rengar, Trophy Hunter 3 × 28,40 €, `UNL-150a` Vex, Apathetic 3 × 25,40 €,
 `test_versoes_deck` e `test_runas_alt_fora` passaram a escrever o config de
 hoje (sem o `a`) e ganharam o caso do `a` de volta; `test_contador_bloco`
 só o comentário. Suite: 32 ficheiros, 0 a falhar.
+
+## 18/09/2026, mais tarde — as promos SP passam a playset (3 de cada); só as sobrenumeradas ficam a 1
+
+Palavras dele: *"as promos SP podes meter 3 de cada"*. É a resposta à dúvida
+da secção anterior (as promos tinham ficado a 1 com as sobrenumeradas por
+analogia com 15/09). Ramo `ai-pc/sp-playset-2026-09-18`; relatório em
+`ai-pc/work/revisao/riftvault-sp-playset.md`.
+
+**A regra, em duas linhas:**
+
+1. **As promos `VEN-SP` pedem o playset do tipo.** As 6 do catálogo
+   (`VEN-SP1..SP6` — Kai'Sa, Sona, Ahri, Sett, Ezreal, Lux) são **todas
+   `Unit`, `epic`**, por isso «playset» e «3 de cada» são o mesmo número e
+   não houve nada a decidir. Implementou-se o playset, que é o mecanismo que
+   existe: se uma edição nova trouxer uma promo Legend ou Battlefield, ela
+   pede 1 — é o `metrics.alvo_do_tipo`, como nas alt arts.
+2. **As sobrenumeradas continuam a 1 de cada.** É a única entrada que resta
+   no `master_set.um_de_cada`.
+
+**Onde vive — a mesma palavra de ontem.** `master_set.um_de_cada` passou de
+`["overnumbered", "promo"]` a **`["overnumbered"]`** (`riftvault_config.json`
+e `config.DEFAULTS`); as notas do config, os docstrings do `metrics.py`
+(`master_target`, `e_um_de_cada`, `_sufixo_alvo`), o comentário do
+`decks.py`, o `master-sub` do `index.html` («alt art e promos a playset,
+sobrenumeradas 1 de cada») e o README dizem o de hoje. O bloco chama-se
+«Coleção — promos — playset» e o cabeçalho ganha a segunda conta («tens 2
+de 6 · 0 no playset completo», `max_target` 3).
+
+**O que NÃO muda, medido a 2026-09-18 contra cópias
+(`_revisao\_medir_sp_playset.py`), `main` (`c77d06a`) e ramo na mesma
+corrida, cada lado a ler o SEU config:** denominador **928**, níveis
+**860/780/715 de 928 = 92,7 / 84,1 / 77,0 %** (faltam 68/206/409 ·
+269,02/832,81/1 505,73 €), wantlist «tudo» **213 linhas · 406 cópias ·
+1 416,51 €** (OGN 624,58 · OGS 17,78 · SFD 332,70 · UNL 291,47 · VEN 149,98),
+valor **3 005,89 € · 2 391 cópias**, falta dos decks **9 cópias · 6 cartas ·
+231,93 €**, Staples/Por deck/Pimp, Encomendas (**4 cópias · 3 impressões ·
+164,22 €**) e o separador **Faltas** inteiro (fechar os três blocos 390 ·
+732 · 13 342,62 €; a comprar 213 · 406 · 1 416,51 €) — **iguais nos dois
+lados.** (Os euros diferem dos da secção anterior porque o `main` já tem os
+preços de 18/09, `c77d06a`, e ele meteu cartas na Coleção entretanto — não
+é desta ordem.) A coleção extra continua fora da percentagem e das listas
+de compra: subir o alvo das promos não as põe em wantlist nenhuma.
+
+**O separador Faltas NÃO tem bloco de promos** (15/09: ele nomeou três
+blocos e não as nomeou; `scope.fora = {promos: 6}`), por isso «quanto cresce
+o bloco das promos nas Faltas» não tem sítio onde se ler — mediu-se pela
+grelha da Coleção (alvo − cópias, × preço de hoje). **Fica como dúvida** se
+agora que pedem 3 ele as quer no Faltas.
+
+**O que mexe:**
+
+| | antes (alvo 1) | depois (playset) |
+|---|---|---|
+| tiles das promos na Coleção | 6 a «N/1» | **6 a «N/3»** |
+| cabeçalho do bloco (VEN) | «Coleção — promos — 1 de cada · tens 2 de 6» | «**— playset** · tens 2 de 6 · **0 no playset completo**» |
+| para fechar o bloco | **4 impressões · 4 cópias · 215,25 €** | **6 · 16 · 713,27 €** (+2 · +12 · +498,02 €) |
+| A mais, excedente | 65 impressões · 131 cópias | **igual** — nenhuma promo tinha mais do que 1 cópia (as duas dele, `VEN-SP4` e `VEN-SP5`, estão a 1) |
+
+Carta a carta: `VEN-SP1` Kai'Sa, Survivor 0/3 · 3 × 60,82 € = 182,46 €;
+`VEN-SP2` Sona, Harmonious 0/3 · 79,20 €; `VEN-SP3` Ahri, Inquisitive 0/3 ·
+3 × 97,64 € = 292,92 €; `VEN-SP4` Sett, Brawler **1/3** · 2 × 15,96 € =
+31,92 €; `VEN-SP5` Ezreal, Prodigy **1/3** · 2 × 17,80 € = 35,60 €;
+`VEN-SP6` Lux, Crownguard 0/3 · 91,17 €.
+
+**Testes ajustados** (o teste é que estava velho, não o código):
+`test_alvo_1` (a promo pede 3 e volta a 1 com o `promo` na lista; «1/3» e
+«4/3»; o cabeçalho diz 1 de cada só nas sobrenumeradas), `test_masterset`,
+`test_promos` (rótulo, alvo, «1 de 3»), `test_tres_blocos` (alvos e o botão
+desligado), `test_contador_bloco` (as promos a playset dizem as duas contas;
+com o `promo` na lista voltam a «tens 2 de 6» completo); `test_voltar_1`,
+`test_versoes_deck` e `test_runas_alt_fora` passaram a escrever o config de
+hoje (sem o `promo`). Suite: 32 ficheiros, 0 a falhar.
 
