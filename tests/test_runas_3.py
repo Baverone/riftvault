@@ -12,11 +12,11 @@ a base `OGN-007/298` fica na sequência e conta; a arte alternativa
 `OGN-007a/298` fica no bloco «runas especiais», coleção extra; a promo
 `VEN-R01`, sem `/tamanho`, está escondida e não pede nada a ninguém.
 
-**Desde 2026-09-16 a arte alternativa da runa pede 1, não 3** — é uma arte
-alternativa, e *"Alt Art e Overnumbered e assim quero apenas 1 de cada"*
-(`master_set.um_de_cada` leva o `a`, runas incluídas; `test_altart_decks`).
-O 3 desta ordem ficou para a runa BASE, a que está no master set — que foi a
-que ele nomeou (*"as runas que estao no masterset"*).
+A arte alternativa da runa pediu 1 de 2026-09-16 (*"Alt Art e Overnumbered
+e assim quero apenas 1 de cada"*, o `a` no `master_set.um_de_cada`) a
+2026-09-18 (*"muda novamente: Alt Art para playset"*): hoje pede os 3 do
+tipo como a base — e está RETIRADA de tudo desde 2026-09-17
+(`test_runas_alt_fora`), por isso o alvo dela não se vê em lado nenhum.
 
 Corre contra um catálogo de brincar — nunca contra o `data/` real.
 """
@@ -113,13 +113,15 @@ class TestOAlvo(Base):
         self.com_config({"runas_especiais": {"tipos": ["Rune"], "excepto": ["base"],
                                              "alvo": 1}})
         self.assertEqual(self.metrics.master_target("x", "base", "Rune", False), 3)
-        # A arte alternativa pede 1 pelo `um_de_cada` (2026-09-16), não por este
-        # campo: sem o `a` nessa lista voltava aos 3 do tipo.
-        self.assertEqual(self.metrics.master_target("x", "alt_art", "Rune", False), 1)
+        # A arte alternativa pede os 3 do tipo (playset desde 2026-09-18), não
+        # o 1 deste campo; o 1 que pediu de 2026-09-16 a 2026-09-18 vinha do
+        # `um_de_cada`, e só volta se o `a` lá entrar outra vez.
+        self.assertEqual(self.metrics.master_target("x", "alt_art", "Rune", False), 3)
         self.com_config({"runas_especiais": {"tipos": ["Rune"], "excepto": ["base"],
                                              "alvo": 1},
-                         "master_set": {"um_de_cada": ["overnumbered", "promo"]}})
-        self.assertEqual(self.metrics.master_target("x", "alt_art", "Rune", False), 3)
+                         "master_set": {"um_de_cada": ["a", "overnumbered", "promo"]}})
+        self.assertEqual(self.metrics.master_target("x", "alt_art", "Rune", False), 1)
+        self.assertEqual(self.metrics.master_target("x", "base", "Rune", False), 3)
 
     def test_sem_master_targets_by_type_a_runa_cai_no_playset_jogavel(self):
         """É a única tabela que separa as duas perguntas: sem ela, colecionar

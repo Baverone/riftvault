@@ -85,10 +85,11 @@ class TestAmbito(Base):
         escopo = self.a_subir.masterset(con)
         self.assertIn("tst-001-100", escopo)
         self.assertNotIn("tst-t01-100", escopo)
-        # O alvo é o do master set: a Unit base segue o playset do tipo, a
-        # arte alternativa pede 1 de cada (2026-09-16) — sem deck a pedi-la.
+        # O alvo é o do master set: a Unit base segue o playset do tipo, e a
+        # arte alternativa também, desde 2026-09-18 (*"Alt Art para playset"*;
+        # pediu 1 de 2026-09-16 a 2026-09-18).
         self.assertEqual(escopo["tst-001-100"]["target"], 3)
-        self.assertEqual(escopo["tst-001a-100"]["target"], 1)
+        self.assertEqual(escopo["tst-001a-100"]["target"], 3)
         self.assertEqual(escopo["tst-001a-100"]["block"], "alt_art")
         con.close()
 

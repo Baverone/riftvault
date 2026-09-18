@@ -1,5 +1,6 @@
-"""«Vamos voltar atrás» (2026-09-17): alvo 1 sempre, e os decks jogam a versão
-normal — menos a Legend e o Champion, que jogam uma versão especial.
+"""«Vamos voltar atrás» (2026-09-17): o alvo é o do config e não sobe com os
+decks, e os decks jogam a versão normal — menos a Legend e o Champion, que
+jogam uma versão especial.
 
 Palavras do André:
     *"as Alt Art, Overnumbered e SP voltam a 1 de cada, mesmo que joguem nos
@@ -8,8 +9,11 @@ Palavras do André:
     Champion que serao Alt Art ou Overnumbered ou SP, mas nunca assinada"*
 
 A regra, por extenso:
-  1. o alvo de uma Alt Art, sobrenumerada ou promo é 1 — e NÃO sobe por
-     causa dos decks (reverte o `max(1, procura)` de 2026-09-16);
+  1. o alvo de uma Alt Art, sobrenumerada ou promo é o do
+     `master_set.um_de_cada` — 1 nas sobrenumeradas e nas promos; nas Alt
+     Art foi 1 até 2026-09-18 e é o playset desde então (*"muda novamente:
+     Alt Art para playset"*) — e NÃO sobe por causa dos decks (reverte o
+     `max(1, procura)` de 2026-09-16);
   2. os decks jogam a impressão normal (a base, sem sobrenumeração): a cópia
      base da Coleção serve o deck, mesmo que a carta tenha Alt Art — e, desde
      a tarde de 2026-09-17, o que a base não tapar completa-se com outra
@@ -49,7 +53,8 @@ def escrever_config(papeis=("legend", "champion"),
     CONFIG.write_text(json.dumps({
         "master_set": {"fora_da_percentagem": ["a", "overnumbered", "promo"],
                        "escondidas": ["-T", "*", "-R"],
-                       "um_de_cada": ["a", "overnumbered", "promo"]},
+                       # As alt arts a playset desde 2026-09-18 (o `a` saiu).
+                       "um_de_cada": ["overnumbered", "promo"]},
         "decks": {"so_normais_excepto": list(papeis),
                   "versoes_especiais": list(especiais)},
         "listas_de_compra": {"so_master_set": True},
@@ -152,16 +157,30 @@ class Base(unittest.TestCase):
 
 
 class TestAlvoUmSempre(Base):
-    """Regra 1: o alvo é 1 e não sobe por causa dos decks."""
+    """Regra 1: o alvo é o do config e não sobe por causa dos decks."""
 
-    def test_alt_art_sobrenumerada_e_promo_pedem_1_com_o_deck_a_joga_las(self):
+    def test_o_alvo_da_colecao_extra_e_o_do_config_com_o_deck_a_joga_la(self):
         con = self.catalogo()
         a = self.alvos(con)
         # O Azir joga 3 Defy e 3 Sovereign; mesmo assim as versões especiais
-        # pedem 1, e a base pede o playset.
-        self.assertEqual((a[DEFY], a[DEFY_A], a[DEFY_OVER]), (3, 1, 1))
+        # pedem o que o `um_de_cada` diz — 1 na sobrenumerada e na promo, o
+        # playset do tipo na alt art (3 na Unit, 1 na Legend) desde
+        # 2026-09-18 —, e a base pede o playset.
+        self.assertEqual((a[DEFY], a[DEFY_A], a[DEFY_OVER]), (3, 3, 1))
         self.assertEqual((a[SOV], a[SOV_OVER], a[SOV_SP]), (3, 1, 1))
         self.assertEqual((a[EMP], a[EMP_A]), (1, 1))
+        con.close()
+
+    def test_com_o_a_no_um_de_cada_a_alt_art_pede_1_e_continua_a_nao_subir(self):
+        """O mundo de 2026-09-16 a 2026-09-18, a uma palavra de config: o deck
+        a jogar 3 Defy não levanta o 1."""
+        cfg = json.loads(CONFIG.read_text(encoding="utf-8"))
+        cfg["master_set"]["um_de_cada"] = ["a", "overnumbered", "promo"]
+        CONFIG.write_text(json.dumps(cfg), encoding="utf-8")
+        self.recarregar()
+        con = self.catalogo()
+        a = self.alvos(con)
+        self.assertEqual((a[DEFY], a[DEFY_A], a[EMP_A]), (3, 1, 1))
         con.close()
 
     def test_o_alvo_nao_recebe_a_procura_dos_decks(self):
@@ -171,11 +190,13 @@ class TestAlvoUmSempre(Base):
         self.assertFalse(hasattr(self.metrics, "procura_dos_decks"))
         self.assertFalse(hasattr(self.decks, "procura_dos_decks"))
 
-    def test_o_cabecalho_do_bloco_diz_so_1_de_cada(self):
+    def test_o_cabecalho_do_bloco_diz_so_o_alvo_sem_os_decks(self):
         con = self.catalogo()
         p = self.metrics.set_payload(con, "TST")
         rotulos = {b["id"]: b["label"] for b in p["blocks"]}
-        self.assertEqual(rotulos["alt_art"], "Coleção — artes alternativas — 1 de cada")
+        # Sem o «, ou o que os decks jogam» de 2026-09-16; «playset» desde 18/09.
+        self.assertEqual(rotulos["alt_art"], "Coleção — artes alternativas — playset")
+        self.assertEqual(rotulos["overnumbered"], "Coleção — sobrenumeradas — 1 de cada")
         con.close()
 
 
@@ -187,10 +208,11 @@ class TestOsDecksJogamABase(Base):
         a = self.aloc(con, "azir")
         self.assertNotIn("defy", a["missing"])
         self.assertEqual(a["na_colecao"]["defy"], 3)
-        # E a Alt Art do Defy fica a 0/1, sem falta para o deck.
+        # E a Alt Art do Defy fica a 0/3 (playset, 2026-09-18), sem falta
+        # para o deck.
         p = self.metrics.set_payload(con, "TST")
         tile = {pr["id"]: pr for g in p["groups"] for pr in g["printings"]}[DEFY_A]
-        self.assertEqual((tile["qty"], tile["target"]), (0, 1))
+        self.assertEqual((tile["qty"], tile["target"]), (0, 3))
         con.close()
 
     def test_uma_alt_art_do_defy_tapa_o_que_a_base_nao_chega(self):
@@ -500,7 +522,9 @@ class TestOMasterSetNaoMexe(Base):
         s = next(s for s in p["sets"] if s["set"] == "TST")
         b = next(b for b in s["blocks"] if b["id"] == "alt_art")
         alvos = {x["printing_id"]: x["target"] for x in b["items"]}
-        self.assertEqual(alvos, {DEFY_A: 1, EMP_A: 1})
+        # O playset do tipo (2026-09-18): 3 na Unit, 1 na Legend — o deck a
+        # jogar 3 Defy não mexe nisto.
+        self.assertEqual(alvos, {DEFY_A: 3, EMP_A: 1})
         con.close()
 
 

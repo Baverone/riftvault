@@ -134,12 +134,13 @@ class TestAListaNuncaPedeMaisDoQueAContagem(Base):
         con.close()
 
     def test_a_colecao_extra_nao_esta_em_nenhum_dos_dois(self):
-        """A alt art (alvo 1 desde 2026-09-16) acompanha-se na grelha; não se
-        conta nem se compra.
+        """A alt art (a playset outra vez desde 2026-09-18) acompanha-se na
+        grelha — «tenho 1 de 3» —; não se conta nem se compra.
 
         André, 2026-09-15: *"apenas pedi para ser feito track de playset para eu
         saber exatamente quantas tenho"*. Na noite de 14/09 a lista pedia 3 a
-        mais do que a contagem, e eram os desta alt art.
+        mais do que a contagem, e eram os desta alt art. Subir o alvo dela a
+        18/09 não a pode voltar a pôr na lista.
         """
         from riftvault import collection
         con = self.montar(com_excluidas=False)
@@ -147,7 +148,7 @@ class TestAListaNuncaPedeMaisDoQueAContagem(Base):
         self.assertEqual(self.a_comprar(con), self.faltam_no_playset(con))
         p = self.metrics.set_payload(con, "TST")
         tile = {pr["id"]: pr for g in p["groups"] for pr in g["printings"]}["tst-003a-100"]
-        self.assertEqual((tile["qty"], tile["target"]), (1, 1))
+        self.assertEqual((tile["qty"], tile["target"]), (1, 3))
         self.assertFalse(self.metrics.conta_bloco(tile["block"]))
         con.close()
 

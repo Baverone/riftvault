@@ -13,7 +13,9 @@ A regra, por extenso, para uma carta que NÃO é a Legend nem o Champion:
   3. nunca com assinadas; uma runa em Alt Art RETIRADA (`f1dbd5b`) também não
      tapa nada;
   4. só depois disso é falta a comprar, e a falta aponta à base;
-  5. o alvo da Coleção não mexe (alt art, sobrenumerada e promo a 1 de cada);
+  5. o alvo da Coleção não mexe (sobrenumerada e promo a 1 de cada; a alt
+     art ao playset desde 2026-09-18 — é o `master_set.um_de_cada` que manda,
+     não o deck);
   6. a Legend e o Champion continuam a jogar UMA versão especial, servida
      primeiro;
   7. a vista do deck (CLI e site) reparte uma carta servida por mais do que
@@ -48,7 +50,8 @@ def escrever_config(retiradas=("a",), contar_runas=False) -> None:
     CONFIG.write_text(json.dumps({
         "master_set": {"fora_da_percentagem": ["a", "overnumbered", "promo"],
                        "escondidas": ["-T", "*", "-R"],
-                       "um_de_cada": ["a", "overnumbered", "promo"]},
+                       # As alt arts a playset desde 2026-09-18 (o `a` saiu).
+                       "um_de_cada": ["overnumbered", "promo"]},
         "master_targets_by_type": {"Rune": 3},
         "decks": {"so_normais_excepto": ["legend", "champion"],
                   "versoes_especiais": ["a", "overnumbered", "promo"],
@@ -291,11 +294,12 @@ class TestNuncaAssinadaNemRetirada(Base):
 class TestOAlvoEAColecaoNaoMexem(Base):
     """Regra 5: usar não é querer mais."""
 
-    def test_a_alt_art_usada_continua_a_pedir_1_e_a_wantlist_pede_a_base(self):
+    def test_a_alt_art_usada_continua_a_pedir_o_do_config_e_a_wantlist_pede_a_base(self):
         con = self.catalogo(copias={**self.QUASE, VI_A: 1})
         p = self.metrics.set_payload(con, "TST")
         tiles = {pr["id"]: pr for g in p["groups"] for pr in g["printings"]}
-        self.assertEqual((tiles[VI_A]["qty"], tiles[VI_A]["target"]), (1, 1))
+        # O playset (2026-09-18) — «tenho 1 de 3» —, e não por o deck a usar.
+        self.assertEqual((tiles[VI_A]["qty"], tiles[VI_A]["target"]), (1, 3))
         self.assertEqual((tiles[VI]["qty"], tiles[VI]["target"]), (2, 3))
         # A wantlist do master set continua a pedir 1 Vi base: a alt art a
         # jogar no deck não é uma Vi da sequência.
@@ -428,22 +432,42 @@ class TestAVistaReparte(Base):
 class TestAMais(Base):
     """Uma cópia que passa a jogar deixa de estar a mais."""
 
-    def test_a_alt_art_a_mais_que_o_deck_passa_a_usar_sai_do_a_mais(self):
-        con = self.catalogo(copias={**self.QUASE, VI: 1, VI_A: 3})
+    def item(self, con, pid):
         am = self.a_mais.payload(con)
-        # 3 alt arts, alvo 1, o deck leva 2 (faltavam-lhe 2 bases): 3 − max(2, 1) = 1.
-        item = next(x for s in am["sets"] for x in s["excedente"]["items"]
-                    if x["printing_id"] == VI_A)
-        self.assertEqual(item["extra"], 1)
+        return next((x for s in am["sets"] for x in s["excedente"]["items"]
+                     if x["printing_id"] == pid), None)
+
+    def test_a_sobrenumerada_a_mais_que_o_deck_passa_a_usar_sai_do_a_mais(self):
+        # A sobrenumerada pede 1: 3 cópias, o deck leva 2 (faltavam-lhe 2
+        # bases): 3 − max(2, 1) = 1 a mais.
+        con = self.catalogo(copias={**self.QUASE, VI: 1, VI_OVER: 3})
+        self.assertEqual(self.item(con, VI_OVER)["extra"], 1)
         con.close()
         # Sem o deck a precisar delas, eram 2 a mais.
         self.v = Vault()
         self.addCleanup(self.v.close)
-        con = self.catalogo(copias={**self.QUASE, VI: 3, VI_A: 3})
-        am = self.a_mais.payload(con)
-        item = next(x for s in am["sets"] for x in s["excedente"]["items"]
-                    if x["printing_id"] == VI_A)
-        self.assertEqual(item["extra"], 2)
+        con = self.catalogo(copias={**self.QUASE, VI: 3, VI_OVER: 3})
+        self.assertEqual(self.item(con, VI_OVER)["extra"], 2)
+        con.close()
+
+    def test_a_alt_art_pede_o_playset_e_um_deck_so_nunca_a_poe_a_mais(self):
+        """Com o alvo no playset (2026-09-18), um deck que leve 2 alt arts não
+        muda o excedente: 5 − max(2, 3) = 2, o mesmo que sem o deck (5 − 3).
+        Com 3 alt arts não há excedente nenhum, use-as o deck ou não."""
+        con = self.catalogo(copias={**self.QUASE, VI: 1, VI_A: 3})
+        self.assertIsNone(self.item(con, VI_A))
+        con.close()
+        self.v = Vault()
+        self.addCleanup(self.v.close)
+        con = self.catalogo(copias={**self.QUASE, VI: 1, VI_A: 5})
+        x = self.item(con, VI_A)
+        self.assertEqual((x["target"], x["used"], x["extra"]), (3, 2, 2))
+        con.close()
+        self.v = Vault()
+        self.addCleanup(self.v.close)
+        con = self.catalogo(copias={**self.QUASE, VI: 3, VI_A: 5})
+        x = self.item(con, VI_A)
+        self.assertEqual((x["target"], x["used"], x["extra"]), (3, 0, 2))
         con.close()
 
 

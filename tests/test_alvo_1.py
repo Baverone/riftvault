@@ -10,7 +10,9 @@ o que ele quer TER, não um tecto. Uma segunda cópia aparece, conta no valor
 e nada a marca como a mais.
 
 O que NÃO muda, e este ficheiro fixa: continuam fora da percentagem e de
-todas as listas de compra; as artes alternativas ficam a playset; as runas
+todas as listas de compra; as artes alternativas ficam a playset (pediram 1
+de 2026-09-16 a 2026-09-18 — *"muda novamente: Alt Art para playset,
+overnumbered continua 1 de cada"* —, e é o `um_de_cada` que o diz); as runas
 ficam onde a ordem das runas as deixou.
 
 Corre contra cópias (`tests.fixture.Vault`): o config real só é LIDO, nunca
@@ -101,14 +103,24 @@ class TestAlvo(Base):
         self.assertEqual(self.metrics.alvo(r), 1)
         con.close()
 
-    def test_a_arte_alternativa_pede_1_desde_2026_09_16(self):
-        """Ficou a playset a 09-15 porque ele não a nomeou; a 09-16 nomeou-a:
-        *"Alt Art e Overnumbered e assim quero apenas 1 de cada"*. O que os
-        decks lhe acrescentam está em `test_altart_decks.py`."""
+    def test_a_arte_alternativa_pede_o_playset_desde_2026_09_18(self):
+        """Ficou a playset a 09-15 porque ele não a nomeou; a 09-16 nomeou-a
+        (*"Alt Art e Overnumbered e assim quero apenas 1 de cada"*) e pediu 1;
+        a 09-18 voltou atrás: *"muda novamente: Alt Art para playset,
+        overnumbered continua 1 de cada"*. É a lista do config que o diz — o
+        `a` saiu do `um_de_cada` —, e escrevê-lo lá volta a pô-la a 1."""
+        from riftvault import config
         con = self.edicao()
         r = self.linhas(con)[self.ALT]
-        self.assertTrue(self.metrics.e_um_de_cada(r))
-        self.assertEqual(self.metrics.alvo(r), 1)
+        self.assertFalse(self.metrics.e_um_de_cada(r))
+        self.assertEqual(self.metrics.alvo(r), 3)
+        cfg = config.load()
+        self.assertNotIn("a", cfg["master_set"]["um_de_cada"])
+        c = {**cfg, "master_set": {**cfg["master_set"],
+                                   "um_de_cada": ["a", "overnumbered", "promo"]}}
+        self.assertEqual(self.metrics.alvo(r, c), 1)
+        self.assertEqual(self.metrics.rotulo("alt_art", c),
+                         "Coleção — artes alternativas — 1 de cada")
         con.close()
 
     def test_as_runas_base_nao_sao_um_de_cada(self):
@@ -133,10 +145,11 @@ class TestAlvo(Base):
         self.assertEqual(self.metrics.rotulo("overnumbered"),
                          "Coleção — sobrenumeradas — 1 de cada")
         self.assertEqual(self.metrics.rotulo("special"), "Coleção — promos — 1 de cada")
-        # E o das artes alternativas diz 1 de cada desde 2026-09-16 — só isso,
-        # desde 2026-09-17: o alvo já não sobe com os decks (`test_voltar_1.py`).
+        # E o das artes alternativas diz «playset» desde 2026-09-18 (disse «1
+        # de cada» de 2026-09-16 a 2026-09-18) — só isso: o alvo não sobe com
+        # os decks (`test_voltar_1.py`).
         self.assertEqual(self.metrics.rotulo("alt_art"),
-                         "Coleção — artes alternativas — 1 de cada")
+                         "Coleção — artes alternativas — playset")
 
     def test_sem_a_lista_no_config_voltam_ao_playset(self):
         """`um_de_cada` é só o alvo: tirá-la do config é o mundo de 09-14."""

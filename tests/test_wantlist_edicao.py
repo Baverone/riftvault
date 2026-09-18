@@ -183,14 +183,15 @@ class TestAlvosDosTresBlocos(Base):
         con.close()
 
     def test_a_colecao_extra_tem_o_alvo_na_grelha_nao_na_lista(self):
-        """«tenho 0 de 1» na arte alternativa (1 de cada desde 2026-09-16,
-        *"Alt Art e Overnumbered e assim quero apenas 1 de cada"*; nenhum deck
-        a pede aqui) e não na wantlist, mesmo a zero. A arte alternativa da
-        runa não está na grelha nem na lista: retirada (2026-09-17)."""
+        """«tenho 0 de 3» na arte alternativa (playset desde 2026-09-18,
+        *"muda novamente: Alt Art para playset"*; pediu 1 de 2026-09-16 a
+        2026-09-18; os decks não lhe mexem no alvo) e não na wantlist, mesmo
+        a zero — subir o alvo não a põe na lista. A arte alternativa da runa
+        não está na grelha nem na lista: retirada (2026-09-17)."""
         con = self.montar()
         g = self.metrics.set_payload(con, "TST")
         tiles = {pr["id"]: pr for grp in g["groups"] for pr in grp["printings"]}
-        self.assertEqual((tiles["tst-004-100"]["qty"], tiles["tst-004-100"]["target"]), (0, 1))
+        self.assertEqual((tiles["tst-004-100"]["qty"], tiles["tst-004-100"]["target"]), (0, 3))
         self.assertNotIn("tst-003a-100", tiles)
         self.assertFalse(self.metrics.conta_bloco(tiles["tst-004-100"]["block"]))
         pids = [x["printing_id"] for x in self.a_subir.wantlist(con, "TST")["items"]]
@@ -271,14 +272,15 @@ class TestFormatoDasLinhas(Base):
 
     def test_com_o_botao_desligado_a_alt_art_volta_a_v2(self):
         """`listas_de_compra.so_master_set: false` é o mundo de 2026-09-14 à
-        noite: a alt art entra na lista, como V.2 — com o alvo de hoje, 1 de
-        cada (2026-09-16), porque o botão só decide se entra, não quanto."""
+        noite: a alt art entra na lista, como V.2 — com o alvo de hoje, o
+        playset (2026-09-18; era 1 de 2026-09-16 a 2026-09-18), porque o botão
+        só decide se entra, não quanto."""
         self.com_config({"listas_de_compra": {"so_master_set": False}})
         con = self.montar()
         p = self.a_subir.wantlist(con, "TST")
         self.assertEqual(p["text"].splitlines(), [
             "3 Jinx - Loose Cannon (V.1) (Unleashed)",
-            "1 Jinx - Loose Cannon (V.2) (Unleashed)",
+            "3 Jinx - Loose Cannon (V.2) (Unleashed)",
         ])
         self.assertFalse(p["scope"]["so_master_set"])
         con.close()
