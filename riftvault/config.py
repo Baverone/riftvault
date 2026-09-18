@@ -64,23 +64,27 @@ DEFAULTS: dict = {
     #                           a base e a arte alternativa do OGN — ficam onde
     #                           estavam, e desde essa tarde pedem 3 como o
     #                           resto (`master_targets_by_type`).
-    #   `um_de_cada`          — o que pede 1 em vez do playset do tipo: as
-    #                           sobrenumeradas e as promos (2026-09-15:
-    #                           "overnumbered e promos (SP) voltamos a 1 de
-    #                           cada / se eu tiver mais adiciono na mesma") e
-    #                           as artes alternativas (2026-09-16, reafirmado
-    #                           a 2026-09-17: "as Alt Art, Overnumbered e SP
-    #                           voltam a 1 de cada, mesmo que joguem nos
-    #                           decks"). Só o ALVO; o bloco e a percentagem
-    #                           não mexem. O alvo NUNCA sobe por causa dos
-    #                           decks (o «max(1, procura dos decks)» de
-    #                           2026-09-16 saiu a 2026-09-17).
+    #   `um_de_cada`          — O ALVO POR CATEGORIA da coleção extra: o que
+    #                           está aqui pede 1 de cada, o que não está pede
+    #                           o playset do tipo. Hoje as sobrenumeradas e as
+    #                           promos (2026-09-15: "overnumbered e promos
+    #                           (SP) voltamos a 1 de cada / se eu tiver mais
+    #                           adiciono na mesma"). As artes alternativas
+    #                           estiveram aqui de 2026-09-16 ("Alt Art e
+    #                           Overnumbered e assim quero apenas 1 de cada")
+    #                           a 2026-09-18 ("muda novamente: Alt Art para
+    #                           playset, overnumbered continua 1 de cada") e
+    #                           pedem outra vez o playset. Só o ALVO; o bloco,
+    #                           a percentagem e as listas de compra não
+    #                           mexem. O alvo NUNCA sobe por causa dos decks
+    #                           (o «max(1, procura dos decks)» de 2026-09-16
+    #                           saiu a 2026-09-17).
     # `fora` é o nome antigo da primeira (2026-09-08 a 2026-09-14) e continua a
     # ser lido. Ver `metrics._fora`, `metrics.escondida`, `metrics.e_master` e
     # `metrics.e_um_de_cada`.
     "master_set": {"fora_da_percentagem": ["a", "overnumbered", "promo"],
                    "escondidas": ["-T", "*", "-R"],
-                   "um_de_cada": ["a", "overnumbered", "promo"]},
+                   "um_de_cada": ["overnumbered", "promo"]},
     # O que os decks JOGAM (André, 2026-09-17, "vamos voltar atras"): "os decks
     # apenas jogaram versoes normais, com excepcao da Legend e do Champion que
     # serao Alt Art ou Overnumbered ou SP, mas nunca assinada".
