@@ -1,0 +1,867 @@
+{
+ "_nota": "A montra «Promos» da Coleccao (Andre, 2026-09-18: 'consegues averiguar e fazer um botao com essas, com foto da carta tambem'). E SO PARA VER: nao conta para a percentagem, para a wantlist, para o A mais, para as Faltas nem para o valor. Corrige-se a mao: cada entrada e {categoria, origem, nome, nota}; o `nome` e o que se casa com o catalogo (nome da RiftScribe, nome do CardTrader, ou 'Campeao - Subtitulo'); uma entrada que nao case aparece na lista 'nao encontradas no catalogo' da pagina, nunca se adivinha. A ordem das categorias na pagina e por tamanho; dentro de cada uma e a ordem deste ficheiro.",
+ "fonte": "riftbound.gg — «Riftbound Promo Cards Complete List & How to Get?»",
+ "url": "https://riftbound.gg/riftbound-promo-cards-list-how-get/",
+ "lido_em": "2026-09-18",
+ "aviso": "Lista de um site da comunidade, lida uma vez a mao. Pode ter erros e ficar velha. Editar a mao; NAO raspar o site outra vez - o robots.txt deles proibe o anthropic-ai.",
+ "promos": [
+  {
+   "categoria": "Nexus Night",
+   "origem": "Spiritforged",
+   "nome": "Blast Corps Cadet",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Spiritforged",
+   "nome": "Cloth Armor",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Spiritforged",
+   "nome": "Doran's Ring",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Spiritforged",
+   "nome": "Doran's Shield",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Spiritforged",
+   "nome": "Eye of the Herald",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Spiritforged",
+   "nome": "Fae Dragon",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Spiritforged",
+   "nome": "Frostcoat Cub",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Spiritforged",
+   "nome": "Harpoon Squad",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Spiritforged",
+   "nome": "Hexdrinker",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Spiritforged",
+   "nome": "Laurent Duelist",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Spiritforged",
+   "nome": "Navori Scout",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Spiritforged",
+   "nome": "Production Surge",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Spiritforged",
+   "nome": "Sea Monkey",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Spiritforged",
+   "nome": "Serrated Dirk",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Spiritforged",
+   "nome": "Stellacorn Herder",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Spiritforged",
+   "nome": "Treasure Hunter",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Spiritforged",
+   "nome": "Unsung Hero",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Spiritforged",
+   "nome": "Doran's Blade",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Spiritforged",
+   "nome": "Gem Jammer",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Spiritforged",
+   "nome": "Decisive Strike",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Spiritforged",
+   "nome": "Final Spark",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Spiritforged",
+   "nome": "Highlander",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Spiritforged",
+   "nome": "Tibbers",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Spiritforged",
+   "nome": "Garen - Might of Demacia - Starter",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Spiritforged",
+   "nome": "Lux - Lady of Luminosity - Starter",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Spiritforged",
+   "nome": "Master Yi - Wuju Bladesman - Starter",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Spiritforged",
+   "nome": "Annie - Dark Child - Starter",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Spiritforged",
+   "nome": "Lux - Crownguard",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Spiritforged",
+   "nome": "Garen - Commander",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Spiritforged",
+   "nome": "Annie - Stubborn",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Spiritforged",
+   "nome": "Master Yi - Honed",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Spiritforged",
+   "nome": "Garen - Rugged",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Spiritforged",
+   "nome": "Lux - Illuminated",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Spiritforged",
+   "nome": "Master Yi - Meditative",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Spiritforged",
+   "nome": "Annie - Fiery",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Origins",
+   "nome": "Blazing Scorcher",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Origins",
+   "nome": "Body Rune",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Origins",
+   "nome": "Calm Rune",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Origins",
+   "nome": "Challenge",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Origins",
+   "nome": "Chaos Rune",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Origins",
+   "nome": "Consult the Past",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Origins",
+   "nome": "Daring Poro",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Origins",
+   "nome": "Discipline",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Origins",
+   "nome": "Fury Rune",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Origins",
+   "nome": "Mind Rune",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Origins",
+   "nome": "Mystic Poro",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Origins",
+   "nome": "Order Rune",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Origins",
+   "nome": "Pakaa Cub",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Origins",
+   "nome": "Pouty Poro",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Origins",
+   "nome": "Ravenbloom Student",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Origins",
+   "nome": "Riptide Rex",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Origins",
+   "nome": "Stacked Deck",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Origins",
+   "nome": "Stalwart Poro",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Origins",
+   "nome": "Stealthy Pursuer",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Origins",
+   "nome": "Stormclaw Ursine",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Origins",
+   "nome": "Vanguard Captain",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Origins",
+   "nome": "Vengeance",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Origins",
+   "nome": "Void Seeker",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Origins",
+   "nome": "Wielder of Water",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Unleashed",
+   "nome": "Arena Kingpin",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Unleashed",
+   "nome": "Body Rune",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Unleashed",
+   "nome": "Calm Rune",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Unleashed",
+   "nome": "Chaos Rune",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Unleashed",
+   "nome": "Downstage Dramatics",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Unleashed",
+   "nome": "Dragonsoul Sage",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Unleashed",
+   "nome": "Fury Rune",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Unleashed",
+   "nome": "Gustwalker",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Unleashed",
+   "nome": "Icevale Archer",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Unleashed",
+   "nome": "Loyal Poro",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Unleashed",
+   "nome": "Lunar Boon",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Unleashed",
+   "nome": "Mind Rune",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Unleashed",
+   "nome": "Mosstomper",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Unleashed",
+   "nome": "Mutated Mouser",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Unleashed",
+   "nome": "Order Rune",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Unleashed",
+   "nome": "Rengar - Pouncing",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Unleashed",
+   "nome": "Scorchclaw",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Unleashed",
+   "nome": "Sinister Poro",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Unleashed",
+   "nome": "Soul Sword",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Unleashed",
+   "nome": "Stare Down",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Unleashed",
+   "nome": "Ultrasoft Poro",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Unleashed",
+   "nome": "Undying Loyalty",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Unleashed",
+   "nome": "Upstage Comedy",
+   "nota": ""
+  },
+  {
+   "categoria": "Nexus Night",
+   "origem": "Unleashed",
+   "nome": "Voracious Gromp",
+   "nota": ""
+  },
+  {
+   "categoria": "Summoner Skirmish",
+   "origem": "Spiritforged",
+   "nome": "Edge of Night",
+   "nota": "Campeao, Marco 2026"
+  },
+  {
+   "categoria": "Summoner Skirmish",
+   "origem": "Spiritforged",
+   "nome": "Guardian Angel",
+   "nota": "Campeao, Abril 2026"
+  },
+  {
+   "categoria": "Summoner Skirmish",
+   "origem": "Spiritforged",
+   "nome": "Long Sword",
+   "nota": "Participacao, Abril 2026"
+  },
+  {
+   "categoria": "Summoner Skirmish",
+   "origem": "Spiritforged",
+   "nome": "World Atlas",
+   "nota": "Participacao, Marco 2026"
+  },
+  {
+   "categoria": "Summoner Skirmish",
+   "origem": "Unleashed",
+   "nome": "Rengar - Trophy Hunter",
+   "nota": "Top 8 e Campeao, Maio 2026"
+  },
+  {
+   "categoria": "Summoner Skirmish",
+   "origem": "Unleashed",
+   "nome": "Yuumi - Magical Cat",
+   "nota": "Participacao, Maio 2026"
+  },
+  {
+   "categoria": "Summoner Skirmish",
+   "origem": "Unleashed",
+   "nome": "Lillia - Protector of Dreams",
+   "nota": "Top 8 e Campeao, Junho 2026"
+  },
+  {
+   "categoria": "Summoner Skirmish",
+   "origem": "Unleashed",
+   "nome": "Zilean - Time Mage",
+   "nota": "Participacao, Junho 2026"
+  },
+  {
+   "categoria": "Summoner Skirmish",
+   "origem": "Origins",
+   "nome": "Tryndamere, Barbarian",
+   "nota": "Participacao"
+  },
+  {
+   "categoria": "Summoner Skirmish",
+   "origem": "Origins",
+   "nome": "Blitzcrank, Impassive",
+   "nota": "Top 8"
+  },
+  {
+   "categoria": "Evento de lancamento",
+   "origem": "Origins",
+   "nome": "Ahri - Nine-Tailed Fox",
+   "nota": "31/10/2025"
+  },
+  {
+   "categoria": "Evento de lancamento",
+   "origem": "Origins",
+   "nome": "Darius, Hand of Noxus",
+   "nota": ""
+  },
+  {
+   "categoria": "Evento de lancamento",
+   "origem": "Origins",
+   "nome": "Jinx - Loose Cannon",
+   "nota": ""
+  },
+  {
+   "categoria": "Evento de lancamento",
+   "origem": "Origins",
+   "nome": "Kai'Sa, Daughter of the Void",
+   "nota": ""
+  },
+  {
+   "categoria": "Evento de lancamento",
+   "origem": "Origins",
+   "nome": "Lee Sin - Ascetic",
+   "nota": ""
+  },
+  {
+   "categoria": "Evento de lancamento",
+   "origem": "Origins",
+   "nome": "Lee Sin - Blind Monk",
+   "nota": ""
+  },
+  {
+   "categoria": "Evento de lancamento",
+   "origem": "Origins",
+   "nome": "Leona - Radiant Dawn",
+   "nota": ""
+  },
+  {
+   "categoria": "Evento de lancamento",
+   "origem": "Origins",
+   "nome": "Miss Fortune - Bounty Hunter",
+   "nota": ""
+  },
+  {
+   "categoria": "Evento de lancamento",
+   "origem": "Origins",
+   "nome": "Sett - The Boss",
+   "nota": ""
+  },
+  {
+   "categoria": "Evento de lancamento",
+   "origem": "Origins",
+   "nome": "Teemo - Swift Scout",
+   "nota": ""
+  },
+  {
+   "categoria": "Evento de lancamento",
+   "origem": "Origins",
+   "nome": "Viktor - Herald of the Arcane",
+   "nota": ""
+  },
+  {
+   "categoria": "Evento de lancamento",
+   "origem": "Origins",
+   "nome": "Viktor - Leader",
+   "nota": ""
+  },
+  {
+   "categoria": "Evento de lancamento",
+   "origem": "Origins",
+   "nome": "Volibear - Relentless Storm",
+   "nota": ""
+  },
+  {
+   "categoria": "Evento de lancamento",
+   "origem": "Origins",
+   "nome": "Yasuo - Unforgiven",
+   "nota": ""
+  },
+  {
+   "categoria": "Bundle",
+   "origem": "Worlds 2025",
+   "nome": "Aspirant's Climb",
+   "nota": ""
+  },
+  {
+   "categoria": "Bundle",
+   "origem": "Worlds 2025",
+   "nome": "Bandle Tree",
+   "nota": ""
+  },
+  {
+   "categoria": "Bundle",
+   "origem": "Worlds 2025",
+   "nome": "Teemo - Swift Scout",
+   "nota": ""
+  },
+  {
+   "categoria": "Bundle",
+   "origem": "Worlds 2025",
+   "nome": "The Grand Plaza",
+   "nota": ""
+  },
+  {
+   "categoria": "Bundle",
+   "origem": "Lunar Revel 2026",
+   "nome": "Irelia - Blade Dancer",
+   "nota": ""
+  },
+  {
+   "categoria": "Bundle",
+   "origem": "Arcane Box Set",
+   "nome": "Caitlyn - Patrolling",
+   "nota": ""
+  },
+  {
+   "categoria": "Bundle",
+   "origem": "Arcane Box Set",
+   "nome": "Heimerdinger - Inventor",
+   "nota": ""
+  },
+  {
+   "categoria": "Bundle",
+   "origem": "Arcane Box Set",
+   "nome": "Jinx - Rebel",
+   "nota": ""
+  },
+  {
+   "categoria": "Bundle",
+   "origem": "Arcane Box Set",
+   "nome": "Vi - Destructive",
+   "nota": ""
+  },
+  {
+   "categoria": "Bundle",
+   "origem": "Arcane Box Set",
+   "nome": "Viktor - Leader",
+   "nota": ""
+  },
+  {
+   "categoria": "Bundle",
+   "origem": "Arcane Box Set",
+   "nome": "Warwick - Hunter",
+   "nota": ""
+  },
+  {
+   "categoria": "Bundle",
+   "origem": "Arcane Box Set chines",
+   "nome": "Caitlyn - Patrolling",
+   "nota": "versao chinesa"
+  },
+  {
+   "categoria": "Bundle",
+   "origem": "Arcane Box Set chines",
+   "nome": "Heimerdinger - Inventor",
+   "nota": "versao chinesa"
+  },
+  {
+   "categoria": "Bundle",
+   "origem": "Arcane Box Set chines",
+   "nome": "Jinx - Rebel",
+   "nota": "versao chinesa"
+  },
+  {
+   "categoria": "Bundle",
+   "origem": "Arcane Box Set chines",
+   "nome": "Vi - Destructive",
+   "nota": "versao chinesa"
+  },
+  {
+   "categoria": "Bundle",
+   "origem": "Arcane Box Set chines",
+   "nome": "Viktor - Leader",
+   "nota": "versao chinesa"
+  },
+  {
+   "categoria": "Bundle",
+   "origem": "Arcane Box Set chines",
+   "nome": "Warwick - Hunter",
+   "nota": "versao chinesa"
+  },
+  {
+   "categoria": "Judge",
+   "origem": "-",
+   "nome": "Blue Sentinel",
+   "nota": ""
+  },
+  {
+   "categoria": "Judge",
+   "origem": "-",
+   "nome": "Heimerdinger - Inventor",
+   "nota": ""
+  },
+  {
+   "categoria": "Judge",
+   "origem": "-",
+   "nome": "Svellsongur",
+   "nota": ""
+  },
+  {
+   "categoria": "Pre-release",
+   "origem": "Spiritforged",
+   "nome": "Riven Shattered",
+   "nota": "Pre-Rift"
+  },
+  {
+   "categoria": "Pre-release",
+   "origem": "-",
+   "nome": "Ashe - Focused",
+   "nota": "Pre-Rift"
+  },
+  {
+   "categoria": "Pre-release",
+   "origem": "-",
+   "nome": "Yone - Blademaster",
+   "nota": "Pre-Rift"
+  },
+  {
+   "categoria": "Evento de abertura",
+   "origem": "-",
+   "nome": "Ahri - Alluring",
+   "nota": ""
+  },
+  {
+   "categoria": "Evo",
+   "origem": "-",
+   "nome": "Jayce - Man of Progress",
+   "nota": "Evo 2026"
+  },
+  {
+   "categoria": "LGS Play",
+   "origem": "-",
+   "nome": "Flash",
+   "nota": ""
+  },
+  {
+   "categoria": "Demonstracao em loja",
+   "origem": "Origins",
+   "nome": "Teemo - Scout",
+   "nota": ""
+  },
+  {
+   "categoria": "Campeonato regional",
+   "origem": "Unleashed",
+   "nome": "K'Sante Courageous",
+   "nota": "Norte-americano 2026, campeao e Top 8"
+  },
+  {
+   "categoria": "Qualificador regional",
+   "origem": "-",
+   "nome": "Miss Fortune - Buccaneer",
+   "nota": "Top 8/32, e Top 4 em Guangzhou"
+  },
+  {
+   "categoria": "Qualificador regional",
+   "origem": "-",
+   "nome": "Blade of the Ruined King",
+   "nota": "Bolonha, campeao e Top 8"
+  },
+  {
+   "categoria": "Qualificador regional",
+   "origem": "-",
+   "nome": "Boneshiver",
+   "nota": "Bolonha, participacao"
+  },
+  {
+   "categoria": "Regional Open",
+   "origem": "Unleashed",
+   "nome": "Lillia - Fae Fawn",
+   "nota": "versao chinesa"
+  },
+  {
+   "categoria": "Vault / TFT",
+   "origem": "-",
+   "nome": "Bird // Brush",
+   "nota": ""
+  },
+  {
+   "categoria": "Vault / TFT",
+   "origem": "-",
+   "nome": "Altar to Unity",
+   "nota": "TFT Paris Open"
+  },
+  {
+   "categoria": "Vault / TFT",
+   "origem": "-",
+   "nome": "Recruit//Buff",
+   "nota": ""
+  },
+  {
+   "categoria": "Outro",
+   "origem": "-",
+   "nome": "Buff",
+   "nota": "Riot Fist Bump"
+  }
+ ]
+}
