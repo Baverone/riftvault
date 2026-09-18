@@ -16,6 +16,7 @@
     riftvault local [REF N --para deck:azir] [--deck azir --propor|--marcar ...]
     riftvault encomendas [--mais REF [N] | --menos REF [N] | --chegou [REF]]
     riftvault seguir [--jogador NOME] [--so-mudados] [--sem-rede] [--json]
+    riftvault promos [--categoria NOME] [--so-tenho]
 """
 
 from __future__ import annotations
@@ -33,6 +34,7 @@ from . import faltas as faltas_mod
 from . import faltas_edicao
 from . import locais as locais_mod
 from . import metrics, pending as pending_mod, prices, quanto_custa as quanto_custa_mod
+from . import promos as promos_mod
 from . import seguir as seguir_mod
 from . import server
 
@@ -857,6 +859,60 @@ def cmd_a_mais(args) -> int:
     return 0
 
 
+def cmd_promos(args) -> int:
+    """A montra «Promos» (2026-09-18): as promos oficiais da lista, por
+    categoria, casadas com o catálogo; e as que não casaram. Só mostra."""
+    con = db.connect(readonly=True)
+    if db.catalog_is_empty(con):
+        print("catálogo vazio — corre `riftvault sync`.", file=sys.stderr)
+        return 1
+    try:
+        p = promos_mod.payload(con)
+    except promos_mod.ListaInvalida as e:
+        print(f"lista das promos: {e}", file=sys.stderr)
+        return 1
+    alvo = args.categoria.casefold() if args.categoria else None
+    cats = [c for c in p["categorias"] if alvo is None or c["label"].casefold() == alvo]
+    if alvo and not cats:
+        print(f"{args.categoria}: não há essa categoria na lista. Há: "
+              + ", ".join(c["label"] for c in p["categorias"]), file=sys.stderr)
+        return 1
+    for c in cats:
+        itens = [x for x in c["items"] if not args.so_tenho or x["tens"] > 0]
+        if not itens and args.so_tenho:
+            continue
+        print(f"{c['label']} — {c['entradas']} promo{'s' if c['entradas'] != 1 else ''}, "
+              f"{c['cartas']} carta{'s' if c['cartas'] != 1 else ''}"
+              + (f", {c['nao_casadas']} por encontrar no catálogo" if c["nao_casadas"] else ""))
+        for x in itens:
+            tens = (" · tens " + ", ".join(f"{y['qty']}× {cardmarket.codigo(y['code'])}"
+                                            for y in x["tens_por"])) if x["tens"] else ""
+            sp = (" · no catálogo como promo: " + ", ".join(
+                f"{cardmarket.codigo(y['code'])} (tens {y['qty']})" for y in x["promo_catalogo"])
+                  ) if x["promo_catalogo"] else ""
+            origem = f" [{x['origem']}]" if x["origem"] and x["origem"] != "-" else ""
+            nota = f" — {x['nota']}" if x["nota"] else ""
+            print(f"    {cardmarket.codigo(x['code']):<12} {x['name'][:34]:<34} "
+                  f"{(x['type'] or '?'):<11}{origem}{nota}{tens}{sp}")
+        print()
+    t = p["totals"]
+    print(f"{t['entradas']} promos, {t['cartas']} cartas distintas: {t['casadas']} casadas com "
+          f"o catálogo ({', '.join(f'{n} {v}' for v, n in t['por_via'].items() if n)}), "
+          f"{t['nao_casadas']} por encontrar; tens pelo menos uma cópia de {t['tens']} delas.",
+          file=sys.stderr)
+    if p["nao_encontradas"]:
+        print("não encontradas no catálogo (a foto não se pode mostrar; nunca se adivinha):",
+              file=sys.stderr)
+        for x in p["nao_encontradas"]:
+            print(f"    {x['nome']}  ({x['categoria']}"
+                  + (f", {x['origem']}" if x["origem"] and x["origem"] != "-" else "") + ")",
+                  file=sys.stderr)
+    print(f"{p['avisos']['foto']} {p['avisos']['ter']}", file=sys.stderr)
+    print(f"lista: {p['fonte']['ficheiro']} — {p['fonte']['fonte']}, lida a "
+          f"{p['fonte']['lido_em']}. {p['fonte']['aviso']}", file=sys.stderr)
+    return 0
+
+
 def cmd_seguir(args) -> int:
     """Seguir jogadores no Piltover Archive (2026-09-17): os decks de cada um,
     o que mudou desde a última corrida, e o que FALTA ao André para montar
@@ -1387,6 +1443,13 @@ def main(argv: list[str] | None = None) -> int:
                                       "acima do alvo e as cartas libertadas dos decks")
     p.add_argument("--edicao", help="só esta edição (OGN, SFD, …)")
     p.set_defaults(func=cmd_a_mais)
+
+    p = sub.add_parser("promos", help="a montra Promos: as promos oficiais (Nexus "
+                                      "Night, bundles, eventos), com a carta do catálogo")
+    p.add_argument("--categoria", help="só esta categoria (Nexus Night, Bundle, …)")
+    p.add_argument("--so-tenho", action="store_true",
+                   help="só as cartas de que tens pelo menos uma cópia (em qualquer versão)")
+    p.set_defaults(func=cmd_promos)
 
     p = sub.add_parser("seguir", help="os decks dos jogadores seguidos no Piltover "
                                       "Archive e o que falta para os montar")

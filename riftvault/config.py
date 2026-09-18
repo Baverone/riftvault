@@ -26,6 +26,12 @@ CONFIG_PATH = Path(os.environ.get("RIFTVAULT_CONFIG", ROOT / "riftvault_config.j
 # O «seguir jogadores» (2026-09-17): o estado (`estado.json`, vai para o Git)
 # e a última página lida de cada endereço (`paginas/`, não vai). Ver `seguir.py`.
 SEGUIR_DIR = Path(os.environ.get("RIFTVAULT_SEGUIR", DATA_DIR / "seguir"))
+# A lista das promos oficiais (2026-09-18) — a montra «Promos» da Coleção. É
+# um ficheiro VERSIONADO que ele corrige à mão, como as listas dos decks: fica
+# preso à raiz do repositório e não ao `DATA_DIR`, para uma medição que aponte
+# o `RIFTVAULT_DATA` para uma cópia dos `.db` continuar a ler a lista a sério.
+# Ver `promos.py`.
+PROMOS_PATH = Path(os.environ.get("RIFTVAULT_PROMOS", ROOT / "data" / "promos_oficiais.json"))
 
 # Usados quando o ficheiro de config não existe ou não tem a chave.
 DEFAULTS: dict = {
