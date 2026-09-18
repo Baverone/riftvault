@@ -53,8 +53,9 @@ def escrever_config(papeis=("legend", "champion"),
     CONFIG.write_text(json.dumps({
         "master_set": {"fora_da_percentagem": ["a", "overnumbered", "promo"],
                        "escondidas": ["-T", "*", "-R"],
-                       # As alt arts a playset desde 2026-09-18 (o `a` saiu).
-                       "um_de_cada": ["overnumbered", "promo"]},
+                       # As alt arts e as promos a playset desde 2026-09-18
+                       # (o `a` e o `promo` saíram).
+                       "um_de_cada": ["overnumbered"]},
         "decks": {"so_normais_excepto": list(papeis),
                   "versoes_especiais": list(especiais)},
         "listas_de_compra": {"so_master_set": True},
@@ -163,11 +164,11 @@ class TestAlvoUmSempre(Base):
         con = self.catalogo()
         a = self.alvos(con)
         # O Azir joga 3 Defy e 3 Sovereign; mesmo assim as versões especiais
-        # pedem o que o `um_de_cada` diz — 1 na sobrenumerada e na promo, o
-        # playset do tipo na alt art (3 na Unit, 1 na Legend) desde
-        # 2026-09-18 —, e a base pede o playset.
+        # pedem o que o `um_de_cada` diz — 1 na sobrenumerada, o playset do
+        # tipo na alt art (3 na Unit, 1 na Legend) e na promo (3, é Unit)
+        # desde 2026-09-18 —, e a base pede o playset.
         self.assertEqual((a[DEFY], a[DEFY_A], a[DEFY_OVER]), (3, 3, 1))
-        self.assertEqual((a[SOV], a[SOV_OVER], a[SOV_SP]), (3, 1, 1))
+        self.assertEqual((a[SOV], a[SOV_OVER], a[SOV_SP]), (3, 1, 3))
         self.assertEqual((a[EMP], a[EMP_A]), (1, 1))
         con.close()
 

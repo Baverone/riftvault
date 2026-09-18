@@ -47,8 +47,9 @@ def escrever_config(retiradas=("a",), tipos=("Rune",),
     CONFIG.write_text(json.dumps({
         "master_set": {"fora_da_percentagem": ["a", "overnumbered", "promo"],
                        "escondidas": ["-T", "*", "-R"],
-                       # As alt arts a playset desde 2026-09-18 (o `a` saiu).
-                       "um_de_cada": ["overnumbered", "promo"]},
+                       # As alt arts e as promos a playset desde 2026-09-18
+                       # (o `a` e o `promo` saíram).
+                       "um_de_cada": ["overnumbered"]},
         "master_targets_by_type": {"Rune": 3},
         "decks": {"so_normais_excepto": list(papeis),
                   "versoes_especiais": ["a", "overnumbered", "promo"],

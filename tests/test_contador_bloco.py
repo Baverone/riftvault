@@ -41,10 +41,8 @@ class TestContadorDoBloco(unittest.TestCase):
         caminho = Path(tempfile.gettempdir()) / "riftvault-contador-bloco.json"
         # O `master_set` substitui-se inteiro (o `config.load` funde só o
         # primeiro nível), por isso vão as três listas.
-        caminho.write_text(json.dumps(
-            {"master_set": {"fora_da_percentagem": ["a", "overnumbered", "promo"],
-                            "escondidas": ["-T", "*", "-R"],
-                            "um_de_cada": ["overnumbered", "promo"]}}), encoding="utf-8")
+        self.caminho = caminho
+        self.escrever_config(["overnumbered"])
         os.environ["RIFTVAULT_CONFIG"] = str(caminho)
         self.addCleanup(lambda: os.environ.pop("RIFTVAULT_CONFIG", None))
         self.v = Vault()
@@ -52,6 +50,15 @@ class TestContadorDoBloco(unittest.TestCase):
         from riftvault import metrics
         importlib.reload(metrics)
         self.metrics = metrics
+
+    def escrever_config(self, um_de_cada: list[str]) -> None:
+        import json
+        self.caminho.write_text(json.dumps(
+            {"master_set": {"fora_da_percentagem": ["a", "overnumbered", "promo"],
+                            "escondidas": ["-T", "*", "-R"],
+                            "um_de_cada": um_de_cada}}), encoding="utf-8")
+        from riftvault import config
+        config.load.cache_clear()
 
     def edicao(self):
         """Seis artes alternativas (alvo 3), seis promos (alvo 1) e uma runa
@@ -102,19 +109,26 @@ class TestContadorDoBloco(unittest.TestCase):
         self.assertEqual((b["owned"], b["done"], b["total"]), (2, 1, 6))
         con.close()
 
-    def test_as_promos_a_1_de_cada_dizem_tens_2_de_6_e_e_verdade(self):
-        """A mesma fotografia, depois de *"promos (SP) voltamos a 1 de cada"*:
-        as duas promos a uma cópia ESTÃO completas, `owned` e `done` são o
-        mesmo número e o `max_target` 1 poupa o cabeçalho ao «no playset
-        completo». Uma segunda cópia não altera nenhuma das contas."""
+    def test_as_promos_a_playset_dizem_tens_2_de_6_e_0_no_playset_completo(self):
+        """A mesma fotografia nas promos, que desde 2026-09-18 pedem o playset
+        (*"as promos SP podes meter 3 de cada"*): duas na caixa, nenhuma a 3,
+        e o cabeçalho diz as duas contas. Com o `promo` no `um_de_cada` (o
+        mundo de 2026-09-15 a 2026-09-18, *"promos (SP) voltamos a 1 de
+        cada"*) as duas ESTÃO completas, `owned` e `done` são o mesmo número
+        e o `max_target` 1 poupa o cabeçalho ao «no playset completo»."""
         from riftvault import collection
         con = self.edicao()
         collection.adjust(con, "tst-sp4-006", 1, source="test")
         collection.adjust(con, "tst-sp5-006", 2, source="test")
         b = self.blocos(con)["special"]
+        self.assertEqual((b["owned"], b["done"], b["total"]), (2, 0, 6))
+        self.assertEqual(b["max_target"], 3)
+        self.assertFalse(b["counts"])
+        self.assertEqual(b["label"], "Coleção — promos — playset")
+        self.escrever_config(["overnumbered", "promo"])
+        b = self.blocos(con)["special"]
         self.assertEqual((b["owned"], b["done"], b["total"]), (2, 2, 6))
         self.assertEqual(b["max_target"], 1)
-        self.assertFalse(b["counts"])
         self.assertEqual(b["label"], "Coleção — promos — 1 de cada")
         con.close()
 
