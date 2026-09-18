@@ -4,7 +4,8 @@ André: *"agora cria um botao que e o 'a mais' onde vai todas as cartas que
 estao listadas a mais ou que estavam num deck e deixaram de estar"*.
 
 O que se fixa aqui: uma Unit com 5 de 3 tem 2 a mais e com 3 não aparece; uma
-arte alternativa e uma sobrenumerada com 2 de 1 têm 1 a mais; um token
+arte alternativa com 4 de 3 (playset, 2026-09-18) e uma sobrenumerada com 2
+de 1 têm 1 a mais; um token
 escondido tem alvo 0 e sobra inteiro, marcado; o que os decks levam nunca é a
 mais (`cópias − max(usadas, alvo)`); o que está no binder Decks/Venda e nenhum
 deck pede é a mais; o que está sleevado num deck nunca aparece; a arte
@@ -121,12 +122,17 @@ class TestExcedente(Base):
         self.ter(con, "tst-002-100", -2)
         self.assertIsNone(self.exc(con, "tst-002-100"))
 
-    def test_alt_art_e_sobrenumerada_com_2_de_1_tem_1_a_mais(self):
+    def test_alt_art_com_4_de_3_e_sobrenumerada_com_2_de_1_tem_1_a_mais(self):
+        """A arte alternativa pede o PLAYSET desde 2026-09-18 (*"Alt Art para
+        playset"*): com 2 de 3 nada sobra, com 4 sobra 1. A sobrenumerada
+        continua a 1 de cada (*"overnumbered continua 1 de cada"*)."""
         con = self.montar()
         self.ter(con, "tst-001a-100", 2)
         self.ter(con, "tst-101-100", 2)
+        self.assertIsNone(self.exc(con, "tst-001a-100"))
+        self.ter(con, "tst-001a-100", 2)
         a, o = self.exc(con, "tst-001a-100"), self.exc(con, "tst-101-100")
-        self.assertEqual((a["target"], a["extra"]), (1, 1))
+        self.assertEqual((a["target"], a["extra"]), (3, 1))
         self.assertEqual((o["target"], o["extra"]), (1, 1))
         self.assertEqual(o["block"], self.metrics.BLOCO_OVER)
 
@@ -182,23 +188,30 @@ class TestExcedente(Base):
         # O deck leva a sleevada + 2 da Coleção; a Coleção tem 5 − max(2, 3) = 2 a mais.
         self.assertEqual((x["from_binder"], x["from_colecao"], x["extra"]), (0, 2, 2))
 
-    def test_a_alt_art_de_uma_carta_do_main_sobra_acima_de_1_menos_o_que_o_deck_tapa(self):
+    def test_a_alt_art_de_uma_carta_do_main_sobra_acima_do_playset_menos_o_que_o_deck_tapa(self):
         """O main joga a base (2026-09-17, «voltar atrás»): o alvo da Alt Art
-        é 1 e não sobe com o deck. Mas desde a tarde desse dia o que a base
-        não tapa serve-se das alt arts — e uma cópia em uso não é a mais
-        (`cópias − max(usadas, alvo)`). Sem Defy base nenhuma o Azir leva as 3
-        alt arts e nada sobra; com 2 bases leva 1 e sobram 2; sem o deck, 2."""
+        é o do config — o playset desde 2026-09-18 — e não sobe com o deck.
+        Desde a tarde de 17/09 o que a base não tapa serve-se das alt arts — e
+        uma cópia em uso não é a mais (`cópias − max(usadas, alvo)`). Com 5
+        alt arts e Defy base nenhuma o Azir leva 3 e sobram 2 (5 − max(3, 3));
+        com 2 bases leva 1 alt art e sobram as mesmas 2 (5 − max(1, 3)); sem o
+        deck, 2 (5 − 3). Com 3 alt arts nada sobra em nenhum dos casos."""
         con = self.montar(decks={"azir": AZIR})
         self.ter(con, "tst-001a-100", 3)
         self.ter(con, "tst-003-100", 1)
         self.assertIsNone(self.exc(con, "tst-001a-100"))
         self.ter(con, "tst-001-100", 2)
+        self.assertIsNone(self.exc(con, "tst-001a-100"))
+        self.ter(con, "tst-001a-100", 2)
         x = self.exc(con, "tst-001a-100")
-        self.assertEqual((x["target"], x["used"], x["extra"]), (1, 1, 2))
+        self.assertEqual((x["target"], x["used"], x["extra"]), (3, 1, 2))
+        self.ter(con, "tst-001-100", -2)
+        x = self.exc(con, "tst-001a-100")
+        self.assertEqual((x["target"], x["used"], x["extra"]), (3, 3, 2))
         (self.v.decks_dir / "azir.txt").unlink()
         self.decks.import_all(con, log=lambda *_: None)
         x = self.exc(con, "tst-001a-100")
-        self.assertEqual((x["target"], x["used"], x["extra"]), (1, 0, 2))
+        self.assertEqual((x["target"], x["used"], x["extra"]), (3, 0, 2))
 
 
 class TestLibertadas(Base):

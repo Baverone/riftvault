@@ -99,7 +99,8 @@ na mesma — só as imagens é que não aparecem.
   do master set**, por número de coleção; depois **as runas especiais**
   (bloco que hoje está **vazio** — as artes alternativas das runas do OGN
   saíram de tudo a 2026-09-17, ver «As runas em Alt Art» abaixo); depois
-  **as artes alternativas, 1 de cada**. Só a sequência conta para a
+  **as artes alternativas, a playset** (desde 2026-09-18 — pediram 1 de cada
+  de 16/09 a 18/09). Só a sequência conta para a
   percentagem. Só no fim vem o que está **fora da coleção** — os tokens (código
   `-T`), as signatures (código `*`), as **sobrenumeradas** (as «300/298») e as
   **promos** (`VEN-SP4`) —, cada um com o seu contador e a dizer que **não**
@@ -158,9 +159,10 @@ imagem** e o crachá a dizer **quantas faltam**.
 
 - Um botão por edição (o OGS entra) e «Todas», cada edição com **Master set**
   (a sequência, alvo do tipo — Unit/Spell/Gear 3, Legend e Battlefield 1,
-  runas numeradas 3), **Alt Art** (as artes alternativas, **1 de cada** —
-  os decks nunca levantam este alvo; **sem as das runas**, que saíram de tudo
-  a 2026-09-17) e **OverNumbered** (as sobrenumeradas, 1 de cada).
+  runas numeradas 3), **Alt Art** (as artes alternativas, **a playset** desde
+  2026-09-18 — *"Alt Art para playset"* —; os decks nunca levantam este alvo;
+  **sem as das runas**, que saíram de tudo a 2026-09-17) e **OverNumbered**
+  (as sobrenumeradas, 1 de cada — *"overnumbered continua 1 de cada"*).
   Cada bloco diz quantas faltam e quanto custa fechar; a edição soma os três.
 - **O que vem a caminho conta.** Uma carta já encomendada aparece a azul
   tracejado, «a caminho», e **não soma** ao que há a comprar; uma parcialmente
@@ -264,8 +266,9 @@ sem botão mas aparece em «Todas»), e em cada edição dois blocos, com a
 **carta em imagem** e o crachá a dizer o número:
 
 - **Excedente** — impressões de que tens **mais cópias do que o alvo** que a
-  Coleção e os decks já usam: playset na sequência, 1 nas artes alternativas
-  e sobrenumeradas (os decks não levantam este alvo), e o que está
+  Coleção e os decks já usam: playset na sequência e nas artes alternativas
+  (desde 2026-09-18), 1 nas sobrenumeradas e nas promos (os decks não
+  levantam este alvo), e o que está
   escondido (tokens, signatures) não tem alvo e sobra inteiro, marcado. A
   conta é `cópias − max(usadas nos decks, alvo)`: **o que os decks levam
   nunca é a mais**, o que está no binder Decks/Venda e nenhum deck pede é, e
@@ -412,8 +415,13 @@ Unit/Spell/Gear 3, Battlefield 1, Legend 1, Rune 12, tokens 1.
 | bloco | o que é | alvo por impressão |
 |---|---|---|
 | 1 | a sequência do master set, por número de coleção | o **playset do tipo** (Unit/Spell/Gear 3, Legend e Battlefield 1, **runas 3** desde 2026-09-15 — `master_targets_by_type`) |
-| 2 | as runas especiais (a runa que não é a base), por edição | **1** — bloco **vazio** desde 2026-09-17, ver «As runas em Alt Art» abaixo |
-| 3 | as artes alternativas | **1** (2026-09-16; a 2026-09-17 ficou fixo — os decks nunca o levantam, ver «Que versão joga cada carta») |
+| 2 | as runas especiais (a runa que não é a base), por edição | o das artes alternativas — bloco **vazio** desde 2026-09-17, ver «As runas em Alt Art» abaixo |
+| 3 | as artes alternativas | o **playset do tipo** (2026-09-18: *"muda novamente: Alt Art para playset"*; pediram 1 de cada de 16/09 a 18/09 — os decks nunca o levantam, ver «Que versão joga cada carta») |
+
+O alvo da coleção extra é **por categoria**, em `master_set.um_de_cada`: o
+que lá está pede 1 (hoje `["overnumbered", "promo"]`), o que não está pede o
+playset do tipo. Uma palavra a mais ou a menos nessa lista é a única
+diferença entre «alt art a 1» e «alt art a playset».
 
 Os três contam para a percentagem: hoje são **1036 impressões** no denominador.
 As runas promo (`VEN-R01`) estão no bloco 2, com as outras runas especiais.
@@ -535,8 +543,9 @@ tens **não saem da base** (as 6 `OGN-042a` continuam gravadas), só ninguém
 as lê.
 
 O que **não** mudou: as runas base do master set (as 6 do OGN) pedem **3**,
-como as outras cartas; as artes alternativas e as sobrenumeradas de cartas
-que não são runas continuam a **1 de cada**. (Os decks pediram a arte
+como as outras cartas; as sobrenumeradas continuam a **1 de cada** e as artes
+alternativas de cartas que não são runas pedem o que o `um_de_cada` disser
+(1 nesse dia; **playset** desde 2026-09-18). (Os decks pediram a arte
 alternativa por cima entre 2026-09-16 e 2026-09-17; já não pedem — ver «Que
 versão joga cada carta», na secção Decks.)
 
@@ -649,8 +658,9 @@ e do Champion que serao Alt Art ou Overnumbered ou SP, mas nunca assinada"*.
   no catálogo, joga a base e não há falta.
 - **Só uma cópia é especial.** A Legend é uma por deck; um Champion que a
   lista jogue mais vezes tem as restantes na base.
-- **O alvo da Coleção nunca sobe por causa dos decks.** Alt Art, OverNumbered
-  e promos pedem 1 de cada, joguem ou não num deck. (Entre 2026-09-16 e
+- **O alvo da Coleção nunca sobe por causa dos decks.** OverNumbered e promos
+  pedem 1 de cada e as Alt Art o playset (2026-09-18), joguem ou não num
+  deck — é o `master_set.um_de_cada` que manda. (Entre 2026-09-16 e
   2026-09-17 os decks jogavam tudo em Alt Art e o alvo subia ao que eles
   pediam — durou um dia, saiu inteiro do código e não volta sem pedires.)
 

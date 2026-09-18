@@ -30,12 +30,11 @@ from tests.fixture import Vault
 
 class TestContadorDoBloco(unittest.TestCase):
     def setUp(self):
-        # O config de 2026-09-15: as artes alternativas a PLAYSET. Desde
-        # 2026-09-16 pedem 1 de cada (`um_de_cada` leva o "a") e já nenhum
-        # bloco pede playset por omissão — mas o cabeçalho com as duas contas
-        # («tens 2 de 6 · 0 no playset completo») continua a existir para um
-        # bloco que peça mais do que 1, e é isso que aqui se fixa. Escreve-se
-        # um config próprio; o real nunca se toca.
+        # O config de 2026-09-15 — e outra vez o de 2026-09-18: as artes
+        # alternativas a PLAYSET (pediram 1 de cada de 2026-09-16 a 2026-09-18,
+        # com o "a" no `um_de_cada`). É o bloco que pede mais do que 1 e para
+        # o qual o cabeçalho diz as duas contas («tens 2 de 6 · 0 no playset
+        # completo»). Escreve-se um config próprio; o real nunca se toca.
         import json
         import os
         import tempfile

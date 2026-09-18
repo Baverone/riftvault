@@ -47,7 +47,8 @@ def escrever_config(retiradas=("a",), tipos=("Rune",),
     CONFIG.write_text(json.dumps({
         "master_set": {"fora_da_percentagem": ["a", "overnumbered", "promo"],
                        "escondidas": ["-T", "*", "-R"],
-                       "um_de_cada": ["a", "overnumbered", "promo"]},
+                       # As alt arts a playset desde 2026-09-18 (o `a` saiu).
+                       "um_de_cada": ["overnumbered", "promo"]},
         "master_targets_by_type": {"Rune": 3},
         "decks": {"so_normais_excepto": list(papeis),
                   "versoes_especiais": ["a", "overnumbered", "promo"],
@@ -327,16 +328,17 @@ class TestOsDecks(Base):
         con.close()
 
     def test_as_outras_alt_arts_nao_sao_retiradas__o_main_joga_a_base_e_elas_tapam(self):
-        """A alt art do Defy continua a existir (alvo 1, aparece na grelha); o
-        main joga a base primeiro (2026-09-17) e, desde a tarde desse dia, as
-        alt arts tapam o que a base não chega — as 3 alt arts sozinhas servem
-        o Defy (`test_versoes_deck.py`). A runa em alt art, retirada, NÃO tapa
-        nada: é a diferença entre «retirada» e «outra versão»."""
+        """A alt art do Defy continua a existir (alvo do playset desde
+        2026-09-18, aparece na grelha); o main joga a base primeiro
+        (2026-09-17) e, desde a tarde desse dia, as alt arts tapam o que a
+        base não chega — as 3 alt arts sozinhas servem o Defy
+        (`test_versoes_deck.py`). A runa em alt art, retirada, NÃO tapa nada:
+        é a diferença entre «retirada» e «outra versão»."""
         con = self.catalogo(copias={"aaa-004a-100": 3, "aaa-004-100": 3})
         a = self.decks.allocate(con)[self.idx(con)["azir"]["id"]]
         self.assertNotIn("defy", a["missing"])
         self.assertNotIn("defy", a["alloc_outras"])
-        self.assertEqual(self.tiles(con)["aaa-004a-100"]["target"], 1)
+        self.assertEqual(self.tiles(con)["aaa-004a-100"]["target"], 3)
         con.close()
         self.v = Vault()
         self.addCleanup(self.v.close)
