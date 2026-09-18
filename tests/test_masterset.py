@@ -307,9 +307,15 @@ class TestAlvos(Base):
                          "Coleção — artes alternativas — 1 de cada")
         self.assertEqual(self.metrics.master_target("x", "base", "Unit", False), 3)
 
-    def test_a_promo_pede_1(self):
-        """*"overnumbered e promos (SP) voltamos a 1 de cada"* — `test_alvo_1.py`."""
-        self.assertEqual(self.metrics.master_target("x", "special", "Unit", False), 1)
+    def test_a_promo_pede_o_playset_desde_2026_09_18(self):
+        """*"as promos SP podes meter 3 de cada"* (2026-09-18) — pediu 1 de
+        2026-09-15 (*"overnumbered e promos (SP) voltamos a 1 de cada"*) até
+        aí; volta a 1 se o `promo` entrar no `um_de_cada` — `test_alvo_1.py`."""
+        self.assertEqual(self.metrics.master_target("x", "special", "Unit", False), 3)
+        cfg = self.config.load()
+        c = {**cfg, "master_set": {**cfg["master_set"],
+                                   "um_de_cada": ["overnumbered", "promo"]}}
+        self.assertEqual(self.metrics.master_target("x", "special", "Unit", False, c), 1)
 
     def test_o_token_pede_o_token_target(self):
         self.assertEqual(self.metrics.master_target("x", "token", None, True), 1)

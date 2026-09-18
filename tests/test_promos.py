@@ -187,8 +187,10 @@ class TestColecao(Base):
     def test_vai_para_um_bloco_proprio(self):
         con = self.edicao()
         self.assertEqual(self.blocos(con)["tst-sp4-006"], "special")
-        # «— 1 de cada» desde 2026-09-15; era «— playset» de 09-14 à noite até aí.
-        self.assertEqual(self.metrics.rotulo("special"), "Coleção — promos — 1 de cada")
+        # «— playset» desde 2026-09-18 (*"as promos SP podes meter 3 de
+        # cada"*); dizia «— 1 de cada» de 2026-09-15 até aí, e «— playset» de
+        # 09-14 à noite até 09-15.
+        self.assertEqual(self.metrics.rotulo("special"), "Coleção — promos — playset")
         con.close()
 
     def test_a_unit_que_partilha_o_numero_fica_onde_estava(self):
@@ -199,15 +201,16 @@ class TestColecao(Base):
         self.assertEqual(b["tst-004a-100"], "alt_art")
         con.close()
 
-    def test_o_alvo_da_promo_e_1_e_o_da_base_e_o_playset(self):
-        """*"overnumbered e promos (SP) voltamos a 1 de cada"* (2026-09-15): a
-        promo pede 1; a Unit base da sequência continua a pedir 3. Até esse
-        dia a promo pedia o playset (*"etc etc mete Playset na contagem"*) —
+    def test_o_alvo_da_promo_e_o_playset_como_o_da_base(self):
+        """*"as promos SP podes meter 3 de cada"* (2026-09-18): a promo é uma
+        Unit e pede 3, como a Unit base da sequência. Pediu 1 de 2026-09-15
+        (*"overnumbered e promos (SP) voltamos a 1 de cada"*) a 2026-09-18, e
+        o playset de 09-14 (*"etc etc mete Playset na contagem"*) até 09-15 —
         ver `test_alvo_1.py`."""
         con = self.edicao()
         tiles = {pr["id"]: pr for g in self.metrics.set_payload(con, "TST")["groups"]
                  for pr in g["printings"]}
-        self.assertEqual(tiles["tst-sp4-006"]["target"], 1)
+        self.assertEqual(tiles["tst-sp4-006"]["target"], 3)
         self.assertEqual(tiles["tst-004-100"]["target"], 3)
         con.close()
 
@@ -231,10 +234,11 @@ class TestColecao(Base):
         tiles = {pr["id"]: pr for g in p["groups"] for pr in g["printings"]}
         self.assertEqual(tiles["tst-sp4-006"]["qty"], 1)
         blocos = {b["id"]: b for b in p["blocks"]}
-        # Uma de UMA (2026-09-15, *"promos (SP) voltamos a 1 de cada"*): o
-        # bloco conta-a como completa. Era «uma de três» até esse dia.
-        self.assertEqual((blocos["special"]["done"], blocos["special"]["total"]),
-                         (1, 1))
+        # Uma de TRÊS (2026-09-18, *"as promos SP podes meter 3 de cada"*): o
+        # bloco vê-a («tens 1 de 1») mas não a conta como playset completo.
+        # Era «uma de uma», completa, de 2026-09-15 a 2026-09-18.
+        self.assertEqual((blocos["special"]["owned"], blocos["special"]["done"],
+                          blocos["special"]["total"]), (1, 0, 1))
         # E não entra no "se estivesse completa": não é preço de fechar o
         # master set. Mas continua a valer no que ele TEM — a caixa é a caixa.
         self.assertEqual(p["progress"]["value"]["full"], 0)

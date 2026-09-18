@@ -15,6 +15,11 @@ de 2026-09-16 a 2026-09-18 — *"muda novamente: Alt Art para playset,
 overnumbered continua 1 de cada"* —, e é o `um_de_cada` que o diz); as runas
 ficam onde a ordem das runas as deixou.
 
+**As promos saíram da lista a 2026-09-18** (*"as promos SP podes meter 3 de
+cada"* — são Units, o playset delas é 3): hoje só a sobrenumerada pede 1. Os
+testes da promo fixam o playset e que escrever `"promo"` na lista a volta a
+pôr a 1.
+
 Corre contra cópias (`tests.fixture.Vault`): o config real só é LIDO, nunca
 escrito. Os testes que mudam o config passam um dicionário, não tocam no
 ficheiro.
@@ -96,11 +101,23 @@ class TestAlvo(Base):
         self.assertEqual(self.metrics.alvo(self.linhas(con)[self.BASE]), 3)
         con.close()
 
-    def test_a_promo_pede_1(self):
+    def test_a_promo_pede_o_playset_desde_2026_09_18(self):
+        """Pediu 1 de 2026-09-15 a 2026-09-18 (*"overnumbered e promos (SP)
+        voltamos a 1 de cada"*); a 18/09 ele disse *"as promos SP podes meter
+        3 de cada"* e o `promo` saiu do `um_de_cada`. Escrevê-lo lá volta a
+        pô-la a 1 — é a lista que manda, não há número cravado."""
+        from riftvault import config
         con = self.edicao()
         r = self.linhas(con)[self.PROMO]
-        self.assertTrue(self.metrics.e_um_de_cada(r))
-        self.assertEqual(self.metrics.alvo(r), 1)
+        self.assertFalse(self.metrics.e_um_de_cada(r))
+        self.assertEqual(self.metrics.alvo(r), 3)
+        cfg = config.load()
+        self.assertNotIn("promo", cfg["master_set"]["um_de_cada"])
+        c = {**cfg, "master_set": {**cfg["master_set"],
+                                   "um_de_cada": ["overnumbered", "promo"]}}
+        self.assertTrue(self.metrics.e_um_de_cada(r, c))
+        self.assertEqual(self.metrics.alvo(r, c), 1)
+        self.assertEqual(self.metrics.rotulo("special", c), "Coleção — promos — 1 de cada")
         con.close()
 
     def test_a_arte_alternativa_pede_o_playset_desde_2026_09_18(self):
@@ -141,13 +158,14 @@ class TestAlvo(Base):
         self.assertEqual(self.metrics.alvo(self.linhas(con)["tst-102-100"]), 1)
         con.close()
 
-    def test_o_cabecalho_dos_dois_blocos_diz_1_de_cada(self):
+    def test_o_cabecalho_diz_1_de_cada_so_nas_sobrenumeradas(self):
         self.assertEqual(self.metrics.rotulo("overnumbered"),
                          "Coleção — sobrenumeradas — 1 de cada")
-        self.assertEqual(self.metrics.rotulo("special"), "Coleção — promos — 1 de cada")
-        # E o das artes alternativas diz «playset» desde 2026-09-18 (disse «1
-        # de cada» de 2026-09-16 a 2026-09-18) — só isso: o alvo não sobe com
-        # os decks (`test_voltar_1.py`).
+        # O das promos diz «playset» desde 2026-09-18 (disse «1 de cada» de
+        # 2026-09-15 a 2026-09-18), e o das artes alternativas também (disse
+        # «1 de cada» de 2026-09-16 a 2026-09-18) — só isso: o alvo não sobe
+        # com os decks (`test_voltar_1.py`).
+        self.assertEqual(self.metrics.rotulo("special"), "Coleção — promos — playset")
         self.assertEqual(self.metrics.rotulo("alt_art"),
                          "Coleção — artes alternativas — playset")
 
@@ -183,60 +201,75 @@ class TestAlvo(Base):
         con.close()
 
     def test_sem_a_linha_do_catalogo_so_a_variante_responde(self):
-        """Os quatro escalares chegam para a promo; a sobrenumerada precisa do
-        código impresso, e sem ele a resposta é o playset."""
-        self.assertEqual(self.metrics.master_target("x", "special", "Unit", False), 1)
+        """Os quatro escalares chegam para a variante (a promo, com o `promo`
+        na lista, dá 1); a sobrenumerada precisa do código impresso, e sem
+        ele a resposta é o playset."""
+        from riftvault import config
+        cfg = config.load()
+        c = {**cfg, "master_set": {**cfg["master_set"],
+                                   "um_de_cada": ["overnumbered", "promo"]}}
+        self.assertEqual(self.metrics.master_target("x", "special", "Unit", False, c), 1)
+        self.assertEqual(self.metrics.master_target("x", "special", "Unit", False), 3)
         self.assertEqual(self.metrics.master_target("x", "base", "Unit", False), 3)
 
 
 class TestUmaCopiaEDuas(Base):
     """*"se eu tiver mais adiciono na mesma"* — ter mais do que 1 não é erro."""
 
-    def test_com_uma_copia_esta_completa(self):
+    def test_com_uma_copia_a_sobrenumerada_esta_completa_e_a_promo_nao(self):
+        """A sobrenumerada pede 1 («1/1»); a promo pede o playset desde
+        2026-09-18 («1/3»), e o cabeçalho do bloco dela ganha a segunda conta
+        («0 no playset completo», `max_target` 3)."""
         from riftvault import collection
         con = self.edicao()
         collection.adjust(con, self.OVER, 1, source="test")
         collection.adjust(con, self.PROMO, 1, source="test")
         p, t = self.tiles(con)
-        for pid in (self.OVER, self.PROMO):
-            self.assertEqual((t[pid]["qty"], t[pid]["target"]), (1, 1), pid)
-            self.assertGreaterEqual(t[pid]["qty"], t[pid]["target"])
+        self.assertEqual((t[self.OVER]["qty"], t[self.OVER]["target"]), (1, 1))
+        self.assertEqual((t[self.PROMO]["qty"], t[self.PROMO]["target"]), (1, 3))
         blocos = {b["id"]: b for b in p["blocks"]}
         # As duas sobrenumeradas: a Unit (1/1) e o Legend (0/1).
         self.assertEqual((blocos["overnumbered"]["owned"], blocos["overnumbered"]["done"],
                           blocos["overnumbered"]["total"]), (1, 1, 2))
         self.assertEqual((blocos["special"]["owned"], blocos["special"]["done"],
-                          blocos["special"]["total"]), (1, 1, 1))
-        # Com alvo 1 o cabeçalho não precisa da segunda conta.
+                          blocos["special"]["total"]), (1, 0, 1))
+        # Com alvo 1 o cabeçalho não precisa da segunda conta; a 3 precisa.
         self.assertEqual(blocos["overnumbered"]["max_target"], 1)
-        self.assertEqual(blocos["special"]["max_target"], 1)
+        self.assertEqual(blocos["special"]["max_target"], 3)
+        # Com 3 a promo fica feita.
+        collection.adjust(con, self.PROMO, 2, source="test")
+        p, t = self.tiles(con)
+        blocos = {b["id"]: b for b in p["blocks"]}
+        self.assertEqual((t[self.PROMO]["qty"], t[self.PROMO]["target"]), (3, 3))
+        self.assertEqual((blocos["special"]["owned"], blocos["special"]["done"]), (1, 1))
         con.close()
 
-    def test_com_duas_copias_continua_a_aparecer_e_nada_a_marca_como_a_mais(self):
+    def test_com_uma_copia_a_mais_continua_a_aparecer_e_nada_a_marca_como_a_mais(self):
+        """A sobrenumerada com 2 («2/1») e a promo com 4 («4/3»)."""
         from riftvault import collection
         con = self.edicao()
         self.preco(con, self.OVER, 1000)
         self.preco(con, self.PROMO, 500)
         collection.adjust(con, self.OVER, 1, source="test")
-        collection.adjust(con, self.PROMO, 1, source="test")
+        collection.adjust(con, self.PROMO, 3, source="test")
         p1, t1 = self.tiles(con)
         collection.adjust(con, self.OVER, 1, source="test")
         collection.adjust(con, self.PROMO, 1, source="test")
         p2, t2 = self.tiles(con)
-        for pid in (self.OVER, self.PROMO):
-            # O tile está lá, com «2/1»: é o mesmo tile de antes, com o mesmo
-            # conjunto de campos — não ganhou nenhuma marca de excesso.
-            self.assertEqual((t2[pid]["qty"], t2[pid]["target"]), (2, 1), pid)
+        for pid, alvo in ((self.OVER, 1), (self.PROMO, 3)):
+            # O tile está lá, com «alvo+1/alvo»: é o mesmo tile de antes, com
+            # o mesmo conjunto de campos — não ganhou nenhuma marca de excesso.
+            self.assertEqual((t2[pid]["qty"], t2[pid]["target"]), (alvo + 1, alvo), pid)
             self.assertEqual(set(t2[pid]), set(t1[pid]), pid)
             self.assertEqual(t2[pid]["block"], t1[pid]["block"])
-        # O bloco conta exactamente o mesmo que com uma cópia.
+        # O bloco conta exactamente o mesmo que com o alvo certo.
         b1 = {b["id"]: b for b in p1["blocks"]}
         b2 = {b["id"]: b for b in p2["blocks"]}
         self.assertEqual(b2["overnumbered"], b1["overnumbered"])
         self.assertEqual(b2["special"], b1["special"])
-        # E a segunda cópia vale: 2 × 10 € + 2 × 5 €.
-        self.assertEqual(p1["progress"]["value"]["owned"], 1500)
-        self.assertEqual(p2["progress"]["value"]["owned"], 3000)
+        # E a cópia a mais vale: 2 × 10 € + 4 × 5 €.
+        self.assertEqual(p1["progress"]["value"]["owned"], 2500)
+        self.assertEqual(p2["progress"]["value"]["owned"], 4000)
         # O «se estivesse completa» não as leva num caso nem no outro — não
         # são master set.
         self.assertEqual(p2["progress"]["value"]["full"], p1["progress"]["value"]["full"])
