@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 from flask import Flask, g, jsonify, redirect, request, send_from_directory
 
 from . import (a_mais, a_subir, collection, config, db, decks, faltas, faltas_edicao,
-               locais, metrics, pending, promos, quanto_custa)
+               locais, metrics, pending, quanto_custa)
 
 app = Flask(__name__, static_folder=None)
 
@@ -144,18 +144,6 @@ def api_a_mais():
     con = get_con()
     _reimport_if_changed(con)
     return jsonify(a_mais.payload(con))
-
-
-@app.get("/api/promos.json")
-def api_promos():
-    """A montra «Promos» da Coleção (2026-09-18): as promos oficiais da lista
-    `data/promos_oficiais.json`, com a foto da versão normal de cada carta.
-    Só mostra — não conta para nada. Um ficheiro em falta ou mal escrito dá
-    404 com a razão, em vez de uma página vazia a parecer «não há promos»."""
-    try:
-        return jsonify(promos.payload(get_con(), image_mode="local"))
-    except promos.ListaInvalida as e:
-        return jsonify({"error": str(e)}), 404
 
 
 @app.get("/api/wantlist.json")

@@ -31,7 +31,7 @@ import shutil
 from pathlib import Path
 
 from . import (a_mais, a_subir, config, db, decks, faltas, faltas_edicao, metrics,
-               pending, promos, quanto_custa)
+               pending, quanto_custa)
 
 # A pasta das imagens fica de fora da comparação: em `static_images: "local"`
 # são ~88 MB e não dependem da colecção — o que muda nelas é o `riftvault
@@ -180,12 +180,6 @@ def _gerar(out_dir: Path | str, log=print, imagens: bool = True) -> dict:
     (out / "api" / "a_mais.json").write_text(
         json.dumps(am, ensure_ascii=False, separators=(",", ":")),
         encoding="utf-8")
-    # A montra «Promos» da Coleção (2026-09-18): a lista de
-    # `data/promos_oficiais.json` casada com o catálogo. Só mostra.
-    pr = promos.payload(con, image_mode=image_mode)
-    (out / "api" / "promos.json").write_text(
-        json.dumps(pr, ensure_ascii=False, separators=(",", ":")),
-        encoding="utf-8")
     # As encomendas (2026-09-11): a lista do que está a caminho, só de leitura
     # no site publicado — os `+`/`−` são do modo edição.
     encomendas = {"editable": False, **pending.encomendas(con)}
@@ -208,8 +202,7 @@ def _gerar(out_dir: Path | str, log=print, imagens: bool = True) -> dict:
         f" + api/compras.json + api/quanto_custa.json ({tabela['scope']['printings']} "
         f"impressões com preço) + api/faltas_edicao.json ({fe['totals']['copies']} "
         f"cópias a comprar) + api/a_mais.json ({am['totals']['excedente']['copies']} "
-        f"cópias a mais) + api/promos.json ({pr['totals']['casadas']} de "
-        f"{pr['totals']['cartas']} promos casadas com o catálogo) + api/encomendas.json "
+        f"cópias a mais) + api/encomendas.json "
         f"({encomendas['totals']['copies']} cópias a caminho) + api/encomendas/*.json "
         f"({n_enc} impressões de Rara para cima)")
 
