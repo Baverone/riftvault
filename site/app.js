@@ -70,6 +70,11 @@ const state = {
   // A grelha da Coleção ficou velha (uma encomenda mudou o «a caminho» dos
   // decks, ou um «Chegou» pôs cópias na caixa): relê-se quando ele voltar lá.
   colecaoVelha: false,
+  // A montra «Promos» (2026-09-18): `api/promos.json`, pedido quando ele
+  // carrega no botão ao lado das edições. `promosOn` diz se é ela que está
+  // no ecrã em vez da grelha — o `state.setId`/`payload` da edição ficam
+  // como estavam, para ele voltar a ela sem recarregar.
+  promos: null, promosOn: false, promosTotais: null,
   // Se as contagens já mudaram desde que a wantlist chegou.
   wlStale: false,
   prefs: { view: 'all', stateFilter: 'all',
@@ -143,20 +148,31 @@ async function boot() {
 
   renderSetTabs();
   const first = state.index.sets[0];
+  // A montra das promos guarda-se como «edição» escolhida (`set: 'promos'`);
+  // carrega-se a primeira edição na mesma, para o resto da Coleção estar
+  // pronto quando ele voltar a ela.
+  const abrirPromos = state.prefs.set === PROMOS_ID;
   const wanted = state.index.sets.some(s => s.id === state.prefs.set) ? state.prefs.set : (first && first.id);
   if (wanted) await loadSet(wanted);
+  if (abrirPromos) await loadPromos();
   // Uma preferência guardada com a secção Venda (apagada a 2026-09-15) cai
   // aqui na Coleção, como qualquer outro nome que já não exista.
   // `#decks`, `#faltas-edicao`, … no URL abre essa secção — dá para ligar a
   // uma secção directamente; sem ele fica a última que ele abriu.
+  // `#promos` abre a Coleção já na montra das promos.
   const hash = location.hash.slice(1);
-  showSection(SECCOES.includes(hash) ? hash
+  showSection(SECCOES.includes(hash) ? hash : hash === PROMOS_ID ? 'colecao'
     : SECCOES.includes(state.prefs.section) ? state.prefs.section : 'colecao');
+  if (hash === PROMOS_ID && !state.promosOn) await loadPromos();
   // Uma ligação `#encomendas` dentro da página (a nota do deck) abre a secção
   // sem recarregar.
   window.addEventListener('hashchange', () => {
     const h = location.hash.slice(1);
     if (SECCOES.includes(h)) showSection(h);
+    if (h === PROMOS_ID) {
+      showSection('colecao');
+      loadPromos().catch(err => toast(err.message, { error: true }));
+    }
   });
 }
 
@@ -164,6 +180,7 @@ async function loadSet(setId) {
   state.setId = setId;
   state.prefs.set = setId;
   savePrefs();
+  promosMostrar(false);
   renderSetTabs();
 
   $('#grid').innerHTML = '<p class="empty">a carregar…</p>';
@@ -200,11 +217,19 @@ function renderSetTabs() {
   nav.innerHTML = '';
   for (const s of (state.index?.sets || [])) {
     const b = document.createElement('button');
-    b.className = 'tab' + (s.id === state.setId ? ' is-on' : '');
+    b.className = 'tab' + (s.id === state.setId && !state.promosOn ? ' is-on' : '');
     b.innerHTML = `${s.name}<small>${s.n_printings} impressões</small>`;
     b.onclick = () => loadSet(s.id);
     nav.appendChild(b);
   }
+  // O botão «Promos» ao lado das edições (2026-09-18): não é uma edição, é a
+  // montra das promos oficiais. O contador só se sabe depois de a pedir.
+  const b = document.createElement('button');
+  b.className = 'tab promos' + (state.promosOn ? ' is-on' : '');
+  const t = state.promosTotais;
+  b.innerHTML = `Promos<small>${t ? `${t.entradas} promos · ${t.cartas} cartas` : 'Nexus Night, bundles, eventos'}</small>`;
+  b.onclick = () => loadPromos().catch(err => toast(err.message, { error: true }));
+  nav.appendChild(b);
 }
 
 /* -------------------------------------------------------------- filtragem */
@@ -870,6 +895,9 @@ function applyLocal(pid, delta) {
   state.locs.set(pid, locs.filter(x => x.qty > 0));
   const play = state.play.get(ck);
   if (play) play.owned = Math.max(0, play.owned + delta);
+  // O «tens N» da montra das promos conta estas cópias: pede-se de novo
+  // quando ele lá voltar, em vez de ficar a dizer um número velho.
+  state.promos = null;
   refreshTiles(pid, ck);
 }
 
@@ -988,7 +1016,7 @@ function wireControls() {
   // Qualquer secção com artes tem de estar nesta lista: uma imagem que o cache
   // local ainda não tivesse aparecia partida e não caía para o CDN.
   for (const alvo of ['#grid', '#deck-body', '#falta-body', '#fe-body', '#am-body',
-                      '#enc-grid']) {
+                      '#enc-grid', '#pr-body']) {
     $(alvo).addEventListener('error', imgFallback, true);
   }
   wireEncomendas();
@@ -1035,6 +1063,9 @@ function wireKeyboard() {
     // seguida de `+` na secção Decks somava uma cópia a uma carta que nem
     // sequer estava no ecrã, sem nada a dizer que tinha acontecido.
     if ($('#colecao').hidden) return;
+    // Com a montra das promos aberta a grelha está escondida mas os tiles
+    // continuam no DOM — a mesma armadilha das outras secções.
+    if (state.promosOn) return;
     const tiles = [...document.querySelectorAll('.tile')];
     if (!tiles.length) return;
 
@@ -1075,6 +1106,120 @@ function setFocus(i, tiles) {
   state.focus = i;
   tiles[i].classList.add('focus');
   tiles[i].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+
+/* ====================================================== MONTRA «PROMOS»
+
+   André, 2026-09-18: "e essas que digo, de Nexus Night, eventos, bundles, etc
+   / consegues averiguar e fazer um botao com essas, com foto da carta tambem,
+   assim consigo perceber se vou querer coleccionar tambem ou nao".
+
+   É uma MONTRA, não uma meta: vem tudo de `api/promos.json` (`promos.payload`,
+   a lista de `data/promos_oficiais.json` casada com o catálogo), agrupado por
+   como se obtém, e não conta para nada — nem percentagem, nem wantlist, nem
+   «A mais», nem valor. Não há alvo, «faltam» nem euros nos tiles.
+
+   A foto é da versão NORMAL da carta (o catálogo da RiftScribe não conhece
+   estas promos), e o tile diz-o. «tens N» conta as cópias da carta em
+   qualquer versão — ter a normal não é ter o promo, e isso também se diz.  */
+
+const PROMOS_ID = 'promos';
+
+/* Liga ou desliga a montra no lugar da grelha. O resto da Coleção (barras,
+   controlos, grelha, wantlists) fica escondido pelo CSS de `#colecao.promos-on`
+   e volta tal como estava — o estado da edição aberta não se toca. */
+function promosMostrar(on) {
+  state.promosOn = on;
+  $('#colecao').classList.toggle('promos-on', on);
+}
+
+async function loadPromos() {
+  state.prefs.set = PROMOS_ID;
+  savePrefs();
+  promosMostrar(true);
+  renderSetTabs();
+  if (!state.promos) {
+    $('#pr-body').innerHTML = '<p class="empty">a carregar…</p>';
+    try {
+      state.promos = await getJSON('api/promos.json');
+      state.promosTotais = state.promos.totals;
+    } catch (err) {
+      $('#pr-head').innerHTML = '';
+      $('#pr-body').innerHTML = `<p class="empty">Falhou a carregar a lista das promos: ${
+        escapeHTML(err.message)}<br><small>A lista vive em <code>data/promos_oficiais.json</code>.</small></p>`;
+      return;
+    }
+    renderSetTabs();   // o contador do botão só se sabe agora
+  }
+  renderPromos();
+}
+
+function renderPromos() {
+  const p = state.promos;
+  const t = p.totals;
+  const vias = Object.entries(t.por_via || {}).filter(([, n]) => n)
+    .map(([v, n]) => `${n} ${escapeHTML(v)}`).join(', ');
+
+  $('#pr-head').innerHTML = `<div class="deck-card">
+    <div class="deck-title"><b>Promos</b>
+      <span class="prio">montra — só para ver, não conta para nada</span></div>
+    <div class="deck-meta">
+      <span><i>Promos na lista</i>${t.entradas} · ${plural(t.cartas, 'carta distinta', 'cartas distintas')}</span>
+      <span><i>Casadas com o catálogo</i>${t.casadas} de ${t.cartas}${
+        t.nao_casadas ? ` · <b class="pr-nao">${t.nao_casadas} por encontrar</b>` : ''}</span>
+      <span><i>Tens pelo menos uma cópia (em qualquer versão)</i>${t.tens} de ${t.casadas}</span>
+    </div>
+    <small class="nota">${escapeHTML(p.avisos.foto)} ${escapeHTML(p.avisos.ter)}<br>
+      Não entra na percentagem, na wantlist, nas Faltas, no «A mais» nem no valor da coleção;
+      não tem alvo. As 6 promos <code>VEN-SP</code> que o catálogo já conhece continuam na
+      grelha do VEN — quando uma carta daqui também é uma delas, o tile diz-o.<br>
+      Lista: ${escapeHTML(p.fonte.fonte)}${p.fonte.url
+        ? ` (<a href="${escapeAttr(p.fonte.url)}" rel="noreferrer">fonte</a>)` : ''}, lida a
+      ${escapeHTML(p.fonte.lido_em)}. ${escapeHTML(p.fonte.aviso)} Corrige-se à mão em
+      <code>data/promos_oficiais.json</code>. Casamento dos nomes: ${vias || '—'}.</small>
+  </div>`;
+
+  const cats = p.categorias.map(c => `
+    <h2 class="section-head qc-set fe-set pr-cat">${escapeHTML(c.label)}
+      <span>${plural(c.entradas, 'promo', 'promos')} · ${plural(c.cartas, 'carta', 'cartas')}${
+        c.nao_casadas ? ` · <b class="pr-nao">${c.nao_casadas} por encontrar</b>` : ''}${
+        c.items.some(x => x.tens > 0) ? ` · tens ${c.items.filter(x => x.tens > 0).length}` : ''}</span></h2>
+    ${c.items.length
+      ? `<div class="grid deck-grid fe-grid pr-grid">${c.items.map(prTile).join('')}</div>`
+      : '<p class="empty fe-vazio">Nenhuma destas casou com o catálogo — estão na lista do fim.</p>'}`).join('');
+
+  const nao = p.nao_encontradas.length ? `
+    <h2 class="section-head fora pr-cat">Não encontradas no catálogo
+      <span><b>${p.nao_encontradas.length}</b> — sem foto: a RiftScribe não tem estes nomes, e
+      um nome nunca se adivinha</span></h2>
+    <ul class="pr-nao-lista">${p.nao_encontradas.map(x => `<li><b>${escapeHTML(x.nome)}</b>
+      <span>${escapeHTML(x.categoria)}${x.origem && x.origem !== '-' ? ` · ${escapeHTML(x.origem)}` : ''}${
+      x.nota ? ` · ${escapeHTML(x.nota)}` : ''}</span></li>`).join('')}</ul>` : '';
+
+  $('#pr-body').innerHTML = cats + nao;
+}
+
+/* Um tile da montra: a foto da versão normal, a origem no canto, «tens N»
+   (em qualquer versão) em baixo, e a nota do evento. Sem alvo nem preço. */
+function prTile(x) {
+  const origem = x.origem && x.origem !== '-' ? x.origem : '';
+  const tens = x.tens > 0
+    ? `tens ${x.tens} da carta` + (x.tens_por.length
+      ? ` (${x.tens_por.map(y => `${y.qty}× ${escapeHTML((y.code || '').split('/')[0])}`).join(', ')})` : '')
+    : 'não tens a carta em nenhuma versão';
+  const sp = (x.promo_catalogo || []).map(y =>
+    `${escapeHTML((y.code || '').split('/')[0])}${y.qty ? ` (tens ${y.qty})` : ''}`).join(', ');
+  return `<div class="dtile neutro pr-tile ${x.tens > 0 ? 'pr-tens' : ''}" title="${escapeAttr(x.nome)}">
+    ${artHTML(x, `${origem ? `<span class="need pr-origem" title="${escapeAttr(origem)}">${escapeHTML(origem)}</span>` : ''}
+      <span class="ja-tens pr-foto">foto: versão normal</span>`)}
+    <div class="tname" title="${escapeAttr(x.name)}">${escapeHTML(x.name)}</div>
+    <div class="codigo">${escapeHTML((x.code || '').split('/')[0])} · ${escapeHTML(x.type || '?')}${
+      x.rarity ? ` · ${escapeHTML(rarityLabel(x.rarity))}` : ''}</div>
+    ${x.nota ? `<div class="onde pr-nota">${escapeHTML(x.nota)}</div>` : ''}
+    <div class="onde ${x.tens > 0 ? 'tenho' : ''}">${tens}</div>
+    ${sp ? `<div class="onde especial">no catálogo também como promo: ${sp} — a mesma carta, vista do VEN</div>` : ''}
+    ${x.tambem && x.tambem.length ? `<div class="onde pr-tambem">também: ${escapeHTML(x.tambem.join(' · '))}</div>` : ''}
+  </div>`;
 }
 
 /* =========================================================== SECÇÃO DECKS
@@ -1911,7 +2056,7 @@ function encMarcaVelhos(chegou) {
   state.faltasEdicao = null;
   state.colecaoVelha = true;
   wlDesatualizar();
-  if (chegou) state.aMais = null;
+  if (chegou) { state.aMais = null; state.promos = null; }
   encRecalcularResumo();
 }
 
@@ -2015,7 +2160,11 @@ function showSection(name) {
   // caminho» nos decks, as cópias na caixa): relê-se a edição aberta.
   if (name === 'colecao' && state.colecaoVelha && state.setId) {
     state.colecaoVelha = false;
-    loadSet(state.setId).catch(err => toast(err.message, { error: true }));
+    // Se era a montra das promos que estava aberta, relê-se a edição por
+    // baixo e volta-se a ela — o `loadSet` desliga a montra.
+    const eraPromos = state.promosOn;
+    loadSet(state.setId).then(() => eraPromos && loadPromos())
+      .catch(err => toast(err.message, { error: true }));
   }
   if (name === 'encomendas' && !state.enc.payload) loadEncomendas().catch(err =>
     $('#enc-grid').innerHTML = `<p class="empty">${escapeHTML(err.message)}</p>`);

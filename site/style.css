@@ -699,6 +699,35 @@ body.readonly .btn.chegou { display: none; }
 .dtile.a-mais.escondida .art { border-color: var(--line); border-style: dashed; }
 .dtile.a-mais .onde i { font-style: normal; color: var(--dim); opacity: .8; }
 
+/* ---------------------------------------------------------- montra «Promos»
+
+   (2026-09-18) Um botão ao lado das edições, dentro da Coleção. Enquanto está
+   aberta, o resto da Coleção fica escondido — o estado da edição não se toca,
+   só não se vê. Os tiles são os `dtile` das Faltas, a cores (não falta nada:
+   não há alvo), com a origem no canto onde as Faltas põem o «faltam N». */
+#colecao.promos-on > :not(#promos) { display: none; }
+#colecao:not(.promos-on) > #promos { display: none; }
+.tabs-set .tab.promos { border-style: dashed; }
+.tabs-set .tab.promos.is-on { border-style: solid; border-color: var(--accent-2); }
+/* Os nomes das categorias são os do ficheiro dele, tal e qual («Evento de
+   lancamento», não «Evento De Lancamento»). */
+.pr-cat { margin-top: 22px; text-transform: none; }
+.pr-cat span b { color: var(--text); }
+.pr-nao { color: var(--accent-2); }
+.dtile.pr-tile .art { border-color: var(--line); }
+.dtile.pr-tile.pr-tens .art { border-color: rgba(62, 207, 142, .55); }
+.dtile.pr-tile .need.pr-origem {
+  max-width: calc(100% - 8px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  background: rgba(240, 180, 41, .92); color: #24160a;
+}
+/* «foto: versão normal» — escrito em cima da própria foto, para não enganar. */
+.dtile.pr-tile .ja-tens.pr-foto { background: rgba(0, 0, 0, .72); color: #ddd; font-weight: 500; }
+.onde.pr-nota { color: var(--text); opacity: .85; }
+.onde.pr-tambem { opacity: .7; }
+.pr-nao-lista { margin: 8px 0 0; padding-left: 18px; font-size: 13px; }
+.pr-nao-lista li { margin-bottom: 4px; }
+.pr-nao-lista span { color: var(--dim); font-size: 11px; margin-left: 6px; }
+
 /* Os três botões das listas do Cardmarket, lado a lado. */
 .cm-botoes { display: flex; flex-wrap: wrap; gap: 8px; }
 .btn.ghost { background: transparent; }
