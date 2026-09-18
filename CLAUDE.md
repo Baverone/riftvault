@@ -220,9 +220,9 @@ saber exatamente quantas tenho"*.
 | categoria | config | o que é | grelha | % e níveis | listas de compra |
 |---|---|---|---|---|---|
 | 1. master set | o resto | a sequência da edição | sim, alvo = playset do tipo (as runas numeradas do OGN a **3** desde 15/09 à tarde) | **sim** | **sim** |
-| 2. coleção extra | `master_set.fora_da_percentagem` = `["a", "overnumbered", "promo"]` | artes alternativas, sobrenumeradas, promos | sim — **1 de cada desde 15–16/09** (`master_set.um_de_cada`); **os decks nunca levantam este alvo** (17/09 — ver a última secção deste ficheiro: os decks jogam a base, e a Legend/Champion uma versão especial) | não | **não** (15/09) |
+| 2. coleção extra | `master_set.fora_da_percentagem` = `["a", "overnumbered", "promo"]` | artes alternativas, sobrenumeradas, promos | sim — o alvo é **por categoria**, `master_set.um_de_cada` = `["overnumbered", "promo"]`: sobrenumeradas e promos **1 de cada** (15/09), **artes alternativas a playset** (18/09 — *"muda novamente: Alt Art para playset"*; pediram 1 de 16/09 a 18/09; ver a última secção deste ficheiro); **os decks nunca levantam este alvo** (17/09: os decks jogam a base, e a Legend/Champion uma versão especial) | não | **não** (15/09) |
 | 3. escondidas | `master_set.escondidas` = `["-T", "*", "-R"]` | tokens, signatures e — desde 15/09 à tarde — as runas sem numeração de master set (`VEN-R01..R06`) | não | não | não |
-| 4. retiradas | `runas_especiais.retiradas` = `["a"]` (`metrics.retirada`) | as **runas em Alt Art** (`OGN-007a..214a`, e as `SFD/UNL/VEN-R0Xa` do CardTrader) — desde 17/09 | **não** | não | não — e **não contam no valor nem no playset jogável**, nem no A mais, nem no Pimp; os decks jogam a runa base (e desde a noite de 17/09 **não contam runa nenhuma** — ver a última secção deste ficheiro) |
+| 4. retiradas | `runas_especiais.retiradas` = `["a"]` (`metrics.retirada`) | as **runas em Alt Art** (`OGN-007a..214a`, e as `SFD/UNL/VEN-R0Xa` do CardTrader) — desde 17/09 | **não** | não | não — e **não contam no valor nem no playset jogável**, nem no A mais, nem no Pimp; os decks jogam a runa base (e desde a noite de 17/09 **não contam runa nenhuma** — ver «as runas saem da contagem dos decks», no fim deste ficheiro) |
 
 (O `-R` passou da lista 2 para a 3 a 2026-09-15 — ver a secção "As runas sem
 numeração saem", no fim deste ficheiro. O alvo 1 das sobrenumeradas e das
@@ -2413,13 +2413,18 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   fim da tarde) — um lugar normal que a base não tape serve-se de outra
   versão (Alt Art, sobrenumerada, promo; nunca assinada nem retirada) antes
   de ser falta, e a vista do deck (CLI e site) reparte cada carta pelas
-  impressões que a servem. Ver a penúltima secção deste ficheiro.
+  impressões que a servem. Ver «o deck aproveita as versões que ele tem»,
+  no fim deste ficheiro.
 - **Feito também:** as runas saem da contagem dos decks (2026-09-17, à
   noite) — o Rune Pool lê-se e mostra-se só com as quantidades, sem
   tenho/faltam, alocação, disputa, compra nem euros; o «tenho X de N» conta
   só o resto (54/54 · 12 runas); e as runas nunca aparecem no «A mais».
-  `decks.contar_runas: false`, `a_mais.sem_runas: true`. Ver a última
+  `decks.contar_runas: false`, `a_mais.sem_runas: true`. Ver a penúltima
   secção deste ficheiro.
+- **Feito também:** as Alt Art voltam ao playset (2026-09-18) — o `a` saiu
+  do `master_set.um_de_cada`, que é o alvo por categoria da coleção extra;
+  sobrenumeradas e promos continuam a 1; percentagem, wantlist e valor não
+  mexem. Ver a última secção deste ficheiro.
 - **Por fazer:** a parte 2 do seguir — o separador no site e a tarefa diária;
   vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck,
   com as partilhadas assinaladas); e apagar decks pela interface (hoje apaga-se
@@ -2986,16 +2991,19 @@ Art"*. Ramo `ai-pc/altart-decks-2026-09-16`, relatório
 
 **O que fica:** o `a` em `master_set.um_de_cada` — as artes alternativas
 pedem 1, o bloco, a percentagem e as listas de compra não mexem. (As das
-runas foram retiradas de tudo a 17/09, secção a seguir.)
+runas foram retiradas de tudo a 17/09, secção a seguir.) **Durou até
+18/09**: *"muda novamente: Alt Art para playset"* tirou o `a` da lista e as
+artes alternativas pedem outra vez o playset — ver a última secção deste
+ficheiro.
 
 **O que saiu, e é história:** os decks a jogar tudo em Alt Art
 (`decks.jogam_alt_art`, `alt_art_ignorar_tipos`, `decks.AltArt`) e o alvo
 da alt art a subir a `max(1, procura dos decks)` (`decks.procura_dos_decks`,
 o `procura` do `metrics.alvo`). Durou um dia: a 17/09 ele disse *"vamos
 voltar atras"* e a regra saiu **inteira** do código no merge do
-`ai-pc/voltar-1-2026-09-17` (ver a última secção deste ficheiro — é lá que
-está a regra que vale: os decks jogam a base, só a Legend e o Champion jogam
-uma versão especial). Um config que ainda traga `jogam_alt_art` não faz nada.
+`ai-pc/voltar-1-2026-09-17` (ver «voltar atrás: alvo 1 sempre, os decks
+jogam a versão NORMAL», mais abaixo — é lá que está a regra que vale: os
+decks jogam a base, só a Legend e o Champion jogam uma versão especial). Um config que ainda traga `jogam_alt_art` não faz nada.
 `test_altart_decks.py` foi apagado. **Não voltar a construir sem ele pedir.**
 
 ## 17/09/2026 — as runas em Alt Art saem de tudo (`metrics.retirada`, `runas_especiais.retiradas`)
@@ -3034,7 +3042,9 @@ voltar a construir sem ele pedir.
 3. **Alt Art e OverNumbered de cartas que NÃO são runas continuam a alvo 1**
    (`master_set.um_de_cada`). (Nesse dia ainda com os decks a pedir alt art
    por cima e o alvo a `max(1, procura dos decks)` — a regra de 16/09, que
-   saiu horas depois com o `voltar-1`; ver a última secção deste ficheiro.)
+   saiu horas depois com o `voltar-1`. **E a 18/09 as Alt Art voltaram ao
+   playset**; as sobrenumeradas ficaram a 1 — ver a última secção deste
+   ficheiro.)
 
 **Onde vive no código — uma pergunta, uma função.** `metrics.retirada(printing,
 cfg)`: é runa (`runas_especiais.tipos`) e a variante está em
@@ -3169,7 +3179,10 @@ reverte para a regra de 16/09 voltar — está lá e no fim desta secção).
    OverNumbered e promos pedem **1 de cada** (`master_set.um_de_cada`),
    joguem ou não. O `procura` do `metrics.alvo` e o `decks.procura_dos_decks`
    de 16/09 **saíram**; o `metrics.alvo(printing, cfg)` voltou a ter dois
-   argumentos.
+   argumentos. (**Desde 18/09 as Alt Art pedem o playset** — o `a` saiu do
+   `um_de_cada`; o «nunca sobe por causa dos decks» continua a valer, e para
+   as sobrenumeradas e as promos continua a fazer diferença. Ver a última
+   secção deste ficheiro.)
 2. **Main, battlefields, Rune Pool e sideboard jogam a versão NORMAL** — a
    base da edição, sem sobrenumeração. A partilha de 11/09 (*"se há na
    coleção o deck usa"*) volta a valer para TODAS as cartas: uma alt art que
@@ -3731,4 +3744,83 @@ tapava), `test_runas_alt_fora` (a classe `TestOsDecks` liga `contar_runas`
 para continuar a ver o MECANISMO da retirada nos decks; o A mais «sem
 retirar» liga os dois botões) e `test_a_mais` (o `scope` cresceu) ajustados.
 Suite: 32 ficheiros.
+
+## 18/09/2026 — as Alt Art voltam ao playset; OverNumbered (e promos) ficam a 1 (`master_set.um_de_cada`)
+
+Palavras dele: *"muda novamente: **Alt Art para playset**, **overnumbered
+continua 1 de cada**"*. Ramo `ai-pc/altart-playset-2026-09-18`; relatório em
+`ai-pc/work/revisao/riftvault-altart-playset.md`.
+
+**A regra, em três linhas:**
+
+1. **Alt Art pede o playset do tipo** — Unit/Spell/Gear 3, Legend e
+   Battlefield 1 (`metrics.alvo_do_tipo`) —, como a sequência. É um regresso
+   parcial ao 14/09 (*"Alt Art, overnumbered, etc etc mete Playset na
+   contagem"*): pediram 1 de 16/09 a 18/09.
+2. **OverNumbered continua a 1 de cada.** **As promos `VEN-SP` também** —
+   ele não as nomeou desta vez, e a 15/09 disse *"overnumbered e promos (SP)
+   voltamos a 1 de cada"*: as duas andaram sempre juntas. **É dúvida no
+   relatório**, não decisão dele; se quiser as promos a playset, é tirar
+   `"promo"` da lista.
+3. **As runas em Alt Art continuam retiradas de tudo** (`f1dbd5b`); o
+   playset não lhes toca.
+
+**Onde vive — não houve função nova.** O alvo por categoria da coleção extra
+É o `master_set.um_de_cada` (`riftvault_config.json` e `config.DEFAULTS`):
+o que lá está pede 1, o que não está pede o playset do tipo. Passou de
+`["a", "overnumbered", "promo"]` a **`["overnumbered", "promo"]`** — uma
+palavra. O `metrics.master_target`/`e_um_de_cada`/`_sufixo_alvo` já liam a
+lista; o mecanismo estava «só desligado». Não se acrescentou uma segunda
+tabela de alvos por categoria: era uma segunda maneira de dizer o mesmo, e
+o `ALVO_UM = 1` é o significado do nome da lista, não um número por
+categoria. O `master-sub` do `index.html` (estava a dizer «runas 1 · 1 de
+cada arte alt.» desde 14/09) passou a descrever o de hoje.
+
+**O que NÃO muda, medido:** a coleção extra continua fora da percentagem
+(`fora_da_percentagem`) e fora de todas as listas de compra
+(`listas_de_compra.so_master_set` — *"acompanhar não é querer comprar"*,
+15/09): subir o alvo das alt arts **não** as põe na wantlist «tudo» nem nas
+listas por nível. Os decks jogam a base, a Legend/Champion uma versão
+especial, completam com outra impressão que ele tenha, não contam runas; a
+procura dos decks continua a não levantar o alvo (irrelevante para as alt
+arts agora, continua a valer para as sobrenumeradas e as promos). O
+separador Encomendas e o corte de raridade não mexem.
+
+**Medido a 2026-09-18 contra cópias (`_revisao\_medir_altart_playset.py`),
+`main` (`25a31ba`) e ramo na mesma corrida, cada lado a ler o SEU config —
+os invariantes NÃO mexem:** denominador **928**, níveis **860/780/715 de 928
+= 92,7 / 84,1 / 77,0 %** (faltam 68/206/409 · 267,73/824,22/1 485,58 €),
+wantlist «tudo» **213 linhas · 406 cópias · 1 392,96 €** (OGN 625,31 · OGS
+17,69 · SFD 330,74 · UNL 278,68 · VEN 140,54), valor **2 959,97 € · 2 391
+cópias**, falta dos decks **9 cópias · 6 cartas · 232,13 €**, Staples/Por
+deck/Pimp iguais.
+
+**O que mexe:**
+
+| | antes (alvo 1) | depois (playset) |
+|---|---|---|
+| tiles das alt arts na Coleção | 96 a «N/1» | **96 a «N/3»** — as 96 alt arts do catálogo (102 − 6 runas retiradas) são todas Units; 41 com pelo menos uma cópia, 2 com duas (`SFD-177a` Azir, Sovereign; `UNL-059a` Master Yi, Unstoppable), nenhuma a 3 |
+| cabeçalho do bloco | «Coleção — artes alternativas — 1 de cada · tens 10 de 24» (OGN) | «— playset · tens 10 de 24 · **0 no playset completo**» |
+| Faltas, bloco Alt Art (fechar) | **55 impressões · 55 cópias · 364,95 €** (OGN 14 · 106,29 € / SFD 14 · 54,11 € / UNL 15 · 143,31 € / VEN 12 · 55,24 €) | **96 · 245 · 1 420,07 €** (OGN 24 · 62 · 403,09 € / SFD 24 · 61 · 224,88 € / UNL 30 · 74 · 602,34 € / VEN 18 · 48 · 189,76 €) — **+41 impressões · +190 cópias · +1 055,12 €** |
+| Faltas, «fechar os três blocos» | 349 · 542 · 12 391,36 € | **390 · 732 · 13 452,48 €** |
+| Faltas, «a comprar» (= wantlist) | 213 · 406 · 1 392,96 € | **igual** |
+| A mais, excedente | 67 impressões · 133 cópias | **65 · 131** — saem a `SFD-177a` (tem 2, alvo 1 → 3, 1 usada pelo Champion do Azir) e a `UNL-059a` (tem 2, alvo 1 → 3); libertadas 37 · 68 iguais |
+
+Carta a carta no bloco Alt Art: as 55 que já faltavam (0 cópias) passam de
+«faltam 1» a «faltam 3»; as 39 com 1 cópia entram a «faltam 2»; as 2 com 2
+cópias entram a «faltam 1». As mais caras do bloco: `OGN-039a` Kai'Sa,
+Survivor 3 × 49,63 €, `SFD-057a` Irelia, Fervent 3 × 29,40 €, `UNL-120a`
+Rengar, Trophy Hunter 3 × 28,40 €, `UNL-150a` Vex, Apathetic 3 × 25,40 €,
+`UNL-028a` Pyke, Dockside Butcher 2 × 20,17 €.
+
+**Testes ajustados** (o teste é que estava velho, não o código):
+`test_a_mais` (alt art 4 de 3 → 1 a mais; a que o deck usa), `test_a_subir`,
+`test_alvo_1` (voltou ao que descrevia a 15/09, com o caso «o `a` no
+`um_de_cada` volta a pô-la a 1»), `test_coerencia`, `test_faltas_nova` (1 de
+3 falta 2, totais), `test_masterset` (alvos, rótulos, os botões antigos, o
+`alvo` antigo das runas), `test_runas_3`, `test_tres_blocos`,
+`test_wantlist_edicao` (a V.2 a 3 com o botão desligado); `test_voltar_1`,
+`test_versoes_deck` e `test_runas_alt_fora` passaram a escrever o config de
+hoje (sem o `a`) e ganharam o caso do `a` de volta; `test_contador_bloco`
+só o comentário. Suite: 32 ficheiros, 0 a falhar.
 
