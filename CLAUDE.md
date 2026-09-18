@@ -2428,8 +2428,12 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   mexem. Ver a penúltima secção deste ficheiro.
 - **Feito também:** as promos SP a playset (2026-09-18, mais tarde) — o
   `promo` saiu do `master_set.um_de_cada`; só as sobrenumeradas ficam a 1;
-  as 6 são Units, «3 de cada» = playset; nada mais mexe. Ver a última secção
-  deste ficheiro.
+  as 6 são Units, «3 de cada» = playset; nada mais mexe. Ver a penúltima
+  secção deste ficheiro.
+- **Feito e DESFEITO no mesmo dia:** a montra «Promos» (2026-09-18, à tarde)
+  — as promos da comunidade (Nexus Night, bundles, …) com a foto da versão
+  normal; ele viu-a e mandou apagar. Ver a última secção deste ficheiro. As
+  6 `VEN-SP` ficam como estavam.
 - **Por fazer:** a parte 2 do seguir — o separador no site e a tarefa diária;
   vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck,
   com as partilhadas assinaladas); e apagar decks pela interface (hoje apaga-se
@@ -3901,4 +3905,41 @@ desligado), `test_contador_bloco` (as promos a playset dizem as duas contas;
 com o `promo` na lista voltam a «tens 2 de 6» completo); `test_voltar_1`,
 `test_versoes_deck` e `test_runas_alt_fora` passaram a escrever o config de
 hoje (sem o `promo`). Suite: 32 ficheiros, 0 a falhar.
+
+## 18/09/2026, à tarde — a montra «Promos» foi APAGADA (durou umas horas)
+
+Palavras dele, pouco depois de a ver: *"podes apagar esta funcao das promos,
+**as unicas que ficam sao as do SP**"*. Relatório em
+`ai-pc/work/revisao/riftvault-promos-fora.md`.
+
+**O que era:** o merge `f7522c7` dessa manhã — um botão **Promos** ao lado
+das edições da Coleção, com as 128 cartas promo da comunidade (Nexus Night,
+bundles, eventos de lançamento, Summoner Skirmish, …) lidas do riftbound.gg
+para `data/promos_oficiais.json`, casadas com o catálogo e mostradas com a
+foto da versão NORMAL. Só mostrava; não contava para nada.
+
+**O que se fez:** `git revert -m 1 f7522c7`, directamente no `main`, sem
+conflitos — saíram o `riftvault/promos.py`, o `data/promos_oficiais.json`, o
+`tests/test_promos_montra.py`, a rota `/api/promos.json`, o `api/promos.json`
+do `build`, o `riftvault promos`, o `config.PROMOS_PATH`, o botão e a
+`#promos` do `index.html`/`app.js`/`style.css`, e as secções do README e
+deste ficheiro. **Para a trazer de volta** é reverter o commit da reversão
+(está no relatório) — o código e a lista já casada voltam inteiros. **Não
+voltar a construir sem ele pedir.** O `robots.txt` do riftbound.gg continua a
+proibir o `anthropic-ai`.
+
+**As 6 `VEN-SP` são OUTRA COISA e não foram tocadas.** São impressões que o
+catálogo da RiftScribe conhece, estão na categoria `promo` da coleção extra
+(`master_set.fora_da_percentagem`) e pedem o playset desde `147ec02` (a
+secção anterior). Medido a 2026-09-18 contra cópias do `data/` real
+(`ai-pc/work/revisao/_medir_promos_fora.py`, `d19cf8d` vs `main` revertido,
+na mesma corrida): o bloco «Coleção — promos — playset» continua «tens 2 de 6
+· 0 no playset completo» (`max_target` 3), os seis tiles a «0/3, 0/3, 0/3,
+1/3, 1/3, 0/3»; e **nada mexe** — denominador **928**, níveis **860/780/715
+= 92,7 / 84,1 / 77,0 %**, wantlist «tudo» **213 · 406 · 1 416,51 €**, valor
+**3 005,89 € · 2 391 cópias**, falta dos decks **9 · 6 · 231,93 €**, compras,
+Encomendas (4 cópias · 164,22 €), Faltas por edição (390 · 732 ·
+13 342,62 €), A mais (65 · 131 / 37 · 68, item a item), os grupos por edição
+(310/24/251/238/203) e os blocos da grelha — iguais nos dois lados. Suite: 32
+ficheiros.
 
