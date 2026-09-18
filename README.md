@@ -115,6 +115,35 @@ na mesma — só as imagens é que não aparecem.
 
 As escolhas ficam guardadas no browser.
 
+### Promos — a montra (2026-09-18)
+
+Ao lado das edições há um botão **Promos**: as promos oficiais que existem —
+Nexus Night, bundles (Worlds, Arcane Box Set, Lunar Revel), eventos de
+lançamento, Summoner Skirmish, juízes, pré-release, … — agrupadas por **como se
+obtêm**, cada uma com a **foto da carta**, a origem, a nota do evento e o que
+tens da carta. É uma **montra, não uma meta**: não conta para a percentagem,
+nem para a wantlist, nem para as Faltas, nem para o A mais, nem para o valor;
+não tem alvo. Serve para veres o que há e decidires se vais atrás disto.
+
+Duas ressalvas escritas na própria página:
+
+- **a foto é da versão NORMAL** da carta. O catálogo da RiftScribe não conhece
+  estas promos (só as 6 `VEN-SP`); o promo é outra impressão da mesma carta, e
+  a foto da normal serve para veres *que* carta é.
+- **«tens N» conta as cópias da carta em qualquer versão** — ter a normal não
+  é ter o promo, e o vault não tem onde registar a promo (não é uma impressão
+  do catálogo). Quando a carta também é uma das `VEN-SP`, o tile diz-o: é a
+  mesma carta vista de outro sítio; as `VEN-SP` continuam na grelha do VEN.
+
+A lista vive em **`data/promos_oficiais.json`** (versionada; veio do
+riftbound.gg, lida uma vez à mão a 2026-09-18 — é uma lista de comunidade e
+pode ter erros) e **corrige-se à mão**: cada entrada é `{categoria, origem,
+nome, nota}`. Os nomes casam-se com o catálogo sem adivinhar (exacto, o nome
+do CardTrader, sem a vírgula/hífen do subtítulo, ou a cauda de um Legend); o
+que não casar fica na lista **«Não encontradas no catálogo»**, com o número.
+`riftvault promos [--categoria X] [--so-tenho]` é o mesmo na consola;
+`#promos` no URL abre a montra.
+
 ## Quanto custa
 
 Terceira secção: a **tabela de preços do jogo** (chamava-se «Faltas» até
@@ -771,6 +800,7 @@ riftvault a-subir [--cardmarket] [--todas]        # master set: a subir / tudo
 riftvault local [...]                             # onde está cada cópia
 riftvault map / prices / value                    # CardTrader
 riftvault seguir [--jogador NOME] [--so-mudados]  # decks dos jogadores seguidos: o que falta
+riftvault promos [--categoria X] [--so-tenho]     # a montra das promos oficiais
 ```
 
 O `add`/`remove` aceitam qualquer forma de escrever a impressão: `OGN-7`,
@@ -787,6 +817,7 @@ riftvault/
   metrics.py      as duas métricas, os blocos da grelha e os payloads
   a_subir.py      o que falta do master set (a subir, e a lista completa)
   seguir.py       os decks dos jogadores seguidos no Piltover Archive e o que falta
+  promos.py       a montra Promos: a lista de data/promos_oficiais.json casada com o catálogo
   server.py       modo edição (Flask)
   build.py        modo publicado (estático)
   cli.py          linha de comandos
@@ -797,6 +828,7 @@ data/
   catalog.db      cache do catálogo. NÃO vai (está no .gitignore).
   images/         cache das imagens. NÃO vai.
   seguir/         estado.json (os decks seguidos; VAI) e paginas/ (HTML lido; NÃO vai)
+  promos_oficiais.json  a lista das promos (VAI; corrige-se à mão)
 decks/            listas de deck em .txt
 docs/             spec da API e snapshot do catálogo, para referência
 ```

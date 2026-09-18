@@ -159,14 +159,20 @@ async function boot() {
   // aqui na Coleção, como qualquer outro nome que já não exista.
   // `#decks`, `#faltas-edicao`, … no URL abre essa secção — dá para ligar a
   // uma secção directamente; sem ele fica a última que ele abriu.
+  // `#promos` abre a Coleção já na montra das promos.
   const hash = location.hash.slice(1);
-  showSection(SECCOES.includes(hash) ? hash
+  showSection(SECCOES.includes(hash) ? hash : hash === PROMOS_ID ? 'colecao'
     : SECCOES.includes(state.prefs.section) ? state.prefs.section : 'colecao');
+  if (hash === PROMOS_ID && !state.promosOn) await loadPromos();
   // Uma ligação `#encomendas` dentro da página (a nota do deck) abre a secção
   // sem recarregar.
   window.addEventListener('hashchange', () => {
     const h = location.hash.slice(1);
     if (SECCOES.includes(h)) showSection(h);
+    if (h === PROMOS_ID) {
+      showSection('colecao');
+      loadPromos().catch(err => toast(err.message, { error: true }));
+    }
   });
 }
 

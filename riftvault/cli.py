@@ -881,7 +881,8 @@ def cmd_promos(args) -> int:
         itens = [x for x in c["items"] if not args.so_tenho or x["tens"] > 0]
         if not itens and args.so_tenho:
             continue
-        print(f"{c['label']} — {c['entradas']} promos, {c['cartas']} cartas"
+        print(f"{c['label']} — {c['entradas']} promo{'s' if c['entradas'] != 1 else ''}, "
+              f"{c['cartas']} carta{'s' if c['cartas'] != 1 else ''}"
               + (f", {c['nao_casadas']} por encontrar no catálogo" if c["nao_casadas"] else ""))
         for x in itens:
             tens = (" · tens " + ", ".join(f"{y['qty']}× {cardmarket.codigo(y['code'])}"

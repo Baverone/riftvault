@@ -709,7 +709,9 @@ body.readonly .btn.chegou { display: none; }
 #colecao:not(.promos-on) > #promos { display: none; }
 .tabs-set .tab.promos { border-style: dashed; }
 .tabs-set .tab.promos.is-on { border-style: solid; border-color: var(--accent-2); }
-.pr-cat { margin-top: 22px; }
+/* Os nomes das categorias são os do ficheiro dele, tal e qual («Evento de
+   lancamento», não «Evento De Lancamento»). */
+.pr-cat { margin-top: 22px; text-transform: none; }
 .pr-cat span b { color: var(--text); }
 .pr-nao { color: var(--accent-2); }
 .dtile.pr-tile .art { border-color: var(--line); }
