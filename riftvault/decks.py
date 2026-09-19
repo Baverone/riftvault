@@ -371,8 +371,9 @@ def import_all(con: sqlite3.Connection, log=print) -> dict:
 # «3 normais e 3 Alt Art»). A regra que vale:
 #
 #   1. O alvo da coleção extra é o do config (`master_set.um_de_cada`: 1 nas
-#      sobrenumeradas; as artes alternativas e as promos voltaram ao playset
-#      a 2026-09-18), ponto final — nunca sobe por causa dos decks
+#      sobrenumeradas e nas promos — estas desde 2026-09-19; as artes
+#      alternativas voltaram ao playset a 2026-09-18), ponto final — nunca
+#      sobe por causa dos decks
 #      (`metrics.alvo` deixou de receber a procura).
 #   2. Os decks jogam a impressão NORMAL (a base, sem sobrenumeração), com
 #      duas excepções — a Legend e o Champion —, que jogam UMA versão

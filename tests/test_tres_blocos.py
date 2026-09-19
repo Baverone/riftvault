@@ -153,12 +153,12 @@ class TestAlvos(Base):
         self.assertEqual(self.metrics.bloco(r), "overnumbered")
         con.close()
 
-    def test_uma_promo_pede_o_playset_e_nao_conta(self):
-        """3 desde 2026-09-18 (*"as promos SP podes meter 3 de cada"*); 1 de
-        2026-09-15 a 2026-09-18."""
+    def test_uma_promo_pede_1_e_nao_conta(self):
+        """1 desde 2026-09-19 (*"as Promo passam a 1 de cada"*); pediu 3 só
+        durante 2026-09-18."""
         con = self.edicao()
         r = self.linhas(con)["tst-sp1-006"]
-        self.assertEqual(self.metrics.alvo(r), 3)
+        self.assertEqual(self.metrics.alvo(r), 1)
         self.assertFalse(self.metrics.e_master(r))
         self.assertTrue(self.metrics.e_colecao(r))
         con.close()
@@ -196,17 +196,17 @@ class TestAlvos(Base):
         """*"Alt Art, overnumbered, etc etc mete Playset na contagem"*
         (2026-09-14) foi revogado às fatias: as sobrenumeradas e as promos a
         2026-09-15 (`test_alvo_1.py`), as artes alternativas a 2026-09-16 — e
-        a 2026-09-18 as artes alternativas (*"muda novamente: Alt Art para
-        playset, overnumbered continua 1 de cada"*) e as promos (*"as promos
-        SP podes meter 3 de cada"*) voltaram ao playset. Hoje o alvo da
-        coleção extra é POR CATEGORIA (`master_set.um_de_cada`): alt arts e
-        promos a playset, só as sobrenumeradas a 1; o master set continua a
-        pedir o playset — conjuntos separados."""
+        estas voltaram ao playset a 2026-09-18 (*"muda novamente: Alt Art
+        para playset, overnumbered continua 1 de cada"*); as promos pediram o
+        playset durante 2026-09-18 e voltaram a 1 a 2026-09-19. Hoje o alvo
+        da coleção extra é POR CATEGORIA (`master_set.um_de_cada`): alt arts a
+        playset, sobrenumeradas e promos a 1; o master set continua a pedir o
+        playset — conjuntos separados."""
         con = self.edicao()
         a = self.alvos(con)
         self.assertEqual((a["tst-001-100"], a["tst-002-100"]), (3, 3))
         self.assertEqual((a["tst-001a-100"], a["tst-002a-100"], a["tst-101-100"],
-                          a["tst-sp1-006"]), (3, 3, 1, 3))
+                          a["tst-sp1-006"]), (3, 3, 1, 1))
         con.close()
 
 
@@ -364,12 +364,12 @@ class TestListasDeCompra(Base):
         p = self.a_subir.master_faltas(con, cfg)
         itens = {x["printing_id"]: x for s in p["sets"] for x in s["items"]}
         self.assertEqual(sorted(itens), sorted(self.MASTER + self.EXTRA))
-        # Com o alvo de cada bloco: a sobrenumerada pede 1 (2026-09-15); a
-        # alt art de Unit, a runa especial e a promo o playset (2026-09-18;
-        # as alt arts pediram 1 de 2026-09-16 e a promo de 2026-09-15 até aí).
+        # Com o alvo de cada bloco: a sobrenumerada e a promo pedem 1
+        # (2026-09-15 e 2026-09-19), a alt art de Unit e a runa especial o playset
+        # (2026-09-18; pediram 1 de 2026-09-16 a 2026-09-18).
         self.assertEqual(itens["tst-001a-100"]["missing"], 3)
         self.assertEqual(itens["tst-101-100"]["missing"], 1)
-        self.assertEqual(itens["tst-sp1-006"]["missing"], 3)
+        self.assertEqual(itens["tst-sp1-006"]["missing"], 1)
         self.assertEqual(itens["tst-002a-100"]["missing"], 3)
         self.assertFalse(p["scope"]["so_master_set"])
         con.close()
