@@ -127,6 +127,28 @@ CREATE TABLE IF NOT EXISTS deck_need_log (
 );
 CREATE INDEX IF NOT EXISTS ix_deck_need_log_carta ON deck_need_log(slug, card_key, id DESC);
 
+-- O CONTADOR DAS RUNAS DELE (André, 2026-09-19: *"runas nao contabilizam
+-- nada, eu e que mexo nisso para minha referencia, nao entram para decks, nao
+-- entram para coleccao, nada, so para mim"*).
+--
+-- É o número que o bloco «Runas — 12 de cada» mostra, e é DELE: os `+`/`−`
+-- desse bloco escrevem aqui e em mais lado nenhum. Não é uma contagem de
+-- cópias — o `copies` continua a ser a única verdade sobre o que ele tem —
+-- e NINGUÉM o lê para fazer contas (`tests/test_runas_vista.py` recusa que
+-- um módulo de contas importe o `runas_vista`). Vive no vault.db, e não num
+-- ficheiro solto, porque é o vault.db que vai para o Git e para o backup.
+--
+-- Uma linha por runa (carta lógica). Semeia-se UMA VEZ, por runa, com o que
+-- ele fisicamente tinha nesse momento (`runas_vista.semear`); a partir daí
+-- nunca mais se recalcula a partir da coleção — uma linha a 0 é uma linha
+-- dele, não uma linha por semear.
+CREATE TABLE IF NOT EXISTS rune_counter (
+    card_key    TEXT    PRIMARY KEY,
+    qty         INTEGER NOT NULL CHECK (qty >= 0),
+    seeded_from INTEGER NOT NULL,   -- o que a coleção dizia na sementeira
+    updated_at  TEXT    NOT NULL
+);
+
 -- O histórico de preços vive no `prices.db` (ver riftvault/prices_schema.sql):
 -- é escrito pelo robô do GitHub Actions, e não pode partilhar ficheiro com a
 -- coleção sob pena de conflitos binários que custariam dados ao André.

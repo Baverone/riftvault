@@ -859,22 +859,42 @@ def cmd_a_mais(args) -> int:
 
 
 def cmd_runas(args) -> int:
-    """O bloco «Runas — 12 de cada» do fim da Coleção (2026-09-19): o que ele
-    tem de cada runa, todas as versões. Só para ver — não conta para nada."""
+    """O bloco «Runas — 12 de cada» do fim da Coleção (2026-09-19): o contador
+    dele por runa, com o que a coleção sabe ao lado. Não conta para nada.
+    `--mais`/`--menos NOME` mexem no contador — só nele — como os `+`/`−` do
+    site."""
     con = db.connect()
     if db.catalog_is_empty(con):
         print("catálogo vazio — corre `riftvault sync`.", file=sys.stderr)
         return 1
+    if args.mais or args.menos:
+        nome = args.mais or args.menos
+        delta = args.n if args.mais else -args.n
+        try:
+            r = runas_vista_mod.ajustar(con, nome, delta)
+        except runas_vista_mod.RunaDesconhecida as exc:
+            print(str(exc), file=sys.stderr)
+            con.close()
+            return 1
+        print(f"{r['name']}: {r['qty']} (na coleção: {r['na_colecao']}) — "
+              f"só o teu contador mexeu.")
+        con.close()
+        return 0
     p = runas_vista_mod.payload(con)
+    if p["semeadas"]:
+        print(f"contador semeado com o que tens na mão: "
+              + ", ".join(f"{ck} {n}" for ck, n in p["semeadas"].items()), file=sys.stderr)
     for x in p["runas"]:
         extra = (f"  (sem as retiradas: {x['sem_retiradas']})"
                  if x["sem_retiradas"] != x["total"] else "")
-        print(f"{x['name']:<12} {x['total']:>3}/{x['target']}{extra}")
+        print(f"{x['name']:<12} {x['contador']:>3}/{x['target']}   "
+              f"na coleção: {x['total']}{extra}")
         for o in x["origens"]:
             print(f"    {o['qty']:>3}  {cardmarket.codigo(o['code']):<12} {o['label']}")
     t = p["totals"]
-    print(f"\n{t['total']} runas à mão em {t['cards']} tipos (alvo {t['alvo']})"
-          + (f" · sem as retiradas: {t['sem_retiradas']}"
+    print(f"\ncontador: {t['contador']} de {t['alvo']} em {t['cards']} runas · "
+          f"na coleção: {t['total']}"
+          + (f" (sem as retiradas: {t['sem_retiradas']})"
              if t["sem_retiradas"] != t["total"] else ""))
     print(p["nota"], file=sys.stderr)
     con.close()
@@ -1412,8 +1432,11 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--edicao", help="só esta edição (OGN, SFD, …)")
     p.set_defaults(func=cmd_a_mais)
 
-    p = sub.add_parser("runas", help="o bloco Runas do fim da Coleção: quantas tens "
-                                     "de cada, todas as versões — só para ver, não conta")
+    p = sub.add_parser("runas", help="o bloco Runas do fim da Coleção: o teu contador "
+                                     "por runa, com o que a coleção sabe ao lado — não conta")
+    p.add_argument("--mais", metavar="RUNA", help="soma ao contador desta runa (só a ele)")
+    p.add_argument("--menos", metavar="RUNA", help="tira do contador desta runa (nunca abaixo de 0)")
+    p.add_argument("--n", type=int, default=1, help="quantas (omissão 1)")
     p.set_defaults(func=cmd_runas)
 
     p = sub.add_parser("seguir", help="os decks dos jogadores seguidos no Piltover "

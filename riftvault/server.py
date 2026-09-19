@@ -110,9 +110,34 @@ def api_set(set_id: str):
 @app.get("/api/runas.json")
 def api_runas():
     """O bloco «Runas — 12 de cada» no fim da grelha da Coleção (2026-09-19):
-    uma vista do que ele tem de cada runa, que não conta para nada. Um URL
-    só, para as cinco edições — as runas são as mesmas seis."""
-    return jsonify(runas_vista.payload(get_con(), image_mode="local"))
+    o contador dele por runa, com a referência do que a coleção sabe ao lado
+    — não conta para nada. Um URL só, para as cinco edições — as runas são
+    as mesmas seis."""
+    return jsonify(runas_vista.payload(get_con(), image_mode="local", editable=True))
+
+
+@app.post("/api/runas/ajustar")
+def api_runas_ajustar():
+    """Os `+`/`−` do bloco das runas: `{card_key, delta}`.
+
+    Mexe SÓ no contador dele (`rune_counter`) — nada de `copies`, `ops`,
+    `pending` ou locais; nenhuma conta do site lê este número. Nunca vai
+    abaixo de zero: um `−` a 0 devolve 0. Um `card_key` que não seja runa do
+    catálogo é 404.
+    """
+    data = request.get_json(silent=True) or {}
+    try:
+        delta = int(data.get("delta", 0))
+    except (TypeError, ValueError):
+        return jsonify({"error": "delta inválido"}), 400
+    if delta == 0:
+        return jsonify({"error": "delta é zero"}), 400
+    if not data.get("card_key"):
+        return jsonify({"error": "falta card_key"}), 400
+    try:
+        return jsonify(runas_vista.ajustar(get_con(), data["card_key"], delta))
+    except runas_vista.RunaDesconhecida as exc:
+        return jsonify({"error": str(exc)}), 404
 
 
 @app.get("/api/history.json")
