@@ -168,6 +168,12 @@ DEFAULTS: dict = {
     # desta, na ordem `metrics.RARITY_ORDER` (common < uncommon < rare < epic
     # < showcase). Ver `pending.grelha`.
     "encomendas": {"raridade_minima": "rare"},
+    # O bloco «Runas — 12 de cada» no fim da grelha da Coleção (André,
+    # 2026-09-19: "mete 12 runas de cada (nao contabilizes para nada, e so para
+    # mim para contabilizar ali algumas coisas)"). É uma VISTA: conta tudo o
+    # que ele fisicamente tem de cada runa, e não entra em métrica nenhuma.
+    # Ver `runas_vista.py`.
+    "runas_vista": {"alvo": 12},
     # As línguas cujas ofertas do CardTrader entram no preço (2026-09-15:
     # "apenas cartas versao ingles"). Era 'en' fixo no código desde o início.
     "precos": {"linguas": ["en"]},

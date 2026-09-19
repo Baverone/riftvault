@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 from flask import Flask, g, jsonify, redirect, request, send_from_directory
 
 from . import (a_mais, a_subir, collection, config, db, decks, faltas, faltas_edicao,
-               locais, metrics, pending, quanto_custa)
+               locais, metrics, pending, quanto_custa, runas_vista)
 
 app = Flask(__name__, static_folder=None)
 
@@ -105,6 +105,14 @@ def api_set(set_id: str):
     _reimport_if_changed(con)
     return jsonify(metrics.set_payload(con, set_id.upper(),
                                        editable=True, image_mode="local"))
+
+
+@app.get("/api/runas.json")
+def api_runas():
+    """O bloco «Runas — 12 de cada» no fim da grelha da Coleção (2026-09-19):
+    uma vista do que ele tem de cada runa, que não conta para nada. Um URL
+    só, para as cinco edições — as runas são as mesmas seis."""
+    return jsonify(runas_vista.payload(get_con(), image_mode="local"))
 
 
 @app.get("/api/history.json")

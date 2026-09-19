@@ -613,6 +613,20 @@ body.readonly .btn.chegou { display: none; }
 .dtile.neutro .art img { filter: none; }
 .tname .var { font-style: normal; opacity: .65; }
 
+/* --------------------------------------------- o bloco «Runas — 12 de cada»
+
+   (2026-09-19) Só para ele ver. Fecha a grelha da Coleção com o separador
+   apagado dos blocos que não contam (`.fora`), a tracejado para se ver que
+   não é um bloco da coleção; o crachá diz «tens/alvo» e a linha de baixo de
+   onde vêm as cópias — a base, a alt art retirada, a promo, o CardTrader. */
+.runas-vista:empty { display: none; }
+.runas-vista { margin-top: 4px; }
+.runas-vista .section-head.vista { border-top-style: dashed; }
+.dtile.vista .need { background: rgba(0, 0, 0, .78); color: #fff; }
+.dtile.vista.ok .need { background: rgba(62, 207, 142, .92); color: #072616; }
+.dtile.vista .onde.retiradas { color: var(--warn, #f0b429); }
+.dtile.vista .onde.tenho i { font-style: normal; color: var(--dim); opacity: .8; }
+
 /* --------------------------------------------------------- «Quanto custa»
 
    A tabela de preços (2026-09-15, à tarde): por edição, as mais caras de cada

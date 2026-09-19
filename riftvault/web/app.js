@@ -59,6 +59,9 @@ const state = {
   faltasEdicao: null,
   // O separador «A mais» (2026-09-17): `api/a_mais.json`.
   aMais: null,
+  // O bloco «Runas — 12 de cada» do fim da Coleção (2026-09-19):
+  // `api/runas.json`. Só o `renderRunasVista` o lê — não conta para nada.
+  runas: null,
   // O separador «Encomendas» (2026-09-17): a grelha da Coleção de Rara para
   // cima, com o que vem a caminho por impressão (`api/encomendas/<ID>.json`)
   // e o resumo de tudo o que está a caminho (`api/encomendas.json`, para os
@@ -191,6 +194,62 @@ async function loadSet(setId) {
   // está no ecrã, e o `render()` corre a cada tecla da caixa de procura.
   renderWantlists();
   renderFaltaLinha();
+  // Idem: o bloco das runas é do JOGO inteiro, não da edição nem do filtro.
+  renderRunasVista();
+}
+
+/* ================================ o bloco «Runas — 12 de cada» (2026-09-19)
+
+   André: *"depois mete 12 runas de cada (nao contabilizes para nada, e so
+   para mim para contabilizar ali algumas coisas)"*. É UMA VISTA: vem de
+   `api/runas.json` — fora do payload da edição, de propósito —, fecha a
+   grelha em todas as edições (as runas são as mesmas seis), e não entra em
+   conta nenhuma daqui: nem na barra, nem nos níveis, nem no valor, nem nas
+   wantlists. O `state.runas` não é lido por mais ninguém.
+
+   As 6 runas base do OGN também estão na sequência do master set, em cima —
+   aqui aparecem outra vez, com TODAS as versões somadas (a base, a alt art
+   retirada, a promo do VEN escondida, as do CardTrader). Não é duplicação, é
+   outra pergunta, e o cabeçalho di-lo. */
+async function renderRunasVista(reler = false) {
+  const el = $('#runas-vista');
+  if (!el) return;
+  if (reler || !state.runas) {
+    try { state.runas = await getJSON('api/runas.json'); }
+    catch (err) { el.innerHTML = ''; return; }
+  }
+  const p = state.runas;
+  if (!(p.runas || []).length) { el.innerHTML = ''; return; }
+  const t = p.totals;
+  const sem = t.sem_retiradas !== t.total
+    ? ` (sem as retiradas: <b>${t.sem_retiradas}</b>)` : '';
+  // Os tiles vão directos na grelha (o `#runas-vista` é uma `.grid`), sem o
+  // `.group.multi`: um grupo de 6 colunas não cabe no telemóvel.
+  el.innerHTML = `<h2 class="section-head fora vista">Runas — ${p.alvo} de cada
+      <span>tens <b>${t.total}</b> de <b>${t.alvo}</b>${sem} — ${escapeHTML(p.nota)}</span></h2>`
+    + p.runas.map(runaTile).join('');
+}
+
+function runaTile(x) {
+  const feito = x.total >= x.target;
+  const origens = x.origens.map(o =>
+    `${o.qty}× ${escapeHTML((o.code || '').split('/')[0])} <i>${escapeHTML(o.label)}</i>`)
+    .join('<br>');
+  return `<div class="dtile neutro vista${feito ? ' ok' : ''}">
+    ${artHTML(x, `<span class="need">${x.total}/${x.target}</span>`)}
+    <div class="tname" title="${escapeAttr(x.name)}">${escapeHTML(x.name)}</div>
+    ${x.sem_retiradas !== x.total
+      ? `<div class="onde retiradas">sem as retiradas: <b>${x.sem_retiradas}</b>/${x.target}</div>`
+      : ''}
+    <div class="onde tenho">${origens || 'nenhuma à mão'}</div>
+  </div>`;
+}
+
+/* As runas que o bloco conta: um `+`/`−` numa delas relê o ficheiro (é
+   pequeno), para o bloco andar com a grelha. */
+function runaMexeu(cardKey) {
+  if (!state.runas || !cardKey) return;
+  if (state.runas.runas.some(x => x.card_key === cardKey)) renderRunasVista(true);
 }
 
 /* --------------------------------------------------------------- separadores */
@@ -910,6 +969,7 @@ async function adjust(pid, delta) {
     }
     if (res.op_id) toastUndo(pid, delta, res.op_id);
     wlDesatualizar();
+    runaMexeu(ck);
     // O separador «Encomendas» mostra o mesmo `qty`: relê-se quando ele lá for.
     state.enc.payload = null;
   } catch (err) {
@@ -934,6 +994,7 @@ async function undo(opId, pid, delta) {
     if (res.playset) state.play.set(ck, { owned: res.playset.owned, target: res.playset.target });
     refreshTiles(pid, ck);
     wlDesatualizar();
+    runaMexeu(ck);
     state.enc.payload = null;
   } catch (err) {
     toast(`Não deu para anular: ${err.message}`, { error: true });
@@ -1912,7 +1973,7 @@ function encMarcaVelhos(chegou) {
   state.faltasEdicao = null;
   state.colecaoVelha = true;
   wlDesatualizar();
-  if (chegou) state.aMais = null;
+  if (chegou) { state.aMais = null; state.runas = null; }
   encRecalcularResumo();
 }
 
