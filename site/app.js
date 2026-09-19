@@ -879,11 +879,14 @@ function renderWantlists() {
     ${state.wlStale ? `<p class="note wl-stale">As contagens mudaram desde que
       esta lista foi feita. <button class="btn ghost" id="wl-refresh">Atualizar</button></p>` : ''}
 
-    ${wlBloco('wl-edicao', `Wantlist Cardmarket — ${escapeHTML(nome)}`, daEdicao,
+    ${wlBloco('wl-edicao', `Wantlist Cardmarket — ${escapeHTML(nome)} · master set`, daEdicao,
       `Tudo o que falta desta edição ao <b>master set</b> — a sequência, a que
        conta para a percentagem —, ao <b>playset</b> do tipo (Unit/Spell/Gear
        e runa 3, Legend e Battlefield 1). Conta enquanto <b>cópias + a
-       caminho &lt; alvo</b>, e vai por número de coleção.${doNivel}${foraTexto(m.scope)}`, nivel)}
+       caminho &lt; alvo</b>, e vai por número de coleção.${doNivel}
+       As outras wantlists desta edição — <b>Alt Art</b>, <b>OverNumbered</b> e
+       <b>Promos</b>, uma por bloco, separadas — estão no separador
+       <a href="#faltas-edicao">Faltas</a>.${foraTexto(m.scope)}`, nivel)}
 
     ${wlBloco('wl-tudo', 'Wantlist — tudo', todas,
       `As cinco edições seguidas, na ordem dos separadores — tudo o que falta
@@ -2369,19 +2372,24 @@ function qcLinha(x) {
 
 /* ====================================================== «FALTAS»
 
-   O que falta, por edição, em três blocos (André, 2026-09-15, fim da tarde:
+   O que falta, por edição, em quatro blocos (André, 2026-09-15, fim da tarde:
    "quero as faltas por edicao e dividido em 3 partes / Masterset / Alt Art /
-   OverNumbered"). Vem tudo do servidor (`api/faltas_edicao.json`,
-   `faltas_edicao.payload`) — a mesma carência da wantlist do fim de cada
-   edição da Coleção; aqui só se desenha.
+   OverNumbered"; 2026-09-19: "quero 4 wantlist: 1 so para o master set, 1 so
+   para as Alt.Art, 1 so para as Overnumbered, uma so para as Promo"). Vem
+   tudo do servidor (`api/faltas_edicao.json`, `faltas_edicao.payload`) — a
+   mesma carência da wantlist do fim de cada edição da Coleção, os blocos pela
+   ordem da Coleção; aqui só se desenha.
 
    A carta com imagem, não texto — é o que ele pediu para o «Quanto custa» no
    mesmo dia ("gosto de ter em imagem da carta e nao apenas texto"). Os tiles
    são os `dtile` dos decks (`artHTML`), com o crachá a dizer QUANTAS FALTAM.
 
-   VER NÃO É COMPRAR: só os blocos com `in_lists` (o master set) entram na
-   wantlist e no Cardmarket; os outros dois dizem-no no cabeçalho. Uma carta a
-   caminho aparece marcada e não soma ao que há a comprar.                  */
+   CADA BLOCO TEM A SUA WANTLIST (2026-09-19): por baixo dos tiles, a caixa
+   do Cardmarket já preenchida, escrita pelo mesmo gerador das outras listas
+   (`cmLinha`), só com o que há a comprar. Só os blocos com `in_lists` (o
+   master set) entram na wantlist GERAL da Coleção — os outros dizem-no no
+   cabeçalho; a wantlist deles é própria do bloco. Uma carta a caminho
+   aparece marcada e não vai para nenhuma das duas.                          */
 
 async function loadFaltasEdicao() {
   $('#fe-body').innerHTML = '<p class="empty">a carregar…</p>';
@@ -2434,23 +2442,28 @@ function renderFaltasEdicao() {
   const soVer = p.blocks.filter(b => !b.in_lists).map(b => b.label);
   const fora = Object.entries(p.scope.fora || {}).map(([b, n]) => `${n} ${escapeHTML(b)}`);
 
+  const nBlocos = p.blocks.length;
+  const quantos = { 3: 'três', 4: 'quatro', 5: 'cinco' }[nBlocos] || String(nBlocos);
+
   $('#fe-head').innerHTML = `<div class="deck-card">
     <div class="deck-title"><b>Faltas</b>
       <span class="prio">${plural(t.cards, 'impressão', 'impressões')} · ${
         plural(t.copies, 'cópia', 'cópias')}</span></div>
     <div class="deck-meta">
-      <span><i>Fechar os três blocos</i>${eur(t.cents)}</span>
-      <span><i>A comprar (${escapeHTML(nasListas.join(' + '))})</i>${eur(tl.cents)} · ${
+      <span><i>Fechar os ${quantos} blocos</i>${eur(t.cents)}</span>
+      <span><i>Wantlist geral (${escapeHTML(nasListas.join(' + '))})</i>${eur(tl.cents)} · ${
         plural(tl.copies, 'cópia', 'cópias')}</span>
       ${t.pending_copies ? `<span><i>A caminho</i>${t.pending_copies} cópias — não contam</span>` : ''}
     </div>
-    <small class="nota">Só o <b>${escapeHTML(nasListas.join(' e '))}</b> entra na wantlist do fim
-      de cada edição, na «Wantlist — tudo» e no texto do Cardmarket${
-      soVer.length ? ` — <b>${escapeHTML(soVer.join(' e '))}</b> são para <b>ver</b> quantas
-      faltam, não para comprar (<code>listas_de_compra.so_master_set</code>)` : ''}.
-      O que vem a caminho aparece marcado e não soma ao que há a comprar.
+    <small class="nota">Cada bloco tem a <b>sua wantlist</b> do Cardmarket, por baixo das
+      cartas — ${quantos} por edição, separadas. Só o <b>${escapeHTML(nasListas.join(' e '))}</b>
+      entra na wantlist geral (a do fim de cada edição da Coleção e a «Wantlist — tudo»)${
+      soVer.length ? ` — <b>${escapeHTML(soVer.join(', '))}</b> não entram lá
+      (<code>listas_de_compra.so_master_set</code>): acompanhar não é comprar em bloco,
+      cada uma dessas listas copia-se à parte` : ''}.
+      O que vem a caminho aparece marcado e não vai para nenhuma lista.
       Preço mais baixo em Near Mint/Mint no CardTrader, só ofertas em inglês.${
-      fora.length ? `<br>Fora deste separador: ${fora.join(', ')} — não estão nos três blocos.` : ''}</small>
+      fora.length ? `<br>Fora deste separador: ${fora.join(', ')} — não estão em nenhum dos ${quantos} blocos.` : ''}</small>
   </div>`;
 
   $('#fe-body').innerHTML = sets.map(s => `
@@ -2458,11 +2471,49 @@ function renderFaltasEdicao() {
       <span>${feResumo(s)}</span></h2>
     ${s.blocks.map(g => `
       <h3 class="section-head sub fe-bloco ${g.id}${g.in_lists ? '' : ' fe-ver'}">${escapeHTML(g.label)}
-        <small>${escapeHTML(g.target_label)}${g.in_lists ? '' : ' · só para ver'}</small>
+        <small>${escapeHTML(g.target_label)}${g.in_lists ? '' : ' · wantlist própria'}</small>
         <span>${feResumo(g)}</span></h3>
       ${g.items.length
         ? `<div class="grid deck-grid fe-grid">${g.items.map(feTile).join('')}</div>`
-        : `<p class="empty fe-vazio">${g.scope ? 'Nada falta neste bloco.' : 'Esta edição não tem impressões neste bloco.'}</p>`}`).join('')}`).join('');
+        : `<p class="empty fe-vazio">${g.scope ? 'Nada falta neste bloco.' : 'Esta edição não tem impressões neste bloco.'}</p>`}
+      ${feWantlistHTML(s, g)}`).join('')}`).join('');
+
+  // As caixas vêm preenchidas, como as da Coleção: a wantlist está ali, sem
+  // carregar em nada. Uma por (edição, bloco), com id próprio para as
+  // botões não colidirem.
+  for (const s of sets) {
+    for (const g of s.blocks) {
+      const itens = feWantlistItens(g);
+      if (!itens.length) continue;
+      const zid = feWlId(s, g) + '-cm';
+      cmLigar(zid, () => feWantlistItens(g), `riftvault-faltas-${s.set}-${g.id}-${hojeISO()}.csv`);
+      cmMostrar(zid, itens, false, { foco: false, copiar: false });
+    }
+  }
+}
+
+/* A wantlist de um bloco é só o que há a COMPRAR — o que vem a caminho está
+   nos tiles, marcado, e não vai para o Cardmarket (a da Coleção faz o mesmo).
+   Gémeo do `faltas_edicao.wantlist` em Python; há teste que compara o texto. */
+function feWantlistItens(g) {
+  return g.items.filter(x => x.missing > 0);
+}
+
+function feWlId(s, g) {
+  return `fe-wl-${s.set}-${g.id}`;
+}
+
+function feWantlistHTML(s, g) {
+  const itens = feWantlistItens(g);
+  if (!itens.length) return '';
+  const w = g.wantlist || {};
+  return `<section class="wl-bloco fe-wl" id="${feWlId(s, g)}">
+    <h4 class="wl-head fe-wl-head">Wantlist — ${escapeHTML(s.name)} · ${escapeHTML(g.label)}
+      <span>${plural(w.lines != null ? w.lines : itens.length, 'linha', 'linhas')} ·
+        ${plural(w.copies != null ? w.copies : itens.reduce((n, x) => n + cmQtd(x), 0), 'cópia', 'cópias')}
+        · ${eur(w.cents != null ? w.cents : itens.reduce((n, x) => n + (x.total || 0), 0))}</span></h4>
+    ${cmZonaHTML(feWlId(s, g) + '-cm')}
+  </section>`;
 }
 
 /* Um tile: a arte, «faltam N» no canto (ou «a caminho» quando o pendente
@@ -2647,13 +2698,13 @@ function foraTexto(scope) {
     .map(c => `${c.n} ${escapeHTML(nomes[c.criterio] || c.criterio)}`).join(' + ');
   const extra = scope.so_master_set
     ? ` A <b>coleção extra</b> (artes alternativas, runas especiais,
-        sobrenumeradas, promos) tem alvo de playset na grelha para veres
-        quantas tens de cada — não é para comprar, por isso não entra em
-        nenhuma lista de compra.`
+        sobrenumeradas, promos) tem alvo na grelha para veres quantas tens de
+        cada e não entra na lista geral — cada bloco tem a sua wantlist, à
+        parte, no separador <a href="#faltas-edicao">Faltas</a>.`
     : ` A exclusão é da <b>sequência</b>: a coleção extra entra na mesma, ao
         playset.`;
-  return `<br>Fora da lista: <b>${scope.excluded}</b> impressões
-    (${motivos}) — não entram nas listas de compra.${extra}`;
+  return `<br>Fora desta lista: <b>${scope.excluded}</b> impressões
+    (${motivos}).${extra}`;
 }
 
 /* --------------------------------------------- listas para o Cardmarket

@@ -688,6 +688,7 @@ body.readonly .btn.chegou { display: none; }
 .fe-bloco.master { --cor: var(--ok); }
 .fe-bloco.alt_art { --cor: var(--accent-2); }
 .fe-bloco.overnumbered { --cor: #c07cff; }
+.fe-bloco.special { --cor: #ff9f6b; }
 .fe-bloco small { font-size: 11px; color: var(--dim); font-weight: 400; }
 .fe-bloco span { margin-left: auto; text-align: right; }
 .fe-bloco span b { color: var(--text); }
@@ -697,9 +698,21 @@ body.readonly .btn.chegou { display: none; }
 .fe-grid { margin-bottom: 10px; }
 .fe-vazio { padding: 8px 0 12px; font-size: 12px; }
 .fe-set i.caminho, .fe-bloco i.caminho { font-style: normal; color: #9aa8ff; }
+/* A wantlist de cada bloco (2026-09-19), por baixo dos tiles dele: um
+   cabeçalho mais leve do que o das wantlists da Coleção — aqui há uma por
+   bloco e por edição, e um separador grosso em cada uma partia a página. */
+.fe-wl { margin: 6px 0 18px; }
+.fe-wl-head {
+  display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  font-size: 12px; font-weight: 600; color: var(--dim); text-transform: none;
+  border-top: 1px dashed var(--line); padding-top: 10px; margin: 0;
+}
+.fe-wl-head span { margin-left: auto; font-weight: 400; }
+.fe-wl .wl-zona { margin-top: 8px; }
 @media (max-width: 560px) {
   .fe-bloco { flex-wrap: wrap; }
   .fe-bloco span { margin-left: 0; text-align: left; flex-basis: 100%; }
+  .fe-wl-head span { margin-left: 0; flex-basis: 100%; }
 }
 
 /* --------------------------------------------------------------- «A mais»
