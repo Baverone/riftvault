@@ -233,32 +233,44 @@ async function renderRunasVista(reler = false) {
   ligarRunas();
 }
 
+/* Um payload SEM `contador` vem de um servidor anterior à tarde de 19/09
+   (o 8770 não se reinicia a cada merge, e o `app.js` é lido do disco a cada
+   pedido): mostra-se o número calculado e sem botões, até o vigia relançar
+   o processo. Os botões pedem o `editable` do PAYLOAD, como a Coleção. */
+function runaContador(x) {
+  return x.contador != null ? x.contador : x.total;
+}
+
 function runasHead(p) {
   const t = p.totals;
   const sem = t.sem_retiradas !== t.total ? ` (${t.sem_retiradas} sem as retiradas)` : '';
+  const n = t.contador != null ? t.contador : t.total;
   return `<h2 class="section-head fora vista" id="runas-head">Runas — ${p.alvo} de cada
-      <span>contas <b>${t.contador}</b> de <b>${t.alvo}</b>
+      <span>contas <b>${n}</b> de <b>${t.alvo}</b>
       <small class="ref">· na coleção: ${t.total}${sem}</small> — ${escapeHTML(p.nota)}</span></h2>`;
 }
 
 function runaTile(x) {
-  const feito = x.contador >= x.target;
+  const n = runaContador(x);
+  const feito = n >= x.target;
   // As origens só no `title`: a linha visível é a referência curta, para não
   // poluir um bloco que é dele.
   const origens = x.origens.map(o => `${o.qty}× ${(o.code || '').split('/')[0]} ${o.label}`)
     .join(' · ') || 'nenhuma à mão';
   const sem = x.sem_retiradas !== x.total ? ` (${x.sem_retiradas} sem as retiradas)` : '';
-  return `<div class="dtile neutro vista${feito ? ' ok' : ''}" data-runa="${escapeAttr(x.card_key)}">
-    ${artHTML(x, `<span class="need">${x.contador}/${x.target}</span>`)}
-    <div class="tname" title="${escapeAttr(x.name)}">${escapeHTML(x.name)}</div>
-    <div class="steppers runa">
-      <button class="step minus" data-runa-delta="-1" ${x.contador > 0 ? '' : 'disabled'}
+  const botoes = state.runas && state.runas.editable && x.contador != null
+    ? `<div class="steppers runa">
+      <button class="step minus" data-runa-delta="-1" ${n > 0 ? '' : 'disabled'}
               aria-label="menos uma no teu contador de ${escapeAttr(x.name)}"
               title="menos uma (só no teu contador)">−</button>
       <button class="step plus" data-runa-delta="1"
               aria-label="mais uma no teu contador de ${escapeAttr(x.name)}"
               title="mais uma (só no teu contador)">+</button>
-    </div>
+    </div>` : '';
+  return `<div class="dtile neutro vista${feito ? ' ok' : ''}" data-runa="${escapeAttr(x.card_key)}">
+    ${artHTML(x, `<span class="need">${n}/${x.target}</span>`)}
+    <div class="tname" title="${escapeAttr(x.name)}">${escapeHTML(x.name)}</div>
+    ${botoes}
     <div class="onde tenho ref" title="${escapeAttr(origens)}">na coleção: <b>${x.total}</b>${escapeHTML(sem)}</div>
   </div>`;
 }
@@ -286,9 +298,9 @@ function runaRefreshTile(ck) {
    servidor. Grava SÓ na `rune_counter`; nada mais no site muda, e por isso
    não se marca nada como velho. */
 async function runaAjustar(ck, delta) {
-  if (!state.editable || !state.runas) return;
+  if (!state.editable || !state.runas || !state.runas.editable) return;
   const x = state.runas.runas.find(r => r.card_key === ck);
-  if (!x) return;
+  if (!x || x.contador == null) return;
   if (delta < 0 && x.contador <= 0) return;
   state.runas.voo = state.runas.voo || new Map();
   state.runas.fila = state.runas.fila || new Map();

@@ -542,8 +542,12 @@ class TestFrontend(unittest.TestCase):
         self.assertIn('class="steppers runa"', tile)
         self.assertIn('data-runa-delta="-1"', tile)
         self.assertIn('data-runa-delta="1"', tile)
-        self.assertIn("x.contador}/${x.target}", tile)      # o crachá é o dele
+        self.assertIn("const n = runaContador(x)", tile)       # o crachá é o dele
+        self.assertIn("${n}/${x.target}", tile)
         self.assertIn("na coleção: <b>${x.total}</b>", tile)
+        # Os botões pedem o `editable` do payload (o build escreve `false`; um
+        # servidor antigo não o traz — e aí não há botões).
+        self.assertIn("state.runas.editable", tile)
         ajustar = re.search(r"async function runaAjustar\(ck, delta\) \{(.*?)\n\}\n", js, re.S).group(1)
         self.assertIn("api/runas/ajustar", ajustar)
         self.assertIn("if (!state.editable", ajustar)
