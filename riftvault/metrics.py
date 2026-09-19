@@ -304,7 +304,7 @@ def retirada(printing, cfg: dict | None = None) -> bool:
     2026-09-15 (*"todas as outras runas podes retirar"*), mais funda: uma
     escondida ainda conta no valor e aparece no «A mais»; uma retirada não
     aparece nem conta em lado NENHUM — Coleção, percentagem, wantlists,
-    Faltas, Quanto custa, A mais, playset jogável, valor — e os decks não a
+    Faltas, A mais, playset jogável, valor — e os decks não a
     pedem nem se servem dela (jogam a runa base, `decks.Versoes`).
 
     É a única resposta a esta pergunta: o `escondida` (a página e as listas),

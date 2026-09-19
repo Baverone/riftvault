@@ -63,9 +63,10 @@ import sqlite3
 from . import config, decks, locais, metrics, uso_decks
 
 DEFAULTS: dict = {
-    # As edições SEM botão, como no «Quanto custa» (2026-09-15: "menos proving
-    # grounds"). Aqui a edição sem botão continua a aparecer em «Todas» — um
-    # excedente que não se vê é o contrário do que o separador é.
+    # As edições SEM botão, como na tabela de preços que se apagou a
+    # 2026-09-19 (o pedido é de 2026-09-15: "menos proving grounds"). Aqui a
+    # edição sem botão continua a aparecer em «Todas» — um excedente que não
+    # se vê é o contrário do que o separador é.
     "sem_edicoes": ["OGS"],
     # As runas ficam fora dos dois blocos (2026-09-17, à noite).
     "sem_runas": True,

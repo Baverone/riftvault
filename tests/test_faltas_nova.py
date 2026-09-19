@@ -139,7 +139,8 @@ class TestQuatroBlocos(Base):
                              ["Master set", "OverNumbered", "Alt Art", "Promos"])
         self.assertEqual([b["id"] for b in p["blocks"]],
                          ["master", "overnumbered", "alt_art", "special"])
-        # O OGS entra — a exclusão do «Quanto custa» é só daquele separador.
+        # O OGS entra — o «menos proving grounds» de 15/09 era só da tabela de
+        # preços (apagada a 2026-09-19) e do «A mais».
         self.assertEqual(self.bloco(p, "OGS", "master")["copies"], 3)
         self.assertEqual(self.bloco(p, "OGS", "alt_art")["scope"], 0)
         self.assertEqual(self.bloco(p, "OGS", "special")["scope"], 0)
@@ -503,7 +504,7 @@ class TestForaDoSeparador(Base):
 
 
 class TestRotasEBuild(Base):
-    def test_a_rota_responde_e_a_do_quanto_custa_continua(self):
+    def test_a_rota_responde_e_a_da_wantlist_continua(self):
         con = self.montar()
         con.close()
         from riftvault import server
@@ -516,7 +517,6 @@ class TestRotasEBuild(Base):
         p = r.get_json()
         self.assertEqual([b["id"] for b in p["blocks"]],
                          ["master", "overnumbered", "alt_art", "special"])
-        self.assertEqual(c.get("/api/quanto_custa.json").status_code, 200)
         self.assertEqual(c.get("/api/wantlist.json").status_code, 200)
 
     def test_o_build_escreve_o_ficheiro(self):
@@ -537,8 +537,6 @@ class TestRotasEBuild(Base):
         self.assertIn('data-section="faltas-edicao"', html)
         self.assertIn('id="fe-body"', html)
         self.assertIn("api/faltas_edicao.json", js)
-        # O «Quanto custa» não foi tocado: continua a ser a tabela de preços.
-        self.assertIn("api/quanto_custa.json", js)
         self.assertNotIn("getJSON('api/faltas.json')", js)
 
 
