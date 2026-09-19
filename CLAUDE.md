@@ -2438,8 +2438,14 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   — 12 de cada» (2026-09-19) — master set, sobrenumeradas, alt art, promos
   (`master_set.ordem_dos_blocos`); e no fim da grelha uma VISTA das seis
   runas com tudo o que ele tem de cada, que não conta para nada
-  (`runas_vista.py`, `api/runas.json`, `riftvault runas`). Ver a última
+  (`runas_vista.py`, `api/runas.json`, `riftvault runas`). Ver a penúltima
   secção deste ficheiro.
+- **Feito também:** o bloco das runas passa a ser o CONTADOR dele, com `+`
+  e `−` (2026-09-19, à tarde) — o número vem da tabela `rune_counter` do
+  vault.db, semeada uma vez com o que ele tinha na mão (76), e os botões
+  (só no 8770) escrevem lá e em mais lado nenhum; «na coleção: N» fica ao
+  lado, em letra pequena, como referência. Medido: pôr os contadores a 99
+  ou a 0 não mexe em número nenhum. Ver a última secção deste ficheiro.
 - **Por fazer:** a parte 2 do seguir — o separador no site e a tarefa diária;
   vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck,
   com as partilhadas assinaladas); e apagar decks pela interface (hoje apaga-se
@@ -4024,4 +4030,86 @@ ele meteu cartas na Coleção entretanto — não é desta ordem.) O que muda: a
 ordem `['master', 'alt_art', 'overnumbered', 'special']` → `['master',
 'overnumbered', 'alt_art', 'special']` em todas as edições, e o
 `api/runas.json` que só existe no depois. Suite: 33 ficheiros.
+
+## 19/09/2026, à tarde — o bloco das runas é o CONTADOR dele, com `+` e `−` (`rune_counter`)
+
+Palavras dele: *"as runas tens que colocar botoes de + e - tbm"* e, perguntado
+o que os botões mexem: *"runas **nao contabilizam nada**, **eu e que mexo
+nisso para minha referencia**, nao entram para decks, nao entram para
+coleccao, nada, **so para mim**"*. Ramo `ai-pc/runas-contador-2026-09-19`;
+relatório em `ai-pc/work/revisao/riftvault-runas-contador.md`.
+
+**O que mudou numa frase:** o número do bloco «Runas — 12 de cada» deixou de
+ser calculado a partir do que ele tem e passou a ser **dele** — está na
+tabela `rune_counter` do vault.db (`card_key`, `qty >= 0`, `seeded_from`,
+`updated_at`), os `+`/`−` do bloco escrevem lá (`runas_vista.ajustar`,
+`POST /api/runas/ajustar {card_key, delta}`, `riftvault runas --mais/--menos
+RUNA [--n N]`) e em mais lado nenhum, e **ninguém lê esse número para fazer
+contas**. O alvo continua 12 por runa (`runas_vista.alvo`), só para a barra.
+
+**Decisões tomadas sem lhe perguntar (estão no relatório):**
+
+1. **Um só conjunto de 6 contadores**, não um por edição — o bloco aparece
+   no fim de todas as edições com o mesmo número, porque são as runas dele.
+2. **Sementeira única, por runa** (`runas_vista.semear`): a primeira leitura
+   que encontre uma runa sem linha cria-a com o `total` da referência nesse
+   momento (todas as versões, retiradas e CardTrader incluídas — o que o
+   bloco calculava de manhã). Depois disso o número nunca mais é recalculado
+   a partir da coleção: uma linha a 0 é dele, e semear duas vezes semeia
+   zero na segunda (há teste). Uma runa que apareça numa edição nova
+   semeia-se nessa altura, uma vez, pela mesma regra. A sementeira é a única
+   escrita de uma leitura, e é só nessa tabela — `copies`, `ops`, `pending`
+   e locais não se tocam (há teste). **No `data/` real quem semeia é o
+   primeiro processo com o código novo a abrir o vault.db** — a `publicar`
+   depois do merge —, com o que ele tiver na mão nesse momento.
+3. **A referência «na coleção: N» fica**, em letra pequena e apagada por
+   baixo do tile (`.onde.tenho.ref`), com as origens só no `title`; no
+   cabeçalho «contas **76** de 72 · na coleção: 76 (45 sem as retiradas)».
+   É o que o bloco calculava até aqui e continua a calcular
+   (`runas_vista._na_colecao`: `total`, `sem_retiradas`, `origens`) — não
+   é contabilidade, é para ele comparar o que contou à mão com o que o site
+   sabe. Um `+` da GRELHA numa runa relê o bloco (`runaMexeu`) para a
+   referência andar; o contador não mexe com isso.
+4. **O chão é zero**: `ajustar` faz `max(0, qty + delta)` e devolve 0 sem
+   erro (não é uma encomenda por anular); o `−` do tile desliga-se a 0.
+
+**Onde os botões aparecem:** são `.steppers` como todos os outros — o
+`body.readonly` do site publicado esconde-os — e, por cima disso, só se
+desenham quando o PAYLOAD traz `editable: true` (o servidor) e `contador`
+(código novo). O `build` escreve `editable: false`. **O 8770 não se
+reinicia a cada merge e o `app.js` é lido do disco a cada pedido**: com o
+Python antigo a servir o payload de manhã (sem `contador`), o `app.js` novo
+mostra o número calculado e sem botões (`runaContador`), até o vigia
+relançar o processo — nada parte no meio.
+
+**A prova de que não conta, medida.** `tests/test_runas_vista.py` passou de
+19 para **30 testes**: além de recusar que qualquer módulo de contas importe
+o `runas_vista`, `test_mexer_nos_contadores_nao_mexe_em_numero_nenhum`
+fotografa grelha, blocos, barra, índice, níveis, wantlist, valor, Faltas, A
+mais, decks, Encomendas e `copies` com os contadores semeados, todos a 99 e
+todos a 0 — os três JSON são iguais. `ajustar` escreve só na `rune_counter`;
+o `+` numa runa por semear semeia primeiro (não nasce a 1); o que não é runa
+é `RunaDesconhecida` (404 na rota); a CLI mexe só no contador; o `app.js`
+manda ao `api/runas/ajustar` e não toca em `api/adjust`, encomendas,
+`wlDesatualizar` nem `state.qty`.
+
+**Medido a 2026-09-19 contra cópias (`ai-pc/work/revisao/_medir_runas_contador.py`),
+`main` (`2043ec8`) e ramo na mesma corrida, em QUATRO cenários — antes;
+depois (semeado); depois com os 6 contadores a 99; depois com os 6 a 0 — e
+os invariantes NÃO mexem em nenhum:** denominador **928**, níveis
+**872/805/731 de 928 = 94,0 / 86,7 / 78,8 %** (faltam 56/172/362 ·
+184,86/577,86/1 177,95 €), wantlist «tudo» **197 linhas · 362 cópias ·
+1 177,95 €** (OGN 512,86 · OGS 16,93 · SFD 339,93 · UNL 270,77 · VEN 37,46),
+valor **5 677,90 € · 2 460 cópias**, falta dos decks **13 · 7 · 223,83 €**,
+compras, Encomendas (0), Faltas por edição (358 · 665 · 10 856,18 €; a
+comprar 197 · 362 · 1 177,95 €), A mais (64 · 130 / 37 · 68, item a item),
+os tiles da grelha e das Encomendas (qty/alvo/bloco, impressão a impressão),
+os grupos por edição (310/24/251/238/203), o `copies` inteiro e o número de
+`ops`. (Os números diferem dos da secção anterior porque ele meteu cartas
+entretanto — não é desta ordem; o 928 é o mesmo.) O que muda: o
+`api/runas.json` ganha `contador`, `editable` e `semeadas`; **a sementeira
+seria Body 2 · Calm 27 · Chaos 9 · Fury 4 · Mind 12 · Order 22 = 76** (a
+ordem falava em 74 com Fury 2 — ele meteu 2 Fury Rune desde a medição da
+manhã); a referência «na coleção» é igual nos quatro cenários. Suite: 33
+ficheiros, 0 a falhar.
 

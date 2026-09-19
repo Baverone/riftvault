@@ -108,14 +108,18 @@ na mesma — só as imagens é que não aparecem.
   bloco pede playset, «· K no playset completo» a seguir. Os tokens (`-T`), as
   signatures (`*`) e as runas promo (`VEN-R01`) não aparecem. A ordem
   escreve-se em `master_set.ordem_dos_blocos` no config.
-- **Runas — 12 de cada:** o bloco que fecha a grelha, **só para ver**
+- **Runas — 12 de cada:** o bloco que fecha a grelha, **o teu contador**
   (2026-09-19: *"mete 12 runas de cada — nao contabilizes para nada, e so para
-  mim para contabilizar ali algumas coisas"*). As seis runas do jogo, cada
-  uma com **tudo o que tens dela, de todas as versões** — a base do OGN (que
-  também está na sequência, em cima), a alt art retirada, a promo do VEN, as
-  do CardTrader — e o número sem as retiradas ao lado quando difere. Não
-  conta para nada: nem barra, nem níveis, nem wantlist, nem valor.
-  `riftvault runas` na consola.
+  mim para contabilizar ali algumas coisas"*; e, à tarde, *"runas nao
+  contabilizam nada, eu e que mexo nisso para minha referencia"*). As seis
+  runas do jogo, cada uma com um número **que pões tu** com os `+`/`−` do
+  tile (só no modo edição; nunca abaixo de 0), guardado numa tabela própria
+  do `vault.db` e semeado uma única vez com o que tinhas na mão. Ao lado, em
+  letra pequena, «na coleção: N» — **tudo o que tens dela, de todas as
+  versões**: a base do OGN (que também está na sequência, em cima), a alt art
+  retirada, a promo do VEN, as do CardTrader — só para comparares. Não conta
+  para nada: nem barra, nem níveis, nem wantlist, nem valor, nem decks.
+  `riftvault runas [--mais RUNA | --menos RUNA] [--n N]` na consola.
 - **Filtros:** Tudo / Faltas, e por tipo de impressão (Base, Arte alt.,
   Signature, Tokens/Promos). "Faltas" mostra tudo o que não está completo,
   tanto faz faltarem 3, 2 ou 1.
