@@ -39,14 +39,13 @@ from tests.fixture import REPO, Vault, config_decks_sem_alt_art  # noqa: E402
 config_decks_sem_alt_art()
 
 # Os módulos que fazem CONTAS — percentagem, níveis, wantlists, valor,
-# faltas, A mais, decks, encomendas, quanto custa — e por isso não podem
-# saber que a vista existe. Quem a chama é só o servidor, o build e a CLI.
-# (O `config.py` guarda o `runas_vista.alvo` como guarda tudo o resto; não
-# faz contas e não entra na lista.)
+# faltas, A mais, decks, encomendas — e por isso não podem saber que a
+# vista existe. Quem a chama é só o servidor, o build e a CLI. (O `config.py`
+# guarda o `runas_vista.alvo` como guarda tudo o resto; não faz contas e não
+# entra na lista.)
 MODULOS_DE_CONTAS = ["metrics", "a_subir", "faltas", "faltas_edicao", "a_mais",
                      "uso_decks", "decks", "locais", "pending", "prices",
-                     "collection", "quanto_custa", "cardmarket", "seguir",
-                     "catalog", "db"]
+                     "collection", "cardmarket", "seguir", "catalog", "db"]
 
 
 def _config(caso, extra: dict) -> None:

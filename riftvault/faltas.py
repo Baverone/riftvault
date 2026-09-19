@@ -1,8 +1,8 @@
 """As listas de compra dos DECKS: o que comprar, e por que ordem.
 
 Três vistas da mesma pergunta, nas abas do separador Decks (desde 2026-09-15
-à tarde; até lá viviam no separador «Faltas», que passou a ser a tabela de
-preços «Quanto custa» — ver `quanto_custa.py`):
+à tarde; até lá viviam no antigo separador «Faltas», que passou a ser a
+tabela de preços e foi apagado a 2026-09-19 — ver o CLAUDE.md):
 
   STAPLES    — cartas que faltam e que MAIS DO QUE UM deck pede. São as que
                rendem mais por euro: uma compra serve vários decks.
@@ -385,9 +385,9 @@ def todos_juntos(con: sqlite3.Connection) -> dict:
 def compras(con: sqlite3.Connection) -> dict:
     """As listas de compra dos DECKS: `api/compras.json`.
 
-    É o que resta do `payload` que alimentava o separador «Faltas»/«Quanto
-    custa» (`api/faltas.json`, apagado a 2026-09-15 à tarde — o separador
-    passou a ser a tabela de preços, `quanto_custa.py`). O que aqui fica é o
+    É o que resta do `payload` que alimentava o antigo separador «Faltas»
+    (`api/faltas.json`, apagado a 2026-09-15 à tarde — o separador passou a
+    ser a tabela de preços, apagada por sua vez a 2026-09-19). O que aqui fica é o
     que as abas Staples, Por deck e Pimp decks do separador Decks lêem; a
     wantlist da Coleção tem ficheiro próprio (`api/wantlist.json`,
     `a_subir.master_faltas`) e a lista «A caminho» já vivia nas Encomendas

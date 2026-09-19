@@ -156,15 +156,10 @@ DEFAULTS: dict = {
     # coleção extra tem alvo para se VER, não para se comprar. Ver
     # `a_subir.so_master_set`.
     "listas_de_compra": {"so_master_set": True},
-    # O separador «Quanto custa» (2026-09-15, à tarde): a tabela de preços do
-    # jogo — por edição, as `top_por_raridade` mais caras de cada raridade
-    # (comum, incomum, rara, mítica), tenha ele ou não. Um botão por edição do
-    # catálogo, menos estas — o OGS (Proving Grounds) a pedido dele, de quando
-    # isto eram faltas. Ver `quanto_custa.py`.
-    "quanto_custa": {"sem_edicoes": ["OGS"], "top_por_raridade": 5},
     # O separador «A mais» (2026-09-17): o que ele tem acima do alvo e o que
-    # os decks libertaram. Um botão por edição, menos estas (o OGS, como no
-    # «Quanto custa»); a edição sem botão continua em «Todas». `sem_runas`
+    # os decks libertaram. Um botão por edição, menos estas (o OGS, como na
+    # tabela de preços que se apagou a 2026-09-19); a edição sem botão
+    # continua em «Todas». `sem_runas`
     # (André, 2026-09-17, à noite: "no a mais nunca aparece Runas"): as runas
     # não entram em nenhum dos dois blocos — nem no excedente nem nas
     # libertadas —; ele trata delas à mão. Ver `a_mais.py`.

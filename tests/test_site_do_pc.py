@@ -87,13 +87,15 @@ class TestSiteDoPC(unittest.TestCase):
         self._build()
         for nome in ("index.html", "app.js", "style.css", ".nojekyll",
                      "api/index.json", "api/set/TST.json", "api/decks.json",
-                     "api/wantlist.json", "api/compras.json", "api/quanto_custa.json",
+                     "api/wantlist.json", "api/compras.json",
                      "api/encomendas.json", "api/encomendas/TST.json"):
             self.assertTrue((self.out / nome).exists(), f"falta {nome} no site")
         # O `faltas.json` saiu a 2026-09-15 (à tarde) com o separador das faltas:
-        # partiu-se em wantlist.json, compras.json e quanto_custa.json.
+        # partiu-se em wantlist.json e compras.json.
         self.assertFalse((self.out / "api" / "faltas.json").exists(),
                          "o separador das faltas foi apagado e o build ainda gera api/faltas.json")
+        # (A tabela de preços saiu a 2026-09-19 com o separador dela — o teste
+        # da remoção é quem recusa o ficheiro dela.)
         # A Venda saiu a 2026-09-15: um `venda.json` a aparecer aqui é código
         # antigo a gerar um ficheiro que ninguém pede.
         self.assertFalse((self.out / "api" / "venda.json").exists(),

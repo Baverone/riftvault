@@ -8,11 +8,12 @@ so para o master set, 1 so para as Alt.Art, 1 so para as Overnumbered, uma so
 para as Promo (no caso SP)"* — as promos ganharam o quarto bloco, e cada bloco
 a sua wantlist do Cardmarket (`wantlist`), separada das outras.
 
-NÃO É O SEPARADOR QUE SE APAGOU HORAS ANTES. O «Quanto custa» tinha as faltas
-do master set arrumadas por raridade e ele mandou-as sair de lá porque aquele
-separador passou a ser a tabela de preços. Isto é uma secção PRÓPRIA, com outra
-organização: por edição, e dentro de cada edição três blocos pela ordem em que
-ele os disse.
+NÃO É O SEPARADOR QUE SE APAGOU HORAS ANTES. O antigo separador (o id
+`faltas`, que ficou para o `faltas.py` dos decks) tinha as faltas do master
+set arrumadas por raridade e ele mandou-as sair de lá porque passou a ser a
+tabela de preços — apagada por sua vez a 2026-09-19 (ver o CLAUDE.md). Isto é
+uma secção PRÓPRIA, com outra organização: por edição, e dentro de cada
+edição os blocos pela ordem da Coleção.
 
 NÃO É UM CÁLCULO NOVO. A carência é a mesma da wantlist do fim de cada edição
 da Coleção (`a_subir.master_faltas`): o mesmo âmbito (`a_subir.masterset`),
@@ -190,10 +191,11 @@ def _soma(itens: list[dict]) -> dict:
 def payload(con: sqlite3.Connection, cfg: dict | None = None) -> dict:
     """O separador inteiro: por edição, os quatro blocos, cada um com o que falta.
 
-    Todas as edições do catálogo, pela ordem dos separadores — o OGS entra: a
-    exclusão do «Quanto custa» (`quanto_custa.sem_edicoes`) foi pedida para
-    aquele separador. Cada edição leva sempre os quatro blocos, vazios ou
-    não, e a soma dos quatro.
+    Todas as edições do catálogo, pela ordem dos separadores — o OGS entra: o
+    «menos proving grounds» de 2026-09-15 foi pedido para a tabela de preços
+    (apagada a 2026-09-19) e vale hoje só no «A mais» (`a_mais.sem_edicoes`).
+    Cada edição leva sempre os quatro blocos, vazios ou não, e a soma dos
+    quatro.
     """
     cfg = cfg or config.load()
     o = a_subir.opcoes(cfg)

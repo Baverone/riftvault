@@ -9,12 +9,13 @@ alternativa DEIXA DE EXISTIR para o riftvault. Não aparece
   1. na Coleção (nem como tida, nem como falta) nem no «N impressões»;
   2. no denominador do master set nem em percentagem nenhuma;
   3. em wantlist nenhuma;
-  4. no separador Faltas (em nenhum dos três blocos);
-  5. no «Quanto custa» (nem no rodapé);
-  6. no «A mais» (nem como excedente, nem escondida);
-  7. no valor da coleção, nos totais nem no playset jogável;
-  8. nos decks — não a pedem, não se servem dela, não a compram, não a
+  4. no separador Faltas (em nenhum dos blocos);
+  5. no «A mais» (nem como excedente, nem escondida);
+  6. no valor da coleção, nos totais nem no playset jogável;
+  7. nos decks — não a pedem, não se servem dela, não a compram, não a
      encomendam, não a propõem: jogam a runa BASE. E no Pimp.
+(Havia um ponto sobre a tabela de preços, apagada com o separador dela a
+2026-09-19.)
 O que NÃO muda: a runa base da sequência continua a 3; as artes alternativas
 das cartas que não são runas continuam a 1 na Coleção e a servir os decks.
 As cópias não saem do `copies` — ninguém as lê.
@@ -57,7 +58,6 @@ def escrever_config(retiradas=("a",), tipos=("Rune",),
         "runas_especiais": {"tipos": list(tipos), "excepto": ["base"],
                             "retiradas": list(retiradas)},
         "listas_de_compra": {"so_master_set": True},
-        "quanto_custa": {"sem_edicoes": [], "top_por_raridade": 5},
         "a_mais": {"sem_edicoes": [], "sem_runas": sem_runas},
     }), encoding="utf-8")
     os.environ["RIFTVAULT_CONFIG"] = str(CONFIG)
@@ -85,15 +85,14 @@ class Base(unittest.TestCase):
         self.v = Vault()
         self.addCleanup(self.v.close)
         from riftvault import (a_mais, a_subir, collection, decks, faltas,
-                               faltas_edicao, locais, metrics, pending, prices,
-                               quanto_custa)
+                               faltas_edicao, locais, metrics, pending, prices)
         for m in (metrics, locais, decks, pending, faltas, a_subir, prices,
-                  collection, faltas_edicao, quanto_custa, a_mais):
+                  collection, faltas_edicao, a_mais):
             importlib.reload(m)
         self.metrics, self.decks, self.faltas = metrics, decks, faltas
         self.a_subir, self.pending, self.locais = a_subir, pending, locais
         self.prices, self.collection = prices, collection
-        self.faltas_edicao, self.quanto_custa, self.a_mais = faltas_edicao, quanto_custa, a_mais
+        self.faltas_edicao, self.a_mais = faltas_edicao, a_mais
 
     def recarregar(self):
         from riftvault import config
@@ -187,7 +186,7 @@ class TestAColecao(Base):
 
 
 class TestAsListas(Base):
-    """3, 4 e 5: wantlist, Faltas e Quanto custa."""
+    """3 e 4: wantlist e Faltas."""
 
     def test_nao_entra_na_wantlist_nem_a_muda(self):
         con = self.catalogo(copias={"aaa-001-100": 1})
@@ -206,17 +205,9 @@ class TestAsListas(Base):
         self.assertIn("aaa-004a-100", fe)
         con.close()
 
-    def test_nao_entra_no_quanto_custa_nem_no_rodape(self):
-        con = self.catalogo()
-        qc = self.quanto_custa.tabela(con)
-        self.assertNotIn(RUNA_ALT, json.dumps(qc, ensure_ascii=False))
-        # O rodapé conta a alt art do Defy (1) e nenhuma escondida.
-        self.assertEqual((qc["scope"]["alt_art"], qc["scope"]["escondidas"]), (1, 0))
-        con.close()
-
 
 class TestAMaisEOValor(Base):
-    """6 e 7: nem no «A mais», nem no valor, nem no playset jogável."""
+    """5 e 6: nem no «A mais», nem no valor, nem no playset jogável."""
 
     def test_as_seis_copias_nao_sao_excedente_nem_escondidas(self):
         con = self.catalogo(copias=SEIS)
@@ -267,7 +258,7 @@ class TestAMaisEOValor(Base):
 
 
 class TestOsDecks(Base):
-    """8: os decks jogam a runa base; a alt art não serve, não se compra, não
+    """7: os decks jogam a runa base; a alt art não serve, não se compra, não
     se propõe, não se encomenda. E não está no Pimp.
 
     Desde 2026-09-17 à noite as runas NEM SE CONTAM nos decks
