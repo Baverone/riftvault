@@ -31,7 +31,7 @@ import shutil
 from pathlib import Path
 
 from . import (a_mais, a_subir, config, db, decks, faltas, faltas_edicao, metrics,
-               pending, quanto_custa, runas_vista)
+               pending, runas_vista)
 
 # A pasta das imagens fica de fora da comparação: em `static_images: "local"`
 # são ~88 MB e não dependem da colecção — o que muda nelas é o `riftvault
@@ -165,20 +165,17 @@ def _gerar(out_dir: Path | str, log=print, imagens: bool = True) -> dict:
         (deck_dir / f"{d['id']}.json").write_text(
             json.dumps(decks.deck_payload(con, d["id"]), ensure_ascii=False,
                        separators=(",", ":")), encoding="utf-8")
-    # O `api/faltas.json` (o separador «Faltas»/«Quanto custa» até 2026-09-15)
-    # partiu-se em três: a wantlist da Coleção, as listas de compra dos decks
-    # e a tabela de preços que o separador passou a ser.
+    # O `api/faltas.json` (o antigo separador «Faltas», até 2026-09-15)
+    # partiu-se na wantlist da Coleção e nas listas de compra dos decks. (A
+    # terceira parte, a tabela de preços, saiu com o separador dela a
+    # 2026-09-19 — ver o CLAUDE.md.)
     (out / "api" / "wantlist.json").write_text(
         json.dumps(a_subir.master_faltas(con), ensure_ascii=False, separators=(",", ":")),
         encoding="utf-8")
     (out / "api" / "compras.json").write_text(
         json.dumps(faltas.compras(con), ensure_ascii=False, separators=(",", ":")),
         encoding="utf-8")
-    tabela = quanto_custa.tabela(con)
-    (out / "api" / "quanto_custa.json").write_text(
-        json.dumps(tabela, ensure_ascii=False, separators=(",", ":")),
-        encoding="utf-8")
-    # O separador «Faltas» (2026-09-15, fim da tarde): por edição, três blocos.
+    # O separador «Faltas» (2026-09-15, fim da tarde): por edição, quatro blocos.
     fe = faltas_edicao.payload(con)
     (out / "api" / "faltas_edicao.json").write_text(
         json.dumps(fe, ensure_ascii=False, separators=(",", ":")),
@@ -207,8 +204,7 @@ def _gerar(out_dir: Path | str, log=print, imagens: bool = True) -> dict:
         n_enc += g["totals"]["printings"]
     con.close()
     log(f"  api/decks.json  ({len(index_decks)} decks) + api/wantlist.json"
-        f" + api/compras.json + api/quanto_custa.json ({tabela['scope']['printings']} "
-        f"impressões com preço) + api/faltas_edicao.json ({fe['totals']['copies']} "
+        f" + api/compras.json + api/faltas_edicao.json ({fe['totals']['copies']} "
         f"cópias a comprar) + api/a_mais.json ({am['totals']['excedente']['copies']} "
         f"cópias a mais) + api/encomendas.json "
         f"({encomendas['totals']['copies']} cópias a caminho) + api/encomendas/*.json "
