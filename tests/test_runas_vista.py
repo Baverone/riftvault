@@ -1,15 +1,21 @@
 """O bloco «Runas — 12 de cada» no fim da Coleção (André, 2026-09-19).
 
-Palavras dele: *"depois mete 12 runas de cada (nao contabilizes para nada, e
-so para mim para contabilizar ali algumas coisas)"*.
+Palavras dele, de manhã: *"depois mete 12 runas de cada (nao contabilizes
+para nada, e so para mim para contabilizar ali algumas coisas)"*; à tarde, ao
+pedir os `+`/`−`: *"runas nao contabilizam nada, eu e que mexo nisso para
+minha referencia, nao entram para decks, nao entram para coleccao, nada, so
+para mim"*.
 
-O que se fixa: as runas do catálogo, uma linha cada, alvo 12; «tenho» é TUDO
-o que ele fisicamente tem — a base, a alt art retirada, a promo escondida,
-as do CardTrader, esteja onde estiver — com o número sem as retiradas ao
-lado; a runa base aparece no master set E aqui, e a nota di-lo; e, acima de
-tudo, que ISTO NÃO CONTA PARA NADA: nenhum módulo de contas o importa, o
-payload da edição não o traz, mudar o alvo não mexe em número nenhum, e o
-`payload` não escreve.
+O que se fixa: as runas do catálogo, uma linha cada, alvo 12; o número do
+bloco é o CONTADOR DELE (`rune_counter`), semeado uma vez com o que tinha na
+mão e nunca mais recalculado; os `+`/`−` mexem só nele, nunca abaixo de 0;
+a referência «na coleção» é TUDO o que ele fisicamente tem — a base, a alt
+art retirada, a promo escondida, as do CardTrader, esteja onde estiver — com
+o número sem as retiradas ao lado; a runa base aparece no master set E aqui,
+e a nota di-lo; e, acima de tudo, que ISTO NÃO CONTA PARA NADA: nenhum
+módulo de contas o importa, o payload da edição não o traz, mudar o alvo ou
+pôr os contadores todos a 99 ou a 0 não mexe em número nenhum, e o `payload`
+só escreve na tabela dele (a sementeira).
 
 Tudo contra pastas temporárias (`tests.fixture.Vault`) e um config que não
 existe: o `data/` e o `riftvault_config.json` a sério nunca são tocados.
@@ -162,7 +168,9 @@ class TestOQueConta(Base):
     def test_os_totais_somam_as_runas(self):
         con = self.catalogo()
         t = self.rv.payload(con)["totals"]
-        self.assertEqual(t, {"cards": 2, "total": 31, "sem_retiradas": 13, "alvo": 24})
+        # O contador acabou de ser semeado com o «na coleção», por isso são iguais.
+        self.assertEqual(t, {"cards": 2, "contador": 31, "total": 31,
+                             "sem_retiradas": 13, "alvo": 24})
         con.close()
 
     def test_o_tile_leva_a_imagem_da_base(self):
@@ -215,11 +223,146 @@ class TestADuplicacaoEstaEscrita(Base):
         self.assertIn("ogn-042-100", [o["id"] for o in calm["origens"]])
         con.close()
 
-    def test_a_nota_diz_que_nao_conta_e_fala_da_sequencia(self):
+    def test_a_nota_diz_que_e_dele_que_nao_conta_e_fala_da_sequencia(self):
         con = self.catalogo()
         nota = self.rv.payload(con)["nota"]
-        self.assertIn("não conta para as métricas", nota)
+        self.assertIn("o número é teu", nota)
+        self.assertIn("não contam para nada", nota)
         self.assertIn("sequência do master set", nota)
+        con.close()
+
+
+class TestOContadorEDele(Base):
+    """O número do bloco é dele: semeado uma vez com o que tinha na mão, e a
+    partir daí só os `+`/`−` lhe mexem — nunca a coleção, nunca abaixo de 0."""
+
+    def contador(self, con):
+        return {r["card_key"]: r["qty"] for r in
+                con.execute("SELECT card_key, qty FROM rune_counter ORDER BY 1")}
+
+    def test_semeia_uma_vez_com_o_que_tem_na_mao(self):
+        con = self.catalogo()
+        self.assertEqual(self.contador(con), {})          # antes de alguém ler
+        p = self.rv.payload(con)
+        # A sementeira é o `total` — todas as versões, incluindo as retiradas
+        # e as do CardTrader —, não o `sem_retiradas`.
+        self.assertEqual(p["semeadas"], {"calm rune": 30, "fury rune": 1})
+        self.assertEqual(self.contador(con), {"calm rune": 30, "fury rune": 1})
+        self.assertEqual([x["contador"] for x in p["runas"]], [30, 1])
+        # A segunda leitura não semeia nada.
+        self.assertEqual(self.rv.payload(con)["semeadas"], {})
+        self.assertEqual(self.rv.semear(con), {})
+        con.close()
+
+    def test_a_colecao_a_mexer_nao_mexe_no_contador(self):
+        """Não é sincronização: depois da sementeira, um `+` na grelha muda a
+        referência «na coleção» e deixa o contador onde ele o pôs."""
+        from riftvault import collection
+        con = self.catalogo()
+        self.rv.payload(con)
+        collection.adjust(con, "ogn-042-100", 5, source="test")
+        collection.adjust(con, "ogn-007-100", -1, source="test")
+        calm = self.runa(self.rv.payload(con), "Calm Rune")
+        fury = self.runa(self.rv.payload(con), "Fury Rune")
+        self.assertEqual((calm["contador"], calm["total"]), (30, 35))
+        self.assertEqual((fury["contador"], fury["total"]), (1, 0))
+        con.close()
+
+    def test_mais_e_menos_mexem_so_no_contador_e_o_chao_e_zero(self):
+        con = self.catalogo()
+        r = self.rv.ajustar(con, "fury rune", 3)
+        self.assertEqual((r["qty"], r["delta"], r["na_colecao"]), (4, 3, 1))
+        self.assertEqual(r["totals"]["contador"], 34)
+        r = self.rv.ajustar(con, "Fury Rune", -10)       # o nome também serve
+        self.assertEqual((r["qty"], r["delta"]), (0, -4))
+        r = self.rv.ajustar(con, "fury rune", -1)        # a 0 fica a 0, sem erro
+        self.assertEqual((r["qty"], r["delta"]), (0, 0))
+        self.assertEqual(self.contador(con)["fury rune"], 0)
+        self.assertGreaterEqual(
+            con.execute("SELECT MIN(qty) FROM rune_counter").fetchone()[0], 0)
+        # A linha a 0 é dele: uma leitura a seguir não a volta a semear.
+        self.assertEqual(self.runa(self.rv.payload(con), "Fury Rune")["contador"], 0)
+        con.close()
+
+    def test_o_mais_numa_runa_por_semear_semeia_primeiro(self):
+        """O `+` numa runa nova não a faz nascer a 1: nasce com o que ele tem
+        e depois soma."""
+        con = self.catalogo()
+        r = self.rv.ajustar(con, "calm rune", 1)
+        self.assertEqual(r["qty"], 31)
+        con.close()
+
+    def test_o_que_nao_e_runa_nao_tem_contador(self):
+        con = self.catalogo()
+        with self.assertRaises(self.rv.RunaDesconhecida):
+            self.rv.ajustar(con, "defy", 1)
+        with self.assertRaises(self.rv.RunaDesconhecida):
+            self.rv.ajustar(con, "", 1)
+        self.assertEqual(self.contador(con), {})
+        con.close()
+
+    def test_ajustar_escreve_so_na_tabela_dele(self):
+        """Nem `copies`, nem `ops`, nem `pending`, nem locais."""
+        con = self.catalogo()
+        def resto():
+            return [con.execute(f"SELECT * FROM {t} ORDER BY 1").fetchall()
+                    for t in ("copies", "ops", "pending", "copy_locations", "location_ops")]
+        antes = [[tuple(r) for r in t] for t in resto()]
+        self.rv.ajustar(con, "calm rune", 7)
+        self.rv.ajustar(con, "calm rune", -40)
+        self.assertEqual([[tuple(r) for r in t] for t in resto()], antes)
+        con.close()
+
+    def test_mexer_nos_contadores_nao_mexe_em_numero_nenhum(self):
+        """A prova medida, não a olho: com os contadores semeados, todos a
+        99 e todos a 0, tudo o que conta dá o mesmo — grelha, barra, índice,
+        níveis, wantlist, valor, Faltas, A mais, decks, Encomendas."""
+        from riftvault import decks, pending, prices
+
+        def tudo(con):
+            col = self.metrics.set_payload(con, "OGN")
+            return json.dumps({
+                "grelha": [(g["card_key"], [(p["id"], p["qty"], p["target"], p["block"])
+                                            for p in g["printings"]]) for g in col["groups"]],
+                "blocos": col["blocks"],
+                "progress": col["progress"],
+                "index": {k: v for k, v in self.metrics.index_payload(con).items()
+                          if k != "generated_at"},
+                "niveis": self.metrics.niveis_payload(con),
+                "wantlist": {k: self.a_subir.master_faltas(con)[k]
+                             for k in ("cards", "copies", "cents")},
+                "valor": prices.collection_value(con),
+                "faltas": self.faltas_edicao.payload(con)["totals"],
+                "a_mais": self.a_mais.payload(con)["totals"],
+                "decks": decks.resumo_das_faltas(con),
+                "encomendas": pending.grelha(con, "OGN")["groups"],
+                "copies": [tuple(r) for r in con.execute(
+                    "SELECT printing_id, qty FROM copies ORDER BY 1")],
+            }, sort_keys=True, default=str)
+
+        con = self.catalogo()
+        self.rv.payload(con)                              # semeia
+        semeado = tudo(con)
+        for ck in ("calm rune", "fury rune"):
+            self.rv.ajustar(con, ck, 99 - self.contador(con)[ck])
+        self.assertEqual(set(self.contador(con).values()), {99})
+        self.assertEqual(tudo(con), semeado, "pôr os contadores a 99 mexeu em contas")
+        for ck in ("calm rune", "fury rune"):
+            self.rv.ajustar(con, ck, -99)
+        self.assertEqual(set(self.contador(con).values()), {0})
+        self.assertEqual(tudo(con), semeado, "pôr os contadores a 0 mexeu em contas")
+        con.close()
+
+    def test_a_referencia_na_colecao_e_a_de_sempre(self):
+        """Com o contador a 0, o `total`/`sem_retiradas`/`origens` são os
+        mesmos — a referência não segue o contador."""
+        con = self.catalogo()
+        antes = self.runa(self.rv.payload(con), "Calm Rune")
+        self.rv.ajustar(con, "calm rune", -100)
+        depois = self.runa(self.rv.payload(con), "Calm Rune")
+        for k in ("total", "sem_retiradas", "origens"):
+            self.assertEqual(depois[k], antes[k])
+        self.assertEqual((antes["contador"], depois["contador"]), (30, 0))
         con.close()
 
 
@@ -274,7 +417,8 @@ class TestNaoContaParaNada(Base):
         con.close()
         self.assertEqual(a, b)
 
-    def test_a_vista_nao_escreve_nem_leva_euros(self):
+    def test_a_vista_nao_escreve_na_colecao_nem_leva_euros(self):
+        """A única escrita da leitura é a sementeira, na tabela dele."""
         con = self.catalogo()
         antes = con.execute("SELECT printing_id, qty FROM copies ORDER BY 1").fetchall()
         ops = con.execute("SELECT COUNT(*) FROM ops").fetchone()[0]
@@ -311,9 +455,34 @@ class TestRotasEBuild(Base):
         with app.test_client() as c:
             p = c.get("/api/runas.json").get_json()
             self.assertEqual(p["totals"]["total"], 31)
+            self.assertEqual(p["totals"]["contador"], 31)
             self.assertTrue(p["so_para_ver"])
+            self.assertTrue(p["editable"])            # no 8770 há `+`/`−`
 
-    def test_o_build_escreve_o_ficheiro(self):
+    def test_a_rota_de_escrita_mexe_so_no_contador(self):
+        from riftvault import server
+        con = self.catalogo()
+        copias = con.execute("SELECT SUM(qty) FROM copies").fetchone()[0]
+        con.close()
+        app = server.app
+        app.testing = True
+        with app.test_client() as c:
+            r = c.post("/api/runas/ajustar", json={"card_key": "fury rune", "delta": 2})
+            self.assertEqual(r.status_code, 200)
+            self.assertEqual((r.get_json()["qty"], r.get_json()["totals"]["contador"]), (3, 33))
+            r = c.post("/api/runas/ajustar", json={"card_key": "fury rune", "delta": -9})
+            self.assertEqual(r.get_json()["qty"], 0)   # o chão
+            self.assertEqual(c.post("/api/runas/ajustar",
+                                    json={"card_key": "defy", "delta": 1}).status_code, 404)
+            self.assertEqual(c.post("/api/runas/ajustar",
+                                    json={"card_key": "fury rune", "delta": 0}).status_code, 400)
+            self.assertEqual(c.post("/api/runas/ajustar", json={"delta": 1}).status_code, 400)
+            self.assertEqual(c.get("/api/runas.json").get_json()["totals"]["contador"], 30)
+        con = self.v.connect()
+        self.assertEqual(con.execute("SELECT SUM(qty) FROM copies").fetchone()[0], copias)
+        con.close()
+
+    def test_o_build_escreve_o_ficheiro_so_de_leitura(self):
         from riftvault import build
         con = self.catalogo()
         con.close()
@@ -323,15 +492,38 @@ class TestRotasEBuild(Base):
         self.assertTrue(f.exists(), "falta api/runas.json no site")
         p = json.loads(f.read_text(encoding="utf-8"))
         self.assertEqual(p["totals"]["total"], 31)
+        self.assertEqual(p["totals"]["contador"], 31)
+        self.assertFalse(p["editable"])              # publicado: sem `+`/`−`
         # E o payload da edição publicada continua sem a vista.
         col = json.loads((out / "api" / "set" / "OGN.json").read_text(encoding="utf-8"))
         self.assertNotIn("runas", col)
 
+    def test_a_cli_mexe_so_no_contador(self):
+        import contextlib
+        import io
+        from riftvault import cli
+        con = self.catalogo()
+        con.close()
+        saida = io.StringIO()
+        with contextlib.redirect_stdout(saida), contextlib.redirect_stderr(io.StringIO()):
+            self.assertEqual(cli.main(["runas", "--mais", "Fury Rune", "--n", "4"]), 0)
+            self.assertEqual(cli.main(["runas", "--menos", "Calm Rune"]), 0)
+            self.assertEqual(cli.main(["runas"]), 0)
+        texto = saida.getvalue()
+        self.assertIn("Fury Rune: 5 (na coleção: 1)", texto)
+        self.assertIn("Calm Rune: 29 (na coleção: 30)", texto)
+        self.assertIn("contador: 34 de 24", texto)
+        with contextlib.redirect_stderr(io.StringIO()):
+            self.assertEqual(cli.main(["runas", "--mais", "Defy"]), 1)
+
 
 class TestFrontend(unittest.TestCase):
+    def setUp(self):
+        self.html = (REPO / "riftvault" / "web" / "index.html").read_text(encoding="utf-8")
+        self.js = (REPO / "riftvault" / "web" / "app.js").read_text(encoding="utf-8")
+
     def test_o_site_pede_o_ficheiro_e_diz_que_nao_conta(self):
-        html = (REPO / "riftvault" / "web" / "index.html").read_text(encoding="utf-8")
-        js = (REPO / "riftvault" / "web" / "app.js").read_text(encoding="utf-8")
+        html, js = self.html, self.js
         self.assertIn('id="runas-vista"', html)
         self.assertIn("api/runas.json", js)
         # O `state.runas` só é lido pela vista: a barra, os níveis e o valor
@@ -340,6 +532,32 @@ class TestFrontend(unittest.TestCase):
         self.assertNotIn("state.runas", corpo)
         corpo = re.search(r"function render\(\) \{(.*?)\n\}\n", js, re.S).group(1)
         self.assertNotIn("state.runas", corpo)
+
+    def test_o_tile_tem_os_botoes_do_contador_e_a_referencia(self):
+        """Os `+`/`−` são `.steppers` — a classe que o `body.readonly`
+        esconde no site publicado —, mandam ao `api/runas/ajustar` e a linha
+        de baixo é a referência «na coleção»."""
+        js = self.js
+        tile = re.search(r"function runaTile\(x\) \{(.*?)\n\}\n", js, re.S).group(1)
+        self.assertIn('class="steppers runa"', tile)
+        self.assertIn('data-runa-delta="-1"', tile)
+        self.assertIn('data-runa-delta="1"', tile)
+        self.assertIn("const n = runaContador(x)", tile)       # o crachá é o dele
+        self.assertIn("${n}/${x.target}", tile)
+        self.assertIn("na coleção: <b>${x.total}</b>", tile)
+        # Os botões pedem o `editable` do payload (o build escreve `false`; um
+        # servidor antigo não o traz — e aí não há botões).
+        self.assertIn("state.runas.editable", tile)
+        ajustar = re.search(r"async function runaAjustar\(ck, delta\) \{(.*?)\n\}\n", js, re.S).group(1)
+        self.assertIn("api/runas/ajustar", ajustar)
+        self.assertIn("if (!state.editable", ajustar)
+        # E não toca em nada que não seja o bloco: nem `api/adjust`, nem as
+        # encomendas, nem marca listas como velhas.
+        for proibido in ("api/adjust", "api/encomenda", "wlDesatualizar", "encMarcaVelhos",
+                         "state.qty", "state.colecaoVelha"):
+            self.assertNotIn(proibido, ajustar)
+        css = (REPO / "riftvault" / "web" / "style.css").read_text(encoding="utf-8")
+        self.assertIn("body.readonly .steppers { display: none; }", css)
 
 
 if __name__ == "__main__":

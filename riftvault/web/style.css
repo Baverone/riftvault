@@ -615,19 +615,24 @@ body.readonly .btn.chegou { display: none; }
 
 /* --------------------------------------------- o bloco «Runas — 12 de cada»
 
-   (2026-09-19) Só para ele ver. Fecha a grelha da Coleção com o separador
+   (2026-09-19) O contador DELE. Fecha a grelha da Coleção com o separador
    apagado dos blocos que não contam (`.fora`), a tracejado para se ver que
-   não é um bloco da coleção; o crachá diz «tens/alvo» e a linha de baixo de
-   onde vêm as cópias — a base, a alt art retirada, a promo, o CardTrader. */
+   não é um bloco da coleção; o crachá é o número que ele põe com os `+`/`−`
+   (só no modo edição — `body.readonly .steppers` já os esconde) e a linha
+   de baixo, discreta, é a referência «na coleção: N». */
 .runas-vista:empty { display: none; }
 .runas-vista { margin-top: 4px; }
 /* O título não parte ao meio por causa da nota comprida; a nota é que dobra. */
 .runas-vista .section-head.vista { border-top-style: dashed; white-space: nowrap; }
 .runas-vista .section-head.vista span { white-space: normal; }
+.runas-vista .section-head.vista .ref { font-weight: 400; opacity: .75; }
 .dtile.vista .need { background: rgba(0, 0, 0, .78); color: #fff; }
 .dtile.vista.ok .need { background: rgba(62, 207, 142, .92); color: #072616; }
-.dtile.vista .onde.retiradas { color: var(--warn, #f0b429); }
-.dtile.vista .onde.tenho i { font-style: normal; color: var(--dim); opacity: .8; }
+.dtile.vista .onde.tenho.ref { font-size: 10px; opacity: .6; text-align: center; }
+.dtile.vista .onde.tenho.ref b { color: var(--dim); font-weight: 600; }
+/* Os `+`/`−` do contador: os mesmos botões da grelha, um pouco mais baixos
+   porque o tile é mais estreito. */
+.dtile.vista .steppers.runa .step { min-height: 34px; font-size: 16px; }
 
 /* --------------------------------------------------------- «Quanto custa»
 

@@ -200,17 +200,24 @@ async function loadSet(setId) {
 
 /* ================================ o bloco «Runas — 12 de cada» (2026-09-19)
 
-   André: *"depois mete 12 runas de cada (nao contabilizes para nada, e so
-   para mim para contabilizar ali algumas coisas)"*. É UMA VISTA: vem de
-   `api/runas.json` — fora do payload da edição, de propósito —, fecha a
-   grelha em todas as edições (as runas são as mesmas seis), e não entra em
-   conta nenhuma daqui: nem na barra, nem nos níveis, nem no valor, nem nas
-   wantlists. O `state.runas` não é lido por mais ninguém.
+   André, de manhã: *"depois mete 12 runas de cada (nao contabilizes para
+   nada, e so para mim para contabilizar ali algumas coisas)"*; à tarde, ao
+   pedir os botões: *"runas nao contabilizam nada, eu e que mexo nisso para
+   minha referencia, nao entram para decks, nao entram para coleccao, nada,
+   so para mim"*.
 
-   As 6 runas base do OGN também estão na sequência do master set, em cima —
-   aqui aparecem outra vez, com TODAS as versões somadas (a base, a alt art
-   retirada, a promo do VEN escondida, as do CardTrader). Não é duplicação, é
-   outra pergunta, e o cabeçalho di-lo. */
+   É O CONTADOR DELE: o número do crachá vem da `rune_counter` do vault.db e
+   os `+`/`−` daqui escrevem SÓ lá (`api/runas/ajustar`) — não no `copies`,
+   não nas encomendas, não nos locais. Vem de `api/runas.json` — fora do
+   payload da edição, de propósito —, fecha a grelha em todas as edições (as
+   runas são as mesmas seis), e não entra em conta nenhuma daqui: nem na
+   barra, nem nos níveis, nem no valor, nem nas wantlists. O `state.runas`
+   não é lido por mais ninguém.
+
+   Ao lado, em letra pequena, «na coleção: N» é o que o site sabe que ele
+   tem de todas as versões (a base do OGN, que também está na sequência em
+   cima; a alt art retirada; a promo do VEN escondida; as do CardTrader) —
+   só para ele comparar com o que contou à mão. */
 async function renderRunasVista(reler = false) {
   const el = $('#runas-vista');
   if (!el) return;
@@ -220,33 +227,118 @@ async function renderRunasVista(reler = false) {
   }
   const p = state.runas;
   if (!(p.runas || []).length) { el.innerHTML = ''; return; }
-  const t = p.totals;
-  const sem = t.sem_retiradas !== t.total
-    ? ` (sem as retiradas: <b>${t.sem_retiradas}</b>)` : '';
   // Os tiles vão directos na grelha (o `#runas-vista` é uma `.grid`), sem o
   // `.group.multi`: um grupo de 6 colunas não cabe no telemóvel.
-  el.innerHTML = `<h2 class="section-head fora vista">Runas — ${p.alvo} de cada
-      <span>tens <b>${t.total}</b> de <b>${t.alvo}</b>${sem} — ${escapeHTML(p.nota)}</span></h2>`
-    + p.runas.map(runaTile).join('');
+  el.innerHTML = runasHead(p) + p.runas.map(runaTile).join('');
+  ligarRunas();
+}
+
+/* Um payload SEM `contador` vem de um servidor anterior à tarde de 19/09
+   (o 8770 não se reinicia a cada merge, e o `app.js` é lido do disco a cada
+   pedido): mostra-se o número calculado e sem botões, até o vigia relançar
+   o processo. Os botões pedem o `editable` do PAYLOAD, como a Coleção. */
+function runaContador(x) {
+  return x.contador != null ? x.contador : x.total;
+}
+
+function runasHead(p) {
+  const t = p.totals;
+  const sem = t.sem_retiradas !== t.total ? ` (${t.sem_retiradas} sem as retiradas)` : '';
+  const n = t.contador != null ? t.contador : t.total;
+  return `<h2 class="section-head fora vista" id="runas-head">Runas — ${p.alvo} de cada
+      <span>contas <b>${n}</b> de <b>${t.alvo}</b>
+      <small class="ref">· na coleção: ${t.total}${sem}</small> — ${escapeHTML(p.nota)}</span></h2>`;
 }
 
 function runaTile(x) {
-  const feito = x.total >= x.target;
-  const origens = x.origens.map(o =>
-    `${o.qty}× ${escapeHTML((o.code || '').split('/')[0])} <i>${escapeHTML(o.label)}</i>`)
-    .join('<br>');
-  return `<div class="dtile neutro vista${feito ? ' ok' : ''}">
-    ${artHTML(x, `<span class="need">${x.total}/${x.target}</span>`)}
+  const n = runaContador(x);
+  const feito = n >= x.target;
+  // As origens só no `title`: a linha visível é a referência curta, para não
+  // poluir um bloco que é dele.
+  const origens = x.origens.map(o => `${o.qty}× ${(o.code || '').split('/')[0]} ${o.label}`)
+    .join(' · ') || 'nenhuma à mão';
+  const sem = x.sem_retiradas !== x.total ? ` (${x.sem_retiradas} sem as retiradas)` : '';
+  const botoes = state.runas && state.runas.editable && x.contador != null
+    ? `<div class="steppers runa">
+      <button class="step minus" data-runa-delta="-1" ${n > 0 ? '' : 'disabled'}
+              aria-label="menos uma no teu contador de ${escapeAttr(x.name)}"
+              title="menos uma (só no teu contador)">−</button>
+      <button class="step plus" data-runa-delta="1"
+              aria-label="mais uma no teu contador de ${escapeAttr(x.name)}"
+              title="mais uma (só no teu contador)">+</button>
+    </div>` : '';
+  return `<div class="dtile neutro vista${feito ? ' ok' : ''}" data-runa="${escapeAttr(x.card_key)}">
+    ${artHTML(x, `<span class="need">${n}/${x.target}</span>`)}
     <div class="tname" title="${escapeAttr(x.name)}">${escapeHTML(x.name)}</div>
-    ${x.sem_retiradas !== x.total
-      ? `<div class="onde retiradas">sem as retiradas: <b>${x.sem_retiradas}</b>/${x.target}</div>`
-      : ''}
-    <div class="onde tenho">${origens || 'nenhuma à mão'}</div>
+    ${botoes}
+    <div class="onde tenho ref" title="${escapeAttr(origens)}">na coleção: <b>${x.total}</b>${escapeHTML(sem)}</div>
   </div>`;
 }
 
-/* As runas que o bloco conta: um `+`/`−` numa delas relê o ficheiro (é
-   pequeno), para o bloco andar com a grelha. */
+/* Os botões de cada tile. Chama-se depois de cada desenho, porque o
+   `innerHTML` deita os handlers fora. */
+function ligarRunas() {
+  for (const b of document.querySelectorAll('#runas-vista .steppers.runa .step')) {
+    b.onclick = () => runaAjustar(b.closest('.dtile').dataset.runa, Number(b.dataset.runaDelta));
+  }
+}
+
+function runaRefreshTile(ck) {
+  const el = document.querySelector(`#runas-vista .dtile[data-runa="${CSS.escape(ck)}"]`);
+  const x = state.runas && state.runas.runas.find(r => r.card_key === ck);
+  if (!el || !x) return;
+  el.outerHTML = runaTile(x);
+  const head = $('#runas-head');
+  if (head) head.outerHTML = runasHead(state.runas);
+  ligarRunas();
+}
+
+/* O clique no `+`/`−` do contador: ecrã otimista, pedidos da MESMA runa em
+   fila — como as Encomendas —, e só o último em voo aceita o número do
+   servidor. Grava SÓ na `rune_counter`; nada mais no site muda, e por isso
+   não se marca nada como velho. */
+async function runaAjustar(ck, delta) {
+  if (!state.editable || !state.runas || !state.runas.editable) return;
+  const x = state.runas.runas.find(r => r.card_key === ck);
+  if (!x || x.contador == null) return;
+  if (delta < 0 && x.contador <= 0) return;
+  state.runas.voo = state.runas.voo || new Map();
+  state.runas.fila = state.runas.fila || new Map();
+  x.contador = Math.max(0, x.contador + delta);
+  state.runas.totals.contador = state.runas.runas.reduce((s, r) => s + r.contador, 0);
+  runaRefreshTile(ck);
+  state.runas.voo.set(ck, (state.runas.voo.get(ck) || 0) + 1);
+  const fila = state.runas.fila.get(ck) || Promise.resolve();
+  const tarefa = fila.then(async () => {
+    const r = await fetch('api/runas/ajustar', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ card_key: ck, delta }),
+    });
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `HTTP ${r.status}`);
+    return r.json();
+  });
+  state.runas.fila.set(ck, tarefa.catch(() => {}));
+  try {
+    const res = await tarefa;
+    const resto = (state.runas.voo.get(ck) || 1) - 1;
+    state.runas.voo.set(ck, resto);
+    if (resto === 0) {
+      x.contador = res.qty;
+      state.runas.totals = res.totals;
+      runaRefreshTile(ck);
+    }
+  } catch (err) {
+    state.runas.voo.set(ck, Math.max(0, (state.runas.voo.get(ck) || 1) - 1));
+    x.contador = Math.max(0, x.contador - delta);
+    state.runas.totals.contador = state.runas.runas.reduce((s, r) => s + r.contador, 0);
+    runaRefreshTile(ck);
+    toast(`Não gravou: ${err.message}`, { error: true });
+  }
+}
+
+/* As runas da referência «na coleção»: um `+`/`−` da GRELHA numa delas relê
+   o ficheiro (é pequeno), para a referência andar com a grelha. O contador
+   dele não mexe com isso — vem da tabela dele. */
 function runaMexeu(cardKey) {
   if (!state.runas || !cardKey) return;
   if (state.runas.runas.some(x => x.card_key === cardKey)) renderRunasVista(true);
