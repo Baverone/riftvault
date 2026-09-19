@@ -1,18 +1,24 @@
-"""O separador «Faltas» (2026-09-15, fim da tarde): por edição, três blocos.
+"""O separador «Faltas» (2026-09-15, fim da tarde): por edição, quatro blocos
+— cada um com a sua wantlist (2026-09-19).
 
-André: *"quero agora fazer uma seccao de faltas / quero as faltas por edicao e
-dividido em 3 partes / Masterset / Alt Art / OverNumbered"*.
+André, 15/09: *"quero agora fazer uma seccao de faltas / quero as faltas por
+edicao e dividido em 3 partes / Masterset / Alt Art / OverNumbered"*. E 19/09:
+*"as wantlist das edicoes, quero 4 wantlist: 1 so para o master set, 1 so
+para as Alt.Art, 1 so para as Overnumbered, uma so para as Promo (no caso SP)
+— e as Promo passam a 1 de cada ao inves de playset"*.
 
-O que se fixa aqui: cada edição tem os três blocos, pela ordem dele; uma carta
-do master set com 1 de 3 aparece a faltar 2; uma sobrenumerada com 1 cópia NÃO
-aparece (alvo 1, está completa) e com 0 aparece a faltar 1; uma arte
-alternativa com 1 de 3 aparece a faltar 2; uma carta que vem a caminho aparece
-marcada e NÃO conta no que falta comprar; a wantlist e o texto do Cardmarket
-continuam a trazer SÓ o master set; os totais de cada bloco somam ao total da
-edição e as edições ao total; as promos ficam de fora e a página é avisada; o
-`listas_de_compra.so_master_set` a `false` é a linha que mete os outros dois
-blocos nas compras; o payload não escreve; o OGS entra; as rotas e o `build`
-respondem.
+O que se fixa aqui: cada edição tem os quatro blocos, pela ordem da Coleção
+(`master_set.ordem_dos_blocos`); uma carta do master set com 1 de 3 aparece a
+faltar 2; uma sobrenumerada com 1 cópia NÃO aparece (alvo 1, está completa) e
+com 0 aparece a faltar 1; uma promo faz o mesmo (alvo 1 desde 2026-09-19);
+uma arte alternativa com 1 de 3 aparece a faltar 2; uma carta que vem a
+caminho aparece marcada e NÃO conta no que falta comprar; a wantlist GERAL e
+o texto do Cardmarket dela continuam a trazer SÓ o master set; cada bloco tem
+a SUA wantlist, e a do master set é a mesma da Coleção; os totais de cada
+bloco somam ao total da edição e as edições ao total; nada fica fora do
+separador; o `listas_de_compra.so_master_set` a `false` é a linha que mete os
+outros três blocos nas compras gerais; o payload não escreve; o OGS entra; as
+rotas e o `build` respondem.
 
 Tudo contra cópias descartáveis (`tests.fixture.Vault`) e um config temporário
 (`RIFTVAULT_CONFIG`): nunca o `data/` nem o `riftvault_config.json` reais.
@@ -88,7 +94,7 @@ class Base(unittest.TestCase):
         # Duas sobrenumeradas (31 e 32 num set de 30).
         add(con, "aaa-031", "AAA", 31, "Sobre Um", rarity="rare", size=30)
         add(con, "aaa-032", "AAA", 32, "Sobre Dois", rarity="rare", size=30)
-        # Uma promo e um token: fora do separador / escondido.
+        # Uma promo (o quarto bloco, 2026-09-19) e um token (escondido).
         add(con, "aaa-sp1", "AAA", 1, "Promo Um", variant="sp1", kind="special",
             lane="sp", rarity="epic", codigo="AAA-SP1/002")
         add(con, "aaa-t01", "AAA", 1, "Token", variant="t01", kind="token",
@@ -118,19 +124,73 @@ class Base(unittest.TestCase):
                      if x["printing_id"] == pid), None)
 
 
-class TestTresBlocos(Base):
-    def test_cada_edicao_tem_os_tres_blocos_pela_ordem_dele(self):
+class TestQuatroBlocos(Base):
+    def test_cada_edicao_tem_os_quatro_blocos_pela_ordem_da_colecao(self):
+        """A ordem é a da grelha (`master_set.ordem_dos_blocos`, 2026-09-19:
+        master set, sobrenumeradas, alt art, promos) — não a de quem enumerou
+        os blocos a 15/09 nem a 19/09."""
         con = self.montar()
         p = self.fe.payload(con)
         self.assertEqual([s["set"] for s in p["sets"]], ["AAA", "OGS"])
         for s in p["sets"]:
             self.assertEqual([g["id"] for g in s["blocks"]],
-                             ["master", "alt_art", "overnumbered"])
+                             ["master", "overnumbered", "alt_art", "special"])
             self.assertEqual([g["label"] for g in s["blocks"]],
-                             ["Master set", "Alt Art", "OverNumbered"])
+                             ["Master set", "OverNumbered", "Alt Art", "Promos"])
+        self.assertEqual([b["id"] for b in p["blocks"]],
+                         ["master", "overnumbered", "alt_art", "special"])
         # O OGS entra — a exclusão do «Quanto custa» é só daquele separador.
         self.assertEqual(self.bloco(p, "OGS", "master")["copies"], 3)
         self.assertEqual(self.bloco(p, "OGS", "alt_art")["scope"], 0)
+        self.assertEqual(self.bloco(p, "OGS", "special")["scope"], 0)
+
+    def test_a_ordem_vem_do_mesmo_config_que_a_grelha(self):
+        """Mudar `master_set.ordem_dos_blocos` muda os dois separadores; o
+        bloco «runas especiais» da grelha não existe aqui e sai sem buraco."""
+        con = self.montar({"master_set": {"fora_da_percentagem": ["a", "overnumbered", "promo"],
+                                          "escondidas": ["-T", "*", "-R"],
+                                          "um_de_cada": ["overnumbered", "promo"],
+                                          "ordem_dos_blocos": ["master", "a", "rune_special",
+                                                               "overnumbered", "promo"]}})
+        cfg = self.config.load()
+        self.assertEqual(self.metrics.ordem_dos_blocos(cfg)[:5],
+                         ["master", "alt_art", "rune_special", "overnumbered", "special"])
+        self.assertEqual([b for b, _ in self.fe.blocos(cfg)],
+                         ["master", "alt_art", "overnumbered", "special"])
+        p = self.fe.payload(con)
+        self.assertEqual([g["id"] for g in self.edicao(p, "AAA")["blocks"]],
+                         ["master", "alt_art", "overnumbered", "special"])
+
+    def test_promo_com_0_falta_1_e_com_1_esta_completa(self):
+        """*"as Promo passam a 1 de cada ao inves de playset"* (2026-09-19) e
+        o quarto bloco. Com 0 falta 1; com 1 está completa; com 2 não é a
+        mais (*"se eu tiver mais adiciono na mesma"*)."""
+        con = self.montar()
+        p = self.fe.payload(con)
+        x = self.item(p, "AAA", "special", "aaa-sp1")
+        self.assertEqual((x["have"], x["target"], x["missing"], x["total"]), (0, 1, 1, 9999))
+        g = self.bloco(p, "AAA", "special")
+        self.assertEqual((g["cards"], g["copies"], g["cents"], g["scope"]), (1, 1, 9999, 1))
+        self.assertEqual(g["target_label"], "1 de cada")
+        # E não está em mais nenhum bloco.
+        for b in ("master", "alt_art", "overnumbered"):
+            self.assertIsNone(self.item(p, "AAA", b, "aaa-sp1"))
+        self.collection.adjust(con, "aaa-sp1", 1, source="test")
+        self.assertIsNone(self.item(self.fe.payload(con), "AAA", "special", "aaa-sp1"))
+        self.collection.adjust(con, "aaa-sp1", 1, source="test")
+        p = self.fe.payload(con)
+        self.assertIsNone(self.item(p, "AAA", "special", "aaa-sp1"))
+        self.assertEqual(self.bloco(p, "AAA", "special")["copies"], 0)
+
+    def test_com_o_promo_fora_do_um_de_cada_a_promo_volta_a_pedir_3(self):
+        """É a lista do config que manda — o mundo de 2026-09-18."""
+        con = self.montar({"master_set": {"fora_da_percentagem": ["a", "overnumbered", "promo"],
+                                          "escondidas": ["-T", "*", "-R"],
+                                          "um_de_cada": ["overnumbered"]}})
+        p = self.fe.payload(con)
+        x = self.item(p, "AAA", "special", "aaa-sp1")
+        self.assertEqual((x["target"], x["missing"], x["total"]), (3, 3, 3 * 9999))
+        self.assertEqual(self.bloco(p, "AAA", "special")["target_label"], "playset")
 
     def test_master_set_com_1_de_3_falta_2(self):
         con = self.montar()
@@ -228,7 +288,7 @@ class TestSoOMasterSetSeCompra(Base):
         # que fazem a diferença dos totais, abaixo — subir-lhe o alvo não a
         # pôs na wantlist (*"acompanhar não é querer comprar"*, 2026-09-15).
         p = self.fe.payload(con)
-        self.assertEqual([b["in_lists"] for b in p["blocks"]], [True, False, False])
+        self.assertEqual([b["in_lists"] for b in p["blocks"]], [True, False, False, False])
         self.assertTrue(p["so_master_set"])
         # A wantlist (a mesma da Coleção) só tem o master set — e pede
         # EXACTAMENTE as cópias do bloco `master` de cada edição.
@@ -241,24 +301,139 @@ class TestSoOMasterSetSeCompra(Base):
                              (g["cards"], g["copies"], g["cents"]))
         self.assertEqual((w["copies"], w["cents"]),
                          (p["totals_lists"]["copies"], p["totals_lists"]["cents"]))
-        # O texto do Cardmarket não fala das outras.
+        # O texto do Cardmarket da lista GERAL não fala das outras — nem
+        # depois de cada bloco ter a sua wantlist (2026-09-19): a «tudo» não
+        # cresce por causa disso.
         self.assertNotIn("Sobre", w["text"])
+        self.assertNotIn("Promo", w["text"])
         self.assertIn("Unidade Um", w["text"])
         # Mas o separador vê-as, com valor: é a diferença entre os dois totais.
         self.assertGreater(p["totals"]["cents"], p["totals_lists"]["cents"])
         self.assertEqual(p["totals"]["cents"] - p["totals_lists"]["cents"],
-                         3 * 5000 + 20000 + 30000)
+                         3 * 5000 + 20000 + 30000 + 9999)
 
     def test_a_linha_de_config_que_os_mete_nas_compras(self):
         con = self.montar({"listas_de_compra": {"so_master_set": False}})
         p = self.fe.payload(con)
-        self.assertEqual([b["in_lists"] for b in p["blocks"]], [True, True, True])
+        self.assertEqual([b["in_lists"] for b in p["blocks"]], [True, True, True, True])
         self.assertFalse(p["so_master_set"])
         self.assertEqual(p["totals_lists"], p["totals"])
-        # E a wantlist passa a trazê-las, pelo MESMO botão.
+        # E a wantlist geral passa a trazê-las, pelo MESMO botão.
         ids = {x["printing_id"] for x in self.a_subir.wantlist(con)["items"]}
         self.assertIn("aaa-031", ids)
         self.assertIn("aaa-001a", ids)
+        self.assertIn("aaa-sp1", ids)
+
+
+class TestQuatroWantlists(Base):
+    """*"quero 4 wantlist: 1 so para o master set, 1 so para as Alt.Art, 1 so
+    para as Overnumbered, uma so para as Promo"* (2026-09-19)."""
+
+    def test_cada_bloco_tem_a_sua_wantlist_e_so_a_sua(self):
+        from riftvault import cardmarket
+        con = self.montar()
+        self.collection.adjust(con, "aaa-001", 1, source="test")
+        esperado = {
+            "master": {"aaa-001", "aaa-002", "aaa-003", "aaa-004"},
+            "alt_art": {"aaa-001a"},
+            "overnumbered": {"aaa-031", "aaa-032"},
+            "special": {"aaa-sp1"},
+        }
+        for bloco, ids in esperado.items():
+            w = self.fe.wantlist(con, "AAA", bloco)
+            self.assertEqual({x["printing_id"] for x in w["items"]}, ids, bloco)
+            self.assertEqual(w["lines"], len(ids), bloco)
+            self.assertEqual(w["block"], bloco)
+            # O texto é o do gerador único, linha a linha.
+            self.assertEqual(w["text"], "\n".join(cardmarket.linha(x) for x in w["items"]))
+        # As quantidades são o que há a comprar: 2 da Unidade Um (tem 1 de 3),
+        # 3 da alt art, 1 de cada sobrenumerada, 1 da promo.
+        self.assertEqual(self.fe.wantlist(con, "AAA", "master")["copies"], 2 + 3 + 3 + 1)
+        self.assertEqual(self.fe.wantlist(con, "AAA", "alt_art")["copies"], 3)
+        self.assertEqual(self.fe.wantlist(con, "AAA", "overnumbered")["copies"], 2)
+        self.assertEqual(self.fe.wantlist(con, "AAA", "special")["copies"], 1)
+        self.assertEqual(self.fe.wantlist(con, "AAA", "special")["cents"], 9999)
+        # E os euros de cada uma são os do bloco.
+        p = self.fe.payload(con)
+        for bloco in esperado:
+            g = self.bloco(p, "AAA", bloco)
+            w = self.fe.wantlist(con, "AAA", bloco)
+            self.assertEqual((g["wantlist"]["lines"], g["wantlist"]["copies"],
+                              g["wantlist"]["cents"]), (w["lines"], w["copies"], w["cents"]))
+            self.assertEqual((g["copies"], g["cents"]), (w["copies"], w["cents"]))
+
+    def test_a_do_master_set_e_a_wantlist_da_edicao_na_colecao(self):
+        """A mesma lista, texto a texto — não há uma segunda conta."""
+        con = self.montar()
+        self.collection.adjust(con, "aaa-002", 2, source="test")
+        self.pending.add(con, "aaa-003", 1, source="test")
+        w = self.fe.wantlist(con, "AAA", "master")
+        c = self.a_subir.wantlist(con, "AAA")
+        self.assertEqual(w["text"], c["text"])
+        self.assertEqual((w["lines"], w["copies"], w["cents"]),
+                         (c["lines"], c["copies"], c["cents"]))
+        self.assertEqual(self.fe.wantlist(con, "AAA", "master", com_codigo=True)["text"],
+                         self.a_subir.wantlist(con, "AAA", com_codigo=True)["text"])
+
+    def test_o_que_vem_a_caminho_nao_vai_para_a_wantlist_do_bloco(self):
+        con = self.montar()
+        self.pending.add(con, "aaa-sp1", 1, source="test")
+        self.pending.add(con, "aaa-001a", 1, source="test")
+        p = self.fe.payload(con)
+        # Na lista do bloco continua, marcada; na wantlist não.
+        self.assertEqual(self.item(p, "AAA", "special", "aaa-sp1")["pending"], 1)
+        self.assertEqual(self.fe.wantlist(con, "AAA", "special")["lines"], 0)
+        self.assertEqual(self.bloco(p, "AAA", "special")["wantlist"]["lines"], 0)
+        w = self.fe.wantlist(con, "AAA", "alt_art")
+        self.assertEqual((w["lines"], w["copies"]), (1, 2))
+
+    def test_as_tres_wantlists_extra_nao_fazem_crescer_a_geral(self):
+        """Acompanhar não é querer comprar em bloco: a «Wantlist — tudo» da
+        Coleção e o `totals_lists` continuam a ser só o master set."""
+        con = self.montar()
+        p = self.fe.payload(con)
+        geral = self.a_subir.wantlist(con)
+        extra = sum(self.fe.wantlist(con, "AAA", b)["copies"]
+                    for b in ("alt_art", "overnumbered", "special"))
+        self.assertEqual(extra, 3 + 2 + 1)
+        self.assertEqual(geral["copies"], p["totals_lists"]["copies"])
+        self.assertEqual(geral["copies"] + extra, p["totals"]["copies"])
+
+    def test_bloco_ou_edicao_desconhecidos_rebentam(self):
+        con = self.montar()
+        with self.assertRaises(ValueError):
+            self.fe.wantlist(con, "AAA", "promos")
+        with self.assertRaises(ValueError):
+            self.fe.wantlist(con, "ZZZ", "master")
+
+    def test_a_cli_escreve_a_wantlist_do_bloco_para_colar(self):
+        import contextlib
+        import io
+        from riftvault import cli
+        con = self.montar()
+        con.close()
+        importlib.reload(cli)
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            rc = cli.main(["faltas", "--edicao", "AAA", "--bloco", "special", "--cardmarket"])
+        self.assertEqual(rc, 0)
+        con = self.v.connect()
+        self.addCleanup(con.close)
+        self.assertEqual(out.getvalue(), self.fe.wantlist(con, "AAA", "special")["text"] + "\n")
+        self.assertIn("Promos", err.getvalue())
+        self.assertIn("1 linhas", err.getvalue())
+        # Sem bloco não há o que colar.
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            self.assertEqual(cli.main(["faltas", "--edicao", "AAA", "--cardmarket"]), 1)
+
+    def test_o_site_desenha_uma_caixa_por_bloco(self):
+        js = (REPO / "riftvault" / "web" / "app.js").read_text(encoding="utf-8")
+        self.assertIn("function feWantlistHTML", js)
+        self.assertIn("cmZonaHTML(feWlId(s, g)", js)
+        # Só o que há a comprar, como no Python.
+        self.assertIn("g.items.filter(x => x.missing > 0)", js)
+        # E a Coleção aponta às outras três.
+        self.assertIn('<a href="#faltas-edicao">Faltas</a>', js)
 
 
 class TestTotais(Base):
@@ -278,10 +453,11 @@ class TestTotais(Base):
             self.assertEqual(p["totals_lists"][k], sum(s["lists"][k] for s in p["sets"]), k)
         # Os números concretos, para o teste poder falhar: AAA master
         # 2×100 + 3×200 + 2×300 + 1×1000 = 2400 (a 003 tem 1 a caminho); alt
-        # 3×5000 (playset desde 2026-09-18); over 20000 + 30000.
+        # 3×5000 (playset desde 2026-09-18); over 20000 + 30000; promo 9999
+        # (1 de cada, 2026-09-19).
         aaa = self.edicao(p, "AAA")
-        self.assertEqual(aaa["cents"], 2400 + 15000 + 50000)
-        self.assertEqual(aaa["copies"], 8 + 3 + 2)
+        self.assertEqual(aaa["cents"], 2400 + 15000 + 50000 + 9999)
+        self.assertEqual(aaa["copies"], 8 + 3 + 2 + 1)
         self.assertEqual(aaa["pending_copies"], 1)
 
     def test_sem_preco_entra_na_lista_e_e_contada(self):
@@ -295,15 +471,17 @@ class TestTotais(Base):
 
 
 class TestForaDoSeparador(Base):
-    def test_promos_e_escondidas_ficam_de_fora_e_diz_se(self):
+    def test_nada_fica_de_fora_e_as_escondidas_nem_chegam(self):
+        """Até 2026-09-19 as promos ficavam de fora (ele tinha nomeado três
+        blocos) e o `scope.fora` dizia «1 promos»; agora têm bloco."""
         con = self.montar()
         p = self.fe.payload(con)
         todos = [x["printing_id"] for s in p["sets"] for g in s["blocks"] for x in g["items"]]
-        self.assertNotIn("aaa-sp1", todos)
+        self.assertIn("aaa-sp1", todos)
         self.assertNotIn("aaa-t01", todos)
-        self.assertEqual(p["scope"]["fora"], {"promos": 1})
+        self.assertEqual(p["scope"]["fora"], {})
         # Escondida não é «fora do separador»: nem chega ao âmbito.
-        self.assertEqual(p["scope"]["printings"], 4 + 1 + 2 + 1)
+        self.assertEqual(p["scope"]["printings"], 4 + 1 + 2 + 1 + 1)
 
     def test_nao_escreve(self):
         con = self.montar()
@@ -336,7 +514,8 @@ class TestRotasEBuild(Base):
         r = c.get("/api/faltas_edicao.json")
         self.assertEqual(r.status_code, 200)
         p = r.get_json()
-        self.assertEqual([b["id"] for b in p["blocks"]], ["master", "alt_art", "overnumbered"])
+        self.assertEqual([b["id"] for b in p["blocks"]],
+                         ["master", "overnumbered", "alt_art", "special"])
         self.assertEqual(c.get("/api/quanto_custa.json").status_code, 200)
         self.assertEqual(c.get("/api/wantlist.json").status_code, 200)
 

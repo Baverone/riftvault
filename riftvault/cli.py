@@ -969,29 +969,59 @@ def cmd_seguir(args) -> int:
 
 
 def cmd_faltas(args) -> int:
-    """O separador «Faltas» na consola: por edição, os três blocos — master
-    set, alt art, sobrenumeradas — com o que falta de cada (2026-09-15, fim
-    da tarde). Só o master set entra nas listas de compra; os outros dois são
-    para ver."""
+    """O separador «Faltas» na consola: por edição, os quatro blocos — master
+    set, alt art, sobrenumeradas, promos — com o que falta de cada
+    (2026-09-15; o quarto a 2026-09-19). Só o master set entra nas listas de
+    compra gerais; cada bloco tem a sua wantlist: `--cardmarket` com
+    `--edicao` e `--bloco` escreve-a para colar (o stdout fica colável, o
+    resto vai para o stderr, como no `riftvault wantlist`)."""
     con = db.connect()
     if db.catalog_is_empty(con):
         print("catálogo vazio — corre `riftvault sync`.", file=sys.stderr)
         return 1
-    p = faltas_edicao.payload(con)
     alvo = args.edicao.upper() if args.edicao else None
+    if args.cardmarket:
+        if not alvo or not args.bloco:
+            print("erro: --cardmarket precisa de --edicao e --bloco "
+                  f"({', '.join(faltas_edicao.BLOCO_IDS)}).", file=sys.stderr)
+            con.close()
+            return 1
+        try:
+            w = faltas_edicao.wantlist(con, alvo, args.bloco, com_codigo=args.codigos)
+        except ValueError as e:
+            print(f"erro: {e}", file=sys.stderr)
+            con.close()
+            return 1
+        sys.stdout.write(w["text"] + ("\n" if w["text"] else ""))
+        print(f"# {w['name']} — {w['label']}: {w['lines']} linhas · {w['copies']} cópias · "
+              f"{prices.eur(w['cents'])}"
+              + ("" if w["in_lists"] else " (só deste bloco — não está na wantlist geral)"),
+              file=sys.stderr)
+        if w["foil"]:
+            print(f"# {len(w['foil'])} destas só têm oferta foil no mercado: liga o "
+                  f"filtro Foil nessas entradas depois de colares.", file=sys.stderr)
+        con.close()
+        return 0
+    p = faltas_edicao.payload(con)
     sets = [s for s in p["sets"] if alvo is None or s["set"] == alvo]
     if alvo and not sets:
         print(f"{alvo}: não existe no catálogo.", file=sys.stderr)
+        return 1
+    if args.bloco and args.bloco not in faltas_edicao.BLOCO_IDS:
+        print(f"erro: bloco desconhecido {args.bloco!r}. Há: "
+              f"{', '.join(faltas_edicao.BLOCO_IDS)}.", file=sys.stderr)
         return 1
     for s in sets:
         print(f"{s['name']} — faltam {s['copies']} cópias de {s['cards']} impressões · "
               f"{prices.eur(s['cents'])}"
               + (f" · {s['pending_copies']} a caminho" if s["pending_copies"] else ""))
         for g in s["blocks"]:
+            if args.bloco and g["id"] != args.bloco:
+                continue
             print(f"  {g['label']} — {g['target_label']} — faltam {g['copies']} cópias de "
                   f"{g['cards']} · {prices.eur(g['cents'])}"
                   + (f" · {g['pending_copies']} a caminho" if g["pending_copies"] else "")
-                  + ("" if g["in_lists"] else "   (não entra nas compras)"))
+                  + ("" if g["in_lists"] else "   (wantlist própria — não entra nas compras gerais)"))
             for x in g["items"]:
                 caminho = f"  ({x['pending']} a caminho)" if x["pending"] else ""
                 print(f"    {cardmarket.codigo(x['code']):<12} "
@@ -1003,11 +1033,12 @@ def cmd_faltas(args) -> int:
     nas_listas = ", ".join(b["label"] for b in p["blocks"] if b["in_lists"])
     print(f"faltam ao todo: {t['copies']} cópias de {t['cards']} impressões · "
           f"{prices.eur(t['cents'])} · {t['pending_copies']} a caminho (não contam).")
-    print(f"a comprar ({nas_listas} — a wantlist e o Cardmarket): {tl['copies']} cópias "
+    print(f"a comprar ({nas_listas} — a wantlist geral): {tl['copies']} cópias "
           f"de {tl['cards']} impressões · {prices.eur(tl['cents'])}."
           + (f" Fora do separador: {fora}." if fora else "")
-          + (" Os outros blocos são para ver, não para comprar "
-             "(listas_de_compra.so_master_set)." if p["so_master_set"] else ""))
+          + (" Os outros blocos têm wantlist própria (--cardmarket --edicao X "
+             "--bloco B) e não entram na geral (listas_de_compra.so_master_set)."
+             if p["so_master_set"] else ""))
     con.close()
     return 0
 
@@ -1423,8 +1454,14 @@ def main(argv: list[str] | None = None) -> int:
     p.set_defaults(func=cmd_quanto_custa)
 
     p = sub.add_parser("faltas", help="o separador Faltas: por edição, o que falta "
-                                      "ao master set, às alt art e às sobrenumeradas")
+                                      "ao master set, às alt art, às sobrenumeradas "
+                                      "e às promos — cada bloco com a sua wantlist")
     p.add_argument("--edicao", help="só esta edição (OGN, SFD, …)")
+    p.add_argument("--bloco", help="só este bloco (master, alt_art, overnumbered, special)")
+    p.add_argument("--cardmarket", action="store_true",
+                   help="com --edicao e --bloco: a wantlist desse bloco, para colar")
+    p.add_argument("--codigos", action="store_true",
+                   help="com --cardmarket: 'N Nome [OGN-007]' em vez da versão")
     p.set_defaults(func=cmd_faltas)
 
     p = sub.add_parser("a-mais", help="o separador A mais: por edição, o excedente "

@@ -558,8 +558,10 @@ def ordem_dos_blocos(cfg: dict | None = None) -> list[str]:
 
     É a única resposta a esta pergunta: o `set_payload` (a lista `blocks` que
     o cliente percorre) e o `ordem_da_grelha` (a mesma ordem em Python) saem
-    daqui. O separador Faltas tem a ordem dele (`faltas_edicao.BLOCOS`) —
-    ele nomeou-a à parte, a 2026-09-15.
+    daqui — e, desde 2026-09-19, também o separador Faltas
+    (`faltas_edicao.blocos`, que corta esta lista aos quatro blocos dele):
+    ele muda num sítio e muda nos dois. (De 2026-09-15 a 2026-09-19 o Faltas
+    tinha uma ordem própria, a de quem enumerou os três blocos.)
     """
     cfg = cfg or config.load()
     bruto = _lista(cfg, LISTA_ORDEM) or ORDEM_OMISSAO

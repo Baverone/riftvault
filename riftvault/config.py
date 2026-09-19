@@ -87,11 +87,14 @@ DEFAULTS: dict = {
     #   `ordem_dos_blocos`    — A ORDEM dos blocos na grelha da Coleção
     #                           (2026-09-19: "coloca as OverNumbered a seguir
     #                           ao master Set, depois as AltArt, depois as
-    #                           Promos"). A mesma gramática, mais o id do
-    #                           bloco; o que não estiver aqui vem a seguir,
-    #                           pela ordem do catálogo `metrics.BLOCOS` (hoje
-    #                           só as runas especiais, vazias). Só a ordem —
-    #                           não mexe no que cada bloco mostra nem no alvo.
+    #                           Promos") — e, desde a tarde desse dia, também
+    #                           dos quatro blocos do separador Faltas
+    #                           (`faltas_edicao.blocos`). A mesma gramática,
+    #                           mais o id do bloco; o que não estiver aqui vem
+    #                           a seguir, pela ordem do catálogo
+    #                           `metrics.BLOCOS` (hoje só as runas especiais,
+    #                           vazias). Só a ordem — não mexe no que cada
+    #                           bloco mostra nem no alvo.
     # `fora` é o nome antigo da primeira (2026-09-08 a 2026-09-14) e continua a
     # ser lido. Ver `metrics._fora`, `metrics.escondida`, `metrics.e_master`,
     # `metrics.e_um_de_cada` e `metrics.ordem_dos_blocos`.
