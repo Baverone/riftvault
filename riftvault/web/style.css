@@ -634,46 +634,12 @@ body.readonly .btn.chegou { display: none; }
    porque o tile é mais estreito. */
 .dtile.vista .steppers.runa .step { min-height: 34px; font-size: 16px; }
 
-/* --------------------------------------------------------- «Quanto custa»
-
-   A tabela de preços (2026-09-15, à tarde): por edição, as mais caras de cada
-   raridade. Sem arte — o que interessa é o código, o nome e o preço. As
-   classes `mf-*` vêm da lista «Master set» que aqui vivia até esta data. */
-.mf-lista { display: flex; flex-direction: column; }
-
-.mf-row {
-  display: grid;
-  grid-template-columns: 92px minmax(0, 1fr) 76px 84px;
-  gap: 8px; align-items: baseline;
-  padding: 5px 4px; font-size: 12.5px;
-  border-bottom: 1px solid var(--line);
-  font-variant-numeric: tabular-nums;
-}
-.mf-row:last-child { border-bottom: 0; }
-.mf-code { color: var(--dim); font-size: 11.5px; }
-.mf-nome { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mf-nome .var { font-style: normal; opacity: .6; }
-/* «tens N/M»: discreto, é informação e não filtro. Verde quando está ao alvo. */
-.mf-tem { color: var(--dim); font-size: 11px; text-align: right; white-space: nowrap; }
-.qc-tem.ok { color: var(--ok, #7bd88f); }
-.qc-tem.meio { color: var(--accent-2); }
-.mf-preco { color: var(--text); font-weight: 600; font-size: 13.5px; text-align: right; }
-
-@media (max-width: 560px) {
-  .mf-row { grid-template-columns: 70px minmax(0, 1fr) 76px; }
-  .mf-tem { display: none; }
-}
-
-.qc-set { margin-top: 18px; }
-.qc-rar span b { color: var(--text); }
-.qc-rar small { font-size: 11px; color: var(--dim); font-weight: 400; margin-left: 6px; }
-
 /* --------------------------------------------------------------- «Faltas»
 
-   Por edição, três blocos (2026-09-15, fim da tarde). Os tiles são os
-   `dtile` dos decks — a carta com imagem, o crachá a dizer quantas faltam.
-   Cada bloco tem uma cor própria no cabeçalho, como as raridades na maqueta
-   do «Quanto custa»: lê-se de longe em que bloco se está. */
+   Por edição, quatro blocos (2026-09-15, fim da tarde; o quarto a
+   2026-09-19). Os tiles são os `dtile` dos decks — a carta com imagem, o
+   crachá a dizer quantas faltam. Cada bloco tem uma cor própria no
+   cabeçalho: lê-se de longe em que bloco se está. */
 .fe-set { margin-top: 22px; }
 .fe-set span b { color: var(--text); }
 .fe-bloco {
