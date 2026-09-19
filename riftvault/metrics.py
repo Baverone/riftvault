@@ -37,13 +37,14 @@
      O ALVO do master set é o alvo de COLEÇÃO do tipo da carta
      (`alvo_do_tipo`: Unit/Spell/Gear/Rune 3, Legend e Battlefield 1). Na
      coleção extra o alvo é POR CATEGORIA, em `master_set.um_de_cada`: o que
-     lá está pede **1 de cada** — só as sobrenumeradas, desde 2026-09-15
+     lá está pede **1 de cada** — as sobrenumeradas, desde 2026-09-15
      (André: *"overnumbered e promos (SP) voltamos a 1 de cada / se eu tiver
-     mais adiciono na mesma"*) —, o que não está pede o playset do tipo — as
-     artes alternativas desde 2026-09-18 (*"muda novamente: Alt Art para
-     playset, overnumbered continua 1 de cada"*; pediram 1 de 2026-09-16 a
-     2026-09-18) e as promos desde o mesmo dia (*"as promos SP podes meter 3
-     de cada"*; pediram 1 de 2026-09-15 a 2026-09-18). Ver `e_um_de_cada`.
+     mais adiciono na mesma"*), e as promos `VEN-SP`, desde 2026-09-19 (*"as
+     Promo passam a 1 de cada ao inves de playset"*; andaram: playset a
+     14/09, 1 a 15/09, playset a 18/09, 1 a 19/09) —, o que não está pede o
+     playset do tipo — as artes alternativas desde 2026-09-18 (*"muda
+     novamente: Alt Art para playset, overnumbered continua 1 de cada"*;
+     pediram 1 de 2026-09-16 a 2026-09-18). Ver `e_um_de_cada`.
      Ter mais do que o alvo não é excedente
      nem erro: a cópia a mais aparece na grelha e conta no valor como qualquer
      outra. **O alvo nunca sobe por causa dos decks** (2026-09-17, *"voltam a
@@ -373,14 +374,14 @@ def master_target(printing_id: str, kind: str, card_type: str | None, is_token: 
 
     UMA regra: **o alvo de coleção do tipo** (`alvo_do_tipo`: Unit/Spell/Gear
     3, Legend e Battlefield 1, e Rune 3 desde 2026-09-15) — **excepto 1 no
-    que está em `master_set.um_de_cada`**: hoje só as sobrenumeradas
-    (2026-09-15, *"overnumbered e promos (SP) voltamos a 1 de cada"*). Vale
-    igual no master set e na coleção extra — as artes alternativas pedem o
-    playset desde 2026-09-18 (*"muda novamente: Alt Art para playset,
-    overnumbered continua 1 de cada"*; entre 2026-09-16 e 2026-09-18 estavam
-    no `um_de_cada`) e as promos também (*"as promos SP podes meter 3 de
-    cada"*, 2026-09-18; estavam na lista desde 2026-09-15). Os tokens ficam
-    com o `token_target` (1), como sempre.
+    que está em `master_set.um_de_cada`**: as sobrenumeradas (2026-09-15,
+    *"overnumbered e promos (SP) voltamos a 1 de cada"*) e as promos `VEN-SP`
+    (2026-09-19, *"as Promo passam a 1 de cada ao inves de playset"* — pediram
+    o playset só durante 2026-09-18). Vale igual no master set e na coleção
+    extra — as artes alternativas pedem o playset desde 2026-09-18 (*"muda
+    novamente: Alt Art para playset, overnumbered continua 1 de cada"*; entre
+    2026-09-16 e 2026-09-18 estavam no `um_de_cada`). Os tokens ficam com o
+    `token_target` (1), como sempre.
 
     **As runas não são caso especial.** Foram-no de 2026-09-08 (*"apenas 1 de
     cada também, em vez de 12"*) a 2026-09-15 (*"as runas que estao no
@@ -557,8 +558,10 @@ def ordem_dos_blocos(cfg: dict | None = None) -> list[str]:
 
     É a única resposta a esta pergunta: o `set_payload` (a lista `blocks` que
     o cliente percorre) e o `ordem_da_grelha` (a mesma ordem em Python) saem
-    daqui. O separador Faltas tem a ordem dele (`faltas_edicao.BLOCOS`) —
-    ele nomeou-a à parte, a 2026-09-15.
+    daqui — e, desde 2026-09-19, também o separador Faltas
+    (`faltas_edicao.blocos`, que corta esta lista aos quatro blocos dele):
+    ele muda num sítio e muda nos dois. (De 2026-09-15 a 2026-09-19 o Faltas
+    tinha uma ordem própria, a de quem enumerou os três blocos.)
     """
     cfg = cfg or config.load()
     bruto = _lista(cfg, LISTA_ORDEM) or ORDEM_OMISSAO
@@ -591,11 +594,12 @@ def e_um_de_cada(printing, cfg: dict | None = None) -> bool:
     Playset na contagem"* de 2026-09-14. As artes alternativas juntaram-se a
     2026-09-16 (*"Alt Art e Overnumbered e assim quero apenas 1 de cada"*) e
     saíram a 2026-09-18 (*"muda novamente: Alt Art para playset, overnumbered
-    continua 1 de cada"*); as promos saíram nesse mesmo dia (*"as promos SP
-    podes meter 3 de cada"* — são 6 Units, o playset delas é 3): as duas pedem
-    hoje o playset do tipo, e é a lista do config que o diz — não há número
-    cravado por categoria. Fica só a sobrenumerada. É SÓ sobre o alvo — o
-    bloco, a percentagem e as listas de compra não perguntam aqui.
+    continua 1 de cada"*) e pedem hoje o playset do tipo; as promos saíram
+    nesse mesmo dia (*"as promos SP podes meter 3 de cada"*) e VOLTARAM a
+    2026-09-19 (*"as Promo passam a 1 de cada ao inves de playset"*). É a
+    lista do config que o diz — não há número cravado por categoria. Hoje:
+    sobrenumeradas e promos. É SÓ sobre o alvo — o bloco, a percentagem e as
+    listas de compra não perguntam aqui.
 
     Escreve-se com a mesma gramática das outras duas listas do `master_set`
     (`_ler_lista`), e a ordem dos critérios é a mesma do `fora_do_master`:
@@ -804,9 +808,9 @@ def _sufixo_alvo(bloco_id: str, cfg: dict) -> str:
 
     Lê-se do mesmo config que o `master_target` lê, para o título e o badge do
     tile não divergirem: os tokens dizem o `token_target`, os blocos do
-    `um_de_cada` (hoje só as sobrenumeradas, 2026-09-15) dizem 1, e todos
-    os outros — as artes alternativas e as promos desde 2026-09-18, as runas
-    especiais desde 2026-09-15 — o playset do tipo.
+    `um_de_cada` (as sobrenumeradas desde 2026-09-15, as promos desde
+    2026-09-19) dizem 1, e todos os outros — as artes alternativas desde
+    2026-09-18, as runas especiais desde 2026-09-15 — o playset do tipo.
     """
     kinds_um, over_um = _um_de_cada(cfg)
     # O bloco das runas especiais é feito de artes alternativas (as das runas

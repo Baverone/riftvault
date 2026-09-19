@@ -66,35 +66,41 @@ DEFAULTS: dict = {
     #                           resto (`master_targets_by_type`).
     #   `um_de_cada`          — O ALVO POR CATEGORIA da coleção extra: o que
     #                           está aqui pede 1 de cada, o que não está pede
-    #                           o playset do tipo. Hoje só as sobrenumeradas
+    #                           o playset do tipo. Hoje as sobrenumeradas
     #                           (2026-09-15: "overnumbered e promos (SP)
     #                           voltamos a 1 de cada / se eu tiver mais
-    #                           adiciono na mesma"). As artes alternativas
+    #                           adiciono na mesma") e as promos `VEN-SP`
+    #                           (2026-09-19: "as Promo passam a 1 de cada ao
+    #                           inves de playset"). As artes alternativas
     #                           estiveram aqui de 2026-09-16 ("Alt Art e
     #                           Overnumbered e assim quero apenas 1 de cada")
     #                           a 2026-09-18 ("muda novamente: Alt Art para
-    #                           playset, overnumbered continua 1 de cada"), e
-    #                           as promos de 2026-09-15 a 2026-09-18 ("as
-    #                           promos SP podes meter 3 de cada" — são 6 Units,
-    #                           o playset delas É 3); as duas pedem outra vez
-    #                           o playset. Só o ALVO; o bloco, a percentagem e
-    #                           as listas de compra não mexem. O alvo NUNCA
-    #                           sobe por causa dos decks (o «max(1, procura
-    #                           dos decks)» de 2026-09-16 saiu a 2026-09-17).
+    #                           playset, overnumbered continua 1 de cada") e
+    #                           pedem o playset. As promos andaram: playset a
+    #                           2026-09-14, 1 a 2026-09-15, playset a
+    #                           2026-09-18 ("as promos SP podes meter 3 de
+    #                           cada"), 1 outra vez a 2026-09-19. Só o ALVO; o
+    #                           bloco, a percentagem e as listas de compra não
+    #                           mexem. O alvo NUNCA sobe por causa dos decks
+    #                           (o «max(1, procura dos decks)» de 2026-09-16
+    #                           saiu a 2026-09-17).
     #   `ordem_dos_blocos`    — A ORDEM dos blocos na grelha da Coleção
     #                           (2026-09-19: "coloca as OverNumbered a seguir
     #                           ao master Set, depois as AltArt, depois as
-    #                           Promos"). A mesma gramática, mais o id do
-    #                           bloco; o que não estiver aqui vem a seguir,
-    #                           pela ordem do catálogo `metrics.BLOCOS` (hoje
-    #                           só as runas especiais, vazias). Só a ordem —
-    #                           não mexe no que cada bloco mostra nem no alvo.
+    #                           Promos") — e, desde a tarde desse dia, também
+    #                           dos quatro blocos do separador Faltas
+    #                           (`faltas_edicao.blocos`). A mesma gramática,
+    #                           mais o id do bloco; o que não estiver aqui vem
+    #                           a seguir, pela ordem do catálogo
+    #                           `metrics.BLOCOS` (hoje só as runas especiais,
+    #                           vazias). Só a ordem — não mexe no que cada
+    #                           bloco mostra nem no alvo.
     # `fora` é o nome antigo da primeira (2026-09-08 a 2026-09-14) e continua a
     # ser lido. Ver `metrics._fora`, `metrics.escondida`, `metrics.e_master`,
     # `metrics.e_um_de_cada` e `metrics.ordem_dos_blocos`.
     "master_set": {"fora_da_percentagem": ["a", "overnumbered", "promo"],
                    "escondidas": ["-T", "*", "-R"],
-                   "um_de_cada": ["overnumbered"],
+                   "um_de_cada": ["overnumbered", "promo"],
                    "ordem_dos_blocos": ["master", "overnumbered", "a", "promo"]},
     # O que os decks JOGAM (André, 2026-09-17, "vamos voltar atras"): "os decks
     # apenas jogaram versoes normais, com excepcao da Legend e do Champion que
