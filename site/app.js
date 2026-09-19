@@ -49,12 +49,12 @@ const state = {
   // Default: TODAS as impressões (decisão do André). O botão "Só artes base"
   // continua lá, mas não é o que se vê ao abrir.
   decks: null, deckId: null, deck: null,
-  // O antigo `faltas.json` partiu-se em três a 2026-09-15 (à tarde), quando o
-  // separador «Quanto custa» deixou de ser as faltas: a wantlist da Coleção
-  // (`api/wantlist.json`), as listas de compra dos decks (`api/compras.json`)
-  // e a tabela de preços (`api/quanto_custa.json`). Cada um tem o pedido a
-  // caminho guardado (`*P`) para não se pedir duas vezes.
-  wantlist: null, wantlistP: null, compras: null, comprasP: null, quantoCusta: null,
+  // O antigo `faltas.json` partiu-se a 2026-09-15 (à tarde) na wantlist da
+  // Coleção (`api/wantlist.json`) e nas listas de compra dos decks
+  // (`api/compras.json`). Cada um tem o pedido a caminho guardado (`*P`) para
+  // não se pedir duas vezes. (A terceira parte, a tabela de preços, foi
+  // apagada com o separador dela a 2026-09-19 — ver o CLAUDE.md.)
+  wantlist: null, wantlistP: null, compras: null, comprasP: null,
   // O separador «Faltas» (2026-09-15, fim da tarde): `api/faltas_edicao.json`.
   faltasEdicao: null,
   // O separador «A mais» (2026-09-17): `api/a_mais.json`.
@@ -81,10 +81,8 @@ const state = {
            // As wantlists da Coleção: até que nível se compra (1, 2, … ) ou
            // `null` para o alvo inteiro — o playset da sequência.
            wlNivel: null,
-           // «Quanto custa»: a edição escolhida (`all` = as que têm botão,
-           // uma a seguir à outra). Sobrevive ao refresh.
-           qcSet: 'all',
-           // «Faltas»: a edição escolhida, como no «Quanto custa».
+           // «Faltas»: a edição escolhida (`all` = todas, uma a seguir à
+           // outra). Sobrevive ao refresh.
            feSet: 'all',
            // «A mais»: a edição escolhida, como nos outros dois.
            amSet: 'all',
@@ -148,8 +146,9 @@ async function boot() {
   const first = state.index.sets[0];
   const wanted = state.index.sets.some(s => s.id === state.prefs.set) ? state.prefs.set : (first && first.id);
   if (wanted) await loadSet(wanted);
-  // Uma preferência guardada com a secção Venda (apagada a 2026-09-15) cai
-  // aqui na Coleção, como qualquer outro nome que já não exista.
+  // Uma preferência guardada com a secção Venda (apagada a 2026-09-15) ou
+  // com a tabela de preços (`faltas`, apagada a 2026-09-19) cai aqui na
+  // Coleção, como qualquer outro nome que já não exista.
   // `#decks`, `#faltas-edicao`, … no URL abre essa secção — dá para ligar a
   // uma secção directamente; sem ele fica a última que ele abriu.
   const hash = location.hash.slice(1);
@@ -1144,8 +1143,7 @@ function wireControls() {
   // Imagem local em falta cai para o CDN (e vice-versa no modo publicado).
   // Qualquer secção com artes tem de estar nesta lista: uma imagem que o cache
   // local ainda não tivesse aparecia partida e não caía para o CDN.
-  for (const alvo of ['#grid', '#deck-body', '#falta-body', '#fe-body', '#am-body',
-                      '#enc-grid']) {
+  for (const alvo of ['#grid', '#deck-body', '#fe-body', '#am-body', '#enc-grid']) {
     $(alvo).addEventListener('error', imgFallback, true);
   }
   wireEncomendas();
@@ -1277,8 +1275,9 @@ function renderDeckTabs() {
   }
   // A lista «Encomendas» que era o último separador daqui (2026-09-11) passou
   // a separador de topo a 2026-09-17 («tiras esta funcionalidade dos decks»).
-  // As abas por deck que viviam no «Quanto custa» até 2026-09-15 (Staples,
-  // Por deck, Pimp decks): o contador só se sabe depois do `compras.json`.
+  // As abas por deck que viviam no antigo separador «Faltas» até 2026-09-15
+  // (Staples, Por deck, Pimp decks): o contador só se sabe depois do
+  // `compras.json`.
   for (const t of DECK_FALTA_TABS) {
     const b = document.createElement('button');
     b.className = 'tab' + (state.deckId === t.id ? ' is-on' : '');
@@ -1824,7 +1823,7 @@ function renderEncTabs() {
 
 /* Os nomes das raridades como ele lhes chama. A `showcase` não é raridade de
    jogo — é o tratamento das reimpressões de topo do OGN e do SFD — e fica com
-   o nome do catálogo; a `epic` é a «mítica» do «Quanto custa». */
+   o nome do catálogo; a `epic` é a «mítica» — a raridade de topo. */
 const RARIDADE_PT = { common: 'comum', uncommon: 'incomum', rare: 'rara',
                       epic: 'mítica', showcase: 'showcase' };
 function rarityLabel(r) { return RARIDADE_PT[r] || r || '?'; }
@@ -2149,11 +2148,11 @@ function wireEncomendas() {
   });
 }
 
-/* Os separadores de cima. `faltas` é o «Quanto custa» (o id ficou de quando
-   era as faltas); `faltas-edicao` é o separador «Faltas» de 2026-09-15;
+/* Os separadores de cima. `faltas-edicao` é o separador «Faltas» de
+   2026-09-15 (o id `faltas` era o da tabela de preços, apagada a 2026-09-19);
    `a-mais` é o «A mais» de 2026-09-17; `encomendas` é o separador
    «Encomendas» do mesmo dia. */
-const SECCOES = ['colecao', 'decks', 'faltas', 'faltas-edicao', 'a-mais', 'encomendas'];
+const SECCOES = ['colecao', 'decks', 'faltas-edicao', 'a-mais', 'encomendas'];
 
 function showSection(name) {
   state.prefs.section = name;
@@ -2161,7 +2160,6 @@ function showSection(name) {
   for (const s of SECCOES) $('#' + s).hidden = s !== name;
   $('#set-tabs').hidden = name !== 'colecao';
   $('#deck-tabs').hidden = name !== 'decks';
-  $('#falta-tabs').hidden = name !== 'faltas';
   $('#fe-tabs').hidden = name !== 'faltas-edicao';
   $('#am-tabs').hidden = name !== 'a-mais';
   $('#enc-tabs').hidden = name !== 'encomendas';
@@ -2178,8 +2176,6 @@ function showSection(name) {
     $('#enc-grid').innerHTML = `<p class="empty">${escapeHTML(err.message)}</p>`);
   if (name === 'decks' && !state.decks) loadDecks().catch(err =>
     $('#deck-body').innerHTML = `<p class="empty">${escapeHTML(err.message)}</p>`);
-  if (name === 'faltas' && !state.quantoCusta) loadQuantoCusta().catch(err =>
-    $('#falta-body').innerHTML = `<p class="empty">${escapeHTML(err.message)}</p>`);
   if (name === 'faltas-edicao' && !state.faltasEdicao) loadFaltasEdicao().catch(err =>
     $('#fe-body').innerHTML = `<p class="empty">${escapeHTML(err.message)}</p>`);
   if (name === 'a-mais' && !state.aMais) loadAMais().catch(err =>
@@ -2194,11 +2190,11 @@ function showSection(name) {
    exista num deck de cima (desde 2026-09-11 não há teto do playset, e a aba
    «Por deck» É a alocação por prioridade).
 
-   Viveram no separador «Faltas»/«Quanto custa» até 2026-09-15 à tarde; desde
-   então são abas do separador Decks, a seguir aos decks, e lêem o
-   `api/compras.json` (o que restou do antigo `faltas.json` quando o separador
-   passou a ser a tabela de preços). Os ids não podem colidir com um slug de
-   deck — é o `state.deckId` que os guarda. */
+   Viveram no antigo separador «Faltas» (que passou a tabela de preços e foi
+   apagado a 2026-09-19) até 2026-09-15 à tarde; desde então são abas do separador
+   Decks, a seguir aos decks, e lêem o `api/compras.json` (o que restou do
+   antigo `faltas.json`). Os ids não podem colidir com um slug de deck — é o
+   `state.deckId` que os guarda. */
 const DECK_FALTA_TABS = [
   { id: 'staples', label: 'Staples', sub: 'pedidas por vários decks' },
   { id: 'pordeck', label: 'Por deck', sub: 'o que falta a cada um' },
@@ -2277,99 +2273,6 @@ function renderStaples() {
 }
 
 
-/* ====================================================== «QUANTO CUSTA»
-
-   A tabela de preços do jogo, NÃO um plano de compras (André, 2026-09-15, à
-   tarde: "o separador quanto custa nao e para ter as faltas! e para passar a
-   ter o top 5 comum mais cara, por cada set / o top 5 incomum mais cara por
-   cada set / o top5 rara mais cara por cada set / o top5 mitica mais cara por
-   cada set"). Para cada edição com botão, quatro blocos — comuns, incomuns,
-   raras, míticas (o `epic` do catálogo) — com as N mais caras de cada, tenha
-   ele ou não: a linha diz quantas tem, discretamente, e não filtra nada.
-   Vem tudo do servidor (`api/quanto_custa.json`, `quanto_custa.tabela`),
-   incluindo o corte (`quanto_custa.top_por_raridade`) — aqui só se desenha.
-
-   Os separadores de cima (`#falta-tabs`) são as edições: «todas» mostra-as
-   uma a seguir à outra, cada uma com os seus quatro blocos.               */
-
-async function loadQuantoCusta() {
-  $('#falta-body').innerHTML = '<p class="empty">a carregar…</p>';
-  state.quantoCusta = await getJSON('api/quanto_custa.json');
-  renderQcTabs();
-  renderQuantoCusta();
-}
-
-function renderQcTabs() {
-  const nav = $('#falta-tabs');
-  const t = state.quantoCusta;
-  nav.innerHTML = '';
-  // Uma escolha guardada que já não tem botão (o OGS, ou uma edição que saiu
-  // do catálogo) cai em «todas» em vez de deixar a página vazia.
-  if (state.prefs.qcSet !== 'all' && !t.sets.some(s => s.set === state.prefs.qcSet)) {
-    state.prefs.qcSet = 'all';
-  }
-  const botoes = [{ set: 'all', name: 'Todas', sub: `${t.sets.length} edições` },
-                  ...t.sets.map(s => ({ ...s, sub: `${s.printings} com preço` }))];
-  for (const s of botoes) {
-    const b = document.createElement('button');
-    b.className = 'tab' + (s.set === state.prefs.qcSet ? ' is-on' : '');
-    b.innerHTML = `${escapeHTML(s.name)}<small>${escapeHTML(s.sub)}</small>`;
-    b.onclick = () => { state.prefs.qcSet = s.set; savePrefs(); renderQcTabs(); renderQuantoCusta(); };
-    nav.appendChild(b);
-  }
-}
-
-function renderQuantoCusta() {
-  const t = state.quantoCusta;
-  const sel = state.prefs.qcSet;
-  const sets = t.sets.filter(s => sel === 'all' || s.set === sel);
-  const sc = t.scope || {};
-  $('#falta-head').innerHTML = '';
-
-  const bloco = g => `
-    <h3 class="section-head sub qc-rar">${escapeHTML(g.label)}
-      <small>${t.top && g.n > g.items.length ? `top ${t.top}` : 'todas'} de ${g.n}</small>
-      <span>${g.items.length ? `de ${eur(g.items[g.items.length - 1].price)} a
-        <b>${eur(g.items[0].price)}</b>` : 'sem cartas com preço'}</span></h3>
-    ${g.items.length ? `<div class="mf-lista">${g.items.map(qcLinha).join('')}</div>` : ''}`;
-
-  const extra = Object.entries(sc.colecao_extra || {}).map(([b, n]) => `${n} ${escapeHTML(b)}`);
-  const outras = Object.entries(sc.outras_raridades || {}).map(([r, n]) => `${n} ${escapeHTML(r)}`);
-  const semBotao = (t.sem_edicoes || []).map(id => (state.index?.sets || []).find(s => s.id === id)?.name || id);
-
-  $('#falta-body').innerHTML = `
-    ${sets.map(s => `
-      <h2 class="section-head qc-set">${escapeHTML(s.name)}
-        <span>${plural(s.printings, 'impressão', 'impressões')} com preço</span></h2>
-      ${s.rarities.map(bloco).join('')}`).join('')}
-
-    <p class="note">As <b>${t.top || 'todas as'}</b> cartas mais caras de cada raridade, em
-      cada edição — <b>tenhas ou não</b>: isto é a tabela de preços do jogo, não
-      uma lista de compra. O «tens N/M» é só informação. Preço mais baixo em
-      Near Mint/Mint no CardTrader, <b>só ofertas em inglês</b>; «míticas» são
-      as <i>epic</i> do catálogo da RiftScribe, que não tem outra raridade acima.
-      <br>Fora da tabela: <b>${sc.alt_art || 0}</b> artes alternativas (a pedido),
-      <b>${sc.escondidas || 0}</b> escondidas (tokens, signatures, runas sem numeração)${
-      extra.length ? `, e a coleção extra — ${extra.join(', ')} — porque só entra a
-        sequência de cada edição` : ''}${
-      outras.length ? `, ${outras.join(', ')} de raridade fora das quatro` : ''}${
-      sc.sem_preco ? `, ${sc.sem_preco} sem oferta no CardTrader` : ''}.${
-      semBotao.length ? `<br>Sem botão, a pedido (2026-09-15): ${semBotao.map(escapeHTML).join(', ')}.` : ''}</p>`;
-}
-
-function qcLinha(x) {
-  const tem = x.have >= x.target ? 'ok' : (x.have ? 'meio' : '');
-  return `<div class="mf-row qc-row">
-    <span class="mf-code">${escapeHTML((x.code || '').split('/')[0])}</span>
-    <span class="mf-nome" title="${escapeAttr(x.name)}">${escapeHTML(x.name)}${
-      x.label && x.label !== 'Base' ? ` <i class="var">${escapeHTML(x.label)}</i>` : ''}${
-      x.block_label ? ` <i class="var">${escapeHTML(x.block_label)}</i>` : ''}</span>
-    <span class="mf-tem qc-tem ${tem}" title="quantas tens na Coleção / alvo">tens ${x.have}/${x.target}</span>
-    <span class="mf-preco">${eur(x.price)}</span>
-  </div>`;
-}
-
-
 /* ====================================================== «FALTAS»
 
    O que falta, por edição, em quatro blocos (André, 2026-09-15, fim da tarde:
@@ -2380,8 +2283,8 @@ function qcLinha(x) {
    mesma carência da wantlist do fim de cada edição da Coleção, os blocos pela
    ordem da Coleção; aqui só se desenha.
 
-   A carta com imagem, não texto — é o que ele pediu para o «Quanto custa» no
-   mesmo dia ("gosto de ter em imagem da carta e nao apenas texto"). Os tiles
+   A carta com imagem, não texto — é o que ele pediu nesse mesmo dia ("gosto
+   de ter em imagem da carta e nao apenas texto"). Os tiles
    são os `dtile` dos decks (`artHTML`), com o crachá a dizer QUANTAS FALTAM.
 
    CADA BLOCO TEM A SUA WANTLIST (2026-09-19): por baixo dos tiles, a caixa
@@ -2467,7 +2370,7 @@ function renderFaltasEdicao() {
   </div>`;
 
   $('#fe-body').innerHTML = sets.map(s => `
-    <h2 class="section-head qc-set fe-set">${escapeHTML(s.name)}
+    <h2 class="section-head fe-set">${escapeHTML(s.name)}
       <span>${feResumo(s)}</span></h2>
     ${s.blocks.map(g => `
       <h3 class="section-head sub fe-bloco ${g.id}${g.in_lists ? '' : ' fe-ver'}">${escapeHTML(g.label)}
@@ -2624,7 +2527,7 @@ function renderAMais() {
   </div>`;
 
   $('#am-body').innerHTML = sets.map(s => `
-    <h2 class="section-head qc-set fe-set">${escapeHTML(s.name)}
+    <h2 class="section-head fe-set">${escapeHTML(s.name)}
       <span>${amResumo(s)}</span></h2>
     <h3 class="section-head sub fe-bloco am-excedente">Excedente
       <small>mais cópias do que o alvo</small>
