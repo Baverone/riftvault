@@ -865,7 +865,7 @@ def cmd_runas(args) -> int:
 def cmd_seguir(args) -> int:
     """Seguir jogadores no Piltover Archive (2026-09-17): os decks de cada um,
     o que mudou desde a última corrida, e o que FALTA ao André para montar
-    cada deck. Nunca euros — ele pediu «o que falta», não «quanto custa»."""
+    cada deck. Nunca euros — ele pediu «o que falta», não «quanto custaria»."""
     con = db.connect()
     if db.catalog_is_empty(con):
         print("catálogo vazio — corre `riftvault sync`.", file=sys.stderr)

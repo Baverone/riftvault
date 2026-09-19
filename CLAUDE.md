@@ -4302,11 +4302,12 @@ e CLI; módulo, config e testes) — não havia um commit único a reverter,
 porque nasceu a 15/09 de uma renomeação e cresceu em três ordens. **Nenhum
 módulo de contas o importava** (só `server`, `build` e `cli`), por isso não
 houve nada a desatar. O `git grep -i "quanto.custa\|quanto_custa\|quantoCusta"`
-no código-fonte dá zero, com três excepções que são PALAVRAS DELE sobre o
+no código-fonte dá zero, com quatro excepções que são PALAVRAS DELE sobre o
 `seguir` e não sobre o separador (*"nao preciso que me diga quanto
-custaria"* — `seguir.py`, `cli.py`, `_seguir_nota` do config) e o teste
-que fixa a remoção (`tests/test_sem_quanto_custa.py`, o único que pode
-dizer o nome; recusa-o em todo o resto).
+custaria"* — `seguir.py`, `cli.py`, `config.py` e a `_seguir_nota` do
+`riftvault_config.json`) e o teste que fixa a remoção
+(`tests/test_sem_quanto_custa.py`, o único que pode dizer o nome; recusa-o
+em todo o resto).
 
 **O que ficou, de propósito, porque não era só dele:** a língua das ofertas
 (`precos.linguas`, o filtro é na recolha — os testes foram para
