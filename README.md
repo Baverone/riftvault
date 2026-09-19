@@ -3,8 +3,8 @@
 Gestor da minha coleção de **Riftbound**. Objetivo: ter playsets, incluindo as
 artes normais **e** as alternativas.
 
-Secções: **Coleção**, **Decks**, **Quanto custa**, **Faltas**, **A mais** e
-**Encomendas**. O catálogo vem da API pública da
+Secções: **Coleção**, **Decks**, **Faltas**, **A mais** e **Encomendas**. O
+catálogo vem da API pública da
 [RiftScribe](https://riftscribe.gg) e os preços do
 [CardTrader](https://www.cardtrader.com).
 
@@ -127,49 +127,17 @@ na mesma — só as imagens é que não aparecem.
 
 As escolhas ficam guardadas no browser.
 
-## Quanto custa
-
-Terceira secção: a **tabela de preços do jogo** (chamava-se «Faltas» até
-2026-09-15 de manhã e mostrava o que faltava; à tarde ficou claro que *"o
-separador quanto custa nao e para ter as faltas! e para passar a ter o top 5
-comum mais cara, por cada set / o top 5 incomum / o top5 rara / o top5
-mitica"*; o identificador interno continua `faltas`). Para **cada edição**
-com botão, quatro blocos — **comuns, incomuns, raras, míticas** — com as
-**5 mais caras** de cada (`quanto_custa.top_por_raridade`), do mais caro para
-o mais barato. Um separador por edição em cima e um **Todas** que as mostra
-uma a seguir à outra.
-
-- **Entram todas as cartas da edição, tenhas ou não tenhas.** Não é uma lista
-  de compra: uma carta de que já tens as três cópias continua a ser das mais
-  caras e aparece. Cada linha diz **tens N/M** (as cópias na Coleção e o
-  alvo), só como informação — verde quando está ao alvo.
-- **«Míticas» são as `epic`** do catálogo da RiftScribe, que não tem outra
-  raridade acima (não há *mythic*). A quinta raridade do catálogo,
-  `showcase`, é o tratamento das reimpressões de topo do OGN e do SFD e não
-  cabe em nenhum dos quatro blocos.
-- **Só a sequência de cada edição.** As artes alternativas ficam de fora a
-  pedido (*"AltArt nao precisa fazer isto"*); as sobrenumeradas e as promos
-  também, porque são a mesma categoria (*"Alt Art, overnumbered, etc etc é
-  puramente coleção"*) — e com elas dentro os blocos das comuns e das raras
-  do UNL e do VEN eram só reimpressões de topo (os Poros a 100–285 €).
-  `quanto_custa.so_sequencia: false` mete-as. Tokens, signatures e runas sem
-  numeração continuam escondidos, como em todo o lado.
-- **Sem o OGS** (`quanto_custa.sem_edicoes`), de quando isto eram faltas
-  (*"menos proving grounds"*). O rodapé diz o que ficou de fora.
-- **Preços só de ofertas em inglês** (`precos.linguas`; *"apenas cartas
-  versao ingles"*), Near Mint/Mint, o mais baixo no CardTrader.
-
-Na consola: `py -m riftvault quanto-custa [--edicao OGN]`.
-
 ## Faltas
 
-Quarta secção (15/09/2026, fim da tarde): **o que falta, por edição, em
+Terceira secção (15/09/2026, fim da tarde): **o que falta, por edição, em
 quatro blocos, cada um com a sua wantlist** — *"quero as faltas por edicao e
 dividido em 3 partes / Masterset / Alt Art / OverNumbered"* e, a 19/09,
 *"quero 4 wantlist: 1 so para o master set, 1 so para as Alt.Art, 1 so para
 as Overnumbered, uma so para as Promo (no caso SP)"*. Não é o separador
-antigo (esse era por raridade e passou a ser o «Quanto custa»); é uma secção
-própria, com a **carta em imagem** e o crachá a dizer **quantas faltam**.
+antigo de faltas (esse era por raridade, passou a ser a tabela de preços
+«Quanto custa» a 15/09 e foi apagado a 19/09 — ver o `CLAUDE.md`); é uma
+secção própria, com a **carta em imagem** e o crachá a dizer **quantas
+faltam**.
 
 - Um botão por edição (o OGS entra) e «Todas», cada edição com **Master set**
   (a sequência, alvo do tipo — Unit/Spell/Gear 3, Legend e Battlefield 1,
@@ -283,7 +251,7 @@ diz quem fica com o quê, e o que sobra por deck é o que esse deck compra.
 
 ## A mais
 
-Quinta secção (17/09/2026): *"todas as cartas que estao listadas a mais ou
+Quarta secção (17/09/2026): *"todas as cartas que estao listadas a mais ou
 que estavam num deck e deixaram de estar"*. Um botão por edição (o OGS fica
 sem botão mas aparece em «Todas»), e em cada edição dois blocos, com a
 **carta em imagem** e o crachá a dizer o número:
@@ -563,8 +531,8 @@ Frase tua: *"deixa as runas Alt Art, **nao incluas em nada**"*. Uma runa em
 arte alternativa (`OGN-007a..214a`, e as `SFD/UNL/VEN-R0Xa` que só o
 CardTrader tem) é uma impressão **retirada**: não aparece na Coleção, não
 conta para o master set nem para o denominador, não entra em wantlist
-nenhuma, não aparece no Faltas, no Quanto custa, no A mais nem no Pimp, **não
-conta para o valor nem para o playset jogável**, e os decks jogam a runa
+nenhuma, não aparece no Faltas, no A mais nem no Pimp, **não conta para o
+valor nem para o playset jogável**, e os decks jogam a runa
 **base**. É mais do que «escondida» — um token escondido ainda vale dinheiro e
 aparece no A mais; uma retirada não existe para o riftvault. As cópias que
 tens **não saem da base** (as 6 `OGN-042a` continuam gravadas), só ninguém
@@ -623,7 +591,10 @@ py -m riftvault value    # mostra o valor
 ```
 
 O preço de cada impressão é o **mais baixo em Near Mint/Mint, inglês**, sem
-cartas graded, alteradas ou assinadas. Prefere-se a oferta não foil.
+cartas graded, alteradas ou assinadas. Prefere-se a oferta não foil. A língua
+é o `precos.linguas` do `riftvault_config.json` (*"apenas cartas versao
+ingles"*, 2026-09-15) e filtra-se na recolha — só as ofertas nessas línguas
+entram no preço e nas contagens da oferta.
 
 As cartas de **1 € para cima** mostram o preço por cima da própria carta; as
 mais baratas só na linha de baixo do tile. O limiar é o

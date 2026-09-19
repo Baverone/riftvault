@@ -8,7 +8,7 @@ Gestor pessoal da coleção de **Riftbound** (TCG da Riot), do André. Python +
 SQLite, mesma arquitetura do `mtgvault`. Objetivo: ter **playsets**, incluindo
 artes normais **e** alternativas.
 
-Secções: **Coleção**, **Decks**, **Quanto custa**, **Faltas** (a quarta é de
+Secções: **Coleção**, **Decks**, **Faltas** (de
 2026-09-15 ao fim da tarde — por edição, três blocos; **quatro desde
 2026-09-19, cada um com a sua wantlist** — ver a última secção deste
 ficheiro; id interno `faltas-edicao`, `api/faltas_edicao.json`,
@@ -22,17 +22,19 @@ grelha da Coleção de Rara para cima com os `+`/`−` do que comprou e o
 secção deste ficheiro). Há ainda o **seguir jogadores** do Piltover
 Archive (2026-09-17, `seguir.py`, `riftvault seguir`; por agora só na
 consola — a secção no site é a parte 2, por fazer; ver a última secção deste
-ficheiro). O «Quanto custa» (chamou-se **Faltas** até
-2026-09-15 de manhã e mostrou as faltas até à tarde desse dia; **desde
-2026-09-15 à tarde é a TABELA DE PREÇOS** — o top 5 mais caras por raridade,
-em cada edição, tenha ele ou não — ver a última secção deste ficheiro. As
-secções abaixo que falam das abas «Master set», «A subir» e «A caminho» do
-separador são história; o `api/faltas.json` foi apagado e partido em
-`api/wantlist.json`, `api/compras.json` e `api/quanto_custa.json`. O
-identificador interno continua `faltas` nos ids de DOM, na chave de estado e
-no `faltas.py`, que ficou com as listas de compra dos DECKS.) (Houve uma
-**Venda**, apagada a 2026-09-15 a pedido dele — ver a penúltima secção. As
-secções abaixo que falam dela são história.)
+ficheiro). **Houve um «Quanto custa», APAGADO a 2026-09-19** (chamou-se
+**Faltas** até 2026-09-15 de manhã e mostrou as faltas até à tarde desse
+dia; de 2026-09-15 à tarde a 2026-09-19 foi a TABELA DE PREÇOS — o top 5
+mais caras por raridade, em cada edição, tenha ele ou não; *"podes apagar o
+botao do 'Quanto custa'"* — ver a última secção deste ficheiro, que diz o
+commit a partir do qual se recupera. As secções abaixo que falam dele, das
+abas «Master set», «A subir» e «A caminho» e do `api/quanto_custa.json` são
+história; o `api/faltas.json` de antes de 2026-09-15 partiu-se em
+`api/wantlist.json` e `api/compras.json`, que ficam. O identificador
+`faltas` continua no `faltas.py`, que tem as listas de compra dos DECKS; no
+site já não há secção nenhuma com esse id.) (Houve uma **Venda**, apagada a
+2026-09-15 a pedido dele — ver a secção própria, perto do fim. As secções
+abaixo que falam dela são história.)
 
 ## Regras de trabalho
 
@@ -2393,16 +2395,15 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   caiu); a grelha da Coleção diz que decks usam cada carta, com filtro «Em
   decks» e `riftvault stats --usadas`; a Venda não vende o que os decks usam
   da Coleção. `tests/test_partilha_compra.py`.
-- **Feito também:** o separador «Quanto custa» (2026-09-15, era «Faltas») —
-  abre na «Master set», com um botão por edição do catálogo (menos o OGS) e
-  «tudo», por raridade e por preço com inversor, subtotais e total, sem preço
-  no fim. Só apresentação: percentagem, wantlist e valor não mexem.
-- **Feito também:** o «Quanto custa» só por edição (2026-09-15, tarde) — as
-  abas por deck (Staples, Por deck, Pimp decks) passaram para o separador
-  Decks; nas raras, incomuns e comuns só se vêem as 5 mais caras de cada
-  (`quanto_custa.top_por_raridade`), com rodapé do que ficou de fora e «ver
-  todas»; épicas todas; subtotais, total e wantlist contam tudo. A língua
-  das ofertas passou a config (`precos.linguas`), já era só inglês.
+- **Feito e APAGADO a 2026-09-19:** o separador «Quanto custa» (2026-09-15,
+  era «Faltas») — abriu na «Master set» por raridade e por preço; à tarde
+  desse dia as abas por deck (Staples, Por deck, Pimp decks) passaram para o
+  separador Decks (e lá ficam) e ao fim da tarde passou a ser a tabela de
+  preços (top 5 por raridade, por edição, tenha ele ou não). Ele mandou
+  apagar o botão a 19/09 — ver a última secção deste ficheiro. O que ficou
+  dessa semana porque não era só dele: a língua das ofertas em config
+  (`precos.linguas`, já era só inglês), as abas dos decks no separador
+  Decks, o `api/wantlist.json` e o `api/compras.json`.
 - **Feito também:** seguir jogadores no Piltover Archive (2026-09-17, parte 1
   de 2) — `seguir.py`, `riftvault seguir`, `seguir.jogadores` no config, o
   estado em `data/seguir/estado.json`; só o motor e a CLI. Ver a última
@@ -2639,6 +2640,9 @@ ordem; fica anotado.
 
 ## 15/09/2026 — o separador «Faltas» passa a «Quanto custa»
 
+**O separador foi APAGADO a 2026-09-19** — ver a última secção deste
+ficheiro. Esta secção e as duas seguintes são história.
+
 Palavras dele: *"na aba faltas, Renomeia para algo que seja apelativo a ter
 atenção ao preço"* / *"fazes novamente para cada set (menos proving grounds)
 um botão"* / *"depois metes para cada raridade, as cartas por ordem de
@@ -2755,6 +2759,10 @@ descreviam a runa a 1 e foram ajustados.
 
 ## 15/09/2026, à tarde — «Quanto custa»: só inglês, por edição, top 5 por raridade
 
+**O separador foi APAGADO a 2026-09-19** — ver a última secção deste
+ficheiro. O ponto 1 (a língua, `precos.linguas`) e o ponto 2 (as abas por
+deck no separador Decks) ficaram; o ponto 3 saiu com o separador.
+
 Palavras dele: *"apenas cartas versao ingles"* / *"no quanto custa, quero as
 mais caras por edicao, nao por deck, e quero em cada edicao o top5 de mais
 caras de comuns, e top5 de incomuns, e top5 de Raras"* / *"miticas e AltArt
@@ -2829,6 +2837,12 @@ corta a 3, `0` desliga; o inversor mostra as mesmas cinco ao contrário; o
 payload leva o corte; e o separador não tem abas por deck (lê o `app.js`).
 
 ## 15/09/2026, fim da tarde — o «Quanto custa» NÃO é as faltas: é a tabela de preços
+
+**O separador foi APAGADO a 2026-09-19** — ver a última secção deste
+ficheiro. A tabela de preços (`quanto_custa.py`, a rota, o `riftvault
+quanto-custa`, a chave de config) saiu inteira; o que esta secção descreve
+como «ficou (partilhado)» — `faltas.compras`, `api/compras.json`,
+`api/wantlist.json`, o `riftvault a-subir` — continua.
 
 Palavras dele: *"o separador quanto custa **nao e para ter as faltas!** / e
 para passar a ter o top 5 comum mais cara, por cada set / o top 5 incomum mais
@@ -4265,4 +4279,66 @@ bloco e recusa `--cardmarket` sem `--bloco`; o `app.js` desenha uma caixa
 por bloco e a Coleção aponta às outras. Os oito ficheiros de testes que
 `147ec02` tinha ajustado voltaram atrás com o historial. Suite: 33
 ficheiros, 0 a falhar.
+
+## 19/09/2026, à noite — o separador «Quanto custa» foi APAGADO
+
+Palavras dele: *"podes apagar o botao do 'Quanto custa'"*. Ramo
+`ai-pc/sem-quanto-custa-2026-09-19`; relatório em
+`ai-pc/work/revisao/riftvault-sem-quanto-custa.md`.
+
+**O que era.** O terceiro separador. Chamou-se «Faltas» até 2026-09-15 de
+manhã (as listas de compra dos decks e do master set); de manhã a 15/09
+passou a «Quanto custa» (as faltas do master set por raridade e por preço);
+à tarde as abas por deck saíram para o separador Decks; ao fim da tarde
+passou a ser a **tabela de preços do jogo** — para cada edição menos o OGS,
+o top 5 mais caras de comuns, incomuns, raras e míticas (`epic`), só a
+sequência, **tenha ele ou não**. Nunca contou para nada: era apresentação
+(`quanto_custa.py`, `api/quanto_custa.json`, `riftvault quanto-custa`, a
+chave `quanto_custa` do config, o botão e a secção `#faltas` com o
+`#falta-tabs` no site, o CSS `mf-*`/`qc-*`, `tests/test_top5.py`).
+
+**Como saiu.** À mão, em três commits no ramo (apresentação; rota, `build`
+e CLI; módulo, config e testes) — não havia um commit único a reverter,
+porque nasceu a 15/09 de uma renomeação e cresceu em três ordens. **Nenhum
+módulo de contas o importava** (só `server`, `build` e `cli`), por isso não
+houve nada a desatar. O `git grep -i "quanto.custa\|quanto_custa\|quantoCusta"`
+no código-fonte dá zero, com três excepções que são PALAVRAS DELE sobre o
+`seguir` e não sobre o separador (*"nao preciso que me diga quanto
+custaria"* — `seguir.py`, `cli.py`, `_seguir_nota` do config) e o teste
+que fixa a remoção (`tests/test_sem_quanto_custa.py`, o único que pode
+dizer o nome; recusa-o em todo o resto).
+
+**O que ficou, de propósito, porque não era só dele:** a língua das ofertas
+(`precos.linguas`, o filtro é na recolha — os testes foram para
+`tests/test_precos_ingles.py`); as abas Staples / Por deck / Pimp no
+separador Decks (`faltas.compras`, `api/compras.json`); a wantlist da
+Coleção (`a_subir.master_faltas`, `api/wantlist.json`); o `riftvault
+a-subir`; o `a_mais.sem_edicoes` (o «menos proving grounds» de 15/09 vale
+hoje só no A mais); o `faltas.py` inteiro (as listas dos decks). O
+`.fe-set` das Faltas e do A mais já tinha margem própria — a classe
+`qc-set` que lá estava por cima era peso morto e saiu.
+
+**Recupera-se a partir de `2f49a17`** (o `main` de 2026-09-19 22:22, o
+último commit antes da remoção): `git checkout 2f49a17 --
+riftvault/quanto_custa.py tests/test_top5.py` traz o módulo e os testes, e
+o resto (rota, `build`, CLI, `app.js`, `index.html`, `style.css`, config)
+vem de reverter o merge do ramo, cujo sha está no relatório. **Não voltar a
+construir sem ele pedir.**
+
+**Medido a 2026-09-19 contra cópias (`ai-pc/work/revisao/_medir_sem_quanto_custa.py`),
+`main` (`2f49a17`) e ramo na mesma corrida, cada lado a ler o SEU config —
+TUDO IGUAL:** denominador **928**, níveis **896/835/766 de 928 = 96,6 / 90,0
+/ 82,5 %** (faltam 32/123/283 · 79,37/408,68/965,28 €), wantlist «tudo»
+**162 linhas · 283 cópias · 965,28 €** (OGN 391,70 · OGS 16,93 · SFD 265,01 ·
+UNL 266,48 · VEN 25,16), valor **6 239,64 € · 2 564 cópias**, falta dos decks
+**10 cópias · 4 cartas · 216,30 €**, compras (3 Staples; Pimp 9 · 10 ·
+729,12 €), Encomendas (0), A mais **65 · 131 / 37 · 68** item a item, o
+separador Faltas inteiro (322 · 564 · 10 446,93 €; a comprar 162 · 283 ·
+965,28 €; os quatro blocos e as quatro wantlists por edição), os blocos e
+os tiles da grelha impressão a impressão, os grupos por edição
+(310/24/251/238/203). **O `site/api/` gerado é igual ficheiro a ficheiro**
+(23 JSON, a menos do relógio); o que muda é só o `api/quanto_custa.json`,
+que deixa de existir, e os três ficheiros estáticos (`app.js`,
+`index.html`, `style.css`). Suite: 34 ficheiros (`test_top5` saiu,
+`test_precos_ingles` e `test_sem_quanto_custa` entraram), 0 a falhar.
 
