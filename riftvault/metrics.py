@@ -74,16 +74,20 @@ KIND_ORDER = {"base": 0, "alt_art": 1, "signature": 2,
 
 RARITY_ORDER = ["common", "uncommon", "rare", "epic", "showcase"]
 
-# Os blocos da grelha, por esta ordem: primeiro o master set inteiro (André,
-# 2026-09-08: *"master set playset todo seguido"*), depois a coleção extra —
-# as runas especiais (*"1 runa especial de cada para cada set"*), as artes
-# alternativas, as sobrenumeradas (*"também não quero para a coleção as
-# overnumbered"*, 2026-09-10) e as promos (*"deparei-me com as VEN-SP (promos).
-# Quero que as promos fiquem também à parte"*, 2026-09-10). Desde a noite de
-# 2026-09-14 só o primeiro conta para a percentagem; os outros são «puramente
-# coleção» (ver o cabeçalho do módulo). Os tokens e as signatures não aparecem
-# (`master_set.escondidas`) — os blocos deles ficam na lista para o caso de
-# alguém os tirar de lá.
+# OS BLOCOS da grelha — o CATÁLOGO deles, com o rótulo de cada um. A ORDEM em
+# que aparecem já não é esta lista: é `master_set.ordem_dos_blocos` no config
+# (ver `ordem_dos_blocos`), desde 2026-09-19 — André: *"na ordem das
+# coleccoes: coloca as OverNumbered a seguir ao master Set, depois as AltArt,
+# depois as Promos"*. Até aí a ordem era a desta lista (master set, runas
+# especiais, artes alternativas, sobrenumeradas, promos), e ele já a tinha
+# trocado uma vez (2026-09-08); é o tipo de coisa que volta a mudar, e agora é
+# uma linha de config.
+#
+# O primeiro é o master set inteiro (André, 2026-09-08: *"master set playset
+# todo seguido"*), e desde a noite de 2026-09-14 é o único que conta para a
+# percentagem; os outros são «puramente coleção» (ver o cabeçalho do módulo).
+# Os tokens e as signatures não aparecem (`master_set.escondidas`) — os blocos
+# deles ficam no catálogo para o caso de alguém os tirar de lá.
 #
 # Há um bloco por variante, e não só para as que ele nomeou: assim uma
 # variante nova recebe um cabeçalho a dizer o que é, em vez do «outras». Os
@@ -112,6 +116,15 @@ BLOCOS = [
     ("outras", "Outras"),
 ]
 BLOCO_LABEL = dict(BLOCOS)
+
+# A ordem dos blocos da grelha quando o config não a diz — a de 2026-09-19:
+# master set, sobrenumeradas, artes alternativas, promos. O que não estiver
+# na lista (as runas especiais, e os blocos escondidos se um dia voltarem)
+# vem a seguir, pela ordem do catálogo `BLOCOS`. Escreve-se em
+# `master_set.ordem_dos_blocos`, com a gramática das outras listas do
+# `master_set` (`a`, `promo`, `overnumbered`, …) ou o id do bloco.
+LISTA_ORDEM = "ordem_dos_blocos"
+ORDEM_OMISSAO = (BLOCO_MASTER, BLOCO_OVER, "alt_art", "special")
 
 # O prefixo do cabeçalho de um bloco que NÃO conta para a percentagem: é a
 # palavra dele (*"é puramente coleção"*). Um bloco que conte — só o master set,
@@ -511,6 +524,53 @@ def kinds_escondidas(cfg: dict | None = None) -> frozenset[str]:
     return _escondidas(cfg)[0]
 
 
+def _bloco_da_palavra(valor) -> str:
+    """Uma entrada do `ordem_dos_blocos` -> o id do bloco.
+
+    Aceita o id do bloco (`master`, `overnumbered`, `alt_art`, `special`,
+    `rune_special`, …) e a gramática das outras listas do `master_set` — o
+    sufixo (`a`, `-SP`), a palavra dele (`promo`) —, porque é assim que ele
+    fala e as três escritas dão o mesmo bloco. Um valor desconhecido rebenta,
+    como nas outras listas.
+    """
+    chave = str(valor).strip().lower()
+    if chave in BLOCO_LABEL:
+        return chave
+    if chave in SUFIXO_KIND:
+        return SUFIXO_KIND[chave]
+    if chave in PALAVRA_KIND:
+        return PALAVRA_KIND[chave]
+    aceites = ", ".join(sorted(set(BLOCO_LABEL) | set(SUFIXO_KIND) | set(PALAVRA_KIND)))
+    raise ValueError(
+        f"master_set.{LISTA_ORDEM}: nao reconheco {valor!r}. Aceita: {aceites}")
+
+
+def ordem_dos_blocos(cfg: dict | None = None) -> list[str]:
+    """A ordem dos blocos da grelha — TODOS os ids do catálogo `BLOCOS`.
+
+    André, 2026-09-19: *"na ordem das coleccoes: coloca as OverNumbered a
+    seguir ao master Set, depois as AltArt, depois as Promos"*. Lê-se de
+    `master_set.ordem_dos_blocos`; sem nada escrito vale `ORDEM_OMISSAO`, que
+    é essa frase. O que a lista não nomear vem a seguir, pela ordem do
+    catálogo — um bloco nunca desaparece por não estar na lista, só fica para
+    o fim. Repetições contam uma vez, na primeira posição.
+
+    É a única resposta a esta pergunta: o `set_payload` (a lista `blocks` que
+    o cliente percorre) e o `ordem_da_grelha` (a mesma ordem em Python) saem
+    daqui. O separador Faltas tem a ordem dele (`faltas_edicao.BLOCOS`) —
+    ele nomeou-a à parte, a 2026-09-15.
+    """
+    cfg = cfg or config.load()
+    bruto = _lista(cfg, LISTA_ORDEM) or ORDEM_OMISSAO
+    ordem: list[str] = []
+    for valor in bruto:
+        bid = _bloco_da_palavra(valor)
+        if bid not in ordem:
+            ordem.append(bid)
+    ordem.extend(bid for bid, _ in BLOCOS if bid not in ordem)
+    return ordem
+
+
 def _um_de_cada(cfg: dict | None = None) -> tuple[frozenset[str], bool]:
     """O `master_set.um_de_cada` lido: (variantes, as sobrenumeradas também?)."""
     cfg = cfg or config.load()
@@ -693,8 +753,8 @@ def bloco(printing, cfg: dict | None = None) -> str:
     """Em que bloco da grelha é que esta impressão cai.
 
     Primeiro o master set inteiro, depois a coleção extra em blocos próprios —
-    as runas especiais, as artes alternativas, as sobrenumeradas, as promos —,
-    nunca intercalados. Ver `BLOCOS` para a ordem. Uma impressão escondida
+    as sobrenumeradas, as artes alternativas, as promos, as runas especiais —,
+    nunca intercalados. Ver `ordem_dos_blocos` para a ordem. Uma impressão escondida
     devolve o bloco da variante dela na mesma (`token`, `signature`); é o
     `set_payload` que a deixa de fora da grelha.
     """
@@ -1186,12 +1246,13 @@ def set_payload(con: sqlite3.Connection, set_id: str, editable: bool = True,
 
     # Cada bloco leva o seu "tens N de M"; o `counts` diz quais é que se somam
     # na barra do master set. A percentagem global é a soma dos que contam.
+    # A ORDEM é a do config (`ordem_dos_blocos`), não a do catálogo `BLOCOS`.
     blocks = [
         {"id": bid, "label": rotulo(bid, cfg), "short": BLOCO_CURTO.get(bid, bid),
          "counts": conta_bloco(bid, cfg),
          "done": by_block[bid][0], "total": by_block[bid][1],
          "owned": by_block[bid][2], "max_target": by_block[bid][3]}
-        for bid, _ in BLOCOS if bid in by_block
+        for bid in ordem_dos_blocos(cfg) if bid in by_block
     ]
 
     return {
@@ -1229,9 +1290,10 @@ def ordem_da_grelha(payload: dict) -> list[tuple[str, str]]:
 
     O `groups` do payload continua a vir por número de coleção — é a ordem da
     API e é a que a sequência do master set precisa. O que a grelha faz é
-    percorrê-lo uma vez POR BLOCO: primeiro o master set inteiro, depois as
-    runas especiais, depois as artes alternativas, e só no fim o que está fora
-    da coleção (André, 2026-09-08). O `render()` do `app.js` faz exatamente
+    percorrê-lo uma vez POR BLOCO, pela ordem da lista `blocks` do payload —
+    a do `ordem_dos_blocos`: hoje o master set inteiro, depois as
+    sobrenumeradas, as artes alternativas e as promos (André, 2026-09-19);
+    nunca intercalados (2026-09-08). O `render()` do `app.js` faz exatamente
     estes dois ciclos; isto é a mesma ordem em Python, para dar para testar sem
     browser.
     """

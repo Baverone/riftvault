@@ -264,9 +264,9 @@ class TestColecao(Base):
         con = self.edicao()
         ordem = self.metrics.ordem_da_grelha(self.metrics.set_payload(con, "TST"))
         blocos = [b for b, _ in ordem]
-        # A sobrenumerada é a última da grelha, e nada que conte aparece
-        # depois dela — nunca intercaladas, como os outros blocos.
-        self.assertEqual(blocos[-1], "overnumbered")
+        # A sobrenumerada vem logo a seguir ao master set (2026-09-19), e nada
+        # que conte aparece depois dela — nunca intercaladas, como os outros.
+        self.assertEqual(blocos[blocos.index("overnumbered") - 1], "master")
         self.assertLess(max(i for i, b in enumerate(blocos)
                             if self.metrics.conta_bloco(b)),
                         blocos.index("overnumbered"))

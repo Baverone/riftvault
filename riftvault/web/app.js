@@ -350,15 +350,16 @@ function deckCurto(name) {
   return base.split(' · ')[0] + sufixo;
 }
 
-/* A grelha em blocos (André, 2026-09-08): *"master set playset todo seguido; 1
-   runa especial de cada para cada set; no fim 1 alt art de cada"*. Primeiro a
-   sequência do master set, por número de coleção; depois as runas especiais;
-   depois as artes alternativas; e só no fim o que ficou FORA da coleção (hoje
-   os tokens). Nunca intercalados.
+/* A grelha em blocos (André, 2026-09-08): *"master set playset todo seguido"*,
+   nunca intercalados. A ORDEM é a de 2026-09-19 (*"coloca as OverNumbered a
+   seguir ao master Set, depois as AltArt, depois as Promos"*): primeiro a
+   sequência do master set, por número de coleção; depois as sobrenumeradas;
+   depois as artes alternativas; depois as promos.
 
-   Os blocos e os rótulos vêm do payload (`metrics.BLOCOS`), para a regra viver
-   num sítio só; o contador de cada um é recalculado aqui, como as barras, para
-   andar ao mesmo tempo que os +/-. */
+   Os blocos, a ordem e os rótulos vêm do payload (`metrics.ordem_dos_blocos`,
+   `master_set.ordem_dos_blocos` no config), para a regra viver num sítio só; o
+   contador de cada um é recalculado aqui, como as barras, para andar ao mesmo
+   tempo que os +/-. */
 function render() {
   const grid = $('#grid');
   const parts = [];

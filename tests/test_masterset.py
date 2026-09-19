@@ -469,20 +469,49 @@ class TestOrdem(Base):
                                   "tst-001a-100": "alt_art"})
         con.close()
 
-    def test_a_ordem_dos_blocos_e_master_runas_alt_art(self):
+    def test_a_ordem_dos_blocos_e_master_alt_art_runas(self):
+        """Desde 2026-09-19 as runas especiais (que ele não nomeou) vêm depois
+        dos blocos que nomeou — e depois das artes alternativas."""
+        con = self.edicao(com_runas=True)
+        p = self.metrics.set_payload(con, "TST")
+        self.assertEqual([b["id"] for b in p["blocks"]],
+                         ["master", "alt_art", "rune_special"])
+        # O primeiro não leva rótulo: é a sequência normal, sem cabeçalho.
+        self.assertIsNone(p["blocks"][0]["label"])
+        self.assertEqual(p["blocks"][1]["label"],
+                         "Coleção — artes alternativas — playset")
+        self.assertEqual(p["blocks"][2]["label"],
+                         "Coleção — runas especiais — playset")
+        # E o payload diz quais é que contam para a percentagem: só o primeiro.
+        self.assertEqual([b["counts"] for b in p["blocks"]], [True, False, False])
+        con.close()
+
+    def test_a_ordem_vem_do_config(self):
+        """`master_set.ordem_dos_blocos` manda; o que não nomear vem depois."""
+        self.com_config({**SEM_RETIRADAS,
+                         "master_set": {"fora_da_percentagem": ["a", "overnumbered", "promo"],
+                                        "escondidas": ["-T", "*", "-R"],
+                                        "ordem_dos_blocos": ["master", "rune_special"]}})
         con = self.edicao(com_runas=True)
         p = self.metrics.set_payload(con, "TST")
         self.assertEqual([b["id"] for b in p["blocks"]],
                          ["master", "rune_special", "alt_art"])
-        # O primeiro não leva rótulo: é a sequência normal, sem cabeçalho.
-        self.assertIsNone(p["blocks"][0]["label"])
-        self.assertEqual(p["blocks"][1]["label"],
-                         "Coleção — runas especiais — playset")
-        self.assertEqual(p["blocks"][2]["label"],
-                         "Coleção — artes alternativas — playset")
-        # E o payload diz quais é que contam para a percentagem: só o primeiro.
-        self.assertEqual([b["counts"] for b in p["blocks"]], [True, False, False])
         con.close()
+
+    def test_a_ordem_aceita_a_gramatica_das_outras_listas(self):
+        """`a`, `promo`, `-SP` e `overnumbered` dão o mesmo que o id do bloco;
+        uma palavra desconhecida rebenta, como nas outras listas."""
+        m = self.metrics
+        self.assertEqual(m.ordem_dos_blocos(
+            {"master_set": {"ordem_dos_blocos": ["master", "a", "promo", "overnumbered"]}}),
+            m.ordem_dos_blocos(
+            {"master_set": {"ordem_dos_blocos": ["master", "alt_art", "-SP", "overnumbered"]}}))
+        self.assertEqual(m.ordem_dos_blocos({})[:4],
+                         ["master", "overnumbered", "alt_art", "special"])
+        # Todos os blocos do catálogo estão sempre na resposta, uma vez cada.
+        self.assertEqual(sorted(m.ordem_dos_blocos({})), sorted(b for b, _ in m.BLOCOS))
+        with self.assertRaises(ValueError):
+            m.ordem_dos_blocos({"master_set": {"ordem_dos_blocos": ["master", "b"]}})
 
     def test_o_bloco_das_runas_leva_a_alt_art_deixa_a_base_e_esconde_a_promo(self):
         """Desde 2026-09-15 a runa promo (sem numeração) nem aparece."""
@@ -510,8 +539,8 @@ class TestOrdem(Base):
             ("master", "tst-001-100"),
             ("master", "tst-002-100"),
             ("master", "tst-005-100"),
-            ("rune_special", "tst-005a-100"),
             ("alt_art", "tst-001a-100"),
+            ("rune_special", "tst-005a-100"),
         ])
         con.close()
 
