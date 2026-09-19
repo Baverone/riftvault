@@ -31,7 +31,7 @@ import shutil
 from pathlib import Path
 
 from . import (a_mais, a_subir, config, db, decks, faltas, faltas_edicao, metrics,
-               pending, quanto_custa)
+               pending, quanto_custa, runas_vista)
 
 # A pasta das imagens fica de fora da comparação: em `static_images: "local"`
 # são ~88 MB e não dependem da colecção — o que muda nelas é o `riftvault
@@ -143,6 +143,13 @@ def _gerar(out_dir: Path | str, log=print, imagens: bool = True) -> dict:
         )
         n_sets += 1
         log(f"  api/set/{s['id']}.json  ({len(payload['groups'])} grupos)")
+    # O bloco «Runas — 12 de cada» do fim da grelha (2026-09-19): uma vista,
+    # um ficheiro para as cinco edições. Não conta para nada — só se escreve.
+    runas = runas_vista.payload(con, cfg, image_mode=image_mode)
+    (out / "api" / "runas.json").write_text(
+        json.dumps(runas, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    log(f"  api/runas.json  ({runas['totals']['cards']} runas, "
+        f"{runas['totals']['total']} cópias à mão — só para ver)")
     con.close()
 
     # Decks: os mesmos URLs que o servidor serve em modo edição.

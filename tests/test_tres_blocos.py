@@ -236,8 +236,10 @@ class TestPercentagem(Base):
         p = self.metrics.set_payload(con, "TST")
         self.assertEqual(p["progress"]["master"]["total"], len(self.MASTER))
         blocos = {b["id"]: b for b in p["blocks"]}
+        # A ordem de 2026-09-19: sobrenumeradas, alt art, promos; as runas
+        # especiais, que ele não nomeou, ficam para o fim.
         self.assertEqual([b["id"] for b in p["blocks"]],
-                         ["master", "rune_special", "alt_art", "overnumbered", "special"])
+                         ["master", "overnumbered", "alt_art", "special", "rune_special"])
         self.assertEqual([b["counts"] for b in p["blocks"]],
                          [True, False, False, False, False])
         self.assertEqual(blocos["alt_art"]["total"], 1)

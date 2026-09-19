@@ -95,19 +95,27 @@ na mesma — só as imagens é que não aparecem.
 
 ## Ordenar e filtrar a grelha
 
-- **Ordem:** blocos seguidos, nunca intercalados. Primeiro a **sequência
-  do master set**, por número de coleção; depois **as runas especiais**
-  (bloco que hoje está **vazio** — as artes alternativas das runas do OGN
-  saíram de tudo a 2026-09-17, ver «As runas em Alt Art» abaixo); depois
-  **as artes alternativas, a playset** (desde 2026-09-18 — pediram 1 de cada
-  de 16/09 a 18/09). Só a sequência conta para a
-  percentagem. Só no fim vem o que está **fora da coleção** — os tokens (código
-  `-T`), as signatures (código `*`), as **sobrenumeradas** (as «300/298») e as
-  **promos** (`VEN-SP4`) —, cada um com o seu contador e a dizer que **não**
-  entra na percentagem. O contador diz «tens N de M» (impressões de que tens
-  pelo menos uma cópia) e, quando o bloco pede playset, «· K no playset
-  completo» a seguir (2026-09-15: o número sozinho lia-se como «não tens
-  nenhuma»).
+- **Ordem:** blocos seguidos, nunca intercalados, pela ordem de 2026-09-19
+  (*"coloca as OverNumbered a seguir ao master Set, depois as AltArt, depois
+  as Promos"*): primeiro a **sequência do master set**, por número de
+  coleção — a única que conta para a percentagem —; depois as
+  **sobrenumeradas** (as «300/298», 1 de cada); depois **as artes
+  alternativas, a playset**; depois as **promos** (`VEN-SP4`, a playset); e
+  as runas especiais, se as houver (bloco **vazio** hoje — as artes
+  alternativas das runas do OGN saíram de tudo a 2026-09-17). Cada bloco da
+  coleção extra tem o seu contador e diz que **não** entra na percentagem:
+  «tens N de M» (impressões de que tens pelo menos uma cópia) e, quando o
+  bloco pede playset, «· K no playset completo» a seguir. Os tokens (`-T`), as
+  signatures (`*`) e as runas promo (`VEN-R01`) não aparecem. A ordem
+  escreve-se em `master_set.ordem_dos_blocos` no config.
+- **Runas — 12 de cada:** o bloco que fecha a grelha, **só para ver**
+  (2026-09-19: *"mete 12 runas de cada — nao contabilizes para nada, e so para
+  mim para contabilizar ali algumas coisas"*). As seis runas do jogo, cada
+  uma com **tudo o que tens dela, de todas as versões** — a base do OGN (que
+  também está na sequência, em cima), a alt art retirada, a promo do VEN, as
+  do CardTrader — e o número sem as retiradas ao lado quando difere. Não
+  conta para nada: nem barra, nem níveis, nem wantlist, nem valor.
+  `riftvault runas` na consola.
 - **Filtros:** Tudo / Faltas, e por tipo de impressão (Base, Arte alt.,
   Signature, Tokens/Promos). "Faltas" mostra tudo o que não está completo,
   tanto faz faltarem 3, 2 ou 1.

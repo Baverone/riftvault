@@ -81,12 +81,21 @@ DEFAULTS: dict = {
     #                           as listas de compra não mexem. O alvo NUNCA
     #                           sobe por causa dos decks (o «max(1, procura
     #                           dos decks)» de 2026-09-16 saiu a 2026-09-17).
+    #   `ordem_dos_blocos`    — A ORDEM dos blocos na grelha da Coleção
+    #                           (2026-09-19: "coloca as OverNumbered a seguir
+    #                           ao master Set, depois as AltArt, depois as
+    #                           Promos"). A mesma gramática, mais o id do
+    #                           bloco; o que não estiver aqui vem a seguir,
+    #                           pela ordem do catálogo `metrics.BLOCOS` (hoje
+    #                           só as runas especiais, vazias). Só a ordem —
+    #                           não mexe no que cada bloco mostra nem no alvo.
     # `fora` é o nome antigo da primeira (2026-09-08 a 2026-09-14) e continua a
-    # ser lido. Ver `metrics._fora`, `metrics.escondida`, `metrics.e_master` e
-    # `metrics.e_um_de_cada`.
+    # ser lido. Ver `metrics._fora`, `metrics.escondida`, `metrics.e_master`,
+    # `metrics.e_um_de_cada` e `metrics.ordem_dos_blocos`.
     "master_set": {"fora_da_percentagem": ["a", "overnumbered", "promo"],
                    "escondidas": ["-T", "*", "-R"],
-                   "um_de_cada": ["overnumbered"]},
+                   "um_de_cada": ["overnumbered"],
+                   "ordem_dos_blocos": ["master", "overnumbered", "a", "promo"]},
     # O que os decks JOGAM (André, 2026-09-17, "vamos voltar atras"): "os decks
     # apenas jogaram versoes normais, com excepcao da Legend e do Champion que
     # serao Alt Art ou Overnumbered ou SP, mas nunca assinada".
@@ -159,6 +168,12 @@ DEFAULTS: dict = {
     # desta, na ordem `metrics.RARITY_ORDER` (common < uncommon < rare < epic
     # < showcase). Ver `pending.grelha`.
     "encomendas": {"raridade_minima": "rare"},
+    # O bloco «Runas — 12 de cada» no fim da grelha da Coleção (André,
+    # 2026-09-19: "mete 12 runas de cada (nao contabilizes para nada, e so para
+    # mim para contabilizar ali algumas coisas)"). É uma VISTA: conta tudo o
+    # que ele fisicamente tem de cada runa, e não entra em métrica nenhuma.
+    # Ver `runas_vista.py`.
+    "runas_vista": {"alvo": 12},
     # As línguas cujas ofertas do CardTrader entram no preço (2026-09-15:
     # "apenas cartas versao ingles"). Era 'en' fixo no código desde o início.
     "precos": {"linguas": ["en"]},
