@@ -152,8 +152,13 @@ def payload(con: sqlite3.Connection, cfg: dict | None = None,
     for linha in sorted(runas.values(), key=lambda x: x["name"]):
         linha.pop("_base", None)
         # Só as origens com cópias: é uma linha por baixo do tile, não uma
-        # lista de tudo o que existe.
-        linha["origens"] = [o for o in linha["origens"] if o["qty"] > 0]
+        # lista de tudo o que existe. A sequência primeiro, depois o que o
+        # site ainda conta (a promo escondida), depois as retiradas e o
+        # CardTrader — pela ordem em que o resto do site as lê.
+        linha["origens"] = sorted(
+            (o for o in linha["origens"] if o["qty"] > 0),
+            key=lambda o: (o["label"] != "sequência", o["retirada"],
+                           o["fora_do_catalogo"], o["code"]))
         linha["target"] = n_alvo
         itens.append(linha)
 

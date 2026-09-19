@@ -2432,8 +2432,14 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   secção deste ficheiro.
 - **Feito e DESFEITO no mesmo dia:** a montra «Promos» (2026-09-18, à tarde)
   — as promos da comunidade (Nexus Night, bundles, …) com a foto da versão
-  normal; ele viu-a e mandou apagar. Ver a última secção deste ficheiro. As
-  6 `VEN-SP` ficam como estavam.
+  normal; ele viu-a e mandou apagar. Ver a penúltima secção deste ficheiro.
+  As 6 `VEN-SP` ficam como estavam.
+- **Feito também:** a ordem dos blocos da Coleção em config e o bloco «Runas
+  — 12 de cada» (2026-09-19) — master set, sobrenumeradas, alt art, promos
+  (`master_set.ordem_dos_blocos`); e no fim da grelha uma VISTA das seis
+  runas com tudo o que ele tem de cada, que não conta para nada
+  (`runas_vista.py`, `api/runas.json`, `riftvault runas`). Ver a última
+  secção deste ficheiro.
 - **Por fazer:** a parte 2 do seguir — o separador no site e a tarefa diária;
   vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck,
   com as partilhadas assinaladas); e apagar decks pela interface (hoje apaga-se
@@ -3942,4 +3948,80 @@ Encomendas (4 cópias · 164,22 €), Faltas por edição (390 · 732 ·
 13 342,62 €), A mais (65 · 131 / 37 · 68, item a item), os grupos por edição
 (310/24/251/238/203) e os blocos da grelha — iguais nos dois lados. Suite: 32
 ficheiros.
+
+## 19/09/2026 — a ordem dos blocos da Coleção passa a config; o bloco «Runas — 12 de cada», só para ver
+
+Palavras dele: *"na ordem das coleccoes: coloca as **OverNumbered a seguir ao
+master Set**, depois as **AltArt**, depois as **Promos**, e depois mete **12
+runas de cada** (nao contabilizes para nada, e so para mim para contabilizar
+ali algumas coisas)"*. Ramo `ai-pc/ordem-blocos-2026-09-19`; relatório em
+`ai-pc/work/revisao/riftvault-ordem-blocos.md`.
+
+**1. A ordem.** Estava cravada na lista `metrics.BLOCOS` (master set, runas
+especiais, artes alternativas, sobrenumeradas, promos) e o `set_payload`
+percorria-a. Passou a `master_set.ordem_dos_blocos` no config
+(`riftvault_config.json` e `config.DEFAULTS`, hoje `["master",
+"overnumbered", "a", "promo"]`), lida por `metrics.ordem_dos_blocos` — a
+mesma gramática das outras listas do `master_set` (`a`, `promo`, `-SP`,
+`overnumbered`) ou o id do bloco; o que a lista não nomear vem A SEGUIR pela
+ordem do catálogo `BLOCOS` (hoje só as runas especiais, vazias); um valor
+desconhecido rebenta. `BLOCOS` ficou como o CATÁLOGO dos blocos (ids e
+rótulos), não a ordem. **Só a ordem mexeu**: rótulos, alvos, contadores,
+percentagem e listas iguais. O separador Faltas tem a ordem própria dele
+(master set, Alt Art, OverNumbered — 15/09) e não lê isto.
+
+**2. O bloco das runas — uma VISTA, não uma categoria.** `riftvault/
+runas_vista.py`, rota `/api/runas.json` (um ficheiro para as cinco edições —
+as runas são as mesmas seis), `riftvault runas`; no `app.js` o
+`renderRunasVista` escreve no `#runas-vista`, a seguir à grelha, em todas as
+edições; o `state.runas` só é lido por ele. As 6 runas do catálogo (Body,
+Calm, Chaos, Fury, Mind, Order — `runas_especiais.tipos`, a mesma definição
+de «runa»), uma linha cada, alvo `runas_vista.alvo` (12; não positivo
+rebenta).
+
+**«Tenho» = tudo o que ele fisicamente tem, de todas as versões** — é a
+leitura desta ordem e a única coisa nela que contraria uma regra anterior:
+conta a base do OGN (a sequência), a arte alternativa do OGN (**retirada**
+de tudo desde 17/09), a promo do VEN (escondida) e as do CardTrader que a
+RiftScribe não tem (`market_only`, que hoje nenhum sítio mostra), esteja a
+cópia na Coleção, num deck ou no binder. Por contrariar a retirada, cada
+linha leva os DOIS números — `total` e `sem_retiradas` — e o tile mostra o
+segundo quando difere; não se escolheu por ele. Medido a 2026-09-19 contra
+cópias: **74 runas à mão (43 sem as retiradas)** — Body 2, Calm **27** (9
+`OGN-042` + 6 `OGN-042a` + 12 `SFD-R02a`), Chaos 9 (8 + 1), Fury 2, Mind
+**12** (7 + 1 + 4 `SFD-R03a`), Order **22** (15 + 7 `SFD-R06a`); sem as
+retiradas 2 / 9 / 8 / 2 / 7 / 15.
+
+**As 6 runas base do OGN aparecem duas vezes** — na sequência (a 3) e aqui
+(a 12) — e está escrito no ecrã: o cabeçalho do bloco diz *«só para
+contares o que tens à mão — não conta para as métricas. As runas base do OGN
+também estão na sequência do master set, em cima; aqui somam-se TODAS as
+versões que tens, incluindo as que o resto do site não conta»*
+(`runas_vista.NOTA`).
+
+**NÃO CONTA PARA NADA, e há teste.** `tests/test_runas_vista.py` (19
+testes, contra cópias e config temporário) lê o código-fonte e recusa que
+qualquer módulo de contas (`metrics`, `a_subir`, `faltas`, `faltas_edicao`,
+`a_mais`, `uso_decks`, `decks`, `locais`, `pending`, `prices`, `collection`,
+`quanto_custa`, `cardmarket`, `seguir`, `catalog`, `db`) importe o
+`runas_vista` — só o `server`, o `build` e a `cli` o chamam; o payload da
+edição e o da Encomendas não o trazem; mudar o alvo de 12 para 1 não mexe em
+número nenhum (barra, índice, níveis, wantlist, Faltas, A mais); o `payload`
+não escreve e não leva euros; e o `renderProgress`/`render` do `app.js` não
+lêem o `state.runas`.
+
+**Medido a 2026-09-19 contra cópias (`_medir_ordem_blocos.py`), `main`
+(`c7e66bf`) e ramo na mesma corrida — os invariantes NÃO mexem:**
+denominador **928**, níveis **860/783/718 de 928 = 92,7 / 84,4 / 77,4 %**
+(faltam 68/203/403 · 268,59/784,15/1 417,64 €), wantlist «tudo» **210 linhas
+· 400 cópias · 1 330,72 €**, valor **3 350,11 € · 2 402 cópias**, falta dos
+decks **9 · 6 · 231,67 €**, compras, Encomendas (4 cópias · 161,92 €),
+Faltas por edição (385 · 722 · 13 011,42 €; a comprar 210 · 400 ·
+1 330,72 €), A mais (65 · 131 / 37 · 68, item a item), os grupos por edição
+(310/24/251/238/203) e os blocos da grelha (rótulo, total, owned, done,
+max_target) — iguais nos dois lados. (Os números diferem dos de 18/09 porque
+ele meteu cartas na Coleção entretanto — não é desta ordem.) O que muda: a
+ordem `['master', 'alt_art', 'overnumbered', 'special']` → `['master',
+'overnumbered', 'alt_art', 'special']` em todas as edições, e o
+`api/runas.json` que só existe no depois. Suite: 33 ficheiros.
 
