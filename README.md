@@ -163,35 +163,46 @@ Na consola: `py -m riftvault quanto-custa [--edicao OGN]`.
 
 ## Faltas
 
-Quarta secção (15/09/2026, fim da tarde): **o que falta, por edição, em três
-blocos** — *"quero as faltas por edicao e dividido em 3 partes / Masterset /
-Alt Art / OverNumbered"*. Não é o separador antigo (esse era por raridade e
-passou a ser o «Quanto custa»); é uma secção própria, com a **carta em
-imagem** e o crachá a dizer **quantas faltam**.
+Quarta secção (15/09/2026, fim da tarde): **o que falta, por edição, em
+quatro blocos, cada um com a sua wantlist** — *"quero as faltas por edicao e
+dividido em 3 partes / Masterset / Alt Art / OverNumbered"* e, a 19/09,
+*"quero 4 wantlist: 1 so para o master set, 1 so para as Alt.Art, 1 so para
+as Overnumbered, uma so para as Promo (no caso SP)"*. Não é o separador
+antigo (esse era por raridade e passou a ser o «Quanto custa»); é uma secção
+própria, com a **carta em imagem** e o crachá a dizer **quantas faltam**.
 
 - Um botão por edição (o OGS entra) e «Todas», cada edição com **Master set**
   (a sequência, alvo do tipo — Unit/Spell/Gear 3, Legend e Battlefield 1,
-  runas numeradas 3), **Alt Art** (as artes alternativas, **a playset** desde
-  2026-09-18 — *"Alt Art para playset"* —; os decks nunca levantam este alvo;
-  **sem as das runas**, que saíram de tudo a 2026-09-17) e **OverNumbered**
-  (as sobrenumeradas, 1 de cada — *"overnumbered continua 1 de cada"*).
-  Cada bloco diz quantas faltam e quanto custa fechar; a edição soma os três.
+  runas numeradas 3), **OverNumbered** (as sobrenumeradas, 1 de cada —
+  *"overnumbered continua 1 de cada"*), **Alt Art** (as artes alternativas,
+  **a playset** desde 2026-09-18 — *"Alt Art para playset"* —; os decks nunca
+  levantam este alvo; **sem as das runas**, que saíram de tudo a 2026-09-17)
+  e **Promos** (as `VEN-SP`, **1 de cada** desde 2026-09-19). A ordem é a
+  **mesma da grelha da Coleção** (`master_set.ordem_dos_blocos`): muda-se num
+  sítio e muda nos dois. Cada bloco diz quantas faltam e quanto custa fechar;
+  a edição soma os quatro.
+- **Cada bloco tem a sua wantlist do Cardmarket**, por baixo das cartas — já
+  preenchida, com os três botões de sempre (copiar, com código, CSV) —, só
+  com o que há a **comprar**. São quatro por edição, separadas; a do master
+  set é **exactamente** a wantlist dessa edição no fim da Coleção. Na
+  consola: `py -m riftvault faltas --edicao OGN --bloco alt_art --cardmarket`
+  (blocos: `master`, `alt_art`, `overnumbered`, `special`).
 - **O que vem a caminho conta.** Uma carta já encomendada aparece a azul
-  tracejado, «a caminho», e **não soma** ao que há a comprar; uma parcialmente
-  coberta diz «1 a caminho · 2 por comprar».
-- **Ver não é comprar.** Só o **Master set** entra na wantlist do fim de cada
-  edição, na «Wantlist — tudo» e no texto do Cardmarket; Alt Art e
-  OverNumbered são para **ver** quantas faltam (*"apenas pedi para ser feito
-  track de playset para eu saber exatamente quantas tenho"*). O cabeçalho
-  diz as duas contas — «fechar os três blocos» e «a comprar». Para os meter
-  nas compras é **uma linha** no config: `listas_de_compra.so_master_set:
-  false` (a mesma que manda nas wantlists).
-- As promos `VEN-SP` **não estão** em nenhum dos três blocos (ele nomeou
-  três); o rodapé diz quantas ficaram de fora.
+  tracejado, «a caminho», **não soma** ao que há a comprar e não vai para a
+  wantlist do bloco; uma parcialmente coberta diz «1 a caminho · 2 por
+  comprar».
+- **A wantlist geral continua a ser só o master set.** A do fim de cada
+  edição da Coleção e a «Wantlist — tudo» não levam Alt Art, OverNumbered nem
+  Promos (*"apenas pedi para ser feito track de playset para eu saber
+  exatamente quantas tenho"*) — essas três compram-se, quando ele quiser,
+  pela wantlist **própria do bloco**. O cabeçalho diz as duas contas —
+  «fechar os quatro blocos» e «wantlist geral». Para meter os quatro na
+  geral é **uma linha** no config: `listas_de_compra.so_master_set: false`.
 
-`api/faltas_edicao.json`; na consola, `py -m riftvault faltas [--edicao OGN]`.
-A conta é a **mesma** da wantlist (`a_subir.masterset` + os locais + o
-pendente) — não há segunda implementação, só outra arrumação.
+`api/faltas_edicao.json`; na consola, `py -m riftvault faltas [--edicao OGN]
+[--bloco B] [--cardmarket]`. A conta é a **mesma** da wantlist
+(`a_subir.masterset` + os locais + o pendente) — não há segunda
+implementação, só outra arrumação.
 
 **As faltas dos decks não estão aqui.** As do master set estão também na
 **wantlist do fim de cada edição** da Coleção (`api/wantlist.json`) e as dos

@@ -9,8 +9,10 @@ SQLite, mesma arquitetura do `mtgvault`. Objetivo: ter **playsets**, incluindo
 artes normais **e** alternativas.
 
 Secções: **Coleção**, **Decks**, **Quanto custa**, **Faltas** (a quarta é de
-2026-09-15 ao fim da tarde — por edição, três blocos; id interno
-`faltas-edicao`, `api/faltas_edicao.json`, `faltas_edicao.py`) e **A mais**
+2026-09-15 ao fim da tarde — por edição, três blocos; **quatro desde
+2026-09-19, cada um com a sua wantlist** — ver a última secção deste
+ficheiro; id interno `faltas-edicao`, `api/faltas_edicao.json`,
+`faltas_edicao.py`) e **A mais**
 (2026-09-17 — o excedente acima do alvo e as cartas libertadas dos decks; id
 `a-mais`, `api/a_mais.json`, `a_mais.py` + `uso_decks.py`; ver a secção
 própria no fim deste ficheiro) e **Encomendas** (2026-09-17, à tarde — a
@@ -220,7 +222,7 @@ saber exatamente quantas tenho"*.
 | categoria | config | o que é | grelha | % e níveis | listas de compra |
 |---|---|---|---|---|---|
 | 1. master set | o resto | a sequência da edição | sim, alvo = playset do tipo (as runas numeradas do OGN a **3** desde 15/09 à tarde) | **sim** | **sim** |
-| 2. coleção extra | `master_set.fora_da_percentagem` = `["a", "overnumbered", "promo"]` | artes alternativas, sobrenumeradas, promos | sim — o alvo é **por categoria**, `master_set.um_de_cada` = `["overnumbered"]`: sobrenumeradas **1 de cada** (15/09), **artes alternativas a playset** (18/09 — *"muda novamente: Alt Art para playset"*; pediram 1 de 16/09 a 18/09) e **promos a playset** (18/09, mais tarde — *"as promos SP podes meter 3 de cada"*; pediram 1 de 15/09 a 18/09; ver a última secção deste ficheiro); **os decks nunca levantam este alvo** (17/09: os decks jogam a base, e a Legend/Champion uma versão especial) | não | **não** (15/09) |
+| 2. coleção extra | `master_set.fora_da_percentagem` = `["a", "overnumbered", "promo"]` | artes alternativas, sobrenumeradas, promos | sim — o alvo é **por categoria**, `master_set.um_de_cada` = `["overnumbered", "promo"]`: sobrenumeradas **1 de cada** (15/09), **artes alternativas a playset** (18/09 — *"muda novamente: Alt Art para playset"*; pediram 1 de 16/09 a 18/09) e **promos 1 de cada** (19/09 — *"as Promo passam a 1 de cada ao inves de playset"*; andaram playset 14/09 → 1 15/09 → playset 18/09 → 1 19/09; ver a última secção deste ficheiro); **os decks nunca levantam este alvo** (17/09: os decks jogam a base, e a Legend/Champion uma versão especial) | não | **não** (15/09) |
 | 3. escondidas | `master_set.escondidas` = `["-T", "*", "-R"]` | tokens, signatures e — desde 15/09 à tarde — as runas sem numeração de master set (`VEN-R01..R06`) | não | não | não |
 | 4. retiradas | `runas_especiais.retiradas` = `["a"]` (`metrics.retirada`) | as **runas em Alt Art** (`OGN-007a..214a`, e as `SFD/UNL/VEN-R0Xa` do CardTrader) — desde 17/09 | **não** | não | não — e **não contam no valor nem no playset jogável**, nem no A mais, nem no Pimp; os decks jogam a runa base (e desde a noite de 17/09 **não contam runa nenhuma** — ver «as runas saem da contagem dos decks», no fim deste ficheiro) |
 
@@ -2445,7 +2447,15 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   vault.db, semeada uma vez com o que ele tinha na mão (76), e os botões
   (só no 8770) escrevem lá e em mais lado nenhum; «na coleção: N» fica ao
   lado, em letra pequena, como referência. Medido: pôr os contadores a 99
-  ou a 0 não mexe em número nenhum. Ver a última secção deste ficheiro.
+  ou a 0 não mexe em número nenhum. Ver a penúltima secção deste ficheiro.
+- **Feito também:** as promos voltam a 1 de cada e o separador Faltas passa
+  a QUATRO blocos, cada um com a sua wantlist (2026-09-19, à noite) — o
+  `promo` voltou ao `master_set.um_de_cada`; o bloco «Promos» entra nas
+  Faltas pela ordem partilhada da Coleção (`master_set.ordem_dos_blocos`), e
+  por baixo de cada bloco há a caixa do Cardmarket só desse bloco
+  (`faltas_edicao.wantlist`, `riftvault faltas --edicao X --bloco B
+  --cardmarket`). A wantlist geral, o denominador, os níveis e o valor não
+  mexem. Ver a última secção deste ficheiro.
 - **Por fazer:** a parte 2 do seguir — o separador no site e a tarefa diária;
   vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck,
   com as partilhadas assinaladas); e apagar decks pela interface (hoje apaga-se
@@ -2950,7 +2960,9 @@ uma vista por raridade (`a_subir.quanto_custa`/`por_raridade`, o
 
 **As promos `VEN-SP` ficam de fora** — ele nomeou três e não as nomeou;
 `scope.fora` conta-as e a página diz «Fora deste separador: 6 promos». É
-pergunta para ele. Tokens, signatures e `VEN-R` continuam escondidos.
+pergunta para ele. (**Respondida a 2026-09-19**: *"uma so para as Promo"* —
+são o quarto bloco, com wantlist própria; ver a última secção deste
+ficheiro.) Tokens, signatures e `VEN-R` continuam escondidos.
 **O OGS entra**: o `quanto_custa.sem_edicoes` foi pedido para aquele
 separador («menos proving grounds», de manhã, quando eram faltas).
 
@@ -3848,6 +3860,10 @@ só o comentário. Suite: 32 ficheiros, 0 a falhar.
 
 ## 18/09/2026, mais tarde — as promos SP passam a playset (3 de cada); só as sobrenumeradas ficam a 1
 
+**REVOGADO a 2026-09-19** (*"as Promo passam a 1 de cada ao inves de
+playset"*) — durou um dia; ver a última secção deste ficheiro. O que se segue
+é como estava a 18/09.
+
 Palavras dele: *"as promos SP podes meter 3 de cada"*. É a resposta à dúvida
 da secção anterior (as promos tinham ficado a 1 com as sobrenumeradas por
 analogia com 15/09). Ramo `ai-pc/sp-playset-2026-09-18`; relatório em
@@ -3974,7 +3990,9 @@ ordem do catálogo `BLOCOS` (hoje só as runas especiais, vazias); um valor
 desconhecido rebenta. `BLOCOS` ficou como o CATÁLOGO dos blocos (ids e
 rótulos), não a ordem. **Só a ordem mexeu**: rótulos, alvos, contadores,
 percentagem e listas iguais. O separador Faltas tem a ordem própria dele
-(master set, Alt Art, OverNumbered — 15/09) e não lê isto.
+(master set, Alt Art, OverNumbered — 15/09) e não lê isto. (**Desde a noite
+de 2026-09-19 lê** — `faltas_edicao.blocos` corta esta lista aos quatro
+blocos dele; ver a última secção deste ficheiro.)
 
 **2. O bloco das runas — uma VISTA, não uma categoria.** `riftvault/
 runas_vista.py`, rota `/api/runas.json` (um ficheiro para as cinco edições —
@@ -4111,5 +4129,140 @@ entretanto — não é desta ordem; o 928 é o mesmo.) O que muda: o
 seria Body 2 · Calm 27 · Chaos 9 · Fury 4 · Mind 12 · Order 22 = 76** (a
 ordem falava em 74 com Fury 2 — ele meteu 2 Fury Rune desde a medição da
 manhã); a referência «na coleção» é igual nos quatro cenários. Suite: 33
+ficheiros, 0 a falhar.
+
+## 19/09/2026, à noite — quatro wantlists por edição (o bloco «Promos» nas Faltas, uma wantlist por bloco); as promos voltam a 1 de cada
+
+Palavras dele: *"as wantlist das edicoes, quero **4 wantlist**: 1 so para o
+master set, 1 so para as Alt.Art, 1 so para as Overnumbered, uma so para as
+Promo (no caso SP) — e as **Promo passam a 1 de cada** ao inves de playset"*.
+Ramo `ai-pc/quatro-wantlists-2026-09-19`; relatório em
+`ai-pc/work/revisao/riftvault-quatro-wantlists.md`.
+
+### 1. As promos voltam a 1 de cada — e o historial do alvo delas
+
+Uma palavra: o `"promo"` voltou a `master_set.um_de_cada`
+(`riftvault_config.json` e `config.DEFAULTS`), que fica `["overnumbered",
+"promo"]`. É o contrário exacto do merge `147ec02` de 18/09 (a secção
+«as promos SP passam a playset», acima, ficou marcada como revogada). As
+**Alt Art continuam no playset**. Os testes que fixavam as promos a 3 (de
+18/09) foram REPOSTOS à versão pré-`147ec02` — o teste é que estava velho,
+não o código — e ganharam o caso «tirar o `promo` da lista volta a pô-la ao
+playset».
+
+**O alvo das promos `VEN-SP` andou quatro vezes em cinco dias, e é aqui que
+fica escrito:**
+
+| data | alvo | frase |
+|---|---|---|
+| 2026-09-14, à noite | playset (3) | *"Alt Art, overnumbered, etc etc mete Playset na contagem"* |
+| 2026-09-15 | **1** | *"overnumbered e promos (SP) voltamos a 1 de cada"* |
+| 2026-09-18, de manhã | playset (3) | *"as promos SP podes meter 3 de cada"* (merge `147ec02`) |
+| 2026-09-19, à noite | **1** | *"as Promo passam a 1 de cada ao inves de playset"* (esta ordem) |
+
+O mecanismo é sempre o mesmo — a palavra na lista — e é por isso que cada
+ida e volta é um commit pequeno. Se voltar a mudar, é aqui que se acrescenta
+uma linha.
+
+### 2. O quarto bloco nas Faltas, e uma wantlist por bloco
+
+**O que havia ATÉ AQUI, para não se inventar história:** o separador Faltas
+tinha TRÊS blocos (Master set, Alt Art, OverNumbered — 15/09), com a ordem
+cravada no `faltas_edicao.BLOCOS`, as promos de fora (`scope.fora`, «Fora
+deste separador: 6 promos» — a pergunta de 15/09) e **nenhuma wantlist por
+bloco** — os itens já levavam os campos do gerador do Cardmarket
+(`market_name`, `v`, …) desde 15/09, mas só o bloco `master` os usava, e
+indirectamente, pela wantlist do fim de cada edição da Coleção. A ordem de
+19/09 chegou a dizer que cada bloco «já tinha a sua wantlist desde 16/09»;
+não tinha — fica no relatório.
+
+**O que passou a haver:**
+
+- **Quatro blocos**, o catálogo em `faltas_edicao.BLOCO_LABEL` (`master`
+  «Master set», `alt_art` «Alt Art», `overnumbered` «OverNumbered»,
+  `special` «Promos»); `bloco_das_faltas` manda a promo para `special`.
+  `scope.fora` fica vazio (só uma variante nova cairia lá).
+- **A ordem é a da Coleção**: `faltas_edicao.blocos(cfg)` corta
+  `metrics.ordem_dos_blocos(cfg)` (`master_set.ordem_dos_blocos`) aos
+  quatro ids — hoje master set, sobrenumeradas, alt art, promos. Ele muda
+  num sítio e muda nos dois. Na mensagem de 19/09 enumerou «master set,
+  Alt.Art, Overnumbered, Promo» — leu-se como a ordem de quem enumera, não
+  como pedido de ordem diferente; se ele quiser a outra, é a lista do config.
+- **Uma wantlist do Cardmarket por bloco e por edição**, por baixo dos
+  tiles: `faltas_edicao.wantlist(con, set_id, bloco, com_codigo)` em Python
+  (o texto sai do `cardmarket.gerar`, o gerador único), o resumo
+  `blocks[].wantlist` (`lines/copies/cents/foil`) no payload, e no `app.js`
+  o `feWantlistHTML`/`feWantlistItens` com a caixa `cmZonaHTML` já
+  preenchida, os três botões de sempre e o CSV
+  `riftvault-faltas-<SET>-<bloco>-<data>.csv`. Só o que há a **comprar**
+  (`missing > 0`) — o que vem a caminho está nos tiles, marcado, e não vai
+  para o Cardmarket, como na wantlist da Coleção. **A do bloco `master` é,
+  texto a texto, a wantlist dessa edição da Coleção** (`a_subir.wantlist`)
+  — há teste. Na CLI: `riftvault faltas --edicao OGN --bloco alt_art
+  --cardmarket [--codigos]` (stdout colável, resumo no stderr);
+  `--bloco` sozinho filtra a listagem.
+- **A wantlist GERAL não cresce.** `in_lists` continua a vir de
+  `listas_de_compra.so_master_set`: a do fim de cada edição da Coleção, a
+  «Wantlist — tudo» e o `totals_lists` são só o master set — *"acompanhar
+  não é querer comprar"* (15/09) continua a valer para as listas gerais; o
+  que 19/09 acrescenta é que cada bloco extra se compra, quando ele quiser,
+  pela lista própria. A nota da Coleção aponta às outras três
+  (`<a href="#faltas-edicao">Faltas</a>`) e o cabeçalho das Faltas passou de
+  «só para ver» a «wantlist própria», com «Fechar os quatro blocos» e
+  «Wantlist geral».
+
+**Medido a 2026-09-19 contra cópias (`ai-pc/work/revisao/_medir_quatro_wantlists.py`),
+`main` (`854d92f`) e ramo na mesma corrida, cada lado a ler o SEU config —
+os invariantes NÃO mexem:** denominador **928**, níveis **896/835/766 de 928
+= 96,6 / 90,0 / 82,5 %** (faltam 32/123/283 · 79,37/408,68/965,28 €),
+wantlist «tudo» **162 linhas · 283 cópias · 965,28 €** (OGN 391,70 · OGS
+16,93 · SFD 265,01 · UNL 266,48 · VEN 25,16), valor **6 239,64 € · 2 564
+cópias**, falta dos decks **10 cópias · 4 cartas · 216,30 €**, compras,
+Encomendas (0), os grupos por edição (310/24/251/238/203), os blocos da
+grelha menos o das promos, e as wantlists dos três blocos que já existiam
+(iguais linha a linha). (Os números diferem dos da secção anterior porque
+ele meteu cartas entretanto — não é desta ordem; o 928 é o mesmo.)
+
+**As quatro wantlists, depois (linhas · cópias · €; «só foil» = linhas com
+oferta só em foil no CardTrader):**
+
+| edição | master set | OverNumbered | Alt Art | Promos |
+|---|---|---|---|---|
+| OGN | 81 · 147 · 391,70 € (34 só foil) | 6 · 6 · 595,96 € | 23 · 50 · 308,67 € | — |
+| OGS | 13 · 13 · 16,93 € | — | — | — |
+| SFD | 33 · 60 · 265,01 € | 23 · 23 · 1 702,89 € | 24 · 56 · 233,50 € | — |
+| UNL | 24 · 40 · 266,48 € | 8 · 8 · 2 709,07 € | 30 · 70 · 590,28 € | — |
+| VEN | 11 · 23 · 25,16 € | 26 · 26 · 3 126,37 € | 18 · 40 · 158,12 € | **2 · 2 · 56,79 €** (`VEN-SP2` Sona 26,40 €, `VEN-SP6` Lux 30,39 €) |
+| **total** | **162 · 283 · 965,28 €** (= a wantlist «tudo») | 63 · 63 · 8 134,29 € | 95 · 216 · 1 290,57 € | 2 · 2 · 56,79 € |
+
+Fora do master set, quase tudo só tem oferta foil (as 63 sobrenumeradas, as
+95 alt arts e as 2 promos, todas) — é a ressalva do `from_foil` de sempre.
+
+**O que mexe:** os seis tiles das promos passam de «N/3» a «N/1» (tem
+`SP1` 1, `SP3` 1, `SP4` 1, `SP5` **2**, `SP2` e `SP6` 0); o bloco «Coleção —
+promos» passa de «playset · tens 4 de 6 · 0 no playset completo» a «1 de
+cada · tens 4 de 6» (`done` 0 → 4, `max_target` 3 → 1); o separador Faltas
+passa de 3 a 4 blocos, «fechar» de **320 impressões · 562 cópias ·
+10 390,14 €** para **322 · 564 · 10 446,93 €** (as 2 promos a faltar; a
+ordem dos blocos muda, os totais dos outros três não), «a comprar» igual
+(162 · 283 · 965,28 €); **e o «A mais» sobe 1 cópia: 130 → 131 (VEN 3 → 4)**
+— a `VEN-SP5` Ezreal, Prodigy que ele tem a 2 com alvo agora 1. A ordem
+dizia que o A mais não mexia, contando com «duas delas a 1 cópia»; ele tem
+hoje quatro com pelo menos uma e a SP5 a 2, e a regra do excedente
+(`cópias − max(usadas, alvo)`, 17/09) é a mesma que a 18/09 tirou a
+`SFD-177a` do A mais quando o alvo subiu — agora entra a SP5 quando desce.
+Não é um número novo, é o alvo a mudar; fica no relatório.
+
+`tests/test_faltas_nova.py` reescrito (27 testes, contra cópias e config
+temporário): os quatro blocos pela ordem da Coleção e a ordem a vir do
+config; a promo com 0 falta 1, com 1 está completa, com 2 não é a mais aqui;
+com o `promo` fora do `um_de_cada` volta a pedir 3; cada bloco tem a sua
+wantlist e só a sua (ids, quantidades, euros, texto = `cardmarket.linha`
+linha a linha); a do master set é a da Coleção (texto, com e sem código); o
+que vem a caminho não vai para a wantlist do bloco; as três extra não fazem
+crescer a geral; bloco/edição desconhecidos rebentam; a CLI escreve a do
+bloco e recusa `--cardmarket` sem `--bloco`; o `app.js` desenha uma caixa
+por bloco e a Coleção aponta às outras. Os oito ficheiros de testes que
+`147ec02` tinha ajustado voltaram atrás com o historial. Suite: 33
 ficheiros, 0 a falhar.
 
