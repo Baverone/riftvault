@@ -2456,7 +2456,13 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   por baixo de cada bloco há a caixa do Cardmarket só desse bloco
   (`faltas_edicao.wantlist`, `riftvault faltas --edicao X --bloco B
   --cardmarket`). A wantlist geral, o denominador, os níveis e o valor não
-  mexem. Ver a última secção deste ficheiro.
+  mexem. Ver a penúltima secção deste ficheiro.
+- **Feito também:** sai o deck do Kennen, outra vez (2026-09-20) — `git rm
+  decks/kennen.txt`; ficam **três decks**: Ornn, Azir e LeBlanc Baited Hook.
+  Com ele sai a falta da Legend `VEN-197/166` (210,63 €), que era quase toda
+  a falta dos decks; as «Libertadas» do A mais apanharam as 30 cartas · 54
+  cópias (mais 2 runas · 12 fora, por `a_mais.sem_runas`). Ver a última
+  secção deste ficheiro.
 - **Por fazer:** a parte 2 do seguir — o separador no site e a tarefa diária;
   vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck,
   com as partilhadas assinaladas); e apagar decks pela interface (hoje apaga-se
@@ -4342,4 +4348,73 @@ os tiles da grelha impressão a impressão, os grupos por edição
 que deixa de existir, e os três ficheiros estáticos (`app.js`,
 `index.html`, `style.css`). Suite: 34 ficheiros (`test_top5` saiu,
 `test_precos_ingles` e `test_sem_quanto_custa` entraram), 0 a falhar.
+
+## 20/09/2026 — sai o deck do Kennen, outra vez (ficam três: Ornn, Azir, LeBlanc Baited Hook)
+
+Palavras dele: *"retira o deck de kennen, fica apenas deck de Azir, Ornn e
+Leblanc Hook"*. Ramo `ai-pc/sem-kennen-2026-09-20`; relatório em
+`ai-pc/work/revisao/riftvault-sem-kennen.md`.
+
+**É a segunda vez.** A 17/09 saíram o Kennen e o LeBlanc sem `Nome:` (merge
+`fd79bbc`); nessa noite o Kennen voltou com a lista «Koko's Kennen Post Ban»
+(`dd1016b`, prioridade 4). Hoje sai de novo, pelo mesmo caminho: o
+`decks/kennen.txt` **estava versionado** (`git ls-files decks/`), por isso foi
+`git rm` + commit — **`393e6f0`** no ramo. Recupera-se com `git checkout
+393e6f0~1 -- decks/kennen.txt` e uma importação (o `serve` relê a pasta
+sozinho; o `build` e o CLI importam sempre); volta com prioridade nova (para o
+fim), porque a prioridade vivia na tabela `decks` e essa linha saiu.
+
+**A base de dados não se tocou à mão, e confirmou-se que continua a não ser
+preciso**: o `decks.import_all` apaga as linhas de `decks`/`deck_cards` do
+slug sem ficheiro (`removed: ['kennen']`, 32 `need_changes`) e o
+`uso_decks.registar` escreve **32 linhas** no `deck_need_log` (243 → 275
+eventos), uma descida a 0 por carta, com o rótulo guardado. A
+`copy_locations` está vazia (nada sleevado marcado). O `deck_need_log` não se
+limpa — é o que o «A mais» lê.
+
+**O que isto fecha:** a Legend do Kennen em versão especial (`VEN-197/166`
+Heart of the Tempest, a sobrenumerada, **210,63 €**) era 97 % da falta dos
+decks e a pergunta «vale a pena comprá-la?» estava em aberto desde 17/09.
+Deixou de ser preciso decidir.
+
+**Medido a 2026-09-20 contra cópias (`C:\Users\Catarina\_revisao\_medir_sem_kennen.py`),
+`main` (`8ac19b8`, 4 decks) e ramo (3 decks) na mesma corrida, cada lado com
+a SUA pasta `decks/` — os invariantes NÃO mexem:** denominador **928**, níveis
+**896/835/766 de 928 = 96,6 / 90,0 / 82,5 %** (faltam 32/123/283 ·
+80,28/415,97/977,14 €), wantlist «tudo» **162 linhas · 283 cópias ·
+977,14 €** (OGN 406,17 · OGS 16,92 · SFD 265,01 · UNL 265,52 · VEN 23,52),
+valor **6 249,45 € · 2 564 cópias**, Encomendas **0**, o separador Faltas
+inteiro (fechar os quatro blocos 322 · 564 · 10 723,90 €; a comprar 162 ·
+283 · 977,14 €) e as **quatro wantlists por edição** (as 20 combinações
+edição × bloco, linha a linha), os grupos por edição (310/24/251/238/203).
+Os euros diferem dos da secção de 19/09 só pelo `8ac19b8 preços:
+2026-09-20` desta manhã — as 2 564 cópias são as mesmas, nenhuma carta
+entrou ou saiu.
+
+**O que mexe:**
+
+| | antes (4 decks) | depois (3 decks) |
+|---|---|---|
+| falta dos decks | **10 cópias · 4 cartas · 216,30 €** (especiais 1 · 1 · 210,63 €) · 7 disputadas | **7 · 3 · 5,39 €** (especiais 0) · 5 disputadas |
+| A mais — excedente | 65 impressões · 131 cópias | **65 · 132** (`OGN-224` Salvage: tem 5, alvo 3, usadas 4 → 3, a mais 1 → **2**) |
+| A mais — libertadas | 37 cartas · 68 cópias | **67 · 122** (+30 · +54, todas do Kennen) |
+| A mais — runas fora (`scope.runas`) | excedente 6 · 29; libertadas 2 · 12 | excedente igual; libertadas **4 · 24** (+9 Chaos Rune, +3 Order Rune) |
+| Pimp | 9 cartas · 10 impressões · 734,46 € · 6 feitas | **5 · 5 · 195,71 € · 5 feitas** |
+| Staples | 3 | 3 |
+
+Carta a carta na falta dos decks: o Kennen levava **1× Heart of the Tempest
+`VEN-197/166` (210,63 €, a Legend em sobrenumerada) e 2× Decree of Unity
+`VEN-131` (0,28 €)** — 3 cópias · 210,91 €. Ficam 1× Defy (Ornn), 3× Defy
+(Azir), 2× Decree of Unity e 1× Decree of Insight (LeBlanc BH): 7 cópias ·
+5,39 €. 216,30 − 210,91 = 5,39 ✓.
+
+As libertadas do Kennen são as 32 cartas · 66 cópias da lista, menos as 2
+runas (9 Chaos + 3 Order = 12 cópias) que o `a_mais.sem_runas` tira e conta
+em `scope.runas`: **30 cartas · 54 cópias** nos tiles. Só duas ainda são
+pedidas por outro deck (Decree of Unity: Azir 3 · LeBlanc BH 2; Salvage: Azir
+2 · LeBlanc BH 1); as outras 28 dizem «ainda: ninguém».
+
+**Nenhum teste precisou de ajuste** — nenhum lê a pasta `decks/` real; os
+`Kennen` do `test_seguir.py` são o deck do koko_lopez nas fixtures do
+Piltover Archive. Suite: 34 ficheiros, 0 a falhar, na worktree e no `main`.
 
