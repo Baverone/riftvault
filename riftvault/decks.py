@@ -99,17 +99,36 @@ A ORDEM DOS DECKS ESCREVE-SE NO CONFIG (2026-09-21)
     importação seguinte. Sem lista, vale o que valia: a prioridade guardada
     na base, os decks novos para o fim.
 
-A EXPERIÊNCIA DO POOL PRÓPRIO (2026-09-21, `decks.modo = "pool_proprio"`)
-    André: *"quero que a coleccao fique sempre imaculada, nada sai da
-    coleccao; os decks, todos partilham as mesmas cartas, mas nao usam
-    absolutamente nada da coleccao; so jogam com versoes base"*. Atrás de UMA
-    chave do config, reversível: com `pool_proprio` a REGRA CENTRAL de cima
-    não se aplica — os decks montam-se só do local `pool-decks`, o pool
-    precisa do MÁXIMO por carta entre todos os decks (não a soma; main e
-    sideboard somam dentro do mesmo deck), tudo em versão base (a Legend e o
-    Champion também), e a Coleção não sabe que há decks. `allocate` devolve a
-    mesma forma de sempre, calculada pelo `pool.py`; `modo()` diz em que modo
-    se está. Com `coleccao` (a omissão) fica tudo como está descrito acima.
+SÓ VERSÕES BASE, A LEGEND E O CHAMPION INCLUÍDOS (2026-09-21, `decks.so_base`)
+    A última coisa que ele disse sobre versões, e mantém-se: com `so_base:
+    true` (a omissão) um lugar de deck só se serve da base não sobrenumerada
+    — sem alt art, sem sobrenumeradas, sem promos, sem assinadas, sem o
+    recurso a «o que houver de não-assinado» — e a regra de 2026-09-17 da
+    Legend/Champion numa versão especial NÃO se aplica. Com `false` o que
+    está escrito em «QUE VERSÃO JOGA CADA LUGAR» volta a valer, tal e qual —
+    é a única chave a mexer (`so_base()`, `versoes_dos_decks`).
+
+CADA DECK TEM AS SUAS CÓPIAS PRÓPRIAS (2026-09-21, `proprias.py`)
+    André: *"voltamos aos decks usarem a coleccao, mas cada deck precisa de
+    ter as cartas proprias; colocas em cada deck o + e - para eu dizer se
+    afinal tenho ou nao; estas copias que eu coloco nos decks nao sao para
+    adicionar a coleccao"*. Cada deck tem um monte à parte, no local
+    `proprio:<slug>` (`locais.proprias`), que a Coleção NÃO conhece: não
+    conta para os níveis, o denominador, as Faltas, as wantlists, as
+    Encomendas, o A mais, o valor nem o playset jogável. São daquele deck e só
+    daquele; servem PRIMEIRO (antes do que está sleevado, do binder e da
+    Coleção), por isso meter próprias LIBERTA o que o deck usava da Coleção;
+    `faltam = precisa − próprias − o que a Coleção lhe alocou`. No `allocate`
+    são uma passagem prévia por membro (`proprias`, `proprias_em`,
+    `proprias_fora`), e o `alloc` de cada deck inclui-as. Os decks NÃO
+    partilham cartas entre si: o que os seis precisam é a SOMA (dentro do
+    mesmo deck main e sideboard somam), com a excepção de sempre dos decks
+    com a mesma Legend (acima), que hoje não tem caso.
+
+    (A EXPERIÊNCIA DO POOL PRÓPRIO — `decks.modo = "pool_proprio"`, um pool
+    único partilhado por todos os decks, fora da Coleção — durou a manhã de
+    2026-09-21 e acabou com a frase de cima. O `modo` só aceita `coleccao`;
+    escrever `pool_proprio` rebenta com a razão.)
 """
 
 from __future__ import annotations
@@ -546,29 +565,39 @@ def aplicar_ordem(con: sqlite3.Connection, cfg: dict | None = None,
             "nao_encontrados": nao_encontrados, "fora_da_lista": fora}
 
 
-# A EXPERIÊNCIA DO POOL PRÓPRIO (2026-09-21): `decks.modo`. `coleccao` é o
-# modelo de sempre (os decks servem-se da Coleção, a Legend/Champion em versão
-# especial, alocação por prioridade); `pool_proprio` é o pool à parte, só
-# base, máximo entre decks — ver `pool.py`. Um valor desconhecido rebenta,
-# como as listas do `master_set`: uma palavra mal escrita não pode ligar nem
-# desligar a experiência em silêncio.
+# `decks.modo`: só `coleccao` — os decks servem-se da Coleção por prioridade e
+# cada um tem as suas cópias próprias (`proprias.py`). O valor `pool_proprio`
+# foi a experiência de 2026-09-21 de manhã (um pool único, partilhado, fora da
+# Coleção) e acabou nesse dia: rebenta com a razão, em vez de ligar em
+# silêncio um modelo que já não existe. Um valor desconhecido rebenta também,
+# como as listas do `master_set`.
 MODO = "modo"
 MODO_COLECAO = "coleccao"
-MODO_POOL = "pool_proprio"
-MODOS = (MODO_COLECAO, MODO_POOL)
+MODO_POOL_ACABOU = "pool_proprio"
+MODOS = (MODO_COLECAO,)
+SO_BASE = "so_base"
 
 
 def modo(cfg: dict | None = None) -> str:
-    """`decks.modo`: `coleccao` (a omissão) ou `pool_proprio`."""
+    """`decks.modo`: `coleccao`, e só isso."""
     valor = _opcoes_decks(cfg).get(MODO) or MODO_COLECAO
+    if valor == MODO_POOL_ACABOU:
+        raise ValueError(
+            f"decks.{MODO} = {valor!r}: a experiência do pool próprio acabou a "
+            f"2026-09-21 (André: 'voltamos aos decks usarem a coleccao, mas cada "
+            f"deck precisa de ter as cartas proprias') — escreve 'coleccao'; as "
+            f"cópias de cada deck vivem agora em proprio:<slug> (proprias.py)")
     if valor not in MODOS:
         raise ValueError(f"decks.{MODO}: valor desconhecido {valor!r} (aceita {MODOS})")
     return valor
 
 
-def pool_proprio(cfg: dict | None = None) -> bool:
-    """Está ligada a experiência do pool próprio dos decks?"""
-    return modo(cfg) == MODO_POOL
+def so_base(cfg: dict | None = None) -> bool:
+    """`decks.so_base` (2026-09-21): os decks jogam SÓ versões base — a
+    Legend e o Champion incluídos. `True` por omissão. Valida o `modo` de
+    caminho, para um config que ainda diga `pool_proprio` rebentar aqui."""
+    modo(cfg)
+    return bool(_opcoes_decks(cfg).get(SO_BASE, True))
 
 
 def contar_runas(cfg: dict | None = None) -> bool:
@@ -734,17 +763,19 @@ def versoes_dos_decks(con: sqlite3.Connection, cfg: dict | None = None) -> Verso
     Especial = o que `decks.versoes_especiais` disser (alt art, sobrenumerada,
     promo). Signature e retiradas ficam de fora das duas listas.
 
-    Com o pool próprio (`decks.modo = "pool_proprio"`, 2026-09-21) é SÓ A
-    BASE: sem versões especiais (a Legend e o Champion jogam a base — a regra
-    de 2026-09-17 não se aplica), sem «outras» a tapar buracos, e sem o
-    recurso a «o que houver de não-assinado» — uma carta sem base fica sem
-    impressão nenhuma, e é isso que `pool.sem_base` diz.
+    Com `decks.so_base: true` (2026-09-21, a omissão) é SÓ A BASE: sem
+    versões especiais (a Legend e o Champion jogam a base — a regra de
+    2026-09-17 não se aplica, esteja o que estiver em `so_normais_excepto`),
+    sem «outras» a tapar buracos, e sem o recurso a «o que houver de
+    não-assinado» — uma carta sem base fica sem impressão nenhuma, e a
+    página do deck diz-o (`sem_base`). Com `false` vale o parágrafo de cima.
     """
     from . import metrics
 
     cfg = cfg or config.load()
     retiradas = metrics.retiradas_ids(con, cfg)
-    if pool_proprio(cfg):
+    base_only = so_base(cfg)
+    if base_only:
         kinds, over = frozenset(), False
     else:
         kinds, over = kinds_especiais(cfg)
@@ -772,9 +803,9 @@ def versoes_dos_decks(con: sqlite3.Connection, cfg: dict | None = None) -> Verso
             restantes.setdefault(r["card_key"], []).append(r)
     # Sem impressão normal nenhuma, o lugar normal aceita o que houver de
     # não-assinado (as promo de runa `VEN-R`, por exemplo): um deck nunca pede
-    # uma compra impossível. No pool próprio não: é só a base, e uma carta sem
+    # uma compra impossível. Com `so_base` não: é só a base, e uma carta sem
     # base diz-se em vez de se tapar com outra coisa.
-    if not pool_proprio(cfg):
+    if not base_only:
         for ck, rs in restantes.items():
             if ck not in normais:
                 normais[ck] = rs
@@ -787,7 +818,7 @@ def versoes_dos_decks(con: sqlite3.Connection, cfg: dict | None = None) -> Verso
          for ck, rs in normais.items()},
         {ck: [r["printing_id"] for r in sorted(rs, key=por_preco)]
          for ck, rs in especiais.items()},
-        retiradas, frozenset() if pool_proprio(cfg) else papeis_especiais(cfg), linha_de)
+        retiradas, frozenset() if base_only else papeis_especiais(cfg), linha_de)
 
 
 def cartas_especiais(con: sqlite3.Connection, deck_id: int,
@@ -817,18 +848,8 @@ def owned_by_card(con: sqlite3.Connection) -> dict[str, int]:
     versoes = versoes_dos_decks(con)
     # As runas não se contam nos decks (2026-09-17, à noite).
     nao_contadas = cartas_nao_contadas(con)
-    # Com o pool próprio (2026-09-21) só as cópias que estão NO POOL servem os
-    # decks — a Coleção não entra.
-    if pool_proprio():
-        from . import locais
-
-        no_pool = locais.no_pool(con)
-        out: dict[str, int] = {}
-        for pid, n in no_pool.items():
-            r = versoes.linha_de.get(pid)
-            if r is not None and versoes.serve(r) and r["card_key"] not in nao_contadas:
-                out[r["card_key"]] = out.get(r["card_key"], 0) + n
-        return out
+    # As cópias próprias dos decks (2026-09-21) estão no `copies` como as
+    # outras: contam aqui — servem decks —, embora só o deck delas.
     out = {}
     for r in con.execute(
         "SELECT p.printing_id, p.card_key, c.qty FROM copies c "
@@ -840,8 +861,12 @@ def owned_by_card(con: sqlite3.Connection) -> dict[str, int]:
 
 
 def pool_dos_decks(con: sqlite3.Connection) -> dict:
-    """Os três montes de onde um deck se monta, POR IMPRESSÃO.
+    """Os montes de onde um deck se monta, POR IMPRESSÃO.
 
+      `proprias[slug][printing_id]` — as cópias PRÓPRIAS daquele deck
+                                  (2026-09-21, `proprio:<slug>`): servem-no
+                                  primeiro, a ele e a mais nenhum, e a Coleção
+                                  não as conhece.
       `fixo[slug][printing_id]` — o que já está sleevado NAQUELE deck. Não
                                   anda: é daquele deck e de mais nenhum.
       `binder[printing_id]`     — o binder Decks/Venda, o stock livre dos decks.
@@ -863,13 +888,10 @@ def pool_dos_decks(con: sqlite3.Connection) -> dict:
     from . import locais
 
     return {
+        "proprias": {slug: dict(mapa) for slug, mapa in locais.proprias(con).items()},
         "fixo": {slug: dict(mapa) for slug, mapa in locais.por_deck(con).items()},
         "binder": dict(locais.em(con, locais.BINDER)),
         "colecao": dict(locais.na_colecao(con)),
-        # O pool próprio (2026-09-21): só o `pool.py` o lê, e só em modo
-        # `pool_proprio`; no modo `coleccao` está aqui para se ver, e ninguém
-        # se serve dele.
-        "pool": dict(locais.no_pool(con)),
     }
 
 
@@ -1109,22 +1131,21 @@ def allocate(con: sqlite3.Connection) -> dict:
     soma totais de todos os decks lê só as entradas com `grupo.lider`, senão
     conta o grupo uma vez por membro.
 
-    COM O POOL PRÓPRIO (`decks.modo = "pool_proprio"`, 2026-09-21) nada disto
-    se aplica: os decks não se servem da Coleção, do binder nem do que vem a
-    caminho — só do pool —, e é o `pool.alocacao` que responde, na MESMA
-    forma (por deck, com `grupo`), para quem lê isto não ter de saber do
-    modo: `alloc` é o que o pool dá a este deck, `missing` o que lhe falta
-    face ao pool inteiro (os decks não se consomem uns aos outros), `shared`,
-    `a_caminho`, `no_deck`/`no_binder`/`na_colecao` e tudo o que é «versão
-    especial» ou «outra» vem vazio, e o `grupo` (com `lider` só no primeiro
-    deck) traz o resultado do pool inteiro — o máximo por carta.
+    AS CÓPIAS PRÓPRIAS DE CADA DECK SERVEM PRIMEIRO (2026-09-21). Antes dos
+    quatro montes, cada MEMBRO serve-se do seu `proprio:<slug>` — só ele, e
+    pela mesma ordem de lugares (especial, base, outras) —, e é o que sobrar
+    que vai ao grupo: `need` do grupo é o máximo do que cada membro ainda
+    pede DEPOIS das próprias. Por membro sai `proprias` (por carta, o que
+    elas cobriram — está dentro do `alloc`), `proprias_em` (por impressão,
+    dentro do `versoes_em`, marcado `propria`) e `proprias_fora` (as que não
+    servem este deck: outra versão com `so_base`, uma carta que a lista não
+    pede, ou acima do que pede). Meter próprias LIBERTA o que o deck usava
+    da Coleção, porque a Coleção só se serve a seguir. O `grupo` leva
+    `proprias` (a soma dos membros, por carta) e `impressoes_proprias`, à
+    parte dos três montes da Coleção — quem lê `impressoes` para saber o que
+    os decks tiram à Coleção não as vê, e é assim que deve ser.
     """
     from . import pending
-
-    if pool_proprio():
-        from . import pool
-
-        return pool.alocacao(con)
 
     # Os montes vêm POR IMPRESSÃO (2026-09-17) e cada grupo serve-se só das
     # impressões que a regra lhe dá (`Versoes.joga`): as normais nos lugares
@@ -1133,6 +1154,7 @@ def allocate(con: sqlite3.Connection) -> dict:
     p = pool_dos_decks(con)
     versoes = versoes_dos_decks(con)
     linha_de = versoes.linha_de
+    base_only = so_base()
     # As runas não se contam (2026-09-17, à noite): ficam fora do `need` e por
     # isso de tudo o que se segue — nem se alocam nem faltam.
     nao_contadas = cartas_nao_contadas(con)
@@ -1173,20 +1195,73 @@ def allocate(con: sqlite3.Connection) -> dict:
     for g in grupos(con):
         membros = [por_id[i] for i in g["deck_ids"]]
         needs = {d["deck_id"]: _need(con, d["deck_id"], nao_contadas) for d in membros}
-        # A procura do grupo: o MÁXIMO entre as listas, carta a carta. A
-        # alocação é por carta lógica, não por papel: uma carta que esteja no
-        # main e no sideboard disputa o mesmo stock.
-        need: dict[str, int] = {}
-        for nd in needs.values():
-            for ck, q in nd.items():
-                need[ck] = max(need.get(ck, 0), q)
         # As cartas que algum membro joga numa versão especial (a Legend e o
         # Champion) — e só as que TÊM versão especial no catálogo: sem ela a
         # carta joga-se na base e não há falta a inventar.
         especiais_de = {d["deck_id"]: cartas_especiais(con, d["deck_id"], versoes.papeis)
                         for d in membros}
-        need_especial = {ck: 1 for ck in set().union(*especiais_de.values())
-                         if ck in need and versoes.tem_especial(ck)}
+
+        # AS CÓPIAS PRÓPRIAS DE CADA MEMBRO SERVEM PRIMEIRO (2026-09-21). Só
+        # este membro, pela ordem dos lugares: o especial (se a própria for
+        # uma versão especial), a base, e outra versão que ele tenha. O que
+        # não servir fica em `proprias_fora`; o que sobrar da lista depois
+        # disto é o que o membro pede ao grupo (`needs_liq`).
+        prop_take: dict[int, dict[str, int]] = {}
+        prop_esp: dict[int, dict[str, int]] = {}
+        prop_versoes: dict[int, dict[str, list[dict]]] = {}
+        prop_fora: dict[int, dict[str, int]] = {}
+        needs_liq: dict[int, dict[str, int]] = {}
+        for d in membros:
+            monte = dict(p["proprias"].get(d["name"]) or {})
+            take_d: dict[str, int] = {}
+            esp_d: dict[str, int] = {}
+            vers_d: dict[str, list[dict]] = {}
+            for ck, qty in needs[d["deck_id"]].items():
+                servidas_p: list[dict] = []
+                n_esp = 1 if ck in especiais_de[d["deck_id"]] and versoes.tem_especial(ck) else 0
+                n_esp = min(n_esp, qty)
+                e = n = o = 0
+                if n_esp:
+                    reg: dict[str, int] = {}
+                    e = tirar(monte, versoes.especiais_de(ck), n_esp, reg)
+                    servidas_p += [{"id": pid, "qty": q, "lugar": "especial", "propria": True}
+                                   for pid, q in reg.items()]
+                reg = {}
+                n = tirar(monte, versoes.normais_de(ck), qty - n_esp, reg)
+                servidas_p += [{"id": pid, "qty": q, "lugar": "normal", "propria": True}
+                               for pid, q in reg.items()]
+                resto = qty - n_esp - n
+                if resto > 0:
+                    reg = {}
+                    o = tirar(monte, versoes.outras_de(ck), resto, reg)
+                    servidas_p += [{"id": pid, "qty": q, "lugar": "outra", "propria": True}
+                                   for pid, q in reg.items()]
+                if e + n + o:
+                    take_d[ck] = e + n + o
+                    vers_d[ck] = servidas_p
+                if e:
+                    esp_d[ck] = e
+            prop_take[d["deck_id"]] = take_d
+            prop_esp[d["deck_id"]] = esp_d
+            prop_versoes[d["deck_id"]] = vers_d
+            prop_fora[d["deck_id"]] = {pid: q for pid, q in monte.items() if q > 0}
+            needs_liq[d["deck_id"]] = {ck: qty - take_d.get(ck, 0)
+                                       for ck, qty in needs[d["deck_id"]].items()}
+
+        # A procura do grupo: o MÁXIMO entre as listas, carta a carta — do
+        # que cada membro ainda pede depois das suas próprias. A alocação é
+        # por carta lógica, não por papel: uma carta que esteja no main e no
+        # sideboard disputa o mesmo stock. Uma carta toda coberta por
+        # próprias não se pede ao grupo (e a Coleção não a vê usada).
+        need: dict[str, int] = {}
+        for nd in needs_liq.values():
+            for ck, q in nd.items():
+                need[ck] = max(need.get(ck, 0), q)
+        need = {ck: q for ck, q in need.items() if q > 0}
+        # O lugar especial do grupo: só dos membros cuja própria não o cobriu.
+        need_especial = {ck: 1 for d in membros for ck in especiais_de[d["deck_id"]]
+                         if ck in need and versoes.tem_especial(ck)
+                         and not prop_esp[d["deck_id"]].get(ck)}
         # O que está sleevado em qualquer dos membros é do grupo: é o mesmo
         # deck físico com duas listas.
         fixo: dict[str, int] = {}
@@ -1317,30 +1392,50 @@ def allocate(con: sqlite3.Connection) -> dict:
         # `alloc_outras` é a parte do `alloc` que tapou um lugar normal com
         # outra versão (2026-09-17, tarde), e `versoes_em` reparte o `alloc`
         # inteiro por impressão, para a vista do deck separar as artes.
+        # As próprias de todos os membros, por carta e por impressão — à
+        # parte dos três montes da Coleção (`impressoes`), de propósito.
+        g_proprias: dict[str, int] = {}
+        g_impr_proprias: dict[str, int] = {}
+        for i in prop_take:
+            for ck, n in prop_take[i].items():
+                g_proprias[ck] = g_proprias.get(ck, 0) + n
+            for vs in prop_versoes[i].values():
+                for x in vs:
+                    g_impr_proprias[x["id"]] = g_impr_proprias.get(x["id"], 0) + x["qty"]
+
         resultado = {"alloc": alloc, "no_deck": no_deck, "no_binder": no_binder,
                      "na_colecao": na_colecao, "a_caminho": a_caminho,
                      "missing": missing, "shared": shared, "need": need,
                      "impressoes": impressoes,
+                     "proprias": g_proprias, "impressoes_proprias": g_impr_proprias,
                      "need_especial": need_especial, "alloc_especial": alloc_especial,
                      "a_caminho_especial": a_caminho_especial,
                      "missing_especial": missing_especial, "especial_em": especial_em,
                      "alloc_outras": alloc_outras, "versoes_em": versoes_em}
 
         # Espalha-se pelos membros, cortado ao que CADA lista pede. As fontes
-        # repartem-se pela mesma ordem (deck, binder, Coleção); o `missing` de
-        # um membro é o máximo que o grupo ainda compra para aquela carta, e
-        # por isso igual nos dois quando pedem a mesma quantidade. O lugar
-        # especial só é do membro cuja lista o tem nesse papel.
+        # repartem-se pela mesma ordem (próprias, deck, binder, Coleção); o
+        # `missing` de um membro é o máximo que o grupo ainda compra para
+        # aquela carta, e por isso igual nos dois quando pedem a mesma
+        # quantidade. O lugar especial só é do membro cuja lista o tem nesse
+        # papel. As próprias do membro entram primeiro no `alloc` dele e
+        # descontam-se do que ele pede ao grupo.
         for d in membros:
             nd = needs[d["deck_id"]]
+            pt, pe, pv = prop_take[d["deck_id"]], prop_esp[d["deck_id"]], prop_versoes[d["deck_id"]]
             m_alloc, m_deck, m_binder, m_col, m_cam, m_miss, m_shared = {}, {}, {}, {}, {}, {}, {}
             m_need_e, m_alloc_e, m_cam_e, m_miss_e = {}, {}, {}, {}
-            m_alloc_o, m_versoes = {}, {}
+            m_alloc_o, m_versoes, m_prop, m_esp_em = {}, {}, {}, {}
             partilhada: dict[str, list[dict]] = {}
-            for ck, qty in nd.items():
-                n_esp = min(qty, need_especial.get(ck, 0)) if ck in especiais_de[d["deck_id"]] else 0
-                if n_esp:
-                    m_need_e[ck] = n_esp
+            for ck, qty_lista in nd.items():
+                prop = pt.get(ck, 0)
+                prop_e = pe.get(ck, 0)
+                # O que este membro pede ao grupo, depois das próprias.
+                qty = qty_lista - prop
+                e_papel = ck in especiais_de[d["deck_id"]] and versoes.tem_especial(ck)
+                n_esp = min(qty, need_especial.get(ck, 0)) if e_papel and not prop_e else 0
+                if e_papel and qty_lista:
+                    m_need_e[ck] = min(qty_lista, 1)
                 take_e = min(n_esp, alloc_especial.get(ck, 0))
                 enc_e = min(n_esp - take_e, a_caminho_especial.get(ck, 0))
                 falta_e = n_esp - take_e - enc_e
@@ -1353,22 +1448,33 @@ def allocate(con: sqlite3.Connection) -> dict:
                 db = min(take - dd, no_binder.get(ck, 0))
                 dc = take - dd - db
                 falta = qty - take - enc
-                if take_e:
-                    m_alloc_e[ck] = take_e
+                if take_e + prop_e:
+                    m_alloc_e[ck] = take_e + prop_e
                 if enc_e:
                     m_cam_e[ck] = enc_e
                 if falta_e:
                     m_miss_e[ck] = falta_e
-                # As impressões deste membro: as especiais cortadas ao lugar
-                # especial dele, e as normais + outras cortadas ao resto — a
-                # base serve-se primeiro, por isso as «outras» são as últimas
-                # a entrar e as primeiras a sair quando a lista pede menos.
-                fatias = _fatiar(versoes_em.get(ck, []), take_e, take_n)
+                # A versão especial que serve o lugar deste membro: a própria,
+                # se foi ela; senão a do grupo.
+                if prop_e:
+                    m_esp_em[ck] = next(x["id"] for x in pv[ck] if x["lugar"] == "especial")
+                elif n_esp and ck in especial_em:
+                    m_esp_em[ck] = especial_em[ck]
+                # As impressões deste membro: as próprias primeiro (pela
+                # ordem em que serviram), depois as especiais do grupo
+                # cortadas ao lugar especial dele, e as normais + outras
+                # cortadas ao resto — a base serve-se primeiro, por isso as
+                # «outras» são as últimas a entrar e as primeiras a sair
+                # quando a lista pede menos.
+                fatias = list(pv.get(ck, [])) + _fatiar(versoes_em.get(ck, []), take_e, take_n)
                 if fatias:
                     m_versoes[ck] = fatias
                 outras = sum(x["qty"] for x in fatias if x["lugar"] == "outra")
                 if outras:
                     m_alloc_o[ck] = outras
+                if prop:
+                    m_prop[ck] = prop
+                take += prop
                 if take:
                     m_alloc[ck] = take
                 if dd:
@@ -1392,22 +1498,44 @@ def allocate(con: sqlite3.Connection) -> dict:
 
             # O que está marcado NESTE deck e a lista dele já não pede — a
             # carta continua na caixa. Aparece para não desaparecer do ecrã.
-            proprio: dict[str, int] = {}
+            sleevado: dict[str, int] = {}
             for pid, n in (p["fixo"].get(d["name"]) or {}).items():
                 r = linha_de.get(pid)
                 # Uma runa sleevada no deck não é «a mais»: a lista pede-a, só
                 # não se conta.
                 if r is not None and versoes.serve(r) and r["card_key"] not in nao_contadas:
-                    proprio[r["card_key"]] = proprio.get(r["card_key"], 0) + n
-            sobra = {ck: n - min(n, nd.get(ck, 0)) for ck, n in proprio.items()
+                    sleevado[r["card_key"]] = sleevado.get(r["card_key"], 0) + n
+            sobra = {ck: n - min(n, nd.get(ck, 0)) for ck, n in sleevado.items()
                      if n - min(n, nd.get(ck, 0)) > 0}
+            # As próprias que NÃO servem este deck (2026-09-21): outra versão
+            # (com `so_base`), uma carta que a lista não pede, ou acima do que
+            # pede; uma runa própria não é «fora» — a lista pede-a, só não se
+            # conta. Dizem-se, com o motivo, em vez de desaparecer.
+            fora_p: dict[str, dict] = {}
+            for pid, n in prop_fora[d["deck_id"]].items():
+                r = linha_de.get(pid)
+                ck = r["card_key"] if r is not None else None
+                if ck is not None and ck in nao_contadas:
+                    continue
+                if r is None:
+                    motivo = "fora do catálogo"
+                elif ck not in nd:
+                    motivo = "a lista não a pede"
+                elif not versoes.serve(r):
+                    motivo = "não é versão base" if base_only else "não serve (assinada ou retirada)"
+                else:
+                    motivo = "acima do que a lista pede"
+                fora_p[pid] = {"qty": n, "card_key": ck, "motivo": motivo}
             out[d["deck_id"]] = {
                 "alloc": m_alloc, "no_deck": m_deck, "no_binder": m_binder,
                 "na_colecao": m_col, "a_caminho": m_cam, "missing": m_miss,
                 "shared": m_shared, "extra": sobra, "partilhada": partilhada,
+                # As cópias próprias deste deck (2026-09-21): por carta o que
+                # cobriram (já dentro do `alloc`), e as que não servem.
+                "proprias": m_prop, "proprias_fora": fora_p,
                 "need_especial": m_need_e, "alloc_especial": m_alloc_e,
                 "a_caminho_especial": m_cam_e, "missing_especial": m_miss_e,
-                "especial_em": {ck: especial_em[ck] for ck in m_need_e if ck in especial_em},
+                "especial_em": m_esp_em,
                 "alloc_outras": m_alloc_o, "versoes_em": m_versoes,
                 "grupo": {**resultado, "legend": g["legend"], "rotulo": g["rotulo"],
                           "membros": g["nomes"], "slugs": g["slugs"],
@@ -1431,10 +1559,11 @@ def uso_por_carta(con: sqlite3.Connection) -> dict[str, list[dict]]:
     pede, «LeBlanc ·· LeBlanc Baited Hook» se os dois —, `membros` lista-os, e
     `wanted`/`missing` são os do grupo (o máximo entre as listas).
 
-    Com o pool próprio (2026-09-21) a Coleção não sabe que há decks: vazio.
+    O que uma carta tem de cópias PRÓPRIAS do deck (2026-09-21) não é uso da
+    Coleção: `wanted` é o que o grupo ainda pede à Coleção depois delas, e
+    uma carta toda coberta por próprias não aparece — vai em `proprias`, só
+    para a grelha poder dizer «Azir 1 · 2 próprias».
     """
-    if pool_proprio():
-        return {}
     alloc = allocate(con)
     por_slug = {d["name"]: d for d in deck_rows(con)}
     fora = cartas_nao_contadas(con)
@@ -1451,6 +1580,8 @@ def uso_por_carta(con: sqlite3.Connection) -> dict[str, list[dict]]:
             for ck in _need(con, i, fora):
                 pedem.setdefault(ck, []).append(i)
         for ck, qty in g["need"].items():
+            if qty <= 0:
+                continue
             quem = [nomes[i] for i in pedem.get(ck, [])]
             out.setdefault(ck, []).append({
                 "deck": GRUPO_SEP.join(quem) if quem else g["rotulo"],
@@ -1458,6 +1589,7 @@ def uso_por_carta(con: sqlite3.Connection) -> dict[str, list[dict]]:
                 "priority": d["priority"], "wanted": qty,
                 "have": g["alloc"].get(ck, 0), "ordered": g["a_caminho"].get(ck, 0),
                 "missing": g["missing"].get(ck, 0),
+                "proprias": g["proprias"].get(ck, 0),
             })
     return out
 
@@ -1652,12 +1784,14 @@ def decks_index(con: sqlite3.Connection) -> list[dict]:
             # As runas que a lista pede e NÃO se contam: cópias e cartas
             # distintas, para o ecrã dizer «12 runas (3 cartas), à mão».
             "runas": {"copies": runas, "cards": n_runas, "contadas": not fora},
-            # De onde vem o que está alocado — os três somam o `have` (no
-            # pool próprio, 2026-09-21, é só o quarto).
+            # De onde vem o que está alocado — os quatro somam o `have`: as
+            # cópias próprias do deck (2026-09-21) primeiro, depois os três
+            # montes da Coleção.
+            "proprias": sum(a["proprias"].values()),
+            "proprias_fora": sum(x["qty"] for x in a["proprias_fora"].values()),
             "no_deck": sum(a["no_deck"].values()),
             "no_binder": sum(a["no_binder"].values()),
             "na_colecao": sum(a["na_colecao"].values()),
-            "no_pool": sum(a.get("no_pool", {}).values()),
             "extra": sum(a["extra"].values()),
             # Comprado, ainda não em casa: não conta no `have`, já não conta
             # no `missing`.
@@ -1714,12 +1848,22 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
     encomendar_esp = pending.impressao_para_encomendar(con, list(a["need_especial"]),
                                                        especial=True)
     versoes = versoes_dos_decks(con)
-    # As impressões que ESTE deck pode usar: as que estão nele, as do binder
-    # Decks/Venda e as da Coleção — os três montes (2026-09-11). Com o pool
-    # próprio (2026-09-21), só as do pool.
-    em_pool = pool_proprio()
-    prints = owned_printings(con, {locais.POOL} if em_pool else
-                             {locais.deck_local(d["name"]), locais.BINDER, locais.COLECAO})
+    # As impressões que ESTE deck pode usar: as suas cópias próprias
+    # (2026-09-21), as que estão nele, as do binder Decks/Venda e as da
+    # Coleção — os quatro montes.
+    prints = owned_printings(con, {locais.proprio_local(d["name"]),
+                                   locais.deck_local(d["name"]), locais.BINDER, locais.COLECAO})
+    # Onde o `+` das cópias próprias grava (2026-09-21): a impressão em que se
+    # compra a carta — a base mais barata (`Versoes.compra`); e as próprias
+    # que este deck tem de cada carta, por impressão, para o `−` saber de
+    # onde tirar.
+    proprias_pid = locais.proprias_de(con, d["name"])
+    proprias_por_ck: dict[str, list[dict]] = {}
+    for pid, n in proprias_pid.items():
+        r = versoes.linha_de.get(pid)
+        if r is not None:
+            proprias_por_ck.setdefault(r["card_key"], []).append(
+                {"id": pid, "code": r["public_code"], "qty": n})
     names = {r["card_key"]: r for r in con.execute(
         "SELECT card_key, name, type, domains_json FROM catalog.cards")}
 
@@ -1765,6 +1909,9 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
     # carta — a segunda cópia de um Champion, no main, já é normal.
     usado_esp: dict[str, int] = {}
     usado_cam_esp: dict[str, int] = {}
+    # As cópias próprias consumidas pelas linhas anteriores (2026-09-21):
+    # servem primeiro, por isso são as primeiras a repartir-se pelos papéis.
+    usado_prop: dict[str, int] = {}
     # As runas não se contam (2026-09-17, à noite): a linha fica na lista com
     # a quantidade que a lista pede — «indica me so quantas sao» — e mais
     # nada: sem tenho, sem falta, sem a caminho, sem preço, sem versões.
@@ -1787,11 +1934,12 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
                     "raw": r["raw_line"],
                     "type": info["type"] if info else None,
                     "wanted": r["qty"], "have": 0, "missing": 0, "ordered": 0,
-                    "no_deck": 0, "no_binder": 0, "na_colecao": 0, "no_pool": 0,
+                    "proprias": 0, "no_deck": 0, "no_binder": 0, "na_colecao": 0,
                     "contado": False,
                     "especial": None, "versoes": [], "outras": 0,
                     "order_code": None, "order_price": None, "order_especial": False,
                     "shared": None, "partilhada": None, "printings": [],
+                    "proprias_em": [], "propria_compra": None,
                     **{**imagem(ck), "price": None},
                 })
                 continue
@@ -1831,13 +1979,18 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
                 "id": x["id"], "code": versoes.info(x["id"])["code"],
                 "kind": versoes.info(x["id"])["kind"], "label": versoes.rotulo(x["id"]),
                 "qty": x["qty"], "lugar": x["lugar"],
+                # Uma cópia PRÓPRIA do deck (2026-09-21), não da Coleção.
+                "propria": bool(x.get("propria")),
             } for x in fatia]
-            # De onde vem o que tem: já sleevada no deck, por ir buscar ao
-            # binder Decks/Venda, ou na Coleção. Os três somam o `have`; são
-            # três sítios diferentes onde ele a vai encontrar.
-            no_deck = min(tenho, max(0, a["no_deck"].get(ck, 0) - usado_deck.get(ck, 0)))
+            # De onde vem o que tem: as cópias próprias do deck (2026-09-21)
+            # primeiro, depois já sleevada no deck, por ir buscar ao binder
+            # Decks/Venda, ou na Coleção. Os quatro somam o `have`; são
+            # quatro sítios diferentes onde ele a vai encontrar.
+            proprias = min(tenho, max(0, a["proprias"].get(ck, 0) - usado_prop.get(ck, 0)))
+            usado_prop[ck] = usado_prop.get(ck, 0) + proprias
+            no_deck = min(tenho - proprias, max(0, a["no_deck"].get(ck, 0) - usado_deck.get(ck, 0)))
             usado_deck[ck] = usado_deck.get(ck, 0) + no_deck
-            no_binder = min(tenho - no_deck,
+            no_binder = min(tenho - proprias - no_deck,
                             max(0, a["no_binder"].get(ck, 0) - usado_binder.get(ck, 0)))
             usado_binder[ck] = usado_binder.get(ck, 0) + no_binder
             # O que vem a caminho para esta linha: depois do que tem, e pela
@@ -1872,12 +2025,18 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
                 "type": info["type"] if info else None,
                 "wanted": r["qty"], "have": tenho, "missing": falta,
                 "ordered": encomendada,
+                # As cópias próprias do deck que servem esta linha
+                # (2026-09-21) — a primeira das quatro origens.
+                "proprias": proprias,
                 "no_deck": no_deck, "no_binder": no_binder,
-                # Com o pool próprio o que o deck tem vem TODO do pool; a
-                # Coleção não entra (2026-09-21).
-                "na_colecao": 0 if em_pool else tenho - no_deck - no_binder,
-                "no_pool": tenho if em_pool else 0,
+                "na_colecao": tenho - proprias - no_deck - no_binder,
                 "contado": True,
+                # Os `+`/`−` das cópias próprias: onde o `+` grava (a base em
+                # que se compra) e o que este deck já tem de próprio, por
+                # impressão (o `−` tira da última).
+                "propria_compra": (lambda i: {"id": i["id"], "code": i["code"]})(
+                    versoes.info(versoes.compra(ck))) if versoes.compra(ck) else None,
+                "proprias_em": proprias_por_ck.get(ck, []),
                 # O lugar especial desta linha (a Legend/Champion), ou `None`.
                 "especial": especial,
                 # As impressões que servem esta linha, por versão, e quantas
@@ -1902,20 +2061,30 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
                          "wanted": sum(c["wanted"] for c in contadas),
                          "have": sum(c["have"] for c in contadas),
                          "ordered": sum(c["ordered"] for c in contadas),
+                         "proprias": sum(c["proprias"] for c in contadas),
                          "no_deck": sum(c["no_deck"] for c in contadas),
                          "no_binder": sum(c["no_binder"] for c in contadas),
                          "na_colecao": sum(c["na_colecao"] for c in contadas),
-                         "no_pool": sum(c["no_pool"] for c in contadas),
                          "nao_contadas": sum(c["wanted"] for c in cards
                                              if not c["contado"])})
 
     return {
         "id": deck_id, "slug": d["name"], "name": d["display_name"] or d["name"],
         "legend": d["legend"], "champion": d["champion"], "priority": d["priority"],
-        # O modo dos decks (2026-09-21): com `pool_proprio` o ecrã diz «do
-        # pool» em vez dos três montes, e esconde o «Marcar o que este deck
-        # usa» — não há nada a tirar da Coleção.
-        "modo": modo(),
+        # Só versões base (2026-09-21, `decks.so_base`): o ecrã diz-o ao lado
+        # dos `+`/`−` das cópias próprias.
+        "so_base": so_base(),
+        "local_proprias": locais.proprio_local(d["name"]),
+        # As próprias que não servem este deck (outra versão, carta que a
+        # lista não pede, acima do pedido) — com o motivo, para ele as tirar.
+        "proprias_fora": [
+            {"printing_id": pid, "qty": x["qty"], "card_key": x["card_key"],
+             "motivo": x["motivo"],
+             "name": (names[x["card_key"]]["name"] if x["card_key"] in names else x["card_key"])
+             if x["card_key"] else pid,
+             "code": por_id[pid]["public_code"] if pid in por_id else None,
+             **_imagem_pid(por_id.get(pid))}
+            for pid, x in sorted(a["proprias_fora"].items())],
         "sections": sections,
         # As runas que a lista pede e não se contam (2026-09-17, à noite): o
         # mesmo bloco do `decks_index`, para o cabeçalho dizer «12 runas».
@@ -1941,12 +2110,13 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
         # carta continua na caixa.
         "locais": {
             "local": locais.deck_local(d["name"]),
+            # As cópias próprias do deck (2026-09-21): a primeira das quatro
+            # origens do `have`; `proprias_fora` as que não servem.
+            "proprias": sum(a["proprias"].values()),
+            "proprias_fora": sum(x["qty"] for x in a["proprias_fora"].values()),
             "no_deck": sum(a["no_deck"].values()),
             "no_binder": sum(a["no_binder"].values()),
             "na_colecao": sum(a["na_colecao"].values()),
-            # O que vem do pool próprio (2026-09-21) — é o `alloc` inteiro
-            # nesse modo, 0 no modo `coleccao`.
-            "no_pool": sum(a.get("no_pool", {}).values()),
             "extra": sum(a["extra"].values()),
             "ordered": sum(a["a_caminho"].values()),
             "missing": sum(a["missing"].values()),
@@ -1955,6 +2125,15 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
             "outras": sum(a["alloc_outras"].values()),
         },
     }
+
+
+def _imagem_pid(r) -> dict:
+    """A imagem de UMA impressão (a linha do catálogo), no formato dos tiles."""
+    if r is None:
+        return {"img": None, "cdn": None, "landscape": False}
+    return {"img": f"img/{r['printing_id']}.webp",
+            "cdn": r["image_medium"] or r["image_large"] or r["image_url"],
+            "landscape": (r["orientation"] or "").lower() == "landscape"}
 
 
 def legality(con: sqlite3.Connection, deck_id: int) -> dict:

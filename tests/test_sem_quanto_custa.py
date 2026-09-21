@@ -214,9 +214,8 @@ class TestOQueFicouContinuaAResponder(ComCatalogo):
     def test_as_faltas_dos_decks_respondem(self):
         con = self.catalogo()
         c = self.faltas.compras(con)
-        # (`modo` entrou a 2026-09-21 com a experiência do pool próprio.)
         self.assertEqual(set(c), {"staples", "por_deck", "todos_juntos", "pimp",
-                                  "ignored_types", "totals", "modo"})
+                                  "ignored_types", "totals"})
         self.assertEqual((c["totals"]["cards"], c["totals"]["copies"]), (2, 3))
         self.assertEqual(c["por_deck"][0]["copies"], 3)
         self.assertEqual(self.decks.resumo_das_faltas(con)["copies"], 3)

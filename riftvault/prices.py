@@ -500,19 +500,18 @@ def _sem_retiradas(con: sqlite3.Connection) -> tuple[str, list[str]]:
 def copias_sql(con: sqlite3.Connection) -> tuple[str, list]:
     """O `FROM` das cópias que a COLEÇÃO conta como suas, aliás `c`.
 
-    É o `copies` tal e qual — menos o pool próprio dos decks quando a
-    experiência de 2026-09-21 está ligada (`decks.modo = "pool_proprio"`):
-    *"uma copia no pool nunca conta para a coleccao"*, e o valor é da
-    Coleção. O gémeo em Python, por impressão, é o `locais.contadas`.
-    (fragmento, parâmetros) — os parâmetros vêm ANTES dos do `WHERE`.
+    É o `copies` menos as cópias PRÓPRIAS dos decks (`proprio:<slug>`,
+    2026-09-21: *"estas copias que eu coloco nos decks nao sao para adicionar
+    a coleccao"*) — o valor é da Coleção, e um `+` num deck não o pode mexer.
+    O gémeo em Python, por impressão, é o `locais.contadas`. (fragmento,
+    parâmetros) — os parâmetros vêm ANTES dos do `WHERE`.
     """
-    from . import decks, locais
+    from . import locais
 
-    if not decks.pool_proprio():
-        return "copies c", []
-    return ("(SELECT c0.printing_id, c0.qty - COALESCE(cl.qty, 0) AS qty FROM copies c0 "
-            " LEFT JOIN copy_locations cl ON cl.printing_id = c0.printing_id "
-            " AND cl.location = ?) c", [locais.POOL])
+    return ("(SELECT c0.printing_id, c0.qty - COALESCE(cl.q, 0) AS qty FROM copies c0 "
+            " LEFT JOIN (SELECT printing_id, SUM(qty) AS q FROM copy_locations "
+            "            WHERE location LIKE ? GROUP BY printing_id) cl "
+            " ON cl.printing_id = c0.printing_id) c", [locais.PROPRIO_PREFIX + "%"])
 
 
 def collection_value(con: sqlite3.Connection) -> dict:

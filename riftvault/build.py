@@ -31,7 +31,7 @@ import shutil
 from pathlib import Path
 
 from . import (a_mais, a_subir, config, db, decks, faltas, faltas_edicao, metrics,
-               pending, pool, runas_vista)
+               pending, runas_vista)
 
 # A pasta das imagens fica de fora da comparação: em `static_images: "local"`
 # são ~88 MB e não dependem da colecção — o que muda nelas é o `riftvault
@@ -160,17 +160,12 @@ def _gerar(out_dir: Path | str, log=print, imagens: bool = True) -> dict:
     index_decks = decks.decks_index(con)
     (out / "api" / "decks.json").write_text(
         json.dumps({"editable": False, "decks": index_decks, "rules": decks.rules(),
-                    "ordem_fixa": decks.ordem_fixa(), "modo": decks.modo()},
+                    "ordem_fixa": decks.ordem_fixa(), "so_base": decks.so_base()},
                    ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     for d in index_decks:
         (deck_dir / f"{d['id']}.json").write_text(
             json.dumps(decks.deck_payload(con, d["id"]), ensure_ascii=False,
                        separators=(",", ":")), encoding="utf-8")
-    # O pool próprio dos decks (2026-09-21): só de leitura no site publicado.
-    # Escreve-se nos dois modos (o cliente só o mostra no do pool).
-    pl = pool.payload(con, cfg, editable=False, image_mode=image_mode)
-    (out / "api" / "pool.json").write_text(
-        json.dumps(pl, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     # O `api/faltas.json` (o antigo separador «Faltas», até 2026-09-15)
     # partiu-se na wantlist da Coleção e nas listas de compra dos decks. (A
     # terceira parte, a tabela de preços, saiu com o separador dela a
@@ -209,8 +204,8 @@ def _gerar(out_dir: Path | str, log=print, imagens: bool = True) -> dict:
             json.dumps(g, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
         n_enc += g["totals"]["printings"]
     con.close()
-    log(f"  api/decks.json  ({len(index_decks)} decks, modo {pl['modo']}) + api/pool.json "
-        f"({pl['totals']['have']}/{pl['totals']['need']} no pool) + api/wantlist.json"
+    log(f"  api/decks.json  ({len(index_decks)} decks, "
+        f"{sum(d['proprias'] for d in index_decks)} cópias próprias) + api/wantlist.json"
         f" + api/compras.json + api/faltas_edicao.json ({fe['totals']['copies']} "
         f"cópias a comprar) + api/a_mais.json ({am['totals']['excedente']['copies']} "
         f"cópias a mais) + api/encomendas.json "

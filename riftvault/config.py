@@ -102,13 +102,33 @@ DEFAULTS: dict = {
                    "escondidas": ["-T", "*", "-R"],
                    "um_de_cada": ["overnumbered", "promo"],
                    "ordem_dos_blocos": ["master", "overnumbered", "a", "promo"]},
-    # O que os decks JOGAM (André, 2026-09-17, "vamos voltar atras"): "os decks
-    # apenas jogaram versoes normais, com excepcao da Legend e do Champion que
-    # serao Alt Art ou Overnumbered ou SP, mas nunca assinada".
-    #   `so_normais_excepto` — os PAPÉIS da lista do deck que jogam uma versão
-    #                          especial; todos os outros papéis (main,
-    #                          battlefields, runas, sideboard) jogam a base.
-    #                          Vazio: os decks jogam tudo na base.
+    # O que os decks JOGAM.
+    #   `so_base`            — SÓ VERSÕES BASE, A LEGEND E O CHAMPION INCLUÍDOS
+    #                          (André, 2026-09-21, ao acabar a experiência do
+    #                          pool próprio: é a última coisa que disse sobre
+    #                          versões e mantém-se). Com `true` (a omissão) um
+    #                          lugar de deck só se serve de `variant_kind ==
+    #                          "base"` não sobrenumerada — sem alt art, sem
+    #                          sobrenumeradas, sem promos, sem assinadas, sem o
+    #                          recurso a «o que houver de não-assinado» — e a
+    #                          regra de 2026-09-17 (a Legend/Champion numa
+    #                          versão especial) NÃO se aplica, esteja o que
+    #                          estiver em `so_normais_excepto`. Com `false`
+    #                          qualquer versão não assinada serve um lugar
+    #                          normal (a base primeiro, depois as outras que
+    #                          ele tenha — `Versoes.outras_de`) e as duas
+    #                          chaves a seguir voltam a ser lidas. Desliga-se
+    #                          mudando esta chave sozinha.
+    #   `so_normais_excepto` — (só com `so_base: false`) os PAPÉIS da lista do
+    #                          deck que jogam uma versão especial (André,
+    #                          2026-09-17: "os decks apenas jogaram versoes
+    #                          normais, com excepcao da Legend e do Champion
+    #                          que serao Alt Art ou Overnumbered ou SP, mas
+    #                          nunca assinada"); os outros papéis jogam a base.
+    #                          Vazio (a omissão desde 2026-09-21): os decks
+    #                          jogam tudo na base — a regra de 2026-09-17 está
+    #                          DESLIGADA e não volta só por `so_base` ir a
+    #                          `false`; volta escrevendo aqui os papéis.
     #   `versoes_especiais`  — o que conta como «versão especial», na gramática
     #                          das listas do `master_set` (sufixo, palavra ou
     #                          nome da variante, mais `overnumbered`). A
@@ -142,23 +162,18 @@ DEFAULTS: dict = {
     #                          reordenar do site e o `riftvault decks --order`
     #                          ficam desligados. Vazia: a prioridade guardada
     #                          na base, como até aqui. Ver `decks.aplicar_ordem`.
-    #   `modo`               — A EXPERIÊNCIA DO POOL PRÓPRIO (André, 2026-09-21:
-    #                          "quero que a coleccao fique sempre imaculada,
-    #                          nada sai da coleccao; os decks, todos partilham
-    #                          as mesmas cartas, mas nao usam absolutamente
-    #                          nada da coleccao; so jogam com versoes base").
-    #                          `coleccao` (a omissão) é tudo como está descrito
-    #                          acima; `pool_proprio` liga a experiência: os
-    #                          decks montam-se SÓ do local `pool-decks`
-    #                          (`locais.POOL`), que começa a zero; o pool
-    #                          precisa do MÁXIMO por carta entre os decks
-    #                          (main e sideboard somam dentro do mesmo deck);
-    #                          só versões base (a Legend e o Champion também —
-    #                          a regra de 2026-09-17 não se aplica); e nenhuma
-    #                          conta da Coleção — níveis, Faltas, wantlists,
-    #                          valor, Encomendas, A mais — sabe que há decks.
-    #                          Reversível: muda-se a palavra. Ver `pool.py`.
-    "decks": {"so_normais_excepto": ["legend", "champion"],
+    #   `modo`               — `coleccao`, e só isso: os decks servem-se da
+    #                          Coleção por prioridade (2026-09-11), e cada deck
+    #                          tem ainda as suas CÓPIAS PRÓPRIAS (2026-09-21,
+    #                          `proprias.py`: o local `proprio:<slug>`, com
+    #                          `+`/`−` em cada carta do deck, que servem antes
+    #                          da Coleção e nunca contam para ela). O valor
+    #                          `pool_proprio` foi a experiência de 2026-09-21
+    #                          de manhã (um pool único, partilhado, fora da
+    #                          Coleção) e ACABOU nesse mesmo dia: escrevê-lo
+    #                          rebenta, com a razão — não há código atrás dele.
+    "decks": {"so_base": True,
+              "so_normais_excepto": [],
               "versoes_especiais": ["a", "overnumbered", "promo"],
               "contar_runas": False,
               "ordem": [],

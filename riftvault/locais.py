@@ -38,13 +38,17 @@ RASTO
     Se um dia uma cópia aparecer num deck sem linha no log, é bug — é a mesma
     defesa do `registos-caixas.csv` do mtgvault (2026-09-09).
 
-UM QUARTO LOCAL, SÓ NA EXPERIÊNCIA DO POOL (2026-09-21)
-    `pool-decks` — o monte próprio dos decks, com `decks.modo = "pool_proprio"`
-    (ver o topo do `pool.py`). Uma cópia aqui NUNCA conta para a Coleção
-    (`na_colecao` já a tira, como aos outros locais) e, nesse modo, também
-    não conta para o valor nem para o playset jogável (`contadas`). Entra e
-    sai pelo `pool.ajustar`, que escreve no `copies` E aqui de uma vez — o
-    pool começa a zero e é ele que lá mete o que tiver.
+UM QUARTO LOCAL: AS CÓPIAS PRÓPRIAS DE CADA DECK (2026-09-21)
+    `proprio:<slug>` — as cópias que ele tem GUARDADAS PARA AQUELE DECK
+    (ver o topo do `proprias.py`). Não é o `deck:<slug>`: esse marca onde está
+    uma cópia da Coleção que o deck usa; este é um monte à parte, que a
+    Coleção não conhece. Uma cópia aqui NUNCA conta para a Coleção
+    (`na_colecao` já a tira, como aos outros locais), nem para o valor, nem
+    para o playset jogável (`contadas`). Entra e sai pelo `proprias.ajustar`,
+    que escreve no `copies` E aqui de uma vez — começa a zero em todos os
+    decks e é ele que lá mete o que tiver. Serve só esse deck, e antes da
+    Coleção. (De 2026-09-21 de manhã até à tarde houve um `pool-decks`
+    único e partilhado — a experiência do pool próprio, que acabou.)
 """
 
 from __future__ import annotations
@@ -59,8 +63,8 @@ from . import collection, config
 COLECAO = "colecao"
 BINDER = "binder"
 DECK_PREFIX = "deck:"
-# O pool próprio dos decks (2026-09-21, experiência `decks.modo`).
-POOL = "pool-decks"
+# As cópias PRÓPRIAS de cada deck (2026-09-21): `proprio:<slug>`.
+PROPRIO_PREFIX = "proprio:"
 
 # O ficheiro de rasto. Fica no `data/`, ao lado das bases, e é append-only.
 LOG_NAME = "locais.log"
@@ -102,6 +106,15 @@ def slug_do_deck(local: str) -> str | None:
     return local[len(DECK_PREFIX):] if local.startswith(DECK_PREFIX) else None
 
 
+def proprio_local(slug: str) -> str:
+    """O local das cópias próprias do deck `slug`."""
+    return f"{PROPRIO_PREFIX}{slug.strip().lower()}"
+
+
+def slug_das_proprias(local: str) -> str | None:
+    return local[len(PROPRIO_PREFIX):] if local.startswith(PROPRIO_PREFIX) else None
+
+
 def normalizar(local: str, decks_conhecidos: set[str] | None = None) -> str:
     """Aceita como ele escreve e devolve o local canónico.
 
@@ -117,13 +130,13 @@ def normalizar(local: str, decks_conhecidos: set[str] | None = None) -> str:
         return COLECAO
     if k in ("binder", "decks-venda", "decks/venda", "deckvenda", "venda"):
         return BINDER
-    if k in ("pool", "pool-decks", "pool_decks", "pool decks"):
-        return POOL
+    if k.startswith(PROPRIO_PREFIX):
+        return proprio_local(k[len(PROPRIO_PREFIX):])
     if k.startswith(DECK_PREFIX):
         return deck_local(k[len(DECK_PREFIX):])
     if decks_conhecidos and k in decks_conhecidos:
         return deck_local(k)
-    aceites = "colecao, binder, pool, deck:<slug>"
+    aceites = "colecao, binder, deck:<slug>, proprio:<slug>"
     if decks_conhecidos:
         aceites += " (decks: " + ", ".join(sorted(decks_conhecidos)) + ")"
     raise LocalInvalido(f"local desconhecido: {local!r}. Aceita: {aceites}")
@@ -135,8 +148,9 @@ def rotulo(local: str, nomes: dict[str, str] | None = None) -> str:
         return "Coleção"
     if local == BINDER:
         return "Binder Decks/Venda"
-    if local == POOL:
-        return "Pool dos decks"
+    slug = slug_das_proprias(local)
+    if slug is not None:
+        return "Cópias próprias do deck " + ((nomes or {}).get(slug) or slug)
     slug = slug_do_deck(local)
     if slug is None:
         return local
@@ -217,29 +231,42 @@ def em(con: sqlite3.Connection, local: str) -> dict[str, int]:
         (local,))}
 
 
-def no_pool(con: sqlite3.Connection) -> dict[str, int]:
-    """printing_id -> cópias no pool próprio dos decks (`POOL`)."""
-    return em(con, POOL)
+def proprias(con: sqlite3.Connection) -> dict[str, dict[str, int]]:
+    """slug -> {printing_id: qty}: as cópias PRÓPRIAS de cada deck
+    (`proprio:<slug>`, 2026-09-21). Inclui as de um deck cujo `.txt` já não
+    exista — as cópias não desapareceram, e o `resumo` continua a listá-las."""
+    out: dict[str, dict[str, int]] = {}
+    for r in con.execute(
+        "SELECT printing_id, location, qty FROM copy_locations "
+        "WHERE qty > 0 AND location LIKE ?", (PROPRIO_PREFIX + "%",)
+    ):
+        slug = slug_das_proprias(r["location"])
+        if slug:
+            out.setdefault(slug, {})[r["printing_id"]] = r["qty"]
+    return out
+
+
+def proprias_de(con: sqlite3.Connection, slug: str) -> dict[str, int]:
+    """printing_id -> cópias próprias DESTE deck."""
+    return em(con, proprio_local(slug))
 
 
 def contadas(con: sqlite3.Connection) -> dict[str, int]:
     """printing_id -> as cópias físicas que a COLEÇÃO conta como suas.
 
     É o `totais` (todos os locais — uma carta sleevada num deck não vale
-    menos) MENOS o pool dos decks quando `decks.modo` é `pool_proprio`
-    (2026-09-21: *"uma copia no pool nunca conta para a coleccao e
-    vice-versa"*). É o que o valor, o playset jogável e o «tens N cópias»
-    lêem; a percentagem e os níveis continuam a ler o `na_colecao`, que já
-    tirava o pool por ser um local como os outros. Em modo `coleccao` é o
-    `totais` tal e qual.
+    menos) MENOS as cópias próprias dos decks (`proprio:*`, 2026-09-21: *"estas
+    copias que eu coloco nos decks nao sao para adicionar a coleccao"*). É o
+    que o valor, o playset jogável e o «tens N cópias» lêem; a percentagem e
+    os níveis lêem o `na_colecao`, que já as tirava por serem um local como os
+    outros. Decisão anotada no CLAUDE.md: as próprias também NÃO contam para o
+    valor — o valor é um número da página da Coleção, e um `+` num deck não o
+    pode mexer.
     """
-    from . import decks
-
     total = totais(con)
-    if not decks.pool_proprio():
-        return total
-    for pid, n in no_pool(con).items():
-        total[pid] = max(0, total.get(pid, 0) - n)
+    for mapa in proprias(con).values():
+        for pid, n in mapa.items():
+            total[pid] = max(0, total.get(pid, 0) - n)
     return {pid: q for pid, q in total.items() if q > 0}
 
 
@@ -265,11 +292,20 @@ def resumo(con: sqlite3.Connection) -> list[dict]:
             slot = contagem.setdefault(loc, [0, 0])
             slot[0] += q
             slot[1] += 1
-    ordem = {COLECAO: 0, BINDER: 2, POOL: 3}
+    # Coleção, os decks (o que lá está sleevado), o binder, e as cópias
+    # próprias de cada deck no fim.
+    def chave(loc: str) -> tuple:
+        if loc == COLECAO:
+            return (0, loc)
+        if loc == BINDER:
+            return (2, loc)
+        if loc.startswith(PROPRIO_PREFIX):
+            return (3, loc)
+        return (1, loc)
+
     return [{"local": loc, "label": rotulo(loc, nomes),
              "copies": v[0], "printings": v[1]}
-            for loc, v in sorted(contagem.items(),
-                                 key=lambda kv: (ordem.get(kv[0], 1), kv[0]))]
+            for loc, v in sorted(contagem.items(), key=lambda kv: chave(kv[0]))]
 
 
 # ---------------------------------------------------------------------------
@@ -472,9 +508,9 @@ def ajustar_ao_total(con: sqlite3.Connection, printing_id: str,
     contagem negativa e o riftvault passava a dizer que ele tem cartas que não
     tem.
 
-    Tira-se primeiro do binder Decks/Venda, depois do pool dos decks, e só
-    depois dos decks (os decks últimos, porque uma carta sleevada é a que
-    menos provavelmente desapareceu). Cada retirada deixa rasto: no
+    Tira-se primeiro do binder Decks/Venda, depois das cópias próprias dos
+    decks, e só depois dos decks (os decks últimos, porque uma carta sleevada
+    é a que menos provavelmente desapareceu). Cada retirada deixa rasto: no
     `data/locais.log` aparece `-> (saiu da coleção)`, para não haver cópias a
     evaporar-se em silêncio.
     """
@@ -486,11 +522,16 @@ def ajustar_ao_total(con: sqlite3.Connection, printing_id: str,
     if excesso <= 0:
         return []
 
-    # Binder primeiro, o pool a seguir, depois os decks por ordem alfabética —
-    # determinista.
-    prioridade = {BINDER: 0, POOL: 1}
-    ordenadas = sorted(linhas, key=lambda r: (prioridade.get(r["location"], 2),
-                                              r["location"]))
+    # Binder primeiro, as próprias a seguir, depois os decks por ordem
+    # alfabética — determinista.
+    def prioridade(loc: str) -> int:
+        if loc == BINDER:
+            return 0
+        if loc.startswith(PROPRIO_PREFIX):
+            return 1
+        return 2
+
+    ordenadas = sorted(linhas, key=lambda r: (prioridade(r["location"]), r["location"]))
     tiradas = []
     for r in ordenadas:
         if excesso <= 0:
@@ -529,18 +570,17 @@ def propor_deck(con: sqlite3.Connection, slug: str) -> dict:
     if not row:
         return {"deck": slug, "items": [], "erro": "não há deck com esse nome"}
     deck_id = row["deck_id"]
-    # Com o pool próprio (2026-09-21) os decks não usam nada da Coleção: não
-    # há nada a propor tirar de lá — o que ele tem para os decks mete-se no
-    # pool (`pool.ajustar`).
-    if decks_mod.pool_proprio():
-        return {"deck": slug, "items": [], "copies": 0,
-                "nota": "com decks.modo = pool_proprio os decks não usam a Coleção; "
-                        "o que tens para eles mete-se no pool (separador Decks, "
-                        "«Pool dos decks», ou `riftvault pool --mais`)"}
 
     # Sem as runas (2026-09-17, à noite): não se contam nos decks, e propor
     # sleevá-las era contá-las por outro caminho — ele organiza-as à mão.
     pedidas = decks_mod._need(con, deck_id, decks_mod.cartas_nao_contadas(con))
+    # As cópias PRÓPRIAS do deck (2026-09-21) servem antes da Coleção: o que
+    # elas tapam não há que ir buscar aos binders.
+    a = decks_mod.allocate(con).get(deck_id) or {}
+    for ck, n in (a.get("proprias") or {}).items():
+        if ck in pedidas:
+            pedidas[ck] = max(0, pedidas[ck] - n)
+    pedidas = {ck: n for ck, n in pedidas.items() if n > 0}
     if not pedidas:
         return {"deck": slug, "items": []}
 

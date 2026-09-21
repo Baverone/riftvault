@@ -174,8 +174,8 @@ def history(con: sqlite3.Connection, limit: int = 20) -> list[dict]:
 
 def totals(con: sqlite3.Connection) -> dict:
     """Cópias, impressões e cartas que ele tem — sem as retiradas (as runas em
-    alt art, 2026-09-17), que não existem para o riftvault, e sem o pool dos
-    decks na experiência de 2026-09-21 (`prices.copias_sql`)."""
+    alt art, 2026-09-17), que não existem para o riftvault, e sem as cópias
+    próprias dos decks (2026-09-21, `prices.copias_sql`)."""
     from . import prices
 
     fonte, p_fonte = prices.copias_sql(con)

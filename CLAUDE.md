@@ -8,12 +8,16 @@ Gestor pessoal da coleção de **Riftbound** (TCG da Riot), do André. Python +
 SQLite, mesma arquitetura do `mtgvault`. Objetivo: ter **playsets**, incluindo
 artes normais **e** alternativas.
 
-**DESDE 2026-09-21 OS DECKS ESTÃO NUMA EXPERIÊNCIA** (`decks.modo =
-"pool_proprio"`, ver a última secção deste ficheiro): montam-se só de um pool
-próprio, só versões base, e a Coleção não sabe que há decks. Muitas secções
-abaixo descrevem o modo `coleccao` (os decks a servir-se da Coleção, a
-Legend/Champion em versão especial) — continuam a valer com essa palavra no
-config.
+**DESDE 2026-09-21 (TARDE) CADA DECK TEM AS SUAS CÓPIAS PRÓPRIAS** — ver a
+última secção deste ficheiro. Os decks servem-se da Coleção (11/09) **e**
+cada um tem um monte à parte (`proprio:<slug>`, com `+`/`−` em cada carta)
+que serve primeiro e **nunca conta para a Coleção**; os decks não partilham
+entre si (a soma); **só versões base, a Legend e o Champion incluídos**
+(`decks.so_base: true`). A experiência do pool próprio (`decks.modo =
+"pool_proprio"`, a manhã desse dia) ACABOU — escrever esse valor rebenta. As
+secções abaixo que falam da Legend/Champion em versão especial (17/09) ou de
+outras versões a tapar buracos descrevem a regra que `so_base: false` liga;
+com `true` (hoje) não valem.
 
 Secções: **Coleção**, **Decks**, **Faltas** (de
 2026-09-15 ao fim da tarde — por edição, três blocos; **quatro desde
@@ -2483,13 +2487,19 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   de reordenar e o `--order` ficam desligados enquanto a lista existir); o
   `deck_need_log` recomeçou do zero (`uso_decks.recomecar`, `riftvault decks
   --recomecar-registo`). Ver a última secção deste ficheiro.
-- **Feito também — e É UMA EXPERIÊNCIA, LIGADA:** o pool próprio dos decks
-  (2026-09-21, `decks.modo = "pool_proprio"`) — a Coleção fica intacta (nenhuma
-  conta dela sabe que há decks), os decks montam-se só do local `pool-decks`
-  (começa a zero; `+`/`−` na aba «Pool dos decks», `riftvault pool`), o pool
-  precisa do MÁXIMO por carta entre os decks, só versões base (Legend e
-  Champion também); `pool.py`, `api/pool.json`, `POST /api/pool/ajustar`.
-  Reversível: `"coleccao"` no config. Ver a última secção deste ficheiro.
+- **Feito e ACABADO no mesmo dia:** a experiência do pool próprio dos decks
+  (2026-09-21, de manhã, `decks.modo = "pool_proprio"`) — um pool único,
+  partilhado (máximo por carta), fora da Coleção. Durou até à tarde; o pool
+  estava vazio. Ver a penúltima secção deste ficheiro (o que era) e a última
+  (o que ficou no lugar dela).
+- **Feito também:** as CÓPIAS PRÓPRIAS de cada deck (2026-09-21, à tarde) —
+  os decks voltam a usar a Coleção (11/09) e cada um tem um monte à parte no
+  local `proprio:<slug>` (`+`/`−` em cada carta da página do deck, `riftvault
+  proprias SLUG --mais/--menos`), que serve primeiro, é só daquele deck e
+  NUNCA conta para a Coleção (nem para o valor); os decks não partilham entre
+  si (a soma); só versões base, a Legend e o Champion incluídos
+  (`decks.so_base`); `proprias.py`, `POST /api/proprias/ajustar`. Ver a
+  última secção deste ficheiro.
 - **Por fazer:** a parte 2 do seguir — o separador no site e a tarefa diária;
   vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck,
   com as partilhadas assinaladas); e apagar decks pela interface (hoje apaga-se
@@ -4659,7 +4669,12 @@ aplica a lista sem reimportar, o `app.js` esconde os botões e o `build` leva
 o flag; o `recomecar` apaga o histórico e escreve o ponto de partida, só toca
 no registo, e a CLI recomeça. Suite: 36 ficheiros, 0 a falhar.
 
-## 21/09/2026 — A EXPERIÊNCIA do pool próprio dos decks (`decks.modo = "pool_proprio"`, LIGADA)
+## 21/09/2026, de manhã — A EXPERIÊNCIA do pool próprio dos decks (`decks.modo = "pool_proprio"`) — ACABOU à tarde
+
+**Esta secção é história desde 2026-09-21 à tarde** — ver a secção a seguir.
+O pool estava vazio quando acabou; a maquinaria (o `ajustar`, a rota, a CLI,
+os tiles com `+`/`−`) passou a ser POR DECK (`proprias.py`). Escrever
+`pool_proprio` no config hoje rebenta. O que se segue é como estava de manhã.
 
 Palavras dele: *"quero que a coleccao fique sempre imaculada, nada sai da
 coleccao; os decks, todos partilham as mesmas cartas, mas nao usam
@@ -4767,3 +4782,182 @@ não mexe em nada da Coleção; o A mais sem desconto; a grelha sem usos;
 voltar a `coleccao` repõe tudo; modo desconhecido rebenta; rotas, build, CLI,
 `app.js`. `test_sem_quanto_custa` ganhou a chave `modo` no `compras`. Suite:
 37 ficheiros, 0 a falhar.
+
+## 21/09/2026, à tarde — acaba a experiência do pool; CADA DECK TEM AS SUAS CÓPIAS PRÓPRIAS (`proprias.py`, `proprio:<slug>`); só versões base (`decks.so_base`)
+
+Palavras dele: *"voltamos aos decks usarem a coleccao, mas cada deck precisa
+de ter as cartas proprias; colocas em cada deck o + e - para eu dizer se
+afinal tenho ou nao; estas copias que eu coloco nos decks nao sao para
+adicionar a coleccao"*. Ramo `ai-pc/copias-proprias-2026-09-21`.
+
+**A experiência do pool próprio acabou** — durou a manhã, o pool estava
+VAZIO (nada a salvar), e a maquinaria dela (o `ajustar`, a rota, a CLI, os
+tiles com `+`/`−`) passou a ser POR DECK. `decks.modo` voltou a `coleccao` e
+é o único valor aceite: `pool_proprio` **rebenta com a razão** (`decks.modo()`,
+chamado de caminho pelo `so_base()`), em vez de ligar em silêncio um modelo
+que já não existe; `pool.py` passou a `proprias.py` (`git mv`), o
+`api/pool.json`, o `POST /api/pool/ajustar`, o `riftvault pool`, a aba «Pool
+dos decks», o `locais.POOL`/`no_pool` e todos os ramos `if pool_proprio()`
+(a_mais, pending, faltas, metrics, prices, locais, decks, cli, build, server,
+app.js) saíram. O `modo` saiu dos payloads (`decks.json` leva `so_base`).
+
+### O modelo que fica
+
+1. **`decks.modo = "coleccao"`**: os decks usam a Coleção exactamente como
+   antes da experiência (11/09) — a grelha diz «Azir 3», o filtro «Em
+   decks», as libertadas e o «para que deck» das Encomendas voltaram.
+2. **Cada deck precisa das suas próprias cartas — a SOMA, não o máximo.** Os
+   seis pedem **324 cópias de 136 cartas** (54 cada); main e sideboard somam
+   dentro do mesmo deck; runas fora (`contar_runas: false`). A regra dos
+   decks com a mesma Legend (11/09, partilham) ficou no código e **não tem
+   caso hoje** (seis Legends distintas) — fica anotado.
+3. **CÓPIAS PRÓPRIAS DO DECK, com `+` e `−`** — a parte nova. Em cada carta
+   de cada deck há um `+`/`−` (só no 8770; `body.readonly` esconde-os) e um
+   número entre eles: quantas cópias ele tem GUARDADAS PARA AQUELE DECK.
+   Vivem no local **`proprio:<slug>`** da `copy_locations` (`locais.
+   PROPRIO_PREFIX`, `proprio_local`, `proprias`, `proprias_de`), separado do
+   `deck:<slug>` (que marca onde está uma cópia da COLEÇÃO que o deck usa —
+   os dois não se misturam). Regras:
+   - **NÃO ENTRAM NA COLEÇÃO.** Não contam para os níveis, o denominador, o A
+     mais (não são excedente), as Faltas, nenhuma wantlist, as Encomendas
+     (`locais.na_colecao` já as tira, por serem um local como os outros), e
+     — **decisão minha, escrita aqui** — também **não contam para o valor
+     nem para o playset jogável nem para o «tens N cópias»**
+     (`locais.contadas`, `prices.copias_sql`, `metrics.owned_by_card`,
+     `collection.totals`; o `qty_valor` do tile). A ordem dizia "(contam
+     para o valor mas nunca para a Coleccao)" a descrever o pool, mas o pool
+     da manhã já as tirava do valor, e o valor é um número da página da
+     Coleção: um `+` num deck não pode mexer lá. Se ele quiser o valor das
+     próprias, é uma linha a menos no `contadas`/`copias_sql` — e um número
+     à parte na página do deck, não no da Coleção.
+     `tests/test_copias_proprias.py::TestNaoEntramNaColecao` fotografa
+     níveis, denominador, wantlist, valor (total, por edição, top), totais,
+     grelha (qty/alvo/qty_valor), playset jogável, barra, painel, Faltas (os
+     quatro blocos por edição), Encomendas e os itens do A mais (`have`,
+     `extra`), mete 10 próprias em dois decks e tira-as: **igual**.
+   - **São daquele deck e só daquele**: as do Ornn não servem o Azir.
+   - **Servem PRIMEIRO**: no `decks.allocate` há uma passagem prévia por
+     membro — o monte `proprio:<slug>` (`pool_dos_decks()["proprias"]`) é
+     consumido pela ordem dos lugares (especial, base, outras) antes dos
+     quatro montes de sempre (sleevado, binder, Coleção, a caminho); o que
+     sobra da lista (`needs_liq`) é o que o deck pede ao grupo. Meter
+     próprias **LIBERTA** cópias da Coleção que o deck usava — e pela regra
+     do A mais de 17/09 (`cópias − max(usadas, alvo)`) uma cópia libertada
+     acima do alvo passa a aparecer lá como a mais (é o «usadas» a descer;
+     `test_libertar_a_colecao_e_visivel_no_a_mais_pela_regra_de_sempre`).
+     É a única coisa da página da Coleção que pode mexer, e não é por contar
+     as próprias.
+   - **`faltam(deck) = precisa − próprias − o que a Coleção lhe alocou`**
+     (menos o que vem a caminho) — há teste com a fórmula.
+   - Por membro o `allocate` devolve `proprias` (por carta, o que cobriram —
+     já dentro do `alloc`), `proprias_fora` (as que NÃO servem: outra versão
+     com `so_base`, uma carta que a lista não pede, acima do pedido — com o
+     motivo; uma runa própria não é «fora»), e as entradas do `versoes_em`
+     marcadas `propria`. O grupo leva `proprias` (soma dos membros) e
+     `impressoes_proprias`, à parte dos três montes de `impressoes` — quem
+     lê `impressoes` para saber o que os decks tiram à Coleção (`a_mais.
+     _usadas`) não as vê, de propósito. `uso_por_carta` (a grelha) diz o que
+     o deck ainda pede à Coleção depois das próprias e leva `proprias` ao
+     lado («Azir 1 +3 próprias»); uma carta toda coberta por próprias não
+     aparece como uso.
+   - **Entrar e sair**: `proprias.ajustar(con, slug, ref, delta)` escreve no
+     `copies` E no local numa transação só (a Coleção, `copies − Σ fora`,
+     fica onde estava), `−` nunca abaixo de zero nas próprias, `request_id`
+     repetido não dobra, rasto na `ops`, `location_ops` (`(entrou como cópia
+     própria)` → `proprio:<slug>` → `(saiu das cópias próprias)`) e
+     `data/locais.log`; recusa o que não serve (`NaoServe`) e o deck
+     desconhecido (`DeckDesconhecido`). `POST /api/proprias/ajustar {slug,
+     printing_id, delta, request_id?}` (400/404); `riftvault proprias [SLUG]
+     [--mais REF [N] | --menos REF [N]] [--so-faltas]` — sem slug uma linha
+     por deck, com slug carta a carta; REF pode ser o nome da carta
+     (`proprias.impressao_para`: grava na base em que se compra, ou na
+     impressão própria que o deck já tiver). O `ajustar_ao_total` (um `−` da
+     grelha além da Coleção) tira do binder, depois das próprias, depois dos
+     decks. O `propor_deck` desconta as próprias antes de propor. As próprias
+     de um deck cujo `.txt` desapareça ficam gravadas (o `riftvault local`
+     lista-as) e continuam fora da Coleção e do valor.
+   - **No site**: `propriasBotoes(c)` no `deckTile` (o `+` grava em
+     `propria_compra` — a base em que se compra —, o `−` tira da última de
+     `proprias_em`), `propriasAjustar` (fila por deck+impressão, relê o deck
+     e os separadores, marca compras/A mais/Encomendas/Coleção como velhos),
+     o chip «próprias do deck N» e a nota no `deckLocais`, a secção «Cópias
+     próprias que não servem este deck» (`propriaForaTile`, com `−`), «N
+     próprias» na linha de origem do tile, a coluna `proprias` no CSV.
+     `deck_payload` leva por carta `proprias`, `propria_compra`,
+     `proprias_em`, `versoes[].propria`; por secção `proprias`; `so_base`,
+     `local_proprias`, `proprias_fora` (com imagem e motivo) e
+     `locais.proprias`/`proprias_fora`; `decks_index` leva `proprias` e
+     `proprias_fora` por deck.
+4. **VERSÕES: `decks.so_base: true`**, a Legend e o Champion incluídos — a
+   última coisa que ele disse sobre versões (de manhã) e mantém-se. Com
+   `true` `versoes_dos_decks` dá `especiais = {}`, `papeis = ∅`, sem o
+   recurso a «o que houver de não-assinado»: um lugar de deck só se serve da
+   base não sobrenumerada; a alt art da Vi, Peacekeeper que ele tem NÃO tapa
+   o Azir. **A regra de 17/09 (Legend/Champion numa versão especial) NÃO
+   volta só por o modo ser `coleccao`**: `so_normais_excepto` passou a `[]`
+   no config real e no `DEFAULTS` (a nota do config diz que só é lido com
+   `so_base: false`). **Desliga-se mudando esta chave sozinha**: `so_base:
+   false` → qualquer versão não assinada e não retirada serve um lugar
+   normal (a base primeiro, as outras que ele tenha a seguir —
+   `Versoes.outras_de`), e a Legend/Champion continua na base enquanto
+   `so_normais_excepto` estiver vazio; escrever lá os papéis traz a regra de
+   17/09 de volta (há teste dos três casos). Os testes que descrevem a regra
+   de 17/09 (`test_voltar_1`, `test_versoes_deck`, `test_runas_alt_fora`,
+   `test_runas_vista`, `test_encomendas_separador`, a fixture
+   `config_decks_sem_alt_art`, um caso do `test_a_mais`) passaram a escrever
+   `so_base: false` — o teste é que descrevia outra regra, não o código.
+
+**Medido a 2026-09-21 contra cópias (`C:\Users\Catarina\_revisao\_medir_copias_proprias.py`),
+cinco cenários na mesma corrida — `main` com o config real (pool), `main`
+com `coleccao` (a regra de 17/09), ramo com `so_base: true`, ramo com
+`so_base: false`, ramo com próprias metidas — e os invariantes da Coleção
+IGUAIS nos cinco:** denominador **928**, níveis **897/836/766 de 928**
+(faltam 31/121/281 · 80,12/425,64/1 009,02 €), wantlist «tudo» **162 linhas
+· 281 cópias · 1 009,02 €**, valor **6 555,58 € · 2 573 cópias**, totais,
+Faltas (555 · 10 508,45 €; a comprar 281 · 1 009,02 €) e as 20 wantlists por
+bloco, Encomendas a caminho 0, grupos 310/24/251/238/203, os tiles impressão
+a impressão (qty/alvo/bloco/qty_valor). **A conferência do André bate
+toda:** os seis decks pedem **324 cópias de 136 cartas** (54 cada); com as
+próprias a zero e `so_base: true` faltam **37 cópias de 19 cartas**
+(165,33 €); com `so_base: false` **36 de 18** — a única diferença é **1×
+Vi, Peacekeeper** (o Azir, tapada pela `UNL-176a`); **Defy precisa de 9, tem
+2 em base**. A regra de 17/09 (main/coleccao) dava 40 · 22 · 965,47 € — as
+três Legends/Champion em versão especial (805,04 €) saem com o `so_base`.
+Cartas com uso de decks na grelha 0 (pool) → **149**; A mais **62 · 125**
+(o pool dava 69 · 140, sem o desconto dos decks); Staples 11.
+
+**Por deck (próprias a zero, `so_base: true`):**
+
+| # | deck | tenho/pede | falta | o quê |
+|---|---|---|---|---|
+| 1 | LeBlanc Hook | 54/54 | **0** | — |
+| 2 | Jayce | 42/54 | **12 · 6** | 2 Catalyst of Aeons, 2 Dazzling Aurora, 2 Elder Dragon, 3 Garbage Grabber, 1 Gutter Palace, 2 Sabotage |
+| 3 | Kennen | 53/54 | **1 · 1** | 1 Decree of Unity |
+| 4 | Akali | 49/54 | **5 · 4** | 1 Defy, 1 Forgotten Monument, 1 Irelia, Fervent, 2 Zhonya's Hourglass |
+| 5 | Ornn | 50/54 | **4 · 2** | 1 Decree of Insight, 3 Defy |
+| 6 | Azir | 39/54 | **15 · 8** | 2 Charm, 2 Decree of Focus, 3 Defy, 1 Disarming Rake, 3 Discipline, 2 Sacrifice, 1 Salvage, 1 Vi, Peacekeeper |
+
+(Face à regra de 17/09 saem a Legend do Jayce `VEN-194/166`, a do Kennen
+`VEN-197/166`, a Legend e o Champion do Akali — jogam a base que ele tem —,
+e entra a Vi, Peacekeeper do Azir, que só existe dele em Alt Art.)
+
+**Com próprias metidas na cópia** (Ornn 3 Defy, Azir 3 Defy + 1 Charm, Jayce
+2 Sabotage, Kennen 1 Decree of Unity, Akali 2 Zhonya's): falta dos decks
+**37 → 25 cópias**, o Kennen fecha (54/54), o Ornn passa a faltar só 1, a
+grelha continua a dizer 149 cartas em uso, e a Coleção **não mexe** — nem o
+A mais (nenhuma das libertadas está acima do alvo hoje: Defy 2 de 3).
+
+`tests/test_copias_proprias.py` (28 testes, contra cópias e config
+temporário; substitui o `test_pool_proprio.py`): a soma e não o máximo; a
+Coleção volta a saber dos decks; `so_base` a omissão, os papéis não mandam
+com `true`, `false` sozinho dá qualquer versão, `false` + papéis traz 17/09;
+`ajustar` não mexe na Coleção, `−` a zero, retry, recusa, deck desconhecido,
+rasto, o local no resumo e no tile, um `−` da grelha tira das próprias;
+servem primeiro e libertam, só ao deck delas, as que não servem com o
+motivo, a página reparte por linha, o `+` por nome; meter/tirar não mexe em
+número nenhum da Coleção, não são excedente nem valem, a libertação visível
+no A mais pela regra de sempre; `pool_proprio` rebenta, sem chave é
+`coleccao` + `so_base`, o config real; rotas, build, CLI, `app.js`.
+`test_a_mais` (a alt art a tapar → `so_base: false`), `test_partilha_compra`
+(`proprias` no uso), `test_sem_quanto_custa` (sem `modo`), `test_build`
+(comentário) ajustados. Suite: 37 ficheiros, 0 a falhar.

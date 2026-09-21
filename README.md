@@ -249,25 +249,37 @@ A carência aqui é **global** — soma-se o que todos os decks pedem e desconta
 o que tens — e dá a mesma soma que a secção Decks: a alocação por prioridade
 diz quem fica com o quê, e o que sobra por deck é o que esse deck compra.
 
-**A experiência do pool próprio** (21/09/2026 — frase tua: *"quero que a
-coleccao fique sempre imaculada, nada sai da coleccao; os decks, todos
-partilham as mesmas cartas, mas nao usam absolutamente nada da coleccao; so
-jogam com versoes base; vamos ver como fica assim as coisas"*). É
-`decks.modo: "pool_proprio"` no config — **está ligada** — e desliga-se
-pondo `"coleccao"`, sem apagar nada. Com ela: a Coleção não sabe que há
-decks (níveis, Faltas, wantlists, valor, Encomendas e A mais como se não
-houvesse decks; a grelha deixa de dizer «Azir 3»; o A mais é o excedente
-verdadeiro e não mostra as libertadas); os decks montam-se **só do pool**,
-um local próprio (`pool-decks`) que começa a zero e onde metes o que tiveres
-para eles — os `+`/`−` da aba **Decks → Pool dos decks**, ou `riftvault pool
---mais OGN-045 3`; uma cópia no pool não conta para a Coleção nem para o
-valor, e vice-versa. O pool precisa do **máximo** que algum deck pede de
-cada carta (partilham, não somam; dentro do mesmo deck main e sideboard
-somam), **só em versão base** — a Legend e o Champion também —, runas fora.
-A aba mostra o que o pool precisa, tem e o que falta (com wantlist própria)
-e, por deck, se o pool chega. Medido a 21/09: 282 cópias de 136 cartas (a
-soma dos seis seria 324; cada deck pede 54); nenhuma carta sem versão base.
-As abas Staples / Por deck / Pimp não se mostram neste modo.
+**Cada deck tem as suas cópias próprias** (21/09/2026 — frase tua: *"voltamos
+aos decks usarem a coleccao, mas cada deck precisa de ter as cartas proprias;
+colocas em cada deck o + e - para eu dizer se afinal tenho ou nao; estas
+copias que eu coloco nos decks nao sao para adicionar a coleccao"*). Os decks
+voltaram a usar a Coleção como desde 11/09 (a grelha diz «Azir 3», o filtro
+«Em decks», as libertadas, o «para que deck» das Encomendas) e **não partilham
+entre si**: o que os seis precisam é a **soma** (324 cópias de 136 cartas a
+21/09; 54 por deck; main e sideboard somam; runas fora). E cada carta de cada
+deck tem um **`+`/`−`** para dizeres quantas cópias tens **guardadas para
+aquele deck** — as **cópias próprias**, no local `proprio:<slug>`
+(`riftvault proprias azir --mais OGN-045 3` na consola). Regras: **não entram
+na Coleção** — não contam para os níveis, o denominador, as Faltas, as
+wantlists, as Encomendas, o A mais, o valor nem o playset jogável; meter ou
+tirar uma não mexe um número da Coleção —; são **só daquele deck**; servem
+**primeiro**, e o que sobrar vai buscar à Coleção — por isso meter próprias
+**liberta** cópias da Coleção que o deck usava (e, pela regra do A mais de
+17/09, uma cópia libertada acima do alvo passa a aparecer lá como a mais);
+`faltam = precisa − próprias − o que a Coleção alocou`. **Só versões base**,
+a Legend e o Champion incluídos (`decks.so_base: true`): o `+` só aceita a
+base; uma própria de outra versão que lá esteja fica em «não servem», com o
+motivo. A regra de 17/09 (Legend/Champion numa versão especial) está
+desligada e não volta só por se pôr `so_base: false` — com isso qualquer
+versão não assinada serve um lugar normal (a base primeiro). Medido a 21/09,
+com as próprias a zero: faltam **37 cópias de 19 cartas** aos seis decks
+(`so_base: false` daria 36 de 18 — a diferença é 1× Vi, Peacekeeper, que tens
+em Alt Art); o pior caso é o Defy: precisam de 9, tens 2.
+
+(A **experiência do pool próprio** — um pool único partilhado por todos os
+decks, fora da Coleção, `decks.modo: "pool_proprio"` — durou a manhã de
+21/09/2026 e acabou com a frase de cima. Escrever esse valor no config
+rebenta.)
 
 ## A mais
 

@@ -51,7 +51,9 @@ MODULOS_DE_CONTAS = ["metrics", "a_subir", "faltas", "faltas_edicao", "a_mais",
 def _config(caso, extra: dict) -> None:
     caminho = Path(tempfile.gettempdir()) / f"riftvault-runas-vista-{os.getpid()}.json"
     caminho.write_text(json.dumps({
-        "decks": {"so_normais_excepto": ["legend", "champion"],
+        # `so_base: false` (2026-09-21): estes testes descrevem a regra de 2026-09-17.
+        "decks": {"so_base": False,
+                  "so_normais_excepto": ["legend", "champion"],
                   "versoes_especiais": ["a", "overnumbered", "promo"]},
         **extra}), encoding="utf-8")
     os.environ["RIFTVAULT_CONFIG"] = str(caminho)

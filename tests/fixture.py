@@ -32,7 +32,11 @@ def config_decks_sem_alt_art(caso=None) -> Path:
     para o ficheiro seguinte da suite voltar a ler o config real.
     """
     caminho = Path(tempfile.gettempdir()) / "riftvault-decks-sem-alt-art.json"
+    # `so_base: false` (2026-09-21): a omissão passou a ser só versões base, a
+    # Legend e o Champion incluídos; os testes que chamam isto descrevem a
+    # regra de 2026-09-17 e desligam-na de propósito.
     caminho.write_text(json.dumps({"decks": {
+        "so_base": False,
         "so_normais_excepto": ["legend", "champion"],
         "versoes_especiais": ["a", "overnumbered", "promo"]}}), encoding="utf-8")
     os.environ["RIFTVAULT_CONFIG"] = str(caminho)

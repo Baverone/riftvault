@@ -16,7 +16,7 @@
     riftvault local [REF N --para deck:azir] [--deck azir --propor|--marcar ...]
     riftvault encomendas [--mais REF [N] | --menos REF [N] | --chegou [REF]]
     riftvault seguir [--jogador NOME] [--so-mudados] [--sem-rede] [--json]
-    riftvault pool [--mais REF [N] | --menos REF [N]] [--cardmarket] [--so-faltas]
+    riftvault proprias [SLUG] [--mais REF [N] | --menos REF [N]]
 """
 
 from __future__ import annotations
@@ -34,7 +34,7 @@ from . import faltas as faltas_mod
 from . import faltas_edicao
 from . import locais as locais_mod
 from . import metrics, painel, pending as pending_mod, prices
-from . import pool as pool_mod
+from . import proprias as proprias_mod
 from . import runas_vista as runas_vista_mod
 from . import seguir as seguir_mod
 from . import server
@@ -382,31 +382,10 @@ def cmd_decks(args) -> int:
               f"{', '.join(repr(x) for x in imp['ordem']['nao_encontrados'])} — "
               f"ignorado.")
 
-    # A experiência do pool próprio (2026-09-21): os decks montam-se só do
-    # pool, partilham-no (máximo por carta), e cada um avalia-se sozinho
-    # contra ele — não há prioridade, disputa nem Coleção nesta tabela.
-    if decks_mod.pool_proprio():
-        p = pool_mod.payload(con)
-        print(f"decks.modo = {p['modo']}: os decks montam-se SÓ do pool próprio "
-              f"(local {p['local']}), só versões base; a Coleção não entra.\n")
-        print(f"{'#':<3} {'deck':<40} {'pede':>5} {'do pool':>8} {'faltam':>7}  chega?")
-        for d in p["por_deck"]:
-            print(f"{d['priority']:<3} {d['name'][:40]:<40} {d['wanted']:>5} "
-                  f"{d['have']:>8} {d['missing']:>7}  {'sim' if d['ok'] else 'não'}")
-        t = p["totals"]
-        print(f"\nPool partilhado: precisa de {t['need']} cópias de {t['cards']} cartas "
-              f"(o máximo entre os decks; a soma seria {t['soma']}) · tem {t['have']} · "
-              f"faltam {t['missing']} ({t['missing_cards']} cartas)"
-              + (f" · {t['fora']} no pool que não servem" if t["fora"] else ""))
-        if p["sem_base"]:
-            print(f"SEM VERSÃO BASE (o pool é só base): {', '.join(p['sem_base'])}")
-        print("`riftvault pool` lista o pool carta a carta; `--mais REF` mete lá o que tens.")
-        con.close()
-        return 0
-
-    # O "tenho" é o que a alocação por prioridade dá ao deck, venha do que está
-    # sleevado nele, do binder Decks/Venda ou da Coleção (2026-09-11: *"se há
-    # na coleção o deck usa"*); as três colunas do meio somam-no. "falta" é o
+    # O "tenho" é o que a alocação por prioridade dá ao deck, venha das cópias
+    # PRÓPRIAS dele (2026-09-21, servem primeiro), do que está sleevado nele,
+    # do binder Decks/Venda ou da Coleção (2026-09-11: *"se há na coleção o
+    # deck usa"*); as quatro colunas do meio somam-no. "falta" é o
     # que o deck não recebe e tem de comprar; "disputadas" é a parte dessa
     # falta que existe num deck de cima — informação, não desconto. "a caminho"
     # (2026-09-11) é o que já está encomendado para este deck: não é tenho,
@@ -414,7 +393,7 @@ def cmd_decks(args) -> int:
     # As runas não se contam (2026-09-17, à noite: *"indica me so quantas
     # sao"*): o «tenho» é só do resto, e a coluna «runas» diz quantas a lista
     # pede — à mão.
-    print(f"{'#':<3} {'deck':<40} {'tenho':>12} {'deck':>5} {'binder':>7} "
+    print(f"{'#':<3} {'deck':<40} {'tenho':>12} {'próprias':>8} {'deck':>5} {'binder':>7} "
           f"{'coleção':>8} {'a caminho':>9} {'falta':>6} {'disputadas':>10} "
           f"{'runas':>6}")
     idx = decks_mod.decks_index(con)
@@ -424,7 +403,7 @@ def cmd_decks(args) -> int:
         nome = ("·· " if d["grupo"]["variantes"] else "") + d["name"]
         runas = d.get("runas") or {}
         print(f"{d['priority']:<3} {nome[:40]:<40} "
-              f"{d['have']:>5}/{d['wanted']:<6} {d['no_deck']:>5} "
+              f"{d['have']:>5}/{d['wanted']:<6} {d['proprias']:>8} {d['no_deck']:>5} "
               f"{d['no_binder']:>7} {d['na_colecao']:>8} {d['ordered']:>9} "
               f"{d['missing']:>6} {d['shared']:>10} "
               f"{(runas.get('copies') or '') if not runas.get('contadas') else '':>6}")
@@ -456,6 +435,15 @@ def cmd_decks(args) -> int:
     if extra:
         print(f"{extra} cópias estão marcadas num deck que já não as pede — "
               f"a lista mudou.")
+    # As cópias próprias (2026-09-21): quantas os decks têm guardadas para si,
+    # e quantas dessas não servem (outra versão, carta que a lista não pede).
+    proprias = sum(d["proprias"] for d in idx)
+    fora_p = sum(d["proprias_fora"] for d in idx)
+    if proprias or fora_p:
+        print(f"{proprias} cópias próprias dos decks a servir (não contam para a "
+              f"Coleção)" + (f"; {fora_p} guardadas que não servem — "
+                              f"`riftvault proprias <slug>` diz quais" if fora_p else "")
+              + f" · só versões base: {'sim' if decks_mod.so_base() else 'não'}")
     con.close()
     return 0
 
@@ -492,18 +480,20 @@ def cmd_deck(args) -> int:
     # De onde vêm as cartas: as três primeiras somam o que o deck tem, e cada
     # uma diz onde ele as vai encontrar. A Coleção conta desde 2026-09-11.
     lc = p["locais"]
-    if p.get("modo") == decks_mod.MODO_POOL:
-        # A experiência do pool próprio (2026-09-21): tudo o que o deck tem
-        # vem do pool; o que falta é face ao pool inteiro.
-        print(f"  do pool {lc['no_pool']} · a comprar para o pool {lc['missing']}"
-              f"  (decks.modo = pool_proprio: só o pool, só base, sem Coleção)")
-    else:
-        print(f"  no deck {lc['no_deck']} · no binder Decks/Venda {lc['no_binder']}"
-              f" (ir buscar) · na Coleção {lc['na_colecao']} · "
-              f"a comprar {lc['missing']}"
-              + (f" ({lc['shared']} disputadas com um deck de cima)"
-                 if lc.get("shared") else "")
-              + (f" · a caminho {lc['ordered']}" if lc.get("ordered") else ""))
+    print(f"  próprias {lc['proprias']} · no deck {lc['no_deck']} · no binder "
+          f"Decks/Venda {lc['no_binder']} (ir buscar) · na Coleção {lc['na_colecao']} · "
+          f"a comprar {lc['missing']}"
+          + (f" ({lc['shared']} disputadas com um deck de cima)"
+             if lc.get("shared") else "")
+          + (f" · a caminho {lc['ordered']}" if lc.get("ordered") else "")
+          + (f"  [só versões base]" if p.get("so_base") else ""))
+    # As cópias próprias que não servem este deck (2026-09-21): outra versão
+    # com `so_base`, uma carta que a lista não pede, ou acima do pedido.
+    if p.get("proprias_fora"):
+        print(f"  {lc['proprias_fora']} cópias próprias que NÃO servem este deck: "
+              + ", ".join(f"{x['qty']}x {x['name']} [{_codigo_curto(x['code'])}] ({x['motivo']})"
+                          for x in p["proprias_fora"])
+              + f" — tira-as com `riftvault proprias {p['slug']} --menos REF`.")
     if lc["na_colecao"]:
         print(f"  para sleevar as da Coleção: `riftvault local --deck "
               f"{p['slug']} --propor`")
@@ -542,11 +532,12 @@ def cmd_deck(args) -> int:
             if not c.get("contado", True):
                 print(f"  - {c['wanted']:>2} {c['name'][:38]:<38}")
                 continue
-            # De onde vem o que tem — os três somam o `have` (no pool
-            # próprio, só o quarto).
+            # De onde vem o que tem — os quatro somam o `have`; as próprias
+            # do deck (2026-09-21) primeiro.
             onde = " · ".join(f"{n} {sitio}" for n, sitio in (
-                (c["no_deck"], "no deck"), (c["no_binder"], "no binder Decks/Venda"),
-                (c["na_colecao"], "na Coleção"), (c.get("no_pool", 0), "do pool")) if n)
+                (c.get("proprias", 0), "próprias"), (c["no_deck"], "no deck"),
+                (c["no_binder"], "no binder Decks/Venda"),
+                (c["na_colecao"], "na Coleção")) if n)
             if c["missing"] or c.get("ordered"):
                 # O que falta compra-se SEMPRE (2026-09-11); se existe num deck
                 # de cima, diz-se onde — é informação, não desconto. O que já
@@ -574,7 +565,10 @@ def cmd_deck(args) -> int:
                 extra = f"  ({onde})"
             else:
                 marca = "."
-                extra = (f"  ({onde})" if c["no_deck"] and c["na_colecao"] else "")
+                # Diz-se de onde vem quando vem de mais do que um sítio.
+                fontes = sum(1 for n in (c.get("proprias", 0), c["no_deck"],
+                                         c["no_binder"], c["na_colecao"]) if n)
+                extra = (f"  ({onde})" if fontes > 1 else "")
                 if args.onde:
                     extra += "  " + " · ".join(f"{x['qty']}x {x['code']}"
                                                for x in c["printings"])
@@ -914,66 +908,79 @@ def cmd_runas(args) -> int:
     return 0
 
 
-def cmd_pool(args) -> int:
-    """O pool próprio dos decks (2026-09-21, `decks.modo = "pool_proprio"`):
-    carta a carta, o que o pool precisa (o máximo entre os decks), o que tem
-    e o que falta; por deck, se o pool chega. `--mais`/`--menos REF [N]`
-    metem e tiram do pool (no `copies` E no local `pool-decks`, de uma vez —
-    a Coleção não mexe). `--cardmarket` escreve a wantlist do que falta."""
+def cmd_proprias(args) -> int:
+    """As CÓPIAS PRÓPRIAS de cada deck (2026-09-21): sem deck, uma linha por
+    deck (quantas tem guardadas, quantas servem, o que falta); com o SLUG,
+    carta a carta — pedidas, próprias, da Coleção, faltam — e as próprias
+    que não servem. `--mais`/`--menos REF [N]` metem e tiram (no `copies` E
+    no local `proprio:<slug>`, de uma vez — a Coleção não mexe). REF é um
+    código (`OGN-045`), um id, ou o nome da carta (grava na base em que se
+    compra)."""
     con = db.connect()
     if db.catalog_is_empty(con):
         print("catálogo vazio — corre `riftvault sync`.", file=sys.stderr)
         return 1
     decks_mod.import_all(con, log=lambda *_: None)
-    if not decks_mod.pool_proprio():
-        print(f"aviso: decks.modo = {decks_mod.modo()!r} — o pool só manda nos "
-              f"decks com `pool_proprio`; o que aqui se vê é o local "
-              f"{locais_mod.POOL} tal como está.", file=sys.stderr)
     if args.mais or args.menos:
+        if not args.slug:
+            print("erro: `--mais`/`--menos` precisam do slug do deck "
+                  "(`riftvault proprias azir --mais OGN-045 3`).", file=sys.stderr)
+            con.close()
+            return 1
         ref = args.mais or args.menos
         delta = _qty(args.n) if args.mais else -_qty(args.n)
         try:
-            r = pool_mod.ajustar(con, ref, delta, source="cli")
-        except (collection.UnknownPrinting, pool_mod.NaoBase) as exc:
+            pid = proprias_mod.impressao_para(con, args.slug, ref)
+            r = proprias_mod.ajustar(con, args.slug, pid, delta, source="cli")
+        except (collection.UnknownPrinting, proprias_mod.NaoServe,
+                proprias_mod.DeckDesconhecido) as exc:
             print(str(exc), file=sys.stderr)
             con.close()
             return 1
-        print(f"{_describe(con, r['printing_id'])}: {r['applied']:+d} -> {r['qty']} no pool "
-              f"({r['total']} ao todo; a Coleção não mexeu)")
+        print(f"{_describe(con, r['printing_id'])}: {r['applied']:+d} -> {r['qty']} "
+              f"próprias do deck {r['deck']} ({r['total']} ao todo; a Coleção não mexeu)")
         con.close()
         return 0
-    p = pool_mod.payload(con)
-    if args.cardmarket:
-        w = pool_mod.wantlist(con, com_codigo=args.codigos)
-        print(w["text"])
-        print(f"\n{w['lines']} linhas · {w['copies']} cópias · {prices.eur(w['cents'])}"
-              + (f" · {len(w['foil'])} só com oferta foil" if w["foil"] else ""),
-              file=sys.stderr)
+    if not args.slug:
+        print(f"{'#':<3} {'deck':<40} {'pede':>5} {'tenho':>6} {'próprias':>8} "
+              f"{'da Coleção':>10} {'faltam':>7}  não servem")
+        for d in proprias_mod.resumo(con):
+            col = d["no_deck"] + d["no_binder"] + d["na_colecao"]
+            print(f"{d['priority']:<3} {d['name'][:40]:<40} {d['wanted']:>5} {d['have']:>6} "
+                  f"{d['proprias']:>8} {col:>10} {d['missing']:>7}  "
+                  f"{d['proprias_fora'] or ''}")
+        print(f"\nsó versões base: {'sim' if decks_mod.so_base() else 'não'} "
+              f"(decks.so_base). `riftvault proprias <slug>` mostra um deck; "
+              f"`--mais REF [N]`/`--menos` metem e tiram.")
         con.close()
         return 0
-    t = p["totals"]
-    print(f"Pool dos decks ({p['local']}), modo {p['modo']}: precisa de {t['need']} "
-          f"cópias de {t['cards']} cartas (máximo entre {t['decks']} decks; a soma "
-          f"seria {t['soma']}) · tem {t['have']} · faltam {t['missing']} "
-          f"({t['missing_cards']} cartas)\n")
-    print(f"{'carta':<38} {'pede':>4} {'tem':>4} {'falta':>5}  decks")
-    for c in p["cards"]:
-        if args.so_faltas and not c["missing"]:
-            continue
-        quem = ", ".join(f"{d['deck']} {d['qty']}" for d in c["decks"])
-        print(f"{c['name'][:38]:<38} {c['need']:>4} {c['have']:>4} {c['missing']:>5}  {quem}"
-              + ("  SEM BASE" if c["sem_base"] else ""))
-    print("\nPor deck (chega o pool?):")
-    for d in p["por_deck"]:
-        print(f"  {d['priority']}. {d['name']:<30} {d['have']}/{d['wanted']}"
-              + ("  chega" if d["ok"] else f"  faltam {d['missing']}: "
-                 + ", ".join(f"{x['qty']}x {x['name']}" for x in d["faltam"])))
-    if p["fora"]:
-        print(f"\nNo pool sem servir ({t['fora']} cópias): "
-              + ", ".join(f"{x['qty']}x {x['name']} [{cardmarket.codigo(x['code'])}] "
-                          f"({x['motivo']})" for x in p["fora"]))
-    if p["sem_base"]:
-        print(f"\nSEM VERSÃO BASE (o pool é só base): {', '.join(p['sem_base'])}")
+    try:
+        row = proprias_mod.deck_por_slug(con, args.slug)
+    except proprias_mod.DeckDesconhecido as exc:
+        print(str(exc), file=sys.stderr)
+        con.close()
+        return 1
+    p = decks_mod.deck_payload(con, row["deck_id"])
+    lc = p["locais"]
+    print(f"{p['name']}: próprias {lc['proprias']} · da Coleção "
+          f"{lc['no_deck'] + lc['no_binder'] + lc['na_colecao']} · a comprar {lc['missing']}"
+          + (f" · a caminho {lc['ordered']}" if lc.get("ordered") else "")
+          + ("  [só versões base]" if p.get("so_base") else "") + "\n")
+    print(f"{'carta':<38} {'pede':>4} {'próprias':>8} {'Coleção':>7} {'faltam':>6}  grava em")
+    for sec in p["sections"]:
+        for c in sec["cards"]:
+            if not c.get("contado", True):
+                continue
+            if args.so_faltas and not c["missing"]:
+                continue
+            col = c["no_deck"] + c["no_binder"] + c["na_colecao"]
+            grava = (c.get("propria_compra") or {}).get("code")
+            print(f"{c['name'][:38]:<38} {c['wanted']:>4} {c.get('proprias', 0):>8} {col:>7} "
+                  f"{c['missing']:>6}  {_codigo_curto(grava) if grava else '—'}")
+    if p.get("proprias_fora"):
+        print(f"\nPróprias que NÃO servem este deck ({lc['proprias_fora']} cópias): "
+              + ", ".join(f"{x['qty']}x {x['name']} [{_codigo_curto(x['code'])}] ({x['motivo']})"
+                          for x in p["proprias_fora"]))
     con.close()
     return 0
 
@@ -1553,18 +1560,15 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--n", type=int, default=1, help="quantas (omissão 1)")
     p.set_defaults(func=cmd_runas)
 
-    p = sub.add_parser("pool", help="o pool próprio dos decks (decks.modo = pool_proprio): "
-                                    "o que precisa, o que tem, o que falta; + e -")
-    p.add_argument("--mais", metavar="REF", help="mete cópias desta impressão BASE no pool")
-    p.add_argument("--menos", metavar="REF", help="tira cópias desta impressão do pool")
+    p = sub.add_parser("proprias", help="as cópias PRÓPRIAS de cada deck (não contam "
+                                        "para a Coleção): por deck, ou um deck carta a carta; + e -")
+    p.add_argument("slug", nargs="?", help="o deck (nome do ficheiro em decks/, sem .txt)")
+    p.add_argument("--mais", metavar="REF", help="mete cópias desta impressão nas próprias do deck")
+    p.add_argument("--menos", metavar="REF", help="tira cópias desta impressão das próprias do deck")
     p.add_argument("n", nargs="?", help="quantas (3 ou x3; omissão 1)")
-    p.add_argument("--cardmarket", action="store_true",
-                   help="a wantlist do que falta ao pool, para colar")
-    p.add_argument("--codigos", action="store_true",
-                   help="com --cardmarket: 'N Nome [OGN-007]' em vez da versão")
     p.add_argument("--so-faltas", dest="so_faltas", action="store_true",
-                   help="só as cartas que faltam ao pool")
-    p.set_defaults(func=cmd_pool)
+                   help="só as cartas que faltam ao deck")
+    p.set_defaults(func=cmd_proprias)
 
     p = sub.add_parser("seguir", help="os decks dos jogadores seguidos no Piltover "
                                       "Archive e o que falta para os montar")
