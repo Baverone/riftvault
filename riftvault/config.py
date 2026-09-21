@@ -133,9 +133,19 @@ DEFAULTS: dict = {
     #                          deck conta só o resto. «Runa» é o
     #                          `runas_especiais.tipos`. `true` volta a contar
     #                          como até essa noite.
+    #   `ordem`              — A ORDEM DOS DECKS (2026-09-21): o slug ou o
+    #                          `Nome:` de cada um, pela ordem em que ele os
+    #                          quer ver; o primeiro é o principal. Enquanto a
+    #                          lista existir é ela que manda na prioridade, a
+    #                          cada importação; o que não nomear vem a seguir;
+    #                          acrescentar um deck no fim basta. Os botões de
+    #                          reordenar do site e o `riftvault decks --order`
+    #                          ficam desligados. Vazia: a prioridade guardada
+    #                          na base, como até aqui. Ver `decks.aplicar_ordem`.
     "decks": {"so_normais_excepto": ["legend", "champion"],
               "versoes_especiais": ["a", "overnumbered", "promo"],
-              "contar_runas": False},
+              "contar_runas": False,
+              "ordem": []},
     # O bloco das runas especiais ("1 runa especial de cada para cada set",
     # 2026-09-08) — só o BLOCO. O `alvo` que aqui vivia (1, "runas 1 de cada")
     # deixou de ser lido a 2026-09-15: as runas pedem o alvo do tipo, como

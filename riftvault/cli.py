@@ -36,6 +36,7 @@ from . import metrics, painel, pending as pending_mod, prices
 from . import runas_vista as runas_vista_mod
 from . import seguir as seguir_mod
 from . import server
+from . import uso_decks
 
 
 def _qty(raw: str | None) -> int:
@@ -349,8 +350,12 @@ def cmd_value(args) -> int:
 
 def cmd_decks(args) -> int:
     con = db.connect()
-    decks_mod.import_all(con)
+    imp = decks_mod.import_all(con)
     if args.order:
+        if decks_mod.ordem_fixa():
+            print(f"erro: a ordem dos decks está em `decks.{decks_mod.ORDEM}` no "
+                  f"riftvault_config.json — muda-se lá, não com --order", file=sys.stderr)
+            return 1
         by_slug = {r["name"]: r["deck_id"] for r in decks_mod.deck_rows(con)}
         ids = []
         for slug in args.order.split(","):
@@ -363,6 +368,17 @@ def cmd_decks(args) -> int:
         ids += [r["deck_id"] for r in decks_mod.deck_rows(con) if r["deck_id"] not in ids]
         decks_mod.set_order(con, ids)
         print("ordem alterada.\n")
+    # Recomeçar o registo do que as listas pedem (2026-09-21): apaga o
+    # `deck_need_log` e escreve o ponto de partida com os decks de HOJE — as
+    # «libertadas» do A mais ficam vazias até a próxima lista mudar.
+    if getattr(args, "recomecar_registo", False):
+        n = uso_decks.recomecar(con)
+        print(f"registo dos decks recomeçado: {n} linhas de partida "
+              f"(0 -> N), libertadas a zero.\n")
+    if imp["ordem"]["nao_encontrados"]:
+        print(f"decks.{decks_mod.ORDEM}: sem deck para "
+              f"{', '.join(repr(x) for x in imp['ordem']['nao_encontrados'])} — "
+              f"ignorado.")
 
     # O "tenho" é o que a alocação por prioridade dá ao deck, venha do que está
     # sleevado nele, do binder Decks/Venda ou da Coleção (2026-09-11: *"se há
@@ -1354,7 +1370,12 @@ def main(argv: list[str] | None = None) -> int:
 
     p = sub.add_parser("decks", help="lista os decks e a alocação por prioridade")
     p.add_argument("--order", help="nova ordem por slug, ex: azir,ornn "
-                                   "(o primeiro passa a principal)")
+                                   "(o primeiro passa a principal; recusa quando "
+                                   "há `decks.ordem` no config — é lá que se muda)")
+    p.add_argument("--recomecar-registo", action="store_true",
+                   help="apaga o registo do que as listas pedem (deck_need_log) e "
+                        "recomeça-o com os decks de hoje — as «libertadas» do A mais "
+                        "ficam a zero")
     p.set_defaults(func=cmd_decks)
 
     p = sub.add_parser("deck", help="detalhe de um deck: o que tenho e o que falta")

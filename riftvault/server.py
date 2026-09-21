@@ -150,8 +150,14 @@ def api_history():
 def api_decks():
     con = get_con()
     _reimport_if_changed(con)
+    # `decks.ordem` (2026-09-21): a lista do config manda na prioridade e o
+    # cliente esconde os botões de reordenar quando ela existe. Aplica-se
+    # também aqui, e não só na importação: uma lista mudada no config (e o
+    # servidor relançado) tem de valer sem nenhum .txt ter mexido. Só escreve
+    # quando difere.
+    decks.aplicar_ordem(con, log=lambda *_: None)
     return jsonify({"editable": True, "decks": decks.decks_index(con),
-                    "rules": decks.rules()})
+                    "rules": decks.rules(), "ordem_fixa": decks.ordem_fixa()})
 
 
 @app.get("/api/faltas_edicao.json")
@@ -377,7 +383,10 @@ def api_decks_order():
     if not isinstance(ids, list) or not ids:
         return jsonify({"error": "falta a lista de ids"}), 400
     con = get_con()
-    decks.set_order(con, [int(i) for i in ids])
+    try:
+        decks.set_order(con, [int(i) for i in ids])
+    except decks.OrdemFixa as e:
+        return jsonify({"error": str(e)}), 409
     return jsonify({"decks": decks.decks_index(con)})
 
 
