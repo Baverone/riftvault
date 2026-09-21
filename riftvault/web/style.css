@@ -339,9 +339,11 @@ main { padding: 12px; max-width: 1500px; margin: 0 auto; }
   .cartao { padding: 14px 16px; gap: 9px; }
   .cartao-num { font-size: 34px; }
   .painel-nota { margin-left: 0; flex-basis: 100%; }
-  /* As três mini-barras cabem numa linha de 375px com o nome a encurtar. */
-  .mini { width: 40px; }
-  .ql-num { width: 60px; }
+  /* As três mini-barras e o «Multi-domínio» cabem numa linha de 375px. */
+  .ql { gap: 8px; }
+  .ql-nome { font-size: 13px; }
+  .mini { width: 34px; }
+  .ql-num { width: 52px; font-size: 13px; }
 }
 
 .tile { position: relative; display: flex; flex-direction: column; gap: 5px; }

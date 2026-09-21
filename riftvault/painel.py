@@ -160,18 +160,22 @@ def contar(itens) -> dict:
     }
 
 
-def itens(con: sqlite3.Connection, cfg: dict | None = None):
+def itens(con: sqlite3.Connection, cfg: dict | None = None,
+          set_id: str | None = None):
     """`(set_id, bloco, alvo, tem, raridade, domínio)` de cada impressão que
     entra no painel — a grelha da Coleção (sem escondidas, com alvo), menos
-    as runas. Devolve também quantas runas ficaram de fora, por edição."""
+    as runas. Devolve também quantas runas ficaram de fora, por edição.
+    Com `set_id`, só essa edição (o payload de cada edição não precisa de
+    varrer o catálogo inteiro)."""
     cfg = cfg or config.load()
     qty = locais.na_colecao(con)
     fora: dict[str, int] = {}
     linhas = []
+    where, args = ("WHERE set_id = ?", (set_id,)) if set_id else ("", ())
     for r in con.execute(
         "SELECT printing_id, set_id, collector_number, public_code, variant_kind, "
         "       type, is_token, base_rarity, rarity, domains_json "
-        "FROM catalog.printings ORDER BY set_id, api_sort"
+        f"FROM catalog.printings {where} ORDER BY set_id, api_sort", args
     ):
         # A regra da página: o que está escondido (tokens, signatures, as runas
         # sem numeração) e o que está retirado (as runas em alt art) não
@@ -191,7 +195,8 @@ def itens(con: sqlite3.Connection, cfg: dict | None = None):
     return linhas, fora
 
 
-def payload(con: sqlite3.Connection, cfg: dict | None = None) -> dict:
+def payload(con: sqlite3.Connection, cfg: dict | None = None,
+            set_id: str | None = None) -> dict:
     """O painel de cada edição e de «Todas» (`TODAS`), bloco a bloco.
 
       `levels`  — os três níveis, com o rótulo de cada cartão
@@ -206,7 +211,7 @@ def payload(con: sqlite3.Connection, cfg: dict | None = None) -> dict:
                   o cabeçalho dizer porque é que o playset não bate com a barra
     """
     cfg = cfg or config.load()
-    linhas, fora = itens(con, cfg)
+    linhas, fora = itens(con, cfg, set_id)
     por: dict[str, dict[str, list]] = {}
     for sid, bid, alvo, tem, rar, dom in linhas:
         item = (alvo, tem, rar, dom)
@@ -232,7 +237,7 @@ def payload(con: sqlite3.Connection, cfg: dict | None = None) -> dict:
 def da_edicao(con: sqlite3.Connection, set_id: str, cfg: dict | None = None) -> dict:
     """O painel de UMA edição — o que vai em `progress.painel` do payload dela:
     `{blocks, runes_out}`, com os blocos como no `payload`."""
-    p = payload(con, cfg)
+    p = payload(con, cfg, set_id=set_id)
     return {"blocks": p["sets"].get(set_id, {}),
             "runes_out": p["runes_out"].get(set_id, 0)}
 

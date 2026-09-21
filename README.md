@@ -334,7 +334,8 @@ volta a pedir o ficheiro sozinho.
 
 Os dois blocos partilham um **degrau**: *até 1 de cada · até 2 de cada ·
 playset*. É a mesma lista com `min(k, alvo)` no lugar do alvo, e o que ela pede
-são exatamente as cópias que os chips da contagem por níveis dizem que faltam.
+são exatamente as cópias que a contagem por níveis da barra diz que faltam
+(a mesma conta dos cartões do painel, mas em cópias e com as runas).
 
 As listas saem sempre do que está **no ecrã** — respeitam a aba, a edição e a
 raridade que tiveres escolhidas. A quantidade de cada linha é o que **falta
@@ -438,21 +439,40 @@ hoje `["a"]`), `master_variantes_playset` diz quais as variantes que
 seguem o playset em vez do alvo fixo (está **vazio**), e `master_set.fora` é o
 que fica fora da coleção.
 
-### Contagem por níveis: 1 de cada, 2 de cada, o playset
+### O painel do topo: 1 de cada, 2 de cada, playset — e Raridade / Domínio
 
-Por baixo das barras, uma linha de chips para a edição aberta e outra para as
-cinco: `1/3 · 64 % · faltam 420 · …`, `2/3 · …`, `playset (3/3) · …`. O alvo do
-nível *k* é `min(k, alvo)`, por isso as impressões de alvo 1 só podem faltar no
-primeiro degrau — e a percentagem do **último** degrau é exatamente a da barra
-do master set.
+(2026-09-21, o «layout H».) Por baixo dos separadores das edições e por cima
+da grelha, **três cartões** — «1 de cada», «2 de cada», «playset» —, cada um
+com o **tenho/total** em grande (impressões, nunca percentagem), uma barra
+fina e «faltam N»; e por baixo **dois quadros**, **Raridade** e **Domínio**,
+uma linha por categoria com a bolinha da cor, três mini-barras (uma por
+nível, da mais escura à mais clara) e o tenho/total à direita.
 
-Conta **cópias**, não o que vem a caminho (é a regra da Coleção), e conta tudo
-o que está no denominador — que desde 2026-09-10 já não tem signatures, nem
-sobrenumeradas, nem promos. As wantlists do fim da página é que descontam o pendente — ali a
-pergunta é o que há a **comprar** —, e é só por isso que os dois números ainda
-não são iguais.
+- nível 1 = impressões com pelo menos **1** cópia; nível 2 = com pelo menos
+  **min(2, alvo)**; nível 3 = com o **alvo** (o playset). Onde o alvo é 1
+  (Legends, Battlefields, sobrenumeradas, promos) os três coincidem.
+- É sobre o **bloco escolhido** nos chips do painel — master set,
+  sobrenumeradas, artes alternativas, promos — da **edição aberta**, ou de
+  **«Todas»** (o separador novo, no fim da fila das edições, que mostra as
+  cinco seguidas na grelha).
+- **As runas nunca entram** — nem no total, nem nos níveis, nem nos quadros.
+  A barra do master set continua a contá-las (a 3, no OGN), por isso o cartão
+  «playset» e a barra diferem em 6 impressões no OGN; o painel diz «sem as 6
+  runas».
+- Conta **cópias na Coleção**, não o que vem a caminho; as escondidas e as
+  retiradas ficam de fora como ficam da grelha. A raridade é a da base do
+  grupo; «Sem domínio» é o `Colorless` e «Multi-domínio» as cartas com dois.
+- Anda ao mesmo tempo que os `+`/`−`; a verdade do servidor vem em
+  `progress.painel` de cada edição e em `painel` do `api/index.json`.
 
-Na linha de comandos, `riftvault stats` imprime a tabela por edição.
+Na linha de comandos, `riftvault stats` imprime a tabela — por bloco, por
+edição e «TODAS». A paleta do painel está em variáveis no topo do
+`style.css` (`--h-*`, `--lvl-*`, `--rar-*`, `--dom-*`), para se alargar ao
+resto do site quando for altura.
+
+A contagem antiga por níveis (a da barra, em **cópias** em falta e com as
+runas) continua a existir por baixo — é o que a linha «N cópias a comprar» e
+o degrau das wantlists lêem —, só deixou de ter chips próprios.
 
 ### O que fica fora: `master_set.fora`
 

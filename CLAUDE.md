@@ -2463,6 +2463,13 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   a falta dos decks; as «Libertadas» do A mais apanharam as 30 cartas · 54
   cópias (mais 2 runas · 12 fora, por `a_mais.sem_runas`). Ver a última
   secção deste ficheiro.
+- **Feito também:** o painel do topo da Coleção, o «layout H» (2026-09-21)
+  — três cartões (1 de cada, 2 de cada, playset, em tenho/total) e dois
+  quadros (Raridade, Domínio) sobre o bloco escolhido da edição aberta ou
+  de «Todas» (separador novo, as cinco edições seguidas na grelha); as
+  runas nunca entram; `painel.py`, `progress.painel`, `index.painel`,
+  `riftvault stats`. Os chips antigos dos níveis e das raridades saíram.
+  Ver a última secção deste ficheiro.
 - **Por fazer:** a parte 2 do seguir — o separador no site e a tarefa diária;
   vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck,
   com as partilhadas assinaladas); e apagar decks pela interface (hoje apaga-se
@@ -4418,3 +4425,116 @@ pedidas por outro deck (Decree of Unity: Azir 3 · LeBlanc BH 2; Salvage: Azir
 `Kennen` do `test_seguir.py` são o deck do koko_lopez nas fixtures do
 Piltover Archive. Suite: 34 ficheiros, 0 a falhar, na worktree e no `main`.
 
+## 21/09/2026 — o painel do topo da Coleção: o «layout H» (três cartões, Raridade e Domínio) e o separador «Todas»
+
+O André escolheu, entre as maquetas, o **layout H** (`ai-pc/work/layout-H-cartoes.html`)
+para o topo da aba Coleção. Ramo `ai-pc/coleccao-H-2026-09-21`.
+
+**O que ficou, por baixo dos separadores das edições e por cima da grelha:**
+
+1. **Três cartões** lado a lado — «1 DE CADA», «2 DE CADA», «PLAYSET» —,
+   cada um com o **tenho/total em grande (impressões, nunca percentagem)**,
+   uma barra fina e «faltam N» (impressões por chegar ao nível). Nível 1 =
+   pelo menos 1 cópia; nível 2 = pelo menos `min(2, alvo)`; nível 3 = o
+   alvo. Onde o alvo é 1 (Legends, Battlefields, sobrenumeradas, promos) os
+   três coincidem — é o esperado, não uma excepção.
+2. **Dois quadros** por baixo — **Raridade** e **Domínio** —, uma linha por
+   categoria: bolinha da cor, nome, três mini-barras (escura = nível 1,
+   média = 2, clara = playset) e o tenho/total à direita; cabeçalho com a
+   legenda «1 · 2 · playset». «Sem domínio» é o `Colorless` da RiftScribe;
+   «Multi-domínio» são as cartas com dois domínios (uma linha só — senão a
+   soma das linhas passava o total). Nomes em português pela ordem da
+   maqueta; uma categoria nova que o catálogo traga aparece na mesma.
+3. **Sobre o BLOCO escolhido** (chips no painel: master set, sobrenumeradas,
+   artes alternativas, promos — os da grelha, pela ordem do config,
+   `prefs.painelBloco`) **da edição aberta, ou de «Todas»**.
+
+**As regras que a ordem fixou, e onde vivem:**
+
+- **Tudo calculado no servidor, zero números escritos à mão**:
+  `riftvault/painel.py` (`contar`, `itens`, `payload`, `da_edicao`,
+  `texto`). Vai em `progress.painel` de cada `api/set/<ID>.json` e em
+  `painel` do `api/index.json` (todas as edições e a chave `all`). O cliente
+  recalcula a cada `+`/`−` a partir do estado local, como as barras
+  (`painelContar` no `app.js` é o gémeo do `painel.contar`, e
+  `tests/test_painel.py` corre os dois sobre os mesmos itens no **node**,
+  se houver); a ordem e os nomes das linhas vêm do servidor
+  (`painel.rarities`/`domains`), não há segunda cópia. Cada grupo do payload
+  leva `domain` e `rune` para isso.
+- **As RUNAS nunca entram** — nem no total, nem nos níveis, nem nos quadros
+  (`metrics.e_runa`, a mesma definição de «runa» da Coleção). A barra do
+  master set **continua a contá-las** (as 6 bases do OGN a 3, 2026-09-15) —
+  essa regra não mexeu —, por isso no OGN o cartão «playset» lê 212/292 e
+  a barra 217/298; o painel diz «sem as 6 runas — nunca entram aqui»
+  (`runes_out`). A nota da linha «N cópias a comprar» foi reescrita porque
+  os chips a que apontava saíram.
+- **As escondidas e as retiradas seguem a regra da grelha**:
+  `metrics.escondida` (que já inclui `retirada`) — verificou-se e
+  manteve-se; há teste que compara, impressão a impressão, o que a grelha
+  mostra com o que o painel conta.
+- **Telemóvel**: abaixo de 700 px os três cartões empilham e os quadros
+  passam a um por linha (`@media (max-width: 699px)`).
+- **A paleta do mockup em variáveis no topo do `style.css`** (`--h-bg`,
+  `--h-card`, `--h-line`, `--h-track`, `--h-text`, `--h-dim`, `--h-dim-2`,
+  `--h-on`, a rampa `--lvl-1/2/3`, `--rar-*`, `--dom-*`), sem cores
+  inline, para se alargar às outras abas quando ele quiser. **Sem tipo de
+  letra externo** (a maqueta usava Google Fonts): o site não pede nada à
+  rede além das imagens — `system-ui`, com os tamanhos e o `letter-spacing`
+  da maqueta.
+
+**O separador «Todas»** (no fim da fila das edições) mostra as cinco
+seguidas na grelha — `loadTodas` pede os cinco `api/set/<ID>.json` e cola
+um payload só (`juntarEdicoes`), com um cabeçalho fino por edição dentro de
+cada bloco; os `printing_id` são únicos, por isso os `+`/`−`, as barras e o
+valor funcionam iguais. A wantlist da edição some (fica só a de tudo), o
+Encomendas continua a abrir uma edição (`edicaoAberta()`), e o
+`state.levels` não guarda a chave `all` (contava a dobrar). Enquanto as
+edições carregam, o painel mostra os números do servidor (`index.painel`).
+
+**O que saiu do topo**: os chips da contagem por níveis (`#master-niveis`,
+`renderNiveis`/`niveisLinha`/`niveisChip`/`niveisTotal`) e os chips das
+raridades (`#rarities`) — a mesma informação passou para o painel. As três
+barras (playsets jogáveis, master set, valor) e os chips por bloco ficam
+por baixo do painel, mais pequenos. A contagem por níveis da barra
+(`metrics.niveis`, em CÓPIAS e com as runas) continua a existir: é o que a
+linha «N cópias a comprar» e o degrau das wantlists lêem.
+
+**Melhorias fora do pedido, no que se tocou:** `metrics.alvo_do_bloco`
+passou a público («playset» / «1 de cada») e o `faltas_edicao` deixou de
+chamar o `_sufixo_alvo` privado; o `loadSet` ignora uma resposta que chegue
+depois de ele ter mudado de separador (antes, dois cliques rápidos podiam
+pôr a grelha de uma edição debaixo do separador de outra) e os cliques nos
+separadores passaram a apanhar o erro em toast em vez de rejeição por
+tratar; o `painel.da_edicao` varre só a edição pedida; um comentário velho
+do `state.blocks` («os três contam para a percentagem», de 09-14) foi
+corrigido; `.chip-b.is-static`, que nada usava, saiu do CSS.
+
+**Medido a 2026-09-21 contra cópias do `data/` real
+(`_revisao\_medir_painel_H.py`), bloco master set, tenho/total em
+impressões, sem as runas:**
+
+| edição | 1 de cada | 2 de cada | playset | barra do master set |
+|---|---|---|---|---|
+| OGN | 273/292 | 242/292 | 212/292 | 217/298 (+6 runas, 5 completas) |
+| OGS | 24/24 | 24/24 | 11/24 | 11/24 |
+| SFD | 215/221 | 200/221 | 188/221 | 188/221 |
+| UNL | 216/219 | 206/219 | 195/219 | 195/219 |
+| VEN | 163/166 | 159/166 | 155/166 | 155/166 |
+| **TODAS** | **891/922** | **831/922** | **761/922** | 766/928 |
+
+Sobrenumeradas (1 de cada, os três iguais): OGN 6/12, SFD 7/30, UNL 11/19,
+VEN 6/31, todas 30/92. Artes alternativas (playset): OGN 18/24 · 4 · 2, SFD
+12/24 · 4 · 0, UNL 16/30 · 4 · 0, VEN 11/18 · 3 · 0, todas 57/96 · 15 · 2.
+Promos (1 de cada): VEN 5/6. **Nada mais mexe**: o `painel.payload` só lê,
+e a percentagem, os níveis da barra, as wantlists, o valor, as Faltas, o A
+mais e as Encomendas não o conhecem. `tests/test_painel.py` (30 testes:
+nível 1 ≥ 2 ≥ 3 em todas as categorias, edições e blocos; a soma das
+raridades e dos domínios é o total do bloco, nível a nível; «Todas» é a
+soma; runas fora; escondidas/retiradas como na grelha; alvo 1 coincide;
+não escreve, sem euros; o HTML/CSS/JS; o gémeo em JS). Suite: 35
+ficheiros, 0 a falhar.
+
+**Fotografar a 375 px**: o Chrome headless não deixa a janela abaixo de
+~500 px — `_revisao\_foto_cdp.mjs` (node, DevTools Protocol,
+`Emulation.setDeviceMetricsOverride`) é o caminho, com um `js` opcional
+para clicar antes da foto.
