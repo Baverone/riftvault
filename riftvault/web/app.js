@@ -51,6 +51,10 @@ const state = {
   // continua lá, mas não é o que se vê ao abrir.
   decks: null, deckId: null, deck: null,
   ordemFixa: false,            // a ordem vem do config (`decks.ordem`): sem botões
+  // A experiência do pool próprio (2026-09-21, `decks.modo = pool_proprio`):
+  // `modoDecks` vem do `api/decks.json`; `pool` é o `api/pool.json` (a aba
+  // «Pool dos decks»), com a fila dos `+`/`−` por impressão, como as runas.
+  modoDecks: 'coleccao', pool: null, poolFila: new Map(), poolVoo: new Map(),
   // O antigo `faltas.json` partiu-se a 2026-09-15 (à tarde) na wantlist da
   // Coleção (`api/wantlist.json`) e nas listas de compra dos decks
   // (`api/compras.json`). Cada um tem o pedido a caminho guardado (`*P`) para
@@ -136,6 +140,14 @@ async function boot() {
   $('#readonly-banner').hidden = state.editable;
   $('#generated').textContent = state.index.generated_at
     ? `Atualizado em ${state.index.generated_at.replace('T', ' ').replace('+00:00', ' UTC')}.` : '';
+  // A experiência do pool próprio (2026-09-21): a Coleção não sabe que há
+  // decks — o filtro «Em decks» não filtra nada e não se mostra.
+  state.modoDecks = state.index.modo_decks || 'coleccao';
+  if (decksPool()) {
+    const emDecks = document.querySelector('.seg-btn[data-state="indeck"]');
+    if (emDecks) emDecks.hidden = true;
+    if (state.prefs.stateFilter === 'indeck') state.prefs.stateFilter = 'all';
+  }
 
   for (const b of document.querySelectorAll('#section-tabs .tab')) {
     b.onclick = () => showSection(b.dataset.section);
@@ -1460,20 +1472,40 @@ async function loadDecks() {
   // A ordem escrita no config (`decks.ordem`, 2026-09-21) manda: sem botões
   // de reordenar, senão o clique era desfeito na importação seguinte.
   state.ordemFixa = !!d.ordem_fixa;
+  // A experiência do pool próprio (2026-09-21): com `pool_proprio` a aba
+  // abre no pool, e as abas de compra (Staples, Por deck, Pimp) não se
+  // mostram — a compra é uma só, a do pool.
+  state.modoDecks = d.modo || 'coleccao';
   renderDeckTabs();
   // Uma preferência guardada com a aba «Encomendas» (que viveu aqui de
   // 2026-09-11 a 2026-09-17, e passou a separador próprio) cai no primeiro deck.
-  const first = DECK_FALTA_IDS.includes(state.prefs.deck)
+  const abas = decksPool() ? [POOL_TAB] : DECK_FALTA_IDS;
+  const first = abas.includes(state.prefs.deck)
     || state.decks.some(x => x.id === state.prefs.deck)
-    ? state.prefs.deck : (state.decks[0] && state.decks[0].id);
-  if (DECK_FALTA_IDS.includes(first)) await loadDeckFaltas(first);
+    ? state.prefs.deck : (decksPool() ? POOL_TAB : (state.decks[0] && state.decks[0].id));
+  if (first === POOL_TAB) await loadPool();
+  else if (DECK_FALTA_IDS.includes(first)) await loadDeckFaltas(first);
   else if (first) await loadDeck(first);
   else $('#deck-body').innerHTML = '<p class="empty">Não há decks. Mete um .txt em <code>decks/</code>.</p>';
+}
+
+function decksPool() {
+  return state.modoDecks === 'pool_proprio';
 }
 
 function renderDeckTabs() {
   const nav = $('#deck-tabs');
   nav.innerHTML = '';
+  if (decksPool()) {
+    const b = document.createElement('button');
+    b.className = 'tab' + (state.deckId === POOL_TAB ? ' is-on' : '');
+    const t = state.pool && state.pool.totals;
+    b.innerHTML = `Pool dos decks<small>${t
+      ? `${t.have}/${t.need}${t.missing ? ` · faltam ${t.missing}` : ' · completo'}`
+      : 'o que os decks partilham'}</small>`;
+    b.onclick = () => loadPool();
+    nav.appendChild(b);
+  }
   for (const d of state.decks) {
     const b = document.createElement('button');
     b.className = 'tab' + (d.id === state.deckId ? ' is-on' : '');
@@ -1494,8 +1526,8 @@ function renderDeckTabs() {
   // a separador de topo a 2026-09-17 («tiras esta funcionalidade dos decks»).
   // As abas por deck que viviam no antigo separador «Faltas» até 2026-09-15
   // (Staples, Por deck, Pimp decks): o contador só se sabe depois do
-  // `compras.json`.
-  for (const t of DECK_FALTA_TABS) {
+  // `compras.json`. Com o pool próprio não se mostram.
+  for (const t of (decksPool() ? [] : DECK_FALTA_TABS)) {
     const b = document.createElement('button');
     b.className = 'tab' + (state.deckId === t.id ? ' is-on' : '');
     b.innerHTML = `${t.label}<small>${contadorFalta(t.id) || t.sub}</small>`;
@@ -1627,6 +1659,27 @@ function renderDeck() {
 function deckLocais(p) {
   const l = p.locais || {};
   const chip = (mau, txt) => `<span class="chip-l ${mau ? 'bad' : 'ok'}">${txt}</span>`;
+  // A experiência do pool próprio (2026-09-21): tudo o que o deck tem vem do
+  // pool, o que falta é face ao pool inteiro, e não há nada a marcar — os
+  // decks não tocam na Coleção.
+  if (p.modo === 'pool_proprio') {
+    return `<div class="locais-deck">
+      <div class="bar-label"><span>Onde estão as cartas deste deck</span></div>
+      <div class="chips-l">
+        ${chip(false, `do pool dos decks ${l.no_pool || 0}`)}
+        ${chip(l.missing, `faltam ao pool ${l.missing || 0}`)}
+        ${runasNaoContadas(p.runas) ? `<span class="chip-l neutra">${p.runas.copies} runas à mão</span>` : ''}
+      </div>
+      <small class="nota">Os decks montam-se <b>só do pool</b> (<code>decks.modo =
+        pool_proprio</code>): partilham-no entre si, só em versão base — a Legend e
+        o Champion também — e não usam nada da Coleção. O que falta a este deck é
+        o que o pool ainda não tem; compra-se para o pool, na aba
+        <b>Pool dos decks</b>.</small>
+      ${runasNaoContadas(p.runas) ? `<small class="nota">As <b>${p.runas.copies}</b> runas
+        do Rune Pool não se contam — a lista diz só quantas são, e organizas as runas
+        à mão.</small>` : ''}
+    </div>`;
+  }
   return `<div class="locais-deck">
     <div class="bar-label"><span>Onde estão as cartas deste deck</span></div>
     <div class="chips-l">
@@ -1974,6 +2027,192 @@ function exportCSV() {
   a.download = `${p.slug}-faltas.csv`;
   a.click();
   URL.revokeObjectURL(a.href);
+}
+
+/* ======================================= A ABA «POOL DOS DECKS» (2026-09-21)
+
+   A experiência do pool próprio (`decks.modo = pool_proprio`). André: «quero
+   que a coleccao fique sempre imaculada, nada sai da coleccao; os decks, todos
+   partilham as mesmas cartas, mas nao usam absolutamente nada da coleccao; so
+   jogam com versoes base». Vem tudo do servidor (`api/pool.json`,
+   `pool.payload`): por carta, o que o pool PRECISA (o máximo entre os decks —
+   partilham, não somam), o que TEM e o que FALTA; por deck, se o pool chega.
+
+   Os `+`/`−` de cada carta escrevem no pool (`api/pool/ajustar`): no `copies` e
+   no local `pool-decks` de uma vez — a Coleção não mexe. Ecrã otimista com
+   fila por impressão, como as runas e as Encomendas. Só versões base; a
+   impressão é a base mais barata (`compra`), que é onde se compra.       */
+async function loadPool() {
+  state.deckId = POOL_TAB;
+  state.prefs.deck = POOL_TAB;
+  savePrefs();
+  renderDeckTabs();
+  $('#deck-head').innerHTML = '';
+  $('#deck-body').innerHTML = '<p class="empty">a carregar…</p>';
+  try {
+    state.pool = await getJSON('api/pool.json');
+  } catch (err) {
+    $('#deck-body').innerHTML = `<p class="empty">${escapeHTML(err.message)}</p>`;
+    return;
+  }
+  if (state.deckId !== POOL_TAB) return;
+  state.prefs.poolSoFaltas = !!state.prefs.poolSoFaltas;
+  renderDeckTabs();
+  renderPool();
+}
+
+function renderPool() {
+  const p = state.pool;
+  const t = p.totals;
+  const chip = (mau, txt) => `<span class="chip-l ${mau ? 'bad' : 'ok'}">${txt}</span>`;
+  $('#deck-head').innerHTML = `<div class="deck-card">
+    <div class="deck-title"><b>Pool dos decks</b>
+      <span class="prio">${t.have}/${t.need} · ${t.missing ? `faltam ${t.missing}` : 'completo'}</span></div>
+    <div class="deck-meta">
+      <span><i>Precisa de ter</i>${plural(t.need, 'cópia', 'cópias')} de ${plural(t.cards, 'carta', 'cartas')}</span>
+      <span><i>Tem</i>${plural(t.have, 'cópia', 'cópias')}${t.in_pool !== t.have ? ` (${t.in_pool} no pool)` : ''}</span>
+      <span><i>Faltam</i>${plural(t.missing, 'cópia', 'cópias')} de ${plural(t.missing_cards, 'carta', 'cartas')}</span>
+      <span><i>Decks que o pool monta</i>${t.decks_ok} de ${t.decks}</span>
+    </div>
+    <div class="bar-label"><span>O pool face ao que os decks pedem</span>
+      <b>${t.have}/${t.need}</b></div>
+    <div class="bar"><i style="width:${t.need ? (t.have / t.need) * 100 : 0}%"></i></div>
+    <div class="chips-l">
+      ${p.por_deck.map(d => chip(!d.ok, `${d.priority}. ${escapeHTML(deckCurto(d.name))} ${d.have}/${d.wanted}${
+        d.ok ? '' : ` · faltam ${d.missing}`}`)).join('')}
+    </div>
+    <small class="nota">Experiência <code>decks.modo = pool_proprio</code>: os decks
+      montam-se <b>só deste pool</b>, que começa a zero — mete aqui o que tiveres
+      para eles (${state.editable && p.editable ? 'os <b>+</b>/<b>−</b> de cada carta' : 'no modo edição'}).
+      O pool precisa do <b>máximo</b> que algum deck pede de cada carta (partilham;
+      dentro do mesmo deck main e sideboard somam — a soma dos ${t.decks} decks seria
+      ${t.soma}); só em <b>versão base</b>, a Legend e o Champion também; as runas
+      ficam fora. Nada disto conta para a Coleção, nem a Coleção para aqui.
+      Voltar atrás é pôr <code>coleccao</code> no config.</small>
+    ${p.sem_base.length ? `<small class="nota bad">Sem versão base no catálogo (o pool é só
+      base): ${p.sem_base.map(escapeHTML).join(', ')}.</small>` : ''}
+    <div class="deck-actions">
+      <button class="btn${state.prefs.poolSoFaltas ? ' primary' : ''}" data-pool-act="so-faltas">${
+        state.prefs.poolSoFaltas ? 'A ver só o que falta' : 'Só o que falta'}</button>
+    </div>
+  </div>`;
+
+  const cartas = p.cards.filter(c => !state.prefs.poolSoFaltas || c.missing);
+  const faltam = p.cards.filter(c => c.missing);
+  $('#deck-body').innerHTML = `
+    <h2 class="section-head">Cartas do pool
+      <span>${plural(cartas.length, 'carta', 'cartas')}${state.prefs.poolSoFaltas ? ' em falta' : ''}</span></h2>
+    ${cartas.length ? `<div class="grid deck-grid">${cartas.map(poolTile).join('')}</div>`
+      : '<p class="empty">Nada em falta — o pool monta os decks todos.</p>'}
+    <h2 class="section-head">Wantlist do pool
+      <span>${p.wantlist.lines ? `${plural(p.wantlist.lines, 'linha', 'linhas')} · ${
+        plural(p.wantlist.copies, 'cópia', 'cópias')} · ${eur(p.wantlist.cents)}` : 'nada a comprar'}</span></h2>
+    ${cmZonaHTML('pool')}
+    ${p.fora.length ? `<h2 class="section-head">No pool sem servir
+      <span>${plural(t.fora, 'cópia', 'cópias')}</span></h2>
+      <p class="note">Estão no pool mas nenhum deck as usa nesta versão: tira-as com o
+        <b>−</b>, ou deixa-as ficar.</p>
+      <div class="grid deck-grid">${p.fora.map(poolForaTile).join('')}</div>` : ''}`;
+
+  cmLigar('pool', () => faltam, `riftvault-pool-${new Date().toISOString().slice(0, 10)}.csv`);
+  if (faltam.length) cmMostrar('pool', faltam, false, { foco: false, copiar: false });
+  ligarPool();
+  const b = document.querySelector('#deck-head [data-pool-act="so-faltas"]');
+  if (b) b.onclick = () => { state.prefs.poolSoFaltas = !state.prefs.poolSoFaltas; savePrefs(); renderPool(); };
+}
+
+function poolBotoes(c) {
+  if (!state.editable || !state.pool || !state.pool.editable || !c.compra || !c.compra.id) return '';
+  // O `−` tira da impressão que tiver cópias no pool (a última primeiro); o
+  // `+` mete na base mais barata.
+  const tira = [...c.printings].reverse().find(x => x.qty > 0);
+  return `<div class="steppers pool">
+    <button class="step minus" data-pool-delta="-1" data-pid="${escapeAttr(tira ? tira.id : c.compra.id)}"
+            ${c.have > 0 ? '' : 'disabled'} aria-label="menos uma de ${escapeAttr(c.name)} no pool"
+            title="tira uma do pool">−</button>
+    <button class="step plus" data-pool-delta="1" data-pid="${escapeAttr(c.compra.id)}"
+            aria-label="mais uma de ${escapeAttr(c.name)} no pool"
+            title="mete uma no pool (${escapeAttr((c.compra.code || '').split('/')[0])})">+</button>
+  </div>`;
+}
+
+function poolTile(c) {
+  const st = c.sem_base ? 'shared' : (c.missing ? 'gone' : 'ok');
+  const quem = c.decks.map(d => `${escapeHTML(deckCurto(d.deck))} ${d.qty}`).join(' · ');
+  const onde = c.printings.length > 1
+    ? c.printings.map(x => `${x.qty}× ${escapeHTML((x.code || x.id).split('/')[0])}`).join(' · ') : '';
+  return `<div class="dtile ${st}" data-ck="${escapeAttr(c.card_key)}">
+    ${artHTML(c, `<span class="need">${c.need}×</span><span class="ja-tens">tens ${c.have}/${c.need}</span>`)}
+    <div class="tname" title="${escapeAttr(c.name)}">${escapeHTML(c.name)}</div>
+    ${codeLine({ code: c.compra && c.compra.code, price: c.price })}
+    ${poolBotoes(c)}
+    <div class="onde ${c.missing ? 'falta' : 'tenho'}">${c.missing
+      ? `falta${c.missing === 1 ? '' : 'm'} ${c.missing} ao pool` : 'o pool chega'}${
+      c.soma > c.need ? ` · <i title="se os decks se montassem todos ao mesmo tempo">soma ${c.soma}</i>` : ''}</div>
+    <div class="onde tenho" title="${escapeAttr(quem)}">${quem}</div>
+    ${onde ? `<div class="onde tenho">${onde}</div>` : ''}
+    ${c.sem_base ? '<div class="onde shared">sem versão base</div>' : ''}
+  </div>`;
+}
+
+function poolForaTile(x) {
+  return `<div class="dtile neutro" data-ck="${escapeAttr(x.card_key || '')}">
+    ${artHTML(x, `<span class="need">${x.qty}×</span>`)}
+    <div class="tname" title="${escapeAttr(x.name)}">${escapeHTML(x.name)}${
+      x.label && x.label !== 'Base' ? ` <i class="var">${escapeHTML(x.label)}</i>` : ''}</div>
+    ${codeLine({ code: x.code })}
+    ${state.editable && state.pool.editable ? `<div class="steppers pool">
+      <button class="step minus" data-pool-delta="-1" data-pid="${escapeAttr(x.printing_id)}"
+              aria-label="menos uma de ${escapeAttr(x.name)} no pool" title="tira uma do pool">−</button>
+    </div>` : ''}
+    <div class="onde tenho">${escapeHTML(x.motivo)}</div>
+  </div>`;
+}
+
+function ligarPool() {
+  for (const b of document.querySelectorAll('#deck-body .steppers.pool .step')) {
+    b.onclick = () => poolAjustar(b.dataset.pid, Number(b.dataset.poolDelta));
+  }
+}
+
+/* O clique no `+`/`−` do pool: manda o delta, e quando o último pedido em
+   voo responder relê-se o `api/pool.json` (é pequeno e o pool inteiro muda —
+   a carta, o por deck, a wantlist). Os decks e o A mais ficam por reler. */
+async function poolAjustar(pid, delta) {
+  if (!state.editable || !state.pool || !state.pool.editable || !pid) return;
+  state.poolVoo.set(pid, (state.poolVoo.get(pid) || 0) + 1);
+  const fila = state.poolFila.get(pid) || Promise.resolve();
+  const tarefa = fila.then(async () => {
+    const r = await fetch('api/pool/ajustar', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ printing_id: pid, delta,
+                             request_id: (crypto.randomUUID ? crypto.randomUUID()
+                               : `${Date.now()}-${Math.random().toString(16).slice(2)}`) }),
+    });
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `HTTP ${r.status}`);
+    return r.json();
+  });
+  state.poolFila.set(pid, tarefa.catch(() => {}));
+  try {
+    await tarefa;
+  } catch (err) {
+    toast(`Não gravou: ${err.message}`, { error: true });
+  }
+  const resto = (state.poolVoo.get(pid) || 1) - 1;
+  state.poolVoo.set(pid, resto);
+  if (resto === 0 && state.deckId === POOL_TAB) {
+    try {
+      state.pool = await getJSON('api/pool.json');
+      renderDeckTabs();
+      renderPool();
+    } catch (err) {
+      toast(err.message, { error: true });
+    }
+  }
+  // O que os decks têm e o excedente da Coleção NÃO mudam (o pool está fora
+  // dela), mas as páginas dos decks lêem o pool: ficam por reler.
+  state.decks = (await getJSON('api/decks.json').catch(() => ({ decks: state.decks }))).decks;
+  state.compras = null;
 }
 
 /* ================================================ SEPARADOR «ENCOMENDAS»
@@ -2423,6 +2662,9 @@ const DECK_FALTA_TABS = [
   { id: 'pimp', label: 'Pimp decks', sub: 'versões alteradas das cartas dos decks' },
 ];
 const DECK_FALTA_IDS = DECK_FALTA_TABS.map(t => t.id);
+// A aba «Pool dos decks» da experiência do pool próprio (2026-09-21); o id
+// vive no `state.deckId` como as outras abas que não são um deck.
+const POOL_TAB = 'pool';
 
 function contadorFalta(id) {
   const f = state.compras;
@@ -2707,9 +2949,17 @@ function amCurto(t) {
   return partes.length ? partes.join(' · ') : 'nada a mais';
 }
 
+/* A experiência do pool próprio (2026-09-21, `decks.modo = pool_proprio`): os
+   decks não tocam na Coleção, por isso o excedente é o verdadeiro face aos
+   alvos e o bloco das «libertadas dos decks» não se mostra. */
+function amPool() {
+  return state.aMais && state.aMais.modo === 'pool_proprio';
+}
+
 function renderAMais() {
   const p = state.aMais;
   const sel = state.prefs.amSet;
+  if (amPool()) return renderAMaisPool();
   // «Todas» inclui a edição sem botão (o OGS): um excedente que não se vê é o
   // contrário do que este separador é. Diz-se no cabeçalho dela.
   const sets = p.sets.filter(s => sel === 'all' || s.set === sel);
@@ -2769,10 +3019,51 @@ function renderAMais() {
           : 'O registo do que os decks pedem ainda está vazio — enche a partir da próxima vez que uma lista mudar.'}</p>`}`).join('');
 }
 
+/* O «A mais» com o pool próprio: só o excedente, face aos alvos, sem decks. */
+function renderAMaisPool() {
+  const p = state.aMais;
+  const sel = state.prefs.amSet;
+  const sets = p.sets.filter(s => sel === 'all' || s.set === sel);
+  const t = p.totals;
+  const semBotao = p.sets.filter(s => !s.button).map(s => s.name);
+  const sc = p.scope || {}, ru = sc.runas || {};
+  const runasFora = sc.sem_runas && (ru.excedente || {}).copies
+    ? `<br>Sem runas, de propósito — organizas as runas à mão. Ficaram de fora ${
+        plural(ru.excedente.copies, 'cópia', 'cópias')} a mais em ${
+        plural(ru.excedente.cards, 'impressão', 'impressões')} de runa.`
+    : (sc.sem_runas ? '<br>Sem runas, de propósito — organizas as runas à mão.' : '');
+  $('#am-head').innerHTML = `<div class="deck-card">
+    <div class="deck-title"><b>A mais</b>
+      <span class="prio">${plural(t.excedente.copies, 'cópia', 'cópias')} a mais</span></div>
+    <div class="deck-meta">
+      <span><i>Excedente</i>${plural(t.excedente.cards, 'impressão', 'impressões')} · ${
+        plural(t.excedente.copies, 'cópia', 'cópias')}</span>
+      <span><i>Decks</i>pool próprio — não descontam nada aqui</span>
+    </div>
+    <small class="nota"><b>Excedente</b>: cópias da Coleção acima do alvo — playset
+      na sequência e nas artes alternativas, 1 nas sobrenumeradas e promos, e o que
+      está escondido (tokens, signatures) não tem alvo. Com
+      <code>decks.modo = pool_proprio</code> os decks têm pool próprio e não usam
+      nada da Coleção: este é o excedente verdadeiro face aos alvos, e o bloco das
+      «libertadas dos decks» não se mostra. Só mostra: não muda alvos nem contas.${runasFora}${
+      semBotao.length ? `<br>Sem botão próprio: ${semBotao.map(escapeHTML).join(', ')} — aparece em «Todas».` : ''}</small>
+  </div>`;
+  $('#am-body').innerHTML = sets.map(s => `
+    <h2 class="section-head fe-set">${escapeHTML(s.name)}
+      <span>${amResumo(s)}</span></h2>
+    <h3 class="section-head sub fe-bloco am-excedente">Excedente
+      <small>mais cópias do que o alvo</small>
+      <span>${s.excedente.copies ? `<b>${plural(s.excedente.copies, 'cópia', 'cópias')}</b> a mais em ${
+        plural(s.excedente.cards, 'impressão', 'impressões')}` : 'nada a mais'}</span></h3>
+    ${s.excedente.items.length
+      ? `<div class="grid deck-grid fe-grid">${s.excedente.items.map(amTile).join('')}</div>`
+      : '<p class="empty fe-vazio">Nada acima do alvo nesta edição.</p>'}`).join('');
+}
+
 function amResumo(s) {
   const partes = [];
   if (s.excedente.copies) partes.push(`<b>${s.excedente.copies}</b> a mais`);
-  if (s.libertadas.copies) partes.push(`<b>${s.libertadas.copies}</b> libertadas`);
+  if (s.libertadas.copies && !amPool()) partes.push(`<b>${s.libertadas.copies}</b> libertadas`);
   return partes.length ? partes.join(' · ') : 'nada a mais';
 }
 

@@ -497,8 +497,27 @@ def _sem_retiradas(con: sqlite3.Connection) -> tuple[str, list[str]]:
     return " AND c.printing_id NOT IN (" + ",".join("?" * len(ids)) + ")", ids
 
 
+def copias_sql(con: sqlite3.Connection) -> tuple[str, list]:
+    """O `FROM` das cópias que a COLEÇÃO conta como suas, aliás `c`.
+
+    É o `copies` tal e qual — menos o pool próprio dos decks quando a
+    experiência de 2026-09-21 está ligada (`decks.modo = "pool_proprio"`):
+    *"uma copia no pool nunca conta para a coleccao"*, e o valor é da
+    Coleção. O gémeo em Python, por impressão, é o `locais.contadas`.
+    (fragmento, parâmetros) — os parâmetros vêm ANTES dos do `WHERE`.
+    """
+    from . import decks, locais
+
+    if not decks.pool_proprio():
+        return "copies c", []
+    return ("(SELECT c0.printing_id, c0.qty - COALESCE(cl.qty, 0) AS qty FROM copies c0 "
+            " LEFT JOIN copy_locations cl ON cl.printing_id = c0.printing_id "
+            " AND cl.location = ?) c", [locais.POOL])
+
+
 def collection_value(con: sqlite3.Connection) -> dict:
     """Valor total da coleção: soma de quantidade x preço — sem as retiradas."""
+    fonte, p_fonte = copias_sql(con)
     fora, params = _sem_retiradas(con)
     row = con.execute(
         "SELECT COALESCE(SUM(c.qty * p.price_cents), 0) AS cents, "
@@ -509,8 +528,8 @@ def collection_value(con: sqlite3.Connection) -> dict:
         # distingue acabamentos, essas podem estar sobreavaliadas.
         "       COALESCE(SUM(CASE WHEN p.from_foil = 1 THEN c.qty * p.price_cents ELSE 0 END), 0) AS cents_foil, "
         "       COALESCE(SUM(CASE WHEN p.from_foil = 1 THEN c.qty ELSE 0 END), 0) AS copias_foil "
-        "FROM copies c LEFT JOIN catalog.price_latest p ON p.printing_id = c.printing_id "
-        "WHERE c.qty > 0" + fora, params
+        f"FROM {fonte} LEFT JOIN catalog.price_latest p ON p.printing_id = c.printing_id "
+        "WHERE c.qty > 0" + fora, [*p_fonte, *params]
     ).fetchone()
     day = con.execute("SELECT MAX(day) AS d FROM catalog.price_latest").fetchone()
     return {"cents": row["cents"] or 0, "currency": "EUR",
@@ -520,27 +539,29 @@ def collection_value(con: sqlite3.Connection) -> dict:
 
 
 def value_by_set(con: sqlite3.Connection) -> dict[str, int]:
+    fonte, p_fonte = copias_sql(con)
     fora, params = _sem_retiradas(con)
     rows = con.execute(
         "SELECT pr.set_id AS s, COALESCE(SUM(c.qty * p.price_cents), 0) AS cents "
-        "FROM copies c "
+        f"FROM {fonte} "
         "JOIN catalog.printings pr ON pr.printing_id = c.printing_id "
         "LEFT JOIN catalog.price_latest p ON p.printing_id = c.printing_id "
-        "WHERE c.qty > 0" + fora + " GROUP BY pr.set_id", params
+        "WHERE c.qty > 0" + fora + " GROUP BY pr.set_id", [*p_fonte, *params]
     ).fetchall()
     return {r["s"]: r["cents"] or 0 for r in rows}
 
 
 def top_value(con: sqlite3.Connection, limit: int = 15) -> list[dict]:
+    fonte, p_fonte = copias_sql(con)
     fora, params = _sem_retiradas(con)
     rows = con.execute(
         "SELECT pr.public_code, pr.name, pr.variant_label, c.qty, p.price_cents, "
         "       c.qty * p.price_cents AS total, p.from_foil "
-        "FROM copies c "
+        f"FROM {fonte} "
         "JOIN catalog.printings pr ON pr.printing_id = c.printing_id "
         "JOIN catalog.price_latest p ON p.printing_id = c.printing_id "
         "WHERE c.qty > 0 AND p.price_cents IS NOT NULL" + fora +
-        " ORDER BY total DESC LIMIT ?", [*params, limit]).fetchall()
+        " ORDER BY total DESC LIMIT ?", [*p_fonte, *params, limit]).fetchall()
     return [dict(r) for r in rows]
 
 

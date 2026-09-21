@@ -98,6 +98,18 @@ A ORDEM DOS DECKS ESCREVE-SE NO CONFIG (2026-09-21)
     (`OrdemFixa`) — com a lista a mandar, mexer na base era mentir até à
     importação seguinte. Sem lista, vale o que valia: a prioridade guardada
     na base, os decks novos para o fim.
+
+A EXPERIÊNCIA DO POOL PRÓPRIO (2026-09-21, `decks.modo = "pool_proprio"`)
+    André: *"quero que a coleccao fique sempre imaculada, nada sai da
+    coleccao; os decks, todos partilham as mesmas cartas, mas nao usam
+    absolutamente nada da coleccao; so jogam com versoes base"*. Atrás de UMA
+    chave do config, reversível: com `pool_proprio` a REGRA CENTRAL de cima
+    não se aplica — os decks montam-se só do local `pool-decks`, o pool
+    precisa do MÁXIMO por carta entre todos os decks (não a soma; main e
+    sideboard somam dentro do mesmo deck), tudo em versão base (a Legend e o
+    Champion também), e a Coleção não sabe que há decks. `allocate` devolve a
+    mesma forma de sempre, calculada pelo `pool.py`; `modo()` diz em que modo
+    se está. Com `coleccao` (a omissão) fica tudo como está descrito acima.
 """
 
 from __future__ import annotations
@@ -534,6 +546,31 @@ def aplicar_ordem(con: sqlite3.Connection, cfg: dict | None = None,
             "nao_encontrados": nao_encontrados, "fora_da_lista": fora}
 
 
+# A EXPERIÊNCIA DO POOL PRÓPRIO (2026-09-21): `decks.modo`. `coleccao` é o
+# modelo de sempre (os decks servem-se da Coleção, a Legend/Champion em versão
+# especial, alocação por prioridade); `pool_proprio` é o pool à parte, só
+# base, máximo entre decks — ver `pool.py`. Um valor desconhecido rebenta,
+# como as listas do `master_set`: uma palavra mal escrita não pode ligar nem
+# desligar a experiência em silêncio.
+MODO = "modo"
+MODO_COLECAO = "coleccao"
+MODO_POOL = "pool_proprio"
+MODOS = (MODO_COLECAO, MODO_POOL)
+
+
+def modo(cfg: dict | None = None) -> str:
+    """`decks.modo`: `coleccao` (a omissão) ou `pool_proprio`."""
+    valor = _opcoes_decks(cfg).get(MODO) or MODO_COLECAO
+    if valor not in MODOS:
+        raise ValueError(f"decks.{MODO}: valor desconhecido {valor!r} (aceita {MODOS})")
+    return valor
+
+
+def pool_proprio(cfg: dict | None = None) -> bool:
+    """Está ligada a experiência do pool próprio dos decks?"""
+    return modo(cfg) == MODO_POOL
+
+
 def contar_runas(cfg: dict | None = None) -> bool:
     """Os decks contam as runas? `False` desde 2026-09-17 à noite."""
     return bool(_opcoes_decks(cfg).get(CONTAR_RUNAS, False))
@@ -696,12 +733,21 @@ def versoes_dos_decks(con: sqlite3.Connection, cfg: dict | None = None) -> Verso
     uma reimpressão de topo, que ele chama OverNumbered — versão especial).
     Especial = o que `decks.versoes_especiais` disser (alt art, sobrenumerada,
     promo). Signature e retiradas ficam de fora das duas listas.
+
+    Com o pool próprio (`decks.modo = "pool_proprio"`, 2026-09-21) é SÓ A
+    BASE: sem versões especiais (a Legend e o Champion jogam a base — a regra
+    de 2026-09-17 não se aplica), sem «outras» a tapar buracos, e sem o
+    recurso a «o que houver de não-assinado» — uma carta sem base fica sem
+    impressão nenhuma, e é isso que `pool.sem_base` diz.
     """
     from . import metrics
 
     cfg = cfg or config.load()
     retiradas = metrics.retiradas_ids(con, cfg)
-    kinds, over = kinds_especiais(cfg)
+    if pool_proprio(cfg):
+        kinds, over = frozenset(), False
+    else:
+        kinds, over = kinds_especiais(cfg)
     ordens = {s: config.set_order(s) for s in
               (r["set_id"] for r in con.execute(
                   "SELECT DISTINCT set_id FROM catalog.printings"))}
@@ -726,10 +772,12 @@ def versoes_dos_decks(con: sqlite3.Connection, cfg: dict | None = None) -> Verso
             restantes.setdefault(r["card_key"], []).append(r)
     # Sem impressão normal nenhuma, o lugar normal aceita o que houver de
     # não-assinado (as promo de runa `VEN-R`, por exemplo): um deck nunca pede
-    # uma compra impossível.
-    for ck, rs in restantes.items():
-        if ck not in normais:
-            normais[ck] = rs
+    # uma compra impossível. No pool próprio não: é só a base, e uma carta sem
+    # base diz-se em vez de se tapar com outra coisa.
+    if not pool_proprio(cfg):
+        for ck, rs in restantes.items():
+            if ck not in normais:
+                normais[ck] = rs
     por_catalogo = lambda r: (ordens.get(r["set_id"], 999), r["api_sort"])
     por_preco = lambda r: (r["price_cents"] is None,
                            r["price_cents"] if r["price_cents"] is not None else 0,
@@ -739,7 +787,7 @@ def versoes_dos_decks(con: sqlite3.Connection, cfg: dict | None = None) -> Verso
          for ck, rs in normais.items()},
         {ck: [r["printing_id"] for r in sorted(rs, key=por_preco)]
          for ck, rs in especiais.items()},
-        retiradas, papeis_especiais(cfg), linha_de)
+        retiradas, frozenset() if pool_proprio(cfg) else papeis_especiais(cfg), linha_de)
 
 
 def cartas_especiais(con: sqlite3.Connection, deck_id: int,
@@ -769,7 +817,19 @@ def owned_by_card(con: sqlite3.Connection) -> dict[str, int]:
     versoes = versoes_dos_decks(con)
     # As runas não se contam nos decks (2026-09-17, à noite).
     nao_contadas = cartas_nao_contadas(con)
-    out: dict[str, int] = {}
+    # Com o pool próprio (2026-09-21) só as cópias que estão NO POOL servem os
+    # decks — a Coleção não entra.
+    if pool_proprio():
+        from . import locais
+
+        no_pool = locais.no_pool(con)
+        out: dict[str, int] = {}
+        for pid, n in no_pool.items():
+            r = versoes.linha_de.get(pid)
+            if r is not None and versoes.serve(r) and r["card_key"] not in nao_contadas:
+                out[r["card_key"]] = out.get(r["card_key"], 0) + n
+        return out
+    out = {}
     for r in con.execute(
         "SELECT p.printing_id, p.card_key, c.qty FROM copies c "
         "JOIN catalog.printings p ON p.printing_id = c.printing_id WHERE c.qty > 0"
@@ -806,6 +866,10 @@ def pool_dos_decks(con: sqlite3.Connection) -> dict:
         "fixo": {slug: dict(mapa) for slug, mapa in locais.por_deck(con).items()},
         "binder": dict(locais.em(con, locais.BINDER)),
         "colecao": dict(locais.na_colecao(con)),
+        # O pool próprio (2026-09-21): só o `pool.py` o lê, e só em modo
+        # `pool_proprio`; no modo `coleccao` está aqui para se ver, e ninguém
+        # se serve dele.
+        "pool": dict(locais.no_pool(con)),
     }
 
 
@@ -1044,8 +1108,23 @@ def allocate(con: sqlite3.Connection) -> dict:
     `lider` — e `partilhada`: por carta, os irmãos que também a pedem. Quem
     soma totais de todos os decks lê só as entradas com `grupo.lider`, senão
     conta o grupo uma vez por membro.
+
+    COM O POOL PRÓPRIO (`decks.modo = "pool_proprio"`, 2026-09-21) nada disto
+    se aplica: os decks não se servem da Coleção, do binder nem do que vem a
+    caminho — só do pool —, e é o `pool.alocacao` que responde, na MESMA
+    forma (por deck, com `grupo`), para quem lê isto não ter de saber do
+    modo: `alloc` é o que o pool dá a este deck, `missing` o que lhe falta
+    face ao pool inteiro (os decks não se consomem uns aos outros), `shared`,
+    `a_caminho`, `no_deck`/`no_binder`/`na_colecao` e tudo o que é «versão
+    especial» ou «outra» vem vazio, e o `grupo` (com `lider` só no primeiro
+    deck) traz o resultado do pool inteiro — o máximo por carta.
     """
     from . import pending
+
+    if pool_proprio():
+        from . import pool
+
+        return pool.alocacao(con)
 
     # Os montes vêm POR IMPRESSÃO (2026-09-17) e cada grupo serve-se só das
     # impressões que a regra lhe dá (`Versoes.joga`): as normais nos lugares
@@ -1351,7 +1430,11 @@ def uso_por_carta(con: sqlite3.Connection) -> dict[str, list[dict]]:
     `deck` é o rótulo dos membros que pedem a carta — «LeBlanc» se só um a
     pede, «LeBlanc ·· LeBlanc Baited Hook» se os dois —, `membros` lista-os, e
     `wanted`/`missing` são os do grupo (o máximo entre as listas).
+
+    Com o pool próprio (2026-09-21) a Coleção não sabe que há decks: vazio.
     """
+    if pool_proprio():
+        return {}
     alloc = allocate(con)
     por_slug = {d["name"]: d for d in deck_rows(con)}
     fora = cartas_nao_contadas(con)
@@ -1569,10 +1652,12 @@ def decks_index(con: sqlite3.Connection) -> list[dict]:
             # As runas que a lista pede e NÃO se contam: cópias e cartas
             # distintas, para o ecrã dizer «12 runas (3 cartas), à mão».
             "runas": {"copies": runas, "cards": n_runas, "contadas": not fora},
-            # De onde vem o que está alocado — os três somam o `have`.
+            # De onde vem o que está alocado — os três somam o `have` (no
+            # pool próprio, 2026-09-21, é só o quarto).
             "no_deck": sum(a["no_deck"].values()),
             "no_binder": sum(a["no_binder"].values()),
             "na_colecao": sum(a["na_colecao"].values()),
+            "no_pool": sum(a.get("no_pool", {}).values()),
             "extra": sum(a["extra"].values()),
             # Comprado, ainda não em casa: não conta no `have`, já não conta
             # no `missing`.
@@ -1630,9 +1715,11 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
                                                        especial=True)
     versoes = versoes_dos_decks(con)
     # As impressões que ESTE deck pode usar: as que estão nele, as do binder
-    # Decks/Venda e as da Coleção — os três montes (2026-09-11).
-    prints = owned_printings(con, {locais.deck_local(d["name"]), locais.BINDER,
-                                   locais.COLECAO})
+    # Decks/Venda e as da Coleção — os três montes (2026-09-11). Com o pool
+    # próprio (2026-09-21), só as do pool.
+    em_pool = pool_proprio()
+    prints = owned_printings(con, {locais.POOL} if em_pool else
+                             {locais.deck_local(d["name"]), locais.BINDER, locais.COLECAO})
     names = {r["card_key"]: r for r in con.execute(
         "SELECT card_key, name, type, domains_json FROM catalog.cards")}
 
@@ -1700,7 +1787,7 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
                     "raw": r["raw_line"],
                     "type": info["type"] if info else None,
                     "wanted": r["qty"], "have": 0, "missing": 0, "ordered": 0,
-                    "no_deck": 0, "no_binder": 0, "na_colecao": 0,
+                    "no_deck": 0, "no_binder": 0, "na_colecao": 0, "no_pool": 0,
                     "contado": False,
                     "especial": None, "versoes": [], "outras": 0,
                     "order_code": None, "order_price": None, "order_especial": False,
@@ -1786,7 +1873,10 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
                 "wanted": r["qty"], "have": tenho, "missing": falta,
                 "ordered": encomendada,
                 "no_deck": no_deck, "no_binder": no_binder,
-                "na_colecao": tenho - no_deck - no_binder,
+                # Com o pool próprio o que o deck tem vem TODO do pool; a
+                # Coleção não entra (2026-09-21).
+                "na_colecao": 0 if em_pool else tenho - no_deck - no_binder,
+                "no_pool": tenho if em_pool else 0,
                 "contado": True,
                 # O lugar especial desta linha (a Legend/Champion), ou `None`.
                 "especial": especial,
@@ -1815,12 +1905,17 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
                          "no_deck": sum(c["no_deck"] for c in contadas),
                          "no_binder": sum(c["no_binder"] for c in contadas),
                          "na_colecao": sum(c["na_colecao"] for c in contadas),
+                         "no_pool": sum(c["no_pool"] for c in contadas),
                          "nao_contadas": sum(c["wanted"] for c in cards
                                              if not c["contado"])})
 
     return {
         "id": deck_id, "slug": d["name"], "name": d["display_name"] or d["name"],
         "legend": d["legend"], "champion": d["champion"], "priority": d["priority"],
+        # O modo dos decks (2026-09-21): com `pool_proprio` o ecrã diz «do
+        # pool» em vez dos três montes, e esconde o «Marcar o que este deck
+        # usa» — não há nada a tirar da Coleção.
+        "modo": modo(),
         "sections": sections,
         # As runas que a lista pede e não se contam (2026-09-17, à noite): o
         # mesmo bloco do `decks_index`, para o cabeçalho dizer «12 runas».
@@ -1849,6 +1944,9 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
             "no_deck": sum(a["no_deck"].values()),
             "no_binder": sum(a["no_binder"].values()),
             "na_colecao": sum(a["na_colecao"].values()),
+            # O que vem do pool próprio (2026-09-21) — é o `alloc` inteiro
+            # nesse modo, 0 no modo `coleccao`.
+            "no_pool": sum(a.get("no_pool", {}).values()),
             "extra": sum(a["extra"].values()),
             "ordered": sum(a["a_caminho"].values()),
             "missing": sum(a["missing"].values()),

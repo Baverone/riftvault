@@ -2476,6 +2476,13 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   de reordenar e o `--order` ficam desligados enquanto a lista existir); o
   `deck_need_log` recomeçou do zero (`uso_decks.recomecar`, `riftvault decks
   --recomecar-registo`). Ver a última secção deste ficheiro.
+- **Feito também — e É UMA EXPERIÊNCIA, LIGADA:** o pool próprio dos decks
+  (2026-09-21, `decks.modo = "pool_proprio"`) — a Coleção fica intacta (nenhuma
+  conta dela sabe que há decks), os decks montam-se só do local `pool-decks`
+  (começa a zero; `+`/`−` na aba «Pool dos decks», `riftvault pool`), o pool
+  precisa do MÁXIMO por carta entre os decks, só versões base (Legend e
+  Champion também); `pool.py`, `api/pool.json`, `POST /api/pool/ajustar`.
+  Reversível: `"coleccao"` no config. Ver a última secção deste ficheiro.
 - **Por fazer:** a parte 2 do seguir — o separador no site e a tarefa diária;
   vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck,
   com as partilhadas assinaladas); e apagar decks pela interface (hoje apaga-se

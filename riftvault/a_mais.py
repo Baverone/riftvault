@@ -103,7 +103,12 @@ def _usadas(con: sqlite3.Connection) -> dict[str, dict]:
     Lê-se do `decks.allocate` uma vez só (a Venda chamava as três funções
     `*_allocation`, que são três alocações iguais). Pelo líder de cada grupo:
     os membros do mesmo grupo levam as mesmas cópias.
+
+    Com o pool próprio (2026-09-21) os decks não usam nada da Coleção: vazio,
+    e o excedente passa a ser o verdadeiro face aos alvos.
     """
+    if decks.pool_proprio():
+        return {}
     try:
         alloc = decks.allocate(con)
     except sqlite3.OperationalError:
@@ -134,6 +139,10 @@ def excedente(con: sqlite3.Connection, cfg: dict | None = None,
     usadas = _usadas(con)
     no_binder = locais.em(con, locais.BINDER)
     na_colecao = locais.na_colecao(con)
+    # O `have` do item é o que a Coleção conta como seu: sem o pool dos decks
+    # na experiência de 2026-09-21 (a conta do excedente já o não via — não
+    # está na Coleção nem no binder —; é só para o número do tile não mentir).
+    contadas = locais.contadas(con)
     precos = metrics.prices_map(con)
 
     itens: list[dict] = []
@@ -177,7 +186,7 @@ def excedente(con: sqlite3.Connection, cfg: dict | None = None,
             "block": bloco,
             "block_label": metrics.BLOCO_CURTO.get(bloco, bloco),
             "hidden": escondida,
-            "have": r["qty"], "target": alvo,
+            "have": contadas.get(pid, 0), "target": alvo,
             "in_colecao": na_colecao.get(pid, 0),
             "in_binder": no_binder.get(pid, 0),
             "used": u["no_deck"] + u["no_binder"] + u["na_colecao"],
@@ -268,7 +277,11 @@ def payload(con: sqlite3.Connection, cfg: dict | None = None) -> dict:
     # Lê-se tudo uma vez e separa-se: o que se mostra, e as runas que ficaram
     # de fora — para o cabeçalho dizer quantas em vez de as apagar em silêncio.
     exc_todas = excedente(con, cfg, todas=True)
-    lib_todas = libertadas(con, cfg, todas=True)
+    # Com o pool próprio (2026-09-21) o conceito de «libertadas dos decks»
+    # desaparece da vista — os decks não tocam na Coleção. O registo
+    # (`deck_need_log`) continua a escrever-se; só não se mostra.
+    pool = decks.pool_proprio(cfg)
+    lib_todas = [] if pool else libertadas(con, cfg, todas=True)
     exc = [x for x in exc_todas if not x["runa"]]
     lib = [x for x in lib_todas if not x["runa"]]
     runas_exc = [x for x in exc_todas if x["runa"]]
@@ -287,6 +300,9 @@ def payload(con: sqlite3.Connection, cfg: dict | None = None) -> dict:
     return {
         "sets": sets,
         "sem_edicoes": ed["sem_edicoes"],
+        # O modo dos decks: com `pool_proprio` a página esconde o bloco das
+        # libertadas e diz que o excedente é face aos alvos, sem decks.
+        "modo": decks.modo(cfg),
         "totals": {"excedente": _soma(exc, "extra"), "libertadas": _soma(lib, "qty")},
         # Desde quando há registo dos decks — é o que explica um bloco vazio.
         "history": uso_decks.resumo(con),
