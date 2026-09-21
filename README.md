@@ -486,7 +486,11 @@ nível, da mais escura à mais clara) e o tenho/total à direita.
 - É sobre o **bloco escolhido** nos chips do painel — master set,
   sobrenumeradas, artes alternativas, promos — da **edição aberta**, ou de
   **«Todas»** (o separador novo, no fim da fila das edições, que mostra as
-  cinco seguidas na grelha).
+  cinco seguidas na grelha). No fim da fila de chips há o **«Tudo»**: todos
+  os blocos dessa edição somados num só número, **cada bloco com o seu
+  alvo** (não há um alvo único por cima de tudo); com «Todas» escolhido é
+  tudo de todas as edições. O que abre por omissão continua a ser o master
+  set.
 - **As runas nunca entram** — nem no total, nem nos níveis, nem nos quadros.
   A barra do master set continua a contá-las (a 3, no OGN), por isso o cartão
   «playset» e a barra diferem em 6 impressões no OGN; o painel diz «sem as 6

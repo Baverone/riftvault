@@ -19,7 +19,9 @@ mexer na regra da barra do master set:
      bloco (master set, sobrenumeradas, artes alternativas, promos) e os
      três cartões e os dois quadros são sobre as impressões desse bloco. Nos
      blocos de alvo 1 (sobrenumeradas, promos) os três níveis coincidem —
-     é o esperado, não uma excepção.
+     é o esperado, não uma excepção. No fim da fila há o «Tudo» (`TUDO`):
+     todos os blocos da edição somados, cada impressão com o alvo do SEU
+     bloco — nunca um alvo único por cima de tudo.
   3. **Conta CARTAS (impressões) que chegaram ao nível**, não cópias em
      falta: o cartão diz «167/197» e «faltam 30», e o 30 são impressões.
   4. Os três níveis são FIXOS — 1, `min(2, alvo)`, o alvo — porque é a
@@ -84,6 +86,17 @@ DOMINIOS_VAZIOS = {"colorless", ""}
 
 # «Todas» as edições — a chave do painel somado, ao lado das edições.
 TODAS = "all"
+
+# «Tudo» — o chip no FIM da fila dos blocos, que junta todos os blocos de UMA
+# edição num só número (2026-09-21, a segunda metade da ordem do layout H).
+# Não confundir com `TODAS`, que é das EDIÇÕES: «Tudo» de «Todas» é tudo de
+# todas as edições. Não é um bloco da grelha — o id não existe no
+# `metrics.BLOCOS` e nunca chega ao `metrics.bloco` — e cada impressão entra
+# com o alvo do SEU bloco (`metrics.alvo`): os níveis somam-se bloco a bloco,
+# não há um alvo único por cima de tudo. As runas continuam de fora.
+TUDO = "tudo"
+TUDO_LABEL = "Tudo"
+TUDO_ALVO = "cada bloco com o seu alvo"
 
 
 def dominio(domains_json: str | None) -> str:
@@ -201,12 +214,17 @@ def payload(con: sqlite3.Connection, cfg: dict | None = None,
 
       `levels`  — os três níveis, com o rótulo de cada cartão
       `blocks`  — os blocos que existem, pela ordem da grelha
-                  (`master_set.ordem_dos_blocos`), com o rótulo e o alvo
+                  (`master_set.ordem_dos_blocos`), com o rótulo e o alvo — e
+                  no FIM o «Tudo» (`TUDO`), que não é um bloco da grelha
+                  (`counts` a `None`; o `target` é a frase `TUDO_ALVO`)
       `rarities`, `domains` — a ordem e o nome das linhas dos dois quadros,
                   para o cliente (que recalcula a cada `+`/`−`) não ter uma
                   segunda cópia
-      `sets`    — `{set_id: {bloco: contar(...)}}`, e a chave `all` com as
-                  edições somadas (é uma soma: cada impressão conta uma vez)
+      `sets`    — `{set_id: {bloco: contar(...)}}`, com a chave `tudo` em
+                  cada edição (os blocos dessa edição somados, cada impressão
+                  com o alvo do seu bloco), e a chave `all` com as edições
+                  somadas (é uma soma: cada impressão conta uma vez — e o
+                  `tudo` de `all` é a soma do `tudo` das edições)
       `runes_out` — quantas runas ficaram de fora, por edição e em `all`, para
                   o cabeçalho dizer porque é que o playset não bate com a barra
     """
@@ -215,8 +233,12 @@ def payload(con: sqlite3.Connection, cfg: dict | None = None,
     por: dict[str, dict[str, list]] = {}
     for sid, bid, alvo, tem, rar, dom in linhas:
         item = (alvo, tem, rar, dom)
-        por.setdefault(sid, {}).setdefault(bid, []).append(item)
-        por.setdefault(TODAS, {}).setdefault(bid, []).append(item)
+        for chave in (sid, TODAS):
+            d = por.setdefault(chave, {})
+            d.setdefault(bid, []).append(item)
+            # O «Tudo» leva a mesma impressão, com o mesmo alvo: é por isso
+            # que sai, por construção, a soma dos blocos nível a nível.
+            d.setdefault(TUDO, []).append(item)
     ordem = metrics.ordem_dos_blocos(cfg)
     presentes = {bid for d in por.values() for bid in d}
     blocks = [{"id": bid,
@@ -225,7 +247,10 @@ def payload(con: sqlite3.Connection, cfg: dict | None = None,
                "target": metrics.alvo_do_bloco(bid, cfg),
                "counts": metrics.conta_bloco(bid, cfg)}
               for bid in ordem if bid in presentes]
-    sets = {sid: {bid: contar(d[bid]) for bid in ordem if bid in d}
+    if presentes:
+        blocks.append({"id": TUDO, "label": TUDO_LABEL, "target": TUDO_ALVO,
+                       "counts": None})
+    sets = {sid: {bid: contar(d[bid]) for bid in ordem + [TUDO] if bid in d}
             for sid, d in por.items()}
     fora[TODAS] = sum(fora.values())
     return {"levels": NIVEIS, "blocks": blocks,

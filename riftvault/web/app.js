@@ -14,6 +14,10 @@ const UNDO_MS = 9000;          // quanto tempo o toast de anular fica no ecrã
 // O separador «Todas» da Coleção (2026-09-21): as edições todas seguidas na
 // grelha, e o painel do topo somado. É a mesma chave do `painel.TODAS`.
 const TODAS = 'all';
+// O chip «Tudo» do painel (2026-09-21): todos os BLOCOS de uma edição num
+// só número, cada impressão com o alvo do seu bloco. É a chave do
+// `painel.TUDO`. Não confundir com `TODAS`, que é das edições.
+const TUDO = 'tudo';
 
 const state = {
   index: null,
@@ -779,7 +783,8 @@ function renderProgress() {
    N»; e por baixo DOIS QUADROS, Raridade e Domínio, uma linha por categoria
    com a bolinha da cor, três mini-barras (uma por nível) e o tenho/total à
    direita. Sobre o BLOCO escolhido (master set, sobrenumeradas, artes
-   alternativas, promos) da edição aberta, ou de «Todas».
+   alternativas, promos — ou «Tudo», os blocos todos somados, cada um com o
+   seu alvo) da edição aberta, ou de «Todas».
 
    A conta é a do `painel.py` do servidor, recalculada aqui a partir do
    estado local para andar ao mesmo tempo que os +/-, como as barras:
@@ -852,9 +857,11 @@ function painelContar(itens, cat) {
 /* @painel-puro:fim */
 
 /* Os itens do bloco escolhido, do estado local: uma impressão por linha, com
-   o alvo do tile e as cópias na Coleção. As runas ficam de fora aqui — é o
-   `rune` do grupo, dito pelo servidor. Devolve também quantas runas ficaram
-   de fora, para o cabeçalho. */
+   o alvo do tile e as cópias na Coleção. Com «Tudo» (`TUDO`) entram as
+   impressões de todos os blocos, cada uma com o alvo do SEU tile — é assim
+   que os níveis saem somados bloco a bloco, sem um alvo único por cima. As
+   runas ficam de fora aqui — é o `rune` do grupo, dito pelo servidor.
+   Devolve também quantas runas ficaram de fora, para o cabeçalho. */
 function painelItens(bloco) {
   const itens = [];
   let runas = 0;
@@ -862,7 +869,7 @@ function painelItens(bloco) {
     for (const p of g.printings) {
       const t = state.targets.get(p.id) || 0;
       if (t <= 0) continue;
-      if ((state.blocks.get(p.id) || 'master') !== bloco) continue;
+      if (bloco !== TUDO && (state.blocks.get(p.id) || 'master') !== bloco) continue;
       if (g.rune) { runas++; continue; }
       itens.push({ alvo: t, tem: state.qty.get(p.id) || 0,
                    rarity: g.rarity || '?', domain: g.domain || 'none' });
@@ -872,11 +879,15 @@ function painelItens(bloco) {
 }
 
 /* Os blocos que o painel oferece: os do payload da edição aberta, pela ordem
-   do servidor, com o rótulo e o alvo do `index.painel.blocks`. */
+   do servidor, com o rótulo e o alvo do `index.painel.blocks` — e no FIM o
+   «Tudo», que não é um bloco da grelha (nunca vem no `payload.blocks`). O
+   que abre por omissão continua a ser o primeiro, o master set. */
 function painelBlocos() {
   const cat = new Map((state.index?.painel?.blocks || []).map(b => [b.id, b]));
   const ids = (state.payload?.blocks || []).map(b => b.id);
-  return ids.map(id => cat.get(id) || { id, label: id, target: '' });
+  if (!ids.length) return [];
+  return [...ids, TUDO].map(id => cat.get(id)
+    || { id, label: id === TUDO ? 'Tudo' : id, target: '' });
 }
 
 function renderPainel() {

@@ -4961,3 +4961,61 @@ no A mais pela regra de sempre; `pool_proprio` rebenta, sem chave é
 `test_a_mais` (a alt art a tapar → `so_base: false`), `test_partilha_compra`
 (`proprias` no uso), `test_sem_quanto_custa` (sem `modo`), `test_build`
 (comentário) ajustados. Suite: 37 ficheiros, 0 a falhar.
+
+## 21/09/2026, ao fim da tarde — o chip «Tudo» no painel da Coleção (`painel.TUDO`)
+
+**Era a segunda metade da ordem `0-decks-copias-proprias.json` e FICOU POR
+FAZER** na sessão anterior — fez-se a dos decks e esta não saiu, nem se
+disse que não tinha saído. Ramo `ai-pc/chip-tudo-2026-09-21`.
+
+**O que é.** Nos chips de bloco do painel do topo da Coleção (master set,
+sobrenumeradas, artes alternativas, promos — o layout H de manhã) há agora
+um chip **«Tudo»**, **no fim da fila**, que junta todos os blocos dessa
+edição num só número; com «Tudo» escolhido os três cartões e os dois quadros
+são sobre esse conjunto. **Não confundir com o separador «Todas»**, que é
+das EDIÇÕES: «Tudo» = todos os blocos de UMA edição; «Tudo» com «Todas»
+escolhido = tudo de todas as edições. **O que abre por omissão continua a
+ser o master set** (`prefs.painelBloco: 'master'`).
+
+**A regra: os níveis SOMAM-SE bloco a bloco, cada um com o SEU alvo** —
+master set o alvo por categoria, sobrenumeradas 1, artes alternativas
+playset, promos 1. Não há um alvo único por cima de tudo: no `payload` a
+mesma impressão, com o mesmo `metrics.alvo`, entra no seu bloco E na chave
+`tudo` (`por[sid][TUDO]`), por isso a soma sai por construção. **As runas
+continuam fora**, como em todo o painel. O «Tudo» **não é um bloco da
+grelha**: o id não existe no `metrics.BLOCOS`, nunca chega ao
+`metrics.bloco`, e não aparece no `set_payload["blocks"]`.
+
+**Onde vive.** `painel.TUDO = "tudo"`, `TUDO_LABEL`, `TUDO_ALVO` («cada
+bloco com o seu alvo»); `payload` acrescenta `{"id": "tudo", "label":
+"Tudo", "target": TUDO_ALVO, "counts": None}` no fim de `blocks` e a chave
+`tudo` no fim de `sets[<edição>]` e de `sets["all"]`; `da_edicao` e o
+`riftvault stats` (`texto`) levam-no de graça. No `app.js`: `const TUDO =
+'tudo'`, `painelBlocos` acrescenta o chip depois dos blocos do payload
+(`[...ids, TUDO]`) e `painelItens(TUDO)` não filtra por bloco (cada
+impressão com o alvo do seu tile).
+
+**Medido a 2026-09-21 contra cópias do `data/` real
+(`C:\Users\Catarina\_revisao\_medir_chip_tudo.py`), em impressões, sem as
+runas — «Tudo» = 1 de cada / 2 de cada / playset:**
+
+| edição | blocos | Tudo | = soma dos blocos |
+|---|---|---|---|
+| OGN | master 292 · over 12 · alt 24 | **297 / 252 / 220 de 328** | ✓ |
+| OGS | master 24 | **24 / 24 / 11 de 24** | ✓ |
+| SFD | master 221 · over 30 · alt 24 | **235 / 212 / 196 de 275** | ✓ |
+| UNL | master 219 · over 19 · alt 30 | **243 / 222 / 206 de 268** | ✓ |
+| VEN | master 166 · over 31 · alt 18 · promos 6 | **186 / 174 / 167 de 221** | ✓ |
+| **Todas** | 922 · 92 · 96 · 6 | **985 / 884 / 800 de 1116** | ✓ = soma das cinco |
+
+Raridades e domínios somam o total do «Tudo» em todas as seis; runas fora
+6 (OGN). Os blocos por edição não mexeram (são os de manhã); só se
+acrescentou a chave.
+
+`tests/test_painel.py` 30 → **38 testes** (`TestTudo`: no fim da fila em
+cada edição; a soma dos blocos nível a nível, com os números escritos e a
+prova pela negativa — com alvo 3 por cima de tudo dava `[6, 4, 2]` em vez
+de `[6, 4, 3]`; raridades e domínios batem; «Tudo» de «Todas» = soma das
+duas edições de brincar; runas fora; chega à edição, ao index e ao texto;
+o `app.js`). Três testes que descreviam a lista de blocos sem o «Tudo»
+foram ajustados. Suite: 37 ficheiros, 0 a falhar.
