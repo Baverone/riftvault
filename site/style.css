@@ -751,6 +751,16 @@ body.readonly .btn.chegou { display: none; }
    porque o tile é mais estreito. */
 .dtile.vista .steppers.runa .step { min-height: 34px; font-size: 16px; }
 
+/* ------------------------------------------------- «Pool dos decks»
+
+   (2026-09-21) A experiência do pool próprio (`decks.modo = pool_proprio`).
+   Os tiles são os `dtile` dos decks; os `+`/`−` são os da grelha (o
+   `body.readonly .steppers` esconde-os no site publicado) e escrevem no pool. */
+.dtile .steppers.pool { margin: 4px 0 2px; }
+.dtile .steppers.pool .step { min-height: 34px; font-size: 16px; }
+.dtile .steppers.pool .step:disabled { opacity: .3; cursor: default; }
+.dtile .onde.tenho i { font-style: italic; opacity: .7; }
+
 /* --------------------------------------------------------------- «Faltas»
 
    Por edição, quatro blocos (2026-09-15, fim da tarde; o quarto a
