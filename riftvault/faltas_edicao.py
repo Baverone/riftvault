@@ -239,8 +239,8 @@ def payload(con: sqlite3.Connection, cfg: dict | None = None) -> dict:
             itens = sorted(por_set[s][b], key=lambda x: (x["cn"], x["code"]))
             grupos.append({
                 "id": b, "label": label,
-                # «— playset» / «— 1 de cada», do mesmo config que dá o alvo.
-                "target_label": metrics._sufixo_alvo(b, cfg).lstrip(" —"),
+                # «playset» / «1 de cada», do mesmo config que dá o alvo.
+                "target_label": metrics.alvo_do_bloco(b, cfg),
                 "in_lists": in_lists[b],
                 "scope": ambito[s][b],
                 **_soma(itens),

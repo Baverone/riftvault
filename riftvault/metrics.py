@@ -803,15 +803,20 @@ def conta_bloco(bloco_id: str, cfg: dict | None = None) -> bool:
     return False
 
 
-def _sufixo_alvo(bloco_id: str, cfg: dict) -> str:
-    """«— playset» ou «— N de cada», conforme o alvo que o bloco pede hoje.
+def alvo_do_bloco(bloco_id: str, cfg: dict | None = None) -> str:
+    """«playset» ou «N de cada» — o alvo que o bloco pede hoje, por extenso.
 
     Lê-se do mesmo config que o `master_target` lê, para o título e o badge do
     tile não divergirem: os tokens dizem o `token_target`, os blocos do
     `um_de_cada` (as sobrenumeradas desde 2026-09-15, as promos desde
     2026-09-19) dizem 1, e todos os outros — as artes alternativas desde
     2026-09-18, as runas especiais desde 2026-09-15 — o playset do tipo.
+
+    É a única resposta a esta pergunta: o cabeçalho de cada bloco da grelha
+    (`rotulo`), o separador Faltas (`target_label`) e o painel do topo da
+    Coleção (`painel.payload`) escrevem todos o que sai daqui.
     """
+    cfg = cfg or config.load()
     kinds_um, over_um = _um_de_cada(cfg)
     # O bloco das runas especiais é feito de artes alternativas (as das runas
     # do OGN): pede o que as artes alternativas pedem.
@@ -823,10 +828,15 @@ def _sufixo_alvo(bloco_id: str, cfg: dict) -> str:
     else:
         alvo_bloco = ALVO_PLAYSET
     if alvo_bloco == ALVO_PLAYSET:
-        return " — playset"
+        return ALVO_PLAYSET
     # (De 2026-09-16 a 2026-09-17 dizia «, ou o que os decks jogam» nas artes
     # alternativas; o alvo deixou de subir com os decks e o sufixo saiu.)
-    return f" — {int(alvo_bloco)} de cada"
+    return f"{int(alvo_bloco)} de cada"
+
+
+def _sufixo_alvo(bloco_id: str, cfg: dict) -> str:
+    """O `alvo_do_bloco` como sufixo de cabeçalho: «— playset», «— 1 de cada»."""
+    return " — " + alvo_do_bloco(bloco_id, cfg)
 
 
 def rotulo(bloco_id: str, cfg: dict | None = None) -> str | None:
@@ -1068,7 +1078,7 @@ def prices_map(con: sqlite3.Connection) -> dict[str, int]:
 
 def set_payload(con: sqlite3.Connection, set_id: str, editable: bool = True,
                 image_mode: str = "local") -> dict:
-    from . import decks, locais
+    from . import decks, locais, painel
 
     cfg = config.load()
     # `qty` é o que a COLEÇÃO tem — é ele que manda nas barras, no filtro
@@ -1125,6 +1135,13 @@ def set_payload(con: sqlite3.Connection, set_id: str, editable: bool = True,
                 "energy": r["energy"],
                 "faction": r["faction"],
                 "is_token": bool(r["is_token"]),
+                # O painel do topo (2026-09-21) recalcula-se no cliente a cada
+                # `+`/`−`, como as barras, e precisa do domínio da carta e de
+                # saber se é runa — as runas nunca entram nele. As duas
+                # respostas vêm de quem as dá no servidor (`painel.dominio`,
+                # `e_runa`), para o cliente não ter uma segunda regra.
+                "domain": painel.dominio(r["domains_json"]),
+                "rune": e_runa(r, cfg),
                 # Os decks que pedem esta carta, por prioridade, com o que
                 # cada um leva e o que lhe falta: «Azir 3 · Kennen 2 (faltam 2)».
                 "decks": uso.get(r["card_key"], []),
@@ -1278,6 +1295,11 @@ def set_payload(con: sqlite3.Connection, set_id: str, editable: bool = True,
             # estado local, como faz com as barras, mas o número de degraus vem
             # daqui para não haver duas regras.
             "levels": niveis(para_niveis, niveis_max(con, cfg)),
+            # O painel do topo da Coleção (2026-09-21): os três cartões e os
+            # dois quadros, bloco a bloco, DESTA edição — sem as runas. O
+            # cliente recalcula-o a partir do estado local, como as barras;
+            # isto é a verdade do servidor no momento do ficheiro.
+            "painel": painel.da_edicao(con, set_id, cfg),
         },
         # A ordem dos blocos da grelha, e o rótulo de cada um. Vem do servidor
         # para o cliente não ter uma segunda cópia da regra.
@@ -1312,7 +1334,7 @@ def ordem_da_grelha(payload: dict) -> list[tuple[str, str]]:
 
 def index_payload(con: sqlite3.Connection, editable: bool = True,
                   image_mode: str = "local") -> dict:
-    from . import collection, prices
+    from . import collection, painel, prices
 
     try:
         value = prices.collection_value(con)
@@ -1327,7 +1349,11 @@ def index_payload(con: sqlite3.Connection, editable: bool = True,
         "totals": collection.totals(con),
         "value": value,
         # A contagem por níveis das cinco edições juntas, e a de cada uma. A
-        # Coleção mostra a global por baixo da barra e troca a edição aberta
-        # pelos números locais — ver `renderNiveis` no app.js.
+        # Coleção lê a da edição aberta para a linha «N cópias a comprar»
+        # (`renderFaltaLinha` no app.js).
         "levels": niveis_payload(con),
+        # O painel do topo da Coleção (2026-09-21), por edição e em «Todas»:
+        # é o que o separador «Todas» mostra enquanto as edições carregam, e
+        # a verdade do servidor para o CLI e os testes.
+        "painel": painel.payload(con),
     }

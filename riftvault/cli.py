@@ -32,7 +32,7 @@ from . import cardmarket, catalog, collection, config, db, decks as decks_mod
 from . import faltas as faltas_mod
 from . import faltas_edicao
 from . import locais as locais_mod
-from . import metrics, pending as pending_mod, prices
+from . import metrics, painel, pending as pending_mod, prices
 from . import runas_vista as runas_vista_mod
 from . import seguir as seguir_mod
 from . import server
@@ -226,6 +226,11 @@ def cmd_stats(args) -> int:
                          for k in range(1, n + 1)))
         for nome, ls in linhas:
             print(f"{nome:<{w}} " + " ".join(celula(lv).ljust(larg) for lv in ls))
+
+    # O painel do topo da Coleção (2026-09-21): os três níveis em tenho/total
+    # por bloco e por edição, sem as runas — o que ele vê nos três cartões.
+    print("\nPainel da Coleção (impressões que chegaram a cada nível, sem runas):")
+    print(painel.texto(painel.payload(con), sets))
 
     # O que os decks têm de comprar (2026-09-11): a soma do `missing` de todos,
     # com o que dois decks disputam e a Coleção não chega a contar como falta.
