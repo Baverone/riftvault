@@ -1052,8 +1052,8 @@ def sets_payload(con: sqlite3.Connection, cfg: dict | None = None) -> list[dict]
 def owned_by_card(con: sqlite3.Connection, cfg: dict | None = None) -> dict[str, int]:
     """Cópias por carta lógica, somando TODAS as impressões de TODAS as edições
     — menos as retiradas (`retirada`), que não existem para o riftvault, e
-    menos o pool dos decks quando a experiência está ligada (2026-09-21,
-    `locais.contadas`: uma cópia no pool não é da Coleção)."""
+    menos as cópias próprias dos decks (2026-09-21, `locais.contadas`: uma
+    cópia guardada para um deck não é da Coleção)."""
     from . import locais
 
     cfg = cfg or config.load()
@@ -1092,8 +1092,8 @@ def set_payload(con: sqlite3.Connection, set_id: str, editable: bool = True,
     # `qty_total`, e o `locations` diz onde estão as outras.
     qty = locais.na_colecao(con)
     totais = locais.totais(con)
-    # O que a Coleção conta como seu para o VALOR: tudo, menos o pool dos
-    # decks na experiência de 2026-09-21 (`locais.contadas`).
+    # O que a Coleção conta como seu para o VALOR: tudo, menos as cópias
+    # próprias dos decks (2026-09-21, `locais.contadas`).
     contadas = locais.contadas(con)
     locais_por_pid = locais.por_local(con)
     nomes_decks = locais.nomes_dos_decks(con)
@@ -1172,8 +1172,8 @@ def set_payload(con: sqlite3.Connection, set_id: str, editable: bool = True,
             # `qty`; isto é o que a linha do tile lê para dizer «2 na Coleção ·
             # 1 no deck Azir». São dois números diferentes de propósito.
             "qty_total": totais.get(r["printing_id"], 0),
-            # O que conta para o valor: o total menos o pool dos decks, na
-            # experiência de 2026-09-21; igual ao `qty_total` no modo de sempre.
+            # O que conta para o valor: o total menos as cópias próprias dos
+            # decks (2026-09-21); igual ao `qty_total` sem próprias.
             "qty_valor": contadas.get(r["printing_id"], 0),
             "locations": [
                 {"loc": loc, "label": locais.rotulo(loc, nomes_decks), "qty": n}
@@ -1265,8 +1265,8 @@ def set_payload(con: sqlite3.Connection, set_id: str, editable: bool = True,
                 continue
             # O valor é do que ele TEM, esteja onde estiver: uma carta num deck
             # não vale menos por estar sleevada. Por isso o total físico, e não
-            # o `qty` da Coleção — menos o pool dos decks, na experiência de
-            # 2026-09-21 (`qty_valor`, que é o `qty_total` fora dela).
+            # o `qty` da Coleção — menos as cópias próprias dos decks
+            # (2026-09-21, `qty_valor`: não são da Coleção, não valem aqui).
             value_owned += p["qty_valor"] * p["price"]
             # "se estivesse completa" é sobre o MASTER SET: o que não entra na
             # percentagem também não entra no preço de a fechar — a coleção
@@ -1347,7 +1347,7 @@ def ordem_da_grelha(payload: dict) -> list[tuple[str, str]]:
 
 def index_payload(con: sqlite3.Connection, editable: bool = True,
                   image_mode: str = "local") -> dict:
-    from . import collection, decks, painel, prices
+    from . import collection, painel, prices
 
     try:
         value = prices.collection_value(con)
@@ -1358,9 +1358,6 @@ def index_payload(con: sqlite3.Connection, editable: bool = True,
         "editable": editable,
         "image_mode": image_mode,
         "generated_at": _now(),
-        # A experiência do pool próprio (2026-09-21): com `pool_proprio` a
-        # Coleção não sabe que há decks e o cliente esconde o filtro «Em decks».
-        "modo_decks": decks.modo(),
         "sets": sets_payload(con),
         "totals": collection.totals(con),
         "value": value,

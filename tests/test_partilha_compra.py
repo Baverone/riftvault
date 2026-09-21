@@ -259,7 +259,10 @@ class TestColecaoDizOndeEUsada(Base):
         self.assertEqual(grupos["spirit blade"]["decks"],
                          [{"deck": uso[1]["deck"], "membros": [uso[1]["deck"]],
                            "slug": "ornn", "priority": 2,
-                           "wanted": 1, "have": 0, "ordered": 0, "missing": 1}])
+                           # `proprias` (2026-09-21): as cópias próprias do
+                           # deck, que não são uso da Coleção.
+                           "wanted": 1, "have": 0, "ordered": 0, "missing": 1,
+                           "proprias": 0}])
         self.assertEqual(grupos["brutalizer"]["decks"][0]["slug"], "azir")
         con.close()
 

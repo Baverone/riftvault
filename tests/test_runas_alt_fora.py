@@ -52,7 +52,9 @@ def escrever_config(retiradas=("a",), tipos=("Rune",),
                        # as promos a 1 desde 2026-09-19 (o `promo` voltou).
                        "um_de_cada": ["overnumbered", "promo"]},
         "master_targets_by_type": {"Rune": 3},
-        "decks": {"so_normais_excepto": list(papeis),
+        # `so_base: false` (2026-09-21): estes testes descrevem a regra de 2026-09-17.
+        "decks": {"so_base": False,
+                  "so_normais_excepto": list(papeis),
                   "versoes_especiais": ["a", "overnumbered", "promo"],
                   "contar_runas": contar_runas},
         "runas_especiais": {"tipos": list(tipos), "excepto": ["base"],

@@ -195,8 +195,12 @@ class TestExcedente(Base):
         uma cópia em uso não é a mais (`cópias − max(usadas, alvo)`). Com 5
         alt arts e Defy base nenhuma o Azir leva 3 e sobram 2 (5 − max(3, 3));
         com 2 bases leva 1 alt art e sobram as mesmas 2 (5 − max(1, 3)); sem o
-        deck, 2 (5 − 3). Com 3 alt arts nada sobra em nenhum dos casos."""
-        con = self.montar(decks={"azir": AZIR})
+        deck, 2 (5 − 3). Com 3 alt arts nada sobra em nenhum dos casos.
+        (`so_base: false`, 2026-09-21: desde então a omissão é só base e a
+        alt art não tapa nada — este teste descreve a regra de 17/09.)"""
+        con = self.montar(extra={"decks": {"so_base": False, "so_normais_excepto": [],
+                                           "versoes_especiais": ["a", "overnumbered", "promo"]}},
+                          decks={"azir": AZIR})
         self.ter(con, "tst-001a-100", 3)
         self.ter(con, "tst-003-100", 1)
         self.assertIsNone(self.exc(con, "tst-001a-100"))

@@ -507,12 +507,9 @@ def encomendas(con: sqlite3.Connection) -> dict:
     # Por GRUPO de Legend, lido no líder (2026-09-11, noite): uma encomenda
     # para o LeBlanc é para o LeBlanc Baited Hook também, e o «para» diz os
     # dois nomes em vez de contar a cópia duas vezes.
-    # Com o pool próprio (2026-09-21) as Encomendas são da Coleção e os decks
-    # não sabem delas: sem «para» e sem «falta encomendar aos decks».
-    pool = decks.pool_proprio()
-    alloc = {} if pool else decks.allocate(con)
+    alloc = decks.allocate(con)
     para_carta: dict[str, list[dict]] = {}
-    for d in ([] if pool else decks.deck_rows(con)):
+    for d in decks.deck_rows(con):
         g = alloc[d["deck_id"]]["grupo"]
         if not g["lider"]:
             continue
@@ -576,7 +573,7 @@ def encomendas(con: sqlite3.Connection) -> dict:
     # Por grupo de Legend, uma vez: o que falta ao LeBlanc falta ao Baited
     # Hook, e é a mesma compra.
     falta_set: dict[str, dict] = {}
-    for d in ([] if pool else decks.deck_rows(con)):
+    for d in decks.deck_rows(con):
         g = alloc[d["deck_id"]]["grupo"]
         if not g["lider"]:
             continue
@@ -594,7 +591,6 @@ def encomendas(con: sqlite3.Connection) -> dict:
 
     return {
         "a_caminho": a_caminho,
-        "modo": decks.modo(),
         "totals": {
             "printings": len(por_impressao),
             "copies": sum(e["qty"] for e in por_impressao.values()),

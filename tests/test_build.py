@@ -19,9 +19,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-# Nunca contra o `riftvault_config.json` a sério: desde 2026-09-21 ele liga a
-# experiência do pool próprio (`decks.modo`), e este teste descreve o modo de
-# sempre — os decks a servir-se da Coleção.
+# Nunca contra o `riftvault_config.json` a sério (a lição de 2026-09-21, quando
+# ele ligou a experiência do pool próprio e este teste passou a ler outra
+# coisa): os defaults do código são o que aqui se descreve.
 os.environ["RIFTVAULT_CONFIG"] = str(Path(tempfile.gettempdir()) / "riftvault-nao-existe.json")
 
 from tests.fixture import Vault, catalogo_simples  # noqa: E402
