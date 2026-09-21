@@ -246,6 +246,140 @@ class TestAritmetica(Base):
         con.close()
 
 
+class TestTudo(Base):
+    """O chip «Tudo» (2026-09-21): todos os blocos de UMA edição somados, cada
+    impressão com o alvo do SEU bloco. Não confundir com «Todas» (edições)."""
+
+    def soma(self, blocos, quadro=None):
+        """A soma dos blocos (sem o «tudo»), nível a nível — no total ou numa
+        das linhas de um quadro."""
+        partes = [c for bid, c in blocos.items() if bid != self.painel.TUDO]
+        if quadro is None:
+            return {"n": sum(c["n"] for c in partes),
+                    "levels": [sum(c["levels"][i] for c in partes) for i in range(3)]}
+        por: dict[str, dict] = {}
+        for c in partes:
+            for l in c[quadro]:
+                acc = por.setdefault(l["id"], {"n": 0, "levels": [0, 0, 0]})
+                acc["n"] += l["n"]
+                acc["levels"] = [a + b for a, b in zip(acc["levels"], l["levels"])]
+        return por
+
+    def test_o_tudo_esta_em_cada_edicao_e_no_fim_da_fila(self):
+        con = self.montar()
+        p = self.painel.payload(con)
+        self.assertEqual(p["blocks"][-1]["id"], self.painel.TUDO)
+        self.assertEqual(p["blocks"][-1]["label"], "Tudo")
+        self.assertIsNone(p["blocks"][-1]["counts"])   # não é um bloco da grelha
+        for sid in ("AAA", "ZZZ", self.painel.TODAS):
+            self.assertIn(self.painel.TUDO, p["sets"][sid], sid)
+            self.assertEqual(list(p["sets"][sid])[-1], self.painel.TUDO, sid)
+        # O master set continua a ser o primeiro — o que abre por omissão.
+        self.assertEqual(p["blocks"][0]["id"], "master")
+        con.close()
+
+    def test_o_tudo_de_uma_edicao_e_a_soma_dos_blocos_nivel_a_nivel(self):
+        con = self.montar()
+        p = self.painel.payload(con)
+        for sid in ("AAA", "ZZZ"):
+            blocos = p["sets"][sid]
+            tudo = blocos[self.painel.TUDO]
+            esperado = self.soma(blocos)
+            self.assertEqual(tudo["n"], esperado["n"], sid)
+            self.assertEqual(tudo["levels"], esperado["levels"], sid)
+            for quadro in ("rarity", "domain"):
+                por = self.soma(blocos, quadro)
+                self.assertEqual({l["id"]: {"n": l["n"], "levels": l["levels"]}
+                                  for l in tudo[quadro]}, por, (sid, quadro))
+        # E com os números escritos: AAA master [4,3,2] de 5 + sobrenumerada
+        # [1,1,1] de 1 (tem 2, alvo 1) + alt art [1,0,0] de 3 (tem 1).
+        tudo = p["sets"]["AAA"][self.painel.TUDO]
+        self.assertEqual(tudo["n"], 7)
+        self.assertEqual(tudo["levels"], [6, 4, 3])
+        con.close()
+
+    def test_cada_bloco_entra_com_o_seu_alvo_nao_ha_alvo_unico(self):
+        """A sobrenumerada (alvo 1, tem 2) está no playset dentro do «Tudo»;
+        se o «Tudo» pusesse o playset da sequência (3) por cima de tudo, ela
+        ficava fora do playset e o total dava [6, 4, 2] em vez de [6, 4, 3]."""
+        con = self.montar()
+        tudo = self.painel.payload(con)["sets"]["AAA"][self.painel.TUDO]
+        self.assertEqual(tudo["levels"], [6, 4, 3])
+        # A prova pela negativa: o mesmo conjunto com alvo 3 em tudo.
+        itens = [(3, 3, "c", "fury"), (3, 2, "u", "body"), (3, 1, "r", "multi"),
+                 (3, 0, "e", "none"), (1, 1, "e", "mind"),      # o master
+                 (3, 2, "showcase", "fury"),                   # a sobrenumerada, a 3
+                 (3, 1, "c", "fury")]                          # a alt art
+        self.assertEqual(self.painel.contar(itens)["levels"], [6, 4, 2])
+        # E com a promo do ZZZ (alvo 1, tem 1): completa no «Tudo».
+        zzz = self.painel.payload(con)["sets"]["ZZZ"][self.painel.TUDO]
+        self.assertEqual(zzz["n"], 3)              # Spell 3/3, Battlefield 0/1, promo 1/1
+        self.assertEqual(zzz["levels"], [2, 2, 2])
+        con.close()
+
+    def test_as_raridades_e_os_dominios_somam_o_total_do_tudo(self):
+        con = self.montar()
+        p = self.painel.payload(con)
+        for sid in ("AAA", "ZZZ", self.painel.TODAS):
+            tudo = p["sets"][sid][self.painel.TUDO]
+            for quadro in ("rarity", "domain"):
+                self.assertEqual(sum(l["n"] for l in tudo[quadro]), tudo["n"], (sid, quadro))
+                for i in range(3):
+                    self.assertEqual(sum(l["levels"][i] for l in tudo[quadro]),
+                                     tudo["levels"][i], (sid, quadro, i))
+        con.close()
+
+    def test_o_tudo_de_todas_e_a_soma_do_tudo_das_edicoes(self):
+        con = self.montar()
+        p = self.painel.payload(con)
+        edicoes = [b[self.painel.TUDO] for s, b in p["sets"].items() if s != self.painel.TODAS]
+        self.assertEqual(len(edicoes), 2)
+        tudo = p["sets"][self.painel.TODAS][self.painel.TUDO]
+        self.assertEqual(tudo["n"], sum(x["n"] for x in edicoes))
+        self.assertEqual(tudo["levels"], [sum(x["levels"][i] for x in edicoes) for i in range(3)])
+        for quadro in ("rarity", "domain"):
+            for linha in tudo[quadro]:
+                partes = [x for e in edicoes for x in e[quadro] if x["id"] == linha["id"]]
+                self.assertEqual(linha["n"], sum(x["n"] for x in partes), (quadro, linha["id"]))
+                self.assertEqual(linha["levels"],
+                                 [sum(x["levels"][i] for x in partes) for i in range(3)],
+                                 (quadro, linha["id"]))
+        self.assertEqual(tudo["n"], 10)
+        self.assertEqual(tudo["levels"], [8, 6, 5])
+        con.close()
+
+    def test_as_runas_ficam_fora_do_tudo(self):
+        con = self.montar()
+        p = self.painel.payload(con)
+        tudo = p["sets"]["AAA"][self.painel.TUDO]
+        # 7 impressões: a runa base (tem 3) e a runa alt art (retirada) não estão.
+        self.assertEqual(tudo["n"], 7)
+        self.assertEqual(sum(l["n"] for l in tudo["domain"] if l["id"] == "fury"), 3)
+        from riftvault import collection
+        collection.adjust(con, "aaa-006-100", 9, source="test")
+        self.assertEqual(self.painel.payload(con)["sets"]["AAA"][self.painel.TUDO], tudo)
+        con.close()
+
+    def test_o_tudo_chega_a_edicao_ao_index_e_ao_texto(self):
+        con = self.montar()
+        p = self.painel.payload(con)
+        s = self.metrics.set_payload(con, "AAA")
+        self.assertEqual(s["progress"]["painel"]["blocks"][self.painel.TUDO],
+                         p["sets"]["AAA"][self.painel.TUDO])
+        self.assertIn(self.painel.TUDO, self.metrics.index_payload(con)["painel"]["sets"]["AAA"])
+        t = self.painel.texto(p, self.metrics.sets_payload(con))
+        self.assertIn("Tudo — cada bloco com o seu alvo", t)
+        self.assertIn("6/7", t)
+        con.close()
+
+    def test_o_app_js_tem_o_chip_no_fim_e_abre_no_master_set(self):
+        js = APP_JS.read_text(encoding="utf-8")
+        self.assertIn("const TUDO = 'tudo'", js)
+        self.assertIn("[...ids, TUDO]", js)                       # no fim da fila
+        self.assertIn("bloco !== TUDO", js)                       # sem filtro de bloco
+        self.assertIn("painelBloco: 'master'", js)                # a omissão
+
+
 class TestOAmbito(Base):
     """Quem entra e quem não entra: a regra da grelha, menos as runas."""
 
@@ -297,7 +431,9 @@ class TestOAmbito(Base):
         grelha = self.metrics.set_payload(con, "AAA")
         na_grelha = {(pr["block"]) for g in grelha["groups"] for pr in g["printings"]
                      if pr["target"] > 0 and not g["rune"]}
-        self.assertEqual(na_grelha, set(p["sets"]["AAA"]))
+        # O «Tudo» não é um bloco da grelha — é a soma dos que lá estão.
+        self.assertEqual(na_grelha, set(p["sets"]["AAA"]) - {self.painel.TUDO})
+        self.assertNotIn(self.painel.TUDO, {b["id"] for b in grelha["blocks"]})
         con.close()
 
     def test_o_bloco_e_o_da_grelha_e_o_alvo_1_coincide(self):
@@ -311,10 +447,11 @@ class TestOAmbito(Base):
         alt = p["sets"]["AAA"]["alt_art"]
         self.assertEqual(alt["levels"], [1, 0, 0])       # 1 de 3
         self.assertEqual([b["id"] for b in p["blocks"]],
-                         ["master", "overnumbered", "alt_art", "special"])
+                         ["master", "overnumbered", "alt_art", "special", "tudo"])
         self.assertEqual({b["id"]: b["target"] for b in p["blocks"]},
                          {"master": "playset", "overnumbered": "1 de cada",
-                          "alt_art": "playset", "special": "1 de cada"})
+                          "alt_art": "playset", "special": "1 de cada",
+                          "tudo": "cada bloco com o seu alvo"})
         con.close()
 
     def test_a_raridade_e_a_da_base(self):
@@ -341,8 +478,11 @@ class TestOAmbito(Base):
                          "master_set": {**self.v.config.DEFAULTS["master_set"],
                                         "ordem_dos_blocos": ["master", "a", "promo", "overnumbered"]}})
         p = self.painel.payload(con)
+        # A ordem do config manda nos blocos; o «Tudo» fica sempre no fim.
         self.assertEqual([b["id"] for b in p["blocks"]],
-                         ["master", "alt_art", "special", "overnumbered"])
+                         ["master", "alt_art", "special", "overnumbered", "tudo"])
+        for sid in ("AAA", "ZZZ", self.painel.TODAS):
+            self.assertEqual(list(p["sets"][sid])[-1], self.painel.TUDO, sid)
         con.close()
 
 
