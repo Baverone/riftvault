@@ -8,6 +8,13 @@ Gestor pessoal da coleção de **Riftbound** (TCG da Riot), do André. Python +
 SQLite, mesma arquitetura do `mtgvault`. Objetivo: ter **playsets**, incluindo
 artes normais **e** alternativas.
 
+**DESDE 2026-09-21 OS DECKS ESTÃO NUMA EXPERIÊNCIA** (`decks.modo =
+"pool_proprio"`, ver a última secção deste ficheiro): montam-se só de um pool
+próprio, só versões base, e a Coleção não sabe que há decks. Muitas secções
+abaixo descrevem o modo `coleccao` (os decks a servir-se da Coleção, a
+Legend/Champion em versão especial) — continuam a valer com essa palavra no
+config.
+
 Secções: **Coleção**, **Decks**, **Faltas** (de
 2026-09-15 ao fim da tarde — por edição, três blocos; **quatro desde
 2026-09-19, cada um com a sua wantlist** — ver a última secção deste
@@ -2476,6 +2483,13 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   de reordenar e o `--order` ficam desligados enquanto a lista existir); o
   `deck_need_log` recomeçou do zero (`uso_decks.recomecar`, `riftvault decks
   --recomecar-registo`). Ver a última secção deste ficheiro.
+- **Feito também — e É UMA EXPERIÊNCIA, LIGADA:** o pool próprio dos decks
+  (2026-09-21, `decks.modo = "pool_proprio"`) — a Coleção fica intacta (nenhuma
+  conta dela sabe que há decks), os decks montam-se só do local `pool-decks`
+  (começa a zero; `+`/`−` na aba «Pool dos decks», `riftvault pool`), o pool
+  precisa do MÁXIMO por carta entre os decks, só versões base (Legend e
+  Champion também); `pool.py`, `api/pool.json`, `POST /api/pool/ajustar`.
+  Reversível: `"coleccao"` no config. Ver a última secção deste ficheiro.
 - **Por fazer:** a parte 2 do seguir — o separador no site e a tarefa diária;
   vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck,
   com as partilhadas assinaladas); e apagar decks pela interface (hoje apaga-se
@@ -4644,3 +4658,112 @@ era; `set_order`/CLI/rota recusam com a lista e funcionam sem ela, a rota
 aplica a lista sem reimportar, o `app.js` esconde os botões e o `build` leva
 o flag; o `recomecar` apaga o histórico e escreve o ponto de partida, só toca
 no registo, e a CLI recomeça. Suite: 36 ficheiros, 0 a falhar.
+
+## 21/09/2026 — A EXPERIÊNCIA do pool próprio dos decks (`decks.modo = "pool_proprio"`, LIGADA)
+
+Palavras dele: *"quero que a coleccao fique sempre imaculada, nada sai da
+coleccao; os decks, todos partilham as mesmas cartas, mas nao usam
+absolutamente nada da coleccao; so jogam com versoes base; vamos ver como
+fica assim as coisas, para ter uma ideia"*. **É uma experiência, atrás de UMA
+chave**, e ficou a valer no merge (`decks.modo: "pool_proprio"` no
+`riftvault_config.json`, com `_decks_modo_nota`). Voltar atrás é escrever
+`"coleccao"` (a omissão, `config.DEFAULTS`): nada se apaga nem se reescreve
+na coleção. Ramo `ai-pc/pool-proprio-2026-09-21`.
+
+**O modelo, em cinco linhas** (o topo do `pool.py` diz o mesmo):
+
+1. **A Coleção fica intacta.** Com o modo ligado nenhuma conta da Coleção
+   sabe que há decks: níveis, Faltas, as quatro wantlists, valor, Encomendas
+   e A mais calculam-se como se não houvesse decks. `decks.uso_por_carta` e
+   `a_mais._usadas` devolvem vazio, o «para que deck» e o «falta encomendar
+   aos decks» das Encomendas vêm vazios, as «libertadas» não se mostram (o
+   `deck_need_log` continua a escrever-se), a grelha esconde o filtro «Em
+   decks» (`index.modo_decks`) e o `propor_deck` não propõe nada. O A mais
+   passa a ser o excedente verdadeiro face aos alvos.
+2. **Os decks têm pool próprio.** As cópias vivem no local `pool-decks`
+   (`locais.POOL`, na `copy_locations`, ao lado do `binder` e dos
+   `deck:<slug>`). O pool **começa a zero** e é ele que lá mete o que tiver:
+   `pool.ajustar` escreve no `copies` E no local numa transação só (a
+   Coleção, `copies − Σ fora`, fica onde estava), com rasto na `ops`, na
+   `location_ops` (`(entrou no pool)` → pool, pool → `(saiu do pool)`) e no
+   `data/locais.log`; `−` nunca abaixo de zero no pool; `request_id`
+   repetido não conta a dobrar; só versões base (`NaoBase`). Uma cópia no
+   pool **nunca conta para a Coleção**: o `na_colecao` já a tirava (é um
+   local como os outros) e o **valor, o playset jogável e o «tens N cópias»
+   passaram a ler `locais.contadas`** / `prices.copias_sql` (o `copies`
+   menos o pool, só neste modo). Os `+`/`−` estão na aba «Pool dos decks»
+   (`POST /api/pool/ajustar {printing_id, delta, request_id?}`) e na CLI
+   (`riftvault pool --mais REF [N]` / `--menos`). O `riftvault undo`
+   genérico reverte a linha da `ops` e o `ajustar_ao_total` tira do pool a
+   seguir (binder, pool, decks — o pool entrou nessa ordem): um `+` desfaz-se
+   bem; o undo de um `−` põe a cópia na Coleção, não no pool — para mexer no
+   pool é pelo `pool.ajustar`.
+3. **Os decks partilham entre si.** O pool precisa do **MÁXIMO** por carta
+   entre os decks (`pool.necessidades`), não da soma; dentro do MESMO deck
+   main e sideboard somam (é o `decks._need` de sempre). Runas fora
+   (`decks.cartas_nao_contadas`). Cada deck avalia-se SOZINHO contra o pool
+   inteiro (`alloc = min(pede, tem no pool)`) — não há prioridade nem
+   disputa.
+4. **Só versões base.** `variant_kind == "base"` e não sobrenumerada — a
+   Legend e o Champion também: **a regra de 17/09 (versão especial) NÃO se
+   aplica aqui**. `versoes_dos_decks` devolve `especiais = {}`, `papeis = ∅`
+   e sem o recurso a «o que houver de não-assinado»: uma carta sem base fica
+   em `sem_base` e a página diz quais (hoje nenhuma).
+5. **A aba Decks** abre em «Pool dos decks»: precisa de ter / tem / faltam
+   (o máximo, a soma ao lado), por deck se o pool chega, os tiles com
+   `+`/`−` e «tens H/N», «Só o que falta», a wantlist do pool (o gerador
+   único, `cardmarket.gerar`), o que está no pool sem servir (`fora`) e as
+   sem base. As abas Staples / Por deck / Pimp não se mostram neste modo (o
+   `faltas.compras` continua a calcular-se, contra o pool, para a CLI). A
+   página de cada deck diz «do pool N · faltam ao pool N» e sem «Marcar o que
+   este deck usa». `api/pool.json` e `api/decks.json` levam `modo`.
+
+**Onde encaixa.** `decks.allocate` chama `pool.alocacao` neste modo e
+devolve a MESMA forma de sempre — por deck, com `grupo` (`lider` só no
+primeiro deck; o `grupo` é o pool inteiro) —, para `deck_payload`,
+`decks_index`, `resumo_das_faltas`, `missing_by_set`, `faltas.compras`,
+`pending.encomendas` e `a_mais` não terem de saber do modo; `shared`,
+`a_caminho`, os três montes da Coleção, o lugar especial e as «outras» vêm
+vazios, `no_pool` é o `alloc`. Um `modo` desconhecido rebenta.
+
+**Medido a 2026-09-21 contra cópias (`C:\Users\Catarina\_revisao\_medir_pool_proprio.py`),
+três cenários na mesma corrida — `main` (config real), ramo com `coleccao`,
+ramo com `pool_proprio`:** `main` == ramo/`coleccao` em TUDO (denominador,
+níveis, wantlist, valor, totais, Faltas e as 20 wantlists por bloco,
+Encomendas, grupos, tiles, usos na grelha, A mais item a item, falta dos
+decks, por deck, Staples, Pimp). Ramo/`pool_proprio`: **os invariantes da
+Coleção iguais** — denominador **928**, níveis **897/836/766 de 928**
+(faltam 31/121/281 · 80,12/425,64/1 009,02 €), wantlist «tudo» **162 linhas
+· 281 cópias · 1 009,02 €**, valor **6 495,04 € · 2 572 cópias**, Faltas
+**556 cópias · 10 568,99 €** (a comprar 281 · 1 009,02 €), Encomendas a
+caminho 0, grupos 310/24/251/238/203, os tiles impressão a impressão — e o
+que muda de propósito: cartas com uso de decks na grelha **149 → 0**; A mais
+**62 impressões · 125 cópias → 69 · 140** (as 15 cópias que os decks
+descontavam — Charm +2, Salvage +2, Brutalizer +3, Deathgrip +1, Seat of
+Power +1, Vi Peacekeeper +1, Decree of Focus +1, Hidden Blade 2→3, Scuttle
+Crab 3→6 — e o `used` a 0 em todas); «falta encomendar aos decks» das
+Encomendas 22 cartas · 40 cópias → 0; falta dos decks **40 cópias · 22
+cartas · 965,47 € → 282 · 136 · 1 156,42 €** (o pool a zero: falta tudo),
+cada deck **0/54**. **O pool: precisa de 282 cópias de 136 cartas (a soma
+dos seis seria 324), cada deck pede 54, nenhuma carta sem versão base** —
+os números que ele calculou batem todos (o «61 cartas» do A mais são 61
+cartas lógicas em 62 impressões; 110 cópias em base; cobririam 16 das
+282). Wantlist do pool: 136 linhas · 282 · 1 156,42 €, 57 só com oferta
+foil.
+
+**Cuidado ao voltar a `coleccao` com cópias no pool:** ficam gravadas (no
+`copies` e no local) e nesse modo contam para o valor mas não para os decks
+nem para a Coleção — tira-se com `riftvault pool --menos` antes, ou
+deixa-se. Hoje o pool está a zero e voltar atrás repõe os números ao
+exemplar (há teste).
+
+`tests/test_pool_proprio.py` (22 testes, contra cópias e config temporário):
+o máximo entre decks e a soma main+sideboard; o pool a zero e cada deck
+contra o pool inteiro; a Legend e o Champion na base; a alt art no pool não
+serve e é dita; a carta sem base é dita; `ajustar` não mexe na Coleção,
+retry não dobra, rasto; o local no resumo e no tile; a Coleção com o modo
+ligado dá EXACTAMENTE o mesmo que sem decks nenhuns; meter 5 cópias no pool
+não mexe em nada da Coleção; o A mais sem desconto; a grelha sem usos;
+voltar a `coleccao` repõe tudo; modo desconhecido rebenta; rotas, build, CLI,
+`app.js`. `test_sem_quanto_custa` ganhou a chave `modo` no `compras`. Suite:
+37 ficheiros, 0 a falhar.

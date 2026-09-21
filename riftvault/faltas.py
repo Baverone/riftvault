@@ -399,6 +399,10 @@ def compras(con: sqlite3.Connection) -> dict:
         "por_deck": por_deck(con),
         "todos_juntos": todos_juntos(con),
         "pimp": pimp(con),
+        # Com o pool próprio (2026-09-21) estas abas não se mostram — a
+        # compra é uma só, a do pool (`pool.wantlist`); ficam calculadas
+        # contra o pool para a CLI (`riftvault wantlist`) continuar a responder.
+        "modo": decks.modo(),
         "ignored_types": sorted(config.load().get("faltas_ignorar_tipos", [])),
         "totals": {
             "cards": len(todas),

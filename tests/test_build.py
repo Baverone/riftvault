@@ -11,13 +11,20 @@ from __future__ import annotations
 
 import importlib
 import json
+import os
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from tests.fixture import Vault, catalogo_simples
+# Nunca contra o `riftvault_config.json` a sério: desde 2026-09-21 ele liga a
+# experiência do pool próprio (`decks.modo`), e este teste descreve o modo de
+# sempre — os decks a servir-se da Coleção.
+os.environ["RIFTVAULT_CONFIG"] = str(Path(tempfile.gettempdir()) / "riftvault-nao-existe.json")
+
+from tests.fixture import Vault, catalogo_simples  # noqa: E402
 
 
 DECK = """Legend:

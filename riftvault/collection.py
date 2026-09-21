@@ -174,17 +174,19 @@ def history(con: sqlite3.Connection, limit: int = 20) -> list[dict]:
 
 def totals(con: sqlite3.Connection) -> dict:
     """Cópias, impressões e cartas que ele tem — sem as retiradas (as runas em
-    alt art, 2026-09-17), que não existem para o riftvault."""
+    alt art, 2026-09-17), que não existem para o riftvault, e sem o pool dos
+    decks na experiência de 2026-09-21 (`prices.copias_sql`)."""
     from . import prices
 
+    fonte, p_fonte = prices.copias_sql(con)
     fora, params = prices._sem_retiradas(con)
     row = con.execute(
-        "SELECT COALESCE(SUM(qty),0) AS copies, COUNT(*) AS printings "
-        "FROM copies c WHERE qty > 0" + fora, params
+        "SELECT COALESCE(SUM(c.qty),0) AS copies, COUNT(*) AS printings "
+        f"FROM {fonte} WHERE c.qty > 0" + fora, [*p_fonte, *params]
     ).fetchone()
     cards = con.execute(
-        "SELECT COUNT(DISTINCT p.card_key) AS n FROM copies c "
+        f"SELECT COUNT(DISTINCT p.card_key) AS n FROM {fonte} "
         "JOIN catalog.printings p ON p.printing_id = c.printing_id WHERE c.qty > 0" + fora,
-        params
+        [*p_fonte, *params]
     ).fetchone()
     return {"copies": row["copies"], "printings": row["printings"], "cards": cards["n"]}

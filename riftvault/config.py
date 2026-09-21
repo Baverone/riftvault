@@ -142,10 +142,27 @@ DEFAULTS: dict = {
     #                          reordenar do site e o `riftvault decks --order`
     #                          ficam desligados. Vazia: a prioridade guardada
     #                          na base, como até aqui. Ver `decks.aplicar_ordem`.
+    #   `modo`               — A EXPERIÊNCIA DO POOL PRÓPRIO (André, 2026-09-21:
+    #                          "quero que a coleccao fique sempre imaculada,
+    #                          nada sai da coleccao; os decks, todos partilham
+    #                          as mesmas cartas, mas nao usam absolutamente
+    #                          nada da coleccao; so jogam com versoes base").
+    #                          `coleccao` (a omissão) é tudo como está descrito
+    #                          acima; `pool_proprio` liga a experiência: os
+    #                          decks montam-se SÓ do local `pool-decks`
+    #                          (`locais.POOL`), que começa a zero; o pool
+    #                          precisa do MÁXIMO por carta entre os decks
+    #                          (main e sideboard somam dentro do mesmo deck);
+    #                          só versões base (a Legend e o Champion também —
+    #                          a regra de 2026-09-17 não se aplica); e nenhuma
+    #                          conta da Coleção — níveis, Faltas, wantlists,
+    #                          valor, Encomendas, A mais — sabe que há decks.
+    #                          Reversível: muda-se a palavra. Ver `pool.py`.
     "decks": {"so_normais_excepto": ["legend", "champion"],
               "versoes_especiais": ["a", "overnumbered", "promo"],
               "contar_runas": False,
-              "ordem": []},
+              "ordem": [],
+              "modo": "coleccao"},
     # O bloco das runas especiais ("1 runa especial de cada para cada set",
     # 2026-09-08) — só o BLOCO. O `alvo` que aqui vivia (1, "runas 1 de cada")
     # deixou de ser lido a 2026-09-15: as runas pedem o alvo do tipo, como

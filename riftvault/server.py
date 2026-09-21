@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 from flask import Flask, g, jsonify, redirect, request, send_from_directory
 
 from . import (a_mais, a_subir, collection, config, db, decks, faltas, faltas_edicao,
-               locais, metrics, pending, runas_vista)
+               locais, metrics, pending, pool, runas_vista)
 
 app = Flask(__name__, static_folder=None)
 
@@ -157,7 +157,47 @@ def api_decks():
     # quando difere.
     decks.aplicar_ordem(con, log=lambda *_: None)
     return jsonify({"editable": True, "decks": decks.decks_index(con),
-                    "rules": decks.rules(), "ordem_fixa": decks.ordem_fixa()})
+                    "rules": decks.rules(), "ordem_fixa": decks.ordem_fixa(),
+                    # A experiência do pool próprio (2026-09-21): o cliente
+                    # põe a aba «Pool dos decks» e tira as de compra.
+                    "modo": decks.modo()})
+
+
+@app.get("/api/pool.json")
+def api_pool():
+    """O pool próprio dos decks (2026-09-21, `decks.modo = "pool_proprio"`):
+    o que precisa de ter (o máximo entre os decks), o que tem, o que falta,
+    e por deck se chega. Responde nos dois modos — só se mostra no do pool."""
+    con = get_con()
+    _reimport_if_changed(con)
+    return jsonify(pool.payload(con, editable=True, image_mode="local"))
+
+
+@app.post("/api/pool/ajustar")
+def api_pool_ajustar():
+    """Os `+`/`−` do pool: `{printing_id, delta, request_id?}`.
+
+    Escreve no `copies` E no local `pool-decks` de uma vez — a Coleção fica
+    exactamente onde estava. Só versões base (400 se não for). Um `−` a zero
+    devolve 0 sem erro.
+    """
+    data = request.get_json(silent=True) or {}
+    try:
+        delta = int(data.get("delta", 0))
+    except (TypeError, ValueError):
+        return jsonify({"error": "delta inválido"}), 400
+    if delta == 0:
+        return jsonify({"error": "delta é zero"}), 400
+    if not data.get("printing_id"):
+        return jsonify({"error": "falta printing_id"}), 400
+    try:
+        res = pool.ajustar(get_con(), data["printing_id"], delta, source="web",
+                           request_id=data.get("request_id"))
+    except collection.UnknownPrinting as exc:
+        return jsonify({"error": str(exc)}), 404
+    except pool.NaoBase as exc:
+        return jsonify({"error": str(exc)}), 400
+    return jsonify(res)
 
 
 @app.get("/api/faltas_edicao.json")

@@ -37,6 +37,14 @@ RASTO
     que o `undo` lê) e outra em `data/locais.log`, um CSV que se abre no Excel.
     Se um dia uma cópia aparecer num deck sem linha no log, é bug — é a mesma
     defesa do `registos-caixas.csv` do mtgvault (2026-09-09).
+
+UM QUARTO LOCAL, SÓ NA EXPERIÊNCIA DO POOL (2026-09-21)
+    `pool-decks` — o monte próprio dos decks, com `decks.modo = "pool_proprio"`
+    (ver o topo do `pool.py`). Uma cópia aqui NUNCA conta para a Coleção
+    (`na_colecao` já a tira, como aos outros locais) e, nesse modo, também
+    não conta para o valor nem para o playset jogável (`contadas`). Entra e
+    sai pelo `pool.ajustar`, que escreve no `copies` E aqui de uma vez — o
+    pool começa a zero e é ele que lá mete o que tiver.
 """
 
 from __future__ import annotations
@@ -51,6 +59,8 @@ from . import collection, config
 COLECAO = "colecao"
 BINDER = "binder"
 DECK_PREFIX = "deck:"
+# O pool próprio dos decks (2026-09-21, experiência `decks.modo`).
+POOL = "pool-decks"
 
 # O ficheiro de rasto. Fica no `data/`, ao lado das bases, e é append-only.
 LOG_NAME = "locais.log"
@@ -107,11 +117,13 @@ def normalizar(local: str, decks_conhecidos: set[str] | None = None) -> str:
         return COLECAO
     if k in ("binder", "decks-venda", "decks/venda", "deckvenda", "venda"):
         return BINDER
+    if k in ("pool", "pool-decks", "pool_decks", "pool decks"):
+        return POOL
     if k.startswith(DECK_PREFIX):
         return deck_local(k[len(DECK_PREFIX):])
     if decks_conhecidos and k in decks_conhecidos:
         return deck_local(k)
-    aceites = "colecao, binder, deck:<slug>"
+    aceites = "colecao, binder, pool, deck:<slug>"
     if decks_conhecidos:
         aceites += " (decks: " + ", ".join(sorted(decks_conhecidos)) + ")"
     raise LocalInvalido(f"local desconhecido: {local!r}. Aceita: {aceites}")
@@ -123,6 +135,8 @@ def rotulo(local: str, nomes: dict[str, str] | None = None) -> str:
         return "Coleção"
     if local == BINDER:
         return "Binder Decks/Venda"
+    if local == POOL:
+        return "Pool dos decks"
     slug = slug_do_deck(local)
     if slug is None:
         return local
@@ -203,6 +217,32 @@ def em(con: sqlite3.Connection, local: str) -> dict[str, int]:
         (local,))}
 
 
+def no_pool(con: sqlite3.Connection) -> dict[str, int]:
+    """printing_id -> cópias no pool próprio dos decks (`POOL`)."""
+    return em(con, POOL)
+
+
+def contadas(con: sqlite3.Connection) -> dict[str, int]:
+    """printing_id -> as cópias físicas que a COLEÇÃO conta como suas.
+
+    É o `totais` (todos os locais — uma carta sleevada num deck não vale
+    menos) MENOS o pool dos decks quando `decks.modo` é `pool_proprio`
+    (2026-09-21: *"uma copia no pool nunca conta para a coleccao e
+    vice-versa"*). É o que o valor, o playset jogável e o «tens N cópias»
+    lêem; a percentagem e os níveis continuam a ler o `na_colecao`, que já
+    tirava o pool por ser um local como os outros. Em modo `coleccao` é o
+    `totais` tal e qual.
+    """
+    from . import decks
+
+    total = totais(con)
+    if not decks.pool_proprio():
+        return total
+    for pid, n in no_pool(con).items():
+        total[pid] = max(0, total.get(pid, 0) - n)
+    return {pid: q for pid, q in total.items() if q > 0}
+
+
 def por_deck(con: sqlite3.Connection) -> dict[str, dict[str, int]]:
     """slug -> {printing_id: qty}: as cópias sleevadas em cada deck."""
     out: dict[str, dict[str, int]] = {}
@@ -225,7 +265,7 @@ def resumo(con: sqlite3.Connection) -> list[dict]:
             slot = contagem.setdefault(loc, [0, 0])
             slot[0] += q
             slot[1] += 1
-    ordem = {COLECAO: 0, BINDER: 2}
+    ordem = {COLECAO: 0, BINDER: 2, POOL: 3}
     return [{"local": loc, "label": rotulo(loc, nomes),
              "copies": v[0], "printings": v[1]}
             for loc, v in sorted(contagem.items(),
@@ -432,10 +472,11 @@ def ajustar_ao_total(con: sqlite3.Connection, printing_id: str,
     contagem negativa e o riftvault passava a dizer que ele tem cartas que não
     tem.
 
-    Tira-se primeiro do binder Decks/Venda e só depois dos decks (os decks
-    últimos, porque uma carta sleevada é a que menos provavelmente desapareceu).
-    Cada retirada deixa rasto: no `data/locais.log` aparece `-> (saiu da
-    coleção)`, para não haver cópias a evaporar-se em silêncio.
+    Tira-se primeiro do binder Decks/Venda, depois do pool dos decks, e só
+    depois dos decks (os decks últimos, porque uma carta sleevada é a que
+    menos provavelmente desapareceu). Cada retirada deixa rasto: no
+    `data/locais.log` aparece `-> (saiu da coleção)`, para não haver cópias a
+    evaporar-se em silêncio.
     """
     total = collection.get_qty(con, printing_id)
     linhas = con.execute(
@@ -445,8 +486,10 @@ def ajustar_ao_total(con: sqlite3.Connection, printing_id: str,
     if excesso <= 0:
         return []
 
-    # Binder primeiro, depois os decks por ordem alfabética — determinista.
-    ordenadas = sorted(linhas, key=lambda r: (0 if r["location"] == BINDER else 1,
+    # Binder primeiro, o pool a seguir, depois os decks por ordem alfabética —
+    # determinista.
+    prioridade = {BINDER: 0, POOL: 1}
+    ordenadas = sorted(linhas, key=lambda r: (prioridade.get(r["location"], 2),
                                               r["location"]))
     tiradas = []
     for r in ordenadas:
@@ -486,6 +529,14 @@ def propor_deck(con: sqlite3.Connection, slug: str) -> dict:
     if not row:
         return {"deck": slug, "items": [], "erro": "não há deck com esse nome"}
     deck_id = row["deck_id"]
+    # Com o pool próprio (2026-09-21) os decks não usam nada da Coleção: não
+    # há nada a propor tirar de lá — o que ele tem para os decks mete-se no
+    # pool (`pool.ajustar`).
+    if decks_mod.pool_proprio():
+        return {"deck": slug, "items": [], "copies": 0,
+                "nota": "com decks.modo = pool_proprio os decks não usam a Coleção; "
+                        "o que tens para eles mete-se no pool (separador Decks, "
+                        "«Pool dos decks», ou `riftvault pool --mais`)"}
 
     # Sem as runas (2026-09-17, à noite): não se contam nos decks, e propor
     # sleevá-las era contá-las por outro caminho — ele organiza-as à mão.
