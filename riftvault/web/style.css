@@ -16,6 +16,38 @@
   /* 104px dá 3 colunas num telemóvel de 375px. Menos do que isto e os +/-
      ficam pequenos de mais para o polegar. */
   --tile: 104px;
+
+  /* A paleta do «layout H» (André, 2026-09-21), a da maqueta
+     `layout-H-cartoes.html`. Por agora só o painel do topo da Coleção a usa;
+     fica aqui em cima, e não espalhada pelas regras, para se alargar às
+     outras abas quando ele quiser — muda-se num sítio. */
+  --h-bg: #0E1526;          /* fundo da página */
+  --h-card: #16203A;        /* cartão e quadro */
+  --h-line: #233150;        /* borda */
+  --h-track: #1E2A45;       /* o fundo das barras */
+  --h-text: #EAF0FB;
+  --h-dim: #9FB0CC;         /* texto secundário */
+  --h-dim-2: #8093B0;       /* rótulos em maiúsculas, denominadores */
+  --h-on: #4A93E0;          /* botão escolhido */
+  --h-on-bg: rgba(74, 147, 224, .16);
+  /* A rampa dos três níveis: 1 de cada (escura), 2 de cada, playset (clara). */
+  --lvl-1: #3D6FA8;
+  --lvl-2: #4A93E0;
+  --lvl-3: #7FC8FF;
+  /* As bolinhas das categorias, por raridade e por domínio. */
+  --rar-common: #C3CEDF;
+  --rar-uncommon: #7FD1A8;
+  --rar-rare: #E06AA8;
+  --rar-epic: #F59A3C;
+  --rar-showcase: #C9A0FF;
+  --dom-fury: #F05A62;
+  --dom-body: #F59A3C;
+  --dom-calm: #49C47E;
+  --dom-mind: #58A6F5;
+  --dom-chaos: #B57CF0;
+  --dom-order: #E8C13E;
+  --dom-none: #9AA8C0;
+  --dom-multi: #D4A574;
 }
 
 * { box-sizing: border-box; }
@@ -214,20 +246,103 @@ main { padding: 12px; max-width: 1500px; margin: 0 auto; }
 .rarities.blocos { margin-top: 6px; }
 .rarity.is-out { opacity: .55; }
 
-/* A contagem por níveis (1 de cada · 2 de cada · playset), por baixo da barra
-   do master set. Ocupa a linha toda mesmo no ecrã largo, onde as três barras
-   ficam lado a lado: são seis chips com números e ao terço da largura partiam-se
-   todos. */
-.niveis { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 5px; }
-.niveis-linha { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; }
-.niveis-rot {
-  font-size: 10px; color: var(--dim); text-transform: uppercase;
-  letter-spacing: .04em; min-width: 92px;
+/* Em «Todas» (2026-09-21) a grelha muda de edição dentro de cada bloco: um
+   cabeçalho fino, sem o separador grosso dos blocos. */
+.section-head.edicao {
+  font-size: 12px; color: var(--dim); text-transform: none;
+  margin-top: 14px; padding-bottom: 3px; border-bottom-style: dashed;
 }
-.rarity.nivel b:first-child { color: var(--accent-2); }
-.rarity.nivel.is-done b:first-child { color: var(--ok); }
 
-.chip-b.is-static { cursor: default; }
+/* ---------------------------------------- o painel do topo (layout H)
+
+   (André, 2026-09-21) Três cartões — 1 de cada, 2 de cada, playset — e por
+   baixo dois quadros, Raridade e Domínio. Só a paleta `--h-*` de cima; os
+   tamanhos e os espaços são os da maqueta. No telemóvel (< 700px) os três
+   cartões empilham e os quadros passam a um por linha — é onde ele mais vê
+   isto. Sem tipo de letra externo de propósito: o site não pede nada à rede
+   além das imagens, e um pedido de fonte a falhar deixava o número em
+   `serif` por um segundo. */
+.painel { display: flex; flex-direction: column; gap: 14px; margin-bottom: 14px; }
+.painel:empty { display: none; }
+.painel-top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.painel-blocos .chip-b {
+  background: transparent; color: var(--h-dim); border-color: var(--h-line);
+  border-radius: 9px; font-size: 12px; letter-spacing: .06em; text-transform: uppercase;
+  padding: 8px 12px;
+}
+.painel-blocos .chip-b.is-on { color: var(--h-text); border-color: var(--h-on); background: var(--h-on-bg); }
+.painel-nota { font-size: 11px; color: var(--h-dim-2); margin-left: auto; }
+
+.painel-cartoes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.cartao {
+  background: var(--h-card); border: 1px solid var(--h-line); border-radius: 14px;
+  padding: 18px 20px; display: flex; flex-direction: column; gap: 12px; min-width: 0;
+}
+.cartao-rot {
+  font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--h-dim-2);
+}
+.cartao-num {
+  font-size: 40px; font-weight: 700; line-height: 1; color: var(--h-text);
+  font-variant-numeric: tabular-nums; letter-spacing: -.01em;
+}
+.cartao-num span { font-size: 22px; font-weight: 500; color: var(--h-dim-2); }
+.cartao-bar { height: 8px; border-radius: 5px; background: var(--h-track); overflow: hidden; }
+.cartao-bar i, .mini i { display: block; height: 100%; border-radius: 5px; transition: width .25s; }
+.cartao-falta { font-size: 13px; color: var(--h-dim); font-variant-numeric: tabular-nums; }
+.cartao-falta b { color: var(--h-text); font-weight: 600; }
+/* A rampa: escura, média, clara — a mesma nos cartões e nas mini-barras. */
+.painel i.n1 { background: var(--lvl-1); }
+.painel i.n2 { background: var(--lvl-2); }
+.painel i.n3 { background: var(--lvl-3); }
+
+.painel-quadros { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+.quadro {
+  background: var(--h-card); border: 1px solid var(--h-line); border-radius: 14px;
+  padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; min-width: 0;
+}
+.quadro-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.quadro-tit { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--h-dim-2); }
+.quadro-leg { font-size: 11px; color: var(--h-dim-2); letter-spacing: .06em; }
+.quadro-linhas { display: flex; flex-direction: column; gap: 10px; }
+.quadro-linhas .empty { padding: 6px 0; font-size: 12px; }
+.ql { display: flex; align-items: center; gap: 10px; }
+.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--h-dim-2); flex: 0 0 auto; }
+.dot.rar-common { background: var(--rar-common); }
+.dot.rar-uncommon { background: var(--rar-uncommon); }
+.dot.rar-rare { background: var(--rar-rare); }
+.dot.rar-epic { background: var(--rar-epic); }
+.dot.rar-showcase { background: var(--rar-showcase); }
+.dot.dom-fury { background: var(--dom-fury); }
+.dot.dom-body { background: var(--dom-body); }
+.dot.dom-calm { background: var(--dom-calm); }
+.dot.dom-mind { background: var(--dom-mind); }
+.dot.dom-chaos { background: var(--dom-chaos); }
+.dot.dom-order { background: var(--dom-order); }
+.dot.dom-none { background: var(--dom-none); }
+.dot.dom-multi { background: var(--dom-multi); }
+.ql-nome {
+  flex: 1 1 auto; font-size: 14px; color: var(--h-text); min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mini {
+  width: 54px; height: 5px; border-radius: 3px; background: var(--h-track);
+  overflow: hidden; flex: 0 0 auto;
+}
+.ql-num {
+  width: 72px; text-align: right; font-size: 14px; font-weight: 600; color: var(--h-text);
+  font-variant-numeric: tabular-nums; flex: 0 0 auto;
+}
+.ql-num span { color: var(--h-dim-2); font-weight: 400; }
+
+@media (max-width: 699px) {
+  .painel-cartoes, .painel-quadros { grid-template-columns: 1fr; gap: 10px; }
+  .cartao { padding: 14px 16px; gap: 9px; }
+  .cartao-num { font-size: 34px; }
+  .painel-nota { margin-left: 0; flex-basis: 100%; }
+  /* As três mini-barras cabem numa linha de 375px com o nome a encurtar. */
+  .mini { width: 40px; }
+  .ql-num { width: 60px; }
+}
 
 .tile { position: relative; display: flex; flex-direction: column; gap: 5px; }
 

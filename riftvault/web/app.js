@@ -11,6 +11,9 @@
 const $ = (s, r = document) => r.querySelector(s);
 const PREFS = 'riftvault.prefs.v1';
 const UNDO_MS = 9000;          // quanto tempo o toast de anular fica no ecrã
+// O separador «Todas» da Coleção (2026-09-21): as edições todas seguidas na
+// grelha, e o painel do topo somado. É a mesma chave do `painel.TODAS`.
+const TODAS = 'all';
 
 const state = {
   index: null,
@@ -25,22 +28,20 @@ const state = {
   locs: new Map(),             // printing_id -> [{loc, label, qty}]
   play: new Map(),             // card_key -> {owned, target}
   targets: new Map(),          // printing_id -> alvo do master (o do tile)
-  // printing_id -> bloco da grelha. A Coleção são três blocos seguidos —
-  // 'master' (a sequência), 'rune_special' e 'alt_art' —, os três em playset
-  // do tipo desde 2026-09-14 («muda tudo para playset»; até aí as runas, as
-  // runas especiais e as alt arts pediam 1), e os três contam para a
-  // percentagem. O que ficou fora da
-  // coleção vai para blocos próprios no fim. Ver `metrics.BLOCOS`.
+  // printing_id -> bloco da grelha: 'master' (a sequência, a única que conta
+  // para a percentagem) e a coleção extra em blocos próprios a seguir —
+  // sobrenumeradas, artes alternativas, promos —, pela ordem do config
+  // (`metrics.ordem_dos_blocos`). Ver `metrics.BLOCOS`.
   blocks: new Map(),
   // Os ids de bloco que entram na percentagem, ditos pelo payload (`counts`).
   // A regra vive no servidor; aqui só se recalcula para as barras andarem ao
   // mesmo tempo que os +/-.
   counting: new Set(),
-  // A contagem por níveis (1 de cada, 2 de cada, playset) POR EDIÇÃO:
-  // set_id -> [{k, done, total, missing, cents}]. Começa com os números do
-  // `api/index.json` e a edição que estiver aberta passa a ser recalculada
-  // localmente, como as barras. O global é a soma — todos os campos são somas,
-  // por isso editar uma edição não estraga as outras quatro.
+  // A contagem por níveis da barra (1 de cada, 2 de cada, playset) POR
+  // EDIÇÃO: set_id -> [{k, done, total, missing, cents}]. Começa com os
+  // números do `api/index.json` e a edição que estiver aberta passa a ser
+  // recalculada localmente, como as barras. Desde 2026-09-21 só a linha «N
+  // cópias a comprar» a lê — os chips passaram para o painel do topo.
   levels: new Map(),
   meta: new Map(),             // printing_id -> {name, card_key, rarity}
   pending: new Map(),          // card_key -> pedidos por responder
@@ -81,6 +82,9 @@ const state = {
            // As wantlists da Coleção: até que nível se compra (1, 2, … ) ou
            // `null` para o alvo inteiro — o playset da sequência.
            wlNivel: null,
+           // O painel do topo da Coleção (2026-09-21): o bloco escolhido —
+           // master set, sobrenumeradas, artes alternativas, promos.
+           painelBloco: 'master',
            // «Faltas»: a edição escolhida (`all` = todas, uma a seguir à
            // outra). Sobrevive ao refresh.
            feSet: 'all',
@@ -144,7 +148,8 @@ async function boot() {
 
   renderSetTabs();
   const first = state.index.sets[0];
-  const wanted = state.index.sets.some(s => s.id === state.prefs.set) ? state.prefs.set : (first && first.id);
+  const wanted = state.prefs.set === TODAS || state.index.sets.some(s => s.id === state.prefs.set)
+    ? state.prefs.set : (first && first.id);
   if (wanted) await loadSet(wanted);
   // Uma preferência guardada com a secção Venda (apagada a 2026-09-15) ou
   // com a tabela de preços (`faltas`, apagada a 2026-09-19) cai aqui na
@@ -169,7 +174,14 @@ async function loadSet(setId) {
   renderSetTabs();
 
   $('#grid').innerHTML = '<p class="empty">a carregar…</p>';
-  const p = await getJSON(`api/set/${setId}.json`);
+  // Em «Todas» o painel aparece já com os números do servidor (vêm no
+  // `index.json`), enquanto as edições carregam.
+  if (setId === TODAS) renderPainel();
+  const p = setId === TODAS ? await loadTodas() : await getJSON(`api/set/${setId}.json`);
+  // Ele mudou de separador enquanto isto vinha: o que chegou já não é o que
+  // está escolhido, e desenhá-lo punha a grelha de uma edição debaixo do
+  // separador de outra.
+  if (state.setId !== setId) return;
   state.payload = p;
   state.imageMode = p.image_mode || state.imageMode;
 
@@ -195,6 +207,76 @@ async function loadSet(setId) {
   renderFaltaLinha();
   // Idem: o bloco das runas é do JOGO inteiro, não da edição nem do filtro.
   renderRunasVista();
+}
+
+/* A edição aberta na Coleção, ou `null` em «Todas» — para quem precisa de UMA
+   edição (o separador Encomendas, a wantlist da edição). */
+function edicaoAberta() {
+  return state.setId && state.setId !== TODAS ? state.setId : null;
+}
+
+/* ================================== o separador «Todas» (2026-09-21)
+
+   As edições todas seguidas, na ordem dos separadores. Não há ficheiro
+   próprio: pedem-se os `api/set/<ID>.json` de todas e cola-se um payload só,
+   com a mesma forma — os `groups` levam a edição (`set`, `set_name`) para a
+   grelha pôr um cabeçalho quando muda de edição, e os `blocks` são a união,
+   pela ordem do servidor (`index.painel.blocks`). Tudo o que lê o payload
+   (as barras, o painel, o valor, os +/-) funciona igual, porque os
+   `printing_id` são únicos no catálogo inteiro. */
+async function loadTodas() {
+  const sets = state.index?.sets || [];
+  const ps = await Promise.all(sets.map(s => getJSON(`api/set/${s.id}.json`)));
+  return juntarEdicoes(sets, ps);
+}
+
+function juntarEdicoes(sets, ps) {
+  const groups = [];
+  const blocks = new Map();
+  const hidden = new Set();
+  const progress = {
+    playset: { done: 0, total: 0 }, master: { done: 0, total: 0 },
+    value: { owned: 0, full: 0, currency: 'EUR', has_prices: false },
+    rarities: [], levels: [], painel: { blocks: {}, runes_out: 0 },
+  };
+  ps.forEach((p, i) => {
+    for (const g of p.groups) groups.push({ ...g, set: sets[i].id, set_name: sets[i].name });
+    for (const b of p.blocks || []) {
+      const j = blocks.get(b.id);
+      if (!j) { blocks.set(b.id, { ...b }); continue; }
+      j.done += b.done; j.total += b.total; j.owned += b.owned;
+      j.max_target = Math.max(j.max_target, b.max_target);
+    }
+    for (const k of p.hidden_kinds || []) hidden.add(k);
+    const pr = p.progress || {};
+    for (const c of ['playset', 'master']) {
+      if (!pr[c]) continue;
+      progress[c].done += pr[c].done; progress[c].total += pr[c].total;
+    }
+    if (pr.value) {
+      progress.value.owned += pr.value.owned || 0;
+      progress.value.full += pr.value.full || 0;
+      progress.value.has_prices = progress.value.has_prices || !!pr.value.has_prices;
+    }
+    progress.painel.runes_out += pr.painel?.runes_out || 0;
+  });
+  // A soma dos blocos do servidor está no `index.painel.sets.all`; os
+  // números que se vêem recalculam-se do estado, como sempre.
+  progress.painel.blocks = state.index?.painel?.sets?.[TODAS] || {};
+  const ordem = (state.index?.painel?.blocks || []).map(b => b.id);
+  const lista = [...blocks.values()].sort((a, b) => {
+    const ia = ordem.indexOf(a.id), ib = ordem.indexOf(b.id);
+    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+  });
+  const primeiro = ps[0] || {};
+  return {
+    editable: !!primeiro.editable,
+    image_mode: primeiro.image_mode,
+    generated_at: primeiro.generated_at,
+    set: { id: TODAS, name: `Todas as edições` },
+    price_badge_min: primeiro.price_badge_min,
+    progress, blocks: lista, hidden_kinds: [...hidden], groups,
+  };
 }
 
 /* ================================ o bloco «Runas — 12 de cada» (2026-09-19)
@@ -348,12 +430,18 @@ function runaMexeu(cardKey) {
 function renderSetTabs() {
   const nav = $('#set-tabs');
   nav.innerHTML = '';
-  for (const s of (state.index?.sets || [])) {
+  const sets = state.index?.sets || [];
+  const botao = (id, nome, sub) => {
     const b = document.createElement('button');
-    b.className = 'tab' + (s.id === state.setId ? ' is-on' : '');
-    b.innerHTML = `${s.name}<small>${s.n_printings} impressões</small>`;
-    b.onclick = () => loadSet(s.id);
+    b.className = 'tab' + (id === state.setId ? ' is-on' : '');
+    b.innerHTML = `${escapeHTML(nome)}<small>${sub}</small>`;
+    b.onclick = () => loadSet(id).catch(err => toast(err.message, { error: true }));
     nav.appendChild(b);
+  };
+  for (const s of sets) botao(s.id, s.name, `${s.n_printings} impressões`);
+  // «Todas» (2026-09-21): as edições seguidas, e o painel do topo somado.
+  if (sets.length > 1) {
+    botao(TODAS, 'Todas', `${sets.reduce((n, s) => n + s.n_printings, 0)} impressões`);
   }
 }
 
@@ -522,9 +610,17 @@ function render() {
   for (const b of blocos) {
     const pedacos = [];
     let feitas = 0, total = 0, alguma = 0, alvoMax = 0;
+    let edicao = null;
     for (const g of grupos) {
       const list = visiblePrintings(g).filter(p => (p.block || 'master') === b.id);
       if (!list.length) continue;
+      // Em «Todas» os grupos vêm de cinco edições seguidas: um cabeçalho
+      // fino cada vez que a edição muda dentro do bloco, senão o OGN-298 e o
+      // OGS-001 ficavam colados sem nada a dizer que a edição acabou.
+      if (g.set && g.set !== edicao) {
+        edicao = g.set;
+        pedacos.push(`<h3 class="section-head edicao">${escapeHTML(g.set_name || g.set)}</h3>`);
+      }
       for (const p of list) {
         const t = state.targets.get(p.id) || 0;
         if (t <= 0) continue;
@@ -568,7 +664,8 @@ function render() {
   grid.innerHTML = parts.join('');
   $('#empty').hidden = mostrados > 0;
   $('#count-line').textContent = `${state.tiles.length} impressões a mostrar`
-    + (state.payload ? ` · ${state.payload.groups.length} cartas na edição` : '');
+    + (state.payload ? ` · ${state.payload.groups.length} cartas ${
+      state.setId === TODAS ? 'nas edições todas' : 'na edição'}` : '');
   renderProgress();
   state.focus = -1;
 }
@@ -580,12 +677,11 @@ function renderProgress() {
   // ao mesmo tempo que os +/- (atualização otimista).
   let pDone = 0, pTotal = 0, mDone = 0, mTotal = 0;
   const seen = new Set();
-  const rar = new Map();
   const porBloco = new Map();
-  // Os degraus da contagem por níveis vêm do servidor (são os do catálogo
-  // inteiro, para as cinco edições se compararem); os números recalculam-se
-  // aqui, no mesmo ciclo da barra — é o mesmo âmbito, e a percentagem do
-  // último nível tem de continuar a dar exactamente a da barra.
+  // Os degraus da contagem por níveis da barra vêm do servidor (são os do
+  // catálogo inteiro); os números recalculam-se aqui, no mesmo ciclo da
+  // barra — é o mesmo âmbito. Só a linha «N cópias a comprar» os lê hoje; os
+  // chips que os mostravam deram lugar ao painel do topo (2026-09-21).
   const niv = Array.from({ length: niveisN() },
                          (_, i) => ({ k: i + 1, done: 0, total: 0, missing: 0, cents: 0 }));
 
@@ -617,10 +713,6 @@ function renderProgress() {
         nv.total++; nv.missing += falta; nv.cents += falta * (p.price || 0);
         if (!falta) nv.done++;
       }
-      const key = g.rarity || '?';
-      const slot = rar.get(key) || [0, 0];
-      slot[1]++; if (ok) slot[0]++;
-      rar.set(key, slot);
     }
   }
 
@@ -642,8 +734,10 @@ function renderProgress() {
   });
   $('#master-blocks').innerHTML = chips.length > 1 ? chips.join('') : '';
 
-  if (niv.length) state.levels.set(state.setId, niv);
-  renderNiveis(niv);
+  // Só as edições a sério: em «Todas» a conta é das cinco juntas e guardá-la
+  // debaixo de uma sexta chave contava tudo a dobrar.
+  if (niv.length && state.setId !== TODAS) state.levels.set(state.setId, niv);
+  renderPainel();
 
   // Valor: recalculado localmente pela mesma razão que as barras — para andar
   // ao mesmo tempo que os +/-. A barra compara o que tenho com o que a edição
@@ -658,37 +752,205 @@ function renderProgress() {
       }
     }
     block.hidden = false;
+    $('#value-block .bar-label span').textContent =
+      state.setId === TODAS ? 'Valor das edições todas' : 'Valor nesta edição';
     $('#value-num').textContent = eur(owned);
     $('#value-bar').style.width = val.full ? `${Math.min(100, (owned / val.full) * 100)}%` : '0';
     $('#value-sub').textContent = `de ${eur(val.full)} se estivesse completa`;
   } else {
     block.hidden = true;
   }
-
-  const order = ['common', 'uncommon', 'rare', 'epic', 'showcase'];
-  const rows = [...rar.entries()].sort((a, b) => {
-    const ia = order.indexOf(a[0]), ib = order.indexOf(b[0]);
-    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
-  });
-  $('#rarities').innerHTML = rows.map(([k, v]) =>
-    `<span class="rarity ${v[0] >= v[1] ? 'is-done' : ''}">${k} <b>${v[0]}/${v[1]}</b></span>`
-  ).join('');
 }
 
 
-/* ================================ contagem por níveis do master set
+/* ================================ o painel do topo da Coleção (2026-09-21)
 
-   André, 2026-09-08: *"quantas cartas faltam para ter 1 de cada, quantas
-   faltam para ter 2 de cada, quantas faltam para ter o playset de cada — do
-   género 1/3 Z % · 2/3 X % · 3/3 Y %."*
+   O André escolheu o «layout H»: por baixo dos separadores das edições e por
+   cima da grelha, TRÊS CARTÕES — «1 de cada», «2 de cada», «playset» — com o
+   tenho/total em grande (nunca a percentagem), uma barra fina e o «faltam
+   N»; e por baixo DOIS QUADROS, Raridade e Domínio, uma linha por categoria
+   com a bolinha da cor, três mini-barras (uma por nível) e o tenho/total à
+   direita. Sobre o BLOCO escolhido (master set, sobrenumeradas, artes
+   alternativas, promos) da edição aberta, ou de «Todas».
 
-   É a MESMA conta da barra do master set, partida em degraus: o alvo do nível k
-   é `min(k, alvo)`, por isso as impressões de alvo 1 (os Legends e os
-   Battlefields da sequência; as runas numeradas pedem 3 desde 2026-09-15) só
-   podem faltar no nível 1, e a percentagem do último nível dá exactamente a da
-   barra. Conta CÓPIAS, não o que vem a caminho — é a regra da Coleção; as
-   wantlists por nível é que descontam o pendente, porque aí a pergunta é o que
-   há a comprar.                                                             */
+   A conta é a do `painel.py` do servidor, recalculada aqui a partir do
+   estado local para andar ao mesmo tempo que os +/-, como as barras:
+
+     nível 1 = impressões com pelo menos 1 cópia
+     nível 2 = com pelo menos min(2, alvo)
+     nível 3 = com pelo menos o alvo (o playset)
+
+   Nos blocos de alvo 1 os três coincidem — é o esperado. AS RUNAS NUNCA
+   ENTRAM (o `rune` do grupo vem do servidor), e o cabeçalho diz quantas
+   ficaram de fora quando isso faz o playset diferir da barra do master set.
+   As escondidas nem chegam ao payload, como sempre.
+
+   `painelContar` é o gémeo do `painel.contar` do Python e há um teste que
+   corre os dois sobre os mesmos itens (`tests/test_painel.py`, via node).  */
+
+/* @painel-puro:inicio — só JavaScript puro, sem DOM nem `state`, para o
+   teste o poder correr no node tal e qual. */
+
+/* O alvo do nível k (de 3) para uma impressão de alvo `alvo`: 1, min(2,
+   alvo), o alvo. O gémeo do `metrics.alvo_do_nivel`. */
+function painelAlvoDoNivel(k, alvo) {
+  return k >= 3 ? alvo : Math.min(k, alvo);
+}
+
+/* `itens` = [{alvo, tem, rarity, domain}]; `cat` = {rarities: [[id, rótulo]],
+   domains: [[id, rótulo]]} (a ordem e os nomes vêm do servidor). Devolve
+   {n, levels: [n1, n2, n3], rarity: [{id, label, n, levels}], domain: [...]}. */
+function painelContar(itens, cat) {
+  const N = 3;
+  const novo = () => ({ n: 0, levels: [0, 0, 0] });
+  const total = novo();
+  const porRar = new Map(), porDom = new Map();
+  for (const it of itens) {
+    const alvo = it.alvo || 0;
+    if (alvo <= 0) continue;
+    const marca = [];
+    for (let k = 1; k <= N; k++) marca.push((it.tem || 0) >= painelAlvoDoNivel(k, alvo) ? 1 : 0);
+    const rar = String(it.rarity || '?').toLowerCase();
+    const dom = String(it.domain || 'none').toLowerCase();
+    if (!porRar.has(rar)) porRar.set(rar, novo());
+    if (!porDom.has(dom)) porDom.set(dom, novo());
+    for (const slot of [total, porRar.get(rar), porDom.get(dom)]) {
+      slot.n++;
+      for (let i = 0; i < N; i++) slot.levels[i] += marca[i];
+    }
+  }
+  const linhas = (por, ordem) => {
+    const rot = new Map(ordem);
+    const chaves = ordem.map(([id]) => id).filter(id => por.has(id));
+    const extra = [...por.keys()].filter(id => !rot.has(id)).sort();
+    return [...chaves, ...extra].map(id => ({
+      id, label: rot.get(id) || (id.charAt(0).toUpperCase() + id.slice(1)),
+      n: por.get(id).n, levels: por.get(id).levels,
+    }));
+  };
+  // Um domínio novo entra antes das duas linhas de fecho («Sem domínio»,
+  // «Multi-domínio»), como no Python.
+  const doms = cat.domains || [];
+  const fecho = doms.filter(([id]) => id === 'none' || id === 'multi');
+  const fixos = doms.filter(([id]) => id !== 'none' && id !== 'multi');
+  const novos = [...porDom.keys()].filter(id => !doms.some(([d]) => d === id)).sort()
+    .map(id => [id, id.charAt(0).toUpperCase() + id.slice(1)]);
+  return {
+    n: total.n, levels: total.levels,
+    rarity: linhas(porRar, cat.rarities || []),
+    domain: linhas(porDom, [...fixos, ...novos, ...fecho]),
+  };
+}
+/* @painel-puro:fim */
+
+/* Os itens do bloco escolhido, do estado local: uma impressão por linha, com
+   o alvo do tile e as cópias na Coleção. As runas ficam de fora aqui — é o
+   `rune` do grupo, dito pelo servidor. Devolve também quantas runas ficaram
+   de fora, para o cabeçalho. */
+function painelItens(bloco) {
+  const itens = [];
+  let runas = 0;
+  for (const g of state.payload?.groups || []) {
+    for (const p of g.printings) {
+      const t = state.targets.get(p.id) || 0;
+      if (t <= 0) continue;
+      if ((state.blocks.get(p.id) || 'master') !== bloco) continue;
+      if (g.rune) { runas++; continue; }
+      itens.push({ alvo: t, tem: state.qty.get(p.id) || 0,
+                   rarity: g.rarity || '?', domain: g.domain || 'none' });
+    }
+  }
+  return { itens, runas };
+}
+
+/* Os blocos que o painel oferece: os do payload da edição aberta, pela ordem
+   do servidor, com o rótulo e o alvo do `index.painel.blocks`. */
+function painelBlocos() {
+  const cat = new Map((state.index?.painel?.blocks || []).map(b => [b.id, b]));
+  const ids = (state.payload?.blocks || []).map(b => b.id);
+  return ids.map(id => cat.get(id) || { id, label: id, target: '' });
+}
+
+function renderPainel() {
+  const el = $('#painel');
+  if (!el) return;
+  const cat = state.index?.painel || {};
+  const blocos = painelBlocos();
+  if (!blocos.length) { el.innerHTML = ''; return; }
+  // Uma escolha guardada de um bloco que esta edição não tem (o OGS não tem
+  // sobrenumeradas) cai no primeiro — o master set.
+  let escolhido = state.prefs.painelBloco;
+  if (!blocos.some(b => b.id === escolhido)) escolhido = blocos[0].id;
+
+  let conta, runas;
+  if (state.payload) {
+    const r = painelItens(escolhido);
+    conta = painelContar(r.itens, cat);
+    runas = r.runas;
+  } else {
+    // «Todas» ainda a carregar: os números do servidor, tal e qual.
+    conta = cat.sets?.[state.setId]?.[escolhido];
+    runas = cat.runes_out?.[state.setId] || 0;
+    if (!conta) { el.innerHTML = '<p class="empty">a carregar…</p>'; return; }
+  }
+
+  const niveis = cat.levels || [{ label: '1 de cada' }, { label: '2 de cada' }, { label: 'playset' }];
+  const pct = (d, n) => (n ? (d / n) * 100 : 0).toFixed(1);
+  const cartoes = niveis.map((lv, i) => {
+    const d = conta.levels[i] || 0;
+    return `<div class="cartao">
+      <div class="cartao-rot">${escapeHTML(lv.label)}</div>
+      <div class="cartao-num">${d}<span>/${conta.n}</span></div>
+      <div class="cartao-bar"><i class="n${i + 1}" style="width:${pct(d, conta.n)}%"></i></div>
+      <div class="cartao-falta">faltam <b>${conta.n - d}</b></div>
+    </div>`;
+  }).join('');
+
+  const quadro = (titulo, prefixo, linhas) => `<div class="quadro">
+    <div class="quadro-head"><span class="quadro-tit">${titulo}</span>
+      <span class="quadro-leg">1 · 2 · playset</span></div>
+    <div class="quadro-linhas">${linhas.length ? linhas.map(l => `<div class="ql">
+      <span class="dot ${prefixo}-${escapeAttr(l.id)}"></span>
+      <span class="ql-nome">${escapeHTML(l.label)}</span>
+      ${l.levels.map((d, i) => `<span class="mini"
+        title="${escapeAttr(niveis[i]?.label || '')}: ${d} de ${l.n}"><i class="n${i + 1}"
+        style="width:${pct(d, l.n)}%"></i></span>`).join('')}
+      <span class="ql-num">${l.levels[l.levels.length - 1]}<span>/${l.n}</span></span>
+    </div>`).join('') : '<p class="empty">nada neste bloco</p>'}</div>
+  </div>`;
+
+  const chips = blocos.map(b => `<button class="chip-b ${b.id === escolhido ? 'is-on' : ''}"
+    data-painel-bloco="${escapeAttr(b.id)}" title="${escapeAttr(b.target ? `alvo: ${b.target}` : '')}"
+    >${escapeHTML(b.label)}</button>`).join('');
+  // O cartão «playset» do master set NÃO é a barra do master set quando há
+  // runas: a barra conta-as (a 3, desde 2026-09-15), o painel nunca. Diz-se
+  // em vez de deixar dois números diferentes a olhar um para o outro.
+  const nota = runas
+    ? `<span class="painel-nota">sem as ${runas} runa${runas === 1 ? '' : 's'} — nunca entram aqui</span>`
+    : '';
+
+  el.innerHTML = `<div class="painel-top"><div class="chips painel-blocos">${chips}</div>${nota}</div>
+    <div class="painel-cartoes">${cartoes}</div>
+    <div class="painel-quadros">${quadro('Raridade', 'rar', conta.rarity)}${quadro('Domínio', 'dom', conta.domain)}</div>`;
+
+  for (const b of el.querySelectorAll('[data-painel-bloco]')) {
+    b.onclick = () => {
+      state.prefs.painelBloco = b.dataset.painelBloco;
+      savePrefs();
+      renderPainel();
+    };
+  }
+}
+
+
+/* ================================ contagem por níveis da barra (2026-09-08)
+
+   André: *"quantas cartas faltam para ter 1 de cada, quantas faltam para ter
+   2 de cada, quantas faltam para ter o playset de cada."* É a MESMA conta da
+   barra do master set, partida em degraus (`min(k, alvo)`), e conta CÓPIAS
+   em falta. Desde 2026-09-21 mostra-se no painel de cima (por impressões, e
+   sem as runas); o que fica aqui é o que a linha «N cópias a comprar» e o
+   selector das wantlists ainda lêem.                                        */
 
 /* Quantos degraus há. Vem do servidor (`metrics.niveis_max`, o maior alvo do
    catálogo inteiro) para as cinco edições mostrarem os mesmos. */
@@ -696,61 +958,6 @@ function niveisN() {
   const doSet = state.payload?.progress?.levels;
   if (doSet && doSet.length) return doSet.length;
   return (state.index?.levels?.levels || []).length;
-}
-
-/* A soma das edições todas: as da sessão como estão no ecrã, as outras como
-   vieram do servidor. Todos os campos são somas, por isso isto é o global. */
-function niveisTotal() {
-  const n = niveisN();
-  if (!n || state.levels.size < 2) return null;
-  const out = Array.from({ length: n },
-                         (_, i) => ({ k: i + 1, done: 0, total: 0, missing: 0, cents: 0 }));
-  for (const ls of state.levels.values()) {
-    for (const lv of ls) {
-      const nv = out[lv.k - 1];
-      if (!nv) continue;                 // edição de outro tempo, com outros degraus
-      nv.done += lv.done; nv.total += lv.total;
-      nv.missing += lv.missing; nv.cents += lv.cents;
-    }
-  }
-  return out;
-}
-
-function renderNiveis(daEdicao) {
-  const el = $('#master-niveis');
-  if (!el) return;
-  // Uma edição sem nada que conte para a barra não tem degraus que mostrar —
-  // um "0 %" de um denominador vazio lia-se como coleção por fazer.
-  if (!daEdicao || !daEdicao.some(lv => lv.total)) { el.innerHTML = ''; return; }
-
-  const total = niveisTotal();
-  const nome = state.payload?.set?.name || state.setId || 'esta edição';
-  el.innerHTML =
-    niveisLinha(escapeHTML(nome), daEdicao)
-    + (total ? niveisLinha(`as ${state.levels.size} edições`, total) : '');
-}
-
-function niveisLinha(rotulo, ls) {
-  const n = ls.length;
-  return `<div class="niveis-linha"><span class="niveis-rot">${rotulo}</span>
-    ${ls.map(lv => niveisChip(lv, n)).join('')}</div>`;
-}
-
-/* «1/3 · 97 % · faltam 12 · 15,40 €». O euro é o preço de hoje das cópias que
-   faltam NESSE nível, e só aparece quando há preços — um "0,00 €" por falta de
-   dados lia-se como "não custa nada". */
-function niveisChip(lv, n) {
-  const pct = lv.total ? Math.round((lv.done / lv.total) * 100) : 0;
-  const feito = !lv.missing;
-  // O último degrau é o playset INTEIRO de cada impressão (3 numa Unit ou
-  // numa runa, 1 num Legend) — é a barra do master set, por degraus.
-  const rotulo = lv.k === n ? `playset (${lv.k}/${n})` : `${lv.k}/${n}`;
-  return `<span class="rarity nivel ${feito ? 'is-done' : ''}"
-    title="${lv.done} de ${lv.total} impressões já ${
-      lv.k === n ? 'com o playset delas (3 numa Unit ou numa runa, 1 num Legend)'
-        : `com ${lv.k} cópia${lv.k === 1 ? '' : 's'} ou o alvo delas, se for menor`}"
-    >${rotulo} <b>${pct} %</b>${feito ? ' · completo'
-      : ` · faltam <b>${lv.missing}</b>${lv.cents ? ` · ${eur(lv.cents)}` : ''}`}</span>`;
 }
 
 
@@ -863,7 +1070,9 @@ function renderWantlists() {
 
   const nome = state.payload?.set?.name || state.setId || '';
   const nivel = state.prefs.wlNivel || null;
-  const daEdicao = wlItens(state.setId, nivel);
+  // Em «Todas» o bloco da edição era o mesmo que o de tudo: fica só o de tudo.
+  const edicao = edicaoAberta();
+  const daEdicao = edicao ? wlItens(edicao, nivel) : null;
   const todas = wlItens(null, nivel);
   const sufixo = nivel ? `-ate${nivel}` : '';
   // O que o degrau muda na lista, dito por extenso: sem isto, uma lista que
@@ -878,14 +1087,14 @@ function renderWantlists() {
     ${state.wlStale ? `<p class="note wl-stale">As contagens mudaram desde que
       esta lista foi feita. <button class="btn ghost" id="wl-refresh">Atualizar</button></p>` : ''}
 
-    ${wlBloco('wl-edicao', `Wantlist Cardmarket — ${escapeHTML(nome)} · master set`, daEdicao,
+    ${daEdicao ? wlBloco('wl-edicao', `Wantlist Cardmarket — ${escapeHTML(nome)} · master set`, daEdicao,
       `Tudo o que falta desta edição ao <b>master set</b> — a sequência, a que
        conta para a percentagem —, ao <b>playset</b> do tipo (Unit/Spell/Gear
        e runa 3, Legend e Battlefield 1). Conta enquanto <b>cópias + a
        caminho &lt; alvo</b>, e vai por número de coleção.${doNivel}
        As outras wantlists desta edição — <b>Alt Art</b>, <b>OverNumbered</b> e
        <b>Promos</b>, uma por bloco, separadas — estão no separador
-       <a href="#faltas-edicao">Faltas</a>.${foraTexto(m.scope)}`, nivel)}
+       <a href="#faltas-edicao">Faltas</a>.${foraTexto(m.scope)}`, nivel) : ''}
 
     ${wlBloco('wl-tudo', 'Wantlist — tudo', todas,
       `As cinco edições seguidas, na ordem dos separadores — tudo o que falta
@@ -904,8 +1113,10 @@ function renderWantlists() {
     };
   }
 
-  wlLigar('wl-edicao', () => wlItens(state.setId, state.prefs.wlNivel || null),
-          `riftvault-wantlist-${state.setId}${sufixo}-${hojeISO()}.csv`);
+  if (edicao) {
+    wlLigar('wl-edicao', () => wlItens(edicao, state.prefs.wlNivel || null),
+            `riftvault-wantlist-${edicao}${sufixo}-${hojeISO()}.csv`);
+  }
   wlLigar('wl-tudo', () => wlItens(null, state.prefs.wlNivel || null),
           `riftvault-wantlist-tudo${sufixo}-${hojeISO()}.csv`);
 }
@@ -951,12 +1162,12 @@ function renderFaltaLinha() {
   const d = m && m.sets.find(s => s.set === state.setId);
   el.hidden = !d;
   if (!d) return;
-  // Esta linha fica logo por baixo dos chips dos níveis, e os dois números não
-  // são o mesmo: o chip é a MÉTRICA (conta os showcases, e não desconta o que
-  // vem a caminho) e esta linha é a LISTA DE COMPRA. Os dois são só o master
-  // set — a coleção extra saiu das listas a 2026-09-15 — mas vistos lado a
-  // lado sem explicação («faltam 383» em cima, «360» em baixo) liam-se como
-  // erro de contagem. Diz-se a diferença, e só quando ela existe. O «mais» só
+  // Esta linha é a LISTA DE COMPRA, e o painel por cima é a MÉTRICA — o
+  // «faltam N» dos cartões são IMPRESSÕES por chegar ao nível; isto são
+  // CÓPIAS a comprar, e as cópias da barra (`state.levels`, o playset do
+  // master set com as runas) contam os showcases e não descontam o que vem a
+  // caminho. Vistos lado a lado sem explicação liam-se como erro de contagem
+  // (2026-09-09). Diz-se a diferença, e só quando ela existe. O «mais» só
   // acontece com o `listas_de_compra.so_master_set` desligado.
   const nv = (state.levels.get(state.setId) || []).slice(-1)[0];
   const menos = nv && nv.missing > d.copies;
@@ -964,12 +1175,14 @@ function renderFaltaLinha() {
   el.innerHTML = `<b>${d.copies}</b> cópia${d.copies === 1 ? '' : 's'}
     <b>a comprar</b> nesta edição · <b>${eur(d.cents)}</b> ao preço de hoje —
     <a href="#wl-edicao">wantlist para o Cardmarket</a>${menos
-      ? `<br><small>São menos do que as <b>${nv.missing}</b> do playset aqui em
-         cima: a lista de compra não leva showcases e já desconta o que vem a
-         caminho.</small>` : ''}${mais
-      ? `<br><small>São mais do que as <b>${nv.missing}</b> do playset aqui em
-         cima: a lista leva também a coleção extra (artes alternativas,
-         sobrenumeradas, promos), que não conta para a percentagem.</small>` : ''}`;
+      ? `<br><small>São menos do que as <b>${nv.missing}</b> cópias que faltam
+         ao playset do master set: a lista de compra não leva showcases e já
+         desconta o que vem a caminho. (Os «faltam» dos cartões em cima são
+         impressões, não cópias.)</small>` : ''}${mais
+      ? `<br><small>São mais do que as <b>${nv.missing}</b> cópias que faltam
+         ao playset do master set: a lista leva também a coleção extra (artes
+         alternativas, sobrenumeradas, promos), que não conta para a
+         percentagem.</small>` : ''}`;
 }
 
 /* Um `+` ou um `−` desatualiza as duas listas, que vieram do servidor. Não se
@@ -1778,7 +1991,7 @@ async function loadEncomendas(setId = null) {
   const sets = state.index?.sets || [];
   if (!setId) {
     setId = sets.some(s => s.id === state.prefs.encSet) ? state.prefs.encSet
-      : (state.enc.setId || state.setId || (sets[0] && sets[0].id));
+      : (state.enc.setId || edicaoAberta() || (sets[0] && sets[0].id));
   }
   if (!setId) return;
   state.enc.setId = setId;

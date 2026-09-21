@@ -54,6 +54,14 @@
 
   <section id="colecao">
 
+    <!-- O painel do topo (André, 2026-09-21, o «layout H»): três cartões —
+         1 de cada, 2 de cada, playset — e dois quadros, Raridade e Domínio,
+         sobre o bloco escolhido da edição aberta (ou de «Todas»). As runas
+         nunca entram. Desenha-o o `renderPainel` do app.js, recalculado a
+         cada `+`/`−` como as barras; a verdade do servidor vem em
+         `progress.painel` de cada edição e em `painel` do index. -->
+    <div id="painel" class="painel" aria-label="Contagem por níveis"></div>
+
     <div id="progress" class="progress-wrap">
       <div class="bar-block">
         <div class="bar-label"><span>Playsets jogáveis</span><b id="play-num">–</b></div>
@@ -63,8 +71,9 @@
       <div class="bar-block">
         <div class="bar-label"><span>Master set</span><b id="master-num">–</b></div>
         <div class="bar bar-alt"><i id="master-bar" style="width:0"></i></div>
-        <small id="master-sub">só a sequência conta, a playset · a coleção extra
-        à parte (alt art a playset, sobrenumeradas e promos 1 de cada)</small>
+        <small id="master-sub">só a sequência conta, a playset, runas incluídas
+        · a coleção extra à parte (alt art a playset, sobrenumeradas e promos
+        1 de cada)</small>
         <div id="master-blocks" class="rarities blocos"></div>
       </div>
       <div class="bar-block" id="value-block" hidden>
@@ -72,14 +81,10 @@
         <div class="bar bar-val"><i id="value-bar" style="width:0"></i></div>
         <small id="value-sub">preço mais baixo no CardTrader</small>
       </div>
-      <!-- A contagem por níveis do master set (André, 2026-09-08): quantas
-           faltam para ter 1 de cada, 2 de cada, o playset de cada. Fica por
-           baixo das barras, e a percentagem do último nível é exactamente a da
-           barra do master set — é a mesma conta, por degraus. -->
-      <div id="master-niveis" class="niveis"></div>
-      <div id="rarities" class="rarities"></div>
       <!-- «faltam N cópias · X €» desta edição, a ligar ao bloco da wantlist
-           lá em baixo (André, 2026-09-08). -->
+           lá em baixo (André, 2026-09-08). (Os chips da contagem por níveis
+           e das raridades que viviam aqui passaram para o painel de cima a
+           2026-09-21.) -->
       <p id="falta-linha" class="falta-linha" hidden></p>
     </div>
 
