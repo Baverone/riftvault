@@ -159,7 +159,8 @@ def _gerar(out_dir: Path | str, log=print, imagens: bool = True) -> dict:
     deck_dir.mkdir(parents=True, exist_ok=True)
     index_decks = decks.decks_index(con)
     (out / "api" / "decks.json").write_text(
-        json.dumps({"editable": False, "decks": index_decks, "rules": decks.rules()},
+        json.dumps({"editable": False, "decks": index_decks, "rules": decks.rules(),
+                    "ordem_fixa": decks.ordem_fixa()},
                    ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     for d in index_decks:
         (deck_dir / f"{d['id']}.json").write_text(

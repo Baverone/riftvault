@@ -50,6 +50,7 @@ const state = {
   // Default: TODAS as impressões (decisão do André). O botão "Só artes base"
   // continua lá, mas não é o que se vê ao abrir.
   decks: null, deckId: null, deck: null,
+  ordemFixa: false,            // a ordem vem do config (`decks.ordem`): sem botões
   // O antigo `faltas.json` partiu-se a 2026-09-15 (à tarde) na wantlist da
   // Coleção (`api/wantlist.json`) e nas listas de compra dos decks
   // (`api/compras.json`). Cada um tem o pedido a caminho guardado (`*P`) para
@@ -1456,6 +1457,9 @@ function setFocus(i, tiles) {
 async function loadDecks() {
   const d = await getJSON('api/decks.json');
   state.decks = d.decks;
+  // A ordem escrita no config (`decks.ordem`, 2026-09-21) manda: sem botões
+  // de reordenar, senão o clique era desfeito na importação seguinte.
+  state.ordemFixa = !!d.ordem_fixa;
   renderDeckTabs();
   // Uma preferência guardada com a aba «Encomendas» (que viveu aqui de
   // 2026-09-11 a 2026-09-17, e passou a separador próprio) cai no primeiro deck.
@@ -1572,11 +1576,13 @@ function renderDeck() {
         ${p.unresolved.map(u => escapeHTML(u.name)).join(', ')}</small>` : ''}
       ${deckLocais(p)}
       <div class="deck-actions">
-        ${state.editable && p.priority !== 1
+        ${state.editable && !state.ordemFixa && p.priority !== 1
           ? `<button class="btn" data-act="principal">Tornar principal</button>` : ''}
-        ${state.editable ? `<button class="btn" data-act="subir">Subir</button>
+        ${state.editable && !state.ordemFixa ? `<button class="btn" data-act="subir">Subir</button>
           <button class="btn" data-act="descer">Descer</button>` : ''}
         <button class="btn" data-act="csv">Lista de compras (CSV)</button>
+        ${state.editable && state.ordemFixa
+          ? '<small class="nota">A ordem dos decks está no <code>riftvault_config.json</code> (<code>decks.ordem</code>) — muda-se lá.</small>' : ''}
       </div>
     </div>`;
 
@@ -1937,8 +1943,11 @@ async function deckAction(act) {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ids: novo }),
     });
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    state.decks = (await r.json()).decks;
+    // O servidor diz porquê (409 com a ordem no config) — mostra-se a razão,
+    // não o número.
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(body.error || `HTTP ${r.status}`);
+    state.decks = body.decks;
     renderDeckTabs();
     await loadDeck(state.deckId);   // a alocação mudou para toda a gente
     toast('Ordem alterada — a alocação foi refeita.');

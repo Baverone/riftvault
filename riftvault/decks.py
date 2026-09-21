@@ -87,6 +87,17 @@ A CHAVE DE UM DECK É O SLUG (o nome do ficheiro), NUNCA O RÓTULO
     que precisa de distinguir decks compara `slug`; o `deck` (rótulo) é só
     para mostrar. Se mesmo assim dois rótulos coincidirem, o de prioridade
     mais baixa leva o slug entre parênteses (`rotulos`).
+
+A ORDEM DOS DECKS ESCREVE-SE NO CONFIG (2026-09-21)
+    `decks.ordem` é a lista dos decks pela ordem em que ele os quer ver — o
+    slug ou o `Nome:` de cada um. Enquanto a lista existir é ELA que manda na
+    prioridade (`aplicar_ordem`, no fim de cada importação): o primeiro é o
+    principal, o que ela não nomear vem a seguir pela ordem que tinha, e
+    acrescentar um deck no fim da lista basta. Os botões «Subir»/«Descer»/
+    «Tornar principal» e o `riftvault decks --order` ficam DESLIGADOS
+    (`OrdemFixa`) — com a lista a mandar, mexer na base era mentir até à
+    importação seguinte. Sem lista, vale o que valia: a prioridade guardada
+    na base, os decks novos para o fim.
 """
 
 from __future__ import annotations
@@ -232,6 +243,10 @@ def import_all(con: sqlite3.Connection, log=print) -> dict:
     # Prioridade já atribuída antes, por slug; decks novos vão para o fim.
     known = {r["path"]: r["priority"] for r in con.execute("SELECT path, priority FROM decks")}
     next_pri = max(list(known.values()) + [0]) + 1
+    # Com `decks.ordem` no config (2026-09-21) a posição na lista é a
+    # prioridade — já aqui, porque o rótulo de dois decks iguais depende dela
+    # (`rotulos`); o `aplicar_ordem` do fim é quem a grava, sem buracos.
+    chaves_ordem = [norm(x) for x in ordem_dos_decks()]
 
     # Primeiro lêem-se todos, porque o rótulo de um deck depende dos outros:
     # dois com o mesmo "Legend · Champion" têm de sair distintos (`rotulos`).
@@ -259,6 +274,11 @@ def import_all(con: sqlite3.Connection, log=print) -> dict:
         pri = known.get(str(path), next_pri)
         if str(path) not in known:
             next_pri += 1
+        if chaves_ordem:
+            pos = next((i for i, k in enumerate(chaves_ordem, start=1)
+                        if k in (norm(d["slug"]), norm(display))), None)
+            # O que a lista não nomeia vem a seguir, pela ordem que tinha.
+            pri = pos if pos else len(chaves_ordem) + pri
         lidos.append((path, d, legend, champion, rows, missing, display, pri))
 
     nomes = rotulos([(d["slug"], pri, display)
@@ -341,6 +361,14 @@ def import_all(con: sqlite3.Connection, log=print) -> dict:
         con.execute("DELETE FROM decks WHERE deck_id = ?", (did,))
         log(f"  (removido: {name} — o ficheiro já não existe)")
 
+    # A ordem escrita no config manda na prioridade (2026-09-21) — depois de
+    # entrarem os novos e saírem os apagados, para a lista casar com o que há.
+    ordem = aplicar_ordem(con, log=log)
+    if ordem["aplicada"]:
+        pri = {slug: i for i, slug in enumerate(ordem["ordem"], start=1)}
+        for r in results:
+            r["priority"] = pri[r["slug"]]
+
     # O rasto do que cada lista pede (2026-09-17, «A mais»): só escreve quando
     # o pedido mudou, por isso continua a valer a regra de não tocar no
     # vault.db numa importação sem alterações.
@@ -349,7 +377,8 @@ def import_all(con: sqlite3.Connection, log=print) -> dict:
     if mudancas:
         log(f"  (registo dos decks: {len(mudancas)} mudanças no que as listas pedem)")
 
-    return {"decks": results, "removed": gone, "need_changes": mudancas}
+    return {"decks": results, "removed": gone, "need_changes": mudancas,
+            "ordem": ordem}
 
 
 # ---------------------------------------------------------------------------
@@ -427,6 +456,82 @@ ROTULO_VERSAO = {"base": "normal", "alt_art": "Alt Art", "special": "promo",
 def _opcoes_decks(cfg: dict | None = None) -> dict:
     cfg = cfg or config.load()
     return cfg.get("decks") or {}
+
+
+# A ORDEM DOS DECKS NO CONFIG (2026-09-21): `decks.ordem`, uma lista com o slug
+# ou o `Nome:` de cada deck, pela ordem em que ele os quer ver. Enquanto
+# existir, manda na prioridade; vazia, vale a prioridade guardada na base.
+ORDEM = "ordem"
+
+
+class OrdemFixa(ValueError):
+    """A ordem vem de `decks.ordem` no config: não se muda pela base."""
+
+
+def ordem_dos_decks(cfg: dict | None = None) -> list[str]:
+    """`decks.ordem` tal como está escrita (slugs ou `Nome:`); `[]` sem lista."""
+    lista = _opcoes_decks(cfg).get(ORDEM) or ()
+    if not isinstance(lista, (list, tuple)) or not all(isinstance(x, str) for x in lista):
+        raise ValueError(f"decks.{ORDEM}: tem de ser uma lista de nomes (slug ou `Nome:`)")
+    return [x for x in lista if x.strip()]
+
+
+def ordem_fixa(cfg: dict | None = None) -> bool:
+    """Há uma `decks.ordem` a mandar? Então os botões e o `--order` não valem."""
+    return bool(ordem_dos_decks(cfg))
+
+
+def aplicar_ordem(con: sqlite3.Connection, cfg: dict | None = None,
+                  log=print) -> dict:
+    """Põe a prioridade da tabela `decks` pela lista `decks.ordem`.
+
+    Cada entrada casa com o SLUG ou com o rótulo (`Nome:`) de um deck, sem
+    olhar a maiúsculas nem a espaços a mais (`norm`); a primeira entrada é a
+    prioridade 1. Os decks que a lista não nomear ficam a seguir, pela ordem
+    que já tinham — um deck novo sem entrada aparece no fim, e uma entrada
+    sem deck (um `.txt` que saiu, um nome mal escrito) avisa e não rebenta:
+    o site tem de continuar a servir os decks que há.
+
+    Só escreve quando alguma prioridade difere — a regra do `import_all`
+    (2026-09-10): uma importação sem alterações não toca no vault.db.
+    Devolve `{"aplicada", "ordem" (os slugs pela ordem final),
+    "nao_encontrados" (entradas da lista sem deck), "fora_da_lista" (decks
+    que a lista não nomeia)}`.
+    """
+    lista = ordem_dos_decks(cfg)
+    rows = deck_rows(con)
+    if not lista:
+        return {"aplicada": False, "ordem": [r["name"] for r in rows],
+                "nao_encontrados": [], "fora_da_lista": []}
+
+    por_chave: dict[str, int] = {}
+    for r in rows:
+        por_chave.setdefault(norm(r["name"]), r["deck_id"])
+        if r["display_name"]:
+            por_chave.setdefault(norm(r["display_name"]), r["deck_id"])
+    ids, nao_encontrados = [], []
+    for entrada in lista:
+        did = por_chave.get(norm(entrada))
+        if did is None:
+            nao_encontrados.append(entrada)
+        elif did not in ids:
+            ids.append(did)
+    fora = [r["name"] for r in rows if r["deck_id"] not in ids]
+    ids += [r["deck_id"] for r in rows if r["deck_id"] not in ids]
+
+    atual = {r["deck_id"]: r["priority"] for r in rows}
+    novo = {did: i for i, did in enumerate(ids, start=1)}
+    if novo != atual:
+        con.execute("BEGIN")
+        for did, pri in novo.items():
+            if atual[did] != pri:
+                con.execute("UPDATE decks SET priority = ? WHERE deck_id = ?", (pri, did))
+        con.execute("COMMIT")
+    for entrada in nao_encontrados:
+        log(f"  (decks.ordem: não há deck chamado {entrada!r} — ignorado)")
+    nomes = {r["deck_id"]: r["name"] for r in rows}
+    return {"aplicada": True, "ordem": [nomes[d] for d in ids],
+            "nao_encontrados": nao_encontrados, "fora_da_lista": fora}
 
 
 def contar_runas(cfg: dict | None = None) -> bool:
@@ -1803,7 +1908,14 @@ def legality(con: sqlite3.Connection, deck_id: int) -> dict:
 
 
 def set_order(con: sqlite3.Connection, ordered_ids: list[int]) -> None:
-    """Reordena os decks. O primeiro da lista passa a ser o principal."""
+    """Reordena os decks. O primeiro da lista passa a ser o principal.
+
+    Com `decks.ordem` no config recusa (`OrdemFixa`): a importação seguinte
+    repunha a lista e o clique era mentira — muda-se a ordem no config.
+    """
+    if ordem_fixa():
+        raise OrdemFixa(f"a ordem dos decks está em `decks.{ORDEM}` no "
+                        f"riftvault_config.json — muda-se lá, não aqui")
     con.execute("BEGIN")
     for i, deck_id in enumerate(ordered_ids, start=1):
         con.execute("UPDATE decks SET priority = ? WHERE deck_id = ?", (i, deck_id))

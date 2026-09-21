@@ -115,6 +115,25 @@ def registar(con: sqlite3.Connection) -> list[dict]:
     return linhas
 
 
+def recomecar(con: sqlite3.Connection) -> int:
+    """Apaga o registo e escreve o ponto de partida com o que os decks pedem
+    HOJE (`0 -> N`, uma linha por (deck, carta)).
+
+    André, 2026-09-21, ao trocar os decks todos: *"recalcula o deck_need_log
+    a partir dos seis decks (não somes por cima do que lá estava)"*. Sem isto
+    a troca ficava registada como descidas dos decks antigos por cima do
+    histórico — dezenas de «libertadas» que não são cartas que ele deixou de
+    jogar, são a lista velha. Depois disto as «libertadas» do A mais estão
+    vazias até a próxima lista mudar. O `data/decks.log` (o CSV legível) fica
+    com o rasto todo e leva as linhas de partida a seguir — é rasto, não
+    verdade; a tabela é a verdade. Devolve quantas linhas de partida escreveu.
+    """
+    con.execute("BEGIN")
+    con.execute("DELETE FROM deck_need_log")
+    con.execute("COMMIT")
+    return len(registar(con))
+
+
 def _log(con: sqlite3.Connection, linhas: list[dict]) -> None:
     """Uma linha por mudança em `data/decks.log`, com o nome da carta."""
     nomes = {r["card_key"]: r["name"] for r in con.execute(
