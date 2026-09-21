@@ -689,8 +689,16 @@ especial, hoje `["legend", "champion"]`; vazio = tudo na base) e
 do `master_set`: `["a", "overnumbered", "promo"]`; escrever `"*"` aí dá erro
 de propósito). No código, `decks.Versoes` e `decks.versoes_dos_decks`.
 
-Para reordenar, usa os botões **Tornar principal / Subir / Descer** no site,
-ou:
+**A ordem dos decks escreve-se no config** (2026-09-21): `decks.ordem` no
+`riftvault_config.json` é a lista dos decks — o slug (o nome do ficheiro sem
+`.txt`) ou o `Nome:` de cada um —, e a posição é a prioridade: o primeiro é o
+principal. Para reordenar, muda-se a lista; para juntar um deck, mete-se o
+`.txt` em `decks/` e o nome no fim da lista. O que a lista não nomear vem a
+seguir, pela ordem que tinha; um nome sem deck é ignorado com aviso no
+`riftvault decks`. Enquanto a lista existir, os botões **Tornar principal /
+Subir / Descer** do site e o `--order` ficam desligados (a importação
+seguinte repunha a lista e o clique era mentira). Com a lista vazia volta a
+valer a prioridade guardada na base, e aí sim:
 
 ```bash
 py -m riftvault decks --order azir,ornn   # o primeiro passa a principal
@@ -698,7 +706,10 @@ py -m riftvault deck azir --onde          # detalhe, com as impressões a usar
 py -m riftvault shopping --deck azir --csv faltas.csv
 ```
 
-Para **apagar** um deck, apaga o `.txt` — o site atualiza-se sozinho.
+Para **apagar** um deck, apaga o `.txt` — o site atualiza-se sozinho. Para
+**trocar os decks todos de uma vez** e não ficar com a lista velha registada
+como «libertadas» no A mais, `py -m riftvault decks --recomecar-registo`
+apaga o `deck_need_log` e recomeça-o com os decks de hoje.
 
 Cada deck é uma grelha de cartas, como a Coleção. A moldura diz o estado:
 verde tens, vermelho falta, âmbar falta mas existe num deck de cima (compra-se
@@ -780,7 +791,7 @@ riftvault undo                                   # desfazer a última operação
 riftvault log -n 20                              # histórico
 riftvault stats                                  # resumo por edição
 riftvault find "sett"                            # procurar impressões
-riftvault decks [--order azir,ornn]               # decks e alocação
+riftvault decks [--order azir,ornn] [--recomecar-registo]  # decks e alocação (a ordem vem de decks.ordem)
 riftvault deck azir [--onde]                      # detalhe de um deck
 riftvault shopping [--deck azir] [--csv f.csv]    # o que falta comprar
 riftvault a-subir [--cardmarket] [--todas]        # master set: a subir / tudo

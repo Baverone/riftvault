@@ -2470,6 +2470,12 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   runas nunca entram; `painel.py`, `progress.painel`, `index.painel`,
   `riftvault stats`. Os chips antigos dos níveis e das raridades saíram.
   Ver a última secção deste ficheiro.
+- **Feito também:** os seis decks novos, por ordem (2026-09-21) — LeBlanc
+  Hook, Jayce, Kennen, Akali, Ornn, Azir, as listas dele tal e qual; a ordem
+  passa a viver no config (`decks.ordem`, `decks.aplicar_ordem`; os botões
+  de reordenar e o `--order` ficam desligados enquanto a lista existir); o
+  `deck_need_log` recomeçou do zero (`uso_decks.recomecar`, `riftvault decks
+  --recomecar-registo`). Ver a última secção deste ficheiro.
 - **Por fazer:** a parte 2 do seguir — o separador no site e a tarefa diária;
   vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck,
   com as partilhadas assinaladas); e apagar decks pela interface (hoje apaga-se
@@ -4538,3 +4544,103 @@ ficheiros, 0 a falhar.
 ~500 px — `_revisao\_foto_cdp.mjs` (node, DevTools Protocol,
 `Emulation.setDeviceMetricsOverride`) é o caminho, com um `js` opcional
 para clicar antes da foto.
+
+## 21/09/2026 — os seis decks novos, por esta ordem; a ordem passa a viver no config (`decks.ordem`)
+
+O André mandou seis decklists (`ai-pc/work/decks-2026-09-21/01..06-*.txt`)
+e quer que os decks da app sejam EXACTAMENTE essas seis, por esta ordem:
+**LeBlanc Hook, Jayce, Kennen, Akali, Ornn, Azir**. Ramo
+`ai-pc/decks-nova-leva-2026-09-21`; relatório em
+`ai-pc/work/revisao/riftvault-decks-nova-leva.md`.
+
+**As listas entraram tal e qual** — byte a byte, com uma linha `Nome: <nome>`
+à frente (a convenção do repo para o rótulo; só o LeBlanc a tinha) — em
+`decks/leblanc-hook.txt`, `jayce.txt`, `kennen.txt`, `akali.txt`, `ornn.txt`,
+`azir.txt`. O `leblanc-baited-hook.txt` é o LeBlanc actualizado, renomeado
+(o nome novo é «LeBlanc Hook»); o Ornn e o Azir foram substituídos pela lista
+nova; o Jayce e o Akali são novos; o Kennen volta (saiu a 20/09). **Nada foi
+arquivado** (não havia deck fora dos seis). Aritmética conferida em cada um,
+antes de tocar em código: 39 no MainDeck · 3 battlefields · 10 no sideboard
+· 12 runas · 1 Legend · 1 Champion; cartas distintas no MainDeck LeBlanc 16,
+Jayce 15, Kennen 21, Akali 16, Ornn 17, Azir 16 — tudo bate. **Todas as
+cartas casam no catálogo** (0 por casar nos seis) e **nenhuma é `is_banned`**;
+os seis são legais (main 40/40, runas 12/12, battlefields 3/3, máximo 3,
+domínios ok).
+
+**A ordem escreve-se no config.** `decks.ordem` (`riftvault_config.json` e
+`config.DEFAULTS`, `_decks_ordem_nota`) é a lista dos decks — o slug ou o
+`Nome:` de cada um, sem olhar a maiúsculas —, e a posição é a prioridade
+(1 = principal). `decks.aplicar_ordem` grava-a na tabela `decks` no fim de
+cada `import_all` (servidor, build, CLI) e também no `/api/decks.json`
+(para uma lista mudada no config valer sem nenhum `.txt` ter mexido); só
+escreve quando difere. O que a lista não nomear vem a seguir, pela ordem que
+tinha; um nome sem deck avisa (`nao_encontrados`, no `riftvault decks`) e
+não rebenta — o site tem de continuar a servir os decks que há; a mesma
+entrada duas vezes conta uma; e a posição já é lida ANTES do `rotulos`, para
+dois decks com o mesmo rótulo levarem o sufixo pela ordem certa. **Enquanto a
+lista existir, os botões «Tornar principal / Subir / Descer» do site e o
+`riftvault decks --order` ficam desligados** (`decks.OrdemFixa`; a rota
+`/api/decks/order` responde 409 com a razão, o `app.js` esconde os botões
+pelo `ordem_fixa` do payload e diz onde se muda): a importação seguinte
+repunha a lista e o clique era mentira. Lista vazia = tudo como era (a
+prioridade guardada na base, decks novos para o fim).
+
+**O `deck_need_log` recomeçou do zero** — *"recalcula o deck_need_log a
+partir dos seis decks (não somes por cima do que lá estava)"*.
+`uso_decks.recomecar` apaga a tabela e escreve o ponto de partida com os
+decks de hoje (`0 -> N`), `riftvault decks --recomecar-registo` na CLI.
+Sem isto, a troca ficava registada como descidas do LeBlanc antigo, do Ornn
+e do Azir por cima do histórico de 17–20/09 — dezenas de «libertadas» no A
+mais que eram só a lista velha a ir embora. Medido contra cópias: 275
+linhas · 96 descidas antes → com a importação dos seis 436 · 134 → depois do
+recomeço **170 linhas de partida · 0 descidas**; as «libertadas» do A mais
+passam de 67 cartas · 122 cópias a **0**. Correu no `data/` real depois do
+merge (o `data/decks.log`, o CSV, guarda o rasto todo).
+
+**As regras de 17/09 continuam a valer, e vêem-se nos números:** as runas
+não se contam (os seis dizem «54 de 54 · 12 runas»); a Legend e o Champion
+jogam uma versão especial (no Jayce a Legend `VEN-194/166` e no Kennen a
+`VEN-197/166` são sobrenumeradas em falta; no Akali faltam as duas,
+`VEN-189/166` e `VEN-021a/166`); o resto joga a base e completa com outra
+versão que ele tenha (o Azir joga 1 Vi, Peacekeeper do sideboard em
+`UNL-176a`, separada na vista).
+
+**Medido a 2026-09-21 contra cópias (`C:\Users\Catarina\_revisao\_medir_decks_nova_leva.py`),
+`main` (`9306e4e`, 3 decks) e ramo (6 decks) na mesma corrida — os
+invariantes NÃO mexem:** denominador **928**, níveis **897/836/766 de 928 =
+96,7 / 90,1 / 82,5 %** (faltam 31/121/281 · 80,12/425,64/1 009,02 €),
+wantlist «tudo» **162 linhas · 281 cópias · 1 009,02 €**, valor **6 429,55 €
+· 2 570 cópias**, Encomendas 0, o separador Faltas inteiro (319 · 558 ·
+10 634,48 €; a comprar 162 · 281 · 1 009,02 €) e as wantlists por bloco, os
+grupos por edição (310/24/251/238/203). **O que mexe:** falta dos decks
+**7 cópias · 3 cartas · 5,39 € → 40 · 22 · 965,47 €** (18 disputadas;
+especiais 4 · 805,04 € — as três Legends/Champion acima); A mais excedente
+**65 · 132 → 62 · 125** (Charm, Salvage e Deathgrip deixam de sobrar, o
+Scuttle Crab passa de 6 a 3 a mais — os decks novos levam-nos); Pimp 5 → 15
+cartas; Staples 3 → 10.
+
+**O que falta para montar cada deck** (cópias · cartas distintas; sem
+preços — é o que ele pediu):
+
+| # | deck | falta | o quê |
+|---|---|---|---|
+| 1 | LeBlanc Hook | **0** | — |
+| 2 | Jayce | **13 · 7** | 2 Catalyst of Aeons `OGN-138`, 2 Dazzling Aurora `OGN-160`, 1 Defender of Tomorrow `VEN-194/166` (Legend, versão especial), 2 Elder Dragon `UNL-118`, 3 Garbage Grabber `OGN-099`, 1 Gutter Palace `UNL-088`, 2 Sabotage `OGN-156` |
+| 3 | Kennen | **2 · 2** | 1 Decree of Unity `VEN-131`, 1 Heart of the Tempest `VEN-197/166` (Legend, versão especial) |
+| 4 | Akali | **7 · 6** | 1 Akali, Deadly Weapon `VEN-021a` (Champion, versão especial), 1 Defy `OGN-045`, 1 Forgotten Monument `SFD-209`, 1 Irelia, Fervent `SFD-057`, 1 Rogue Assassin `VEN-189/166` (Legend, versão especial), 2 Zhonya's Hourglass `OGN-077` |
+| 5 | Ornn | **4 · 2** | 1 Decree of Insight `VEN-061`, 3 Defy `OGN-045` |
+| 6 | Azir | **14 · 7** | 2 Charm `OGN-043`, 2 Decree of Focus `VEN-040`, 3 Defy `OGN-045`, 1 Disarming Rake `SFD-032`, 3 Discipline `OGN-058`, 2 Sacrifice `UNL-173`, 1 Salvage `OGN-224` |
+
+(A falta é a da ALOCAÇÃO por prioridade — o Defy que o Ornn pedia a 1 cópia
+quando era o principal passa a 3 porque agora é o quinto e o Akali leva-o
+antes.)
+
+`tests/test_ordem_dos_decks.py` (19 testes, contra cópias e config
+temporário): a lista pelo nome e pelo slug, mudar reordena, acrescentar no
+fim basta, o que não está vem a seguir pela ordem que tinha, nome sem deck
+avisa, entrada repetida conta uma, o sufixo dos rótulos iguais segue a lista,
+sem alterações não escreve, lista mal escrita rebenta, sem lista tudo como
+era; `set_order`/CLI/rota recusam com a lista e funcionam sem ela, a rota
+aplica a lista sem reimportar, o `app.js` esconde os botões e o `build` leva
+o flag; o `recomecar` apaga o histórico e escreve o ponto de partida, só toca
+no registo, e a CLI recomeça. Suite: 36 ficheiros, 0 a falhar.
