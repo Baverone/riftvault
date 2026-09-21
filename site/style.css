@@ -751,15 +751,20 @@ body.readonly .btn.chegou { display: none; }
    porque o tile é mais estreito. */
 .dtile.vista .steppers.runa .step { min-height: 34px; font-size: 16px; }
 
-/* ------------------------------------------------- «Pool dos decks»
+/* ------------------------------------- as cópias PRÓPRIAS de cada deck
 
-   (2026-09-21) A experiência do pool próprio (`decks.modo = pool_proprio`).
-   Os tiles são os `dtile` dos decks; os `+`/`−` são os da grelha (o
-   `body.readonly .steppers` esconde-os no site publicado) e escrevem no pool. */
-.dtile .steppers.pool { margin: 4px 0 2px; }
-.dtile .steppers.pool .step { min-height: 34px; font-size: 16px; }
-.dtile .steppers.pool .step:disabled { opacity: .3; cursor: default; }
+   (2026-09-21) «colocas em cada deck o + e - para eu dizer se afinal tenho ou
+   nao». Os `+`/`−` são os da grelha (o `body.readonly .steppers` esconde-os no
+   site publicado), com o número de próprias da carta entre os dois, e
+   escrevem no local `proprio:<slug>` — a Coleção não mexe. */
+.dtile .steppers.proprias { margin: 4px 0 2px; align-items: center; justify-content: center; }
+.dtile .steppers.proprias .step { min-height: 34px; font-size: 16px; }
+.dtile .steppers.proprias .step:disabled { opacity: .3; cursor: default; }
+.dtile .steppers.proprias .prop-n { min-width: 22px; text-align: center; font-weight: 700;
+  font-size: 14px; color: #c9a9ff; }
+.chip-l.propria { color: #c9a9ff; border-color: rgba(201, 169, 255, .5); }
 .dtile .onde.tenho i { font-style: italic; opacity: .7; }
+.emdecks i.dim { font-style: italic; opacity: .7; }
 
 /* --------------------------------------------------------------- «Faltas»
 
