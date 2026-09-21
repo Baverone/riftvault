@@ -1,0 +1,43 @@
+Nome: Akali
+
+Legend:
+1 Akali, Rogue Assassin
+
+Champion:
+1 Akali, Deadly Weapon
+
+MainDeck:
+3 Astral Heron
+2 Back Off
+2 Charm
+3 Defy
+3 Discipline
+1 En Garde
+3 Falling Star
+2 Ferrous Forerunner
+3 Kai'Sa, Survivor
+2 Long Sword
+2 Mischievous Marai
+1 Noxus Hopeful
+3 Scuttle Crab
+3 Shuriken Flip
+3 Stellacorn Herder
+3 Zhonya's Hourglass
+
+Battlefields:
+1 Forgotten Monument
+1 Threshold of the Gray
+1 Void Gate
+
+Rune Pool:
+5 Calm Rune
+7 Fury Rune
+
+Sideboard:
+1 Akali, Silent
+2 Brittle Steel
+1 Crumbling Sands
+2 Decree of Focus
+1 Ferrous Forerunner
+2 Irelia, Fervent
+1 Not So Fast

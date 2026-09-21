@@ -1,4 +1,4 @@
-Nome: LeBlanc Baited Hook
+Nome: LeBlanc Hook
 
 Legend:
 1 Leblanc, Deceiver
@@ -8,23 +8,24 @@ Champion:
 
 MainDeck:
 3 Baited Hook
-2 Black Rose Dignitary
+3 Black Rose Dignitary
+1 Deathgrip
 3 Glasc Mixologist
 3 Harnessed Dragon
-2 Hidden Blade
-3 Honest Broker
+1 Hidden Blade
+2 Honest Broker
 3 Karthus, Eternal
 2 Mirror Image
-2 Rift Herald
+3 Rift Herald
 3 Ruined Rex
 3 Sacrifice
 3 Soaring Scout
-2 Thousand-Tailed Watcher
+1 Thousand-Tailed Watcher
 3 Vi, Peacekeeper
 2 Watchful Sentry
 
 Battlefields:
-1 Forbidding Waste
+1 Dusk Rose Lab
 1 Star Spring
 1 Windswept Hillock
 
@@ -33,11 +34,9 @@ Rune Pool:
 8 Order Rune
 
 Sideboard:
-1 Atakhan
-1 Deathgrip
-1 Decree of Insight
+2 Decree of Insight
 2 Decree of Unity
 1 LeBlanc, Everywhere at Once
-2 Pickpocket
-1 Salvage
+2 Safety Inspector
+2 Salvage
 1 Thousand-Tailed Watcher
