@@ -29,6 +29,16 @@ const state = {
   // Desde 2026-09-10 não é o total físico: as que estão num deck ou no binder
   // Decks/Venda não contam para a Coleção. O total vive no `locs`.
   qty: new Map(),
+  // O TOTAL FÍSICO por impressão (todos os locais) — é o tecto do contador de
+  // foil (2026-09-22): uma carta não deixa de ser foil por estar sleevada.
+  tot: new Map(),
+  // printing_id -> cópias marcadas como foil, e o conjunto das impressões que
+  // têm contador (as comuns e incomuns base, fora o OGS — `foil.no_ambito`).
+  // O NÃO-FOIL nunca se guarda: é sempre `tot − foil`, como no Python.
+  foil: new Map(), foilOk: new Set(),
+  // Os `+`/`−` do contador de foil: fila e pedidos em voo por impressão, como
+  // as runas e as Encomendas — o último a chegar é que manda.
+  foilFila: new Map(), foilVoo: new Map(),
   locs: new Map(),             // printing_id -> [{loc, label, qty}]
   play: new Map(),             // card_key -> {owned, target}
   targets: new Map(),          // printing_id -> alvo do master (o do tile)
@@ -196,13 +206,16 @@ async function loadSet(setId) {
 
   state.qty.clear(); state.play.clear(); state.targets.clear();
   state.blocks.clear(); state.meta.clear(); state.counting.clear();
-  state.locs.clear();
+  state.locs.clear(); state.tot.clear(); state.foil.clear(); state.foilOk.clear();
   for (const b of p.blocks || []) if (b.counts) state.counting.add(b.id);
   if (!(p.blocks || []).length) state.counting.add('master');
   for (const g of p.groups) {
     state.play.set(g.card_key, { owned: g.playset.owned, target: g.playset.target });
     for (const pr of g.printings) {
       state.qty.set(pr.id, pr.qty);
+      state.tot.set(pr.id, pr.qty_total || 0);
+      if (pr.foil) state.foil.set(pr.id, pr.foil);
+      if (pr.foil_ok) state.foilOk.add(pr.id);
       state.locs.set(pr.id, pr.locations || []);
       state.targets.set(pr.id, pr.target);
       state.blocks.set(pr.id, pr.block || 'master');
@@ -213,6 +226,7 @@ async function loadSet(setId) {
   // Fora do `render()` de propósito: as wantlists são da EDIÇÃO, não do que
   // está no ecrã, e o `render()` corre a cada tecla da caixa de procura.
   renderWantlists();
+  renderFoilResumo();
   renderFaltaLinha();
   // Idem: o bloco das runas é do JOGO inteiro, não da edição nem do filtro.
   renderRunasVista();
@@ -247,6 +261,10 @@ function juntarEdicoes(sets, ps) {
     playset: { done: 0, total: 0 }, master: { done: 0, total: 0 },
     value: { owned: 0, full: 0, currency: 'EUR', has_prices: false },
     rarities: [], levels: [], painel: { blocks: {}, runes_out: 0 },
+    // A contagem de foil das edições todas (2026-09-22): a soma vem do
+    // servidor (`index.foil.sets.all`); os números que se vêem recalculam-se
+    // do estado, como sempre.
+    foil: state.index?.foil?.sets?.[TODAS] || null,
   };
   ps.forEach((p, i) => {
     for (const g of p.groups) groups.push({ ...g, set: sets[i].id, set_name: sets[i].name });
@@ -531,9 +549,164 @@ function tileHTML(g, p, comUso = false) {
          ${p.price != null ? `data-price="${p.price}"` : ''}>
       ${g.is_token ? 'token' : 'jogável'} ${play.owned}/${play.target}${p.price != null ? ` · ${eur(p.price)}` : ''}
     </div>
+    ${foilLinha(p.id)}
     ${deckLine(p.id)}
     ${comUso ? usoLine(g) : ''}
   </div>`;
+}
+
+/* ================================ o contador de FOIL (André, 2026-09-22)
+
+   *"para comuns e incomuns, coloca contagem para Foil e Non-Foil, para todas
+   as edicoes excepto Proving Grounds"*. Nas cartas do âmbito (as impressões
+   base, não sobrenumeradas, comuns e incomuns, fora o OGS — quem decide é o
+   `foil.no_ambito` do servidor, que manda `foil_ok` no payload) o tile ganha,
+   por baixo dos `+`/`−` de sempre, um contador pequeno de foil e a linha «N
+   normais · M foil».
+
+   O `+` do foil NUNCA aumenta o total: converte uma cópia que ele já tem.
+   Trava em 0 e no TOTAL FÍSICO (`state.tot`, todas as cópias — uma carta não
+   deixa de ser foil por estar sleevada num deck), que é o mesmo tecto do
+   `CHECK (qty_foil <= qty)` da base. O não-foil nunca se guarda: é sempre
+   `total − foil`, aqui como no Python.                                      */
+
+function foilLinha(pid) {
+  if (!state.foilOk.has(pid)) return '';
+  const tot = state.tot.get(pid) || 0;
+  const f = Math.min(state.foil.get(pid) || 0, tot);
+  const controlos = state.editable ? `<span class="steppers foil">
+      <button class="step minus" data-foil="-1" aria-label="menos uma foil"
+              ${f <= 0 ? 'disabled' : ''}>−</button>
+      <b>${f}</b>
+      <button class="step plus" data-foil="1" aria-label="mais uma foil"
+              ${f >= tot ? 'disabled' : ''}>+</button>
+    </span>` : '';
+  return `<div class="foil-linha" title="das ${tot} cópias que tens desta impressão, ${f} ${
+    f === 1 ? 'é foil' : 'são foil'} — não conta para nada, é só a repartição">
+    <span class="foil-txt"><b>${tot - f}</b> normais · <b class="fo">${f}</b> foil</span>${controlos}</div>`;
+}
+
+/* A fila é por impressão: o ecrã anda já, e só a última resposta manda. Não há
+   `request_id` — o foil não é uma cópia nova, é uma repartição, e repetir o
+   mesmo pedido dá o mesmo resultado (`min`/`max` no servidor). */
+async function foilAjustar(pid, delta) {
+  if (!state.editable || !state.foilOk.has(pid)) return;
+  const tot = state.tot.get(pid) || 0;
+  const antes = Math.min(state.foil.get(pid) || 0, tot);
+  const novo = Math.max(0, Math.min(antes + delta, tot));
+  if (novo === antes) return;
+  state.foil.set(pid, novo);
+  refreshFoil(pid);
+  renderFoilResumo();
+
+  const emVoo = (state.foilVoo.get(pid) || 0) + 1;
+  state.foilVoo.set(pid, emVoo);
+  try {
+    const r = await fetch('api/foil/ajustar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ printing_id: pid, delta }),
+    });
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `HTTP ${r.status}`);
+    const res = await r.json();
+    const resto = (state.foilVoo.get(pid) || 1) - 1;
+    state.foilVoo.set(pid, resto);
+    if (resto === 0) {
+      state.foil.set(pid, res.foil);
+      refreshFoil(pid);
+      renderFoilResumo();
+    }
+  } catch (err) {
+    state.foilVoo.set(pid, Math.max(0, (state.foilVoo.get(pid) || 1) - 1));
+    state.foil.set(pid, antes);
+    refreshFoil(pid);
+    renderFoilResumo();
+    toast(`Não gravou o foil: ${err.message}`, { error: true });
+  }
+}
+
+function refreshFoil(pid) {
+  for (const el of document.querySelectorAll(`#grid .tile[data-pid="${CSS.escape(pid)}"]`)) {
+    const linha = el.querySelector('.foil-linha');
+    const novo = foilLinha(pid);
+    if (linha) linha.outerHTML = novo;
+  }
+}
+
+/* O resumo por edição (e em «Todas»), logo por baixo do painel: quantas
+   comuns e incomuns ele tem em foil e quantas em normal, em IMPRESSÕES e em
+   CÓPIAS. Recalculado do estado local, como o painel, para andar ao mesmo
+   tempo que os `+`/`−`; o gémeo em Python é o `foil.contar`. Enquanto a
+   edição carrega («Todas»), mostram-se os números do servidor. */
+
+/* @foil-puro:inicio — só JavaScript puro, sem DOM nem `state`, para o teste
+   o poder correr no node tal e qual. */
+function foilContar(itens, labels) {
+  const novo = () => ({ printings: 0, copies: 0, foil: 0, normal: 0, foil_printings: 0 });
+  const somar = (slot, copias, f) => {
+    slot.printings++; slot.copies += copias; slot.foil += f;
+    slot.normal += copias - f; slot.foil_printings += f > 0 ? 1 : 0;
+  };
+  const ORDEM = ['common', 'uncommon', 'rare', 'epic', 'showcase'];
+  const total = novo();
+  const por = new Map();
+  for (const it of itens) {
+    const rar = String(it.rarity || '?').toLowerCase();
+    const copias = it.copies || 0, f = it.foil || 0;
+    if (!por.has(rar)) por.set(rar, novo());
+    somar(total, copias, f);
+    somar(por.get(rar), copias, f);
+  }
+  const chaves = ORDEM.filter(r => por.has(r))
+    .concat([...por.keys()].filter(r => !ORDEM.includes(r)).sort());
+  total.rarity = chaves.map(r => ({
+    id: r, label: (labels || {})[r] || (r.charAt(0).toUpperCase() + r.slice(1)),
+    ...por.get(r),
+  }));
+  return total;
+}
+/* @foil-puro:fim */
+
+function foilItens() {
+  const itens = [];
+  for (const g of state.payload?.groups || []) {
+    for (const p of g.printings) {
+      if (!state.foilOk.has(p.id)) continue;
+      const tot = state.tot.get(p.id) || 0;
+      itens.push({ rarity: p.rarity || g.rarity || '?', copies: tot,
+                   foil: Math.min(state.foil.get(p.id) || 0, tot) });
+    }
+  }
+  return itens;
+}
+
+function renderFoilResumo() {
+  const el = $('#foil-resumo');
+  if (!el) return;
+  // O servidor manda o rótulo de cada raridade e o âmbito; sem ele (um payload
+  // velho) a secção nem aparece.
+  const cat = state.index?.foil;
+  const doServidor = state.payload?.progress?.foil
+    || cat?.sets?.[state.setId] || null;
+  if (!cat || !doServidor) { el.innerHTML = ''; el.hidden = true; return; }
+  const conta = state.payload ? foilContar(foilItens(), cat.labels) : doServidor;
+  if (!conta || !conta.printings) { el.innerHTML = ''; el.hidden = true; return; }
+  el.hidden = false;
+
+  const bloco = (rot, c) => `<div class="fo-bloco">
+    <div class="fo-rot">${escapeHTML(rot)}</div>
+    <div class="fo-num"><b>${c.normal}</b> normais · <b class="fo">${c.foil}</b> foil</div>
+    <div class="fo-sub">${c.printings} impressões · ${c.copies} cópias${
+      c.foil_printings ? ` · ${c.foil_printings} com foil` : ''}</div>
+  </div>`;
+  const nomes = (cat.raridades || []).map(r => (cat.labels || {})[r] || r);
+  el.innerHTML = `<div class="fo-head">Foil e não-foil
+      <small>${escapeHTML(nomes.join(' e ').toLowerCase() || 'comuns e incomuns')},
+      só as impressões base${(cat.sem_edicoes || []).length
+        ? ` — o ${escapeHTML(cat.sem_edicoes.join(', '))} fica de fora` : ''}.
+      É uma repartição do que tens: não conta para nada.</small></div>
+    <div class="fo-linhas">${bloco('Tudo', conta)}${
+      conta.rarity.map(r => bloco(r.label, r)).join('')}</div>`;
 }
 
 /* QUE DECKS USAM ESTA CARTA (André, 2026-09-11): *"na coleção indica onde as
@@ -750,6 +923,7 @@ function renderProgress() {
   // debaixo de uma sexta chave contava tudo a dobrar.
   if (niv.length && state.setId !== TODAS) state.levels.set(state.setId, niv);
   renderPainel();
+  renderFoilResumo();
 
   // Valor: recalculado localmente pela mesma razão que as barras — para andar
   // ao mesmo tempo que os +/-. A barra compara o que tenho com o que a edição
@@ -1226,6 +1400,8 @@ function refreshTiles(pid, cardKey) {
     el.querySelector('.step.minus').disabled = q <= 0;
     const linha = el.querySelector('.indeck');
     if (linha) linha.outerHTML = deckLine(pid);
+    const fo = el.querySelector('.foil-linha');
+    if (fo) fo.outerHTML = foilLinha(pid);
     setTimeout(() => el.classList.remove('flash'), 400);
   }
   // A métrica de playset é da carta lógica: mexe em todos os tiles dela.
@@ -1247,6 +1423,12 @@ function refreshTiles(pid, cardKey) {
 function applyLocal(pid, delta) {
   const ck = state.meta.get(pid)?.card_key;
   state.qty.set(pid, Math.max(0, (state.qty.get(pid) || 0) + delta));
+  // O total FÍSICO anda com o `+`/`−` (é o `copies.qty` que muda); e o foil
+  // marcado nunca o pode passar — se o total desce abaixo dele, desce com ele,
+  // como o `foil.ao_descer` faz na base (2026-09-22).
+  const tot = Math.max(0, (state.tot.get(pid) || 0) + delta);
+  state.tot.set(pid, tot);
+  if ((state.foil.get(pid) || 0) > tot) state.foil.set(pid, tot);
   // O `+`/`-` mexe nos binders de COLEÇÃO — é a grelha da Coleção. As cópias
   // que estão num deck ou no binder Decks/Venda não mexem daqui.
   const locs = (state.locs.get(pid) || []).slice();
@@ -1289,6 +1471,8 @@ async function adjust(pid, delta) {
     if (left === 0) {
       // `res.qty` é o total FÍSICO; a grelha da Coleção mostra o `qty_colecao`.
       state.qty.set(pid, res.qty_colecao != null ? res.qty_colecao : res.qty);
+      if (res.qty != null) state.tot.set(pid, res.qty);
+      if (res.foil != null) state.foil.set(pid, res.foil);
       if (res.locations) state.locs.set(pid, res.locations);
       if (res.playset) state.play.set(ck, { owned: res.playset.owned, target: res.playset.target });
       refreshTiles(pid, ck);
@@ -1315,6 +1499,8 @@ async function undo(opId, pid, delta) {
     if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `HTTP ${r.status}`);
     const res = await r.json();
     state.qty.set(pid, res.qty_colecao != null ? res.qty_colecao : res.qty);
+    if (res.qty != null) state.tot.set(pid, res.qty);
+    if (res.foil != null) state.foil.set(pid, res.foil);
     if (res.locations) state.locs.set(pid, res.locations);
     const ck = state.meta.get(pid)?.card_key;
     if (res.playset) state.play.set(ck, { owned: res.playset.owned, target: res.playset.target });
@@ -1369,7 +1555,10 @@ function wireControls() {
     const btn = e.target.closest('.step');
     if (!btn) return;
     const tile = btn.closest('.tile');
-    adjust(tile.dataset.pid, Number(btn.dataset.act));
+    // O contador de foil (2026-09-22) é outro par de botões no mesmo tile: o
+    // `data-foil` reparte o que ele já tem, o `data-act` mexe no total.
+    if (btn.dataset.foil) foilAjustar(tile.dataset.pid, Number(btn.dataset.foil));
+    else adjust(tile.dataset.pid, Number(btn.dataset.act));
   });
 
   // Imagem local em falta cai para o CDN (e vice-versa no modo publicado).

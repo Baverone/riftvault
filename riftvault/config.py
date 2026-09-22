@@ -217,6 +217,19 @@ DEFAULTS: dict = {
     # que ele fisicamente tem de cada runa, e não entra em métrica nenhuma.
     # Ver `runas_vista.py`.
     "runas_vista": {"alvo": 12},
+    # A contagem de FOIL e NÃO-FOIL (André, 2026-09-22: *"para comuns e
+    # incomuns, coloca contagem para Foil e Non-Foil, para todas as edicoes
+    # excepto Proving Grounds"*). O âmbito, para ele mudar sem código:
+    #   `raridades`     — as raridades da BASE que levam contador (hoje as
+    #                     comuns e as incomuns). Uma raridade que o catálogo
+    #                     não conheça rebenta; a lista vazia também.
+    #   `edicoes_fora`  — as edições sem contador. «Proving Grounds» é o OGS.
+    # Vale só para as impressões BASE, não sobrenumeradas — a arte alternativa
+    # e a reimpressão de topo de set são outra impressão. Hoje dá 512
+    # impressões e 1376 cópias. O contador é uma REPARTIÇÃO do que ele já tem
+    # (`copies.qty_foil`, com o não-foil sempre derivado) e não entra em conta
+    # nenhuma do site. Ver `foil.py`.
+    "foil": {"raridades": ["common", "uncommon"], "edicoes_fora": ["OGS"]},
     # As línguas cujas ofertas do CardTrader entram no preço (2026-09-15:
     # "apenas cartas versao ingles"). Era 'en' fixo no código desde o início.
     "precos": {"linguas": ["en"]},

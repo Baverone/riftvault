@@ -1084,7 +1084,7 @@ def prices_map(con: sqlite3.Connection) -> dict[str, int]:
 
 def set_payload(con: sqlite3.Connection, set_id: str, editable: bool = True,
                 image_mode: str = "local") -> dict:
-    from . import decks, locais, painel
+    from . import decks, foil, locais, painel
 
     cfg = config.load()
     # `qty` é o que a COLEÇÃO tem — é ele que manda nas barras, no filtro
@@ -1099,6 +1099,11 @@ def set_payload(con: sqlite3.Connection, set_id: str, editable: bool = True,
     nomes_decks = locais.nomes_dos_decks(con)
     owned_cards = owned_by_card(con)
     price = prices_map(con)
+    # A contagem de foil (2026-09-22): quantas das cópias FÍSICAS de cada
+    # impressão são foil, e quais é que levam contador. É uma repartição do
+    # `qty_valor` — não mexe em número nenhum desta página.
+    foil_qty = foil.qty_foil(con)
+    foil_ambito = set(foil.ids_do_ambito(con, cfg, set_id))
     # Onde estão as cópias que não estão no binder de coleção: nos decks.
     # E que decks USAM cada carta lógica (André, 2026-09-11: *"na coleção
     # indica onde as cartas estão a ser usadas"*) — é por carta, não por
@@ -1175,6 +1180,11 @@ def set_payload(con: sqlite3.Connection, set_id: str, editable: bool = True,
             # O que conta para o valor: o total menos as cópias próprias dos
             # decks (2026-09-21); igual ao `qty_total` sem próprias.
             "qty_valor": contadas.get(r["printing_id"], 0),
+            # Quantas das cópias FÍSICAS são foil, e se esta impressão tem
+            # contador (2026-09-22). O não-foil é `qty_total − foil`, sempre
+            # derivado — aqui e no `app.js`.
+            "foil": foil_qty.get(r["printing_id"], 0),
+            "foil_ok": r["printing_id"] in foil_ambito,
             "locations": [
                 {"loc": loc, "label": locais.rotulo(loc, nomes_decks), "qty": n}
                 for loc, n in sorted(
@@ -1313,6 +1323,11 @@ def set_payload(con: sqlite3.Connection, set_id: str, editable: bool = True,
             # cliente recalcula-o a partir do estado local, como as barras;
             # isto é a verdade do servidor no momento do ficheiro.
             "painel": painel.da_edicao(con, set_id, cfg),
+            # A contagem de foil das comuns e incomuns desta edição
+            # (2026-09-22) — `None` nas edições fora do âmbito (o OGS), para
+            # a página não mostrar uma caixa vazia. O cliente recalcula-a do
+            # estado local, como o painel; isto é a verdade do servidor.
+            "foil": foil.do_set(con, set_id, cfg),
         },
         # A ordem dos blocos da grelha, e o rótulo de cada um. Vem do servidor
         # para o cliente não ter uma segunda cópia da regra.
@@ -1347,7 +1362,7 @@ def ordem_da_grelha(payload: dict) -> list[tuple[str, str]]:
 
 def index_payload(con: sqlite3.Connection, editable: bool = True,
                   image_mode: str = "local") -> dict:
-    from . import collection, painel, prices
+    from . import collection, foil, painel, prices
 
     try:
         value = prices.collection_value(con)
@@ -1369,4 +1384,8 @@ def index_payload(con: sqlite3.Connection, editable: bool = True,
         # é o que o separador «Todas» mostra enquanto as edições carregam, e
         # a verdade do servidor para o CLI e os testes.
         "painel": painel.payload(con),
+        # A contagem de foil das comuns e incomuns (2026-09-22), por edição e
+        # em «Todas» — é o que o separador «Todas» mostra enquanto as edições
+        # carregam, e a verdade do servidor para o CLI e os testes.
+        "foil": foil.resumo(con),
     }

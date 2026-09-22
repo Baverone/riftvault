@@ -95,6 +95,14 @@ def adjust(con: sqlite3.Connection, ref: str, delta: int, source: str = "cli",
             return {"printing_id": printing_id, "qty": current, "applied": 0,
                     "op_id": None, "duplicate": False}
 
+        # A contagem de foil (2026-09-22) é uma repartição do total: se o total
+        # desce abaixo do que estava marcado como foil, o foil desce com ele —
+        # primeiro, para o `CHECK (qty_foil <= qty)` ser verdade a cada passo —
+        # e fica registo na `foil_ops`.
+        from . import foil
+        foil_descido = foil.ao_descer(con, printing_id, new_qty, source=source) \
+            if applied < 0 else 0
+
         con.execute(
             "INSERT INTO copies (printing_id, qty, updated_at) VALUES (?,?,?) "
             "ON CONFLICT(printing_id) DO UPDATE SET qty = excluded.qty, "
@@ -125,7 +133,17 @@ def adjust(con: sqlite3.Connection, ref: str, delta: int, source: str = "cli",
 
     return {"printing_id": printing_id, "qty": new_qty, "applied": applied,
             "op_id": op_id, "duplicate": False,
+            "foil": get_foil(con, printing_id),
+            **({"foil_descido": foil_descido} if foil_descido else {}),
             **({"saidas": saidas} if saidas else {})}
+
+
+def get_foil(con: sqlite3.Connection, printing_id: str) -> int:
+    """Quantas das cópias desta impressão estão marcadas como foil
+    (2026-09-22). O não-foil é sempre `qty − isto`, nunca um número guardado."""
+    row = con.execute("SELECT qty_foil FROM copies WHERE printing_id = ?",
+                      (printing_id,)).fetchone()
+    return row["qty_foil"] if row else 0
 
 
 def set_qty(con: sqlite3.Connection, ref: str, qty: int, source: str = "cli") -> dict:

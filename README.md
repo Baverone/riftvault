@@ -611,7 +611,41 @@ Houve nessa manhã uma regra intermédia — os decks a pedir a arte alternativa
 da runa **da edição da Legend** — que durou umas horas e saiu inteira do
 código com esta; não existe.
 
-Não se distingue foil de normal: uma cópia é uma cópia.
+Não se distingue foil de normal no GRÃO da coleção: uma cópia é uma cópia, e o
+alvo do master set é por impressão. Desde 2026-09-22 há, ao lado disso, uma
+**contagem** de quantas dessas cópias são foil — ver a secção a seguir.
+
+## Foil e não-foil, nas comuns e incomuns (2026-09-22)
+
+*"Para comuns e incomuns, coloca contagem para Foil e Non-Foil, para todas as
+edicoes excepto Proving Grounds"* — «Proving Grounds» é o OGS, por isso vale
+para o OGN, o SFD, o UNL e o VEN.
+
+Nas cartas do âmbito — as impressões **base**, não sobrenumeradas, comuns e
+incomuns, dessas quatro edições: **512 impressões e 1376 cópias** — o tile da
+Coleção ganha, por baixo dos `+`/`−` de sempre, um contador pequeno de foil e
+a linha «N normais · M foil». O `+` do foil **nunca aumenta o total**: converte
+uma cópia que já tens, e trava em 0 e no total. Por baixo do painel do topo há
+o resumo da edição aberta (ou de «Todas»): impressões, cópias, normais e foil,
+com uma linha por raridade.
+
+É uma **repartição do que já tens**, e não conta para nada: marcar cópias como
+foil não mexe um único número — nem o total de cópias, nem os três níveis, nem
+o denominador, nem o A mais, nem as Faltas, nem as quatro wantlists por bloco,
+nem o valor, nem as Encomendas, nem os decks. O `tests/test_foil.py` fotografa
+tudo isso, mete e tira foils, e exige que fique igual.
+
+O número vive na coluna `copies.qty_foil`, e o **não-foil nunca se grava**: é
+sempre `qty − qty_foil`, para não haver duas verdades que deixem de somar o
+total (a base garante-o com `CHECK (qty_foil <= qty)`). Um `−` que ponha o
+total abaixo do foil marcado corta o foil primeiro, com linha na tabela
+`foil_ops` — nenhuma cópia foil se evapora em silêncio. O âmbito muda-se no
+config sem código: `foil.raridades` e `foil.edicoes_fora`.
+
+Na consola: `riftvault foil` (o resumo, `--edicao OGN` para uma só),
+`riftvault foil OGN-045` (uma impressão) e `riftvault foil OGN-045 --mais 2` /
+`--menos 2`. A rota é `POST /api/foil/ajustar`; no site publicado é só de
+leitura, como o resto.
 
 ## Venda (apagada a 2026-09-15)
 
