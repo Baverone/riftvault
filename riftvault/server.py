@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 from flask import Flask, g, jsonify, redirect, request, send_from_directory
 
 from . import (a_mais, a_subir, collection, config, db, decks, faltas, faltas_edicao,
-               locais, metrics, pending, proprias, runas_vista)
+               foil, locais, metrics, pending, proprias, runas_vista)
 
 app = Flask(__name__, static_folder=None)
 
@@ -138,6 +138,34 @@ def api_runas_ajustar():
         return jsonify(runas_vista.ajustar(get_con(), data["card_key"], delta))
     except runas_vista.RunaDesconhecida as exc:
         return jsonify({"error": str(exc)}), 404
+
+
+@app.post("/api/foil/ajustar")
+def api_foil_ajustar():
+    """Os `+`/`−` do contador de FOIL de um tile (2026-09-22):
+    `{printing_id, delta}`.
+
+    Mexe SÓ na coluna `copies.qty_foil` — o total de cópias não mexe, e por
+    isso nenhuma conta do site mexe: é uma repartição do que ele já tem. Trava
+    em 0 e no total (`min(delta, qty − qty_foil)`), sem erro. Uma impressão
+    fora do âmbito (`foil.raridades`/`foil.edicoes_fora`) é 400; uma que não
+    exista é 404.
+    """
+    data = request.get_json(silent=True) or {}
+    try:
+        delta = int(data.get("delta", 0))
+    except (TypeError, ValueError):
+        return jsonify({"error": "delta inválido"}), 400
+    if delta == 0:
+        return jsonify({"error": "delta é zero"}), 400
+    if not data.get("printing_id"):
+        return jsonify({"error": "falta printing_id"}), 400
+    try:
+        return jsonify(foil.ajustar(get_con(), data["printing_id"], delta, source="web"))
+    except collection.UnknownPrinting as exc:
+        return jsonify({"error": str(exc)}), 404
+    except foil.ForaDoAmbito as exc:
+        return jsonify({"error": str(exc)}), 400
 
 
 @app.get("/api/history.json")
@@ -498,6 +526,9 @@ def _locais_de(printing_id: str) -> dict:
     nomes = locais.nomes_dos_decks(con)
     return {
         "qty_colecao": onde.get(locais.COLECAO, 0),
+        # O foil (2026-09-22) é contra o total FÍSICO: um `−` que leve o total
+        # abaixo dele corta-o, e o tile tem de o saber.
+        "foil": collection.get_foil(con, printing_id),
         "locations": [{"loc": loc, "label": locais.rotulo(loc, nomes), "qty": n}
                       for loc, n in sorted(onde.items(),
                                            key=lambda kv: (kv[0] != locais.COLECAO,

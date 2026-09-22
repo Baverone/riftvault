@@ -108,6 +108,9 @@ não inverter a ordem.
 ## Três bases de dados
 
 - `data/vault.db` — a coleção e os decks. **Commitado. Só o André escreve.**
+  (Desde 2026-09-22 a `copies` tem a coluna `qty_foil` — a contagem de foil
+  das comuns e incomuns; a migração fez backup em `data/backups/`, que está
+  no `.gitignore`. Ver a última secção deste ficheiro.)
 - `data/prices.db` — histórico de preços. **Commitado. Só o robô escreve.**
 - `data/catalog.db` — cache do catálogo da RiftScribe. **No `.gitignore`**
   (reconstruível com `riftvault sync`).
@@ -730,6 +733,11 @@ O alvo do master set é por impressão, e qualquer cópia serve para o cumprir.
 
 Se um dia isto mudar: acrescentar `finish TEXT NOT NULL DEFAULT 'normal'` a
 `copies`, passar a PK a `(printing_id, finish)`, e o mesmo em `ops`.
+
+**Isto CONTINUA DE PÉ depois de 2026-09-22.** A `copies.qty_foil` dessa data
+não é um acabamento no grão: a chave continua a ser `(printing_id)`, o alvo
+continua a ser por impressão e nenhuma conta do site a lê. É uma CONTAGEM à
+parte — ver a última secção deste ficheiro.
 
 ## Artes alternativas fora do master set
 
@@ -2500,6 +2508,15 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   si (a soma); só versões base, a Legend e o Champion incluídos
   (`decks.so_base`); `proprias.py`, `POST /api/proprias/ajustar`. Ver a
   última secção deste ficheiro.
+- **Feito também:** a contagem de FOIL e NÃO-FOIL das comuns e incomuns
+  (2026-09-22) — a coluna `copies.qty_foil` (o não-foil nunca se grava: é
+  `qty − qty_foil`), o âmbito em config (`foil.raridades`,
+  `foil.edicoes_fora`: as impressões base, não sobrenumeradas, comuns e
+  incomuns, fora o OGS — 512 impressões, 1376 cópias), o contador pequeno em
+  cada tile («N normais · M foil», travado em 0..qty, sem mexer no total), o
+  resumo por edição e em «Todas» por baixo do painel, `riftvault foil` e
+  `POST /api/foil/ajustar`. **Não mexe em número nenhum do site** e há teste
+  que o fotografa. Ver a última secção deste ficheiro.
 - **Por fazer:** a parte 2 do seguir — o separador no site e a tarefa diária;
   vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck,
   com as partilhadas assinaladas); e apagar decks pela interface (hoje apaga-se
@@ -5019,3 +5036,141 @@ de `[6, 4, 3]`; raridades e domínios batem; «Tudo» de «Todas» = soma das
 duas edições de brincar; runas fora; chega à edição, ao index e ao texto;
 o `app.js`). Três testes que descreviam a lista de blocos sem o «Tudo»
 foram ajustados. Suite: 37 ficheiros, 0 a falhar.
+
+## 22/09/2026 — a contagem de FOIL e NÃO-FOIL das comuns e incomuns (`foil.py`, `copies.qty_foil`)
+
+Palavras dele: *"para comuns e incomuns, coloca contagem para Foil e
+Non-Foil, para todas as edicoes excepto Proving Grounds"*. «Proving Grounds» é
+o OGS, por isso vale para o OGN, o SFD, o UNL e o VEN. Ramo
+`ai-pc/foil-2026-09-22`.
+
+**Isto NÃO revoga a decisão de 2026-08-31** (*"foil e normal contam como a
+mesma coisa"*). O acabamento continua a não ser parte do grão da coleção: a
+chave do `copies` é `(printing_id)`, o alvo do master set é por impressão e
+qualquer cópia o cumpre. O que nasceu é uma REPARTIÇÃO do que ele já tem, ao
+lado das contas — e a prova de que não entra em nenhuma é um teste.
+
+### 1. Uma verdade só, nunca duas
+
+A contagem é a coluna **`copies.qty_foil`** — quantas das cópias daquela
+impressão são foil. **O não-foil NUNCA se grava**: é sempre `qty − qty_foil`,
+derivado na leitura, no Python e no `app.js`. Guardar os dois era ter duas
+verdades que mais cedo ou mais tarde deixavam de somar o total. É a mesma
+arquitectura da Coleção, que também não se grava (`locais.na_colecao` é o
+`copies.qty` menos os outros locais).
+
+A base garante-o: `CHECK (qty_foil >= 0 AND qty_foil <= qty)`. Quando o total
+desce abaixo do que estava marcado como foil — um `−` na grelha, um `−` nas
+cópias próprias de um deck —, **o foil desce com ele**: `foil.ao_descer`,
+chamado DENTRO da transação e ANTES de escrever o `qty` (baixar o foil
+primeiro mantém o CHECK verdadeiro a cada passo), com linha na tabela
+**`foil_ops`** (`source` acaba em `:ajuste ao total`). Os dois únicos sítios
+que baixam o `copies.qty` são o `collection.adjust` e o `proprias.ajustar`, e
+os dois passam por lá; há teste para cada um.
+
+**A migração é a primeira desde o início que toca na tabela `copies`**, por
+isso leva BACKUP antes (`db.backup`, `VACUUM main INTO
+data/backups/vault-antes-do-foil-<ts>.db` — `VACUUM INTO` e não uma cópia de
+ficheiro, porque o vault.db está em WAL). É idempotente: corre na primeira
+ligação depois do merge e nunca mais. Uma base criada de raiz já traz a coluna
+do `schema.sql` e não migra nada. A pasta `data/backups/` está no
+`.gitignore`.
+
+### 2. O âmbito, em config
+
+`foil.raridades` (`["common", "uncommon"]`) e `foil.edicoes_fora` (`["OGS"]`),
+no `riftvault_config.json` e no `config.DEFAULTS`. Uma raridade que o catálogo
+não conheça rebenta, e a lista vazia também — é a regra das outras listas do
+config. Vale para as impressões **base, não sobrenumeradas**: a arte
+alternativa e a reimpressão de topo de set são outra impressão, com outro
+preço e outro mercado. Uma pergunta, uma função: `foil.no_ambito`, a que o
+tile, o resumo, a rota e a CLI perguntam todos.
+
+**Medido a 2026-09-22 contra uma cópia do `data/` real — bate com a
+conferência dele, impressão a impressão e cópia a cópia:**
+
+| edição | comuns | incomuns | total |
+|---|---|---|---|
+| OGN | 88 impressões · 291 cópias | 84 · 132 | 172 · 423 |
+| SFD | 60 · 180 | 63 · 165 | 123 · 345 |
+| UNL | 60 · 180 | 63 · 166 | 123 · 346 |
+| VEN | 48 · 144 | 46 · 118 | 94 · 262 |
+| **total** | **256 · 795** | **256 · 581** | **512 impressões · 1376 cópias** |
+
+O **OGS fica todo de fora** (nenhum tile com contador, `progress.foil` a
+`None` para a página não mostrar uma caixa vazia). Ficam também de fora, por
+não serem a base: as artes alternativas, as sobrenumeradas (incluindo as
+comuns — os seis Poros do UNL), as promos, as signatures e os tokens.
+**Começam todas a ZERO foil**; ele marca à mão.
+
+### 3. O foil NÃO MEXE EM NADA — e há teste que o prova
+
+`tests/test_foil.py::TestNaoMexeEmNadaDoQueJaExiste` fotografa níveis,
+denominador, as três barras, o painel (da edição e o geral), os blocos, as
+wantlists, o valor (total, por edição, top), os totais, a grelha
+(`qty`/`qty_total`/`qty_valor`/alvo/bloco), o playset jogável, as Faltas (os
+quatro blocos por edição), as Encomendas, o A mais, a falta dos decks e o
+`copies` inteiro; mete foils, tira foils, e exige que fique **igual**. É a
+mesma defesa do `test_copias_proprias.py` de 21/09. Outro teste recusa que um
+módulo de contas (`a_subir`, `faltas`, `faltas_edicao`, `a_mais`, `uso_decks`,
+`decks`, `locais`, `pending`, `prices`, `painel`, `runas_vista`, `cardmarket`,
+`seguir`, `catalog`) importe o `foil` ou mencione `qty_foil` — se um dia
+importar, é sinal de que o foil entrou numa conta.
+
+**Medido a 2026-09-22 contra cópias do `data/` real
+(`C:\Users\Catarina\_revisao\_medir_foil.py`), `main` (`59746e7`) e ramo na
+mesma corrida, cada lado a ler o SEU config — TUDO IGUAL:** denominador
+**928**, níveis **897/836/766 de 928** (faltam 31/121/281 ·
+81,96/428,24/1 014,48 €), wantlist «tudo» **162 linhas · 281 cópias ·
+1 014,48 €** e por edição, valor **6 612,64 € · 2 573 cópias** e por edição,
+totais, falta dos decks **37 cópias · 19 cartas · 168,43 €**, Encomendas, o
+separador Faltas inteiro (317 · 555 · 10 212,74 €; a comprar 162 · 281 ·
+1 014,48 €) e as **20 wantlists por bloco**, o A mais (excedente e libertadas,
+item a item), o painel, as barras, os blocos, os grupos por edição e os tiles
+impressão a impressão. Zero diferenças.
+
+### 4. O contador no tile
+
+Nas cartas do âmbito, por baixo dos `+`/`−` de sempre: um contador pequeno de
+foil e a linha **«N normais · M foil»**. O `+` do foil **nunca aumenta o
+total** — converte uma cópia que ele já tem —, trava em 0 e no total, e o
+servidor faz o mesmo (`max(0, min(atual + delta, total))`), por isso um clique
+a mais não dá erro, dá o mesmo número.
+
+**O total a que o foil se compara é o FÍSICO** (`copies.qty`, o `qty_total`
+do tile), não o `qty` da Coleção: uma carta não deixa de ser foil por estar
+sleevada num deck ou nas cópias próprias dele. É o mesmo tecto do CHECK. Há
+teste com uma cópia sleevada: a grelha lê «1 na Coleção» e o foil vai a 3.
+
+No payload de cada impressão: `foil` e `foil_ok`. No `app.js`: `foilLinha`,
+`foilAjustar` (fila por impressão, sem `request_id` — repetir o mesmo pedido
+dá o mesmo resultado, é `min`/`max`), e o `applyLocal` corta o foil quando o
+total desce, como o `ao_descer` faz na base. O `/api/adjust` passou a devolver
+`foil` para o tile poder acertar.
+
+### 5. O resumo, por baixo do painel
+
+`#foil-resumo`, logo a seguir ao painel do topo e antes das barras: o total e
+uma linha por raridade — impressões, cópias, normais e foil —, da edição
+aberta ou de «Todas». Fica aí e não dentro do painel porque é outra pergunta:
+o painel conta o que FALTA, isto reparte o que ele TEM. Recalculado no cliente
+a cada `+`/`−` (`foilContar` é o gémeo do `foil.contar`, com teste que corre
+os dois no node, como o do painel); a verdade do servidor vai em
+`progress.foil` de cada edição e em `foil` do `api/index.json`. Nos 375 px os
+três blocos empilham.
+
+**Os números de arranque (tudo a zero foil):** OGN 172 impressões · 423
+cópias · 423 normais · 0 foil; SFD 123 · 345; UNL 123 · 346; VEN 94 · 262;
+**Todas 512 · 1376 · 1376 normais · 0 foil**.
+
+### 6. A CLI e a rota
+
+`riftvault foil` (o resumo por edição e raridade; `--edicao OGN` para uma só),
+`riftvault foil OGN-045` (uma impressão), `riftvault foil OGN-045 --mais 2` /
+`--menos 2`. `POST /api/foil/ajustar {printing_id, delta}` — 400 fora do
+âmbito, 404 se a impressão não existir. O `riftvault stats` ganhou a tabela.
+No site publicado é só de leitura: os `.steppers` já são escondidos pelo
+`body.readonly`, e o `editable: false` do payload nem os desenha.
+
+`tests/test_foil.py` (31 testes, contra pastas temporárias e config
+temporário). Suite: **38 ficheiros, 0 a falhar**.

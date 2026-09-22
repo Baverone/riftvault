@@ -17,6 +17,7 @@
     riftvault encomendas [--mais REF [N] | --menos REF [N] | --chegou [REF]]
     riftvault seguir [--jogador NOME] [--so-mudados] [--sem-rede] [--json]
     riftvault proprias [SLUG] [--mais REF [N] | --menos REF [N]]
+    riftvault foil [REF] [--mais [N] | --menos [N]] [--edicao OGN]
 """
 
 from __future__ import annotations
@@ -32,6 +33,7 @@ from . import build as build_mod
 from . import cardmarket, catalog, collection, config, db, decks as decks_mod
 from . import faltas as faltas_mod
 from . import faltas_edicao
+from . import foil as foil_mod
 from . import locais as locais_mod
 from . import metrics, painel, pending as pending_mod, prices
 from . import proprias as proprias_mod
@@ -234,6 +236,12 @@ def cmd_stats(args) -> int:
     # por bloco e por edição, sem as runas — o que ele vê nos três cartões.
     print("\nPainel da Coleção (impressões que chegaram a cada nível, sem runas):")
     print(painel.texto(painel.payload(con), sets))
+
+    # A contagem de foil das comuns e incomuns (2026-09-22): quantas cópias
+    # do âmbito estão marcadas como foil e quantas como normais. É uma
+    # repartição do que ele tem — não mexe em nenhuma das contas acima.
+    print("\nFoil e não-foil (comuns e incomuns, impressões base):")
+    print(foil_mod.texto(foil_mod.resumo(con), sets))
 
     # O que os decks têm de comprar (2026-09-11): a soma do `missing` de todos,
     # com o que dois decks disputam e a Coleção não chega a contar como falta.
@@ -908,6 +916,64 @@ def cmd_runas(args) -> int:
     return 0
 
 
+def cmd_foil(args) -> int:
+    """A contagem de FOIL e NÃO-FOIL das comuns e incomuns (2026-09-22).
+
+    Sem REF, o resumo por edição e por raridade (impressões, cópias, normais,
+    foil). Com REF, quantas dessa impressão são foil; `--mais`/`--menos [N]`
+    marcam e desmarcam. NÃO mexe no total de cópias — é só uma repartição do
+    que ele já tem, e nenhum número do site muda com isto.
+    """
+    con = db.connect()
+    if db.catalog_is_empty(con):
+        print("catálogo vazio — corre `riftvault sync`.", file=sys.stderr)
+        return 1
+    cfg = config.load()
+    if args.mais or args.menos:
+        if not args.ref:
+            print("erro: `--mais`/`--menos` precisam da impressão "
+                  "(`riftvault foil OGN-045 --mais 2`).", file=sys.stderr)
+            con.close()
+            return 1
+        delta = args.mais if args.mais else -args.menos
+        try:
+            r = foil_mod.ajustar(con, args.ref, delta, source="cli", cfg=cfg)
+        except (collection.UnknownPrinting, foil_mod.ForaDoAmbito) as exc:
+            print(str(exc), file=sys.stderr)
+            con.close()
+            return 1
+        print(f"{r['name']} [{_codigo_curto(r['code'])}]: {r['applied']:+d} -> "
+              f"{r['normal']} normais · {r['foil']} foil (de {r['qty']} cópias; "
+              f"o total não mexeu)")
+        con.close()
+        return 0
+    if args.ref:
+        try:
+            r = foil_mod.ajustar(con, args.ref, 0, source="cli", cfg=cfg)
+        except (collection.UnknownPrinting, foil_mod.ForaDoAmbito) as exc:
+            print(str(exc), file=sys.stderr)
+            con.close()
+            return 1
+        print(f"{r['name']} [{_codigo_curto(r['code'])}]: {r['normal']} normais · "
+              f"{r['foil']} foil (de {r['qty']} cópias)")
+        con.close()
+        return 0
+    sets = metrics.sets_payload(con, cfg)
+    if args.edicao:
+        sets = [s for s in sets if s["id"] == args.edicao.upper()]
+        if not sets:
+            print(f"edição desconhecida: {args.edicao}", file=sys.stderr)
+            con.close()
+            return 1
+    r = foil_mod.resumo(con, cfg, set_id=sets[0]["id"] if args.edicao else None)
+    print(foil_mod.texto(r, sets))
+    print(f"\nâmbito: impressões base, não sobrenumeradas, de raridade "
+          f"{'/'.join(r['raridades'])} (foil.raridades/foil.edicoes_fora). "
+          f"O não-foil é sempre cópias − foil: nunca se grava.", file=sys.stderr)
+    con.close()
+    return 0
+
+
 def cmd_proprias(args) -> int:
     """As CÓPIAS PRÓPRIAS de cada deck (2026-09-21): sem deck, uma linha por
     deck (quantas tem guardadas, quantas servem, o que falta); com o SLUG,
@@ -1559,6 +1625,16 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--menos", metavar="RUNA", help="tira do contador desta runa (nunca abaixo de 0)")
     p.add_argument("--n", type=int, default=1, help="quantas (omissão 1)")
     p.set_defaults(func=cmd_runas)
+
+    p = sub.add_parser("foil", help="quantas das comuns e incomuns são foil: o "
+                                    "resumo por edição, ou os + e - de uma impressão")
+    p.add_argument("ref", nargs="?", help="OGN-045, ogn-045-298 (sem ela, o resumo)")
+    p.add_argument("--mais", nargs="?", type=int, const=1, metavar="N",
+                   help="marca mais N cópias como foil (omissão 1)")
+    p.add_argument("--menos", nargs="?", type=int, const=1, metavar="N",
+                   help="desmarca N (nunca abaixo de 0)")
+    p.add_argument("--edicao", help="só esta edição (OGN, SFD, …)")
+    p.set_defaults(func=cmd_foil)
 
     p = sub.add_parser("proprias", help="as cópias PRÓPRIAS de cada deck (não contam "
                                         "para a Coleção): por deck, ou um deck carta a carta; + e -")

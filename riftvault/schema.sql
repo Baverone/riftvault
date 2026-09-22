@@ -1,9 +1,20 @@
 -- vault.db — a coleção do André. Vai para o Git.
 
 -- O GRÃO DA COLEÇÃO: quantidade por impressão.
--- Não há coluna de acabamento: decisão do André (2026-08-31) de tratar foil e
--- normal como a mesma coisa. Se um dia mudar, acrescenta-se `finish TEXT NOT
--- NULL DEFAULT 'normal'` e passa-se a chave primária a (printing_id, finish).
+-- O acabamento NÃO é parte do grão: decisão do André (2026-08-31) de tratar
+-- foil e normal como a mesma coisa. A chave continua a ser `(printing_id)` e
+-- o alvo do master set é por impressão — qualquer cópia o cumpre.
+--
+-- `qty_foil` (2026-09-22: *"para comuns e incomuns, coloca contagem para Foil
+-- e Non-Foil, para todas as edicoes excepto Proving Grounds"*) é quantas
+-- dessas cópias são foil. É uma REPARTIÇÃO do que já está contado, não um
+-- acabamento novo: não entra em conta nenhuma do site (ver `foil.py`).
+--
+-- O NÃO-FOIL NUNCA SE GRAVA: é `qty - qty_foil`, sempre derivado. Guardar os
+-- dois era ter duas verdades que mais cedo ou mais tarde deixavam de somar o
+-- total. O CHECK garante a invariante; quando o `qty` desce abaixo do
+-- `qty_foil`, é o `foil.ao_descer` que corta o foil primeiro, com linha na
+-- `foil_ops`.
 --
 -- Sem FK para catalog.printings: são bases de dados diferentes e o SQLite não
 -- suporta FK entre bases anexadas. A integridade é garantida no código
@@ -11,8 +22,25 @@
 CREATE TABLE IF NOT EXISTS copies (
     printing_id TEXT    PRIMARY KEY,
     qty         INTEGER NOT NULL CHECK (qty >= 0),
-    updated_at  TEXT    NOT NULL
+    updated_at  TEXT    NOT NULL,
+    qty_foil    INTEGER NOT NULL DEFAULT 0 CHECK (qty_foil >= 0 AND qty_foil <= qty)
 );
+
+-- O rasto da contagem de foil (2026-09-22). É o gémeo da `location_ops`, para
+-- a outra pergunta: quantas cópias de cada impressão ele marcou como foil, e
+-- quando. Guarda TAMBÉM as descidas forçadas — quando um `−` na grelha põe o
+-- total abaixo do foil marcado, o foil desce com ele e a linha fica aqui
+-- (`source` acaba em `:ajuste ao total`), para nenhuma cópia foil se evaporar
+-- em silêncio. Vive no vault.db, que vai para o Git.
+CREATE TABLE IF NOT EXISTS foil_ops (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts          TEXT    NOT NULL,
+    printing_id TEXT    NOT NULL,
+    delta       INTEGER NOT NULL,
+    qty_after   INTEGER NOT NULL,
+    source      TEXT    NOT NULL   -- 'web' | 'cli' | '<origem>:ajuste ao total'
+);
+CREATE INDEX IF NOT EXISTS ix_foil_ops_ts ON foil_ops(ts DESC);
 
 -- ONDE está cada cópia (André, 2026-09-10): *"a coleção fica em Binders de
 -- coleção; as cartas dos decks ficam em decks, e haverá um Binder que será

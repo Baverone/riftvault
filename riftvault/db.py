@@ -11,6 +11,7 @@ toda a coluna nova tem de entrar também em `_migrate()`.
 from __future__ import annotations
 
 import sqlite3
+from datetime import datetime
 from pathlib import Path
 
 from . import config
@@ -33,11 +34,43 @@ def _columns(con: sqlite3.Connection, table: str, schema: str = "main") -> set[s
         return set()
 
 
+def backup(con: sqlite3.Connection, motivo: str) -> Path | None:
+    """Uma cópia do vault.db ANTES de uma migração que mexe na tabela `copies`.
+
+    `VACUUM main INTO` em vez de copiar o ficheiro: o vault.db está em WAL e
+    uma cópia de ficheiro podia apanhar uma base a meio de uma transação. Vai
+    para `data/backups/` (que está no `.gitignore`) e nunca se apaga sozinha —
+    é a rede de segurança da coleção, que é a única coisa insubstituível aqui.
+
+    Devolve o caminho, ou `None` se não deu (uma migração não pode falhar por
+    causa do backup; quem chama decide).
+    """
+    alvo = config.DATA_DIR / "backups" / (
+        f"vault-{motivo}-{datetime.now().strftime('%Y%m%d-%H%M%S')}.db")
+    try:
+        alvo.parent.mkdir(parents=True, exist_ok=True)
+        con.execute("VACUUM main INTO ?", (str(alvo),))
+        return alvo
+    except (sqlite3.Error, OSError):
+        return None
+
+
 def _migrate(con: sqlite3.Connection) -> None:
     """Colunas acrescentadas depois da primeira versão do schema.
 
     `CREATE TABLE IF NOT EXISTS` não acrescenta colunas a tabelas já criadas.
     """
+    # A contagem de FOIL das comuns e incomuns (2026-09-22, `foil.py`). Uma
+    # base criada de raiz já traz a coluna do `schema.sql`; uma que já exista
+    # leva-a por aqui, com BACKUP antes — é a primeira migração desde o
+    # início que toca na tabela `copies`, que é a coleção dele. Idempotente:
+    # corre uma vez, na primeira ligação depois do merge.
+    cols = _columns(con, "copies")
+    if cols and "qty_foil" not in cols:
+        backup(con, "antes-do-foil")
+        con.execute("ALTER TABLE copies ADD COLUMN qty_foil INTEGER NOT NULL "
+                    "DEFAULT 0 CHECK (qty_foil >= 0 AND qty_foil <= qty)")
+
     cols = _columns(con, "decks")
     if cols:
         for name, decl in (
