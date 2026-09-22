@@ -62,6 +62,16 @@
          `progress.painel` de cada edição e em `painel` do index. -->
     <div id="painel" class="painel" aria-label="Contagem por níveis"></div>
 
+    <!-- Quantas das comuns e incomuns são foil (André, 2026-09-22): logo por
+         baixo do painel, uma tira com o total e uma linha por raridade —
+         impressões e cópias, normais e foil — da edição aberta (ou de
+         «Todas»). Fica aqui e não dentro do painel porque é outra pergunta:
+         o painel conta o que FALTA, isto reparte o que ele TEM. Desenha-o o
+         `renderFoilResumo`, recalculado a cada `+`/`−` como o painel; a
+         verdade do servidor vem em `progress.foil` de cada edição e em
+         `foil` do index. O OGS não tem (fica todo fora do âmbito). -->
+    <div id="foil-resumo" class="foil-resumo" aria-label="Foil e não-foil"></div>
+
     <div id="progress" class="progress-wrap">
       <div class="bar-block">
         <div class="bar-label"><span>Playsets jogáveis</span><b id="play-num">–</b></div>
