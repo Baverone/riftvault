@@ -163,12 +163,18 @@ class TestSaiuTudo(ComCatalogo):
         self.assertNotIn('data-section="faltas"', html)
         self.assertNotIn('id="falta-tabs"', html)
         self.assertNotIn('<section id="faltas"', html)
-        # Os separadores que ficam, pela ordem.
-        self.assertEqual(re.findall(r'data-section="([a-z-]+)"', html),
-                         ["colecao", "decks", "faltas-edicao", "a-mais", "encomendas"])
+        self.assertNotIn('<section id="sec-faltas"', html)
+        # As secções que ficam, pela ordem. Desde o rebrand (2026-09-24) a
+        # navegação vive na tabela `NAV` do app.js e a `SECCOES` ganhou o
+        # `inicio` — o painel de hoje.
+        self.assertEqual(re.findall(r'<section id="sec-([a-z-]+)"', html),
+                         ["inicio", "colecao", "decks", "faltas-edicao", "a-mais", "encomendas"])
         m = re.search(r"const SECCOES = \[(.*?)\];", js)
         self.assertEqual(re.findall(r"'([a-z-]+)'", m.group(1)),
-                         ["colecao", "decks", "faltas-edicao", "a-mais", "encomendas"])
+                         ["inicio", "colecao", "decks", "faltas-edicao", "a-mais", "encomendas"])
+        # E a barra lateral não tem o separador apagado.
+        nav = re.search(r"const NAV = \[(.*?)\n\];", js, re.S).group(1)
+        self.assertNotIn("sec: 'faltas'", nav)
         for nome in ("renderQuantoCusta", "loadQuantoCusta", "renderQcTabs", "qcLinha",
                      "'api/quanto_custa.json'", "#falta-tabs", "#falta-body", "qcSet"):
             self.assertNotIn(nome, js, nome)

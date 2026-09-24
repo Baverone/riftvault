@@ -93,6 +93,77 @@ na mesma — só as imagens é que não aparecem.
 
 ---
 
+## Como o site está organizado (2026-09-24)
+
+O riftvault é uma secção do **baverone.com** e veste a mesma roupa do
+`mtgvault`: barra lateral fixa à esquerda, cabeçalho de página com migalhas,
+fundo `#07080d`, Space Grotesk nos títulos e Inter no texto. O que muda de
+projeto para projeto é uma cor — aqui o **roxo `#a77bff`** — e a inicial do
+logótipo, o **«R»**.
+
+**A navegação sai de um sítio só:** a tabela `NAV` no `riftvault/web/app.js`.
+Dela saem a barra lateral, as migalhas e o título de cada página. Uma secção
+nova é uma linha ali.
+
+| grupo | página | o que responde |
+|---|---|---|
+| — | **Início** | o painel de hoje: master set, o que falta comprar, valor, decks montados, o que vem a caminho, a coleção extra |
+| Coleção | **Coleção** | a grelha, edição a edição |
+| | **Faltas** | o que falta para fechar cada edição, em quatro blocos |
+| | **A mais** | o excedente e o que os decks libertaram |
+| Decks | **Decks** | as listas montadas |
+| | **Staples** · **Por deck** · **Pimp decks** | as listas de compra dos decks |
+| Compras | **Encomendas** | o que compraste e ainda não chegou |
+
+**Cada vista tem endereço.** `#colecao/UNL`, `#faltas-edicao/OGN`,
+`#decks/ornn`, `#decks/staples`, `#encomendas/VEN` — dá para guardar nos
+favoritos e o «voltar» do browser sabe desfazer. Os nomes das rotas são os de
+sempre; o que mudou foi o id da `<section>` no DOM, que passou a `sec-<nome>`:
+a rota e o id eram o mesmo texto e o browser tratava `#decks` como âncora,
+abrindo a página já com o cabeçalho acima do topo do ecrã.
+
+**No telemóvel é a MESMA navegação**, num painel que abre no botão ☰ — não há
+um menu «de telemóvel» com menos coisas lá dentro.
+
+### Nada de botões a correr para o lado
+
+Era o problema, e está medido. As duas filas de separadores do topo tinham
+`overflow-x: auto`, e por isso o `scrollWidth` da página dava sempre 390 num
+telemóvel de 390 px — parecia que estava tudo bem. Medido num Chrome a sério,
+a 390 px, **antes**:
+
+| fila | largura real | largura visível | escondido |
+|---|---|---|---|
+| secções (Coleção … Encomendas) | 393 px | 232 px | 161 px |
+| edições (OGN … Todas) | 695 px | 390 px | 305 px |
+| **decks** (6 decks + 3 listas) | **1253 px** | 390 px | **863 px** |
+
+Dos nove botões dos decks viam-se três. **Depois: zero** — nenhum contentor
+da página tem conteúdo escondido para o lado, a 390 px ou a 1440 px. No lugar
+das filas ficaram:
+
+- o **seletor de edição**, um controlo segmentado que *envolve* (parte-se em
+  linhas em vez de correr);
+- o **índice vertical dos decks**, à esquerda do conteúdo no PC e um
+  `<select>` no telemóvel — os dois desenhados da mesma lista
+  (`itensDoIndice`), para não haver duas ordens nem dois rótulos.
+
+`tests/test_casca.py` fixa isto: sem `overflow-x: auto` no CSS, toda a secção
+com item na barra e vice-versa, nenhum link `#` partido, a rota e o id do DOM
+diferentes, e os ícones da navegação a existirem (SVG, nunca emojis — um
+emoji é desenhado pelo sistema e nunca acende com o rótulo).
+
+### O painel do Início não faz contas
+
+Todos os números vêm de payloads que as outras páginas já pediam
+(`api/index.json`, `api/decks.json`, `api/encomendas.json`,
+`api/faltas_edicao.json`) e aparecem como de lá vêm. Um painel com aritmética
+própria era uma segunda resposta às mesmas perguntas — e mais cedo ou mais
+tarde discordava da página a que manda ir. Há teste. Se um dos ficheiros não
+responder, o cartão fica a «—» e a página aguenta-se.
+
+---
+
 ## Ordenar e filtrar a grelha
 
 - **Ordem:** blocos seguidos, nunca intercalados, pela ordem de 2026-09-19
@@ -888,6 +959,8 @@ riftvault/
   build.py        modo publicado (estático)
   cli.py          linha de comandos
   web/            index.html + app.js + style.css — o MESMO nos dois modos
+                  (a casca — barra lateral, cabeçalho, rotas — sai da tabela
+                   NAV do app.js; os tokens da marca do topo do style.css)
 data/
   vault.db        a coleção e os decks. VAI para o Git. Só tu escreves.
   prices.db       histórico de preços. VAI para o Git. Só o robô escreve.

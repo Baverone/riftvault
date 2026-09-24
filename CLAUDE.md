@@ -5174,3 +5174,106 @@ No site publicado é só de leitura: os `.steppers` já são escondidos pelo
 
 `tests/test_foil.py` (31 testes, contra pastas temporárias e config
 temporário). Suite: **38 ficheiros, 0 a falhar**.
+
+## 24/09/2026 — o REBRAND: a casca do baverone.com, e a navegação sai das filas de botões
+
+Palavras dele: *"faz o mesmo rebrand para os outros projetos"*, depois de o
+`mtgvault` ter sido reestruturado nesse dia. Ordem em
+`ai-pc/work/rebrand-rift.md`; relatório, inventário, mapa antigo→novo e
+capturas antes/depois em `ai-pc/Claude outputs/rebrand-riftvault/`.
+
+**O riftvault é uma SPA, não um site de páginas.** O `mtgvault` gera um
+`.html` por página e a casca dele vive no `site_shell.py`; aqui há um
+`index.html` + `app.js` + `style.css`, os mesmos nos dois modos, e o
+`build.py` limita-se a copiá-los. Por isso **não se portou o `site_shell.py`**
+— seria trocar a arquitetura para não ganhar nada. O que se portou foi o
+SISTEMA: os mesmos tokens, a mesma barra lateral, o mesmo cabeçalho de
+página, os mesmos ícones. A «regra num sítio só» passou a ser a tabela `NAV`
+do `app.js`, de onde saem a barra, as migalhas e os títulos.
+
+### O que estava mal, e está medido
+
+As duas filas de separadores do topo tinham `overflow-x: auto`. Um teste que
+olhasse para o `scrollWidth` do documento dizia 390 num telemóvel de 390 px e
+dava tudo por bom — o conteúdo estava escondido DENTRO do contentor. Medido
+num Chrome a sério, a 390 px, contra o site publicado (que ainda tinha o
+código antigo): a fila das secções ocupava **393 px em 232**, a das edições
+**695 em 390** e a dos decks **1253 px em 390** — de nove botões viam-se três.
+Depois: **zero contentores com conteúdo escondido para o lado**, a 390 e a
+1440 px, em todas as secções.
+
+### O que ficou
+
+| | antes | agora |
+|---|---|---|
+| navegação | duas filas de botões com scroll lateral, no `index.html` | barra lateral fixa (≥ 900 px) e painel ☰ no telemóvel, da tabela `NAV` |
+| edições | `nav.tabs` com scroll | controlo segmentado que ENVOLVE (`.segwrap`) |
+| decks (9 botões) | `nav.tabs` com scroll | índice vertical (`.vidx`) e `<select>` no telemóvel, os dois do `itensDoIndice()` |
+| cabeçalho | `<h1>riftvault</h1>` e mais nada | migalhas, título (= o rótulo da barra), subtítulo por vista |
+| explicações longas | soltas na página | `<details>` «Como ler esta página», no rodapé |
+| rotas | `#decks` | `#decks/ornn`, `#colecao/UNL`, `#faltas-edicao/OGN`, … |
+| cor | azul `#7c8cff` e a paleta H em azul | **roxo `#a77bff`**, logótipo «R» |
+| letra | `system-ui` | Space Grotesk + Inter (Google Fonts, com pilha de sistema) |
+
+**Os NOMES das secções não mudaram** (`colecao`, `decks`, `faltas-edicao`,
+`a-mais`, `encomendas`) — são a rota e a chave das preferências guardadas.
+**O id da `<section>` no DOM mudou para `sec-<nome>`**, e isso é a correção
+de um bug que nasceu com a rota: os dois eram o mesmo texto, o browser
+tratava `#decks` como âncora e saltava para a secção — a página abria com as
+migalhas, o título, o seletor de edição e (no telemóvel) o `<select>` dos
+decks já acima do topo do ecrã. Um `scrollTo(0, 0)` não chega: o salto do
+browser é DEPOIS do `boot()`.
+
+### A secção nova: «Início»
+
+O painel de hoje — master set nos três níveis, o que falta comprar, o valor,
+os decks montados, o que vem a caminho, a coleção extra —, os atalhos e a
+lista dos decks com as percentagens. **Não faz conta nenhuma**: tudo sai do
+`api/index.json`, do `api/decks.json`, do `api/encomendas.json` e do
+`api/faltas_edicao.json`, como de lá vem, e há teste que o fixa (um painel com
+aritmética própria era uma segunda resposta às mesmas perguntas). Os três
+últimos chegam depois e um que falhe deixa o cartão a «—».
+
+**O «Quanto custa» da arquitetura sugerida na ordem NÃO foi reconstruído.** Foi
+apagado a 2026-09-19 a pedido dele (*"podes apagar o botao do 'Quanto
+custa'"*), e este ficheiro diz «não voltar a construir sem ele pedir». A ordem
+do rebrand dizia «ajusta depois do inventário» — o inventário diz que foi ele
+que o mandou apagar há cinco dias. Fica como pergunta no RESUMO.
+
+### Erros corrigidos pelo caminho (*"corrige tudo o que achares que é erro"*)
+
+1. **A rota era âncora** — o de cima. Era o mais grave: no telemóvel comia o
+   cabeçalho inteiro de qualquer página aberta por `#`.
+2. **`loadDeck` não protegia contra respostas fora de ordem.** Dois cliques
+   rápidos em decks diferentes e o payload lento desenhava por cima do
+   rápido. O `loadSet` já tinha essa guarda desde 21/09; o `loadDeck` não.
+   Também deixou de ficar com o cabeçalho do deck anterior enquanto carrega.
+3. **`renderEncTabs` escrevia o nome da edição sem escapar** (`${s.name}`),
+   ao contrário de todos os outros separadores.
+4. O `api/decks.json` era pedido duas vezes quando o Início e os Decks
+   abriam na mesma visita (`garanteDecks`).
+5. O painel do Início, na primeira versão, chamou «impressões» às cópias que
+   faltam (`niveis.missing` conta CÓPIAS, `done`/`total` contam IMPRESSÕES) e
+   escreveu «Catálogo (RiftScribe)» ao lado de `totals.printings`, que é
+   quantas impressões ele TEM (1006) e não o tamanho do catálogo (1180).
+   Apanhados na revisão das capturas, antes do merge.
+6. O painel ☰ recebia o foco ao abrir e o `:focus-visible` desenhava uma
+   risca roxa de alto a baixo ao lado da navegação.
+7. **Na cópia publicada o subtítulo da Coleção prometia os `+`/`−`**, numa
+   página onde eles estão escondidos de propósito. As páginas que falam de
+   escrita ganharam um `sub_ro` no `PAGINA`, usado quando `!state.editable`.
+
+### Medido
+
+Os números da coleção **não mexem** — isto é apresentação e não toca em
+Python nenhum a não ser nos testes: o rebrand mudou `riftvault/web/*`,
+`README.md`, este ficheiro e cinco ficheiros de teste que descreviam a casca
+antiga. Nenhum `.py` do pacote foi tocado.
+
+`tests/test_casca.py` (26 testes) fixa a navegação, as rotas, os links e a
+ausência de scroll lateral. `test_painel` (a paleta), `test_a_mais`,
+`test_faltas_nova`, `test_encomendas_separador` e `test_sem_quanto_custa`
+foram ajustados porque descreviam a fila de botões. Suite: **39 ficheiros,
+784 testes, 0 a falhar** (um processo por ficheiro — a bateria toda num
+processo só tem 13 falhas de estado partilhado que já lá estavam, no
+`test_mesma_legend` e no `test_nome_do_deck`, que passam sozinhos).

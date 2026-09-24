@@ -558,15 +558,23 @@ class TestOSite(Base):
         self.assertNotIn('id="rarities"', html)
 
     def test_a_paleta_esta_em_variaveis_no_topo(self):
+        """A paleta vive no `:root`, não espalhada pelas regras.
+
+        Os VALORES mudaram no rebrand de 2026-09-24 (o painel era o único
+        bloco do site ainda em azul, e a cor do projeto é o roxo #a77bff); o
+        que este teste defende é a regra que não mudou — quem quiser mudar a
+        cor muda num sítio só.
+        """
         css = (REPO / "riftvault" / "web" / "style.css").read_text(encoding="utf-8")
         raiz = css[css.index(":root {"):css.index("}", css.index(":root {"))]
-        for var, cor in (("--h-bg", "#0E1526"), ("--h-card", "#16203A"), ("--h-line", "#233150"),
-                         ("--h-text", "#EAF0FB"), ("--h-dim", "#9FB0CC"), ("--h-dim-2", "#8093B0"),
-                         ("--lvl-1", "#3D6FA8"), ("--lvl-2", "#4A93E0"), ("--lvl-3", "#7FC8FF")):
+        for var, cor in (("--bg", "#07080d"), ("--card", "#12151f"), ("--ink", "#eef0f6"),
+                         ("--muted", "#8c93a8"), ("--accent", "#a77bff"),
+                         ("--h-card", "var(--card)"), ("--h-text", "var(--ink)"),
+                         ("--lvl-1", "#5b43a0"), ("--lvl-2", "#8a63e0"), ("--lvl-3", "#c3a6ff")):
             self.assertIn(f"{var}: {cor}", raiz, var)
         # E as cores não aparecem espalhadas pelas regras.
         resto = css[css.index("}", css.index(":root {")):]
-        for cor in ("#16203A", "#3D6FA8", "#7FC8FF"):
+        for cor in ("#a77bff", "#5b43a0", "#8a63e0", "#c3a6ff", "#12151f"):
             self.assertNotIn(cor, resto, cor)
         self.assertIn("@media (max-width: 699px)", css)
 

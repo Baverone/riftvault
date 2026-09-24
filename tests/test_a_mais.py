@@ -346,8 +346,12 @@ class TestRotasEBuild(Base):
     def test_o_site_tem_o_separador(self):
         html = (REPO / "riftvault" / "web" / "index.html").read_text(encoding="utf-8")
         js = (REPO / "riftvault" / "web" / "app.js").read_text(encoding="utf-8")
-        self.assertIn('data-section="a-mais"', html)
+        # Desde o rebrand (2026-09-24) a navegação é a tabela `NAV` do app.js,
+        # não uma fila de botões no index.html; a secção no DOM leva `sec-`
+        # à frente para a rota `#a-mais` não ser uma âncora.
+        self.assertIn('<section id="sec-a-mais"', html)
         self.assertIn('id="am-body"', html)
+        self.assertIn("sec: 'a-mais'", js)
         self.assertIn("api/a_mais.json", js)
         self.assertIn("'a-mais'", js)
         # Não é a Venda: sem botões do Cardmarket nem totais a vender.

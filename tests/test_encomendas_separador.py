@@ -359,8 +359,11 @@ class TestFrontend(unittest.TestCase):
         self.html = (REPO / "riftvault" / "web" / "index.html").read_text(encoding="utf-8")
 
     def test_o_separador_existe_e_pede_a_grelha_por_edicao(self):
-        self.assertIn('data-section="encomendas"', self.html)
-        self.assertIn('id="encomendas"', self.html)
+        # Desde o rebrand (2026-09-24) a navegação é a tabela `NAV` do app.js,
+        # não uma fila de botões no index.html; a secção no DOM leva `sec-`
+        # à frente para a rota `#encomendas` não ser uma âncora.
+        self.assertIn("sec: 'encomendas'", self.js)
+        self.assertIn('<section id="sec-encomendas"', self.html)
         self.assertRegex(self.js, r"SECCOES = \[[^\]]*'encomendas'")
         self.assertIn("api/encomendas/${", self.js)
         self.assertIn("'api/encomendas.json'", self.js)

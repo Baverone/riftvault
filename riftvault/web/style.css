@@ -2,15 +2,57 @@
    Pensado primeiro para telemóvel: os +/- têm de dar para carregar com o
    polegar enquanto se está a mexer nas cartas com a outra mão. */
 
+/* ===========================================================================
+   OS TOKENS — a identidade Baverone (2026-09-24)
+
+   Pedido do André, à letra: *"faz o mesmo rebrand para os outros projetos"*,
+   depois de o mtgvault ter sido reestruturado. Os valores são os do
+   `mtgvault/site_shell.py` (fundo #07080d, painéis #0e1018/#12151f, texto
+   #eef0f6, secundário #8c93a8, linhas rgba(255,255,255,.07)); o que muda de
+   projeto para projeto é UMA cor — aqui o **roxo #a77bff** — e a inicial do
+   logótipo, o «R».
+
+   Os nomes antigos (`--panel`, `--panel-2`, `--text`, `--accent-2`, …) ficam
+   como aliases dos novos: são lidos por ~900 linhas de regras que descrevem
+   os tiles, o painel e os decks, e trocá-los todos era reescrever CSS que
+   está certo para não mudar nada no ecrã.
+   =========================================================================== */
 :root {
-  --bg: #0f1016;
-  --panel: #181a24;
-  --panel-2: #1f2230;
-  --line: #2b2f40;
-  --text: #e8e9f0;
-  --dim: #9aa0b5;
-  --accent: #7c8cff;      /* playset jogável */
-  --accent-2: #f0b429;    /* master set */
+  /* — a base — */
+  --bg: #07080d;
+  --card2: #0e1018;         /* barra lateral, cabeçalho e rodapé */
+  --card: #12151f;          /* painéis */
+  --card3: #171b28;         /* realces dentro de um painel */
+  --ink: #eef0f6;
+  --ink2: #c8cede;
+  --muted: #8c93a8;
+  --line: rgba(255, 255, 255, .07);
+  --line2: rgba(255, 255, 255, .13);
+
+  /* — a cor do projeto — */
+  --accent: #a77bff;
+  --accent-ink: #0b0713;    /* texto POR CIMA do roxo: branco dava 2,6:1 */
+  --accent-soft: #1d1430;
+  --accent-line: #4a3580;
+
+  --font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-hd: 'Space Grotesk', 'Inter', system-ui, -apple-system, sans-serif;
+  --maxw: 1200px;
+  --side: 258px;
+  /* Quanto é que a casca ocupa no topo do ecrã: zero no PC (não há barra
+     fixa) e a altura da barra ☰ no telemóvel. É por isto que tudo o que se
+     prende ao topo o usa — sem ela, uma secção nascia por baixo do botão. */
+  --sticky: 0px;
+  --r: 12px;
+  --r2: 16px;
+  --sombra: 0 10px 30px rgba(0, 0, 0, .35);
+
+  /* — aliases do CSS que já existia — */
+  --panel: var(--card);
+  --panel-2: var(--card3);
+  --text: var(--ink);
+  --dim: var(--muted);
+  --accent-2: #f0b429;    /* master set: fica dourado, para não ser o roxo */
   --ok: #3ecf8e;
   --bad: #ff6b6b;
   /* 104px dá 3 colunas num telemóvel de 375px. Menos do que isto e os +/-
@@ -18,22 +60,24 @@
   --tile: 104px;
 
   /* A paleta do «layout H» (André, 2026-09-21), a da maqueta
-     `layout-H-cartoes.html`. Por agora só o painel do topo da Coleção a usa;
-     fica aqui em cima, e não espalhada pelas regras, para se alargar às
+     `layout-H-cartoes.html`, RETINTADA para o roxo do projeto a 2026-09-24:
+     o painel é o maior bloco de cor da Coleção e era o único sítio do site
+     ainda em azul. A geometria e os nomes não mudaram.
+     Fica aqui em cima, e não espalhada pelas regras, para se alargar às
      outras abas quando ele quiser — muda-se num sítio. */
-  --h-bg: #0E1526;          /* fundo da página */
-  --h-card: #16203A;        /* cartão e quadro */
-  --h-line: #233150;        /* borda */
-  --h-track: #1E2A45;       /* o fundo das barras */
-  --h-text: #EAF0FB;
-  --h-dim: #9FB0CC;         /* texto secundário */
-  --h-dim-2: #8093B0;       /* rótulos em maiúsculas, denominadores */
-  --h-on: #4A93E0;          /* botão escolhido */
-  --h-on-bg: rgba(74, 147, 224, .16);
+  --h-bg: var(--bg);        /* fundo da página */
+  --h-card: var(--card);    /* cartão e quadro */
+  --h-line: var(--line);    /* borda */
+  --h-track: #1d2130;       /* o fundo das barras */
+  --h-text: var(--ink);
+  --h-dim: var(--ink2);     /* texto secundário */
+  --h-dim-2: var(--muted);  /* rótulos em maiúsculas, denominadores */
+  --h-on: var(--accent);    /* botão escolhido */
+  --h-on-bg: var(--accent-soft);
   /* A rampa dos três níveis: 1 de cada (escura), 2 de cada, playset (clara). */
-  --lvl-1: #3D6FA8;
-  --lvl-2: #4A93E0;
-  --lvl-3: #7FC8FF;
+  --lvl-1: #5b43a0;
+  --lvl-2: #8a63e0;
+  --lvl-3: #c3a6ff;
   /* As bolinhas das categorias, por raridade e por domínio. */
   --rar-common: #C3CEDF;
   --rar-uncommon: #7FD1A8;
@@ -61,52 +105,257 @@ html, body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font: 15px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font: 15px/1.55 var(--font);
+  -webkit-font-smoothing: antialiased;
   -webkit-text-size-adjust: 100%;
 }
+body { padding-bottom: env(safe-area-inset-bottom); }
 
-a { color: var(--accent); }
+h1, h2, h3, h4, .fonte-hd { font-family: var(--font-hd); letter-spacing: -.01em; }
+a { color: var(--accent); text-underline-offset: 2px; }
+img, svg, video, canvas, table, pre { max-width: 100%; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
 
-/* ---------------------------------------------------------------- topo */
-
-header {
-  position: sticky;
-  top: 0;
-  z-index: 30;
-  background: rgba(15, 16, 22, .96);
-  backdrop-filter: blur(8px);
-  border-bottom: 1px solid var(--line);
-  padding: env(safe-area-inset-top) 0 0;
+.salta {
+  position: absolute; left: -9999px; top: 0; z-index: 99;
+  background: var(--accent); color: var(--accent-ink);
+  padding: 10px 16px; border-radius: 0 0 10px 0; font-weight: 700;
 }
+.salta:focus { left: 0; }
 
-.brand { display: flex; align-items: center; gap: 10px; padding: 8px 12px 0; }
-.brand h1 { margin: 0; font-size: 16px; letter-spacing: .5px; font-weight: 700; }
-.brand .tabs { padding: 0; margin-left: auto; }
+/* ===================================================== OS ÍCONES, num sítio só
 
+   SVG e não emoji: um emoji é desenhado pelo SISTEMA, não pela página — o
+   mesmo caráter sai com outro peso e outra cor no Android dele e no Chrome do
+   PC, e nunca acende com o rótulo quando o item da barra fica activo. Com
+   `currentColor` e traço 1.8, acende. A geometria é a do conjunto Feather
+   (MIT), redesenhada em `path`s soltos no `app.js` (`ICO`).                 */
+svg.ico {
+  display: inline-block; flex: none; width: 18px; height: 18px;
+  fill: none; stroke: currentColor; stroke-width: 1.8;
+  stroke-linecap: round; stroke-linejoin: round; vertical-align: -.16em;
+}
+svg.i14 { width: 14px; height: 14px; }
+svg.i16 { width: 16px; height: 16px; }
+svg.i17 { width: 17px; height: 17px; }
+svg.i20 { width: 20px; height: 20px; }
+.ic > svg.ico { display: block; vertical-align: baseline; }
+
+/* ======================================================== A ESTRUTURA DA CASCA
+
+   Era um `<header>` fixo com DUAS filas de botões que corriam para o lado (os
+   separadores de secção e os das edições/decks); num telemóvel de 390 px a
+   segunda fila chegava aos 1042 px — mais de dois ecrãs e meio escondidos.
+   Passou a BARRA LATERAL fixa (≥ 900 px), agrupada por secções, e no telemóvel
+   a MESMA navegação abre num painel ☰. O corpo nunca tem scroll horizontal. */
+.shell { display: flex; min-height: 100vh; align-items: stretch; }
+.mainc { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+main { flex: 1 0 auto; padding: 0; }
+.wrap, .pghin {
+  width: 100%; max-width: var(--maxw); margin-inline: auto;
+  padding-inline: clamp(14px, 2.6vw, 30px);
+}
+.wrap { padding-block: 20px 64px; }
+
+/* --------------------------------------------------------- barra lateral */
+.side {
+  flex: 0 0 var(--side); width: var(--side);
+  background: var(--card2); border-right: 1px solid var(--line);
+  position: sticky; top: 0; align-self: flex-start; height: 100vh;
+  overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin;
+  display: flex; flex-direction: column; z-index: 40;
+}
+/* O painel recebe o foco quando abre, para o Tab seguinte entrar no menu — mas
+   é um CONTENTOR com `tabindex="-1"`, não um controlo: o anel do `:focus-visible`
+   desenhava uma risca roxa de alto a baixo ao lado da navegação. Os links lá
+   dentro continuam a ter o seu. */
+.side:focus, .side:focus-visible { outline: none; }
+.sidetop { padding: 18px 16px 12px; border-bottom: 1px solid var(--line); }
+.casa {
+  display: inline-flex; align-items: center; gap: 6px; color: var(--muted);
+  font-size: 11.5px; font-weight: 600; text-decoration: none; padding: 3px 0;
+}
+.casa:hover { color: var(--accent); }
+.marca { display: flex; align-items: center; gap: 9px; margin-top: 8px; color: var(--ink); text-decoration: none; }
+.marca .mk {
+  width: 30px; height: 30px; flex: none; border-radius: 9px;
+  display: grid; place-items: center;
+  background: linear-gradient(145deg, var(--accent), #6f46c4);
+  color: var(--accent-ink); font-weight: 800; font-size: 15px; font-family: var(--font-hd);
+}
+.marca b { font-family: var(--font-hd); font-size: 16.5px; font-weight: 700; letter-spacing: -.02em; }
+.marca small {
+  display: block; color: var(--muted); font-size: 10.5px; font-weight: 600;
+  letter-spacing: .09em; text-transform: uppercase; line-height: 1.3;
+}
 .badge-mode {
-  font-size: 11px; color: var(--dim);
-  border: 1px solid var(--line); border-radius: 99px; padding: 1px 8px;
+  display: inline-block; margin-top: 10px;
+  font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--accent-2); background: #2a2210; border: 1px solid #5a4a1c;
+  border-radius: 99px; padding: 2px 9px;
 }
-
-.tabs { display: flex; gap: 4px; overflow-x: auto; padding: 6px 12px; scrollbar-width: none; }
-.tabs::-webkit-scrollbar { display: none; }
-
-.tab {
-  flex: 0 0 auto;
-  background: transparent; color: var(--dim);
-  border: 1px solid transparent; border-radius: 99px;
-  padding: 6px 12px; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
+.sidenav { padding: 10px 10px 22px; flex: 1 0 auto; }
+.sgrp { margin-top: 14px; }
+.sgrp:first-child { margin-top: 2px; }
+.sgh {
+  padding: 6px 10px 5px; font-size: 10px; font-weight: 700; letter-spacing: .11em;
+  text-transform: uppercase; color: var(--muted);
 }
-.tab.is-on { color: var(--text); background: var(--panel-2); border-color: var(--line); }
-.tab:disabled { opacity: .35; cursor: default; }
+.sli {
+  display: flex; align-items: center; gap: 9px; padding: 8px 10px; border-radius: 10px;
+  color: var(--ink2); text-decoration: none; font-size: 13.5px; font-weight: 600;
+  line-height: 1.25; min-height: 38px; transition: background .12s, color .12s;
+}
+.sli .ic { flex: none; width: 19px; display: flex; align-items: center; justify-content: center; color: var(--muted); }
+.sli .tx { min-width: 0; }
+.sli .tx small {
+  display: block; color: var(--muted); font-size: 11px; font-weight: 500;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.sli:hover { background: var(--card); color: var(--ink); }
+.sli:hover .ic { color: var(--ink2); }
+.sli.cur { background: var(--accent-soft); color: var(--accent); box-shadow: inset 2px 0 0 var(--accent); }
+.sli.cur .ic { color: var(--accent); }
+.sli.cur .tx small { color: #9b86c8; }
+.sli.sub { min-height: 32px; padding: 5px 10px 5px 14px; font-size: 12.5px; font-weight: 500; color: var(--muted); }
+.sli.sub .ic { width: 16px; }
+.sli.sub:hover { color: var(--ink); }
+.sli.sub.cur { color: var(--accent); background: var(--accent-soft); }
+.sidept {
+  padding: 12px 16px 18px; border-top: 1px solid var(--line);
+  color: var(--muted); font-size: 11px; line-height: 1.5;
+}
+.sidept a { color: var(--muted); text-decoration: none; }
+.sidept a:hover { color: var(--accent); }
 
-.tabs-set { padding-top: 0; }
-.tabs-set .tab { font-size: 14px; }
-.tabs-set .tab small { display: block; font-weight: 400; font-size: 10px; opacity: .7; }
+/* ------------------------------------------------- barra de topo (móvel) */
+.topbar {
+  display: none; position: sticky; top: 0; z-index: 35; align-items: center; gap: 10px;
+  padding: 9px clamp(10px, 3vw, 16px); background: rgba(7, 8, 13, .94);
+  backdrop-filter: blur(10px); border-bottom: 1px solid var(--line);
+}
+.menub {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 6px 12px;
+  border-radius: 10px; border: 1px solid var(--line2); background: var(--card);
+  color: var(--ink); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+}
+.menub:hover { border-color: var(--accent); }
+.tbt {
+  font-family: var(--font-hd); font-weight: 700; font-size: 15px; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.veu { position: fixed; inset: 0; background: rgba(3, 4, 8, .62); z-index: 38; border: 0; }
+
+/* --------------------------------------------------- cabeçalho da página */
+.pgh {
+  border-bottom: 1px solid var(--line);
+  background: radial-gradient(900px 260px at 12% -60%, rgba(167, 123, 255, .10), transparent 70%),
+              var(--card2);
+}
+.pgh .pghin { padding-block: 20px 18px; }
+.crumbs {
+  font-size: 11.5px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 5px;
+  align-items: center; margin-bottom: 7px;
+}
+.crumbs a { color: var(--muted); text-decoration: none; }
+.crumbs a:hover { color: var(--accent); }
+.crumbs b { color: var(--ink2); font-weight: 600; }
+.crumbs i { font-style: normal; color: var(--line2); }
+.pgtop { display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+.pgtit { min-width: 0; flex: 1 1 320px; }
+h1.pgt { margin: 0; font-size: clamp(21px, 2.6vw, 27px); font-weight: 700; letter-spacing: -.025em; }
+.pgsub { margin: 5px 0 0; color: var(--muted); font-size: 13px; line-height: 1.55; max-width: 78ch; }
+.pgsub:empty { display: none; }
+.pgsub b { color: var(--ink2); }
+
+/* ---------------------------------------------------------------- rodapé */
+.pgft { border-top: 1px solid var(--line); background: var(--card2); color: var(--muted); font-size: 12px; }
+.pgft .pghin { padding-block: 18px 30px; }
+.pgft details.comoler > summary {
+  cursor: pointer; list-style: none; display: inline-flex; align-items: center; gap: 7px;
+  color: var(--muted); font-weight: 700; font-size: 12.5px; padding: 7px 12px;
+  border: 1px solid var(--line2); border-radius: 10px; background: var(--card); min-height: 36px;
+}
+.pgft details.comoler > summary::-webkit-details-marker { display: none; }
+.pgft details.comoler > summary:hover { border-color: var(--accent); color: var(--ink2); }
+.pgft details.comoler[open] > summary { margin-bottom: 12px; }
+.pgft details.comoler .cltx { max-width: 92ch; line-height: 1.65; }
+.pgft details.comoler .cltx p { margin: 0 0 8px; }
+.pgft code { background: var(--bg); padding: 1px 5px; border-radius: 5px; }
+
+/* ============================ A BARRA DE CADA SECÇÃO (o seletor de edição)
+
+   Era a segunda fila de botões com scroll lateral. Agora é um controlo
+   segmentado que ENVOLVE — a 390 px parte-se em duas ou três linhas e
+   vê-se inteiro. Nunca `overflow-x`.                                       */
+.secbar { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+.seglbl {
+  font-size: 10px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase;
+  color: var(--muted); flex: none; padding-top: 8px;
+}
+.segwrap {
+  display: flex; flex-wrap: wrap; gap: 4px; padding: 4px; border-radius: 12px;
+  background: var(--card2); border: 1px solid var(--line); overflow: visible;
+  flex: 1 1 auto; min-width: 0;
+}
+.segwrap .tab {
+  appearance: none; border: 0; background: transparent; color: var(--muted);
+  font: inherit; font-size: 12.5px; font-weight: 600; padding: 6px 12px; border-radius: 9px;
+  cursor: pointer; min-height: 36px; text-align: left; line-height: 1.2;
+}
+.segwrap .tab small { display: block; font-weight: 500; font-size: 10.5px; opacity: .8; }
+.segwrap .tab:hover { color: var(--ink); background: var(--card); }
+.segwrap .tab.is-on {
+  background: var(--accent-soft); color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent-line);
+}
+.segwrap .tab.is-on small { color: #9b86c8; opacity: 1; }
+.segwrap .tab:disabled { opacity: .35; cursor: default; }
+
+/* ================== ÍNDICE VERTICAL: a alternativa à fila que corria para o lado
+
+   Em ecrã largo fica numa coluna à esquerda do conteúdo; no telemóvel vira um
+   `<select>`. É onde vivem os nomes dos decks — nove botões numa fila davam
+   1042 px de largura num ecrã de 390.                                       */
+.comidx { display: grid; grid-template-columns: 228px minmax(0, 1fr); gap: 20px; align-items: start; }
+.comidx-corpo { min-width: 0; }
+.vidx {
+  position: sticky; top: calc(var(--sticky) + 12px); max-height: calc(100vh - 24px);
+  overflow-y: auto; scrollbar-width: thin; background: var(--card2);
+  border: 1px solid var(--line); border-radius: var(--r2); padding: 8px;
+}
+.vidx .vgh {
+  padding: 9px 10px 5px; font-size: 10px; font-weight: 700; letter-spacing: .11em;
+  text-transform: uppercase; color: var(--muted);
+}
+.vidx button {
+  display: flex; width: 100%; text-align: left; gap: 8px; align-items: center;
+  appearance: none; border: 0; background: transparent; color: var(--ink2); font: inherit;
+  font-size: 13px; font-weight: 600; padding: 7px 10px; border-radius: 9px; cursor: pointer;
+  min-height: 36px; line-height: 1.25;
+}
+.vidx button:hover { background: var(--card); color: var(--ink); }
+.vidx button.is-on { background: var(--accent-soft); color: var(--accent); box-shadow: inset 2px 0 0 var(--accent); }
+.vidx .vtx { min-width: 0; flex: 1; }
+.vidx .vtx small {
+  display: block; font-size: 11px; font-weight: 500; color: var(--muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.vidx button.is-on .vtx small { color: #9b86c8; }
+.vidx .ic { flex: none; width: 18px; display: flex; align-items: center; justify-content: center; color: var(--muted); }
+.vidx button.is-on .ic { color: var(--accent); }
+.vidxsel { display: none; margin: 0 0 14px; }
+.vidxsel .vlbl {
+  display: block; font-size: 10px; font-weight: 700; letter-spacing: .11em;
+  text-transform: uppercase; color: var(--muted); margin-bottom: 5px;
+}
+.selc {
+  background: var(--card); color: var(--ink); border: 1px solid var(--line2);
+  border-radius: 10px; font: inherit; font-size: 13px; font-weight: 600;
+  padding: 9px 12px; min-height: 40px; width: 100%; max-width: 100%; cursor: pointer;
+}
 
 /* ------------------------------------------------------- barras e stats */
-
-main { padding: 12px; max-width: 1500px; margin: 0 auto; }
 
 .progress-wrap {
   display: grid; gap: 12px;
@@ -940,9 +1189,127 @@ body.readonly .btn.chegou { display: none; }
   border-radius: 7px; padding: 6px 11px; font: inherit; font-weight: 600; cursor: pointer;
 }
 
-.foot { text-align: center; color: var(--dim); font-size: 11px; padding: 24px 12px 40px; }
+.foot { color: var(--muted); font-size: 11.5px; margin: 14px 0 0; line-height: 1.6; }
+
+/* ================================================================== INÍCIO
+
+   O painel de hoje. Não há conta nova nenhuma aqui: os números saem todos do
+   `api/index.json` (níveis, valor, totais), do `api/decks.json`, do
+   `api/encomendas.json` e do `api/faltas_edicao.json` — os mesmos ficheiros
+   que as outras secções já pediam. Se um deles não responder, o cartão diz
+   «—» e a página continua de pé.                                            */
+
+.ini-cartoes {
+  display: grid; gap: 12px; margin-bottom: 26px;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+}
+.ini-card {
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--r2);
+  padding: 15px 17px 16px;
+}
+.ini-card .k {
+  display: flex; align-items: center; gap: 7px; color: var(--muted);
+  font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+}
+.ini-card .v {
+  font-family: var(--font-hd); font-size: 30px; font-weight: 700; letter-spacing: -.03em;
+  margin: 9px 0 0; line-height: 1.05; font-variant-numeric: tabular-nums;
+}
+.ini-card .v small {
+  font-size: 17px; color: var(--muted); font-weight: 600;
+  letter-spacing: -.01em; margin-left: 2px;
+}
+.ini-card .n { margin: 7px 0 0; font-size: 12px; color: var(--muted); line-height: 1.5; }
+.ini-card .n b { color: var(--ink2); }
+.ini-card.ok .v { color: var(--ok); }
+.ini-card.gold .v { color: var(--accent-2); }
+.ini-card.rox .v { color: var(--accent); }
+.ini-card.aviso .v { color: var(--bad); }
+
+.ini-h {
+  font-size: 10.5px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase;
+  color: var(--muted); margin: 0 0 11px;
+}
+.ini-atalhos { margin-bottom: 26px; }
+.ini-atalhos-in { display: flex; flex-wrap: wrap; gap: 10px; }
+.ini-atalho {
+  display: flex; align-items: center; gap: 10px; text-decoration: none;
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--r);
+  padding: 11px 15px; color: var(--ink); min-height: 44px; flex: 1 1 210px;
+}
+.ini-atalho:hover { border-color: var(--accent); }
+.ini-atalho .ic { color: var(--muted); flex: none; }
+.ini-atalho:hover .ic { color: var(--accent); }
+.ini-atalho b { display: block; font-size: 13.5px; font-weight: 700; }
+.ini-atalho small { display: block; color: var(--muted); font-size: 11.5px; font-weight: 500; }
+
+.ini-decks { margin-bottom: 26px; }
+.ini-lista { background: var(--card); border: 1px solid var(--line); border-radius: var(--r2); overflow: hidden; }
+.ini-linha {
+  display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+  appearance: none; border: 0; background: transparent; color: inherit; font: inherit;
+  padding: 12px 16px; border-top: 1px solid var(--line); cursor: pointer;
+}
+.ini-linha:first-child { border-top: 0; }
+.ini-linha:hover { background: var(--card3); }
+.ini-linha .nm { flex: 1 1 auto; min-width: 0; }
+.ini-linha .nm b { display: block; font-size: 13.5px; font-weight: 700; }
+.ini-linha .nm small { display: block; color: var(--muted); font-size: 11.5px; }
+.ini-linha .pc {
+  flex: 0 0 132px; text-align: right; font-variant-numeric: tabular-nums;
+  font-size: 12.5px; font-weight: 700;
+}
+.ini-linha .pc i { display: block; height: 4px; border-radius: 99px; background: var(--h-track); margin-top: 5px; }
+.ini-linha .pc i span { display: block; height: 100%; border-radius: 99px; background: var(--accent); }
+.ini-linha.cheio .pc { color: var(--ok); }
+.ini-linha.cheio .pc i span { background: var(--ok); }
+.ini-linha.falta .pc { color: var(--accent-2); }
+.ini-linha.falta .pc i span { background: var(--accent-2); }
+
+.ini-fontes { font-size: 12px; color: var(--muted); }
+.ini-fontes table { width: 100%; border-collapse: collapse; background: var(--card);
+  border: 1px solid var(--line); border-radius: var(--r2); overflow: hidden; }
+.ini-fontes td { padding: 10px 16px; border-top: 1px solid var(--line); }
+.ini-fontes tr:first-child td { border-top: 0; }
+.ini-fontes td:first-child { color: var(--ink2); font-weight: 600; }
+.ini-fontes td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
 
 /* ------------------------------------------------------------- ecrãs maiores */
 
 @media (min-width: 620px) { :root { --tile: 132px; } .seg-btn { font-size: 13px; padding: 9px 13px; } }
 @media (min-width: 1000px) { :root { --tile: 158px; } .progress-wrap { grid-template-columns: 1fr 1fr 1fr; } .rarities { grid-column: auto; align-items: center; } }
+
+/* ============================================================== TELEMÓVEL
+
+   Abaixo dos 900 px a barra lateral sai do fluxo e passa a painel ☰; o índice
+   vertical dos decks vira um `<select>`. É a mesma navegação nos dois — não há
+   um menu «de telemóvel» com menos coisas lá dentro.                        */
+@media (max-width: 899px) {
+  :root { --sticky: 57px; }
+  .topbar { display: flex; }
+  .side {
+    position: fixed; inset: 0 auto 0 0; transform: translateX(-102%);
+    transition: transform .18s ease; box-shadow: var(--sombra);
+    width: min(86vw, var(--side));
+  }
+  body.menu-on .side { transform: none; }
+  body:not(.menu-on) .veu { display: none; }
+  body.menu-on { overflow: hidden; }
+  .comidx { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .vidx { display: none; }
+  .vidxsel { display: block; }
+  .pgh .pghin { padding-block: 16px 14px; }
+  .wrap { padding-block: 16px 56px; }
+  /* Alvos de toque: ele está à frente das cartas com o telemóvel numa mão. */
+  .segwrap .tab, .selc, .seg-btn, .chip span { min-height: 40px; }
+  .segwrap .tab { display: flex; flex-direction: column; justify-content: center; }
+  .sli.sub { min-height: 38px; }
+  .casa { min-height: 32px; }
+  .ini-linha .pc { flex-basis: 96px; }
+}
+@media (min-width: 900px) { .veu { display: none; } }
+@media print {
+  .side, .topbar, .veu, .salta, .pgft { display: none !important; }
+  .shell { display: block; }
+  body { background: #fff; color: #000; }
+}
