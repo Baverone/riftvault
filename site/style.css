@@ -1265,13 +1265,20 @@ body.readonly .btn.chegou { display: none; }
    que as outras secções já pediam. Se um deles não responder, o cartão diz
    «—» e a página continua de pé.                                            */
 
+/* A grelha dos números (24/09/2026). Era `auto-fit` com um mínimo de 230 px:
+   a 1200 px de conteúdo cabiam QUATRO por linha e os seis cartões saíam 4 + 2,
+   com um buraco à direita. Agora são três colunas fixas (duas no telemóvel,
+   uma abaixo dos 360 px), que é o que dá 3 × 2 com os seis — a mesma grelha
+   que o mtgvault usa no Início dele. `align-items: stretch` + `flex` dentro do
+   cartão: as alturas de cada linha são iguais mesmo com notas de uma ou de
+   três linhas.                                                              */
 .ini-cartoes {
   display: grid; gap: 12px; margin-bottom: 26px;
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: stretch;
 }
 .ini-card {
   background: var(--card); border: 1px solid var(--line); border-radius: var(--r2);
-  padding: 15px 17px 16px;
+  padding: 15px 17px 16px; min-width: 0; display: flex; flex-direction: column;
 }
 .ini-card .k {
   display: flex; align-items: center; gap: 7px; color: var(--muted);
@@ -1372,7 +1379,12 @@ body.readonly .btn.chegou { display: none; }
   .sli.sub { min-height: 38px; }
   .casa { min-height: 32px; }
   .ini-linha .pc { flex-basis: 96px; }
+  .ini-cartoes { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .ini-card { padding: 13px 14px 14px; }
+  .ini-card .v { font-size: 24px; }
+  .ini-card .v small { font-size: 14px; }
 }
+@media (max-width: 359px) { .ini-cartoes { grid-template-columns: minmax(0, 1fr); } }
 @media (min-width: 900px) { .veu { display: none; } }
 @media print {
   .side, .topbar, .veu, .salta, .pgft { display: none !important; }

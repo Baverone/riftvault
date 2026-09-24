@@ -608,8 +608,11 @@ process.stdout.write(JSON.stringify(painelContar(itens, entrada.cat)));
 """
         cat = {"rarities": [list(x) for x in self.painel.RARIDADES],
                "domains": [list(x) for x in self.painel.DOMINIOS]}
+        # `encoding="utf-8"` explícito (24/09/2026): o node escreve UTF-8, e sem
+        # isto o Python decodia-o na codificação local da consola do Windows —
+        # «Épicas» chegava «Ã‰picas» e o gémeo parecia discordar do original.
         r = subprocess.run([node, "-e", harness], input=json.dumps({"itens": itens, "cat": cat}),
-                           capture_output=True, text=True, timeout=60)
+                           capture_output=True, text=True, encoding="utf-8", timeout=60)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(json.loads(r.stdout), esperado)
 

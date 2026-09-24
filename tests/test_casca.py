@@ -193,6 +193,38 @@ class TestSemScrollLateral(unittest.TestCase):
         self.assertNotIn("DECK_FALTA_TABS", corpo)
 
 
+class TestGrelhaDoInicio(unittest.TestCase):
+    """Os seis números do Início ficam 3 × 2, sem buraco (24/09/2026).
+
+    Eram `repeat(auto-fit, minmax(230px, 1fr))`: nos 1200 px de conteúdo cabiam
+    QUATRO por linha, e seis cartões em colunas de quatro dão 4 + 2 — *"os 6
+    cartões de números ficam 4 + 2 com um buraco"*. Colunas fixas são o que faz
+    a grelha ser uma decisão e não um resto de divisão; é a mesma escolha que o
+    `.kpis` do Início do mtgvault."""
+
+    def _regra(self, seletor, css=None):
+        m = re.search(re.escape(seletor) + r" \{(.*?)\}", css if css is not None else CSS, re.S)
+        self.assertIsNotNone(m, "não há regra para `%s`" % seletor)
+        return m.group(1)
+
+    def test_sao_tres_colunas_em_ecra_grande(self):
+        regra = self._regra(".ini-cartoes")
+        self.assertIn("repeat(3, minmax(0, 1fr))", regra)
+        self.assertNotIn("auto-fit", regra, "auto-fit deixa o número de colunas ao acaso")
+
+    def test_sao_duas_colunas_no_telemovel(self):
+        movel = CSS[CSS.index("@media (max-width: 899px)"):]
+        self.assertIn("repeat(2, minmax(0, 1fr))", self._regra(".ini-cartoes", movel))
+
+    def test_os_cartoes_da_mesma_linha_tem_a_mesma_altura(self):
+        """Notas de uma ou de três linhas não podem dar cartões de alturas
+        diferentes: `stretch` na grelha e `flex` coluna dentro do cartão."""
+        self.assertIn("align-items: stretch", self._regra(".ini-cartoes"))
+        cartao = self._regra(".ini-card")
+        self.assertIn("display: flex", cartao)
+        self.assertIn("flex-direction: column", cartao)
+
+
 class TestIdentidade(unittest.TestCase):
     """Os tokens comuns do baverone.com, e o que muda de projeto para projeto."""
 
