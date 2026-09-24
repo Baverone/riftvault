@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from functools import lru_cache
 from pathlib import Path
 
@@ -172,11 +173,50 @@ DEFAULTS: dict = {
     #                          de manhã (um pool único, partilhado, fora da
     #                          Coleção) e ACABOU nesse mesmo dia: escrevê-lo
     #                          rebenta, com a razão — não há código atrás dele.
+    #   `montados`           — QUE DECKS ESTÃO MONTADOS (André, 2026-09-24:
+    #                          *"vamos desmontar os decks todos com excepcao da
+    #                          LeBlanc, vou colocar tudo nos binders das edicoes
+    #                          e depois voltar a montar deck a deck"*). O slug
+    #                          ou o `Nome:` de cada deck montado. Um deck
+    #                          DESMONTADO não consome NADA da Coleção: não
+    #                          aparece na grelha como uso, não entra na
+    #                          alocação, não gera libertadas, não entra no
+    #                          «falta encomendar aos decks» — a Coleção dá
+    #                          exactamente os mesmos números que daria se ele
+    #                          não existisse. A lista dele continua a ver-se, e
+    #                          a página diz o que ele PRECISARIA se fosse
+    #                          montado a seguir (uma simulação, que não
+    #                          consome). **Sem a chave, todos montados** (é o
+    #                          que valia até aqui); a lista VAZIA é «nenhum
+    #                          montado» — são coisas diferentes, e o botão de
+    #                          desmontar o último escreve `[]`. Ver
+    #                          `decks.montados` e `decks.alternar_montado`.
+    #   `coleccao_so_a_partir_de`
+    #                        — A REGRA DE RARIDADE (mesmo dia: *"vou tentar ao
+    #                          maximo que cartas de raridade Rara para baixo
+    #                          fiquem alocadas exclusivamente a coleccao e as
+    #                          repetidas exclusivamente aos decks […] apenas
+    #                          miticas para acima devo ter que usar as da
+    #                          coleccao"*). Da raridade escrita para CIMA
+    #                          (`metrics.RARITY_ORDER`: common < uncommon <
+    #                          rare < epic < showcase) um deck pode servir-se
+    #                          da Coleção sem aviso; abaixo dela, devia vir das
+    #                          cópias próprias do deck. **NÃO BLOQUEIA — MARCA**:
+    #                          a carta leva um aviso e o deck um contador «N
+    #                          cópias a sair da Coleção que não deviam».
+    #                          (No Riftbound não há «mítica»: a raridade de
+    #                          topo é a `epic`.) `null` ou `""` desliga o
+    #                          aviso; uma raridade que o catálogo não conheça
+    #                          rebenta. Ver `decks.raridades_da_colecao`.
     "decks": {"so_base": True,
               "so_normais_excepto": [],
               "versoes_especiais": ["a", "overnumbered", "promo"],
               "contar_runas": False,
               "ordem": [],
+              # `None` (e não `[]`) é o default de propósito: sem a chave,
+              # TODOS montados. A lista vazia quer dizer «nenhum».
+              "montados": None,
+              "coleccao_so_a_partir_de": "epic",
               "modo": "coleccao"},
     # O bloco das runas especiais ("1 runa especial de cada para cada set",
     # 2026-09-08) — só o BLOCO. O `alvo` que aqui vivia (1, "runas 1 de cada")
@@ -311,6 +351,76 @@ def _migrar_a_subir(raw: dict, cfg: dict) -> None:
 def reload() -> dict:
     load.cache_clear()
     return load()
+
+
+def escrever_lista(seccao: str, chave: str, valores: list[str]) -> list[str]:
+    """Escreve `<seccao>.<chave>` no `riftvault_config.json`, **sem reformatar
+    o resto do ficheiro**, e relê o config.
+
+    É a porta para o único botão que escreve no config: o «montar/desmontar»
+    de um deck (`decks.montados`, 2026-09-24) — *"o estado é do config, não só
+    da base, para não se perder"*. O ficheiro é escrito À MÃO pelo André, com
+    objectos numa linha (`{ "name": "OGN", "order": 1 }`) e dezenas de `_notas`
+    pelo meio; um `json.dumps(indent=2)` do ficheiro inteiro reformatava-o todo
+    a cada clique. Por isso troca-se **só o valor desta chave**, como texto:
+    procura-se o bloco da secção a contar chavetas e, lá dentro, a linha da
+    chave; se ela ainda não existir, entra logo a seguir ao `{` da secção.
+
+    Devolve a lista escrita. Sem ficheiro nenhum (os testes que apontam o
+    `RIFTVAULT_CONFIG` para um caminho que não existe) cria um com a secção.
+    """
+    texto = json.dumps(list(valores), ensure_ascii=False)
+    if not CONFIG_PATH.exists():
+        CONFIG_PATH.write_text(
+            json.dumps({seccao: {chave: list(valores)}}, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8")
+        reload()
+        return list(valores)
+
+    bruto = CONFIG_PATH.read_text(encoding="utf-8")
+    ini, fim = _bloco_do_config(bruto, seccao)
+    if ini is None:
+        # A secção não existe no ficheiro: acrescenta-se inteira, no fim.
+        raw = json.loads(bruto)
+        raw[seccao] = {**(raw.get(seccao) or {}), chave: list(valores)}
+        CONFIG_PATH.write_text(json.dumps(raw, ensure_ascii=False, indent=2) + "\n",
+                               encoding="utf-8")
+        reload()
+        return list(valores)
+
+    bloco = bruto[ini:fim]
+    alvo = re.search(r'"' + re.escape(chave) + r'"\s*:\s*\[[^\]]*\]', bloco)
+    if alvo:
+        novo = bloco[:alvo.start()] + f'"{chave}": {texto}' + bloco[alvo.end():]
+    else:
+        # Entra logo a seguir ao `{` da secção, com a indentação da linha
+        # seguinte (ou quatro espaços, que é a do ficheiro dele).
+        abre = bloco.index("{") + 1
+        seg = re.match(r'\n(\s*)', bloco[abre:])
+        indent = seg.group(1) if seg else "    "
+        novo = bloco[:abre] + f'\n{indent}"{chave}": {texto},' + bloco[abre:]
+    CONFIG_PATH.write_text(bruto[:ini] + novo + bruto[fim:], encoding="utf-8")
+    reload()
+    return list(valores)
+
+
+def _bloco_do_config(bruto: str, seccao: str) -> tuple[int | None, int | None]:
+    """(início, fim) do texto `"<seccao>": { … }` no ficheiro, a contar
+    chavetas — o bloco tem objectos lá dentro e um `.index("}")` cortava no
+    primeiro deles."""
+    m = re.search(r'"' + re.escape(seccao) + r'"\s*:\s*\{', bruto)
+    if not m:
+        return None, None
+    nivel, i = 0, m.end() - 1
+    while i < len(bruto):
+        if bruto[i] == "{":
+            nivel += 1
+        elif bruto[i] == "}":
+            nivel -= 1
+            if nivel == 0:
+                return m.start(), i + 1
+        i += 1
+    return None, None
 
 
 def set_name(set_id: str) -> str:

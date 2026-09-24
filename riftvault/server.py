@@ -188,7 +188,31 @@ def api_decks():
                     "rules": decks.rules(), "ordem_fixa": decks.ordem_fixa(),
                     # Só versões base (2026-09-21): o cliente diz-o ao lado
                     # dos `+`/`−` das cópias próprias.
-                    "so_base": decks.so_base()})
+                    "so_base": decks.so_base(),
+                    # A regra de raridade (2026-09-24): a partir de que
+                    # raridade um deck se pode servir da Coleção sem aviso.
+                    "raridade_colecao": decks.raridade_da_colecao()})
+
+
+@app.post("/api/decks/montar")
+def api_decks_montar():
+    """MONTAR/DESMONTAR um deck (2026-09-24): `{slug, montado}`.
+
+    Escreve `decks.montados` no `riftvault_config.json` — *"o estado é do
+    config, não só da base, para não se perder"* — e devolve o índice já
+    recalculado. Um deck desmontado deixa de consumir a Coleção na hora.
+    """
+    data = request.get_json(silent=True) or {}
+    if not data.get("slug"):
+        return jsonify({"error": "falta o slug do deck"}), 400
+    con = get_con()
+    _reimport_if_changed(con)
+    try:
+        estado = decks.alternar_montado(con, data["slug"], bool(data.get("montado")))
+    except decks.DeckDesconhecido as exc:
+        return jsonify({"error": str(exc)}), 404
+    return jsonify({"montados": estado["montados"], "desmontados": estado["desmontados"],
+                    "decks": decks.decks_index(con)})
 
 
 @app.post("/api/proprias/ajustar")

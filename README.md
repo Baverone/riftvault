@@ -779,6 +779,63 @@ site diz em que deck está a que existe (*"caso algum deck ou decks já estão a
 usar as cartas disponíveis na coleção, o próximo passa a marcar como faltas
 para comprar"*). Mudar a ordem refaz a alocação toda.
 
+### Montado ou desmontado (2026-09-24)
+
+Frase tua: *"vamos desmontar os decks todos com excepcao da LeBlanc, vou
+colocar tudo nos binders das edicoes e depois voltar a montar deck a deck e
+assim conseguir perceber o que tenho e nao tenho"*.
+
+`decks.montados` no config é a lista dos decks **montados** (o slug ou o
+`Nome:`, como a `decks.ordem`). Hoje é `["LeBlanc Hook"]`: os outros cinco
+estão desmontados.
+
+Um deck **desmontado não consome nada da Coleção**: não aparece na grelha como
+uso («Azir 3»), não entra na alocação, não gera libertadas no «A mais», não
+entra no «falta comprar aos decks», nas Staples nem no «falta encomendar». A
+Coleção dá **exactamente os mesmos números que daria se o `.txt` não
+existisse** — há um teste que fotografa níveis, denominador, wantlists, valor,
+Faltas, Encomendas, o painel e a grelha e exige que sejam iguais.
+
+A lista dele **continua a ver-se**, e a página mostra a **simulação** de o
+montar a seguir aos que estão montados: o que sairia da Coleção e o que
+faltaria. A simulação não consome — dois decks desmontados podem «contar» a
+mesma cópia, e é isso que a pergunta *«e se montasse este agora?»* quer dizer.
+
+Muda-se no botão **Montar/Desmontar** da página do deck (que escreve no
+`riftvault_config.json`, sem reformatar o resto do ficheiro) ou com
+`riftvault decks --montar SLUG` / `--desmontar SLUG`. **Sem a chave, todos
+montados**; a lista **vazia** é «nenhum montado» — são coisas diferentes, e
+desmontar o último escreve `[]`.
+
+### A regra de raridade: o que devia ser cópia própria (2026-09-24)
+
+Frase tua: *"vou tentar ao maximo que cartas de raridade Rara para baixo
+fiquem alocadas exclusivamente a coleccao e as repetidas exclusivamente aos
+decks, para nao ter que mexer na coleccao. apenas miticas para acima devo ter
+que usar as da coleccao"*.
+
+No Riftbound **não há «mítica»**: a escada do catálogo é `common < uncommon <
+rare < epic < showcase`, por isso «Rara para baixo» são as comuns, incomuns e
+raras, e «míticas para cima» são as `epic` e as `showcase`.
+
+`decks.coleccao_so_a_partir_de: "epic"`: dessa raridade **para cima** um deck
+serve-se da Coleção sem aviso; **abaixo** dela, a cópia devia vir das **cópias
+próprias do deck**. **Não bloqueia nada — marca**: a alocação é exactamente a
+mesma, e o que muda é que a carta leva um aviso (moldura dourada e «N da
+Coleção — é rare: devia ser própria do deck») e o deck um contador «**N** da
+Coleção que não deviam». `null` desliga o aviso.
+
+### Montar este deck, carta a carta (2026-09-24)
+
+Na página de cada deck, por baixo do cabeçalho, uma tabela para ele montar o
+deck com as cartas na mão: uma linha por carta — **precisa / próprias /
+deck+binder / Coleção / falta** —, somada por carta (2 Sabotage no main e 1 no
+sideboard são 3 Sabotage), **ordenada pelo que falta primeiro**, depois pelo
+que tem de ir buscar à Coleção, e no fim o que já está. O `!` é a regra de
+raridade. Abre fechada quando não falta nada; num telemóvel cada linha passa a
+cartão, com o rótulo de cada número à esquerda. Também está no `riftvault deck
+<slug>`.
+
 ### As runas não se contam (2026-09-17, à noite)
 
 Frase tua: *"esquece as runas, nao facas contagem de runas nos decks, indica

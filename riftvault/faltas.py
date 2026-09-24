@@ -43,7 +43,13 @@ def _wanted(con: sqlite3.Connection) -> dict[str, dict]:
     para o outro também"*. `n_grupos` é quantos grupos a pedem, e é isso que
     faz uma staple: uma compra que serve DECKS DIFERENTES, não duas listas do
     mesmo.
+
+    Um deck DESMONTADO (2026-09-24) não pede nada aqui: estas listas são de
+    compra — «o que rende mais por euro NOS DECKS QUE ESTÃO MONTADOS» — e uma
+    carta que só um deck desfeito pediria não é uma staple. A página de cada
+    deck continua a dizer o que ele precisaria.
     """
+    montados = decks.montados(con)
     grupo_de = {}
     for g in decks.grupos(con):
         for slug in g["slugs"]:
@@ -57,7 +63,7 @@ def _wanted(con: sqlite3.Connection) -> dict[str, dict]:
         "SELECT dc.card_key, dc.qty, d.deck_id, d.display_name, d.name, d.priority "
         "FROM deck_cards dc JOIN decks d ON d.deck_id = dc.deck_id"
     ):
-        if r["card_key"] in fora:
+        if r["card_key"] in fora or r["name"] not in montados:
             continue
         e = out.setdefault(r["card_key"], {"qty": 0, "decks": {}, "grupos": {}})
         slot = e["decks"].setdefault(
@@ -128,7 +134,10 @@ def _falta_global(con: sqlite3.Connection) -> tuple[dict[str, int], dict[str, in
     falta_esp: dict[str, int] = {}
     for a in decks.allocate(con).values():
         g = a["grupo"]
-        if not g["lider"]:
+        # Um deck DESMONTADO (2026-09-24) não entra na carência global: não
+        # está a usar a Coleção, e o que lhe falta é a simulação da página
+        # dele. As Staples e o «Todos juntos» são dos decks que existem hoje.
+        if not g["lider"] or not a["montado"]:
             continue
         for ck, n in g["missing"].items():
             falta[ck] = falta.get(ck, 0) + n
@@ -346,6 +355,10 @@ def por_deck(con: sqlite3.Connection) -> list[dict]:
         by_set = _agrupar(con, comprar, alloc[d["id"]]["missing_especial"])
         out.append({
             "id": d["id"], "name": d["name"], "priority": d["priority"],
+            # Um deck DESMONTADO (2026-09-24) continua a ter aba: o que ela
+            # diz é o que ele precisaria se fosse montado a seguir (simulação),
+            # e não entra no total de cima. A aba diz-o.
+            "montado": d["montado"],
             "have": d["have"], "wanted": d["wanted"],
             "cards": sum(len(g["items"]) for g in by_set),
             "copies": sum(g["copies"] for g in by_set),
@@ -652,6 +665,7 @@ def pimp(con: sqlite3.Connection) -> dict:
         pedido = {ck: teto(ck, q) for ck, q in decks._need(con, d["id"]).items()
                   if ck in alt_de}
         por_deck.append({"id": d["id"], "name": d["name"], "priority": d["priority"],
+                         "montado": d["montado"],
                          "legend_set": legend_set.get(d["id"]),
                          **montar(pedido, legend_set.get(d["id"]))})
 

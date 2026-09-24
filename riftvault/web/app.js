@@ -1991,8 +1991,13 @@ function itensDoIndice() {
       titulo: grupo ? `A mesma Legend que ${d.grupo.irmaos.join(', ')}: partilham as cartas` : '',
       // As runas não se contam (2026-09-17, à noite): o «tenho X de N» é sem
       // elas, e a linha diz só quantas há.
-      nota: `${pct}% · ${d.have}/${d.wanted}`
-        + (d.ordered ? ` · ${d.ordered} a caminho` : '') + runasCurto(d.runas),
+      // Um deck DESMONTADO (2026-09-24) não consome nada da Coleção: o índice
+      // diz-o em vez da percentagem, que ali seria uma simulação.
+      nota: d.montado === false
+        ? `desmontado · precisaria de ${d.wanted}`
+        : `${pct}% · ${d.have}/${d.wanted}`
+          + (d.ordered ? ` · ${d.ordered} a caminho` : '') + runasCurto(d.runas),
+      off: d.montado === false,
       accao: () => loadDeck(d.id),
     };
   });
@@ -2025,7 +2030,7 @@ function renderDeckTabs() {
     }
     const b = document.createElement('button');
     b.type = 'button';
-    b.className = it.on ? 'is-on' : '';
+    b.className = (it.on ? 'is-on' : '') + (it.off ? ' is-off' : '');
     if (it.on) b.setAttribute('aria-current', 'true');
     if (it.titulo) b.title = it.titulo;
     b.innerHTML = `<span class="ic">${ico(it.ico, 16)}</span>`
@@ -2094,9 +2099,14 @@ function renderDeck() {
       <div class="deck-title">
         <b>${escapeHTML(p.name)}</b>
         <span class="prio">${p.priority === 1 ? 'principal' : `prioridade ${p.priority}`}</span>
+        ${p.montado === false ? '<span class="prio off">desmontado</span>' : ''}
         ${p.grupo && p.grupo.variantes ? `<span class="prio grupo">variante de ${
           escapeHTML(p.grupo.irmaos.map(deckCurto).join(', '))}</span>` : ''}
       </div>
+      ${p.montado === false ? `<small class="nota">Este deck está <b>desmontado</b>:
+        não está a usar nenhuma cópia da Coleção — não aparece na grelha, não entra
+        na falta a comprar nem no «A mais». O que se vê aqui é a <b>simulação</b> de
+        o montar a seguir aos que estão montados.</small>` : ''}
       ${p.grupo && p.grupo.variantes ? `<small class="nota">A mesma Legend que
         <b>${escapeHTML(p.grupo.irmaos.join(', '))}</b>: são listas do mesmo deck e
         partilham as cartas — o que falta a uma é a mesma compra da outra
@@ -2131,6 +2141,9 @@ function renderDeck() {
         ${p.unresolved.map(u => escapeHTML(u.name)).join(', ')}</small>` : ''}
       ${deckLocais(p)}
       <div class="deck-actions">
+        ${state.editable ? `<button class="btn ${p.montado === false ? 'primaria' : ''}"
+          data-act="${p.montado === false ? 'montar' : 'desmontar'}">${
+          p.montado === false ? 'Montar este deck' : 'Desmontar'}</button>` : ''}
         ${state.editable && !state.ordemFixa && p.priority !== 1
           ? `<button class="btn" data-act="principal">Tornar principal</button>` : ''}
         ${state.editable && !state.ordemFixa ? `<button class="btn" data-act="subir">Subir</button>
@@ -2174,7 +2187,7 @@ function renderDeck() {
       tira-as com o <b>−</b>, ou deixa-as ficar. Não contam para a Coleção.</p>
     <div class="grid deck-grid">${p.proprias_fora.map(propriaForaTile).join('')}</div>` : '';
 
-  $('#deck-body').innerHTML = listas + foraP + faltas;
+  $('#deck-body').innerHTML = montagemHTML(p) + listas + foraP + faltas;
 
   for (const b of document.querySelectorAll('#deck-head .btn[data-act]')) {
     b.onclick = () => deckAction(b.dataset.act);
@@ -2183,6 +2196,81 @@ function renderDeck() {
     b.onclick = () => locaisAction(b.dataset.loc);
   }
   ligarProprias();
+}
+
+/* O MODO DE REMONTAGEM (André, 2026-09-24): *"vou colocar tudo nos binders das
+   edicoes e depois voltar a montar deck a deck e assim conseguir perceber o que
+   tenho e nao tenho"*.
+
+   Uma TABELA, não tiles: ele vai percorrê-la com as cartas na mão, e o que
+   precisa é de uma linha por carta com quatro números — precisa / próprias /
+   no binder ou no deck / da Coleção — e o que falta. Ordenada pelo que FALTA
+   primeiro, depois pelo que sai da Coleção (é o que tem de ir buscar) e só no
+   fim o que já está. Fechada por omissão (`<details>`), para não empurrar a
+   lista de cartas para baixo em quem não está a montar.
+
+   A 375 px a tabela não cabe: abaixo dos 560 px cada linha passa a um cartão
+   (o CSS trata disso, `.mont-tab` em modo bloco com `data-label`), e por isso
+   cada `<td>` leva o seu rótulo. */
+function montagemHTML(p) {
+  // Somadas POR CARTA: a lista mostra-se por papel, mas quem está a montar
+  // tem a carta na mão uma vez só — 2 Sabotage no main e 1 no sideboard são
+  // 3 Sabotage para arranjar, não duas linhas.
+  const por = new Map();
+  for (const s of p.sections) {
+    for (const c of s.cards) {
+      if (c.contado === false) continue;
+      let e = por.get(c.card_key);
+      if (!e) {
+        e = { name: c.name, rarity: c.rarity, wanted: 0, proprias: 0, no_deck: 0,
+              no_binder: 0, na_colecao: 0, missing: 0, aviso: 0 };
+        por.set(c.card_key, e);
+      }
+      for (const k of ['wanted', 'proprias', 'no_deck', 'no_binder', 'na_colecao',
+                       'missing', 'aviso']) e[k] += c[k] || 0;
+    }
+  }
+  const cartas = [...por.values()];
+  if (!cartas.length) return '';
+  cartas.sort((a, b) => (b.missing - a.missing) || ((b.aviso || 0) - (a.aviso || 0))
+    || (b.na_colecao - a.na_colecao) || a.name.localeCompare(b.name));
+  const faltam = cartas.reduce((s, c) => s + c.missing, 0);
+  const daColecao = cartas.reduce((s, c) => s + c.na_colecao, 0);
+  const td = (rot, v, cls) => `<td data-l="${rot}"${cls ? ` class="${cls}"` : ''}>${v}</td>`;
+  const linhas = cartas.map(c => {
+    // `r-` na linha e `m-` nas células, de propósito: com o mesmo nome nos
+    // dois, a cor da linha pintava todos os números dela.
+    const est = c.missing ? 'falta' : (c.aviso ? 'regra' : 'ok');
+    return `<tr class="r-${est}">
+      <td data-l="carta" class="m-nome">${escapeHTML(c.name)}${
+        c.aviso ? `<span class="m-rar" title="${escapeAttr(
+          `${c.aviso} cópia(s) a sair da Coleção e esta carta é ${c.rarity || '?'} — `
+          + `pela regra, devia vir das cópias próprias do deck`)}">! ${
+          escapeHTML(c.rarity || '')}</span>` : ''}</td>
+      ${td('precisa', c.wanted)}
+      ${td('próprias', c.proprias || 0, c.proprias ? 'm-prop' : 'm-zero')}
+      ${td('deck/binder', (c.no_deck || 0) + (c.no_binder || 0),
+        (c.no_deck || c.no_binder) ? '' : 'm-zero')}
+      ${td('Coleção', c.na_colecao || 0, c.aviso ? 'm-aviso' : (c.na_colecao ? '' : 'm-zero'))}
+      ${td('falta', c.missing || 0, c.missing ? 'm-falta' : 'm-zero')}
+    </tr>`;
+  }).join('');
+  return `<details class="montagem" ${faltam || p.montado === false ? 'open' : ''}>
+    <summary>Montar este deck, carta a carta
+      <span>${cartas.length} cartas · ${faltam} a arranjar · ${daColecao} da Coleção${
+        p.aviso_colecao ? ` · ${p.aviso_colecao} contra a regra` : ''}</span></summary>
+    <p class="note">Por esta ordem: primeiro o que falta, depois o que tens de ir
+      buscar à Coleção, e no fim o que já está.
+      ${p.montado === false ? '<b>O deck está desmontado</b>: os números da Coleção são a simulação de o montares a seguir aos que estão montados. ' : ''}
+      ${p.raridade_colecao ? `O <b>!</b> é a regra de raridade: abaixo de
+        <b>${escapeHTML(p.raridade_colecao)}</b> a cópia devia ser <b>própria do deck</b>,
+        não sair da Coleção.` : ''}</p>
+    <table class="mont-tab">
+      <thead><tr><th>carta</th><th>precisa</th><th>próprias</th><th>deck/binder</th>
+        <th>Coleção</th><th>falta</th></tr></thead>
+      <tbody>${linhas}</tbody>
+    </table>
+  </details>`;
 }
 
 /* ONDE estão as cartas deste deck. As três primeiras somam o que o deck tem
@@ -2206,8 +2294,19 @@ function deckLocais(p) {
       ${l.outras ? `<span class="chip-l outra">noutra versão ${l.outras}</span>` : ''}
       ${l.extra ? chip(true, `a mais neste deck ${l.extra}`) : ''}
       ${l.proprias_fora ? chip(true, `${l.proprias_fora} próprias que não servem`) : ''}
+      ${p.aviso_colecao ? `<span class="chip-l regra" title="${escapeAttr(
+        `abaixo de ${p.raridade_colecao} a cópia devia ser própria do deck`)}">${
+        p.aviso_colecao} da Coleção que não deviam</span>` : ''}
       ${runasNaoContadas(p.runas) ? `<span class="chip-l neutra">${p.runas.copies} runas à mão</span>` : ''}
     </div>
+    ${p.aviso_colecao ? `<small class="nota regra"><b>${p.aviso_colecao}</b> ${
+      p.aviso_colecao === 1 ? 'cópia sai' : 'cópias saem'} da Coleção com raridade
+      abaixo de <b>${escapeHTML(p.raridade_colecao || '')}</b>, em ${
+      plural(p.aviso_cartas, 'carta', 'cartas')}. Pela regra de 2026-09-24, de
+      <b>${escapeHTML(p.raridade_colecao || '')}</b> para baixo as cópias dos decks
+      deviam ser <b>próprias do deck</b> e a Coleção ficar quieta${
+      state.editable ? ' — mete-as com o <b>+</b> de cada carta' : ''}. Não bloqueia
+      nada: é só um aviso.</small>` : ''}
     <small class="nota">As <b>cópias próprias</b> são as que tens guardadas
       <b>para este deck</b>${state.editable ? ' — diz quantas com o <b>+</b>/<b>−</b> de cada carta' : ''}.
       Servem-no primeiro, só a ele, e <b>não contam para a Coleção</b> (nem para o
@@ -2229,13 +2328,16 @@ function deckLocais(p) {
       : (state.editable && l.missing ? `<small class="nota">Compraste alguma?
       Marca-a no separador <b><a href="#encomendas">Encomendas</a></b> — sai da
       lista de compras e fica «a caminho» até lhe dares entrada.</small>` : '')}
-    ${l.na_colecao && state.editable ? `<small class="nota">As <b>${l.na_colecao}</b>
+    ${l.na_colecao && state.editable && p.montado !== false ? `<small class="nota">As <b>${l.na_colecao}</b>
       da Coleção contam para este deck. Se as sleevares, marca-as para o
       riftvault saber onde estão.</small>` : ''}
     ${l.extra ? `<small class="nota bad">${l.extra} cópias estão marcadas neste
       deck e a lista já não as pede.</small>` : ''}
     ${state.editable ? `<div class="deck-actions">
-      <button class="btn" data-loc="propor">Marcar o que este deck usa…</button>
+      ${/* Desmontado, a marcação não faz sentido — o deck não está a tirar
+            nada da Coleção, e o `propor_deck` recusa-a (2026-09-24). */ ''}
+      ${p.montado === false ? ''
+        : '<button class="btn" data-loc="propor">Marcar o que este deck usa…</button>'}
       ${l.no_deck ? '<button class="btn" data-loc="desfazer">Desfazer deck</button>' : ''}
     </div>` : ''}
     <div id="propor-zona"></div>
@@ -2433,8 +2535,17 @@ function deckTile(c) {
       alt.length ? ` · ou ${alt.join(', ')}` : ''}</div>`;
   }
   nota += versoesNota(c);
+  // A REGRA DE RARIDADE (André, 2026-09-24): esta cópia sai da Coleção e a
+  // carta está abaixo do patamar — devia ser uma cópia PRÓPRIA do deck. Só
+  // avisa; a alocação é a mesma.
+  if (c.aviso) {
+    nota += `<div class="onde regra">${c.aviso} da Coleção${
+      c.rarity ? ` — é ${escapeHTML(c.rarity)}` : ''}: devia${c.aviso === 1 ? '' : 'm'}
+      ser própria${c.aviso === 1 ? '' : 's'} do deck</div>`;
+  }
 
-  return `<div class="dtile ${st}${c.outras ? ' outra-versao' : ''}" data-ck="${escapeAttr(c.card_key)}">
+  return `<div class="dtile ${st}${c.outras ? ' outra-versao' : ''}${
+    c.aviso ? ' tem-regra' : ''}" data-ck="${escapeAttr(c.card_key)}">
     <div class="art${c.landscape ? ' landscape' : ''}">
       ${src ? `<img src="${src}" alt="${escapeAttr(c.name)}" loading="lazy" decoding="async"
          ${alt ? `data-fallback="${escapeAttr(alt)}"` : ''}>` : ''}
@@ -2600,6 +2711,7 @@ function especialNota(x) {
 
 async function deckAction(act) {
   if (act === 'csv') return exportCSV();
+  if (act === 'montar' || act === 'desmontar') return montarDeck(act === 'montar');
   const ids = state.decks.map(d => d.id);
   const i = ids.indexOf(state.deckId);
   let novo = ids.slice();
@@ -2621,6 +2733,35 @@ async function deckAction(act) {
     toast('Ordem alterada — a alocação foi refeita.');
   } catch (err) {
     toast(`Não deu para reordenar: ${err.message}`, { error: true });
+  }
+}
+
+/* MONTAR / DESMONTAR (André, 2026-09-24). Escreve `decks.montados` no
+   `riftvault_config.json` (o estado é de lá, «para não se perder») e refaz a
+   alocação de toda a gente: desmontar liberta o que o deck estava a usar da
+   Coleção, montar volta a prendê-lo. Por isso a Coleção, o A mais, as
+   Encomendas e as listas de compra ficam por reler. */
+async function montarDeck(montado) {
+  const p = state.deck;
+  try {
+    const r = await fetch('api/decks/montar', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slug: p.slug, montado }),
+    });
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(body.error || `HTTP ${r.status}`);
+    state.decks = body.decks;
+    state.colecaoVelha = true;
+    state.compras = null;
+    state.aMais = null;
+    state.enc.payload = null;
+    renderDeckTabs();
+    await loadDeck(state.deckId);
+    toast(montado
+      ? `«${p.name}» montado — volta a servir-se da Coleção.`
+      : `«${p.name}» desmontado — deixou de usar a Coleção.`);
+  } catch (err) {
+    toast(`Não deu para ${montado ? 'montar' : 'desmontar'}: ${err.message}`, { error: true });
   }
 }
 

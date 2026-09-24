@@ -578,6 +578,171 @@ MODOS = (MODO_COLECAO,)
 SO_BASE = "so_base"
 
 
+# DECK MONTADO OU DESMONTADO (André, 2026-09-24): *"vamos desmontar os decks
+# todos com excepcao da LeBlanc, vou colocar tudo nos binders das edicoes e
+# depois voltar a montar deck a deck e assim conseguir perceber o que tenho e
+# nao tenho"*. `decks.montados` é a lista dos que ESTÃO montados (o slug ou o
+# `Nome:`, como a `decks.ordem`).
+#
+# Um deck DESMONTADO não consome NADA da Coleção: não aparece na grelha como
+# uso, não entra na alocação partilhada, não gera libertadas, não entra no
+# «falta encomendar aos decks» nem no excedente do A mais. A Coleção com ele
+# desmontado dá EXACTAMENTE os mesmos números que daria se o `.txt` não
+# existisse (`tests/test_desmontar.py` fotografa-os).
+#
+# Continua a ver-se, porque é com ele que se planeia a remontagem: a lista
+# inteira, e — como SIMULAÇÃO — o que sairia da Coleção se fosse montado a
+# seguir aos que estão montados. A simulação corre contra uma CÓPIA dos montes
+# e não consome: dois decks desmontados podem «contar» a mesma cópia, e é isso
+# que a pergunta «se montasse este agora?» quer dizer. Ver `allocate`.
+MONTADOS = "montados"
+
+
+def montados_lista(cfg: dict | None = None) -> list[str] | None:
+    """`decks.montados` tal como está escrita, ou `None` quando não há chave.
+
+    `None` (sem chave) e `[]` (lista vazia) são coisas DIFERENTES: sem chave
+    todos os decks estão montados — é o que valia até 2026-09-24 e o que um
+    riftvault sem config mede; a lista vazia quer dizer que nenhum está.
+    """
+    lista = _opcoes_decks(cfg).get(MONTADOS)
+    if lista is None:
+        return None
+    if not isinstance(lista, (list, tuple)) or not all(isinstance(x, str) for x in lista):
+        raise ValueError(f"decks.{MONTADOS}: tem de ser uma lista de nomes (slug ou `Nome:`)")
+    return [x for x in lista if x.strip()]
+
+
+def montados_estado(con: sqlite3.Connection, cfg: dict | None = None) -> dict:
+    """Que decks estão montados, por slug: `{montados, desmontados,
+    nao_encontrados, lista, todos}`.
+
+    Casa pelo SLUG ou pelo `Nome:`, sem olhar a maiúsculas (`norm`), como a
+    `decks.ordem`. Um nome sem deck não rebenta — avisa-se e ignora-se: o site
+    tem de continuar a servir os decks que há.
+    """
+    lista = montados_lista(cfg)
+    rows = deck_rows(con)
+    if lista is None:
+        return {"montados": [r["name"] for r in rows], "desmontados": [],
+                "nao_encontrados": [], "lista": None, "todos": True}
+    por_chave: dict[str, str] = {}
+    for r in rows:
+        por_chave.setdefault(norm(r["name"]), r["name"])
+        if r["display_name"]:
+            por_chave.setdefault(norm(r["display_name"]), r["name"])
+    on, nao = [], []
+    for entrada in lista:
+        slug = por_chave.get(norm(entrada))
+        if slug is None:
+            nao.append(entrada)
+        elif slug not in on:
+            on.append(slug)
+    return {"montados": [r["name"] for r in rows if r["name"] in on],
+            "desmontados": [r["name"] for r in rows if r["name"] not in on],
+            "nao_encontrados": nao, "lista": lista, "todos": False}
+
+
+def montados(con: sqlite3.Connection, cfg: dict | None = None) -> frozenset[str]:
+    """Os SLUGS dos decks montados. Sem `decks.montados`, são todos."""
+    return frozenset(montados_estado(con, cfg)["montados"])
+
+
+def alternar_montado(con: sqlite3.Connection, slug: str, montar: bool,
+                     cfg: dict | None = None) -> dict:
+    """Monta ou desmonta um deck, escrevendo `decks.montados` no config.
+
+    O estado é do CONFIG e não da base — *"para não se perder"* —, por isso o
+    botão do site e o `riftvault decks --montar/--desmontar` acabam os dois
+    aqui. Mantém as entradas que já lá estavam tal como estão escritas (o
+    `Nome:` continua `Nome:`) e acrescenta pelo `Nome:` quando o deck tem um,
+    que é como ele as escreve. Desmontar o último escreve `[]` — a lista vazia
+    é «nenhum montado», e é por isso que ela não pode querer dizer «todos».
+    """
+    rows = deck_rows(con)
+    d = next((r for r in rows if r["name"] == slug), None)
+    if d is None:
+        raise DeckDesconhecido(f"não há deck chamado {slug!r}")
+    estado = montados_estado(con, cfg)
+    # Sem lista, todos estão montados: a lista de partida são todos, escritos
+    # pelo `Nome:` — é como ele escreve a `decks.ordem` logo por cima.
+    lista = (list(estado["lista"]) if estado["lista"] is not None
+             else [r["display_name"] or r["name"] for r in rows])
+    rotulo = d["display_name"] or d["name"]
+    chaves = {norm(d["name"]), norm(rotulo)}
+    fica = [x for x in lista if norm(x) not in chaves]
+    if montar:
+        fica.append(rotulo)
+    config.escrever_lista("decks", MONTADOS, fica)
+    return montados_estado(con, config.load())
+
+
+class DeckDesconhecido(ValueError):
+    """Não há deck com esse slug."""
+
+
+# A REGRA DE RARIDADE (André, 2026-09-24): *"vou tentar ao maximo que cartas de
+# raridade Rara para baixo fiquem alocadas exclusivamente a coleccao e as
+# repetidas exclusivamente aos decks, para nao ter que mexer na coleccao.
+# apenas miticas para acima devo ter que usar as da coleccao"*. Da raridade
+# `decks.coleccao_so_a_partir_de` para CIMA um deck serve-se da Coleção sem
+# aviso; abaixo dela, a cópia devia vir das PRÓPRIAS do deck. **Não bloqueia:
+# marca** — a alocação é a mesma, e sai `aviso_colecao` por carta e somado.
+# (No Riftbound não há «mítica»: a raridade de topo do catálogo é a `epic`.)
+RARIDADE_COLECAO = "coleccao_so_a_partir_de"
+
+
+def raridade_da_colecao(cfg: dict | None = None) -> str | None:
+    """`decks.coleccao_so_a_partir_de`, ou `None` com o aviso desligado."""
+    valor = _opcoes_decks(cfg).get(RARIDADE_COLECAO, "epic")
+    if valor in (None, ""):
+        return None
+    from . import metrics
+
+    if valor not in metrics.RARITY_ORDER:
+        raise ValueError(
+            f"decks.{RARIDADE_COLECAO} = {valor!r} não é uma raridade do catálogo "
+            f"({', '.join(metrics.RARITY_ORDER)}) — no Riftbound não há «mítica», "
+            f"a de topo é a 'epic'")
+    return valor
+
+
+def raridades_da_colecao(cfg: dict | None = None) -> frozenset[str]:
+    """As raridades que um deck pode tirar da Coleção SEM aviso: da
+    `coleccao_so_a_partir_de` para cima. Desligado, são todas."""
+    from . import metrics
+
+    minima = raridade_da_colecao(cfg)
+    if minima is None:
+        return frozenset(metrics.RARITY_ORDER)
+    return frozenset(metrics.RARITY_ORDER[metrics.RARITY_ORDER.index(minima):])
+
+
+def raridade_por_carta(con: sqlite3.Connection,
+                       versoes: "Versoes | None" = None) -> dict[str, str]:
+    """card_key -> a raridade de jogo da carta, para a regra de raridade.
+
+    É a `base_rarity` da impressão que o deck JOGA num lugar normal — a
+    primeira de `Versoes.normais_de`, que é a base pela ordem do catálogo. Não
+    é a raridade impressa: a arte alternativa de uma rara é `showcase`, e a
+    carta continua a ser uma rara. Uma carta sem impressão normal (só existe
+    em sobrenumerada) responde pela representativa do catálogo.
+    """
+    versoes = versoes or versoes_dos_decks(con)
+    raridades = {r["printing_id"]: r["base_rarity"] or r["rarity"] for r in con.execute(
+        "SELECT printing_id, rarity, base_rarity FROM catalog.printings")}
+    rep = {r["card_key"]: r["rep_printing_id"] for r in con.execute(
+        "SELECT card_key, rep_printing_id FROM catalog.cards")}
+    out: dict[str, str] = {}
+    for ck in rep:
+        pids = versoes.normais_de(ck) or ([rep[ck]] if rep[ck] else [])
+        for pid in pids:
+            if raridades.get(pid):
+                out[ck] = raridades[pid]
+                break
+    return out
+
+
 def modo(cfg: dict | None = None) -> str:
     """`decks.modo`: `coleccao`, e só isso."""
     valor = _opcoes_decks(cfg).get(MODO) or MODO_COLECAO
@@ -999,7 +1164,9 @@ def _por_impressao(con: sqlite3.Connection, monte: str,
     out: dict[str, list[dict]] = {}
     for d in deck_rows(con):
         a = alloc[d["deck_id"]]
-        if not a["grupo"]["lider"]:
+        # Um deck desmontado (2026-09-24) não leva cópia nenhuma destes montes:
+        # o que a simulação dele diz é hipótese, não uso.
+        if not a["grupo"]["lider"] or not a["montado"]:
             continue
         for pid, n in a["grupo"]["impressoes"].get(monte, {}).items():
             out.setdefault(pid, []).append(
@@ -1144,6 +1311,23 @@ def allocate(con: sqlite3.Connection) -> dict:
     `proprias` (a soma dos membros, por carta) e `impressoes_proprias`, à
     parte dos três montes da Coleção — quem lê `impressoes` para saber o que
     os decks tiram à Coleção não as vê, e é assim que deve ser.
+
+    UM DECK DESMONTADO NÃO CONSOME NADA (2026-09-24, `decks.montados`). A
+    alocação corre em duas passagens: primeiro os grupos dos decks MONTADOS,
+    que consomem os montes como sempre; depois, um a um, os DESMONTADOS —
+    cada um contra uma CÓPIA do que sobrou, que ninguém consome. O resultado
+    de um desmontado é por isso uma SIMULAÇÃO («se montasse este a seguir aos
+    que estão montados, o que sairia da Coleção e o que me faltava»): dois
+    desmontados podem contar a mesma cópia, e é essa a pergunta. Cada entrada
+    leva `montado`; quem SOMA decks (o «falta comprar aos decks», o «para» das
+    Encomendas, o uso na grelha da Coleção, o A mais) lê só os montados, e é
+    isso que faz a Coleção dar exactamente os mesmos números que daria sem
+    esses decks.
+
+    A REGRA DE RARIDADE (mesmo dia, `decks.coleccao_so_a_partir_de`) não muda
+    alocação nenhuma: marca. `aviso_colecao` é, por carta, quantas cópias
+    saem da Coleção com uma raridade abaixo do patamar — as que ele quer que
+    venham das cópias próprias do deck.
     """
     from . import pending
 
@@ -1158,22 +1342,47 @@ def allocate(con: sqlite3.Connection) -> dict:
     # As runas não se contam (2026-09-17, à noite): ficam fora do `need` e por
     # isso de tudo o que se segue — nem se alocam nem faltam.
     nao_contadas = cartas_nao_contadas(con)
-    binder = dict(p["binder"])
-    colecao = dict(p["colecao"])
+    binder_real = dict(p["binder"])
+    colecao_real = dict(p["colecao"])
     # O pendente por impressão; as `market_only` (sem linha no catálogo — as
     # runas do SFD que a RiftScribe não tem) contam por carta, para qualquer
     # deck, como sempre contaram.
-    caminho = dict(pending.open_qty(con))
-    caminho_fora: dict[str, int] = {}
+    caminho_real = dict(pending.open_qty(con))
+    caminho_fora_real: dict[str, int] = {}
     for r in con.execute(
         "SELECT m.card_key AS k, SUM(pe.qty) AS q FROM pending pe "
         "JOIN catalog.market_only m ON m.printing_id = pe.printing_id "
         "WHERE pe.arrived_at IS NULL AND m.card_key IS NOT NULL GROUP BY m.card_key"
     ):
-        caminho_fora[r["k"]] = caminho_fora.get(r["k"], 0) + r["q"]
+        caminho_fora_real[r["k"]] = caminho_fora_real.get(r["k"], 0) + r["q"]
     por_id = {d["deck_id"]: d for d in deck_rows(con)}
-    held: dict[str, list[dict]] = {}     # card_key -> grupos que já a levaram
+    held_real: dict[str, list[dict]] = {}   # card_key -> grupos que já a levaram
     out = {}
+    # A raridade de cada carta e as que podem vir da Coleção sem aviso
+    # (2026-09-24). O aviso é informação: não muda a alocação.
+    raridades = raridade_por_carta(con, versoes)
+    raridades_ok = raridades_da_colecao()
+
+    # AS DUAS PASSAGENS (2026-09-24). Primeiro os grupos dos decks MONTADOS,
+    # pela prioridade de sempre, a consumir os montes; depois cada DESMONTADO
+    # sozinho, contra uma cópia do que sobrou — uma simulação que não consome
+    # e que por isso não mexe em número nenhum da Coleção. Um grupo de Legend
+    # com membros dos dois lados fica com os montados no grupo (partilham as
+    # cartas) e cada desmontado à parte, como deck seu.
+    mont = montados(con)
+    tarefas: list[tuple[dict, list, tuple | None]] = []
+    for g in grupos(con):
+        vivos = [por_id[i] for i in g["deck_ids"] if por_id[i]["name"] in mont]
+        if vivos:
+            tarefas.append((g, vivos, None))
+    for g in grupos(con):
+        for i in g["deck_ids"]:
+            d = por_id[i]
+            if d["name"] not in mont:
+                rotulo = d["display_name"] or d["name"]
+                tarefas.append(({**g, "deck_ids": [i], "slugs": [d["name"]],
+                                 "nomes": [rotulo], "lider": i, "priority": d["priority"],
+                                 "variantes": False, "rotulo": rotulo}, [d], ()))
 
     def tirar(monte: dict[str, int], pids: list[str], qty: int,
               *registos: dict[str, int] | None) -> int:
@@ -1192,8 +1401,19 @@ def allocate(con: sqlite3.Connection) -> dict:
                         registo[pid] = registo.get(pid, 0) + n
         return tirado
 
-    for g in grupos(con):
-        membros = [por_id[i] for i in g["deck_ids"]]
+    for g, membros, simular in tarefas:
+        montado = simular is None
+        if montado:
+            binder, colecao = binder_real, colecao_real
+            caminho, caminho_fora, held = caminho_real, caminho_fora_real, held_real
+        else:
+            # A cópia faz-se AGORA, não quando a tarefa se criou: as tarefas
+            # dos desmontados vêm todas depois das dos montados, por isso cada
+            # uma vê o que sobrou de verdade — e nenhuma vê o que outra levou.
+            binder, colecao = dict(binder_real), dict(colecao_real)
+            caminho, caminho_fora = dict(caminho_real), dict(caminho_fora_real)
+            held = {k: list(v) for k, v in held_real.items()}
+
         needs = {d["deck_id"]: _need(con, d["deck_id"], nao_contadas) for d in membros}
         # As cartas que algum membro joga numa versão especial (a Legend e o
         # Champion) — e só as que TÊM versão especial no catálogo: sem ela a
@@ -1526,9 +1746,17 @@ def allocate(con: sqlite3.Connection) -> dict:
                 else:
                     motivo = "acima do que a lista pede"
                 fora_p[pid] = {"qty": n, "card_key": ck, "motivo": motivo}
+            # A REGRA DE RARIDADE (2026-09-24): as cópias que este deck tira da
+            # COLEÇÃO e cuja raridade está abaixo do patamar — as que ele quer
+            # que venham das cópias próprias do deck. Só marca.
+            aviso = {ck: n for ck, n in m_col.items()
+                     if n > 0 and raridades.get(ck) not in raridades_ok}
             out[d["deck_id"]] = {
                 "alloc": m_alloc, "no_deck": m_deck, "no_binder": m_binder,
                 "na_colecao": m_col, "a_caminho": m_cam, "missing": m_miss,
+                # Este deck está montado? Um desmontado não consome nada: o
+                # que se segue é uma simulação (ver o topo da função).
+                "montado": montado, "aviso_colecao": aviso,
                 "shared": m_shared, "extra": sobra, "partilhada": partilhada,
                 # As cópias próprias deste deck (2026-09-21): por carta o que
                 # cobriram (já dentro do `alloc`), e as que não servem.
@@ -1539,7 +1767,7 @@ def allocate(con: sqlite3.Connection) -> dict:
                 "alloc_outras": m_alloc_o, "versoes_em": m_versoes,
                 "grupo": {**resultado, "legend": g["legend"], "rotulo": g["rotulo"],
                           "membros": g["nomes"], "slugs": g["slugs"],
-                          "variantes": g["variantes"],
+                          "variantes": g["variantes"], "montado": montado,
                           "lider": d["deck_id"] == g["lider"]},
             }
 
@@ -1563,6 +1791,10 @@ def uso_por_carta(con: sqlite3.Connection) -> dict[str, list[dict]]:
     Coleção: `wanted` é o que o grupo ainda pede à Coleção depois delas, e
     uma carta toda coberta por próprias não aparece — vai em `proprias`, só
     para a grelha poder dizer «Azir 1 · 2 próprias».
+
+    Um deck DESMONTADO (2026-09-24) não aparece aqui de todo: não está a usar
+    cópia nenhuma da Coleção, e escrever «Azir 3» numa carta de um deck que
+    está desfeito era o contrário do que a grelha promete.
     """
     alloc = allocate(con)
     por_slug = {d["name"]: d for d in deck_rows(con)}
@@ -1571,7 +1803,7 @@ def uso_por_carta(con: sqlite3.Connection) -> dict[str, list[dict]]:
     for d in deck_rows(con):
         a = alloc[d["deck_id"]]
         g = a["grupo"]
-        if not g["lider"]:
+        if not g["lider"] or not a["montado"]:
             continue
         nomes = {por_slug[s]["deck_id"]: por_slug[s]["display_name"] or s
                  for s in g["slugs"]}
@@ -1602,9 +1834,12 @@ def resumo_das_faltas(con: sqlite3.Connection) -> dict:
     `disputadas` são a parte dessa falta que existe noutro deck.
 
     Soma-se por GRUPO de Legend, lido no líder: o que falta aos dois LeBlanc é
-    a mesma carta e conta uma vez (2026-09-11, noite).
+    a mesma carta e conta uma vez (2026-09-11, noite). Um deck DESMONTADO
+    (2026-09-24) não entra: o que ele precisaria é uma simulação da página
+    dele, não uma compra a fazer.
     """
-    alloc = {k: a["grupo"] for k, a in allocate(con).items() if a["grupo"]["lider"]}
+    alloc = {k: a["grupo"] for k, a in allocate(con).items()
+             if a["grupo"]["lider"] and a["montado"]}
     # Ao preço da impressão em que se compra (`Versoes.compra`): a normal
     # mais barata, e a versão especial mais barata no lugar da Legend/Champion.
     versoes = versoes_dos_decks(con)
@@ -1780,6 +2015,14 @@ def decks_index(con: sqlite3.Connection) -> list[dict]:
             "name": d["display_name"] or d["name"],
             "legend": d["legend"], "champion": d["champion"],
             "priority": d["priority"],
+            # MONTADO OU DESMONTADO (2026-09-24). Um desmontado não consome
+            # nada da Coleção e o que se mostra dele é uma SIMULAÇÃO: o que
+            # sairia da Coleção se fosse montado a seguir aos montados.
+            "montado": a["montado"],
+            # A REGRA DE RARIDADE (mesmo dia): cópias que saem da Coleção com
+            # raridade abaixo do patamar — deviam vir das próprias do deck.
+            "aviso_colecao": sum(a["aviso_colecao"].values()),
+            "aviso_cartas": len(a["aviso_colecao"]),
             "wanted": pedidas, "have": tenho,
             # As runas que a lista pede e NÃO se contam: cópias e cartas
             # distintas, para o ecrã dizer «12 runas (3 cartas), à mão».
@@ -1916,6 +2159,11 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
     # a quantidade que a lista pede — «indica me so quantas sao» — e mais
     # nada: sem tenho, sem falta, sem a caminho, sem preço, sem versões.
     fora = cartas_nao_contadas(con)
+    # A regra de raridade (2026-09-24): que raridade tem cada carta, e quantas
+    # cópias dela já vão marcadas nas linhas anteriores deste deck.
+    raridades = raridade_por_carta(con, versoes)
+    raridades_ok = raridades_da_colecao()
+    usado_aviso: dict[str, int] = {}
     sections = []
     for role in ROLE_ORDER:
         rows = con.execute(
@@ -1935,7 +2183,7 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
                     "type": info["type"] if info else None,
                     "wanted": r["qty"], "have": 0, "missing": 0, "ordered": 0,
                     "proprias": 0, "no_deck": 0, "no_binder": 0, "na_colecao": 0,
-                    "contado": False,
+                    "contado": False, "rarity": None, "aviso": 0,
                     "especial": None, "versoes": [], "outras": 0,
                     "order_code": None, "order_price": None, "order_especial": False,
                     "shared": None, "partilhada": None, "printings": [],
@@ -2031,6 +2279,12 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
                 "no_deck": no_deck, "no_binder": no_binder,
                 "na_colecao": tenho - proprias - no_deck - no_binder,
                 "contado": True,
+                # A regra de raridade (2026-09-24): a raridade de jogo da
+                # carta e quantas cópias DESTA linha saem da Coleção contra a
+                # regra — o aviso do tile. Não bloqueia nada.
+                "rarity": raridades.get(ck),
+                "aviso": _aviso_da_linha(ck, tenho - proprias - no_deck - no_binder,
+                                         a["aviso_colecao"], usado_aviso),
                 # Os `+`/`−` das cópias próprias: onde o `+` grava (a base em
                 # que se compra) e o que este deck já tem de próprio, por
                 # impressão (o `−` tira da última).
@@ -2074,6 +2328,16 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
         # Só versões base (2026-09-21, `decks.so_base`): o ecrã diz-o ao lado
         # dos `+`/`−` das cópias próprias.
         "so_base": so_base(),
+        # MONTADO OU DESMONTADO (2026-09-24). Desmontado, nada do que se segue
+        # é uso da Coleção: é a SIMULAÇÃO de o montar a seguir aos que estão
+        # montados — é com ela que ele decide o que vai buscar ao binder.
+        "montado": a["montado"],
+        # A regra de raridade (mesmo dia): a raridade a partir da qual um deck
+        # pode servir-se da Coleção sem aviso, e quantas cópias a estão a
+        # contrariar neste deck.
+        "raridade_colecao": raridade_da_colecao(),
+        "aviso_colecao": sum(a["aviso_colecao"].values()),
+        "aviso_cartas": len(a["aviso_colecao"]),
         "local_proprias": locais.proprio_local(d["name"]),
         # As próprias que não servem este deck (outra versão, carta que a
         # lista não pede, acima do pedido) — com o motivo, para ele as tirar.
@@ -2125,6 +2389,21 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
             "outras": sum(a["alloc_outras"].values()),
         },
     }
+
+
+def _aviso_da_linha(ck: str, na_colecao: int, aviso: dict[str, int],
+                    usado: dict[str, int]) -> int:
+    """Quantas das `na_colecao` desta linha entram no aviso de raridade.
+
+    O aviso é por CARTA (a alocação é por carta) e a página mostra-a por
+    PAPEL: reparte-se pelas linhas, pela ordem em que elas se servem, como o
+    `no_deck`/`no_binder` já se repartem."""
+    total = aviso.get(ck, 0)
+    if not total or na_colecao <= 0:
+        return 0
+    n = min(na_colecao, max(0, total - usado.get(ck, 0)))
+    usado[ck] = usado.get(ck, 0) + n
+    return n
 
 
 def _imagem_pid(r) -> dict:
