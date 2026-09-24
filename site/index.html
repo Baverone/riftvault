@@ -3,179 +3,270 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#12131a">
+<meta name="theme-color" content="#07080d">
 <title>riftvault — coleção de Riftbound</title>
 <!-- Ícone embutido: sem ele, o `data/serve.log` mostra um 404 do
      /favicon.ico a cada abertura, e o atalho no telemóvel fica sem imagem.
-     Vai em data: URI para não haver ficheiro novo a copiar nos dois modos. -->
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2312131a'/%3E%3Cpath d='M20 46V18h13a9 9 0 0 1 0 18h-4l10 10h-8l-9-10v-6h10a3 3 0 0 0 0-6h-6v22z' fill='%23f0b429'/%3E%3C/svg%3E">
+     Vai em data: URI para não haver ficheiro novo a copiar nos dois modos.
+     Desde 2026-09-24 leva o roxo da marca (#a77bff) e o «R» do logótipo. -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23120f1d'/%3E%3Cpath d='M20 46V18h13a9 9 0 0 1 0 18h-4l10 10h-8l-9-10v-6h10a3 3 0 0 0 0-6h-6v22z' fill='%23a77bff'/%3E%3C/svg%3E">
+<!-- Space Grotesk nos títulos, Inter no texto — a identidade do baverone.com
+     (pedido do André, 2026-09-24), com `display=swap` e uma pilha de sistema
+     por trás: sem rede, a página lê-se na mesma, só com outra letra. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<header id="top">
-  <div class="brand">
-    <h1>riftvault</h1>
-    <span id="mode-badge" class="badge-mode" hidden>só leitura</span>
-    <nav id="section-tabs" class="tabs tabs-section">
-      <button class="tab is-on" data-section="colecao">Coleção</button>
-      <button class="tab" data-section="decks">Decks</button>
-      <!-- O separador «Faltas» (2026-09-15, fim da tarde): o que falta, por
-           edição, em quatro blocos — master set, sobrenumeradas, alt art,
-           promos. O id é `faltas-edicao` porque `faltas` era o id do
-           separador da tabela de preços (apagado a 2026-09-19 — ver o
-           CLAUDE.md) e continua a ser o do `faltas.py` dos decks. -->
-      <button class="tab" data-section="faltas-edicao">Faltas</button>
-      <!-- O separador «A mais» (2026-09-17): por edição, o excedente acima
-           do alvo e as cartas que os decks libertaram. Só mostra. -->
-      <button class="tab" data-section="a-mais">A mais</button>
-      <!-- O separador «Encomendas» (2026-09-17): a grelha da Coleção, de Rara
-           para cima, onde ele marca o que comprou e ainda não chegou, e dá
-           entrada quando chega. Os `+`/`−` da encomenda viveram nos tiles
-           dos decks de 2026-09-11 a este dia. -->
-      <button class="tab" data-section="encomendas">Encomendas</button>
-    </nav>
+<a class="salta" href="#conteudo">Saltar para o conteúdo</a>
+
+<div class="shell">
+
+  <!-- A NAVEGAÇÃO, num sítio só. O conteúdo desta barra é desenhado pelo
+       `renderNav()` a partir da tabela `NAV` do app.js — é lá que se
+       acrescenta uma secção, e é a MESMA barra no PC e no painel ☰ do
+       telemóvel. -->
+  <aside class="side" id="side" tabindex="-1" aria-label="Navegação do site">
+    <div class="sidetop">
+      <a class="casa" href="https://baverone.com">← baverone.com</a>
+      <a class="marca" href="#inicio">
+        <span class="mk" aria-hidden="true">R</span>
+        <span><b>riftvault</b><small>coleção de Riftbound</small></span>
+      </a>
+      <span id="mode-badge" class="badge-mode" hidden>só leitura</span>
+    </div>
+    <nav class="sidenav" id="sidenav"></nav>
+    <div class="sidept">Gerado no PC e publicado sozinho ·
+      <a href="https://github.com/Baverone/riftvault">repositório</a></div>
+  </aside>
+
+  <button class="veu" id="veu" type="button" aria-label="Fechar o menu"></button>
+
+  <div class="mainc">
+
+    <!-- Barra de topo do telemóvel: o botão ☰ abre a MESMA navegação. -->
+    <header class="topbar">
+      <button class="menub" id="menub" type="button" aria-expanded="false" aria-controls="side">
+        <span class="ic" id="menub-ic"></span><span>Menu</span></button>
+      <span class="tbt" id="topbar-tit">riftvault</span>
+    </header>
+
+    <!-- Cabeçalho da página: migalhas, título, subtítulo. Preenchido pelo
+         `renderCabecalho()` quando se muda de secção. -->
+    <div class="pgh">
+      <div class="pghin">
+        <nav class="crumbs" id="pg-crumbs" aria-label="Migalhas"></nav>
+        <div class="pgtop">
+          <div class="pgtit">
+            <h1 class="pgt" id="pg-titulo">Coleção</h1>
+            <p class="pgsub" id="pg-sub"></p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <main id="conteudo" tabindex="-1">
+     <div class="wrap">
+
+      <div id="readonly-banner" class="banner" hidden>
+        <b>Esta é a cópia publicada — só para consultar.</b>
+        <span>Os botões <code>+</code> e <code>−</code> não existem aqui de propósito.
+        Para mexer nas contagens, corre <code>riftvault serve</code> no PC e abre o
+        endereço que ele mostra.</span>
+      </div>
+
+      <!-- ============================================================ INÍCIO
+
+           O painel de hoje (2026-09-24): os números que a coleção já sabe,
+           numa página só, com os atalhos para onde se vai a seguir. Não há
+           conta nova nenhuma — tudo sai do `api/index.json`, do
+           `api/decks.json`, do `api/encomendas.json` e do
+           `api/faltas_edicao.json`, que já eram pedidos pelas outras secções.  -->
+      <section id="sec-inicio" hidden>
+        <div id="inicio-cartoes" class="ini-cartoes"></div>
+        <div id="inicio-atalhos" class="ini-atalhos"></div>
+        <div id="inicio-decks" class="ini-decks"></div>
+        <div id="inicio-fontes" class="ini-fontes"></div>
+      </section>
+
+      <!-- =========================================================== COLEÇÃO -->
+      <section id="sec-colecao" hidden>
+
+        <!-- A fila de edições era uma barra que corria para o lado no
+             telemóvel (OGN … Todas, com «Encomendas» fora do ecrã). Passou a
+             um controlo segmentado que ENVOLVE: a 390 px parte-se em linhas,
+             nunca em scroll horizontal. -->
+        <div class="secbar">
+          <div class="seglbl" id="set-lbl">Edição</div>
+          <nav id="set-tabs" class="seg segwrap" aria-labelledby="set-lbl"></nav>
+        </div>
+
+        <!-- O painel do topo (André, 2026-09-21, o «layout H»): três cartões —
+             1 de cada, 2 de cada, playset — e dois quadros, Raridade e Domínio,
+             sobre o bloco escolhido da edição aberta (ou de «Todas»). As runas
+             nunca entram. Desenha-o o `renderPainel` do app.js, recalculado a
+             cada `+`/`−` como as barras; a verdade do servidor vem em
+             `progress.painel` de cada edição e em `painel` do index. -->
+        <div id="painel" class="painel" aria-label="Contagem por níveis"></div>
+
+        <!-- Quantas das comuns e incomuns são foil (André, 2026-09-22): logo por
+             baixo do painel, uma tira com o total e uma linha por raridade —
+             impressões e cópias, normais e foil — da edição aberta (ou de
+             «Todas»). Fica aqui e não dentro do painel porque é outra pergunta:
+             o painel conta o que FALTA, isto reparte o que ele TEM. Desenha-o o
+             `renderFoilResumo`, recalculado a cada `+`/`−` como o painel; a
+             verdade do servidor vem em `progress.foil` de cada edição e em
+             `foil` do index. O OGS não tem (fica todo fora do âmbito). -->
+        <div id="foil-resumo" class="foil-resumo" aria-label="Foil e não-foil"></div>
+
+        <div id="progress" class="progress-wrap">
+          <div class="bar-block">
+            <div class="bar-label"><span>Playsets jogáveis</span><b id="play-num">–</b></div>
+            <div class="bar"><i id="play-bar" style="width:0"></i></div>
+            <small id="play-sub">3 cópias da carta, qualquer impressão conta</small>
+          </div>
+          <div class="bar-block">
+            <div class="bar-label"><span>Master set</span><b id="master-num">–</b></div>
+            <div class="bar bar-alt"><i id="master-bar" style="width:0"></i></div>
+            <small id="master-sub">só a sequência conta, a playset, runas incluídas
+            · a coleção extra à parte (alt art a playset, sobrenumeradas e promos
+            1 de cada)</small>
+            <div id="master-blocks" class="rarities blocos"></div>
+          </div>
+          <div class="bar-block" id="value-block" hidden>
+            <div class="bar-label"><span>Valor nesta edição</span><b id="value-num">–</b></div>
+            <div class="bar bar-val"><i id="value-bar" style="width:0"></i></div>
+            <small id="value-sub">preço mais baixo no CardTrader</small>
+          </div>
+          <!-- «faltam N cópias · X €» desta edição, a ligar ao bloco da wantlist
+               lá em baixo (André, 2026-09-08). (Os chips da contagem por níveis
+               e das raridades que viviam aqui passaram para o painel de cima a
+               2026-09-21.) -->
+          <p id="falta-linha" class="falta-linha" hidden></p>
+        </div>
+
+        <div id="controls" class="controls">
+          <div class="seg" role="group" aria-label="Impressões a mostrar">
+            <button class="seg-btn" data-view="base">Só artes base</button>
+            <button class="seg-btn is-on" data-view="all">Todas as impressões</button>
+          </div>
+
+          <div class="seg" role="group" aria-label="Estado">
+            <button class="seg-btn is-on" data-state="all">Tudo</button>
+            <button class="seg-btn" data-state="missing">Faltas</button>
+            <button class="seg-btn" data-state="indeck" title="Cartas que algum deck usa">Em decks</button>
+          </div>
+
+          <div id="kind-filter" class="chips" role="group" aria-label="Tipo de impressão">
+            <label class="chip"><input type="checkbox" value="base" checked><span>Base</span></label>
+            <label class="chip"><input type="checkbox" value="alt_art" checked><span>Arte alt.</span></label>
+            <label class="chip"><input type="checkbox" value="signature" checked><span>Signature</span></label>
+            <label class="chip"><input type="checkbox" value="other" checked><span>Tokens/Promos</span></label>
+          </div>
+
+          <input id="search" type="search" placeholder="Procurar carta ou código…" autocomplete="off">
+        </div>
+
+        <p id="count-line" class="count-line"></p>
+        <div id="grid" class="grid"></div>
+        <p id="empty" class="empty" hidden>Nada corresponde a estes filtros.</p>
+        <!-- O bloco «Runas — 12 de cada» (André, 2026-09-19): O CONTADOR DELE.
+             Vem de `api/runas.json`, fora do payload da edição; os `+`/`−` (só no
+             modo edição) escrevem na tabela dele e em mais lado nenhum, e não
+             conta para nada — nem barra, nem níveis, nem wantlist. Ver
+             `renderRunasVista`. -->
+        <div id="runas-vista" class="grid runas-vista"></div>
+
+        <!-- No fim da edição, a wantlist do Cardmarket dela; e no fim de tudo, a
+             de todas as edições. As faltas do master set (`api/wantlist.json`),
+             pelo gerador único — ver `renderWantlists` no app.js. -->
+        <div id="wantlists"></div>
+
+      </section>
+
+      <!-- ============================================================= DECKS
+
+           O índice dos decks era uma fila de nove botões que, num telemóvel,
+           acabava a 1042 px de largura — mais de dois ecrãs e meio de scroll
+           lateral. Passou a ÍNDICE VERTICAL (à esquerda no PC, `<select>` no
+           telemóvel), que é onde cabem os nomes e as percentagens.            -->
+      <section id="sec-decks" hidden>
+        <div class="comidx">
+          <div>
+            <div class="vidxsel">
+              <label class="vlbl" for="deck-sel">Deck ou lista</label>
+              <select class="selc" id="deck-sel"></select>
+            </div>
+            <nav class="vidx" id="deck-tabs" aria-label="Decks e listas de compra"></nav>
+          </div>
+          <div class="comidx-corpo">
+            <div id="deck-head"></div>
+            <div id="deck-body"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================ FALTAS -->
+      <section id="sec-faltas-edicao" hidden>
+        <div class="secbar">
+          <div class="seglbl" id="fe-lbl">Edição</div>
+          <nav id="fe-tabs" class="seg segwrap" aria-labelledby="fe-lbl"></nav>
+        </div>
+        <div id="fe-head"></div>
+        <div id="fe-body"></div>
+      </section>
+
+      <!-- =========================================================== A MAIS -->
+      <section id="sec-a-mais" hidden>
+        <div class="secbar">
+          <div class="seglbl" id="am-lbl">Edição</div>
+          <nav id="am-tabs" class="seg segwrap" aria-labelledby="am-lbl"></nav>
+        </div>
+        <div id="am-head"></div>
+        <div id="am-body"></div>
+      </section>
+
+      <!-- «Encomendas»: a mesma grelha da Coleção (edição a edição), de Rara para
+           cima, com os controlos do que está a caminho em cada tile. -->
+      <section id="sec-encomendas" hidden>
+        <div class="secbar">
+          <div class="seglbl" id="enc-lbl">Edição</div>
+          <nav id="enc-tabs" class="seg segwrap" aria-labelledby="enc-lbl"></nav>
+        </div>
+        <div id="enc-head"></div>
+        <div class="controls">
+          <div class="seg" role="group" aria-label="Encomendas — o que mostrar">
+            <button class="seg-btn is-on" data-enc-filter="all">Tudo</button>
+            <button class="seg-btn" data-enc-filter="ordered">A caminho</button>
+            <button class="seg-btn" data-enc-filter="missing">Faltas</button>
+          </div>
+          <input id="enc-search" type="search" placeholder="Procurar carta ou código…" autocomplete="off">
+        </div>
+        <p id="enc-count" class="count-line"></p>
+        <div id="enc-grid" class="grid"></div>
+        <p id="enc-empty" class="empty" hidden>Nada corresponde a estes filtros.</p>
+      </section>
+
+     </div>
+    </main>
+
+    <footer class="pgft">
+      <div class="pghin">
+        <div id="pg-ajuda"></div>
+        <p class="foot">
+          Catálogo da <a href="https://riftscribe.gg" rel="noreferrer">RiftScribe</a>.
+          Preços do <a href="https://cardtrader.com" rel="noreferrer">CardTrader</a>.
+          <span id="generated"></span>
+        </p>
+      </div>
+    </footer>
+
   </div>
-
-  <nav id="set-tabs" class="tabs tabs-set" aria-label="Edições"></nav>
-  <nav id="deck-tabs" class="tabs tabs-set" aria-label="Decks" hidden></nav>
-  <nav id="fe-tabs" class="tabs tabs-set" aria-label="Faltas — edições" hidden></nav>
-  <nav id="am-tabs" class="tabs tabs-set" aria-label="A mais — edições" hidden></nav>
-  <nav id="enc-tabs" class="tabs tabs-set" aria-label="Encomendas — edições" hidden></nav>
-</header>
-
-<main>
-  <div id="readonly-banner" class="banner" hidden>
-    <b>Esta é a cópia publicada — só para consultar.</b>
-    <span>Os botões <code>+</code> e <code>−</code> não existem aqui de propósito.
-    Para mexer nas contagens, corre <code>riftvault serve</code> no PC e abre o
-    endereço que ele mostra.</span>
-  </div>
-
-  <section id="colecao">
-
-    <!-- O painel do topo (André, 2026-09-21, o «layout H»): três cartões —
-         1 de cada, 2 de cada, playset — e dois quadros, Raridade e Domínio,
-         sobre o bloco escolhido da edição aberta (ou de «Todas»). As runas
-         nunca entram. Desenha-o o `renderPainel` do app.js, recalculado a
-         cada `+`/`−` como as barras; a verdade do servidor vem em
-         `progress.painel` de cada edição e em `painel` do index. -->
-    <div id="painel" class="painel" aria-label="Contagem por níveis"></div>
-
-    <!-- Quantas das comuns e incomuns são foil (André, 2026-09-22): logo por
-         baixo do painel, uma tira com o total e uma linha por raridade —
-         impressões e cópias, normais e foil — da edição aberta (ou de
-         «Todas»). Fica aqui e não dentro do painel porque é outra pergunta:
-         o painel conta o que FALTA, isto reparte o que ele TEM. Desenha-o o
-         `renderFoilResumo`, recalculado a cada `+`/`−` como o painel; a
-         verdade do servidor vem em `progress.foil` de cada edição e em
-         `foil` do index. O OGS não tem (fica todo fora do âmbito). -->
-    <div id="foil-resumo" class="foil-resumo" aria-label="Foil e não-foil"></div>
-
-    <div id="progress" class="progress-wrap">
-      <div class="bar-block">
-        <div class="bar-label"><span>Playsets jogáveis</span><b id="play-num">–</b></div>
-        <div class="bar"><i id="play-bar" style="width:0"></i></div>
-        <small id="play-sub">3 cópias da carta, qualquer impressão conta</small>
-      </div>
-      <div class="bar-block">
-        <div class="bar-label"><span>Master set</span><b id="master-num">–</b></div>
-        <div class="bar bar-alt"><i id="master-bar" style="width:0"></i></div>
-        <small id="master-sub">só a sequência conta, a playset, runas incluídas
-        · a coleção extra à parte (alt art a playset, sobrenumeradas e promos
-        1 de cada)</small>
-        <div id="master-blocks" class="rarities blocos"></div>
-      </div>
-      <div class="bar-block" id="value-block" hidden>
-        <div class="bar-label"><span>Valor nesta edição</span><b id="value-num">–</b></div>
-        <div class="bar bar-val"><i id="value-bar" style="width:0"></i></div>
-        <small id="value-sub">preço mais baixo no CardTrader</small>
-      </div>
-      <!-- «faltam N cópias · X €» desta edição, a ligar ao bloco da wantlist
-           lá em baixo (André, 2026-09-08). (Os chips da contagem por níveis
-           e das raridades que viviam aqui passaram para o painel de cima a
-           2026-09-21.) -->
-      <p id="falta-linha" class="falta-linha" hidden></p>
-    </div>
-
-    <div id="controls" class="controls">
-      <div class="seg" role="group" aria-label="Impressões a mostrar">
-        <button class="seg-btn" data-view="base">Só artes base</button>
-        <button class="seg-btn is-on" data-view="all">Todas as impressões</button>
-      </div>
-
-      <div class="seg" role="group" aria-label="Estado">
-        <button class="seg-btn is-on" data-state="all">Tudo</button>
-        <button class="seg-btn" data-state="missing">Faltas</button>
-        <button class="seg-btn" data-state="indeck" title="Cartas que algum deck usa">Em decks</button>
-      </div>
-
-      <div id="kind-filter" class="chips" role="group" aria-label="Tipo de impressão">
-        <label class="chip"><input type="checkbox" value="base" checked><span>Base</span></label>
-        <label class="chip"><input type="checkbox" value="alt_art" checked><span>Arte alt.</span></label>
-        <label class="chip"><input type="checkbox" value="signature" checked><span>Signature</span></label>
-        <label class="chip"><input type="checkbox" value="other" checked><span>Tokens/Promos</span></label>
-      </div>
-
-      <input id="search" type="search" placeholder="Procurar carta ou código…" autocomplete="off">
-    </div>
-
-    <p id="count-line" class="count-line"></p>
-    <div id="grid" class="grid"></div>
-    <p id="empty" class="empty" hidden>Nada corresponde a estes filtros.</p>
-    <!-- O bloco «Runas — 12 de cada» (André, 2026-09-19): O CONTADOR DELE.
-         Vem de `api/runas.json`, fora do payload da edição; os `+`/`−` (só no
-         modo edição) escrevem na tabela dele e em mais lado nenhum, e não
-         conta para nada — nem barra, nem níveis, nem wantlist. Ver
-         `renderRunasVista`. -->
-    <div id="runas-vista" class="grid runas-vista"></div>
-
-    <!-- No fim da edição, a wantlist do Cardmarket dela; e no fim de tudo, a
-         de todas as edições. As faltas do master set (`api/wantlist.json`),
-         pelo gerador único — ver `renderWantlists` no app.js. -->
-    <div id="wantlists"></div>
-
-  </section>
-
-  <section id="decks" hidden>
-    <div id="deck-head"></div>
-    <div id="deck-body"></div>
-  </section>
-
-  <section id="faltas-edicao" hidden>
-    <div id="fe-head"></div>
-    <div id="fe-body"></div>
-  </section>
-
-  <section id="a-mais" hidden>
-    <div id="am-head"></div>
-    <div id="am-body"></div>
-  </section>
-
-  <!-- «Encomendas»: a mesma grelha da Coleção (edição a edição), de Rara para
-       cima, com os controlos do que está a caminho em cada tile. -->
-  <section id="encomendas" hidden>
-    <div id="enc-head"></div>
-    <div class="controls">
-      <div class="seg" role="group" aria-label="Encomendas — o que mostrar">
-        <button class="seg-btn is-on" data-enc-filter="all">Tudo</button>
-        <button class="seg-btn" data-enc-filter="ordered">A caminho</button>
-        <button class="seg-btn" data-enc-filter="missing">Faltas</button>
-      </div>
-      <input id="enc-search" type="search" placeholder="Procurar carta ou código…" autocomplete="off">
-    </div>
-    <p id="enc-count" class="count-line"></p>
-    <div id="enc-grid" class="grid"></div>
-    <p id="enc-empty" class="empty" hidden>Nada corresponde a estes filtros.</p>
-  </section>
-</main>
+</div>
 
 <div id="toasts" class="toasts" aria-live="polite"></div>
-
-<p class="foot">
-  Catálogo da <a href="https://riftscribe.gg" rel="noreferrer">RiftScribe</a>.
-  <span id="generated"></span>
-</p>
 
 <script src="app.js"></script>
 </body>

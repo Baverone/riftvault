@@ -131,6 +131,273 @@ function savePrefs() {
   try { localStorage.setItem(PREFS, JSON.stringify(state.prefs)); } catch (_) {}
 }
 
+/* ==========================================================================
+   A CASCA (2026-09-24) — navegação, cabeçalho, rotas
+
+   Pedido do André: *"faz o mesmo rebrand para os outros projetos"*, depois de
+   o mtgvault ter sido reestruturado. O que estava mal aqui era o mesmo que
+   estava lá: DUAS filas de botões no topo, as duas com scroll lateral. Num
+   telemóvel de 390 px a fila dos decks acabava aos 1042 px — nove botões, dos
+   quais três se viam. Navegar era adivinhar o que estava fora do ecrã.
+
+   Agora há UM sítio para a navegação: a tabela `NAV`. Dela saem a barra
+   lateral (a mesma no PC e no painel ☰), as migalhas e o título de cada
+   página. Uma secção nova é uma linha aqui.
+   ========================================================================== */
+
+/* Os ícones, em linha e com `currentColor` — acendem com o rótulo quando o
+   item fica activo, coisa que um emoji (desenhado pelo SISTEMA, com cor
+   própria) nunca fez. Geometria do conjunto Feather (MIT). */
+const ICO = {
+  inicio: '<path d="M3 9.5 12 2l9 7.5V20a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12.5h6V22"/>',
+  colecao: '<path d="M2 3.5h5.5a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2z"/>'
+         + '<path d="M22 3.5h-5.5a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3H22z"/>',
+  faltas: '<circle cx="9.5" cy="20.5" r="1.3"/><circle cx="19" cy="20.5" r="1.3"/>'
+        + '<path d="M1.5 2h3.3l2.5 12.2a1.9 1.9 0 0 0 1.9 1.5h9.2a1.9 1.9 0 0 0 1.9-1.5L22.2 6H6.2"/>',
+  amais: '<path d="M2.5 3.5h19v5h-19z"/><path d="M4.4 8.5V20a1.5 1.5 0 0 0 1.5 1.5h12.2'
+       + 'a1.5 1.5 0 0 0 1.5-1.5V8.5"/><path d="M10 12.5h4"/>',
+  decks: '<path d="M12 2.4 2.2 7.2 12 12l9.8-4.8z"/><path d="m2.2 16.8 9.8 4.8 9.8-4.8"/>'
+       + '<path d="m2.2 12 9.8 4.8L21.8 12"/>',
+  staples: '<path d="M22 12h-4.2l-2.9 8.4L9 3.6 6.1 12H2"/>',
+  pordeck: '<path d="M12 20.5V9.5"/><path d="M18.2 20.5v-17"/><path d="M5.8 20.5v-6"/>',
+  pimp: '<path d="M13.2 2 3.4 13.8h8.1l-.7 8.2 9.8-11.8h-8.1z"/>',
+  encomendas: '<path d="M1.5 4h13.6v12.4H1.5z"/><path d="M15.1 8.4h3.9l3.5 3.5v4.5h-7.4z"/>'
+            + '<circle cx="6" cy="19" r="2.2"/><circle cx="18.4" cy="19" r="2.2"/>',
+  valor: '<path d="M22.5 6.5 13.8 15.2l-4.6-4.6L1.5 18.3"/><path d="M16.8 6.5h5.7v5.7"/>',
+  montado: '<path d="M21.5 11.1V12a9.5 9.5 0 1 1-5.6-8.7"/><path d="m8 11.5 3.2 3.2L22 4"/>',
+  cartas: '<rect x="3" y="3" width="18" height="18" rx="2.2"/><circle cx="8.6" cy="8.6" r="1.6"/>'
+        + '<path d="m21 15.5-4.8-4.8L5.5 21"/>',
+  menu: '<path d="M3.5 12h17"/><path d="M3.5 6h17"/><path d="M3.5 18h17"/>',
+  ajuda: '<circle cx="12" cy="12" r="9.5"/>'
+       + '<path d="M9.3 9.2a2.8 2.8 0 0 1 5.4.9c0 1.9-2.7 2.8-2.7 2.8"/><path d="M12 17h.01"/>',
+};
+
+/* Um nome que não exista devolve string VAZIA e não um quadrado — um ícone a
+   faltar não pode tapar o rótulo que está ao lado dele. */
+function ico(nome, tam = 18) {
+  const d = ICO[nome];
+  if (!d) return '';
+  const cls = tam === 18 ? 'ico' : `ico i${tam}`;
+  return `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
+}
+
+/* A NAVEGAÇÃO. `sub` é uma sub-vista da mesma secção (`#decks/staples`); sem
+   ela, o item é a secção inteira. A ordem é a que ele vê na barra. */
+const NAV = [
+  { grupo: '', itens: [
+    { sec: 'inicio', ico: 'inicio', rot: 'Início', nota: 'o painel de hoje' },
+  ] },
+  { grupo: 'Coleção', itens: [
+    { sec: 'colecao', ico: 'colecao', rot: 'Coleção', nota: 'a grelha, por edição' },
+    { sec: 'faltas-edicao', ico: 'faltas', rot: 'Faltas', nota: 'o que falta, por bloco' },
+    { sec: 'a-mais', ico: 'amais', rot: 'A mais', nota: 'excedente e libertadas' },
+  ] },
+  { grupo: 'Decks', itens: [
+    { sec: 'decks', ico: 'decks', rot: 'Decks', nota: 'as listas montadas' },
+    { sec: 'decks', sub: 'staples', ico: 'staples', rot: 'Staples',
+      desc: 'As cartas que <b>mais do que um deck</b> pede e que não tens em número '
+          + 'suficiente — uma compra serve vários.' },
+    { sec: 'decks', sub: 'pordeck', ico: 'pordeck', rot: 'Por deck',
+      desc: 'A mesma falta dos decks, repartida por prioridade: o que sobra ao deck '
+          + 'de baixo depois de os de cima se servirem.' },
+    { sec: 'decks', sub: 'pimp', ico: 'pimp', rot: 'Pimp decks',
+      desc: 'As versões alteradas das cartas que os decks jogam — arte alternativa, '
+          + 'sobrenumerada, promo. É uma lista de compra, já sem o que tens.' },
+  ] },
+  { grupo: 'Compras', itens: [
+    { sec: 'encomendas', ico: 'encomendas', rot: 'Encomendas', nota: 'o que vem a caminho' },
+  ] },
+];
+
+/* O título e o subtítulo de cada página. O TÍTULO é o mesmo rótulo da barra
+   lateral, de propósito: carregar em «A mais» e chegar a uma página com outro
+   nome é a página a discordar do menu que lá levou. */
+const PAGINA = {
+  'inicio': {
+    sub: 'O que a coleção diz hoje — e por onde continuar.',
+  },
+  'colecao': {
+    sub: 'A sequência do master set e a coleção extra, edição a edição. '
+       + 'Os <b>+</b> e <b>−</b> mexem nas cópias que estão nos binders de coleção.',
+    sub_ro: 'A sequência do master set e a coleção extra, edição a edição.',
+    ajuda: '<p>A barra do <b>master set</b> conta só a sequência da edição, a playset e com '
+         + 'as runas numeradas incluídas. A <b>coleção extra</b> — artes alternativas (a '
+         + 'playset), sobrenumeradas e promos (1 de cada) — aparece na grelha em blocos '
+         + 'próprios e <b>não entra na percentagem nem em lista de compra nenhuma</b>: '
+         + 'acompanhar não é querer comprar.</p>'
+         + '<p>Tokens, signatures e as runas sem numeração de master set não se mostram; as '
+         + 'runas em arte alternativa estão retiradas de tudo. O bloco <b>Runas — 12 de '
+         + 'cada</b>, no fim, é o contador dele: os <b>+</b>/<b>−</b> de lá escrevem numa '
+         + 'tabela à parte e não contam para número nenhum do site.</p>'
+         + '<p>Debaixo dos tiles das comuns e incomuns está a repartição <b>normais · '
+         + 'foil</b>. Ela não mexe no total nem em nenhuma conta — é só a dizer quantas '
+         + 'das que tens são foil.</p>',
+  },
+  'decks': {
+    sub: 'As listas montadas, o que cada uma tem e o que lhe falta. '
+       + 'A ordem vem do <code>riftvault_config.json</code>.',
+    ajuda: '<p>Um deck serve-se primeiro das <b>cópias próprias</b> (as que guardaste para '
+         + 'ele, que nunca contam para a Coleção nem para o valor), depois do que está '
+         + 'sleevado, do binder e da <b>Coleção</b>. O que não recebe é falta a comprar, '
+         + 'mesmo que a carta exista num deck de cima.</p>'
+         + '<p>As <b>runas não se contam</b>: o Rune Pool diz só quantas são e organizas-'
+         + 'las à mão. Por isso o «tenho» é de 54 e não de 66.</p>'
+         + '<p><b>Staples</b> são as cartas que mais do que um deck pede — uma compra serve '
+         + 'vários. <b>Por deck</b> reparte a mesma falta por prioridade. <b>Pimp decks</b> '
+         + 'são as versões alteradas das cartas que os decks jogam.</p>',
+  },
+  'faltas-edicao': {
+    sub: 'O que falta para fechar cada edição, em quatro blocos — e a wantlist '
+       + 'do Cardmarket de cada um.',
+    ajuda: '<p>Quatro blocos por edição: <b>Master set</b>, <b>OverNumbered</b>, <b>Alt '
+         + 'Art</b> e <b>Promos</b>, pela mesma ordem da Coleção. Cada um tem a sua caixa '
+         + 'do Cardmarket, já preenchida.</p>'
+         + '<p>Só o <b>master set</b> entra na wantlist geral da Coleção — os outros três '
+         + 'compram-se pela lista própria, quando quiseres. Uma carta que já vem a caminho '
+         + 'aparece marcada e não vai para wantlist nenhuma.</p>',
+  },
+  'a-mais': {
+    sub: 'O excedente acima do alvo e as cartas que os decks deixaram de pedir. '
+       + 'Só mostra — nada sai da coleção.',
+    ajuda: '<p>O <b>excedente</b> é <code>cópias − max(usadas nos decks, alvo)</code>: o que '
+         + 'sobra depois de servir os decks e de cumprir o alvo da coleção.</p>'
+         + '<p>As <b>libertadas</b> saem do registo das listas dos decks: uma carta aparece '
+         + 'aqui quando a quantidade que um deck pede desce. As <b>runas nunca aparecem</b> '
+         + 'em nenhum dos dois blocos.</p>',
+  },
+  'encomendas': {
+    sub: 'A grelha da Coleção de Rara para cima, para marcares o que compraste '
+       + 'e dares entrada quando chega.',
+    sub_ro: 'A grelha da Coleção de Rara para cima, com o que foi comprado e '
+          + 'ainda não chegou.',
+    ajuda: '<p>Encomendar <b>não é ter</b>: o que está a caminho não entra na Coleção, não '
+         + 'mexe na barra, nos níveis nem no valor. O que faz é <b>descontar das listas de '
+         + 'compra</b>, para não mandarem comprar outra vez.</p>'
+         + '<p>Carregar em <b>Chegou</b> passa as cópias para a Coleção — e isso fica no '
+         + 'registo, dá para desfazer.</p>',
+  },
+};
+
+/* O item da barra lateral de uma secção (o primeiro sem `sub`) — é dele que
+   saem o título da página e o grupo das migalhas. */
+function navItem(sec) {
+  for (const g of NAV) for (const it of g.itens) if (it.sec === sec && !it.sub) return { ...it, grupo: g.grupo };
+  return { sec, rot: sec, grupo: '', ico: '' };
+}
+
+function navSub(sec, sub) {
+  for (const g of NAV) for (const it of g.itens) if (it.sec === sec && it.sub === sub) return it;
+  return null;
+}
+
+function renderNav() {
+  const alvo = $('#sidenav');
+  let out = '';
+  for (const g of NAV) {
+    out += '<div class="sgrp">';
+    if (g.grupo) out += `<div class="sgh">${escapeHTML(g.grupo)}</div>`;
+    for (const it of g.itens) {
+      const href = '#' + it.sec + (it.sub ? '/' + it.sub : '');
+      const cls = 'sli' + (it.sub ? ' sub' : '');
+      const nt = it.nota ? `<small>${escapeHTML(it.nota)}</small>` : '';
+      out += `<a class="${cls}" href="${href}" data-sec="${escapeAttr(it.sec)}"`
+           + ` data-sub="${escapeAttr(it.sub || '')}">`
+           + `<span class="ic">${ico(it.ico, it.sub ? 16 : 18)}</span>`
+           + `<span class="tx">${escapeHTML(it.rot)}${nt}</span></a>`;
+    }
+    out += '</div>';
+  }
+  alvo.innerHTML = out;
+  for (const a of alvo.querySelectorAll('a')) a.onclick = fecharMenu;
+}
+
+/* Acende o item da barra lateral. Um item COM sub-vista só acende quando a
+   sub-vista é a que está aberta; o item da secção acende quando não há
+   nenhuma sub-vista da lista escolhida (senão acendiam dois ao mesmo tempo). */
+function marcarNav(sec, sub) {
+  for (const a of document.querySelectorAll('#sidenav a')) {
+    const s = a.dataset.sub || '';
+    const on = a.dataset.sec === sec && (s ? s === sub : !navSub(sec, sub));
+    a.classList.toggle('cur', on);
+    if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+  }
+}
+
+function renderCabecalho(sec, sub) {
+  const it = navItem(sec);
+  const s = navSub(sec, sub);
+  const titulo = s ? s.rot : it.rot;
+  const p = PAGINA[sec] || {};
+  $('#pg-titulo').textContent = titulo;
+  $('#topbar-tit').textContent = titulo;
+  document.title = `${titulo} · riftvault`;
+  // Uma sub-vista responde a outra pergunta que a secção: o «Staples» com o
+  // subtítulo dos Decks por cima dizia-lhe que ia ver a lista dos decks.
+  //
+  // E o `sub_ro` é para a CÓPIA PUBLICADA: o subtítulo da Coleção prometia
+  // que «os + e − mexem nas cópias», numa página onde eles não existem de
+  // propósito. Onde não há versão de leitura, o texto serve nos dois.
+  $('#pg-sub').innerHTML = (s && s.desc)
+    || (!state.editable && p.sub_ro) || p.sub || '';
+  // O grupo só entra quando ACRESCENTA: «Início › Decks › Decks» lia-se como
+  // um erro de contagem, e é o que acontece sempre que a secção dá o nome ao
+  // grupo dela.
+  const meio = it.grupo && it.grupo !== it.rot
+    ? `<i>›</i><span>${escapeHTML(it.grupo)}</span>` : '';
+  const ate = s ? `<i>›</i><a href="#${sec}">${escapeHTML(it.rot)}</a>` : '';
+  $('#pg-crumbs').innerHTML = sec === 'inicio'
+    ? `<b>${escapeHTML(titulo)}</b>`
+    : `<a href="#inicio">Início</a>${meio}${ate}<i>›</i><b>${escapeHTML(titulo)}</b>`;
+  // «Como ler esta página»: o texto longo lê-se UMA vez e depois é só
+  // distância até ao fim da página — fica fechado, com o resumo no botão.
+  $('#pg-ajuda').innerHTML = p.ajuda
+    ? `<details class="comoler"><summary>${ico('ajuda', 16)}<span>Como ler esta página`
+      + `</span></summary><div class="cltx">${p.ajuda}</div></details>`
+    : '';
+}
+
+/* ------------------------------------------------- o painel ☰ do telemóvel */
+
+function abrirMenu() {
+  document.body.classList.add('menu-on');
+  $('#menub').setAttribute('aria-expanded', 'true');
+  try { $('#side').focus(); } catch (_) {}
+}
+function fecharMenu() {
+  document.body.classList.remove('menu-on');
+  $('#menub').setAttribute('aria-expanded', 'false');
+}
+
+function wireCasca() {
+  $('#menub-ic').innerHTML = ico('menu', 17);
+  $('#menub').onclick = () =>
+    document.body.classList.contains('menu-on') ? fecharMenu() : abrirMenu();
+  $('#veu').onclick = fecharMenu;
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharMenu(); });
+}
+
+/* ---------------------------------------------------------------- as rotas
+
+   `#<secção>` e `#<secção>/<sub-vista>` — a edição da Coleção, das Faltas, do
+   A mais e das Encomendas, e o deck ou a lista dos Decks. Uma sub-vista com
+   URL é o que deixa ligar a «as faltas do UNL» de fora da página, e é o que o
+   botão «voltar» do browser passa a saber desfazer. */
+function lerHash() {
+  const h = decodeURIComponent((location.hash || '').slice(1));
+  const [sec, sub] = h.split('/');
+  return { sec, sub: sub || '' };
+}
+
+/* Escreve a rota no URL sem disparar o `hashchange` (já estamos a desenhar a
+   secção — deixá-lo disparar dava um segundo desenho por cada clique). */
+let aEscreverHash = false;
+function escreverHash(sec, sub) {
+  const novo = '#' + sec + (sub ? '/' + sub : '');
+  if (location.hash === novo) return;
+  aEscreverHash = true;
+  try { location.hash = novo; } finally { setTimeout(() => { aEscreverHash = false; }, 0); }
+}
+
 /* ------------------------------------------------------------------ dados */
 
 async function getJSON(url) {
@@ -141,6 +408,8 @@ async function getJSON(url) {
 
 async function boot() {
   loadPrefs();
+  renderNav();
+  wireCasca();
   wireControls();
   wireKeyboard();
 
@@ -155,9 +424,6 @@ async function boot() {
   $('#readonly-banner').hidden = state.editable;
   $('#generated').textContent = state.index.generated_at
     ? `Atualizado em ${state.index.generated_at.replace('T', ' ').replace('+00:00', ' UTC')}.` : '';
-  for (const b of document.querySelectorAll('#section-tabs .tab')) {
-    b.onclick = () => showSection(b.dataset.section);
-  }
 
   // A contagem por níveis das cinco edições, como estava quando o ficheiro foi
   // gerado. A edição que ele abrir passa a ser recalculada a partir dos +/-.
@@ -165,31 +431,42 @@ async function boot() {
     state.levels.set(sid, ls);
   }
 
+  // A rota do URL manda; sem ela, a última secção que ele abriu. Uma
+  // preferência guardada com a secção Venda (apagada a 2026-09-15) ou com a
+  // tabela de preços (`faltas`, apagada a 2026-09-19) cai na Coleção, como
+  // qualquer outro nome que já não exista.
+  const r = lerHash();
+  const sec = SECCOES.includes(r.sec) ? r.sec
+    : SECCOES.includes(state.prefs.section) ? state.prefs.section : 'inicio';
+  const sub = SECCOES.includes(r.sec) ? r.sub : '';
+
+  // A Coleção carrega-se sempre à partida: é dela que saem as barras, o painel
+  // e o `state.qty` que a secção Encomendas e o bloco das runas leem.
   renderSetTabs();
   const first = state.index.sets[0];
-  const wanted = state.prefs.set === TODAS || state.index.sets.some(s => s.id === state.prefs.set)
-    ? state.prefs.set : (first && first.id);
-  if (wanted) await loadSet(wanted);
-  // Uma preferência guardada com a secção Venda (apagada a 2026-09-15) ou
-  // com a tabela de preços (`faltas`, apagada a 2026-09-19) cai aqui na
-  // Coleção, como qualquer outro nome que já não exista.
-  // `#decks`, `#faltas-edicao`, … no URL abre essa secção — dá para ligar a
-  // uma secção directamente; sem ele fica a última que ele abriu.
-  const hash = location.hash.slice(1);
-  showSection(SECCOES.includes(hash) ? hash
-    : SECCOES.includes(state.prefs.section) ? state.prefs.section : 'colecao');
-  // Uma ligação `#encomendas` dentro da página (a nota do deck) abre a secção
-  // sem recarregar.
+  const daRota = sec === 'colecao' && sub
+    && (sub === TODAS || state.index.sets.some(s => s.id === sub)) ? sub : null;
+  const wanted = daRota
+    || (state.prefs.set === TODAS || state.index.sets.some(s => s.id === state.prefs.set)
+        ? state.prefs.set : (first && first.id));
+  if (wanted) await loadSet(wanted, { url: false });
+
+  showSection(sec, sub);
+
+  // Uma ligação `#encomendas` dentro da página (a nota do deck), o botão
+  // «voltar» do browser e um endereço colado à mão entram todos por aqui.
   window.addEventListener('hashchange', () => {
-    const h = location.hash.slice(1);
-    if (SECCOES.includes(h)) showSection(h);
+    if (aEscreverHash) return;
+    const h = lerHash();
+    if (SECCOES.includes(h.sec)) showSection(h.sec, h.sub, { url: false });
   });
 }
 
-async function loadSet(setId) {
+async function loadSet(setId, { url = true } = {}) {
   state.setId = setId;
   state.prefs.set = setId;
   savePrefs();
+  if (url && state.prefs.section === 'colecao') escreverHash('colecao', setId);
   renderSetTabs();
 
   $('#grid').innerHTML = '<p class="empty">a carregar…</p>';
@@ -461,6 +738,7 @@ function renderSetTabs() {
   const botao = (id, nome, sub) => {
     const b = document.createElement('button');
     b.className = 'tab' + (id === state.setId ? ' is-on' : '');
+    b.setAttribute('aria-pressed', id === state.setId ? 'true' : 'false');
     b.innerHTML = `${escapeHTML(nome)}<small>${sub}</small>`;
     b.onclick = () => loadSet(id).catch(err => toast(err.message, { error: true }));
     nav.appendChild(b);
@@ -1661,7 +1939,10 @@ function setFocus(i, tiles) {
    usa»). O que um deck não recebe é para COMPRAR, mesmo que exista num deck de
    cima; nesse caso a carta diz onde está («3× em Azir»), como informação.   */
 
-async function loadDecks() {
+/* O `api/decks.json` é pedido por DUAS secções — os Decks e o painel do Início
+   — e é sempre o mesmo ficheiro. Pede-se uma vez só. */
+async function garanteDecks() {
+  if (state.decks) return state.decks;
   const d = await getJSON('api/decks.json');
   state.decks = d.decks;
   // A ordem escrita no config (`decks.ordem`, 2026-09-21) manda: sem botões
@@ -1669,49 +1950,115 @@ async function loadDecks() {
   state.ordemFixa = !!d.ordem_fixa;
   // Só versões base (2026-09-21, `decks.so_base`): diz-se ao lado dos `+`/`−`.
   state.soBase = d.so_base !== false;
+  return state.decks;
+}
+
+async function loadDecks(sub = '') {
+  await garanteDecks();
   renderDeckTabs();
-  // Uma preferência guardada com a aba «Encomendas» (que viveu aqui de
-  // 2026-09-11 a 2026-09-17, e passou a separador próprio) ou com a aba «Pool
-  // dos decks» (a experiência da manhã de 2026-09-21) cai no primeiro deck.
-  const first = DECK_FALTA_IDS.includes(state.prefs.deck)
-    || state.decks.some(x => x.id === state.prefs.deck)
-    ? state.prefs.deck : (state.decks[0] && state.decks[0].id);
+  // A rota do URL (`#decks/ornn`, `#decks/staples`) manda; a seguir, a última
+  // escolha. Uma preferência guardada com a aba «Encomendas» (que viveu aqui
+  // de 2026-09-11 a 2026-09-17, e passou a separador próprio) ou com a aba
+  // «Pool dos decks» (a experiência da manhã de 2026-09-21) cai no 1.º deck.
+  const daRota = DECK_FALTA_IDS.includes(sub) ? sub
+    : (state.decks.find(x => x.slug === sub) || {}).id;
+  const first = daRota
+    || (DECK_FALTA_IDS.includes(state.prefs.deck)
+        || state.decks.some(x => x.id === state.prefs.deck)
+      ? state.prefs.deck : (state.decks[0] && state.decks[0].id));
   if (DECK_FALTA_IDS.includes(first)) await loadDeckFaltas(first);
   else if (first) await loadDeck(first);
   else $('#deck-body').innerHTML = '<p class="empty">Não há decks. Mete um .txt em <code>decks/</code>.</p>';
 }
 
-function renderDeckTabs() {
-  const nav = $('#deck-tabs');
-  nav.innerHTML = '';
-  for (const d of state.decks) {
-    const b = document.createElement('button');
-    b.className = 'tab' + (d.id === state.deckId ? ' is-on' : '');
+/* O índice dos decks. Era uma FILA de nove botões que, num telemóvel de
+   390 px, acabava aos 1042 px — vêem-se três, os outros seis estavam fora do
+   ecrã. Passou a índice VERTICAL à esquerda do conteúdo (≥ 900 px) e a um
+   `<select>` no telemóvel: cabe tudo, e os nomes já não são cortados.
+
+   Os dois saem da MESMA lista (`itensDoIndice`), para não haver duas ordens
+   nem dois rótulos para a mesma coisa. */
+function itensDoIndice() {
+  const decks = (state.decks || []).map(d => {
     const pct = d.wanted ? Math.round((d.have / d.wanted) * 100) : 0;
     // Membros de um grupo de Legend (2026-09-11, noite) levam «··»: são
     // listas do mesmo deck físico e partilham as cartas.
     const grupo = d.grupo && d.grupo.variantes;
-    // As runas não se contam (2026-09-17, à noite): o «tenho X de N» é sem
-    // elas, e o separador diz só quantas há.
-    b.innerHTML = `${d.priority === 1 ? '★ ' : ''}${grupo ? '<span class="grupo-marca" title="' +
-      escapeAttr(`A mesma Legend que ${d.grupo.irmaos.join(', ')}: partilham as cartas`) + '">··</span> ' : ''}${
-      escapeHTML(d.name)}<small>${pct}% · ${d.have}/${d.wanted}${
-      d.ordered ? ` · ${d.ordered} a caminho` : ''}${runasCurto(d.runas)}</small>`;
-    b.onclick = () => loadDeck(d.id);
-    nav.appendChild(b);
-  }
+    return {
+      grupo: 'Os decks',
+      chave: d.slug, on: d.id === state.deckId, ico: 'decks',
+      rot: (d.priority === 1 ? '★ ' : '') + (grupo ? '·· ' : '') + d.name,
+      titulo: grupo ? `A mesma Legend que ${d.grupo.irmaos.join(', ')}: partilham as cartas` : '',
+      // As runas não se contam (2026-09-17, à noite): o «tenho X de N» é sem
+      // elas, e a linha diz só quantas há.
+      // Um deck DESMONTADO (2026-09-24) não consome nada da Coleção: o índice
+      // diz-o em vez da percentagem, que ali seria uma simulação.
+      nota: d.montado === false
+        ? `desmontado · precisaria de ${d.wanted}`
+        : `${pct}% · ${d.have}/${d.wanted}`
+          + (d.ordered ? ` · ${d.ordered} a caminho` : '') + runasCurto(d.runas),
+      off: d.montado === false,
+      accao: () => loadDeck(d.id),
+    };
+  });
   // A lista «Encomendas» que era o último separador daqui (2026-09-11) passou
   // a separador de topo a 2026-09-17 («tiras esta funcionalidade dos decks»).
   // As abas por deck que viviam no antigo separador «Faltas» até 2026-09-15
   // (Staples, Por deck, Pimp decks): o contador só se sabe depois do
   // `compras.json`.
-  for (const t of DECK_FALTA_TABS) {
+  const listas = DECK_FALTA_TABS.map(t => ({
+    grupo: 'Listas de compra',
+    chave: t.id, on: state.deckId === t.id, ico: t.id, rot: t.label, titulo: '',
+    nota: contadorFalta(t.id) || t.sub,
+    accao: () => loadDeckFaltas(t.id),
+  }));
+  return decks.concat(listas);
+}
+
+function renderDeckTabs() {
+  const itens = itensDoIndice();
+  const nav = $('#deck-tabs');
+  nav.innerHTML = '';
+  let grupo = null;
+  for (const it of itens) {
+    if (it.grupo !== grupo) {
+      grupo = it.grupo;
+      const h = document.createElement('div');
+      h.className = 'vgh';
+      h.textContent = grupo;
+      nav.appendChild(h);
+    }
     const b = document.createElement('button');
-    b.className = 'tab' + (state.deckId === t.id ? ' is-on' : '');
-    b.innerHTML = `${t.label}<small>${contadorFalta(t.id) || t.sub}</small>`;
-    b.onclick = () => loadDeckFaltas(t.id);
+    b.type = 'button';
+    b.className = (it.on ? 'is-on' : '') + (it.off ? ' is-off' : '');
+    if (it.on) b.setAttribute('aria-current', 'true');
+    if (it.titulo) b.title = it.titulo;
+    b.innerHTML = `<span class="ic">${ico(it.ico, 16)}</span>`
+      + `<span class="vtx">${escapeHTML(it.rot)}<small>${escapeHTML(it.nota)}</small></span>`;
+    b.onclick = it.accao;
     nav.appendChild(b);
   }
+
+  // O mesmo índice, no telemóvel. `<optgroup>` para os dois grupos se lerem.
+  const sel = $('#deck-sel');
+  sel.innerHTML = '';
+  let og = null;
+  for (const it of itens) {
+    if (!og || og.label !== it.grupo) {
+      og = document.createElement('optgroup');
+      og.label = it.grupo;
+      sel.appendChild(og);
+    }
+    const o = document.createElement('option');
+    o.value = it.chave;
+    o.textContent = `${it.rot} — ${it.nota}`;
+    o.selected = it.on;
+    og.appendChild(o);
+  }
+  sel.onchange = () => {
+    const it = itensDoIndice().find(x => x.chave === sel.value);
+    if (it) it.accao();
+  };
 }
 
 /* «· 12 runas» — as que a lista pede e NÃO se contam (André, 2026-09-17, à
@@ -1731,8 +2078,11 @@ async function loadDeck(deckId) {
   state.prefs.deck = deckId;
   savePrefs();
   renderDeckTabs();
+  if (state.prefs.section === 'decks') escreverHash('decks', deckSubAtual());
+  $('#deck-head').innerHTML = '';
   $('#deck-body').innerHTML = '<p class="empty">a carregar…</p>';
   state.deck = await getJSON(`api/deck/${deckId}.json`);
+  if (state.deckId !== deckId) return;     // entretanto abriu outro deck
   renderDeck();
 }
 
@@ -1749,9 +2099,14 @@ function renderDeck() {
       <div class="deck-title">
         <b>${escapeHTML(p.name)}</b>
         <span class="prio">${p.priority === 1 ? 'principal' : `prioridade ${p.priority}`}</span>
+        ${p.montado === false ? '<span class="prio off">desmontado</span>' : ''}
         ${p.grupo && p.grupo.variantes ? `<span class="prio grupo">variante de ${
           escapeHTML(p.grupo.irmaos.map(deckCurto).join(', '))}</span>` : ''}
       </div>
+      ${p.montado === false ? `<small class="nota">Este deck está <b>desmontado</b>:
+        não está a usar nenhuma cópia da Coleção — não aparece na grelha, não entra
+        na falta a comprar nem no «A mais». O que se vê aqui é a <b>simulação</b> de
+        o montar a seguir aos que estão montados.</small>` : ''}
       ${p.grupo && p.grupo.variantes ? `<small class="nota">A mesma Legend que
         <b>${escapeHTML(p.grupo.irmaos.join(', '))}</b>: são listas do mesmo deck e
         partilham as cartas — o que falta a uma é a mesma compra da outra
@@ -1786,6 +2141,9 @@ function renderDeck() {
         ${p.unresolved.map(u => escapeHTML(u.name)).join(', ')}</small>` : ''}
       ${deckLocais(p)}
       <div class="deck-actions">
+        ${state.editable ? `<button class="btn ${p.montado === false ? 'primaria' : ''}"
+          data-act="${p.montado === false ? 'montar' : 'desmontar'}">${
+          p.montado === false ? 'Montar este deck' : 'Desmontar'}</button>` : ''}
         ${state.editable && !state.ordemFixa && p.priority !== 1
           ? `<button class="btn" data-act="principal">Tornar principal</button>` : ''}
         ${state.editable && !state.ordemFixa ? `<button class="btn" data-act="subir">Subir</button>
@@ -1829,7 +2187,7 @@ function renderDeck() {
       tira-as com o <b>−</b>, ou deixa-as ficar. Não contam para a Coleção.</p>
     <div class="grid deck-grid">${p.proprias_fora.map(propriaForaTile).join('')}</div>` : '';
 
-  $('#deck-body').innerHTML = listas + foraP + faltas;
+  $('#deck-body').innerHTML = montagemHTML(p) + listas + foraP + faltas;
 
   for (const b of document.querySelectorAll('#deck-head .btn[data-act]')) {
     b.onclick = () => deckAction(b.dataset.act);
@@ -1838,6 +2196,81 @@ function renderDeck() {
     b.onclick = () => locaisAction(b.dataset.loc);
   }
   ligarProprias();
+}
+
+/* O MODO DE REMONTAGEM (André, 2026-09-24): *"vou colocar tudo nos binders das
+   edicoes e depois voltar a montar deck a deck e assim conseguir perceber o que
+   tenho e nao tenho"*.
+
+   Uma TABELA, não tiles: ele vai percorrê-la com as cartas na mão, e o que
+   precisa é de uma linha por carta com quatro números — precisa / próprias /
+   no binder ou no deck / da Coleção — e o que falta. Ordenada pelo que FALTA
+   primeiro, depois pelo que sai da Coleção (é o que tem de ir buscar) e só no
+   fim o que já está. Fechada por omissão (`<details>`), para não empurrar a
+   lista de cartas para baixo em quem não está a montar.
+
+   A 375 px a tabela não cabe: abaixo dos 560 px cada linha passa a um cartão
+   (o CSS trata disso, `.mont-tab` em modo bloco com `data-label`), e por isso
+   cada `<td>` leva o seu rótulo. */
+function montagemHTML(p) {
+  // Somadas POR CARTA: a lista mostra-se por papel, mas quem está a montar
+  // tem a carta na mão uma vez só — 2 Sabotage no main e 1 no sideboard são
+  // 3 Sabotage para arranjar, não duas linhas.
+  const por = new Map();
+  for (const s of p.sections) {
+    for (const c of s.cards) {
+      if (c.contado === false) continue;
+      let e = por.get(c.card_key);
+      if (!e) {
+        e = { name: c.name, rarity: c.rarity, wanted: 0, proprias: 0, no_deck: 0,
+              no_binder: 0, na_colecao: 0, missing: 0, aviso: 0 };
+        por.set(c.card_key, e);
+      }
+      for (const k of ['wanted', 'proprias', 'no_deck', 'no_binder', 'na_colecao',
+                       'missing', 'aviso']) e[k] += c[k] || 0;
+    }
+  }
+  const cartas = [...por.values()];
+  if (!cartas.length) return '';
+  cartas.sort((a, b) => (b.missing - a.missing) || ((b.aviso || 0) - (a.aviso || 0))
+    || (b.na_colecao - a.na_colecao) || a.name.localeCompare(b.name));
+  const faltam = cartas.reduce((s, c) => s + c.missing, 0);
+  const daColecao = cartas.reduce((s, c) => s + c.na_colecao, 0);
+  const td = (rot, v, cls) => `<td data-l="${rot}"${cls ? ` class="${cls}"` : ''}>${v}</td>`;
+  const linhas = cartas.map(c => {
+    // `r-` na linha e `m-` nas células, de propósito: com o mesmo nome nos
+    // dois, a cor da linha pintava todos os números dela.
+    const est = c.missing ? 'falta' : (c.aviso ? 'regra' : 'ok');
+    return `<tr class="r-${est}">
+      <td data-l="carta" class="m-nome">${escapeHTML(c.name)}${
+        c.aviso ? `<span class="m-rar" title="${escapeAttr(
+          `${c.aviso} cópia(s) a sair da Coleção e esta carta é ${c.rarity || '?'} — `
+          + `pela regra, devia vir das cópias próprias do deck`)}">! ${
+          escapeHTML(c.rarity || '')}</span>` : ''}</td>
+      ${td('precisa', c.wanted)}
+      ${td('próprias', c.proprias || 0, c.proprias ? 'm-prop' : 'm-zero')}
+      ${td('deck/binder', (c.no_deck || 0) + (c.no_binder || 0),
+        (c.no_deck || c.no_binder) ? '' : 'm-zero')}
+      ${td('Coleção', c.na_colecao || 0, c.aviso ? 'm-aviso' : (c.na_colecao ? '' : 'm-zero'))}
+      ${td('falta', c.missing || 0, c.missing ? 'm-falta' : 'm-zero')}
+    </tr>`;
+  }).join('');
+  return `<details class="montagem" ${faltam || p.montado === false ? 'open' : ''}>
+    <summary>Montar este deck, carta a carta
+      <span>${cartas.length} cartas · ${faltam} a arranjar · ${daColecao} da Coleção${
+        p.aviso_colecao ? ` · ${p.aviso_colecao} contra a regra` : ''}</span></summary>
+    <p class="note">Por esta ordem: primeiro o que falta, depois o que tens de ir
+      buscar à Coleção, e no fim o que já está.
+      ${p.montado === false ? '<b>O deck está desmontado</b>: os números da Coleção são a simulação de o montares a seguir aos que estão montados. ' : ''}
+      ${p.raridade_colecao ? `O <b>!</b> é a regra de raridade: abaixo de
+        <b>${escapeHTML(p.raridade_colecao)}</b> a cópia devia ser <b>própria do deck</b>,
+        não sair da Coleção.` : ''}</p>
+    <table class="mont-tab">
+      <thead><tr><th>carta</th><th>precisa</th><th>próprias</th><th>deck/binder</th>
+        <th>Coleção</th><th>falta</th></tr></thead>
+      <tbody>${linhas}</tbody>
+    </table>
+  </details>`;
 }
 
 /* ONDE estão as cartas deste deck. As três primeiras somam o que o deck tem
@@ -1861,8 +2294,19 @@ function deckLocais(p) {
       ${l.outras ? `<span class="chip-l outra">noutra versão ${l.outras}</span>` : ''}
       ${l.extra ? chip(true, `a mais neste deck ${l.extra}`) : ''}
       ${l.proprias_fora ? chip(true, `${l.proprias_fora} próprias que não servem`) : ''}
+      ${p.aviso_colecao ? `<span class="chip-l regra" title="${escapeAttr(
+        `abaixo de ${p.raridade_colecao} a cópia devia ser própria do deck`)}">${
+        p.aviso_colecao} da Coleção que não deviam</span>` : ''}
       ${runasNaoContadas(p.runas) ? `<span class="chip-l neutra">${p.runas.copies} runas à mão</span>` : ''}
     </div>
+    ${p.aviso_colecao ? `<small class="nota regra"><b>${p.aviso_colecao}</b> ${
+      p.aviso_colecao === 1 ? 'cópia sai' : 'cópias saem'} da Coleção com raridade
+      abaixo de <b>${escapeHTML(p.raridade_colecao || '')}</b>, em ${
+      plural(p.aviso_cartas, 'carta', 'cartas')}. Pela regra de 2026-09-24, de
+      <b>${escapeHTML(p.raridade_colecao || '')}</b> para baixo as cópias dos decks
+      deviam ser <b>próprias do deck</b> e a Coleção ficar quieta${
+      state.editable ? ' — mete-as com o <b>+</b> de cada carta' : ''}. Não bloqueia
+      nada: é só um aviso.</small>` : ''}
     <small class="nota">As <b>cópias próprias</b> são as que tens guardadas
       <b>para este deck</b>${state.editable ? ' — diz quantas com o <b>+</b>/<b>−</b> de cada carta' : ''}.
       Servem-no primeiro, só a ele, e <b>não contam para a Coleção</b> (nem para o
@@ -1884,13 +2328,16 @@ function deckLocais(p) {
       : (state.editable && l.missing ? `<small class="nota">Compraste alguma?
       Marca-a no separador <b><a href="#encomendas">Encomendas</a></b> — sai da
       lista de compras e fica «a caminho» até lhe dares entrada.</small>` : '')}
-    ${l.na_colecao && state.editable ? `<small class="nota">As <b>${l.na_colecao}</b>
+    ${l.na_colecao && state.editable && p.montado !== false ? `<small class="nota">As <b>${l.na_colecao}</b>
       da Coleção contam para este deck. Se as sleevares, marca-as para o
       riftvault saber onde estão.</small>` : ''}
     ${l.extra ? `<small class="nota bad">${l.extra} cópias estão marcadas neste
       deck e a lista já não as pede.</small>` : ''}
     ${state.editable ? `<div class="deck-actions">
-      <button class="btn" data-loc="propor">Marcar o que este deck usa…</button>
+      ${/* Desmontado, a marcação não faz sentido — o deck não está a tirar
+            nada da Coleção, e o `propor_deck` recusa-a (2026-09-24). */ ''}
+      ${p.montado === false ? ''
+        : '<button class="btn" data-loc="propor">Marcar o que este deck usa…</button>'}
       ${l.no_deck ? '<button class="btn" data-loc="desfazer">Desfazer deck</button>' : ''}
     </div>` : ''}
     <div id="propor-zona"></div>
@@ -2088,8 +2535,17 @@ function deckTile(c) {
       alt.length ? ` · ou ${alt.join(', ')}` : ''}</div>`;
   }
   nota += versoesNota(c);
+  // A REGRA DE RARIDADE (André, 2026-09-24): esta cópia sai da Coleção e a
+  // carta está abaixo do patamar — devia ser uma cópia PRÓPRIA do deck. Só
+  // avisa; a alocação é a mesma.
+  if (c.aviso) {
+    nota += `<div class="onde regra">${c.aviso} da Coleção${
+      c.rarity ? ` — é ${escapeHTML(c.rarity)}` : ''}: devia${c.aviso === 1 ? '' : 'm'}
+      ser própria${c.aviso === 1 ? '' : 's'} do deck</div>`;
+  }
 
-  return `<div class="dtile ${st}${c.outras ? ' outra-versao' : ''}" data-ck="${escapeAttr(c.card_key)}">
+  return `<div class="dtile ${st}${c.outras ? ' outra-versao' : ''}${
+    c.aviso ? ' tem-regra' : ''}" data-ck="${escapeAttr(c.card_key)}">
     <div class="art${c.landscape ? ' landscape' : ''}">
       ${src ? `<img src="${src}" alt="${escapeAttr(c.name)}" loading="lazy" decoding="async"
          ${alt ? `data-fallback="${escapeAttr(alt)}"` : ''}>` : ''}
@@ -2255,6 +2711,7 @@ function especialNota(x) {
 
 async function deckAction(act) {
   if (act === 'csv') return exportCSV();
+  if (act === 'montar' || act === 'desmontar') return montarDeck(act === 'montar');
   const ids = state.decks.map(d => d.id);
   const i = ids.indexOf(state.deckId);
   let novo = ids.slice();
@@ -2276,6 +2733,35 @@ async function deckAction(act) {
     toast('Ordem alterada — a alocação foi refeita.');
   } catch (err) {
     toast(`Não deu para reordenar: ${err.message}`, { error: true });
+  }
+}
+
+/* MONTAR / DESMONTAR (André, 2026-09-24). Escreve `decks.montados` no
+   `riftvault_config.json` (o estado é de lá, «para não se perder») e refaz a
+   alocação de toda a gente: desmontar liberta o que o deck estava a usar da
+   Coleção, montar volta a prendê-lo. Por isso a Coleção, o A mais, as
+   Encomendas e as listas de compra ficam por reler. */
+async function montarDeck(montado) {
+  const p = state.deck;
+  try {
+    const r = await fetch('api/decks/montar', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slug: p.slug, montado }),
+    });
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(body.error || `HTTP ${r.status}`);
+    state.decks = body.decks;
+    state.colecaoVelha = true;
+    state.compras = null;
+    state.aMais = null;
+    state.enc.payload = null;
+    renderDeckTabs();
+    await loadDeck(state.deckId);
+    toast(montado
+      ? `«${p.name}» montado — volta a servir-se da Coleção.`
+      : `«${p.name}» desmontado — deixou de usar a Coleção.`);
+  } catch (err) {
+    toast(`Não deu para ${montado ? 'montar' : 'desmontar'}: ${err.message}`, { error: true });
   }
 }
 
@@ -2329,6 +2815,7 @@ async function loadEncomendas(setId = null) {
   state.enc.setId = setId;
   state.prefs.encSet = setId;
   savePrefs();
+  if (state.prefs.section === 'encomendas') escreverHash('encomendas', setId);
   renderEncTabs();
   $('#enc-grid').innerHTML = '<p class="empty">a carregar…</p>';
   // O resumo é pequeno e é o que os separadores mostram («N a caminho» por
@@ -2358,9 +2845,11 @@ function renderEncTabs() {
   for (const g of (state.enc.resumo?.a_caminho || [])) porSet.set(g.set, g.copies);
   for (const s of (state.index?.sets || [])) {
     const b = document.createElement('button');
-    b.className = 'tab' + (s.id === state.enc.setId ? ' is-on' : '');
+    const on = s.id === state.enc.setId;
+    b.className = 'tab' + (on ? ' is-on' : '');
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
     const n = porSet.get(s.id) || 0;
-    b.innerHTML = `${s.name}<small>${n ? `${n} a caminho` : 'nada a caminho'}</small>`;
+    b.innerHTML = `${escapeHTML(s.name)}<small>${n ? `${n} a caminho` : 'nada a caminho'}</small>`;
     b.onclick = () => loadEncomendas(s.id);
     nav.appendChild(b);
   }
@@ -2693,38 +3182,282 @@ function wireEncomendas() {
   });
 }
 
-/* Os separadores de cima. `faltas-edicao` é o separador «Faltas» de
+/* As secções. `faltas-edicao` é o separador «Faltas» de
    2026-09-15 (o id `faltas` era o da tabela de preços, apagada a 2026-09-19);
    `a-mais` é o «A mais» de 2026-09-17; `encomendas` é o separador
-   «Encomendas» do mesmo dia. */
-const SECCOES = ['colecao', 'decks', 'faltas-edicao', 'a-mais', 'encomendas'];
+   «Encomendas» do mesmo dia. `inicio` é o painel de 2026-09-24.
 
-function showSection(name) {
+   Os NOMES não mudaram com o rebrand, de propósito: são a rota (`#a-mais`) e a
+   chave das preferências guardadas, e renomeá-los partia as ligações que já
+   existem dentro da página (a nota de um deck aponta ao `#encomendas` desde
+   2026-09-17) e os favoritos dele.
+
+   O que mudou foi o id no DOM, que passou a `sec-<nome>`. A rota e o id eram o
+   MESMO texto, e por isso o browser tratava `#decks` como âncora e saltava
+   para a `<section>` — a página abria com o cabeçalho (migalhas, título, o
+   seletor de edição, e no telemóvel o `<select>` dos decks) já acima do topo
+   do ecrã. Um `scrollTo(0, 0)` não chegava: o salto do browser é DEPOIS do
+   `boot()`. Com os dois nomes separados não há âncora nenhuma a apanhar. */
+const SECCOES = ['inicio', 'colecao', 'decks', 'faltas-edicao', 'a-mais', 'encomendas'];
+
+/* Desenha a secção e põe a rota no URL. `sub` é a sub-vista — a edição, o deck
+   ou a lista de compra. Vazia, usa-se a última que ele escolheu. */
+let seccaoNoEcra = null;
+
+function showSection(name, sub = '', { url = true } = {}) {
+  if (!SECCOES.includes(name)) name = 'colecao';
+  const mudou = name !== seccaoNoEcra;
+  seccaoNoEcra = name;
   state.prefs.section = name;
   savePrefs();
-  for (const s of SECCOES) $('#' + s).hidden = s !== name;
-  $('#set-tabs').hidden = name !== 'colecao';
-  $('#deck-tabs').hidden = name !== 'decks';
-  $('#fe-tabs').hidden = name !== 'faltas-edicao';
-  $('#am-tabs').hidden = name !== 'a-mais';
-  $('#enc-tabs').hidden = name !== 'encomendas';
-  for (const b of document.querySelectorAll('#section-tabs .tab')) {
-    b.classList.toggle('is-on', b.dataset.section === name);
+  for (const s of SECCOES) $('#sec-' + s).hidden = s !== name;
+  marcarNav(name, sub);
+  renderCabecalho(name, sub);
+  if (url) escreverHash(name, sub);
+  fecharMenu();
+  // Quem muda de secção quer o princípio dela; quem só troca de edição fica
+  // onde está.
+  if (mudou) window.scrollTo(0, 0);
+  abrirSubVista(name, sub);
+}
+
+/* A sub-vista de cada secção, e o carregamento preguiçoso que já existia. Um
+   `sub` que não exista (um favorito de uma edição que saiu do catálogo, um
+   deck apagado) é ignorado em silêncio e fica o que estava — nunca uma página
+   em branco. */
+function abrirSubVista(name, sub) {
+  const erro = (alvo, err) => { $(alvo).innerHTML = `<p class="empty">${escapeHTML(err.message)}</p>`; };
+
+  if (name === 'inicio') {
+    renderInicio();
+    carregarInicio().catch(err => toast(err.message, { error: true }));
+    return;
   }
-  // Uma encomenda ou um «Chegou» mudou o que a grelha da Coleção diz («N a
-  // caminho» nos decks, as cópias na caixa): relê-se a edição aberta.
-  if (name === 'colecao' && state.colecaoVelha && state.setId) {
-    state.colecaoVelha = false;
-    loadSet(state.setId).catch(err => toast(err.message, { error: true }));
+
+  if (name === 'colecao') {
+    const val = sub && (sub === TODAS || (state.index?.sets || []).some(s => s.id === sub));
+    // Uma encomenda ou um «Chegou» mudou o que a grelha da Coleção diz («N a
+    // caminho» nos decks, as cópias na caixa): relê-se a edição aberta.
+    const velha = state.colecaoVelha;
+    if (velha) state.colecaoVelha = false;
+    const alvo = val ? sub : state.setId;
+    if (alvo && (val ? alvo !== state.setId : velha)) {
+      loadSet(alvo).catch(err => toast(err.message, { error: true }));
+    }
+    return;
   }
-  if (name === 'encomendas' && !state.enc.payload) loadEncomendas().catch(err =>
-    $('#enc-grid').innerHTML = `<p class="empty">${escapeHTML(err.message)}</p>`);
-  if (name === 'decks' && !state.decks) loadDecks().catch(err =>
-    $('#deck-body').innerHTML = `<p class="empty">${escapeHTML(err.message)}</p>`);
-  if (name === 'faltas-edicao' && !state.faltasEdicao) loadFaltasEdicao().catch(err =>
-    $('#fe-body').innerHTML = `<p class="empty">${escapeHTML(err.message)}</p>`);
-  if (name === 'a-mais' && !state.aMais) loadAMais().catch(err =>
-    $('#am-body').innerHTML = `<p class="empty">${escapeHTML(err.message)}</p>`);
+
+  if (name === 'decks') {
+    // `state.decks` pode já estar preenchido pelo painel do Início sem que
+    // nenhum deck tenha sido aberto — quem decide é o `deckId`.
+    if (state.deckId === null) loadDecks(sub).catch(err => erro('#deck-body', err));
+    else if (sub) abrirDeckOuLista(sub);
+    return;
+  }
+
+  if (name === 'faltas-edicao') {
+    if (!state.faltasEdicao) { loadFaltasEdicao(sub).catch(err => erro('#fe-body', err)); return; }
+    if (sub && feSetValido(sub) && sub !== state.prefs.feSet) {
+      state.prefs.feSet = sub; savePrefs(); renderFeTabs(); renderFaltasEdicao();
+    }
+    return;
+  }
+
+  if (name === 'a-mais') {
+    if (!state.aMais) { loadAMais(sub).catch(err => erro('#am-body', err)); return; }
+    if (sub && amSetValido(sub) && sub !== state.prefs.amSet) {
+      state.prefs.amSet = sub; savePrefs(); renderAmTabs(); renderAMais();
+    }
+    return;
+  }
+
+  if (name === 'encomendas') {
+    const val = sub && (state.index?.sets || []).some(s => s.id === sub);
+    if (!state.enc.payload || (val && sub !== state.enc.setId)) {
+      loadEncomendas(val ? sub : null).catch(err => erro('#enc-grid', err));
+    }
+  }
+}
+
+/* O `sub` dos Decks é o SLUG do deck (estável e legível no URL) ou o id de uma
+   das listas de compra. O payload do deck continua a pedir-se pelo número —
+   a tradução é aqui. */
+function abrirDeckOuLista(sub) {
+  if (DECK_FALTA_IDS.includes(sub)) {
+    if (state.deckId !== sub) loadDeckFaltas(sub);
+    return;
+  }
+  const d = (state.decks || []).find(x => x.slug === sub);
+  if (d && d.id !== state.deckId) loadDeck(d.id);
+}
+
+/* O slug do que está aberto nos Decks — é o que vai para o URL. */
+function deckSubAtual() {
+  if (DECK_FALTA_IDS.includes(state.deckId)) return state.deckId;
+  const d = (state.decks || []).find(x => x.id === state.deckId);
+  return d ? d.slug : '';
+}
+
+function feSetValido(s) {
+  return s === 'all' || (state.faltasEdicao?.sets || []).some(x => x.set === s);
+}
+function amSetValido(s) {
+  return s === 'all' || (state.aMais?.sets || []).some(x => x.set === s && x.button);
+}
+
+
+/* ==========================================================================
+   INÍCIO — o painel de hoje (2026-09-24)
+
+   NÃO HÁ CONTA NOVA NENHUMA AQUI. Todos os números saem de payloads que as
+   outras secções já pediam — `api/index.json` (níveis, valor, totais),
+   `api/decks.json`, `api/encomendas.json` e `api/faltas_edicao.json` — e são
+   mostrados exactamente como lá vêm. É de propósito: um painel que fizesse a
+   sua própria aritmética era uma segunda resposta às mesmas perguntas, e mais
+   cedo ou mais tarde discordava da página a que manda ir.
+
+   Por isso também desenha DUAS vezes: à entrada, com o que já está em memória
+   (o índice chega sempre no arranque), e outra vez quando os três ficheiros
+   que faltam responderem. Um que falhe deixa o cartão dele a «—» e não leva a
+   página atrás.                                                             */
+
+let inicioAPedir = null;
+
+async function carregarInicio() {
+  if (inicioAPedir) return inicioAPedir;
+  const tentar = async (falta, fn) => { if (falta) { try { await fn(); } catch (_) {} } };
+  inicioAPedir = Promise.all([
+    tentar(!state.decks, garanteDecks),
+    tentar(!state.enc.resumo, async () => { state.enc.resumo = await getJSON('api/encomendas.json'); }),
+    tentar(!state.faltasEdicao, async () => { state.faltasEdicao = await getJSON('api/faltas_edicao.json'); }),
+  ]).then(() => {
+    inicioAPedir = null;
+    if (state.prefs.section === 'inicio') renderInicio();
+  });
+  return inicioAPedir;
+}
+
+function iniCartao(cls, icone, rotulo, valor, nota) {
+  return `<div class="ini-card ${cls}">
+    <div class="k"><span class="ic">${ico(icone, 14)}</span>${escapeHTML(rotulo)}</div>
+    <p class="v">${valor}</p>
+    <p class="n">${nota}</p></div>`;
+}
+
+function renderInicio() {
+  const ix = state.index;
+  if (!ix) return;
+  const niveis = (ix.levels || {}).levels || [];
+  const play = niveis.find(l => l.k === 3);
+  const um = niveis.find(l => l.k === 1);
+  const dois = niveis.find(l => l.k === 2);
+  const fe = state.faltasEdicao;
+  const enc = state.enc.resumo;
+  const decks = state.decks;
+  const tr = '<span class="n">—</span>';
+
+  /* ------------------------------------------------------------- cartões */
+  let cartoes = '';
+  // O `done`/`total` dos níveis conta IMPRESSÕES; o `missing` conta CÓPIAS
+  // (`metrics.niveis`: a soma de `min(k, alvo) − cópias`). São duas unidades
+  // na mesma linha e têm de ser ditas pelo nome — a primeira versão desta
+  // página chamou «impressões» às 281 cópias que faltam.
+  cartoes += iniCartao('rox', 'colecao', 'Master set · playset',
+    play ? `${num(play.done)}<small>/${num(play.total)}</small>` : tr,
+    play ? `<b>${fmtPct(play.pct)}</b> das impressões — faltam <b>${
+             plural(play.missing, 'cópia', 'cópias')}</b>.`
+         + (um && dois ? ` 1 de cada ${fmtPct(um.pct)} · 2 de cada ${fmtPct(dois.pct)}.` : '')
+         : 'a carregar…');
+
+  const fl = fe && fe.totals_lists;
+  cartoes += iniCartao('gold', 'faltas', 'Falta comprar',
+    fl ? `${num(fl.copies)}<small> cópias</small>` : tr,
+    fl ? `${eur(fl.cents)} ao preço de hoje · ${plural(fl.cards, 'carta', 'cartas')}.
+          Só o <b>master set</b> — a coleção extra compra-se pela lista do bloco.`
+       : 'a carregar as faltas…');
+
+  const v = ix.value || {};
+  const tt = ix.totals || {};
+  cartoes += iniCartao('ok', 'valor', 'Valor da coleção',
+    v.cents != null ? eur(v.cents) : tr,
+    `${num(tt.copies || 0)} cópias de ${num(tt.cards || 0)} cartas${
+      v.copias_sem_preco ? ` · ${plural(v.copias_sem_preco, 'cópia sem preço', 'cópias sem preço')}` : ''}.
+     As cópias próprias dos decks não contam.`);
+
+  if (decks) {
+    const cheios = decks.filter(d => !d.missing).length;
+    const faltam = decks.reduce((n, d) => n + (d.missing || 0), 0);
+    cartoes += iniCartao(cheios === decks.length ? 'ok' : '', 'montado', 'Decks montados',
+      `${cheios}<small> de ${decks.length}</small>`,
+      faltam ? `faltam <b>${plural(faltam, 'cópia', 'cópias')}</b> para montar os outros.`
+             : 'estão todos completos.');
+  } else {
+    cartoes += iniCartao('', 'montado', 'Decks montados', tr, 'a carregar os decks…');
+  }
+
+  const et = enc && enc.totals;
+  cartoes += iniCartao(et && et.copies ? 'gold' : '', 'encomendas', 'A caminho',
+    et ? `${num(et.copies)}<small> cópias</small>` : tr,
+    et ? (et.copies ? `${plural(et.printings, 'impressão', 'impressões')} · ${eur(et.cents)}.
+            Dá entrada em <a href="#encomendas">Encomendas</a> quando chegarem.`
+                    : 'nada encomendado por chegar.')
+       : 'a carregar…');
+
+  // O que falta para fechar a COLEÇÃO EXTRA: o total das Faltas menos a parte
+  // que entra nas listas de compra (o master set). É a subtração de dois
+  // números do mesmo payload, não uma conta nova.
+  const extra = fe && fe.totals && fl
+    ? { copies: fe.totals.copies - fl.copies, cents: fe.totals.cents - fl.cents } : null;
+  cartoes += iniCartao('', 'amais', 'Coleção extra',
+    extra ? `${num(extra.copies)}<small> cópias</small>` : tr,
+    extra ? `alt art, sobrenumeradas e promos por fechar — ${eur(extra.cents)}.
+             <b>Não</b> entram na percentagem nem na wantlist geral.`
+          : 'a carregar…');
+  $('#inicio-cartoes').innerHTML = cartoes;
+
+  /* ------------------------------------------------------------- atalhos */
+  const atalhos = [
+    ['colecao', 'colecao', 'Coleção', 'marcar o que chegou'],
+    ['faltas-edicao', 'faltas', 'Faltas', 'o que comprar, por bloco'],
+    ['decks', 'decks', 'Decks', 'o que falta a cada um'],
+    ['encomendas', 'encomendas', 'Encomendas', 'o que vem a caminho'],
+    ['a-mais', 'amais', 'A mais', 'o que sobra'],
+  ];
+  $('#inicio-atalhos').innerHTML = '<p class="ini-h">Onde vais mais vezes</p>'
+    + '<div class="ini-atalhos-in">' + atalhos.map(([sec, ic, rot, nota]) =>
+      `<a class="ini-atalho" href="#${sec}"><span class="ic">${ico(ic, 20)}</span>
+        <span><b>${escapeHTML(rot)}</b><small>${escapeHTML(nota)}</small></span></a>`).join('')
+    + '</div>';
+
+  /* --------------------------------------------------------------- decks */
+  if (decks && decks.length) {
+    $('#inicio-decks').innerHTML = '<p class="ini-h">Os decks</p><div class="ini-lista">'
+      + decks.map(d => {
+        const pct = d.wanted ? Math.round((d.have / d.wanted) * 100) : 0;
+        const cls = d.missing ? 'falta' : 'cheio';
+        return `<button type="button" class="ini-linha ${cls}" data-deck="${escapeAttr(d.slug)}">
+          <span class="nm"><b>${escapeHTML(d.name)}</b><small>${escapeHTML(d.legend)}${
+            runasNaoContadas(d.runas) ? ` · ${d.runas.copies} runas à mão` : ''}</small></span>
+          <span class="pc">${pct}% · ${d.have}/${d.wanted}<i><span style="width:${
+            Math.min(100, pct)}%"></span></i></span></button>`;
+      }).join('') + '</div>';
+    for (const b of document.querySelectorAll('#inicio-decks .ini-linha')) {
+      b.onclick = () => showSection('decks', b.dataset.deck);
+    }
+  } else {
+    $('#inicio-decks').innerHTML = '';
+  }
+
+  /* -------------------------------------------------------------- fontes */
+  const quando = s => s ? escapeHTML(String(s).replace('T', ' ').replace('+00:00', ' UTC')) : '—';
+  // `totals.printings` é quantas impressões ele TEM, não o tamanho do catálogo
+  // — a primeira versão desta tabela escreveu-lhe «Catálogo (RiftScribe)» ao
+  // lado, o que dava um catálogo de 1006 quando ele tem 1180.
+  $('#inicio-fontes').innerHTML = '<p class="ini-h">De quando são estes números</p><table>'
+    + `<tr><td>Coleção e decks</td><td>${quando(ix.generated_at)}</td></tr>`
+    + `<tr><td>Preços (CardTrader)</td><td>${quando(v.day)}</td></tr>`
+    + `<tr><td>Impressões com pelo menos uma cópia</td><td>${num(tt.printings || 0)}</td></tr>`
+    + '</table>';
 }
 
 
@@ -2763,6 +3496,7 @@ async function loadDeckFaltas(id) {
   state.prefs.deck = id;
   savePrefs();
   renderDeckTabs();
+  if (state.prefs.section === 'decks') escreverHash('decks', id);
   $('#deck-head').innerHTML = '';
   $('#deck-body').innerHTML = '<p class="empty">a carregar…</p>';
   try {
@@ -2839,9 +3573,10 @@ function renderStaples() {
    cabeçalho; a wantlist deles é própria do bloco. Uma carta a caminho
    aparece marcada e não vai para nenhuma das duas.                          */
 
-async function loadFaltasEdicao() {
+async function loadFaltasEdicao(sub = '') {
   $('#fe-body').innerHTML = '<p class="empty">a carregar…</p>';
   state.faltasEdicao = await getJSON('api/faltas_edicao.json');
+  if (sub && feSetValido(sub)) state.prefs.feSet = sub;
   renderFeTabs();
   renderFaltasEdicao();
 }
@@ -2857,9 +3592,15 @@ function renderFeTabs() {
                   ...p.sets.map(s => ({ ...s, sub: feCurto(s) }))];
   for (const s of botoes) {
     const b = document.createElement('button');
-    b.className = 'tab' + (s.set === state.prefs.feSet ? ' is-on' : '');
+    const on = s.set === state.prefs.feSet;
+    b.className = 'tab' + (on ? ' is-on' : '');
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
     b.innerHTML = `${escapeHTML(s.name)}<small>${escapeHTML(s.sub)}</small>`;
-    b.onclick = () => { state.prefs.feSet = s.set; savePrefs(); renderFeTabs(); renderFaltasEdicao(); };
+    b.onclick = () => {
+      state.prefs.feSet = s.set; savePrefs();
+      escreverHash('faltas-edicao', s.set);
+      renderFeTabs(); renderFaltasEdicao();
+    };
     nav.appendChild(b);
   }
 }
@@ -2996,9 +3737,10 @@ function feTile(x) {
    Os tiles são os `dtile` das Faltas — a carta com imagem, o crachá no canto
    com o número que interessa (quantas a mais / quantas libertadas).       */
 
-async function loadAMais() {
+async function loadAMais(sub = '') {
   $('#am-body').innerHTML = '<p class="empty">a carregar…</p>';
   state.aMais = await getJSON('api/a_mais.json');
+  if (sub && amSetValido(sub)) state.prefs.amSet = sub;
   renderAmTabs();
   renderAMais();
 }
@@ -3015,9 +3757,15 @@ function renderAmTabs() {
                   ...comBotao.map(s => ({ ...s, sub: amCurto({ excedente: s.excedente, libertadas: s.libertadas }) }))];
   for (const s of botoes) {
     const b = document.createElement('button');
-    b.className = 'tab' + (s.set === state.prefs.amSet ? ' is-on' : '');
+    const on = s.set === state.prefs.amSet;
+    b.className = 'tab' + (on ? ' is-on' : '');
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
     b.innerHTML = `${escapeHTML(s.name)}<small>${escapeHTML(s.sub)}</small>`;
-    b.onclick = () => { state.prefs.amSet = s.set; savePrefs(); renderAmTabs(); renderAMais(); };
+    b.onclick = () => {
+      state.prefs.amSet = s.set; savePrefs();
+      escreverHash('a-mais', s.set);
+      renderAmTabs(); renderAMais();
+    };
     nav.appendChild(b);
   }
 }
@@ -3638,6 +4386,20 @@ function eurShort(cents) {
    um contador partido. */
 function plural(n, um, muitos) {
   return `${n} ${n === 1 ? um : muitos}`;
+}
+
+/* «2 573» — o separador dos milhares. Os números grandes do painel do Início
+   liam-se «2573», que a esta distância é fácil de ler como 257. */
+function num(n) {
+  return Number(n || 0).toLocaleString('pt-PT').replace(/ /g, ' ');
+}
+
+/* «82,5 %» — vírgula decimal e espaço antes do símbolo, como se escreve em
+   português. Uma percentagem redonda sai sem casa decimal («100 %»). */
+function fmtPct(p) {
+  if (p == null) return '—';
+  const n = Number(p);
+  return `${(Math.round(n * 10) / 10).toFixed(n % 1 ? 1 : 0).replace('.', ',')} %`;
 }
 
 function escapeHTML(s) {
