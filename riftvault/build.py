@@ -160,7 +160,8 @@ def _gerar(out_dir: Path | str, log=print, imagens: bool = True) -> dict:
     index_decks = decks.decks_index(con)
     (out / "api" / "decks.json").write_text(
         json.dumps({"editable": False, "decks": index_decks, "rules": decks.rules(),
-                    "ordem_fixa": decks.ordem_fixa(), "so_base": decks.so_base()},
+                    "ordem_fixa": decks.ordem_fixa(), "so_base": decks.so_base(),
+                    "raridade_colecao": decks.raridade_da_colecao()},
                    ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     for d in index_decks:
         (deck_dir / f"{d['id']}.json").write_text(

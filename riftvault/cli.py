@@ -361,6 +361,19 @@ def cmd_value(args) -> int:
 def cmd_decks(args) -> int:
     con = db.connect()
     imp = decks_mod.import_all(con)
+    # MONTAR/DESMONTAR (2026-09-24): escreve `decks.montados` no config — o
+    # estado é de lá, não da base, *"para não se perder"*.
+    for slug, montar in ((getattr(args, "montar", None), True),
+                         (getattr(args, "desmontar", None), False)):
+        if not slug:
+            continue
+        try:
+            est = decks_mod.alternar_montado(con, slug, montar)
+        except decks_mod.DeckDesconhecido as exc:
+            print(f"erro: {exc}", file=sys.stderr)
+            return 1
+        print(f"{slug}: {'montado' if montar else 'desmontado'}.  "
+              f"montados: {', '.join(est['montados']) or '(nenhum)'}\n")
     if args.order:
         if decks_mod.ordem_fixa():
             print(f"erro: a ordem dos decks está em `decks.{decks_mod.ORDEM}` no "
@@ -401,9 +414,10 @@ def cmd_decks(args) -> int:
     # As runas não se contam (2026-09-17, à noite: *"indica me so quantas
     # sao"*): o «tenho» é só do resto, e a coluna «runas» diz quantas a lista
     # pede — à mão.
-    print(f"{'#':<3} {'deck':<40} {'tenho':>12} {'próprias':>8} {'deck':>5} {'binder':>7} "
+    print(f"{'#':<3} {'deck':<40} {'estado':<11} {'tenho':>12} {'próprias':>8} "
+          f"{'deck':>5} {'binder':>7} "
           f"{'coleção':>8} {'a caminho':>9} {'falta':>6} {'disputadas':>10} "
-          f"{'runas':>6}")
+          f"{'runas':>6} {'aviso':>6}")
     idx = decks_mod.decks_index(con)
     for d in idx:
         # Os membros de um grupo de Legend (2026-09-11, noite) levam «··» à
@@ -411,10 +425,34 @@ def cmd_decks(args) -> int:
         nome = ("·· " if d["grupo"]["variantes"] else "") + d["name"]
         runas = d.get("runas") or {}
         print(f"{d['priority']:<3} {nome[:40]:<40} "
+              f"{('montado' if d['montado'] else 'DESMONTADO'):<11} "
               f"{d['have']:>5}/{d['wanted']:<6} {d['proprias']:>8} {d['no_deck']:>5} "
               f"{d['no_binder']:>7} {d['na_colecao']:>8} {d['ordered']:>9} "
               f"{d['missing']:>6} {d['shared']:>10} "
-              f"{(runas.get('copies') or '') if not runas.get('contadas') else '':>6}")
+              f"{(runas.get('copies') or '') if not runas.get('contadas') else '':>6} "
+              f"{d['aviso_colecao'] or '':>6}")
+    # DESMONTADOS (2026-09-24): não consomem nada da Coleção; o que a linha
+    # deles diz é a SIMULAÇÃO de os montar a seguir aos montados.
+    fora = [d for d in idx if not d["montado"]]
+    if fora:
+        print(f"\n{len(fora)} desmontado{'s' if len(fora) > 1 else ''} "
+              f"({', '.join(d['slug'] for d in fora)}): não consomem nada da Coleção "
+              f"— não aparecem na grelha, não entram na falta a comprar nem no A "
+              f"mais. As colunas deles são a simulação de os montar a seguir aos "
+              f"montados. `riftvault decks --montar <slug>` monta.")
+    est = decks_mod.montados_estado(con)
+    if est["nao_encontrados"]:
+        print(f"decks.{decks_mod.MONTADOS}: sem deck para "
+              f"{', '.join(repr(x) for x in est['nao_encontrados'])} — ignorado.")
+    # A REGRA DE RARIDADE (2026-09-24): cópias que saem da Coleção abaixo do
+    # patamar — deviam vir das cópias próprias do deck. Só marca.
+    minima = decks_mod.raridade_da_colecao()
+    aviso = sum(d["aviso_colecao"] for d in idx)
+    if minima and aviso:
+        print(f"\n{aviso} cópias saem da Coleção com raridade abaixo de «{minima}» "
+              f"— pela regra, essas deviam ser cópias próprias dos decks "
+              f"(`decks.{decks_mod.RARIDADE_COLECAO}`). Não bloqueia nada; "
+              f"`riftvault deck <slug>` diz quais.")
     if any(not (d.get("runas") or {}).get("contadas", True) for d in idx):
         print("(as runas não se contam nos decks — «tenho» é sem elas; a coluna "
               "«runas» diz quantas a lista pede, para organizares à mão)")
@@ -470,7 +508,12 @@ def cmd_deck(args) -> int:
         return 1
     p = decks_mod.deck_payload(con, row["deck_id"])
     L = p["legality"]
-    print(f"{p['name']}   (prioridade {p['priority']})")
+    print(f"{p['name']}   (prioridade {p['priority']}"
+          + ("" if p["montado"] else ", DESMONTADO") + ")")
+    if not p["montado"]:
+        print(f"  desmontado: não consome nada da Coleção. O que se segue é a "
+              f"SIMULAÇÃO de o montar a seguir aos que estão montados — nada "
+              f"disto conta em lado nenhum. `riftvault decks --montar {p['slug']}`.")
     if p["grupo"]["variantes"]:
         print(f"  a mesma Legend que «{'», «'.join(p['grupo']['irmaos'])}»: "
               f"partilham as cartas; o grupo compra {p['grupo']['missing']} "
@@ -502,7 +545,7 @@ def cmd_deck(args) -> int:
               + ", ".join(f"{x['qty']}x {x['name']} [{_codigo_curto(x['code'])}] ({x['motivo']})"
                           for x in p["proprias_fora"])
               + f" — tira-as com `riftvault proprias {p['slug']} --menos REF`.")
-    if lc["na_colecao"]:
+    if lc["na_colecao"] and p["montado"]:
         print(f"  para sleevar as da Coleção: `riftvault local --deck "
               f"{p['slug']} --propor`")
     if lc.get("outras"):
@@ -593,8 +636,70 @@ def cmd_deck(args) -> int:
             if len(versoes) > 1:
                 for x in versoes:
                     print(f"        {x['qty']} {x['label']} ({_codigo_curto(x['code'])})")
+
+    _montagem(p)
     con.close()
     return 0
+
+
+def _por_carta(p: dict) -> list[dict]:
+    """As linhas do deck somadas POR CARTA, para a vista de montagem.
+
+    A lista mostra-se por papel (o main e o sideboard são secções diferentes)
+    mas quem está a montar tem a carta na mão uma vez só: 2 Sabotage no main e
+    1 no sideboard são 3 Sabotage para arranjar, não duas linhas.
+    """
+    out: dict[str, dict] = {}
+    for s in p["sections"]:
+        for c in s["cards"]:
+            if not c.get("contado", True):
+                continue
+            e = out.get(c["card_key"])
+            if e is None:
+                e = out[c["card_key"]] = {"name": c["name"], "rarity": c.get("rarity"),
+                                          "wanted": 0, "proprias": 0, "no_deck": 0,
+                                          "no_binder": 0, "na_colecao": 0, "missing": 0,
+                                          "ordered": 0, "aviso": 0}
+            for campo in ("wanted", "proprias", "no_deck", "no_binder", "na_colecao",
+                          "missing", "ordered", "aviso"):
+                e[campo] += c.get(campo) or 0
+    return list(out.values())
+
+
+def _montagem(p: dict) -> None:
+    """O MODO DE REMONTAGEM (André, 2026-09-24): carta a carta, para ele
+    montar o deck com as cartas na mão.
+
+    *"vou colocar tudo nos binders das edicoes e depois voltar a montar deck a
+    deck e assim conseguir perceber o que tenho e nao tenho"*. Uma linha por
+    carta, **o que falta primeiro**: quanto precisa, quantas já tem como
+    PRÓPRIAS do deck, quantas sairiam da Coleção e quantas faltam mesmo. A
+    marca `!` é a regra de raridade: uma cópia abaixo do patamar a sair da
+    Coleção, que ele quer que venha das próprias.
+    """
+    cartas = _por_carta(p)
+    if not cartas:
+        return
+    # O que falta primeiro; depois o que sai da Coleção (é o que ele vai ter
+    # de ir buscar ao binder); no fim o que já está montado.
+    cartas.sort(key=lambda c: (-c["missing"], -(c.get("aviso") or 0),
+                               -c["na_colecao"], c["name"]))
+    minima = p.get("raridade_colecao")
+    print(f"\nMontagem{'' if p['montado'] else ' (simulação — o deck está desmontado)'}: "
+          f"o que precisas de ter à mão")
+    print(f"  {'':2} {'precisa':>7} {'próprias':>8} {'binder':>6} {'coleção':>7} "
+          f"{'falta':>5}  carta")
+    for c in cartas:
+        aviso = c.get("aviso") or 0
+        marca = "x" if c["missing"] else ("!" if aviso else " ")
+        rar = f"  [{c.get('rarity') or '?'}]" if aviso else ""
+        print(f"  {marca:2} {c['wanted']:>7} {c.get('proprias', 0):>8} "
+              f"{c['no_binder'] + c['no_deck']:>6} {c['na_colecao']:>7} "
+              f"{c['missing']:>5}  {c['name'][:34]}{rar}")
+    if minima and p.get("aviso_colecao"):
+        print(f"  ! {p['aviso_colecao']} cópias de {p['aviso_cartas']} cartas saem da "
+              f"Coleção abaixo de «{minima}» — pela regra, essas deviam ser cópias "
+              f"próprias deste deck (`riftvault proprias {p['slug']} --mais REF`).")
 
 
 def cmd_shopping(args) -> int:
@@ -1544,6 +1649,12 @@ def main(argv: list[str] | None = None) -> int:
                    help="apaga o registo do que as listas pedem (deck_need_log) e "
                         "recomeça-o com os decks de hoje — as «libertadas» do A mais "
                         "ficam a zero")
+    p.add_argument("--montar", metavar="SLUG",
+                   help="marca o deck como MONTADO (escreve `decks.montados` no "
+                        "riftvault_config.json): volta a servir-se da Coleção")
+    p.add_argument("--desmontar", metavar="SLUG",
+                   help="marca o deck como DESMONTADO: deixa de consumir o que quer "
+                        "que seja da Coleção — a lista continua a ver-se")
     p.set_defaults(func=cmd_decks)
 
     p = sub.add_parser("deck", help="detalhe de um deck: o que tenho e o que falta")

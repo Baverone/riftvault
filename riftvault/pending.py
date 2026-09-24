@@ -510,8 +510,11 @@ def encomendas(con: sqlite3.Connection) -> dict:
     alloc = decks.allocate(con)
     para_carta: dict[str, list[dict]] = {}
     for d in decks.deck_rows(con):
-        g = alloc[d["deck_id"]]["grupo"]
-        if not g["lider"]:
+        a = alloc[d["deck_id"]]
+        g = a["grupo"]
+        # Um deck DESMONTADO (2026-09-24) não recebe encomendas nem entra no
+        # «falta encomendar»: não está a consumir nada.
+        if not g["lider"] or not a["montado"]:
             continue
         for ck, n in g["a_caminho"].items():
             para_carta.setdefault(ck, []).append(
@@ -574,8 +577,9 @@ def encomendas(con: sqlite3.Connection) -> dict:
     # Hook, e é a mesma compra.
     falta_set: dict[str, dict] = {}
     for d in decks.deck_rows(con):
-        g = alloc[d["deck_id"]]["grupo"]
-        if not g["lider"]:
+        a = alloc[d["deck_id"]]
+        g = a["grupo"]
+        if not g["lider"] or not a["montado"]:
             continue
         for m in decks.missing_by_set(con, d["deck_id"], grupo=True):
             f = falta_set.setdefault(m["set"], {"set": m["set"], "name": m["name"],

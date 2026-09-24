@@ -570,6 +570,12 @@ def propor_deck(con: sqlite3.Connection, slug: str) -> dict:
     if not row:
         return {"deck": slug, "items": [], "erro": "não há deck com esse nome"}
     deck_id = row["deck_id"]
+    # Um deck DESMONTADO (2026-09-24) não tira nada da Coleção: propor
+    # sleevar-lhe cópias era o contrário de o ter desmontado.
+    if slug not in decks_mod.montados(con):
+        return {"deck": slug, "items": [],
+                "erro": "este deck está desmontado — monta-o primeiro "
+                        "(`riftvault decks --montar " + slug + "`)"}
 
     # Sem as runas (2026-09-17, à noite): não se contam nos decks, e propor
     # sleevá-las era contá-las por outro caminho — ele organiza-as à mão.

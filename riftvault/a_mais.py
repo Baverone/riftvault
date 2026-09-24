@@ -116,7 +116,10 @@ def _usadas(con: sqlite3.Connection) -> dict[str, dict]:
     out: dict[str, dict] = {}
     for a in alloc.values():
         g = a["grupo"]
-        if not g["lider"]:
+        # Um deck DESMONTADO (2026-09-24) não usa cópia nenhuma: o excedente
+        # é o mesmo que seria se ele não existisse — que é o que ele quer ver
+        # ao desmontar («vou colocar tudo nos binders das edições»).
+        if not g["lider"] or not a["montado"]:
             continue
         for monte, mapa in g["impressoes"].items():
             for pid, n in mapa.items():
