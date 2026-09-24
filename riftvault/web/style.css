@@ -1098,7 +1098,9 @@ body.readonly .btn.chegou { display: none; }
 .montagem > summary span { font-family: var(--font); font-weight: 400; font-size: 13px;
   color: var(--muted); }
 .montagem > summary:hover { background: var(--card3); }
-.montagem .note { margin: 0 14px 10px; }
+.montagem .note { margin: 0 14px 10px; font-size: 12px; color: var(--dim);
+  line-height: 1.6; }
+.montagem .note b { color: var(--ink2); }
 .mont-tab { width: 100%; border-collapse: collapse; font-size: 14px; }
 .mont-tab th, .mont-tab td { padding: 7px 10px; border-top: 1px solid var(--line);
   text-align: right; }
@@ -1110,7 +1112,9 @@ body.readonly .btn.chegou { display: none; }
 .mont-tab .m-falta { color: var(--bad); font-weight: 700; }
 .mont-tab .m-prop { color: #c9a9ff; font-weight: 600; }
 .mont-tab .m-aviso { color: var(--warn); font-weight: 700; }
-.mont-tab tr.m-ok .m-nome { font-weight: 400; color: var(--ink2); }
+.mont-tab tr.r-falta .m-nome { color: var(--bad); }
+.mont-tab tr.r-regra .m-nome { color: var(--ink); }
+.mont-tab tr.r-ok .m-nome { font-weight: 400; color: var(--ink2); }
 .mont-tab .m-rar { margin-left: 6px; font-size: 11px; color: var(--warn);
   border: 1px solid rgba(240, 180, 41, .4); border-radius: 6px; padding: 0 5px; }
 
@@ -1124,7 +1128,7 @@ body.readonly .btn.chegou { display: none; }
   .mont-tab .m-nome { font-size: 15px; padding-bottom: 4px; }
   .mont-tab .m-nome::before { content: none; }
   /* O que já está montado não precisa de quatro linhas no telemóvel. */
-  .mont-tab tr.m-ok td.m-zero { display: none; }
+  .mont-tab tr.r-ok td.m-zero { display: none; }
 }
 
 /* --------------------------------------------------------------- «Faltas»

@@ -2238,8 +2238,10 @@ function montagemHTML(p) {
   const daColecao = cartas.reduce((s, c) => s + c.na_colecao, 0);
   const td = (rot, v, cls) => `<td data-l="${rot}"${cls ? ` class="${cls}"` : ''}>${v}</td>`;
   const linhas = cartas.map(c => {
-    const est = c.missing ? 'falta' : (c.aviso ? 'aviso' : 'ok');
-    return `<tr class="m-${est}">
+    // `r-` na linha e `m-` nas células, de propósito: com o mesmo nome nos
+    // dois, a cor da linha pintava todos os números dela.
+    const est = c.missing ? 'falta' : (c.aviso ? 'regra' : 'ok');
+    return `<tr class="r-${est}">
       <td data-l="carta" class="m-nome">${escapeHTML(c.name)}${
         c.aviso ? `<span class="m-rar" title="${escapeAttr(
           `${c.aviso} cópia(s) a sair da Coleção e esta carta é ${c.rarity || '?'} — `
@@ -2326,13 +2328,16 @@ function deckLocais(p) {
       : (state.editable && l.missing ? `<small class="nota">Compraste alguma?
       Marca-a no separador <b><a href="#encomendas">Encomendas</a></b> — sai da
       lista de compras e fica «a caminho» até lhe dares entrada.</small>` : '')}
-    ${l.na_colecao && state.editable ? `<small class="nota">As <b>${l.na_colecao}</b>
+    ${l.na_colecao && state.editable && p.montado !== false ? `<small class="nota">As <b>${l.na_colecao}</b>
       da Coleção contam para este deck. Se as sleevares, marca-as para o
       riftvault saber onde estão.</small>` : ''}
     ${l.extra ? `<small class="nota bad">${l.extra} cópias estão marcadas neste
       deck e a lista já não as pede.</small>` : ''}
     ${state.editable ? `<div class="deck-actions">
-      <button class="btn" data-loc="propor">Marcar o que este deck usa…</button>
+      ${/* Desmontado, a marcação não faz sentido — o deck não está a tirar
+            nada da Coleção, e o `propor_deck` recusa-a (2026-09-24). */ ''}
+      ${p.montado === false ? ''
+        : '<button class="btn" data-loc="propor">Marcar o que este deck usa…</button>'}
       ${l.no_deck ? '<button class="btn" data-loc="desfazer">Desfazer deck</button>' : ''}
     </div>` : ''}
     <div id="propor-zona"></div>
@@ -2540,7 +2545,7 @@ function deckTile(c) {
   }
 
   return `<div class="dtile ${st}${c.outras ? ' outra-versao' : ''}${
-    c.aviso ? ' tem-regra' : ''}" data-ck="${escapeAttr(c.card_key)}"
+    c.aviso ? ' tem-regra' : ''}" data-ck="${escapeAttr(c.card_key)}">
     <div class="art${c.landscape ? ' landscape' : ''}">
       ${src ? `<img src="${src}" alt="${escapeAttr(c.name)}" loading="lazy" decoding="async"
          ${alt ? `data-fallback="${escapeAttr(alt)}"` : ''}>` : ''}

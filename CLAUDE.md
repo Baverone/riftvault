@@ -19,6 +19,14 @@ secções abaixo que falam da Legend/Champion em versão especial (17/09) ou de
 outras versões a tapar buracos descrevem a regra que `so_base: false` liga;
 com `true` (hoje) não valem.
 
+**DESDE 2026-09-24 CADA DECK ESTÁ MONTADO OU DESMONTADO** (`decks.montados`,
+hoje `["LeBlanc Hook"]` — os outros cinco desmontados) — ver a última secção
+deste ficheiro. Um deck DESMONTADO não consome NADA da Coleção: a Coleção dá
+exactamente os mesmos números que daria se o `.txt` não existisse, e o que a
+página dele mostra é uma SIMULAÇÃO. Do mesmo dia, a REGRA DE RARIDADE
+(`decks.coleccao_so_a_partir_de: "epic"`): abaixo desse patamar a cópia devia
+vir das próprias do deck — **marca, não bloqueia**.
+
 Secções: **Coleção**, **Decks**, **Faltas** (de
 2026-09-15 ao fim da tarde — por edição, três blocos; **quatro desde
 2026-09-19, cada um com a sua wantlist** — ver a última secção deste
@@ -2517,6 +2525,15 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   resumo por edição e em «Todas» por baixo do painel, `riftvault foil` e
   `POST /api/foil/ajustar`. **Não mexe em número nenhum do site** e há teste
   que o fotografa. Ver a última secção deste ficheiro.
+- **Feito também:** montado ou desmontado, a regra de raridade e o modo
+  de remontagem (2026-09-24) — `decks.montados` (hoje só o LeBlanc Hook;
+  um deck desmontado não consome NADA da Coleção e a página dele é uma
+  simulação), `decks.coleccao_so_a_partir_de: "epic"` (abaixo disso a
+  cópia devia ser própria do deck — MARCA, não bloqueia) e a tabela
+  «Montar este deck, carta a carta», que a 375 px vira cartões. Botão na
+  página do deck (escreve no config), `riftvault decks
+  --montar/--desmontar`, `POST /api/decks/montar`. Ver a última secção
+  deste ficheiro.
 - **Por fazer:** a parte 2 do seguir — o separador no site e a tarefa diária;
   vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck,
   com as partilhadas assinaladas); e apagar decks pela interface (hoje apaga-se
@@ -5277,3 +5294,136 @@ foram ajustados porque descreviam a fila de botões. Suite: **39 ficheiros,
 784 testes, 0 a falhar** (um processo por ficheiro — a bateria toda num
 processo só tem 13 falhas de estado partilhado que já lá estavam, no
 `test_mesma_legend` e no `test_nome_do_deck`, que passam sozinhos).
+
+## 24/09/2026 — DECK MONTADO OU DESMONTADO (`decks.montados`), a REGRA DE RARIDADE (`decks.coleccao_so_a_partir_de`) e o modo de remontagem
+
+Palavras dele: *"vamos desmontar os decks todos com excepcao da LeBlanc, vou
+colocar tudo nos binders das edicoes e depois voltar a montar deck a deck e
+assim conseguir perceber o que tenho e nao tenho. tal como dito antes, o que
+tiver a mais dos decks fica exclusivo para o deck e nao entra na coleccao. vou
+tentar ao maximo que cartas de raridade Rara para baixo fiquem alocadas
+exclusivamente a coleccao e as repetidas exclusivamente aos decks, para nao ter
+que mexer na coleccao. apenas miticas para acima devo ter que usar as da
+coleccao"*. Ramo `ai-pc/desmontar-2026-09-24`.
+
+**No Riftbound NÃO HÁ «mítica».** A escada do catálogo é `common < uncommon <
+rare < epic < showcase` (a `showcase` nem é raridade de jogo, é o tratamento
+das reimpressões de topo). «Rara para baixo» = common+uncommon+rare; «míticas
+para cima» = epic+showcase. Está escrito no config e na mensagem de erro.
+
+### 1. Montado ou desmontado
+
+`decks.montados` é a lista dos decks MONTADOS (o slug ou o `Nome:`, a
+gramática da `decks.ordem`), hoje `["LeBlanc Hook"]`. **Sem a chave, todos
+montados** — é o que valia até aqui e o que um riftvault sem config mede; a
+lista **vazia** é «nenhum montado». São coisas diferentes de propósito: o
+botão de desmontar o último escreve `[]`, e se o vazio quisesse dizer «todos»
+esse clique fazia o contrário do que diz.
+
+**Um deck desmontado não consome NADA da Coleção:** não aparece na grelha como
+uso (`uso_por_carta`), não entra no «falta comprar aos decks»
+(`resumo_das_faltas`), nas Staples nem no «Todos juntos» (`faltas._wanted`,
+`_falta_global`), no «para»/«falta encomendar» das Encomendas
+(`pending.encomendas`), no que os decks tiram à Coleção (`a_mais._usadas`,
+`decks._por_impressao`), e a proposta de marcação recusa-o
+(`locais.propor_deck`). **Não gera libertadas**: desmontar não mexe no
+`deck_cards`, por isso o `deck_need_log` não escreve linha nenhuma — apagar o
+`.txt` é que liberta, e é essa a diferença que ele quer.
+
+**A alocação passou a ter DUAS PASSAGENS** (`decks.allocate`): primeiro os
+grupos dos montados, pela prioridade de sempre, a consumir os montes; depois
+cada desmontado sozinho, contra uma **cópia** do que sobrou. O resultado de um
+desmontado é por isso uma **simulação** — «se montasse este a seguir aos que
+estão montados, o que sairia da Coleção e o que me faltava» — e não consome:
+dois desmontados podem contar a mesma cópia, que é o que a pergunta quer
+dizer. Cada entrada leva `montado`, e quem soma decks lê só os montados. A
+lista continua toda a ver-se; a página, o índice e o `riftvault decks` dizem
+«desmontado» e que os números são simulação.
+
+O botão **Montar/Desmontar** vive na página do deck e escreve no
+`riftvault_config.json` (*"o estado é do config, não só da base, para não se
+perder"*): `decks.alternar_montado` → `config.escrever_lista`, que troca **só
+o valor daquela chave, como texto**, a contar chavetas para achar o bloco. O
+ficheiro dele é escrito à mão, com objectos numa linha e dezenas de `_notas`;
+um `json.dumps(indent=2)` do ficheiro inteiro reformatava-o todo a cada
+clique. Na CLI: `riftvault decks --montar/--desmontar SLUG`. Na rota:
+`POST /api/decks/montar {slug, montado}`.
+
+### 2. A regra de raridade — MARCA, não bloqueia
+
+`decks.coleccao_so_a_partir_de: "epic"`: dessa raridade para cima um deck
+serve-se da Coleção sem aviso; abaixo dela, a cópia devia vir das **cópias
+próprias do deck** (`proprias.py`). **A alocação é EXACTAMENTE a mesma** — há
+teste que compara a alocação com o aviso ligado e desligado, campo a campo — e
+o que sai é `aviso_colecao`, por carta e somado: o tile leva moldura dourada e
+«N da Coleção — é rare: devia ser própria do deck», o deck um chip «N da
+Coleção que não deviam», e o `riftvault decks` uma coluna. `null` ou `""`
+desliga; uma raridade que o catálogo não conheça rebenta com a lista das que
+existem.
+
+A raridade de uma carta é a `base_rarity` da impressão BASE que o deck joga
+(`decks.raridade_por_carta`): a arte alternativa de uma rara é `showcase` e
+continua a ser uma rara.
+
+### 3. O modo de remontagem
+
+Na página de cada deck, um `<details>` **«Montar este deck, carta a carta»**:
+uma linha por carta com **precisa / próprias / deck+binder / Coleção / falta**,
+**somada por carta** (2 Sabotage no main e 1 no sideboard são 3 Sabotage — quem
+está a montar tem a carta na mão uma vez só), ordenada pelo que **falta**
+primeiro, depois pelo que sai da Coleção, e no fim o que já está. O `!` é a
+regra de raridade. Aberto quando falta alguma coisa ou o deck está desmontado.
+**A 375 px cada linha passa a cartão** (`@media (max-width: 559px)`, cada `td`
+com o seu rótulo): é com o telemóvel na mão e as cartas à frente que ele vai
+percorrer isto. O mesmo no `riftvault deck <slug>` (`_montagem`, `_por_carta`).
+
+### Medido a 2026-09-24 contra uma cópia do `data/` real (`_revisao\_medir_desmontar.py`), quatro cenários na mesma corrida
+
+**Os números dele batem todos:** os seis decks pedem **324 cópias** — por
+raridade **273 de 113 cartas** em common+uncommon+rare e **51 de 23** em
+epic+showcase; por deck (baixa/epic+) akali **42/12**, azir **50/4**, jayce
+**44/10**, kennen **42/12**, leblanc-hook **45/9**, ornn **50/4**. O excedente
+LIMPO (cópias − alvo, sem decks a consumir) é **152 cópias em 62 impressões do
+bloco master set** — com a coleção extra dentro são 153/63, e a única a mais é
+a `VEN-SP5` Ezreal (2 cópias, alvo 1). Desse excedente, o que serve os decks:
+**31 cópias de raridade baixa e ZERO de epic+**.
+
+**A promessa da ordem, medida:** a Coleção com os cinco desmontados (cenário
+B) dá **exactamente** o mesmo que a Coleção com a pasta `decks/` só com o
+`leblanc-hook.txt` (cenário C) — níveis, denominador, wantlist, valor,
+totais, grelha impressão a impressão, usos, painel, Faltas (os quatro blocos),
+Encomendas e o excedente do A mais item a item. A **única** diferença são as
+libertadas: B **0**, C **132 cartas · 270 cópias** — apagar o `.txt` liberta,
+desmontar não, e é isso que ele quer para voltar a montar.
+
+| | todos montados | só o LeBlanc montado |
+|---|---|---|
+| cartas com uso de decks na grelha | **149** | **27** |
+| falta comprar aos decks | 37 cópias | **0** (o LeBlanc está completo) |
+| A mais — excedente | 62 impressões · 125 cópias | **69 · 140** |
+| A mais — libertadas | 0 | **0** |
+
+Por deck, com as próprias a ZERO (tenho/54 · da Coleção · falta · aviso):
+LeBlanc Hook **54/54 · 54 · 0 · 45**; Jayce 42/54 · 42 · 12 · **37**; Kennen
+53/54 · 53 · 1 · **41**; Akali 50/54 · 50 · 4 · **39**; Ornn 52/54 · 52 · 2 ·
+**48**; Azir 50/54 · 50 · 4 · **46**. (Os avisos dos desmontados são maiores
+do que com tudo montado — 38→39, 46→48, 35→46 — porque a simulação vê a
+Coleção que os outros decks já não estão a prender.)
+
+`tests/test_desmontar.py` (35 testes, contra pastas temporárias e config
+temporário): a chave e as três leituras dela; **a fotografia da Coleção
+desmontado == sem o deck**; desmontar não gera libertadas; não aparece no uso,
+na falta, nas Staples, no «para» das Encomendas; a proposta recusa-o; a lista
+continua a ver-se; dois desmontados contam a mesma cópia; as próprias servem
+na mesma; montar volta a consumir; o config escrito sem perder o feitio nem as
+`_notas`; a regra de raridade marca e não bloqueia, o patamar vem do config,
+uma raridade inventada rebenta, as próprias tiram o aviso, a runa nunca avisa;
+as rotas, o `build`, a CLI e o `app.js`/`style.css`.
+
+**Um erro apanhado pelas capturas, antes do merge:** o `>` que fechava a tag
+do `<div class="dtile …">` perdeu-se ao acrescentar a classe do aviso, e o
+browser passou a ler o tile inteiro como uma tag só — cada pedaço da carta
+virou um item da grelha. As fotos a 1280 e a 375 px são a maneira de o ver; o
+`test_casca` não o apanha porque não desenha nada.
+
+Suite: **40 ficheiros, 0 a falhar**.
