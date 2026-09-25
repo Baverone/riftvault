@@ -331,12 +331,23 @@ DEFAULTS: dict = {
     #                         cartas (`prices.SINGLES_CATEGORY`). Por omissão
     #                         entram 259 Booster Boxes, 260 Boosters, 261
     #                         Bundles, 262 Starter Decks, 263 Box Sets &
-    #                         Displays e 283 Complete Sets. Os ACESSÓRIOS — 264
-    #                         Playmats, 265 Albums, 266 Sleeves, 267 Deck
-    #                         Boxes, 268 Memorabilia — e as 284 Oversized ficam
-    #                         de fora, contados no `scope.fora` da página;
-    #                         metê-los é acrescentar o número aqui. Escrever a
-    #                         258 rebenta.
+    #                         Displays e 283 Complete Sets. As 264 Playmats,
+    #                         as 266 Sleeves, a 268 Memorabilia e as 284
+    #                         Oversized ficam de fora, contadas no
+    #                         `scope.fora` da página; metê-las é acrescentar o
+    #                         número aqui. Escrever a 258 rebenta.
+    #   `acessorios`        — os BINDERS (265) e os DECK BOXES (267), numa
+    #                         SECÇÃO À PARTE com contadores e valor próprios e
+    #                         um filtro que a esconde. **Não contam para o
+    #                         produto selado** — são vendidos selados e
+    #                         guardam-se, mas um binder não é um display.
+    #                         Lista vazia = nenhum; uma categoria que também
+    #                         esteja em `categorias` rebenta.
+    #   `juntar_duplicados` — junta blueprints com a mesma edição, nome,
+    #                         versão e categoria (o CardTrader tem os quatro
+    #                         Trial Decks da Origins repetidos; medido a
+    #                         2026-09-25: os antigos têm zero ofertas). A
+    #                         linha diz que blueprint juntou.
     #   `datas_por_edicao`  — a data de saída de cada edição, por código do
     #                         CardTrader. **Vem dele** — a API não dá data
     #                         nenhuma (uma expansão são quatro campos). Um
@@ -346,17 +357,24 @@ DEFAULTS: dict = {
     #                         Legacy (LGC) e The Reckoning (REC) em 2027"*).
     #   `ordem_das_edicoes` — a ordem no ecrã; o que não estiver aqui vem a
     #                         seguir, por código.
-    #   `extra`             — produtos que a API não tem (regionais,
-    #                         promocionais), à mão: `nome` (obrigatório),
-    #                         `edicao`, `tipo`, `data`, `preco_eur`, `nota`. A
-    #                         lista da app é a da API MAIS estes. Um `tipo` que
-    #                         não exista rebenta.
+    #   `extra`             — os produtos que a API não tem: regionais,
+    #                         promocionais, e o que quase não circula solto
+    #                         (displays de decks, cases de vaults, kits de
+    #                         loja). À mão: `nome` (obrigatório), `edicao`,
+    #                         `tipo`, `data`, `preco_eur`, `conteudo` (o que
+    #                         vem dentro) e `nota` (ressalvas). A lista da app
+    #                         é a da API MAIS estes. Um `tipo` que não exista
+    #                         rebenta. Os MSRP em dólares ficam no `conteudo`,
+    #                         nunca no preço — não há câmbio validado aqui.
     # O SELADO NÃO ENTRA NA COLEÇÃO: nem níveis, nem denominador, nem A mais,
     # nem Faltas, nem wantlists, nem decks, nem foil, nem próprias, nem Venda —
     # e o valor dele é um total próprio, nunca somado ao da Coleção. Ver
     # `selado.py`.
     "selado": {"categorias": [259, 260, 261, 262, 263, 283],
-               "datas_por_edicao": {"OGN": "2025-10-31", "SFD": "2026-02-13",
+               "acessorios": [265, 267],
+               "juntar_duplicados": True,
+               "datas_por_edicao": {"OGN": "2025-10-31", "OGS": "2025-10-31",
+                                    "SFD": "2026-02-13",
                                     "UNL": "2026-05-08", "VEN": "2026-07-31",
                                     "RAD": "2026-10-23"},
                "por_sair": ["LGC", "PG2", "REC"],

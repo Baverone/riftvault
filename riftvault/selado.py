@@ -29,11 +29,40 @@ DE ONDE VEM A LISTA
 
     **Por omissão entram seis categorias** (`selado.categorias`): 259, 260,
     261, 262, 263 e 283 — displays, boosters, bundles, decks, box sets/cases e
-    conjuntos. Os PLAYMATS, SLEEVES, BINDERS, DECK BOXES, MOEDAS e as cartas
-    OVERSIZED **ficam de fora**: não são produto selado, são acessórios, e ele
+    conjuntos. Os PLAYMATS, as SLEEVES, as MOEDAS e as cartas OVERSIZED
+    **ficam de fora**: não são produto selado, são acessórios de jogo, e ele
     nomeou *"displays ou boxcase, ou duel decks, proving ground"*. Não
     desaparecem em silêncio — o `scope.fora` conta-os por categoria e a página
     diz quantos são. Metê-los é acrescentar o número à lista do config.
+
+OS ACESSÓRIOS DE COLEÇÃO TÊM SECÇÃO PRÓPRIA (2026-09-25)
+    Os BINDERS (Albums, 265) e os DECK BOXES (267) são outra coisa: vendem-se
+    selados, guardam-se, e o *Radiance: 9-Pocket Collector Binder* anda a
+    33,99 € em loja portuguesa. Entram por `selado.acessorios`, numa **secção
+    à parte** com contadores e valor próprios, e um filtro que os esconde.
+
+    **NÃO contam para o produto selado** — nem no «o que há», nem no «tenho»,
+    nem no «não tenho», nem no valor do selado; e o valor deles, como o do
+    selado, nunca se soma ao da Coleção. São três totais separados, de
+    propósito: misturá-los mudava um número que ele já conhece.
+
+    Ficaram de fora, e são decisão explicada: as 48 playmats e as 31 sleeves
+    (acessórios de jogo, não de coleção — e são 79 linhas a afogar 85), a
+    memorabilia (268 — os standees acrílicos VÊM DENTRO do Proving Grounds
+    Box Set, e contá-los à parte era contar o mesmo produto duas vezes) e as
+    oversized (284 — são CARTAS grandes, não produto selado).
+
+O QUE O CARDTRADER REPETE (2026-09-25)
+    Quatro dos Trial Decks da Origins aparecem com DOIS blueprints cada, com
+    o mesmo nome, a mesma edição, a mesma categoria e a versão vazia nos dois.
+    Sondadas as ofertas dos oito: os antigos (330845..330848) têm **zero
+    ofertas e nenhum `card_market_id`**; os novos (363136..363139) têm as
+    ofertas todas (1 a 3 cada) e um id do Cardmarket cada. É **duplicação do
+    catálogo deles**, não dois produtos — `selado.juntar_duplicados` (ligado)
+    junta-os num só, e a linha diz que blueprint é que juntou. Não se junta às
+    cegas: a chave é (edição, nome, versão, categoria), e por isso os «2024
+    Trial Deck Set» e «2025 Trial Deck Set», que dizem o ano na versão,
+    continuam a ser dois.
 
 O QUE FICA EM DISCO
     `data/selado_catalogo.json` (committado) — o que a API devolveu, já
@@ -43,9 +72,23 @@ O QUE FICA EM DISCO
 
     `sealed_copies` (vault.db) — quantas ele tem de cada. Começa a ZERO.
 
-    `selado.extra` (config) — os produtos que a API não tem (regionais,
-    promocionais), escritos à mão: `nome`, `edicao`, `tipo`, `data`, `preco_eur`.
-    A lista da app é a da API MAIS estes.
+    `selado.extra` (config) — os produtos que a API não tem, escritos à mão:
+    `nome`, `edicao`, `tipo`, `data`, `preco_eur`, `conteudo` e `nota`. A
+    lista da app é a da API MAIS estes.
+
+    **São precisamente o que um catálogo de mercado não lista, porque quase
+    não circula solto** (levantamento dele de 2026-09-25, em
+    `ai-pc/work/riftbound-produto-selado.md`): os 7 displays de champion decks
+    (4 decks iguais), os 2 displays de showdown (4 conjuntos), os cases de
+    vaults e o do Proving Grounds, e os **Pre-Rift EVENT Kit** — 16 kits de
+    jogador + 1 display, ~480 USD —, que são outro produto que o «Pre-Rift
+    Kit» do CardTrader (o kit de UM jogador, ~40 USD) e por isso aparecem os
+    dois, cada um com o seu `conteudo`.
+
+    **Os MSRP dele são em DÓLARES e ficam no `conteudo`, não no preço.** O
+    `preco_eur` fica vazio (a linha diz «—») porque não há taxa de câmbio
+    validada em lado nenhum do riftvault, e inventar uma era escrever um
+    número que ninguém mediu. Ficam contados no `sem_preco`.
 
 O SELADO NÃO ENTRA NA COLEÇÃO
     Nem nos níveis, nem no denominador, nem no A mais, nem nas Faltas, nem nas
@@ -98,10 +141,25 @@ CATEGORIAS_CONHECIDAS = {
 
 DEFAULTS: dict = {
     # As categorias do CardTrader que contam como PRODUTO SELADO. Ver o
-    # cabeçalho: os acessórios (playmats, sleeves, binders, deck boxes,
-    # memorabilia) e as cartas oversized ficam de fora, contadas em
-    # `scope.fora`. Meter uma é acrescentar o número aqui.
+    # cabeçalho: os playmats, as sleeves, a memorabilia e as cartas oversized
+    # ficam de fora, contadas em `scope.fora`. Meter uma é acrescentar o
+    # número aqui.
     "categorias": [259, 260, 261, 262, 263, 283],
+    # Os ACESSÓRIOS — binders (Albums, 265) e deck boxes (267) —, que entram
+    # numa SECÇÃO PRÓPRIA e **não contam para o produto selado** (nem no «o
+    # que há», nem no «tenho», nem no «não tenho», nem no valor do selado):
+    # têm contadores e valor próprios, e um filtro que os esconde. Decisão de
+    # 2026-09-25, a pedido dele — ver o cabeçalho. Lista vazia = nenhum
+    # acessório, e todos voltam ao `scope.fora`.
+    "acessorios": [265, 267],
+    # O CardTrader tem, em quatro dos Trial Decks da Origins, DOIS blueprints
+    # com o mesmo nome, a mesma edição, a mesma categoria e a mesma versão
+    # (vazia). Medido a 2026-09-25 na API: os antigos (330845/846/847/848) têm
+    # ZERO ofertas e nenhum `card_market_id`; os novos (363136..363139) têm as
+    # ofertas todas e um id do Cardmarket cada. É duplicação do catálogo
+    # deles, não dois produtos — junta-se, e a linha diz quais eram. `false`
+    # mostra os dois.
+    "juntar_duplicados": True,
     # A DATA DE SAÍDA de cada edição, por código do CardTrader em maiúsculas.
     # Vem DELE (2026-09-25) — a API não dá datas. Uma edição que não esteja
     # aqui fica sem data, e sem data não é «por sair».
@@ -119,8 +177,10 @@ DEFAULTS: dict = {
     # A ordem das edições no ecrã. O que não estiver aqui vem a seguir, por
     # código.
     "ordem_das_edicoes": ["OGN", "OGS", "SFD", "UNL", "VEN", "RAD", "LGC", "PG2", "REC"],
-    # Produtos que a API não tem (regionais, promocionais), à mão. Cada um:
-    # `nome` (obrigatório), `edicao`, `tipo`, `data`, `preco_eur`, `nota`.
+    # Produtos que a API não tem (regionais, promocionais, e o que quase não
+    # circula solto — displays de decks, cases de vaults, kits de loja), à
+    # mão. Cada um: `nome` (obrigatório), `edicao`, `tipo`, `data`,
+    # `preco_eur`, `conteudo` (o que vem dentro) e `nota` (ressalvas).
     "extra": [],
 }
 
@@ -137,6 +197,11 @@ TIPOS: list[dict] = [
     {"id": "bundle", "label": "Bundle", "nota": "vault, pre-rift kit"},
     {"id": "booster", "label": "Booster", "nota": "pacote solto"},
     {"id": "conjunto", "label": "Conjunto", "nota": "set de cartas vendido junto"},
+    # Os dois da secção dos ACESSÓRIOS (2026-09-25). Estão no fim porque a
+    # ordem desta lista é a ordem dentro de cada edição, e a secção deles vem
+    # depois — mas têm nome próprio: «Outro» num binder não diz nada.
+    {"id": "binder", "label": "Binder", "nota": "álbum de coleção"},
+    {"id": "deck-box", "label": "Deck box", "nota": "caixa de deck"},
     {"id": "outro", "label": "Outro", "nota": ""},
 ]
 TIPO_IDS = [t["id"] for t in TIPOS]
@@ -144,7 +209,8 @@ TIPO_LABEL = {t["id"]: t["label"] for t in TIPOS}
 
 # A categoria decide o tipo, menos quando o NOME diz outra coisa — ver `tipo_de`.
 CATEGORIA_TIPO = {259: "display", 260: "booster", 261: "bundle",
-                  262: "deck", 263: "caixa", 283: "conjunto"}
+                  262: "deck", 263: "caixa", 283: "conjunto",
+                  265: "binder", 267: "deck-box"}
 
 _CASE = re.compile(r"\bcase\b", re.I)
 _PG = re.compile(r"proving\s+grounds", re.I)
@@ -193,6 +259,28 @@ def opcoes(cfg: dict | None = None) -> dict:
         raise ValueError(f"selado.categorias: a {SINGLES_CATEGORY} são as CARTAS "
                          f"(Riftbound Singles) — não é produto selado")
     out["categorias"] = cats
+
+    acess = out.get("acessorios") or []
+    if not isinstance(acess, (list, tuple)):
+        raise ValueError("selado.acessorios: uma lista de ids do CardTrader "
+                         "(vazia = nenhum acessório)")
+    try:
+        acess = [int(c) for c in acess]
+    except (TypeError, ValueError):
+        raise ValueError("selado.acessorios: os ids são números (265, 267, …)") from None
+    if SINGLES_CATEGORY in acess:
+        raise ValueError(f"selado.acessorios: a {SINGLES_CATEGORY} são as CARTAS "
+                         f"(Riftbound Singles)")
+    # As duas listas respondem a perguntas diferentes («é produto selado?» e
+    # «é acessório de coleção?»), e uma categoria nas duas não tem resposta:
+    # ou conta para o selado ou está na secção à parte.
+    repetidas = sorted(set(acess) & set(cats))
+    if repetidas:
+        raise ValueError(f"selado.acessorios: {', '.join(str(c) for c in repetidas)} "
+                         f"também está em selado.categorias — ou é produto selado, "
+                         f"ou é acessório")
+    out["acessorios"] = acess
+    out["juntar_duplicados"] = bool(out.get("juntar_duplicados", True))
 
     datas = out["datas_por_edicao"] or {}
     if not isinstance(datas, dict):
@@ -247,7 +335,15 @@ def _ler_extra(i: int, x) -> dict:
         preco = None
     return {"nome": nome, "edicao": str(x.get("edicao") or "").upper(),
             "tipo": tipo, "data": str(data) if data else None,
-            "preco_cents": preco, "nota": str(x.get("nota") or "") or None}
+            "preco_cents": preco,
+            # `conteudo` é o que vem DENTRO (4 decks iguais, 16 kits + 1
+            # display, 12 vaults) — é por isso que estes produtos estão aqui:
+            # não circulam soltos e o catálogo de mercado não os lista. A
+            # `nota` fica para as RESSALVAS (uma fonte diz 4, outra 12), que
+            # se lêem de outra maneira e não se podem confundir com o
+            # conteúdo.
+            "conteudo": str(x.get("conteudo") or "") or None,
+            "nota": str(x.get("nota") or "") or None}
 
 
 # ---------------------------------------------------------------------------
@@ -337,24 +433,68 @@ def _slug(texto: str) -> str:
     return s or "produto"
 
 
+def _chave_duplicado(p: dict) -> tuple:
+    """O que faz de dois blueprints o MESMO produto: a mesma edição, o mesmo
+    nome, a mesma versão e a mesma categoria. Se algum destes diferir são
+    produtos diferentes e não se juntam — é o caso dos «2024 Trial Deck Set» e
+    «2025 Trial Deck Set», que dizem o ano na versão."""
+    return (p["edicao"], p["nome"].strip().lower(),
+            (p["versao"] or "").strip().lower(), p["categoria_id"])
+
+
+def _vivo(p: dict) -> tuple:
+    """Qual dos blueprints repetidos é o que o mercado usa, para ser ele o que
+    fica. Por esta ordem: tem id do Cardmarket, tem preço, tem mais anúncios,
+    e por fim o `blueprint_id` maior (o mais recente). Medido nos Trial Decks
+    da Origins: os que ficam de fora têm ZERO ofertas."""
+    return (bool(p["cardmarket_id"]), p["preco_cents"] is not None,
+            p["n_listings"] or 0, p["blueprint_id"] or 0)
+
+
+def _juntar_duplicados(lista: list[dict]) -> list[dict]:
+    """Junta os blueprints repetidos do CardTrader num produto só.
+
+    O que fica leva `duplicados` com os ids dos outros — a linha diz-os, para
+    isto nunca ser uma carta a desaparecer em silêncio. O que ele tenha
+    gravado num id que se juntou continua a contar (ver `itens`).
+    """
+    grupos: dict[tuple, list[dict]] = {}
+    for p in lista:
+        grupos.setdefault(_chave_duplicado(p), []).append(p)
+    fica_por_chave = {}
+    for chave, membros in grupos.items():
+        fica, *resto = sorted(membros, key=_vivo, reverse=True)
+        fica["duplicados"] = [{"id": o["id"], "blueprint_id": o["blueprint_id"],
+                               "n_listings": o["n_listings"]} for o in resto]
+        fica_por_chave[chave] = fica
+    # Pela ordem do ficheiro, que é a da API — o `itens` é que ordena a sério.
+    return [p for p in lista if fica_por_chave[_chave_duplicado(p)] is p]
+
+
 def _crus(cfg: dict | None = None) -> list[dict]:
     """Os produtos EM ÂMBITO, da API e do config, sem as contagens dele.
 
-    É a lista que decide que ids existem — o `ajustar` valida contra ela.
+    Leva o produto selado E os acessórios (`acessorio: True`), porque é a
+    lista que decide que ids existem — o `ajustar` valida contra ela, e os
+    `+`/`−` de um binder têm de funcionar como os de um display. Quem conta
+    é que separa os dois.
     """
     op = opcoes(cfg)
     cats = set(op["categorias"])
+    acess = set(op["acessorios"])
     dados = carregar()
     precos = dados.get("precos") or {}
     out: list[dict] = []
     for p in dados["produtos"]:
-        if int(p.get("categoria_id") or 0) not in cats:
+        cid = int(p.get("categoria_id") or 0)
+        if cid not in cats and cid not in acess:
             continue
         bid = p["blueprint_id"]
         pr = precos.get(str(bid)) or precos.get(bid) or {}
         out.append({
             "id": f"ct-{bid}",
             "fonte": "cardtrader",
+            "acessorio": cid in acess,
             "blueprint_id": bid,
             "nome": p.get("nome") or "",
             "versao": p.get("versao") or "",
@@ -367,13 +507,18 @@ def _crus(cfg: dict | None = None) -> list[dict]:
             "preco_dia": pr.get("day"),
             "n_listings": pr.get("n_listings"),
             "n_sellers": pr.get("n_sellers"),
+            "conteudo": None,
             "nota": None,
+            "duplicados": [],
             "tipo_forcado": None,
         })
+    if op["juntar_duplicados"]:
+        out = _juntar_duplicados(out)
     for x in op["extra"]:
         out.append({
             "id": f"cfg-{_slug(x['edicao'] + '-' + x['nome'])}",
             "fonte": "config",
+            "acessorio": False,
             "blueprint_id": None,
             "nome": x["nome"], "versao": "",
             "categoria_id": None,
@@ -381,7 +526,9 @@ def _crus(cfg: dict | None = None) -> list[dict]:
             "img": None, "cardmarket_id": None,
             "preco_cents": x["preco_cents"], "preco_dia": None,
             "n_listings": None, "n_sellers": None,
+            "conteudo": x["conteudo"],
             "nota": x["nota"],
+            "duplicados": [],
             "tipo_forcado": x["tipo"], "data_forcada": x["data"],
         })
     return out
@@ -406,7 +553,11 @@ def itens(con: sqlite3.Connection | None, cfg: dict | None = None,
         # anunciada sem data exacta (`selado.por_sair`).
         por_sair = bool(p["edicao"] in op["por_sair"]
                         or (data and date.fromisoformat(data) > hoje))
-        qty = quantidades.get(p["id"], 0)
+        # O que ele tenha gravado num blueprint que entretanto se juntou a
+        # outro continua a contar: juntar duas linhas do catálogo do
+        # CardTrader não pode apagar unidades dele.
+        qty = quantidades.get(p["id"], 0) + sum(
+            quantidades.get(d["id"], 0) for d in p.get("duplicados") or [])
         preco = p["preco_cents"]
         saida.append({
             **{k: v for k, v in p.items() if not k.endswith("_forcado")
@@ -487,16 +638,17 @@ def por_edicao(lista: list[dict], cfg: dict | None = None) -> list[dict]:
 
 
 def fora(cfg: dict | None = None) -> list[dict]:
-    """O que o CardTrader tem e NÃO entra: playmats, sleeves, binders, deck
-    boxes, memorabilia, oversized. Contados por categoria — nunca se apagam em
-    silêncio."""
+    """O que o CardTrader tem e NÃO entra em lado nenhum: playmats, sleeves,
+    memorabilia, oversized. Contados por categoria — nunca se apagam em
+    silêncio. Os binders e os deck boxes SAÍRAM daqui a 2026-09-25: passaram a
+    ter secção própria (`selado.acessorios`)."""
     op = opcoes(cfg)
-    cats = set(op["categorias"])
+    dentro = set(op["categorias"]) | set(op["acessorios"])
     from .prices import SINGLES_CATEGORY
     contagem: dict[int, int] = {}
     for p in carregar()["produtos"]:
         cid = int(p.get("categoria_id") or 0)
-        if cid in cats or cid == SINGLES_CATEGORY:
+        if cid in dentro or cid == SINGLES_CATEGORY:
             continue
         contagem[cid] = contagem.get(cid, 0) + 1
     return [{"categoria_id": cid, "categoria": _nome_da_categoria(cid), "n": n}
@@ -508,6 +660,12 @@ def payload(con: sqlite3.Connection, cfg: dict | None = None,
     cfg = cfg or config.load()
     op = opcoes(cfg)
     lista = itens(con, cfg)
+    # O PRODUTO SELADO e os ACESSÓRIOS contam-se à parte, e é essa a decisão
+    # de 2026-09-25: um binder não é um display, e metê-lo no «o que há» do
+    # selado mudava um número que ele já conhece. Duas listas, dois totais,
+    # dois valores — e nenhum dos dois se soma ao valor da Coleção.
+    selados = [x for x in lista if not x["acessorio"]]
+    acess = [x for x in lista if x["acessorio"]]
     dados = carregar()
     return {
         "editable": editable,
@@ -515,12 +673,21 @@ def payload(con: sqlite3.Connection, cfg: dict | None = None,
         "catalogo_em": dados.get("generated_at"),
         "fonte": "CardTrader (api.cardtrader.com/api/v2)",
         "items": lista,
-        "sets": por_edicao(lista, cfg),
-        "totals": contar(lista),
+        "sets": por_edicao(selados, cfg),
+        "totals": contar(selados),
+        "acessorios": {
+            "sets": por_edicao(acess, cfg),
+            "totals": contar(acess),
+            "categorias": [{"id": c, "nome": _nome_da_categoria(c)}
+                           for c in op["acessorios"]],
+        },
         "tipos": [t for t in TIPOS if any(x["tipo"] == t["id"] for x in lista)],
         "scope": {
             "categorias": [{"id": c, "nome": _nome_da_categoria(c)}
                            for c in op["categorias"]],
+            "acessorios": op["acessorios"],
+            "juntar_duplicados": op["juntar_duplicados"],
+            "juntos": sum(len(x["duplicados"]) for x in lista),
             "fora": fora(cfg),
             "por_sair": op["por_sair"],
             "datas": op["datas_por_edicao"],
@@ -667,17 +834,9 @@ def eur(cents: int | None) -> str:
     return "—" if cents is None else f"{cents / 100:.2f} €"
 
 
-def texto(p: dict) -> str:
-    t = p["totals"]
-    linhas = [
-        f"Produto selado: HÁ {t['ha']}  ·  TENHO {t['tenho']}  ·  NÃO TENHO "
-        f"{t['falta']}  ·  por sair {t['por_sair']}",
-        f"  {t['copias']} unidades · valor do selado {eur(t['valor_cents'])} "
-        f"(à parte do valor da Coleção)",
-    ]
-    if t["sem_preco"]:
-        linhas.append(f"  {t['sem_preco']} sem preço no CardTrader")
-    for g in p["sets"]:
+def _linhas_dos_grupos(sets: list[dict]) -> list[str]:
+    linhas: list[str] = []
+    for g in sets:
         gt = g["totals"]
         linhas.append("")
         linhas.append(f"-- {g['set']} {g['label']} — {gt['tenho']}/{gt['saiu']}"
@@ -689,9 +848,39 @@ def texto(p: dict) -> str:
                 f"{x['nome']}{(' · ' + x['versao']) if x['versao'] else ''}"
                 f"  {eur(x['preco_cents'])}"
                 f"{'  (por sair' + (' ' + x['data'] if x['data'] else '') + ')' if x['por_sair'] else ''}")
+            if x.get("conteudo"):
+                linhas.append(f"         dentro: {x['conteudo']}")
+            if x.get("nota"):
+                linhas.append(f"         nota: {x['nota']}")
+            if x.get("duplicados"):
+                linhas.append("         junta o blueprint "
+                              + ", ".join(str(d["blueprint_id"]) for d in x["duplicados"])
+                              + " do CardTrader (o mesmo produto)")
+    return linhas
+
+
+def texto(p: dict) -> str:
+    t = p["totals"]
+    linhas = [
+        f"Produto selado: HÁ {t['ha']}  ·  TENHO {t['tenho']}  ·  NÃO TENHO "
+        f"{t['falta']}  ·  por sair {t['por_sair']}",
+        f"  {t['copias']} unidades · valor do selado {eur(t['valor_cents'])} "
+        f"(à parte do valor da Coleção)",
+    ]
+    if t["sem_preco"]:
+        linhas.append(f"  {t['sem_preco']} sem preço no CardTrader")
+    linhas += _linhas_dos_grupos(p["sets"])
+    ac = p.get("acessorios") or {}
+    at = ac.get("totals") or {}
+    if at.get("ha"):
+        linhas.append("")
+        linhas.append(f"== ACESSÓRIOS (secção à parte, NÃO contam para o produto "
+                      f"selado): HÁ {at['ha']}  ·  TENHO {at['tenho']}  ·  NÃO TENHO "
+                      f"{at['falta']}  ·  valor {eur(at['valor_cents'])}")
+        linhas += _linhas_dos_grupos(ac.get("sets") or [])
     f = p["scope"]["fora"]
     if f:
         linhas.append("")
-        linhas.append("Fora deste separador (acessórios, não são produto selado): "
-                      + ", ".join(f"{x['n']} {x['categoria']}" for x in f))
+        linhas.append("Fora deste separador (não são produto selado nem acessório "
+                      "de coleção): " + ", ".join(f"{x['n']} {x['categoria']}" for x in f))
     return "\n".join(linhas)
