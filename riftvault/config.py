@@ -270,6 +270,29 @@ DEFAULTS: dict = {
     # (`copies.qty_foil`, com o não-foil sempre derivado) e não entra em conta
     # nenhuma do site. Ver `foil.py`.
     "foil": {"raridades": ["common", "uncommon"], "edicoes_fora": ["OGS"]},
+    # O separador «Venda» (André, 2026-09-25: *"permite-me marcar as cartas
+    # que estou a vender no momento para apresentar a conta a pessoa. todos os
+    # precos tem que ser o Trend do Cardmarket!"*).
+    #   `trend_valido_dias`  — a partir de quantos dias é que um Trend guardado
+    #                          se marca como velho. Não se apaga: um Trend de
+    #                          há duas semanas é melhor ponto de partida do que
+    #                          um campo em branco.
+    #   `cardmarket_url`     — o link da carta no Cardmarket, com `{id}` = o
+    #                          `cardmarket_id` do `cardtrader_map` (1178 das
+    #                          1179 impressões têm um). **NÃO VALIDADO** — o
+    #                          site deles responde 403 a pedidos automáticos e
+    #                          não há conta para experimentar; se abrir em 404,
+    #                          muda-se esta linha e todos os links mudam.
+    #   `cardmarket_busca`   — o segundo link de cada linha (e o único da
+    #                          impressão sem id): pesquisa pelo nome de
+    #                          mercado, `{q}` já codificado.
+    # A conta faz-se SÓ com o Trend que ele mete à mão; o preço do CardTrader
+    # aparece ao lado, rotulado, e nunca entra no total. Ver `venda.py`.
+    "venda": {"trend_valido_dias": 7,
+              "cardmarket_url":
+                  "https://www.cardmarket.com/en/Riftbound/Products/Singles?idProduct={id}",
+              "cardmarket_busca":
+                  "https://www.cardmarket.com/en/Riftbound/Products/Search?searchString={q}"},
     # As línguas cujas ofertas do CardTrader entram no preço (2026-09-15:
     # "apenas cartas versao ingles"). Era 'en' fixo no código desde o início.
     "precos": {"linguas": ["en"]},

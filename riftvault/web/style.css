@@ -1352,6 +1352,124 @@ body.readonly .btn.chegou { display: none; }
 @media (min-width: 620px) { :root { --tile: 132px; } .seg-btn { font-size: 13px; padding: 9px 13px; } }
 @media (min-width: 1000px) { :root { --tile: 158px; } .progress-wrap { grid-template-columns: 1fr 1fr 1fr; } .rarities { grid-column: auto; align-items: center; } }
 
+/* ================================================================= «VENDA»
+
+   André, 2026-09-25: a conta de uma venda em curso, para virar o ecrã para
+   quem compra. Pensado para o TELEMÓVEL a 375 px — é onde vai ser usado, com
+   as cartas em cima da mesa: nada aqui corre para o lado.                   */
+
+.vd-procura { background: var(--card); border: 1px solid var(--line);
+  border-radius: var(--r2); padding: 12px 14px 14px; margin-bottom: 14px; }
+.vd-procura input[type="search"] { width: 100%; min-height: 42px;
+  background: var(--card3); color: var(--ink); border: 1px solid var(--line2);
+  border-radius: 10px; padding: 8px 11px; font: inherit; font-size: 14px; }
+.vd-procura input[type="search"]:focus-visible { border-color: var(--accent); outline: none; }
+.vd-res { margin-top: 8px; display: grid; gap: 4px; max-height: 320px; overflow-y: auto; }
+.vd-res .empty { margin: 6px 0; }
+.vd-hit { display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  width: 100%; text-align: left; background: var(--card3); border: 1px solid var(--line);
+  border-radius: 10px; padding: 8px 10px; color: var(--ink); cursor: pointer;
+  min-height: 44px; font: inherit; }
+.vd-hit:hover, .vd-hit:focus-visible { border-color: var(--accent-line); }
+.vd-hit .nm { font-weight: 600; font-size: 14px; }
+.vd-hit .cd { font-size: 12px; color: var(--muted); }
+.vd-hit .var { color: var(--accent); font-style: normal; font-size: 12px; }
+
+.vd-linhas { display: grid; gap: 10px; }
+.vd-linha { display: grid; grid-template-columns: 74px minmax(0, 1fr) auto; gap: 12px;
+  align-items: start; background: var(--card); border: 1px solid var(--line);
+  border-radius: var(--r2); padding: 10px 12px; }
+.vd-linha.vd-alerta { border-color: rgba(240, 180, 41, .45); }
+.vd-linha.vd-st { border-left: 3px solid var(--bad); }
+.vd-linha .art { width: 74px; border-radius: 8px; }
+.vd-linha .tname { font-size: 15px; font-weight: 600; }
+.vd-linha .codigo { font-size: 12px; color: var(--muted); }
+.vd-links { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px;
+  margin-top: 5px; font-size: 12px; }
+.vd-links a { color: var(--accent); min-height: 28px; display: inline-flex; align-items: center; }
+.vd-links a.alt { color: var(--muted); }
+/* O preço do CardTrader é REFERÊNCIA e nunca entra na conta — por isso está
+   apagado e diz de onde vem. Nunca lhe chamar Trend. */
+.vd-ct { color: var(--dim); }
+.vd-ct i { font-style: normal; opacity: .75; }
+.vd-marcas { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.vd-marca { font-size: 11px; border-radius: 6px; padding: 1px 6px;
+  border: 1px solid var(--line2); color: var(--muted); }
+.vd-marca.av { color: var(--warn); border-color: rgba(240, 180, 41, .4); }
+.vd-marca.velho { color: var(--warn); border-color: rgba(240, 180, 41, .4); }
+.vd-marca.deck { color: #c9a9ff; border-color: var(--accent-line); }
+
+.vd-dir { display: grid; gap: 6px; justify-items: end; }
+.vd-dir .steppers { display: flex; align-items: center; gap: 6px; }
+.vd-dir .steppers b { min-width: 22px; text-align: center; }
+.vd-qtd { font-weight: 700; }
+.vd-trend { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.vd-trend input { width: 86px; min-height: 40px; text-align: right;
+  background: var(--card3); border: 1px solid var(--line2); border-radius: 8px;
+  color: var(--ink); font: 600 15px var(--font); padding: 0 8px; }
+.vd-trend input:focus-visible { border-color: var(--accent); outline: none; }
+.vd-sub { font-weight: 700; font-size: 15px; }
+.vd-sub i { font-style: normal; font-weight: 400; color: var(--bad); font-size: 12px; }
+.vd-avisos { display: block; margin-top: 8px; line-height: 1.6; }
+.vd-total { color: var(--ok); }
+
+/* «+ venda» no tile da Coleção. */
+.vd-add { display: block; width: 100%; margin-top: 4px; background: transparent;
+  border: 1px dashed var(--line2); border-radius: 8px; color: var(--muted);
+  font: 600 11px var(--font); min-height: 26px; cursor: pointer; }
+.vd-add:hover, .vd-add:focus-visible { color: var(--accent); border-color: var(--accent-line); }
+
+/* A CONTA — é isto que a pessoa do outro lado da mesa vê. */
+.vd-cab { margin-top: 22px; }
+.vd-conta { background: var(--card); border: 1px solid var(--line2);
+  border-radius: var(--r2); padding: 6px 4px 12px; }
+.vd-tab { width: 100%; border-collapse: collapse; font-size: 14px; }
+.vd-tab th, .vd-tab td { padding: 8px 10px; border-top: 1px solid var(--line);
+  text-align: right; }
+.vd-tab th:first-child, .vd-tab td:first-child { text-align: left; }
+.vd-tab thead th { font-size: 11px; text-transform: uppercase; letter-spacing: .08em;
+  color: var(--muted); font-weight: 600; border-top: 0; }
+.vd-tab .v-nome { font-weight: 600; }
+.vd-tab .v-sub { font-weight: 600; }
+.vd-tab tr.r-sem .v-nome { color: var(--bad); }
+.vd-tab tr.r-sem td i { font-style: normal; color: var(--bad); font-size: 12px; }
+.vd-tab tfoot td { border-top: 2px solid var(--line2); font-weight: 700;
+  font-family: var(--font-hd); }
+.vd-tab .v-tot { font-size: 19px; color: var(--ok); }
+.vd-falta { margin: 8px 12px 0; font-size: 12px; color: var(--bad); }
+.vd-fonte { margin: 6px 12px 0; font-size: 12px; color: var(--muted); }
+.vd-botoes { margin-top: 12px; }
+.btn.perigo { border-color: rgba(255, 107, 107, .5); color: #ffb3b3; }
+.btn.perigo:hover { background: rgba(255, 107, 107, .12); }
+
+@media (max-width: 559px) {
+  /* A tabela de seis colunas não cabe a 375 px: cada linha vira cartão, com
+     o rótulo de cada campo à esquerda. É o mesmo que a tabela de montagem dos
+     decks faz (2026-09-24). */
+  .vd-tab thead { display: none; }
+  .vd-tab, .vd-tab tbody, .vd-tab tfoot, .vd-tab tr, .vd-tab td {
+    display: block; width: auto; }
+  .vd-tab tr { border-top: 1px solid var(--line); padding: 8px 12px 10px; }
+  .vd-tab td { border: 0; padding: 2px 0; text-align: left;
+    display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  .vd-tab td::before { content: attr(data-l); color: var(--muted); font-size: 12px; }
+  .vd-tab .v-nome { font-size: 15px; padding-bottom: 4px; }
+  .vd-tab .v-nome::before { content: none; }
+  .vd-tab tfoot tr { border-top: 2px solid var(--line2); }
+  .vd-tab tfoot td[colspan] { display: none; }
+
+  /* A linha de venda a 375 px: a carta em cima, os controlos por baixo, a
+     largura toda para o campo do Trend. */
+  .vd-linha { grid-template-columns: 64px minmax(0, 1fr); }
+  .vd-linha .art { width: 64px; }
+  .vd-dir { grid-column: 1 / -1; grid-template-columns: auto 1fr auto;
+    align-items: center; justify-items: stretch; gap: 10px;
+    border-top: 1px solid var(--line); padding-top: 8px; }
+  .vd-dir .steppers { justify-self: start; }
+  .vd-trend { justify-content: flex-end; }
+  .vd-sub { text-align: right; }
+}
+
 /* ============================================================== TELEMÓVEL
 
    Abaixo dos 900 px a barra lateral sai do fluxo e passa a painel ☰; o índice

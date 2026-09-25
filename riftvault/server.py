@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 from flask import Flask, g, jsonify, redirect, request, send_from_directory
 
 from . import (a_mais, a_subir, collection, config, db, decks, faltas, faltas_edicao,
-               foil, locais, metrics, pending, proprias, runas_vista)
+               foil, locais, metrics, pending, proprias, runas_vista, venda)
 
 app = Flask(__name__, static_folder=None)
 
@@ -166,6 +166,112 @@ def api_foil_ajustar():
         return jsonify({"error": str(exc)}), 404
     except foil.ForaDoAmbito as exc:
         return jsonify({"error": str(exc)}), 400
+
+
+# --------------------------------------------------------------------------
+# «Venda» (2026-09-25): a conta de uma venda em curso, com o Trend do
+# Cardmarket metido à mão. Ver `venda.py`.
+# --------------------------------------------------------------------------
+
+
+@app.get("/api/venda.json")
+def api_venda():
+    return jsonify(venda.payload(get_con(), editable=True))
+
+
+@app.get("/api/venda/procurar")
+def api_venda_procurar():
+    """`?q=defy` -> impressões para juntar à venda, as que ele tem primeiro.
+
+    Só existe no modo edição: no site publicado a venda é de leitura e não há
+    quem responda. É a única maneira de juntar uma carta de uma edição que não
+    está aberta na Coleção.
+    """
+    return jsonify({"items": venda.procurar(get_con(), request.args.get("q", ""))})
+
+
+@app.post("/api/venda/linha")
+def api_venda_linha():
+    """Juntar ou tirar cópias da venda: `{printing_id, delta}`.
+
+    **Não mexe no `copies` nem em conta nenhuma** — é uma lista de intenção. Um
+    `−` numa carta que não está na venda é 400.
+    """
+    data = request.get_json(silent=True) or {}
+    try:
+        delta = int(data.get("delta", 0))
+    except (TypeError, ValueError):
+        return jsonify({"error": "delta inválido"}), 400
+    if delta == 0:
+        return jsonify({"error": "delta é zero"}), 400
+    if not data.get("printing_id"):
+        return jsonify({"error": "falta printing_id"}), 400
+    con = get_con()
+    try:
+        venda.juntar(con, data["printing_id"], delta, source="web")
+    except collection.UnknownPrinting as exc:
+        return jsonify({"error": str(exc)}), 404
+    except venda.SemLinha as exc:
+        return jsonify({"error": str(exc)}), 400
+    return jsonify(venda.payload(con, editable=True))
+
+
+@app.post("/api/venda/trend")
+def api_venda_trend():
+    """O TREND DO CARDMARKET de uma impressão: `{printing_id, eur}`.
+
+    É o número que ELE lê na página do Cardmarket e escreve na linha. `eur`
+    vazio ou `null` apaga o Trend guardado. Nunca se grava aqui um preço do
+    CardTrader — são fontes diferentes, e a conta é feita com esta.
+    """
+    data = request.get_json(silent=True) or {}
+    if not data.get("printing_id"):
+        return jsonify({"error": "falta printing_id"}), 400
+    bruto = data.get("eur")
+    if bruto is None or str(bruto).strip() == "":
+        cents = None
+    else:
+        try:
+            cents = round(float(str(bruto).replace(",", ".").replace("€", "").strip()) * 100)
+        except (TypeError, ValueError):
+            return jsonify({"error": f"não percebi o preço {bruto!r}"}), 400
+    con = get_con()
+    try:
+        venda.guardar_trend(con, data["printing_id"], cents, source="web")
+    except collection.UnknownPrinting as exc:
+        return jsonify({"error": str(exc)}), 404
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    return jsonify(venda.payload(con, editable=True))
+
+
+@app.post("/api/venda/limpar")
+def api_venda_limpar():
+    con = get_con()
+    n = venda.limpar(con)
+    return jsonify({"limpas": n, **venda.payload(con, editable=True)})
+
+
+@app.post("/api/venda/vender")
+def api_venda_vender():
+    """«Marcar como vendidas»: `{confirmar: true}`.
+
+    É o ÚNICO sítio desta secção que baixa cópias, e não é automático — sem o
+    `confirmar` devolve 409 com o número de cópias em jogo, para o ecrã pedir
+    confirmação. Cada linha passa pelo `collection.adjust` (fica na `ops`, dá
+    para desfazer) e escreve no `sale_log`.
+    """
+    data = request.get_json(silent=True) or {}
+    con = get_con()
+    try:
+        res = venda.vender(con, confirmar=bool(data.get("confirmar")), source="web")
+    except venda.PrecisaConfirmar as exc:
+        return jsonify({"error": str(exc)}), 409
+    except venda.VendaVazia as exc:
+        return jsonify({"error": str(exc)}), 400
+    # O resultado da venda vai numa chave própria: o `payload` traz o `totals`
+    # da venda em curso, que a partir de agora está vazia.
+    return jsonify({"vendida": res, **venda.payload(con, editable=True)})
 
 
 @app.get("/api/history.json")

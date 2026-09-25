@@ -51,9 +51,13 @@ abas «Master set», «A subir» e «A caminho» e do `api/quanto_custa.json` s�
 história; o `api/faltas.json` de antes de 2026-09-15 partiu-se em
 `api/wantlist.json` e `api/compras.json`, que ficam. O identificador
 `faltas` continua no `faltas.py`, que tem as listas de compra dos DECKS; no
-site já não há secção nenhuma com esse id.) (Houve uma **Venda**, apagada a
-2026-09-15 a pedido dele — ver a secção própria, perto do fim. As secções
-abaixo que falam dela são história.)
+site já não há secção nenhuma com esse id.) E há uma **Venda** OUTRA VEZ, desde 2026-09-25 — mas é outra pergunta: a
+conta de uma venda em curso, para mostrar a quem compra, com os preços a
+serem o **Trend do Cardmarket metido à mão** (id `venda`, `api/venda.json`,
+`venda.py`); ver a última secção deste ficheiro. (A Venda de 2026-09-08 —
+uma sugestão do que sobra acima do alvo — foi apagada a 2026-09-15 a pedido
+dele e não voltou: essa pergunta vive no «A mais» desde 2026-09-17. As
+secções abaixo que falam dela são história.)
 
 ## Regras de trabalho
 
@@ -726,6 +730,15 @@ Se algo vier errado, é aqui:
    (`cardtrader.com/cards/<blueprint_id>`, `riftscribe.gg/cards/<printing_id>`)
    são **presunção minha, por abrir e confirmar**. Ficam em `a_subir.DEFAULTS`
    e mudam-se numa linha.
+   **O mesmo no Cardmarket, desde 2026-09-25**: cada linha da Venda leva um
+   link para a página da carta lá, montado com o `cardmarket_id` do
+   `cardtrader_map` (`venda.cardmarket_url`, hoje
+   `cardmarket.com/en/Riftbound/Products/Singles?idProduct=<id>`). **Não foi
+   validado** — o site deles responde 403 a pedidos automáticos e não há conta
+   para experimentar —, e por isso cada linha leva também um **segundo link,
+   de pesquisa** pelo nome de mercado (`venda.cardmarket_busca`), que é a
+   forma que o Scryfall usa para o mesmo fim. Se o primeiro abrir em 404, é
+   uma linha de config e todos os links mudam com ela.
 
 ---
 
@@ -2534,6 +2547,14 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   página do deck (escreve no config), `riftvault decks
   --montar/--desmontar`, `POST /api/decks/montar`. Ver a última secção
   deste ficheiro.
+- **Feito também:** o separador «Venda» (2026-09-25) — a conta de uma venda em
+  curso, para mostrar a quem compra; os preços são o **Trend do Cardmarket
+  metido à mão** (a app não tem nem pode ter preços do Cardmarket), o do
+  CardTrader aparece rotulado «só referência» e nunca entra no total, e uma
+  linha sem Trend conta ZERO; marcar para venda não mexe em número nenhum da
+  Coleção e quem baixa as cópias é o botão separado «marcar como vendidas»,
+  com confirmação e registo (`venda.py`, `api/venda.json`, `riftvault venda`).
+  Ver a última secção deste ficheiro.
 - **Por fazer:** a parte 2 do seguir — o separador no site e a tarefa diária;
   vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck,
   com as partilhadas assinaladas); e apagar decks pela interface (hoje apaga-se
@@ -5427,3 +5448,150 @@ virou um item da grelha. As fotos a 1280 e a 375 px são a maneira de o ver; o
 `test_casca` não o apanha porque não desenha nada.
 
 Suite: **40 ficheiros, 0 a falhar**.
+
+## 25/09/2026 — o separador «VENDA»: a conta de quem compra, com o Trend do Cardmarket METIDO À MÃO
+
+Palavras dele: *"quero que cries um separador que e: Venda. este separador
+permite-me marcar as cartas que estou a vender no momento para apresentar a
+conta a pessoa. **todos os precos tem que ser o Trend do Cardmarket!**"*.
+Ramo `ai-pc/venda-2026-09-25`.
+
+**NÃO É A VENDA DE 2026-09-08** (apagada a 2026-09-15). Aquela era uma
+SUGESTÃO calculada — o que sobra acima do alvo —, e essa pergunta vive hoje no
+separador «A mais» (2026-09-17). Esta é outra: ele está à mesa com o comprador,
+marca o que está a vender, e o ecrã dá a conta. **A lista é dele, não é
+calculada.** Do código antigo (`git show 5b35747~1:riftvault/venda.py`) não se
+reaproveitou nada: a conta do excedente já tinha sido reaproveitada pelo A
+mais, e o resto respondia a outra pergunta. O que se reaproveitou foi a
+ARQUITECTURA de duas ordens recentes — o `foil.py` (uma tabela à parte, uma
+fotografia de tudo a provar que não mexe em nada) e o `proprias.py` (escrita
+com rasto, e o botão que mexe na coleção a ser separado e explícito).
+
+### O PREÇO: por que é que ele tem de o meter à mão
+
+**A app não tem preços do Cardmarket e não os pode ter.** Verificado a
+2026-09-25, antes de desenhar seja o que for:
+
+| fonte | o que há |
+|---|---|
+| `catalog.price_latest` | 1227 linhas, **todas** `source='cardtrader'` — e é a OFERTA MAIS BARATA em NM/Mint, inglês (`prices.oferta`), não um Trend |
+| API oficial do Cardmarket | **fechada a novas candidaturas** (página de ajuda deles, lida a 25/09) |
+| `cardmarket.com` | **403** a pedidos automáticos (está no CLAUDE.md desde 2026-08-31) |
+| APIs de terceiros que revendem Trend | pagas — e a regra dele é *só a subscrição* |
+| scraping | fora de questão |
+
+A sessão da ordem `0-venda-preco-ct`, a correr em paralelo, confirmou o outro
+lado da mesma pergunta: **o «CT Market Price» do CardTrader não existe na API
+v2** (nem campo, nem endpoint, nem agregação que o reproduza); o único número
+agregado que se reproduz ao cêntimo é o «Best Deal», que é preço de compra e
+não avaliação. Não há por onde ir buscar um Trend.
+
+**Por isso o Trend é um CAMPO que ele preenche**, em euros, a olhar para a
+página da carta no Cardmarket — e a linha tem o link para lá. Guarda-se por
+IMPRESSÃO com a data (`cardmarket_trend`), para a venda seguinte vir
+preenchida; passados `venda.trend_valido_dias` dias (7) marca-se como velho e
+**não se apaga** — um Trend de há duas semanas é melhor ponto de partida do
+que um campo em branco.
+
+**O preço do CardTrader aparece na linha, rotulado «CardTrader, só
+referência», e NUNCA entra no total** — nem como omissão de uma linha por
+preencher: uma linha sem Trend conta **ZERO** e o cabeçalho diz «Falta 1 linha
+sem Trend». Substituí-lo era apresentar a conta errada a uma pessoa a sério.
+Há teste: com o Brutalizer a 9,00 € no CardTrader e sem Trend, o total é 0,00 €.
+
+### O que se guarda, e onde
+
+Três tabelas novas no vault.db (`CREATE TABLE IF NOT EXISTS`, sem migração e
+sem backup — não tocam no `copies`):
+
+| tabela | o que é |
+|---|---|
+| `sale_lines` | a venda EM CURSO: uma linha por impressão (ele escolhe a versão que tem na mão), uma venda de cada vez |
+| `cardmarket_trend` | o Trend dele, por impressão, com a data e a origem |
+| `sale_log` | as vendas FECHADAS: uma linha por carta, agrupadas pelo `sale_id`, com o Trend **da altura** (a conta de ontem não muda quando o Trend mudar) |
+
+### MARCAR PARA VENDA NÃO TIRA NADA DE LADO NENHUM
+
+`tests/test_venda.py::TestNaoMexeEmNadaDaColecao` fotografa níveis,
+denominador, as três barras, o painel (da edição e o geral), os blocos, as
+wantlists, o valor (total, por edição), os totais, a grelha
+(qty/qty_total/qty_valor/alvo/bloco/foil), o playset jogável, as Faltas (os
+quatro blocos por edição), as Encomendas, o A mais item a item, a falta dos
+decks, o `uso_por_carta`, os locais e o `copies` inteiro — mete seis cópias na
+venda, mete Trends, tira tudo, e exige que fique **igual**. É a defesa do
+`test_copias_proprias` (21/09) e do `test_foil` (22/09). Outro teste recusa que
+um módulo de contas importe o `venda` ou mencione as tabelas dele: só o
+`server`, o `build` e a `cli` o chamam.
+
+**Quem baixa as cópias é o botão SEPARADO «marcar como vendidas»**
+(`venda.vender`): sem `confirmar` levanta `PrecisaConfirmar` (a rota devolve
+**409** e o ecrã pergunta), e com ele cada linha passa pelo `collection.adjust`
+— portanto fica na `ops`, dá para **desfazer** com o undo de sempre, e o
+`locais.ajustar_ao_total` tira a cópia de onde ela estiver. Vender mais do que
+tem baixa o que há (o `adjust` trava no zero) e o resultado diz quanto faltou.
+
+### Avisa, não bloqueia
+
+Pôr à venda mais cópias do que tem registadas, ou uma carta que um deck
+**MONTADO** usa (hoje só o LeBlanc Hook — um desmontado não usa nada, regra de
+24/09; lê-se do mesmo `decks.uso_por_carta` da grelha), dá aviso na linha e no
+cabeçalho. Ele é que sabe o que tem na mão.
+
+### A página
+
+Cabeçalho com o total e os avisos; a procura (nome ou código, no catálogo
+inteiro — `GET /api/venda/procurar`, só no modo edição, porque a grelha só tem
+uma edição em memória e a venda é de tudo); uma linha por carta com a arte, os
+`+`/`−`, o campo do Trend, o preço do CardTrader rotulado e **dois links**
+(`Cardmarket` pelo id, `procurar` pelo nome — ver «Superfícies não validadas»,
+ponto 7); e no fim **A CONTA**, limpa, para virar o ecrã: nome, edição, número,
+quantidade, Trend unitário, subtotal e total, com «Copiar a conta».
+
+**A 375 px** cada linha da conta vira cartão (o mesmo que a tabela de montagem
+dos decks faz desde 24/09) e a linha de venda passa a duas filas. Medido com o
+DevTools Protocol a 375 px, na cópia dos dados reais: `documentElement.
+scrollWidth == clientWidth == 375`, **zero** elementos fora do ecrã ou com
+scroll próprio. Há teste que fixa as regras do `@media`.
+
+Na Coleção, cada tile de que ele tenha alguma cópia ganhou um **«+ venda»**
+discreto (só no modo edição, só com cópias — um botão em 1180 tiles era
+ruído), que junta uma cópia daquela impressão e diz no toast o que aconteceu,
+com atalho para a secção.
+
+No site publicado a Venda é **só de leitura**: o `build` escreve
+`api/venda.json` com `editable: false` e o cliente nem desenha os `+`/`−`, o
+campo do Trend ou os botões.
+
+### Medido a 2026-09-25 contra uma CÓPIA do `data/` real
+
+(`_revisao\_venda_dados.py` + `_venda_exemplo.py`; a Venda escreve, por isso
+nunca se serviu o `data/` a sério.) Uma venda de exemplo com 1× `OGN-039a`
+Kai'Sa a 52,50 €, 2× `UNL-228` Bloodharbor Ripper a 139,00 € e 3× `OGN-045`
+Defy **sem Trend**: total **330,50 €**, 6 cartas em 3 linhas, «Falta 1 linha
+sem Trend», e dois avisos de stock. Os mesmos CardTrader ao lado seriam 49,63 €,
+114,52 € e 1,25 € — e **não entram**: a soma deles daria outra conta.
+
+**Nada da Coleção mexe com isto**: a secção é apresentação mais três tabelas
+próprias, e a única escrita que toca no `copies` é o «marcar como vendidas».
+
+### Erros corrigidos pelo caminho
+
+1. **`$('#colecao')` no `wireKeyboard`** — o rebrand de 24/09 mudou o id da
+   secção para `sec-colecao` e esta linha ficou a perguntar por um elemento que
+   já não existe: `null.hidden` rebentava **a cada tecla** premida fora de um
+   campo de texto, e por isso as setas e os `+`/`−` do teclado não faziam nada
+   na Coleção. Passou a `#sec-colecao`.
+2. **A classe `aviso`** que a linha de venda usava é, no resto do site, uma
+   caixa de texto com `max-width: 62ch` — as linhas com aviso apareciam a
+   metade da largura das outras. As classes da secção passaram todas a levar o
+   prefixo `vd-`. Só se vê numa fotografia a 1280 px, que é para isso que ela
+   serve.
+3. Plurais: «Faltam 1 linhas» na conta, no CLI e na página.
+
+`tests/test_venda.py` (34 testes, contra pastas temporárias e config
+temporário). `test_site_do_pc` passou a exigir o `api/venda.json` (era o
+contrário desde 15/09), `test_sem_quanto_custa` ganhou a secção nova na lista
+das que existem, e o `test_a_mais` passou a procurar o `api/venda` só no troço
+do A mais — o ficheiro inteiro volta a ter uma Venda.
+
+Suite: **41 ficheiros, 0 a falhar**.

@@ -114,6 +114,7 @@ nova é uma linha ali.
 | Decks | **Decks** | as listas montadas |
 | | **Staples** · **Por deck** · **Pimp decks** | as listas de compra dos decks |
 | Compras | **Encomendas** | o que compraste e ainda não chegou |
+| | **Venda** | o que estás a vender agora e a conta para quem compra |
 
 **Cada vista tem endereço.** `#colecao/UNL`, `#faltas-edicao/OGN`,
 `#decks/ornn`, `#decks/staples`, `#encomendas/VEN` — dá para guardar nos
@@ -718,10 +719,55 @@ Na consola: `riftvault foil` (o resumo, `--edicao OGN` para uma só),
 `--menos 2`. A rota é `POST /api/foil/ajustar`; no site publicado é só de
 leitura, como o resto.
 
-## Venda (apagada a 2026-09-15)
+## Venda — a conta de quem compra (2026-09-25)
+
+*"Este separador permite-me marcar as cartas que estou a vender no momento para
+apresentar a conta a pessoa. **Todos os preços têm que ser o Trend do
+Cardmarket!**"*
+
+Uma venda de cada vez. Juntas as cartas (procura por nome ou código, ou o botão
+**+ venda** no tile da Coleção), pões a quantidade, e o ecrã dá a conta para
+virares para a pessoa do outro lado da mesa — nome, edição, número, quantidade,
+Trend unitário, subtotal e total, com um botão para copiar em texto. Feito para
+o telemóvel: a 375 px cada linha da conta vira um cartão e nada corre para o
+lado.
+
+**O preço é o Trend do Cardmarket, e tens de ser tu a metê-lo.** O riftvault
+não tem preços do Cardmarket e não os pode ter: a API oficial deles está
+fechada a novas candidaturas, o site responde 403 a pedidos automáticos, as
+APIs de terceiros que revendem o Trend são pagas e scraping está fora de
+questão. Por isso cada linha tem um campo em euros e um link para a página da
+carta lá (pelo `cardmarket_id`, que o `riftvault map` já recolhe — 1178 das
+1179 impressões têm um; na que falta o link é a pesquisa pelo nome de mercado).
+O Trend fica guardado por impressão **com a data**, para a venda seguinte vir
+preenchida, e passados `venda.trend_valido_dias` dias aparece marcado como
+velho — não se apaga.
+
+**O preço do CardTrader nunca entra na conta.** Aparece ao lado, escrito
+«CardTrader, só referência», porque é a oferta mais barata de lá e não um
+Trend. Uma linha sem Trend conta **zero** e o cabeçalho diz quantas faltam.
+
+**Marcar cartas para venda não tira nada de lado nenhum**: não mexe nos níveis,
+no denominador, nas Faltas, nas wantlists, no valor, nos decks, no foil nem nas
+cópias próprias (`tests/test_venda.py` fotografa tudo isso, mete e tira linhas
+e exige que fique igual). Quem baixa as cópias é o botão **separado** «marcar
+como vendidas», que pede confirmação, passa pelo caminho de sempre (fica no
+registo, dá para desfazer) e guarda a venda no `sale_log` com o Trend da
+altura.
+
+Avisa — não bloqueia — quando pões à venda mais cópias do que tens registadas,
+ou uma carta que um deck **montado** está a usar.
+
+Na consola: `riftvault venda` (a lista e a conta), `--juntar REF [N]`,
+`--tirar REF [N]`, `--trend REF EUR`, `--limpar` e `--vender --sim`. No site
+publicado é só de leitura, como o resto.
+
+## A Venda anterior (apagada a 2026-09-15)
 
 Havia uma quarta secção, «Venda», com o excedente da caixa e uma análise das
-comuns e incomuns mais caras. *"Esquece a parte da venda, podes apagar para já,
+comuns e incomuns mais caras. **Não é a de hoje**: aquela era uma *sugestão*
+calculada pelo riftvault (o que sobra acima do alvo) e essa pergunta vive hoje
+no separador **A mais**. *"Esquece a parte da venda, podes apagar para já,
 se for necessário mando fazer novamente"* — e foi apagada: o separador, a
 página, o `riftvault venda`, o `api/venda.json` e os módulos `venda.py` e
 `comuns.py`. Está tudo no histórico do git; o commit a reverter está no
@@ -996,6 +1042,7 @@ riftvault a-subir [--cardmarket] [--todas]        # master set: a subir / tudo
 riftvault local [...]                             # onde está cada cópia
 riftvault map / prices / value                    # CardTrader
 riftvault seguir [--jogador NOME] [--so-mudados]  # decks dos jogadores seguidos: o que falta
+riftvault venda [--juntar REF N] [--trend REF EUR] [--vender --sim]  # a venda em curso e a conta
 ```
 
 O `add`/`remove` aceitam qualquer forma de escrever a impressão: `OGN-7`,
@@ -1012,6 +1059,7 @@ riftvault/
   metrics.py      as duas métricas, os blocos da grelha e os payloads
   a_subir.py      o que falta do master set (a subir, e a lista completa)
   seguir.py       os decks dos jogadores seguidos no Piltover Archive e o que falta
+  venda.py        a venda em curso e a conta (preços: o Trend do Cardmarket, à mão)
   server.py       modo edição (Flask)
   build.py        modo publicado (estático)
   cli.py          linha de comandos
