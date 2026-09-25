@@ -282,22 +282,33 @@ DEFAULTS: dict = {
     #                          se marca como velho. Não se apaga: um Trend de
     #                          há duas semanas é melhor ponto de partida do que
     #                          um campo em branco.
-    #   `cardmarket_url`     — o link da carta no Cardmarket, com `{id}` = o
-    #                          `cardmarket_id` do `cardtrader_map` (1178 das
-    #                          1179 impressões têm um). **NÃO VALIDADO** — o
-    #                          site deles responde 403 a pedidos automáticos e
-    #                          não há conta para experimentar; se abrir em 404,
-    #                          muda-se esta linha e todos os links mudam.
-    #   `cardmarket_busca`   — o segundo link de cada linha (e o único da
-    #                          impressão sem id): pesquisa pelo nome de
-    #                          mercado, `{q}` já codificado.
+    # Os links do Cardmarket viviam aqui até 2026-09-25; passaram para o bloco
+    # `mercados`, a seguir, quando o «Produto Selado» passou a precisar deles
+    # também. Um config que ainda os traga aqui continua a valer.
     # A conta faz-se SÓ com o Trend que ele mete à mão; o preço do CardTrader
     # aparece ao lado, rotulado, e nunca entra no total. Ver `venda.py`.
-    "venda": {"trend_valido_dias": 7,
-              "cardmarket_url":
-                  "https://www.cardmarket.com/en/Riftbound/Products/Singles?idProduct={id}",
-              "cardmarket_busca":
-                  "https://www.cardmarket.com/en/Riftbound/Products/Search?searchString={q}"},
+    "venda": {"trend_valido_dias": 7},
+    # OS LINKS DE COMPRA, num sítio só (2026-09-25: *"Se possivel, mete link
+    # para compra no cardmarket e no cardtrader"*, no «Produto Selado»). São
+    # os mesmos templates que a Venda usa — ver `mercados.py`, que tem a
+    # medição do que está validado:
+    #   CARDTRADER — **validado** a 2026-09-25: o `blueprint_id` sozinho
+    #     responde 200 (`/en/cards/<id>`) e o site acrescenta-lhe o slug; sem
+    #     o `/en/` a página abre em italiano. A pesquisa é `/en/search?q=`.
+    #   CARDMARKET — **NÃO VALIDADO**: o site responde 403 a pedidos
+    #     automáticos (nem o `robots.txt` responde) e não há conta para
+    #     experimentar. Por isso cada linha leva também o link de PESQUISA,
+    #     que é o único de quem não tem id. O selado tem template próprio: um
+    #     display não é um «Single», e o caminho é a parte que se presume.
+    "mercados": {
+        "cardmarket_url":
+            "https://www.cardmarket.com/en/Riftbound/Products/Singles?idProduct={id}",
+        "cardmarket_url_selado":
+            "https://www.cardmarket.com/en/Riftbound/Products?idProduct={id}",
+        "cardmarket_busca":
+            "https://www.cardmarket.com/en/Riftbound/Products/Search?searchString={q}",
+        "cardtrader_url": "https://www.cardtrader.com/en/cards/{id}",
+        "cardtrader_busca": "https://www.cardtrader.com/en/search?q={q}"},
     # As línguas cujas ofertas do CardTrader entram no preço (2026-09-15:
     # "apenas cartas versao ingles"). Era 'en' fixo no código desde o início.
     "precos": {"linguas": ["en"]},

@@ -130,10 +130,13 @@ DEFAULTS: dict = {
                 "so_no_master": True, "blocos": []},
     "urgencia": False,
     "urgencia_pesos": {"janela": 0.5, "curto": 1.0, "preco_relativo": 10.0},
-    # NÃO VALIDADOS: nem a API da RiftScribe nem a do CardTrader dão o endereço
-    # da página da carta, e daqui não houve rede para experimentar. São o
-    # formato que se presume; se abrirem em 404, corrige-se aqui.
-    "link_cardtrader": "https://www.cardtrader.com/cards/{blueprint_id}",
+    # O do CARDTRADER está VALIDADO desde 2026-09-25 (ver `mercados.py`): o
+    # `blueprint_id` sozinho responde 200 e o site acrescenta-lhe o slug. O
+    # `/en/` é que faz falta — sem ele a página abria em ITALIANO, que é o que
+    # este link fazia desde 2026-09-08.
+    "link_cardtrader": "https://www.cardtrader.com/en/cards/{blueprint_id}",
+    # NÃO VALIDADO: a API da RiftScribe não dá o endereço da página da carta.
+    # É o formato que se presume; se abrir em 404, corrige-se aqui.
     "link_riftscribe": "https://riftscribe.gg/cards/{printing_id}",
 }
 
