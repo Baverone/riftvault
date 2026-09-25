@@ -100,6 +100,11 @@ const state = {
   colecaoVelha: false,
   // Se as contagens já mudaram desde que a wantlist chegou.
   wlStale: false,
+  // As abas ESCONDIDAS (2026-09-25, `abas.escondidas` no config), como vêm no
+  // `api/index.json`. Não há segunda lista aqui: o servidor é que decide, e
+  // por isso a mesma linha de config vale no 8770 e no site publicado. Vazio
+  // até o índice chegar — e é por isso que o `renderNav()` só corre depois.
+  escondidas: new Set(),
   prefs: { view: 'all', stateFilter: 'all',
            kinds: ['base', 'alt_art', 'signature', 'other'],
            set: null, deck: null, faltaDeck: 0, pimpDeck: 'todos',
@@ -242,15 +247,19 @@ const PAGINA = {
   'decks': {
     sub: 'As listas montadas, o que cada uma tem e o que lhe falta. '
        + 'A ordem vem do <code>riftvault_config.json</code>.',
-    ajuda: '<p>Um deck serve-se primeiro das <b>cópias próprias</b> (as que guardaste para '
+    // A ÚNICA `ajuda` que é função, e não texto: a última frase descreve as
+    // listas de compra uma a uma, e com o «Por deck» escondido (2026-09-25)
+    // ficava a explicar uma aba que já não está no índice ao lado. Uma função
+    // porque a tabela é lida quando o ficheiro carrega, antes de o
+    // `api/index.json` dizer quais são as escondidas.
+    ajuda: () =>
+      '<p>Um deck serve-se primeiro das <b>cópias próprias</b> (as que guardaste para '
          + 'ele, que nunca contam para a Coleção nem para o valor), depois do que está '
          + 'sleevado, do binder e da <b>Coleção</b>. O que não recebe é falta a comprar, '
          + 'mesmo que a carta exista num deck de cima.</p>'
          + '<p>As <b>runas não se contam</b>: o Rune Pool diz só quantas são e organizas-'
          + 'las à mão. Por isso o «tenho» é de 54 e não de 66.</p>'
-         + '<p><b>Staples</b> são as cartas que mais do que um deck pede — uma compra serve '
-         + 'vários. <b>Por deck</b> reparte a mesma falta por prioridade. <b>Pimp decks</b> '
-         + 'são as versões alteradas das cartas que os decks jogam.</p>',
+         + ajudaListasDeCompra(),
   },
   'faltas-edicao': {
     sub: 'O que falta para fechar cada edição, em quatro blocos — e a wantlist '
@@ -304,6 +313,44 @@ const PAGINA = {
   },
 };
 
+/* A frase da ajuda dos Decks que descreve as listas de compra, só com as que
+   se vêem. Sem nenhuma, não se escreve frase nenhuma. */
+function ajudaListasDeCompra() {
+  const frases = {
+    staples: '<b>Staples</b> são as cartas que mais do que um deck pede — uma compra '
+           + 'serve vários.',
+    pordeck: '<b>Por deck</b> reparte a mesma falta por prioridade.',
+    pimp: '<b>Pimp decks</b> são as versões alteradas das cartas que os decks jogam.',
+  };
+  const texto = deckFaltaIds().map(id => frases[id]).filter(Boolean).join(' ');
+  return texto ? `<p>${texto}</p>` : '';
+}
+
+/* ------------------------------------------------- as abas escondidas
+
+   André, 2026-09-25: *"Tira a aba 'A mais', 'Por Deck' e 'Pimp Deck'"*.
+
+   ESCONDER NÃO É APAGAR. A `NAV`, a `SECCOES`, a `DECK_FALTA_TABS` e todas as
+   funções de desenho ficam exactamente como estavam — o «A mais» continua a
+   ser calculado e o `api/a_mais.json` a ser pedido por quem lhe chegar. O que
+   esta função faz é tirar o BOTÃO: a entrada na barra, a vista no índice dos
+   decks, o atalho do Início e a rota.
+
+   A lista vem do servidor (`api/index.json` -> `abas.escondidas`), nos dois
+   modos: é a mesma linha de config a tirar a aba do 8770 e do site publicado.
+   Repor é tirar o nome da lista — não há nada aqui a mudar.
+
+   O `id` de uma aba é a ROTA quando é secção (`a-mais`) e o id da vista quando
+   é sub-vista (`pordeck`). */
+function abaVisivel(id) {
+  return !state.escondidas.has(id);
+}
+
+/* O id da aba de um item da `NAV`: a sub-vista, quando a tem. */
+function abaDoItem(it) {
+  return it.sub || it.sec;
+}
+
 /* O item da barra lateral de uma secção (o primeiro sem `sub`) — é dele que
    saem o título da página e o grupo das migalhas. */
 function navItem(sec) {
@@ -320,9 +367,12 @@ function renderNav() {
   const alvo = $('#sidenav');
   let out = '';
   for (const g of NAV) {
+    // Um grupo que fique sem itens nenhuns não deixa o cabeçalho dele sozinho.
+    const itens = g.itens.filter(it => abaVisivel(abaDoItem(it)));
+    if (!itens.length) continue;
     out += '<div class="sgrp">';
     if (g.grupo) out += `<div class="sgh">${escapeHTML(g.grupo)}</div>`;
-    for (const it of g.itens) {
+    for (const it of itens) {
       const href = '#' + it.sec + (it.sub ? '/' + it.sub : '');
       const cls = 'sli' + (it.sub ? ' sub' : '');
       const nt = it.nota ? `<small>${escapeHTML(it.nota)}</small>` : '';
@@ -376,9 +426,12 @@ function renderCabecalho(sec, sub) {
     : `<a href="#inicio">Início</a>${meio}${ate}<i>›</i><b>${escapeHTML(titulo)}</b>`;
   // «Como ler esta página»: o texto longo lê-se UMA vez e depois é só
   // distância até ao fim da página — fica fechado, com o resumo no botão.
-  $('#pg-ajuda').innerHTML = p.ajuda
+  // `ajuda` é texto em todas as páginas menos nos Decks, onde é função (a
+  // frase das listas de compra depende de quais delas se vêem — 2026-09-25).
+  const ajuda = typeof p.ajuda === 'function' ? p.ajuda() : p.ajuda;
+  $('#pg-ajuda').innerHTML = ajuda
     ? `<details class="comoler"><summary>${ico('ajuda', 16)}<span>Como ler esta página`
-      + `</span></summary><div class="cltx">${p.ajuda}</div></details>`
+      + `</span></summary><div class="cltx">${ajuda}</div></details>`
     : '';
 }
 
@@ -434,12 +487,17 @@ async function getJSON(url) {
 
 async function boot() {
   loadPrefs();
-  renderNav();
   wireCasca();
   wireControls();
   wireKeyboard();
 
   state.index = await getJSON('api/index.json');
+  // As abas escondidas (2026-09-25) vêm no índice, e por isso a barra só se
+  // desenha DEPOIS dele: desenhá-la antes mostrava por um instante uma aba que
+  // ele mandou tirar. Se o índice falhar, o `boot().catch` do fim do ficheiro
+  // desenha-a na mesma — sem navegação não se chega a lado nenhum.
+  state.escondidas = new Set((state.index.abas || {}).escondidas || []);
+  renderNav();
   state.editable = !!state.index.editable;
   state.imageMode = state.index.image_mode || 'local';
   document.body.classList.toggle('readonly', !state.editable);
@@ -461,10 +519,14 @@ async function boot() {
   // preferência guardada com a secção Venda (apagada a 2026-09-15) ou com a
   // tabela de preços (`faltas`, apagada a 2026-09-19) cai na Coleção, como
   // qualquer outro nome que já não exista.
+  //
+  // Uma aba ESCONDIDA (2026-09-25) é, para as rotas, uma secção que não
+  // existe: o `#a-mais` de um favorito antigo cai na primeira que se vê, como
+  // qualquer outro nome que já não exista.
   const r = lerHash();
-  const sec = SECCOES.includes(r.sec) ? r.sec
-    : SECCOES.includes(state.prefs.section) ? state.prefs.section : 'inicio';
-  const sub = SECCOES.includes(r.sec) ? r.sub : '';
+  const sec = seccaoValida(r.sec) ? r.sec
+    : seccaoValida(state.prefs.section) ? state.prefs.section : seccaoInicial();
+  const sub = seccaoValida(r.sec) ? r.sub : '';
 
   // A Coleção carrega-se sempre à partida: é dela que saem as barras, o painel
   // e o `state.qty` que a secção Encomendas e o bloco das runas leem.
@@ -484,7 +546,7 @@ async function boot() {
   window.addEventListener('hashchange', () => {
     if (aEscreverHash) return;
     const h = lerHash();
-    if (SECCOES.includes(h.sec)) showSection(h.sec, h.sub, { url: false });
+    if (seccaoValida(h.sec)) showSection(h.sec, h.sub, { url: false });
   });
 }
 
@@ -2009,14 +2071,17 @@ async function loadDecks(sub = '') {
   // A rota do URL (`#decks/ornn`, `#decks/staples`) manda; a seguir, a última
   // escolha. Uma preferência guardada com a aba «Encomendas» (que viveu aqui
   // de 2026-09-11 a 2026-09-17, e passou a separador próprio) ou com a aba
-  // «Pool dos decks» (a experiência da manhã de 2026-09-21) cai no 1.º deck.
-  const daRota = DECK_FALTA_IDS.includes(sub) ? sub
+  // «Pool dos decks» (a experiência da manhã de 2026-09-21) cai no 1.º deck —
+  // e o mesmo vale para uma vista ESCONDIDA (2026-09-25): quem tinha o «Por
+  // deck» guardado abre no primeiro deck, não numa vista que já não existe.
+  const ids = deckFaltaIds();
+  const daRota = ids.includes(sub) ? sub
     : (state.decks.find(x => x.slug === sub) || {}).id;
   const first = daRota
-    || (DECK_FALTA_IDS.includes(state.prefs.deck)
+    || (ids.includes(state.prefs.deck)
         || state.decks.some(x => x.id === state.prefs.deck)
       ? state.prefs.deck : (state.decks[0] && state.decks[0].id));
-  if (DECK_FALTA_IDS.includes(first)) await loadDeckFaltas(first);
+  if (ids.includes(first)) await loadDeckFaltas(first);
   else if (first) await loadDeck(first);
   else $('#deck-body').innerHTML = '<p class="empty">Não há decks. Mete um .txt em <code>decks/</code>.</p>';
 }
@@ -2056,7 +2121,8 @@ function itensDoIndice() {
   // As abas por deck que viviam no antigo separador «Faltas» até 2026-09-15
   // (Staples, Por deck, Pimp decks): o contador só se sabe depois do
   // `compras.json`.
-  const listas = DECK_FALTA_TABS.map(t => ({
+  // (E as ESCONDIDAS por `abas.escondidas` não entram — 2026-09-25.)
+  const listas = deckFaltaTabs().map(t => ({
     grupo: 'Listas de compra',
     chave: t.id, on: state.deckId === t.id, ico: t.id, rot: t.label, titulo: '',
     nota: contadorFalta(t.id) || t.sub,
@@ -3254,8 +3320,23 @@ const SECCOES = ['inicio', 'colecao', 'decks', 'faltas-edicao', 'a-mais', 'encom
    ou a lista de compra. Vazia, usa-se a última que ele escolheu. */
 let seccaoNoEcra = null;
 
+/* Uma secção que existe E que se vê. As escondidas (2026-09-25) tratam-se como
+   nomes que não existem — não há meio caminho: se o botão saiu, a rota
+   também. */
+function seccaoValida(name) {
+  return SECCOES.includes(name) && abaVisivel(name);
+}
+
+/* Onde se cai quando a rota não serve: o Início, ou a primeira secção que se
+   veja. A Coleção é a última defesa — com TUDO escondido não há para onde ir,
+   e uma página em branco era pior do que a grelha. */
+function seccaoInicial() {
+  if (seccaoValida('inicio')) return 'inicio';
+  return SECCOES.find(seccaoValida) || 'colecao';
+}
+
 function showSection(name, sub = '', { url = true } = {}) {
-  if (!SECCOES.includes(name)) name = 'colecao';
+  if (!seccaoValida(name)) name = seccaoInicial();
   const mudou = name !== seccaoNoEcra;
   seccaoNoEcra = name;
   state.prefs.section = name;
@@ -3340,7 +3421,7 @@ function abrirSubVista(name, sub) {
    das listas de compra. O payload do deck continua a pedir-se pelo número —
    a tradução é aqui. */
 function abrirDeckOuLista(sub) {
-  if (DECK_FALTA_IDS.includes(sub)) {
+  if (deckFaltaIds().includes(sub)) {
     if (state.deckId !== sub) loadDeckFaltas(sub);
     return;
   }
@@ -3350,7 +3431,7 @@ function abrirDeckOuLista(sub) {
 
 /* O slug do que está aberto nos Decks — é o que vai para o URL. */
 function deckSubAtual() {
-  if (DECK_FALTA_IDS.includes(state.deckId)) return state.deckId;
+  if (deckFaltaIds().includes(state.deckId)) return state.deckId;
   const d = (state.decks || []).find(x => x.id === state.deckId);
   return d ? d.slug : '';
 }
@@ -3480,8 +3561,11 @@ function renderInicio() {
     ['encomendas', 'encomendas', 'Encomendas', 'o que vem a caminho'],
     ['a-mais', 'amais', 'A mais', 'o que sobra'],
   ];
+  // Um atalho para uma aba escondida (2026-09-25) era um botão para uma página
+  // a que já não se chega pela barra.
   $('#inicio-atalhos').innerHTML = '<p class="ini-h">Onde vais mais vezes</p>'
-    + '<div class="ini-atalhos-in">' + atalhos.map(([sec, ic, rot, nota]) =>
+    + '<div class="ini-atalhos-in">' + atalhos.filter(([sec]) => abaVisivel(sec))
+      .map(([sec, ic, rot, nota]) =>
       `<a class="ini-atalho" href="#${sec}"><span class="ic">${ico(ic, 20)}</span>
         <span><b>${escapeHTML(rot)}</b><small>${escapeHTML(nota)}</small></span></a>`).join('')
     + '</div>';
@@ -3535,7 +3619,17 @@ const DECK_FALTA_TABS = [
   { id: 'pordeck', label: 'Por deck', sub: 'o que falta a cada um' },
   { id: 'pimp', label: 'Pimp decks', sub: 'versões alteradas das cartas dos decks' },
 ];
-const DECK_FALTA_IDS = DECK_FALTA_TABS.map(t => t.id);
+/* As que se VÊEM. A tabela acima é o catálogo e fica inteira; a lista de
+   `abas.escondidas` (2026-09-25) é que decide quais delas entram no índice,
+   no `<select>` do telemóvel e nas rotas `#decks/<vista>`. As funções de
+   desenho (`renderPorDeck`, `renderPimp`) não se tocam — o cálculo continua no
+   `api/compras.json`, que continua a ser pedido pelas que ficam. */
+function deckFaltaTabs() {
+  return DECK_FALTA_TABS.filter(t => abaVisivel(t.id));
+}
+function deckFaltaIds() {
+  return deckFaltaTabs().map(t => t.id);
+}
 
 function contadorFalta(id) {
   const f = state.compras;
@@ -3590,11 +3684,16 @@ function faltaHead() {
         f.ignored_types.join(', ')} — compram-se a granel</span>` : ''}
     </div>
     <small class="nota">Soma o que <b>todos</b> os decks pedem menos o que tens:
-      o que um deck não recebe compra-se, mesmo que exista num deck de cima.
+      o que um deck não recebe compra-se, mesmo que exista num deck de cima.${
+        // Com o «Por deck» escondido (2026-09-25) não se manda ninguém a uma
+        // aba que já não está no índice.
+        abaVisivel('pordeck')
+          ? `
       A aba <i>Por deck</i> reparte este mesmo número por prioridade${
         (f.por_deck || []).some(d => d.grupo && d.grupo.variantes)
           ? ' — excepto nos decks com a <b>mesma Legend</b>, que partilham as cartas: cada um mostra a sua lista, mas a compra é uma e aqui conta uma vez'
-          : ''}.</small>
+          : ''}.`
+          : ''}</small>
   </div>`;
 }
 
@@ -4780,6 +4879,10 @@ function escapeAttr(s) {
 }
 
 boot().catch(err => {
+  // A barra lateral desenha-se depois do `api/index.json` (é de lá que vêm as
+  // abas escondidas). Se ele não responder, desenha-se aqui com tudo à vista:
+  // sem navegação nenhuma não se chega a lado nenhum.
+  try { renderNav(); } catch (_) {}
   $('#grid').innerHTML = `<p class="empty">Falhou a carregar: ${escapeHTML(err.message)}<br>
     <small>Se é a primeira vez, corre <code>riftvault sync</code>.</small></p>`;
 });
