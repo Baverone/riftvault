@@ -99,6 +99,25 @@ O SELADO NÃO ENTRA NA COLEÇÃO
     que fique igual — é a mesma defesa das cópias próprias (2026-09-21), do
     foil (2026-09-22) e da Venda (2026-09-25).
 
+OS LINKS DE COMPRA (2026-09-25)
+    Cada linha leva um link para o **Cardmarket** e outro para o
+    **CardTrader** (*"Se possivel, mete link para compra no cardmarket e no
+    cardtrader"*). Os templates vivem no bloco `mercados` do config, que é o
+    mesmo que a Venda usa — `riftvault/mercados.py`, que explica o que está
+    validado e o que não está.
+
+    O do **CardTrader está validado**: o `blueprint_id` sozinho responde 200 e
+    o site acrescenta-lhe o slug. O do **Cardmarket não pôde ser** (403 a
+    pedidos automáticos, nem o `robots.txt` responde), e por isso quem não tem
+    `cardmarket_id` leva **pesquisa pelo nome**, marcada como tal.
+
+    Medido a 2026-09-25 no catálogo real, nos 98 produtos selados: **81 têm
+    `blueprint_id`** e **52 têm `cardmarket_id`** — 29 ficam com pesquisa só
+    no Cardmarket, e os 17 do `selado.extra` (que a API não tem) levam
+    pesquisa nos dois. Nos 19 acessórios: 19 com `blueprint_id`, **nenhum**
+    com `cardmarket_id` (o `--sync` ainda não passou por eles). O
+    `payload.links` conta isto para a página o poder dizer.
+
 POR SAIR
     Um produto de uma edição ainda por lançar (a Radiance sai a 2026-10-23)
     aparece marcado **«por sair»** e **não conta para o que falta**: ele não
@@ -117,7 +136,7 @@ import sqlite3
 import time
 from datetime import date, datetime, timezone
 
-from . import config
+from . import config, mercados
 
 # As categorias do CardTrader, por nome, como elas vêm do `/categories`. Está
 # aqui para o `payload` poder escrever o nome de uma categoria que ficou de
@@ -433,6 +452,19 @@ def _slug(texto: str) -> str:
     return s or "produto"
 
 
+def _nome_para_procurar(p: dict) -> str:
+    """O termo dos links de PESQUISA: o nome do produto, com a versão atrás
+    quando existe («Trial Deck Set», «2024 Trial Deck Set»).
+
+    Não se lhe cola a edição — os nomes do CardTrader já a trazem à frente
+    («Origins Booster Box»), e repeti-la só estreitava a pesquisa. As ASPAS
+    saem (`Origins: "Jinx" Champion Deck Display`): são a convenção com que os
+    nomes dos champion decks se escrevem, e numa caixa de pesquisa lêem-se
+    como «frase exacta», que é o contrário do que se quer aqui.
+    """
+    return " ".join(x for x in (p.get("nome"), p.get("versao")) if x).replace('"', "").strip()
+
+
 def _chave_duplicado(p: dict) -> tuple:
     """O que faz de dois blueprints o MESMO produto: a mesma edição, o mesmo
     nome, a mesma versão e a mesma categoria. Se algum destes diferir são
@@ -541,8 +573,10 @@ def _ordem_edicao(code: str, op: dict) -> tuple:
 
 def itens(con: sqlite3.Connection | None, cfg: dict | None = None,
           hoje: date | None = None) -> list[dict]:
-    """A lista inteira, com o tipo, a data, o preço e quantas ele tem."""
+    """A lista inteira, com o tipo, a data, o preço, quantas ele tem e os dois
+    links de compra."""
     op = opcoes(cfg)
+    op_links = mercados.opcoes(cfg)
     hoje = hoje or date.today()
     quantidades = tenho(con) if con is not None else {}
     saida: list[dict] = []
@@ -571,6 +605,15 @@ def itens(con: sqlite3.Connection | None, cfg: dict | None = None,
             "valor_cents": (preco or 0) * qty,
             "categoria": _nome_da_categoria(p["categoria_id"]),
             "edicao_label": p["edicao_nome"] or p["edicao"] or "—",
+            # OS DOIS LINKS DE COMPRA (2026-09-25, a pedido dele). Directos
+            # quando há id, PESQUISA pelo nome quando não há — nunca um link
+            # montado com um id que não existe. O do CardTrader está
+            # validado; o do Cardmarket não (403 a pedidos automáticos) — ver
+            # `mercados.py`.
+            "links": mercados.links(_nome_para_procurar(p),
+                                    cardmarket_id=p["cardmarket_id"],
+                                    blueprint_id=p["blueprint_id"],
+                                    selado=True, op=op_links),
         })
     saida.sort(key=lambda x: (_ordem_edicao(x["edicao"], op),
                              TIPO_IDS.index(x["tipo"]), x["nome"].lower()))
@@ -655,6 +698,23 @@ def fora(cfg: dict | None = None) -> list[dict]:
             for cid, n in sorted(contagem.items())]
 
 
+def contar_links(lista: list[dict]) -> dict:
+    """Quantas linhas levam link DIRECTO e quantas caem na pesquisa, por
+    mercado. A página diz o número em vez de deixar o utilizador descobrir,
+    linha a linha, que metade dos links são pesquisas."""
+    out = {}
+    for mercado in ("cardmarket", "cardtrader"):
+        directos = sum(1 for x in lista
+                       if not (x["links"][mercado]["pesquisa"]))
+        out[mercado] = {"directos": directos, "pesquisa": len(lista) - directos}
+    # O do CardTrader foi VALIDADO a 2026-09-25 (o id sozinho responde 200 e o
+    # site acrescenta o slug); o do Cardmarket não pôde ser (403). Ver
+    # `mercados.py` — a página escreve esta diferença.
+    out["cardmarket"]["validado"] = False
+    out["cardtrader"]["validado"] = True
+    return out
+
+
 def payload(con: sqlite3.Connection, cfg: dict | None = None,
             editable: bool = True) -> dict:
     cfg = cfg or config.load()
@@ -675,9 +735,11 @@ def payload(con: sqlite3.Connection, cfg: dict | None = None,
         "items": lista,
         "sets": por_edicao(selados, cfg),
         "totals": contar(selados),
+        "links": contar_links(selados),
         "acessorios": {
             "sets": por_edicao(acess, cfg),
             "totals": contar(acess),
+            "links": contar_links(acess),
             "categorias": [{"id": c, "nome": _nome_da_categoria(c)}
                            for c in op["acessorios"]],
         },
