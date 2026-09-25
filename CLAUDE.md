@@ -62,14 +62,17 @@ site já não há secção nenhuma com esse id.) Há também **Produto Selado** 
 boosters e Proving Grounds: o que há, o que tem e o que não tem; a lista vem
 das CATEGORIAS do CardTrader, o catálogo em `data/selado_catalogo.json`, id
 `selado`, `api/selado.json`, `selado.py`; **não entra na Coleção** e o valor
-dele nunca se soma ao dela. **Desde a noite de 2026-09-25 são 76**: os 81 da
+dele nunca se soma ao dela. **Desde a noite de 2026-09-25 são 66**: os 81 da
 API (4 blueprints repetidos juntados, `selado.juntar_duplicados`) mais 17
 escritos à mão em `selado.extra` — displays de champion e de showdown decks,
 cases de vaults, o case do Proving Grounds e os Pre-Rift EVENT Kit —,
-**menos os 22 que ele mandou tirar** (`selado.excluidos`, a mesma ideia das
+**menos os 32 que ele mandou tirar** (`selado.excluidos`, a mesma ideia das
 abas: esconder não é apagar, o catálogo fica intacto e repor é tirar o nome
-da lista); e os **binders e deck boxes** (`selado.acessorios`, 19) têm secção
-própria que **não conta** para o selado; ver a última secção deste ficheiro).
+da lista — 22 numa primeira ordem, mais 2 «Card Set» e 8 Trial Deck numa
+segunda). A secção dos **binders e deck boxes** (`selado.acessorios`) ficou
+com a **lista VAZIA** nessa mesma noite — ele mandou tirar os acessórios
+todos —, e por isso não aparece; a chave e o código ficam, e repor é escrever
+os números outra vez. Ver a última secção deste ficheiro.)
 E há uma **Venda** OUTRA VEZ, desde 2026-09-25 — mas é outra pergunta: a
 conta de uma venda em curso, para mostrar a quem compra, com os preços a
 serem o **Trend do Cardmarket metido à mão** (id `venda`, `api/venda.json`,
@@ -6181,3 +6184,94 @@ ficar); os 22 contra o **catálogo real** (98 → 76, cada nome casa com um, os 
 acessórios não mexem, a conta por edição); o nome dobrado; **a fotografia** — a
 MESMA do `test_selado`, por referência — com produtos tirados e repostos; e a
 página. Suite: **46 ficheiros, 0 a falhar**.
+
+(Os números deste ficheiro — 22, 76, os 19 acessórios — são os de ANTES da
+segunda ordem da mesma noite, que os levou a 32 e 66 e desligou os acessórios.
+Ver a secção a seguir; os testes desta foram ajustados nos números, não
+apagados: são a prova de que os 22 dele continuam fora.)
+
+## 25/09/2026, à noite — mais 10 selados fora (32) e os ACESSÓRIOS DESLIGADOS
+
+Palavras dele, depois de ver a lista já com os 22 fora: tirar os **«Card Set»**
+(a categoria «Riftbound Complete Sets», 283 — *"são conjuntos de CARTAS, não
+produto selado"*), os **Trial Deck** todos, e os **acessórios todos** — binders,
+sleeves e deck boxes. Ramo `ai-pc/selado-tirar2-2026-09-25`.
+
+**NÃO HÁ MECANISMO NOVO, e é esse o ponto.** As duas metades fazem-se com as
+chaves que já existiam: `selado.excluidos` passou de 22 a **32** nomes e
+`selado.acessorios` ficou **vazia**. Zero linhas de lógica nova — e é a prova de
+que as chaves da ordem anterior e de 25/09 de manhã estavam no sítio certo.
+
+**Os 10 que saem:**
+
+| grupo | n | quais |
+|---|---|---|
+| «Card Set» (categoria 283) | **2** | `ct-380641` Unleashed: Poro Scene Set (UNL), `ct-349091` Arcane Complete Set (ARC) |
+| Trial Deck (todos PROMO-RIFT) | **8** | `ct-363136..363139` Origins: Jinx / Viktor / Volibear / Yasuo Trial Deck, `ct-383046` 2024 Trial Deck Set, `ct-383045` 2025 Trial Deck Set, `ct-330871` 2024 Trial Deck Case, `ct-330873` 2025 Trial Deck Case |
+
+Com os dois primeiros **a categoria «Complete Sets» fica vazia na aba** — mas a
+283 FICA em `selado.categorias`: o que saiu foram os dois produtos, não a
+categoria, e um «Complete Set» novo volta a aparecer. Escreve-se o nome **limpo**
+(«2024 Trial Deck Set»), que é o que está no ecrã desde a ordem anterior; o bruto
+do catálogo («… Set **Set**») casa na mesma. Os 4 Trial Decks da Origins são os
+blueprints **vivos** (3631xx): os 3308xx já vinham juntados pelo
+`juntar_duplicados` e escrevê-los rebentava.
+
+**TIRA-SE POR NOME, NUNCA POR CATEGORIA — e aqui era fácil enganar-se.** Os dois
+«Trial Deck Case» são da **263 «Box Sets & Displays»**, a mesma categoria de
+tudo o que ele mandou ficar; saem porque ele os nomeou um a um, e a 263 fica com
+12 dos 15. Confirmado um a um, e nenhum saiu por acidente: **Arcane Box Set** (a
+caixa de coleccionador, que não é o «Arcane Complete Set»), **Arcane Chinese
+Promo Set**, **The T1 Worlds Champion | Signature Edition Box Set**, **Origins:
+Proving Grounds Box Set Case**, **Origins: Instant Match Box 2025** e **Secret
+Garden Bundle Box**.
+
+**Os acessórios: `selado.acessorios: []`.** A secção «Acessórios» (binders e deck
+boxes, 19 linhas) nasceu de manhã e saiu à noite — **é ele que decide**. Com a
+lista vazia o cabeçalho, o botão de filtro e as linhas desaparecem sozinhos: o
+`app.js` já se guardava no `ac.totals.ha`/`at.ha`, e não foi preciso tocar-lhe.
+**ESVAZIAR NÃO É APAGAR**: a chave, o código da secção e os contadores próprios
+ficam, e **repor é escrever os números das categorias outra vez** (há teste que o
+faz, e outro que confirma que uma unidade gravada num acessório não se perde
+enquanto a lista está vazia). As duas categorias voltam ao `fora`, **contadas**:
+265 Albums 10 e 267 Deck Boxes 9 — nunca se apagam em silêncio.
+
+**Medido a 2026-09-25 contra uma cópia do `data/` real
+(`_revisao\_medir_selado_tirar2.py`), o MESMO código e a MESMA cópia, mudando só
+o config — os invariantes da Coleção NÃO mexem:** denominador **928**, níveis
+**897/836/766 de 928** (faltam 31/121/281 · 83,77/440,65/1 028,67 €), wantlist
+«tudo» **162 linhas · 281 cópias · 1 028,67 €**, valor **6 615,91 € · 2 573
+cópias**, totais, Faltas (555 cópias · 10 178,32 €), A mais, decks, Encomendas,
+Venda, painel e foil — **os 12 iguais**. E o **site gerado sai igual ficheiro a
+ficheiro (30 ficheiros)**: o único que difere a sério (sem o relógio) é o
+`api/selado.json`, que passa de 183 966 para **128 523 bytes**.
+
+**O que muda:**
+
+| | antes | depois |
+|---|---|---|
+| produto selado | 76 (61 saíram · 15 por sair) | **66** (51 · 15) |
+| não tenho | 61 | **51** |
+| sem preço | 37 | **31** |
+| acessórios | 19 · secção própria | **0 · a secção não aparece** |
+| excluídos | 22 | **32** |
+| `fora` (265 · 267) | 0 · 0 | **10 · 9** |
+
+Por edição (o que há): **ARC 3 → 2**, **UNL 11 → 10**, **PROMO-RIFT 18 → 10**; as
+outras dez não mexem (OGN 8, OGS 2, SFD 8, VEN 8, RAD 7, LGC 6, PG2 1, REC 1,
+OP 1, T1S 2). **Total 76 → 66.**
+
+`tests/test_selado_tirar2.py` (45 testes, contra cópias e config temporário): os
+10 contra o **catálogo real** (cada nome casa com um, saem da aba, a 283 fica
+vazia, os 8 são da PROMO-RIFT, os 4 vivos, o nome limpo, nenhum Trial Deck fica,
+os 6 parecidos ficam, da 263 só saem os dois que ele nomeou, 66 selados e a conta
+por edição); o **config real** (32 sem repetidos, os 10 lá, **os 22 da ordem
+anterior inteiros**, nenhum dos que ficam na lista, `acessorios` vazia e a chave
+lá, a 283 intacta em `categorias`); os **acessórios desligados** (sem linhas, o
+selado não mexe, as categorias voltam ao `fora`, **repor é escrever os números**,
+a unidade gravada não se perde, e o código da secção ficou); **repor é tirar o
+nome da lista**; e **a fotografia** — a MESMA do `test_selado`, por referência —
+com os dez tirados e os acessórios desligados, e depois repostos.
+`test_selado_tirar.py` e `test_selado_extra.py` foram ajustados nos NÚMEROS (22 →
+32, 76 → 66, os 19 acessórios → desligados) — o teste é que descrevia o de
+antes, não o código. Suite: **47 ficheiros, 0 a falhar**.

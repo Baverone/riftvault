@@ -798,36 +798,51 @@ Singles»** — as cartas. Entram seis:
 | 283 Complete Sets | sets de cartas vendidos juntos | 2 |
 | | da API, juntando os repetidos | 81 |
 | | mais os 17 do `selado.extra` | 98 |
-| | menos os 22 do `selado.excluidos` | **76** |
+| | menos os 32 do `selado.excluidos` | **66** |
 
-**O que ele mandou tirar** (25/09/2026): os **13 boosters soltos**, as **3 slim
-booster box**, o «Origins: Champion Deck Set» (*compram-se à unidade*), as
-«Spiritforged Bulk Runes» e os **4 Pre-Rift Kit de UM jogador** — 22 produtos,
-em `selado.excluidos`. **Esconder não é apagar**, como no `abas.escondidas`: o
+**O que ele mandou tirar** (25/09/2026), em duas ordens da mesma noite e na
+mesma lista: primeiro os **13 boosters soltos**, as **3 slim booster box**, o
+«Origins: Champion Deck Set» (*compram-se à unidade*), as «Spiritforged Bulk
+Runes» e os **4 Pre-Rift Kit de UM jogador** — 22; depois os **2 «Card Set»** da
+categoria «Complete Sets» (*são conjuntos de cartas*), com que essa categoria
+fica vazia na aba, e os **8 Trial Deck** da PROMO-RIFT (os 4 «Origins: X Trial
+Deck», os 2 «Trial Deck Set» e os 2 «Trial Deck Case») — **32 ao todo**.
+
+**Esconder não é apagar**, como no `abas.escondidas`: o
 `data/selado_catalogo.json` fica intacto e **repor é tirar o nome da lista**.
 Saem da aba, dos contadores, da percentagem e do total, no 8770 e no site
 publicado; o cabeçalho diz quantos são e quais, para nunca desaparecerem em
 silêncio. O nome é **exacto**, nunca um pedaço — é o que faz o «Spiritforged
 Pre-Rift Kit» sair e o «Spiritforged Pre-Rift **EVENT** Kit» ficar, e o «Origins
-Booster» sair sem levar o «Origins | Nexus Night Promo Booster». Um nome que não
-case rebenta, com os parecidos. Ficam, porque ele não os nomeou: os 4 EVENT Kit,
-os 9 displays de decks, os 4 Nexus Night Promo Booster, os Trial Deck Set, e
-todas as booster box normais, cases, vaults, decks e Proving Grounds.
+Booster» sair sem levar o «Origins | Nexus Night Promo Booster». Um nome que
+não case rebenta, com os parecidos.
+
+**Tira-se por nome, nunca por categoria.** Os dois «Trial Deck Case» são de «Box
+Sets & Displays» e saem porque ele os nomeou; da mesma categoria **ficam** o
+«Arcane Box Set» (a caixa de coleccionador — não confundir com o «Arcane
+Complete Set», que saiu), o «Arcane Chinese Promo Set», o «Signature Edition Box
+Set», o «Origins: Proving Grounds Box Set Case», o «Instant Match Box 2025» e a
+«Secret Garden Bundle Box». A 283 também fica em `selado.categorias`: o que saiu
+foram os dois produtos, não a categoria. Ficam ainda, porque ele não os nomeou:
+os 4 EVENT Kit, os 9 displays de decks, os 4 Nexus Night Promo Booster, os Promo
+Pack, e todas as booster box normais, cases, vaults, decks e Proving Grounds.
 
 O CardTrader escreve «2024 Trial Deck Set **Set**» e «2025 Trial Deck Set
 **Set**»: `selado.nome_limpo` junta a palavra repetida. É apresentação — o `id`
 vem do `blueprint_id` e não muda —, e mexe em 2 dos 117 produtos.
 
-**Os binders e os deck boxes têm secção própria** (25/09/2026): 10 Albums e 9
-Deck Boxes entram por `selado.acessorios`, numa secção **«Acessórios»** no fim,
-com contadores e valor próprios e um botão que a esconde. **Não contam para o
-produto selado** — nem no «o que há», nem no «tenho», nem no «não tenho», nem
-no valor do selado: vendem-se selados e guardam-se, mas um binder não é um
-display, e metê-los no meio mudava um número que ele já conhece. (O *Radiance:
-9-Pocket Collector Binder* anda a 33,99 € em loja portuguesa.)
+**Os acessórios tinham secção própria, e estão DESLIGADOS** (25/09/2026). Os 10
+Albums e os 9 Deck Boxes entram por `selado.acessorios`, numa secção
+**«Acessórios»** no fim, com contadores e valor próprios e um botão que a
+esconde — e **nunca contaram para o produto selado** (nem no «o que há», nem no
+«tenho», nem no «não tenho», nem no valor). Nessa mesma noite ele mandou tirar
+os acessórios todos, binders e deck boxes incluídos, e **a lista ficou vazia**:
+a secção não aparece. **Esvaziar não é apagar** — a chave e o código ficam, e
+**repor é escrever os números das categorias outra vez**.
 
 **Ficam mesmo de fora** — 48 playmats e 31 sleeves (acessórios de *jogo*, e 79
-linhas a afogar as do selado), 13 memorabilia (os standees acrílicos vêm
+linhas a afogar as do selado), os 10 binders e os 9 deck boxes (enquanto
+`selado.acessorios` estiver vazia), 13 memorabilia (os standees acrílicos vêm
 **dentro** do Proving Grounds Box Set: contá-los à parte era contar o mesmo
 produto duas vezes) e 13 cartas oversized (são cartas, não produto).
 **Não desaparecem em silêncio**: o cabeçalho da página diz quantos são, por

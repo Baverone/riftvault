@@ -35,29 +35,47 @@ DE ONDE VEM A LISTA
     desaparecem em silêncio — o `scope.fora` conta-os por categoria e a página
     diz quantos são. Metê-los é acrescentar o número à lista do config.
 
-OS ACESSÓRIOS DE COLEÇÃO TÊM SECÇÃO PRÓPRIA (2026-09-25)
-    Os BINDERS (Albums, 265) e os DECK BOXES (267) são outra coisa: vendem-se
-    selados, guardam-se, e o *Radiance: 9-Pocket Collector Binder* anda a
-    33,99 € em loja portuguesa. Entram por `selado.acessorios`, numa **secção
-    à parte** com contadores e valor próprios, e um filtro que os esconde.
+OS ACESSÓRIOS TÊM SECÇÃO PRÓPRIA — HOJE DESLIGADA (2026-09-25)
+    Os BINDERS (Albums, 265) e os DECK BOXES (267) entram por
+    `selado.acessorios`, numa **secção à parte** com contadores e valor
+    próprios, e um filtro que os esconde. **NÃO contam para o produto selado**
+    — nem no «o que há», nem no «tenho», nem no «não tenho», nem no valor do
+    selado; e o valor deles, como o do selado, nunca se soma ao da Coleção.
+    São três totais separados, de propósito: misturá-los mudava um número que
+    ele já conhece.
 
-    **NÃO contam para o produto selado** — nem no «o que há», nem no «tenho»,
-    nem no «não tenho», nem no valor do selado; e o valor deles, como o do
-    selado, nunca se soma ao da Coleção. São três totais separados, de
-    propósito: misturá-los mudava um número que ele já conhece.
+    **A lista está VAZIA desde a noite de 2026-09-25**: ele mandou tirar os
+    acessórios todos — binders, sleeves e deck boxes (as sleeves nunca tinham
+    entrado). Com a lista vazia a secção desaparece inteira — o cabeçalho, o
+    botão e as 19 linhas — e as duas categorias voltam ao `fora`, contadas.
+    **Esvaziar não é apagar**: a chave e o código da secção ficam, e REPOR É
+    ESCREVER OS NÚMEROS OUTRA VEZ. Isto anula a decisão de horas antes de os
+    incluir — é dele, e é assim que fica.
 
-    Ficaram de fora, e são decisão explicada: as 48 playmats e as 31 sleeves
-    (acessórios de jogo, não de coleção — e são 79 linhas a afogar 85), a
-    memorabilia (268 — os standees acrílicos VÊM DENTRO do Proving Grounds
-    Box Set, e contá-los à parte era contar o mesmo produto duas vezes) e as
-    oversized (284 — são CARTAS grandes, não produto selado).
+    Ficam de fora, e são decisão explicada: as 48 playmats e as 31 sleeves
+    (acessórios de jogo, não de coleção), a memorabilia (268 — os standees
+    acrílicos VÊM DENTRO do Proving Grounds Box Set, e contá-los à parte era
+    contar o mesmo produto duas vezes) e as oversized (284 — são CARTAS
+    grandes, não produto selado).
 
-O QUE ELE MANDOU TIRAR (`selado.excluidos`, 2026-09-25)
+O QUE ELE MANDOU TIRAR (`selado.excluidos`, 2026-09-25) — SÃO 32
     Ele viu a lista dos 98 e mandou fora 22 produtos: os **boosters soltos**
     (13), as **slim booster box** (3), o **Origins: Champion Deck Set** (*"compram
     -se à unidade"*), as **Spiritforged Bulk Runes** e os quatro **Pre-Rift
     Kit** — o de UM jogador, que não é o «Pre-Rift EVENT Kit» de 16 kits + 1
     display.
+
+    Nessa noite juntou-lhes mais **10**, na mesma lista: os **2 «Card Set»** da
+    categoria «Complete Sets» (283) — «Unleashed: Poro Scene Set» e «Arcane
+    Complete Set», que são conjuntos de CARTAS —, com que a categoria fica
+    vazia na aba, e os **8 TRIAL DECK** da PROMO-RIFT (os 4 «Origins: X Trial
+    Deck», os 2 «Trial Deck Set» e os 2 «Trial Deck Case»). Ficam **66**.
+
+    **Tira-se por NOME, nunca por categoria**, e é isso que deixa sair os dois
+    «Trial Deck Case» (que são da 263) sem levar o «Arcane Box Set», o «Arcane
+    Chinese Promo Set», o «Signature Edition Box Set», o «Proving Grounds Box
+    Set Case», o «Instant Match Box 2025» nem a «Secret Garden Bundle Box» —
+    os nomes parecem-se e a categoria é a mesma.
 
     **Faz-se por CONFIG e NÃO se apaga nada**: `selado.excluidos` é uma lista de
     nomes (ou de ids `ct-<blueprint>`), o `data/selado_catalogo.json` fica
@@ -860,8 +878,13 @@ def excluidos(cfg: dict | None = None) -> list[dict]:
 def fora(cfg: dict | None = None) -> list[dict]:
     """O que o CardTrader tem e NÃO entra em lado nenhum: playmats, sleeves,
     memorabilia, oversized. Contados por categoria — nunca se apagam em
-    silêncio. Os binders e os deck boxes SAÍRAM daqui a 2026-09-25: passaram a
-    ter secção própria (`selado.acessorios`)."""
+    silêncio.
+
+    Os binders e os deck boxes saíram daqui a 2026-09-25 de manhã (secção
+    própria, `selado.acessorios`) e VOLTARAM à noite, quando ele mandou tirar
+    os acessórios todos e a lista ficou vazia. É por isso que esta função lê a
+    lista em vez de ter as categorias escritas: quem manda é o config.
+    """
     op = opcoes(cfg)
     dentro = set(op["categorias"]) | set(op["acessorios"])
     from .prices import SINGLES_CATEGORY

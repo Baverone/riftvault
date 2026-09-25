@@ -338,9 +338,11 @@ class TestOConfigReal(unittest.TestCase):
         cls.cfg = json.loads((REPO / "riftvault_config.json").read_text(encoding="utf-8"))
         cls.excl = cls.cfg["selado"]["excluidos"]
 
-    def test_a_chave_existe_e_tem_22(self):
-        self.assertEqual(len(self.excl), 22)
-        self.assertEqual(len(set(self.excl)), 22, "sem repetidos")
+    def test_a_chave_existe_e_tem_32(self):
+        """22 da primeira ordem de 25/09 + 10 da segunda (os 2 «Complete Sets»
+        e os 8 Trial Deck). Os 22 continuam lá, um a um, nos testes a seguir."""
+        self.assertEqual(len(self.excl), 32)
+        self.assertEqual(len(set(self.excl)), 32, "sem repetidos")
 
     def test_os_13_boosters_soltos(self):
         for n in ("Origins Booster", "Origins Sleeved Booster", "Origins Slim Booster",
@@ -378,8 +380,10 @@ class TestOConfigReal(unittest.TestCase):
         for n in displays:
             self.assertNotIn(n, self.excl)
 
-    def test_nada_de_nexus_night_de_trial_deck_nem_de_promo_pack_saiu(self):
-        for pedaco in ("Nexus Night", "Trial Deck", "Promo Pack",
+    def test_nada_de_nexus_night_nem_de_promo_pack_saiu(self):
+        """O «Trial Deck» SAIU desta lista a 2026-09-25, na segunda ordem — os
+        oito são hoje excluídos, e quem o fixa é o `test_selado_tirar2.py`."""
+        for pedaco in ("Nexus Night", "Promo Pack",
                        "Replacement Card Booster"):
             maus = [n for n in self.excl if pedaco.lower() in n.lower()]
             self.assertEqual(maus, [], f"{pedaco} não era para sair")
@@ -396,8 +400,13 @@ class TestOConfigReal(unittest.TestCase):
 
 
 class TestOs22ContraOCatalogoReal(unittest.TestCase):
-    """Os 22 nomes contra o `data/selado_catalogo.json` do repo: cada um casa
-    com UM produto, e nenhum casa com os que têm de ficar."""
+    """Os nomes do `selado.excluidos` contra o `data/selado_catalogo.json` do
+    repo: cada um casa com UM produto, e nenhum casa com os que têm de ficar.
+
+    Nasceu com os 22 da primeira ordem de 25/09 e leva hoje os 32 (a segunda
+    ordem juntou-lhe os 2 «Complete Sets» e os 8 Trial Deck). O nome da classe
+    fica — é o rasto de onde isto veio.
+    """
 
     @classmethod
     def setUpClass(cls):
@@ -420,18 +429,22 @@ class TestOs22ContraOCatalogoReal(unittest.TestCase):
         importlib.reload(cls.config)
         cls.config.load.cache_clear()
 
-    def test_saem_exactamente_22_e_cada_nome_casa_com_um(self):
+    def test_saem_exactamente_32_e_cada_nome_casa_com_um(self):
         ex = self.selado.excluidos(self.cfg)
-        self.assertEqual(len(ex), 22)
-        self.assertEqual(len({x["id"] for x in ex}), 22)
+        self.assertEqual(len(ex), 32)
+        self.assertEqual(len({x["id"] for x in ex}), 32)
 
-    def test_a_aba_fica_com_76_selados(self):
+    def test_a_aba_fica_com_66_selados(self):
         lista = [x for x in self.selado.itens(None, self.cfg) if not x["acessorio"]]
-        self.assertEqual(len(lista), 76, "98 − 22")
+        self.assertEqual(len(lista), 66, "98 − 22 − 10")
 
-    def test_os_19_acessorios_nao_mexeram(self):
+    def test_os_acessorios_estao_desligados(self):
+        """`selado.acessorios` ficou VAZIA a 2026-09-25 (ele mandou tirar os
+        binders, as sleeves e os deck boxes). A secção não tem linhas; repor é
+        escrever os números das categorias outra vez."""
         lista = [x for x in self.selado.itens(None, self.cfg) if x["acessorio"]]
-        self.assertEqual(len(lista), 19)
+        self.assertEqual(lista, [])
+        self.assertEqual(self.op["acessorios"], [])
 
     def test_os_que_tem_de_ficar_ficam(self):
         nomes = {x["nome"] for x in self.selado.itens(None, self.cfg)}
@@ -446,7 +459,6 @@ class TestOs22ContraOCatalogoReal(unittest.TestCase):
                   "Vendetta | Nexus Night Promo Booster",
                   "Arcane Promo Pack", "Immersive Arcane Promo Pack", "Promo Pack",
                   "Replacement Card Booster",
-                  "2024 Trial Deck Set", "2025 Trial Deck Set",
                   "Origins Booster Box", "Spiritforged Booster Box",
                   "Unleashed Booster Box", "Vendetta Booster Box",
                   "Radiance Booster Box", "Legacy Booster Box",
@@ -474,8 +486,13 @@ class TestOs22ContraOCatalogoReal(unittest.TestCase):
 
     def test_os_dois_trial_deck_set_continuam_a_ser_dois(self):
         """A junção de duplicados leva a VERSÃO na chave, e os nomes limpos são
-        iguais — sem a versão juntavam-se e um deles desaparecia."""
-        ids = [x["id"] for x in self.selado.itens(None, self.cfg)]
+        iguais — sem a versão juntavam-se e um deles desaparecia.
+
+        Os dois saíram da ABA a 2026-09-25 (segunda ordem), por isso olha-se
+        para a lista COM os excluídos: o que se mede aqui é a junção, não a
+        exclusão, e continuam a ser duas linhas do catálogo.
+        """
+        ids = [p["id"] for p in self.selado._crus(self.cfg, com_excluidos=True)]
         self.assertIn("ct-383045", ids)
         self.assertIn("ct-383046", ids)
 
@@ -485,10 +502,10 @@ class TestOs22ContraOCatalogoReal(unittest.TestCase):
         por = {}
         for x in lista:
             por[x["edicao"]] = por.get(x["edicao"], 0) + 1
-        self.assertEqual(por, {"OGN": 8, "OGS": 2, "SFD": 8, "UNL": 11, "VEN": 8,
-                               "RAD": 7, "LGC": 6, "PG2": 1, "REC": 1, "ARC": 3,
-                               "OP": 1, "PROMO-RIFT": 18, "T1S": 2})
-        self.assertEqual(sum(por.values()), 76)
+        self.assertEqual(por, {"OGN": 8, "OGS": 2, "SFD": 8, "UNL": 10, "VEN": 8,
+                               "RAD": 7, "LGC": 6, "PG2": 1, "REC": 1, "ARC": 2,
+                               "OP": 1, "PROMO-RIFT": 10, "T1S": 2})
+        self.assertEqual(sum(por.values()), 66)
 
 
 # ---------------------------------------------------------------------------

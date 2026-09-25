@@ -370,8 +370,12 @@ class TestOConfigReal(unittest.TestCase):
         """Ficou sem data porque ele não a deu; é da era da Origins."""
         self.assertEqual(self.sel["datas_por_edicao"]["OGS"], "2025-10-31")
 
-    def test_os_acessorios_sao_os_binders_e_os_deck_boxes(self):
-        self.assertEqual(self.sel["acessorios"], [265, 267])
+    def test_os_acessorios_estao_desligados(self):
+        """Entraram a 2026-09-25 de manhã (binders 265 e deck boxes 267) e
+        SAÍRAM à noite, no mesmo dia: *«Tira os acessórios todos — binders,
+        sleeves e deck boxes»*. A lista fica VAZIA, não se apaga: repor é
+        escrever os números outra vez. O código da secção também ficou."""
+        self.assertEqual(self.sel["acessorios"], [])
 
     def test_os_dezassete_produtos(self):
         self.assertEqual(len(self.sel["extra"]), 17)
@@ -433,7 +437,7 @@ class TestOConfigReal(unittest.TestCase):
         from riftvault import selado
         op = selado.opcoes(self.cfg)
         self.assertEqual(len(op["extra"]), 17)
-        self.assertEqual(op["acessorios"], [265, 267])
+        self.assertEqual(op["acessorios"], [])
         self.assertTrue(op["juntar_duplicados"])
 
 
