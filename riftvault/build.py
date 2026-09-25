@@ -130,7 +130,7 @@ def _gerar(out_dir: Path | str, log=print, imagens: bool = True) -> dict:
     api_dir = out / "api" / "set"
     api_dir.mkdir(parents=True, exist_ok=True)
 
-    index = metrics.index_payload(con, editable=False, image_mode=image_mode)
+    index = metrics.index_payload(con, editable=False, image_mode=image_mode, cfg=cfg)
     (out / "api" / "index.json").write_text(
         json.dumps(index, ensure_ascii=False, separators=(",", ":")), encoding="utf-8"
     )

@@ -1361,8 +1361,8 @@ def ordem_da_grelha(payload: dict) -> list[tuple[str, str]]:
 
 
 def index_payload(con: sqlite3.Connection, editable: bool = True,
-                  image_mode: str = "local") -> dict:
-    from . import collection, foil, painel, prices
+                  image_mode: str = "local", cfg: dict | None = None) -> dict:
+    from . import abas, collection, foil, painel, prices
 
     try:
         value = prices.collection_value(con)
@@ -1388,4 +1388,9 @@ def index_payload(con: sqlite3.Connection, editable: bool = True,
         # em «Todas» — é o que o separador «Todas» mostra enquanto as edições
         # carregam, e a verdade do servidor para o CLI e os testes.
         "foil": foil.resumo(con),
+        # As abas escondidas (2026-09-25, `abas.escondidas` no config). Vai nos
+        # dois modos e é a ÚNICA lista — o `app.js` lê daqui, por isso a mesma
+        # linha de config tira a aba do 8770 e do site publicado. Não mexe em
+        # número nenhum: é o botão que sai, o cálculo fica.
+        "abas": abas.payload(cfg),
     }

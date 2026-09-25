@@ -27,6 +27,13 @@ página dele mostra é uma SIMULAÇÃO. Do mesmo dia, a REGRA DE RARIDADE
 (`decks.coleccao_so_a_partir_de: "epic"`): abaixo desse patamar a cópia devia
 vir das próprias do deck — **marca, não bloqueia**.
 
+**DESDE 2026-09-25 AS ABAS ESCONDEM-SE POR CONFIG** (`abas.escondidas`, hoje
+`["a-mais", "pordeck", "pimp"]`) — ver a última secção deste ficheiro.
+Esconder **não é apagar**: o «A mais», o «Por deck» e o «Pimp decks» continuam
+a ser calculados, o `api/a_mais.json` e o `api/compras.json` continuam a ser
+gerados e servidos, e o `riftvault a-mais` continua a responder — o que saiu
+foi o botão, no 8770 e no site publicado. Repor é tirar o nome da lista.
+
 Secções: **Coleção**, **Decks**, **Faltas** (de
 2026-09-15 ao fim da tarde — por edição, três blocos; **quatro desde
 2026-09-19, cada um com a sua wantlist** — ver a última secção deste
@@ -5595,3 +5602,81 @@ das que existem, e o `test_a_mais` passou a procurar o `api/venda` só no troço
 do A mais — o ficheiro inteiro volta a ter uma Venda.
 
 Suite: **41 ficheiros, 0 a falhar**.
+
+## 25/09/2026 — as abas ESCONDEM-SE por config (`abas.escondidas`): saem o «A mais», o «Por deck» e o «Pimp decks»
+
+Palavras dele: *"Tira a aba 'A mais', 'Por Deck' e 'Pimp Deck'"*. Ramo
+`ai-pc/abas-2026-09-25`.
+
+**ESCONDER NÃO É APAGAR, e é a diferença que interessa.** O `a_mais.py` e o
+`faltas.py` ficam como estavam, as rotas continuam a responder
+(`/api/a_mais.json`, `/api/compras.json`), o `build` continua a escrever os
+dois ficheiros e a CLI continua a ter o `riftvault a-mais`. O que sai é o
+BOTÃO: a entrada na barra lateral, a vista no índice dos decks (e no `<select>`
+do telemóvel), o atalho do Início e a rota que lá levava. **Repor uma aba é
+tirar o nome da lista, mais nada** — ao contrário da tabela de preços de
+19/09, que se recupera de um commit.
+
+**Onde vive.** `riftvault/abas.py` — o catálogo das dez abas (`ABAS`, pela
+ordem da barra), `escondidas(cfg)`, `visiveis(cfg)`, `payload(cfg)` e
+`texto(cfg)` (uma linha no `riftvault stats`). A lista vai no
+`api/index.json` (`metrics.index_payload`, que ganhou `cfg`), **nos dois
+modos** — é isso que faz a mesma linha de config tirar a aba do 8770 e do site
+publicado —, e o `app.js` lê de lá: **não há segunda lista no JavaScript**.
+
+**Os nomes que casam.** O id é a ROTA quando é secção e o id da vista quando é
+sub-vista: `inicio`, `colecao`, `faltas-edicao`, `a-mais`, `decks`,
+`staples`, `pordeck`, `pimp`, `encomendas`, `venda`. Aceitam-se também como
+ele as lê no ecrã — «A mais», «Por deck», «Pimp deck», «Pimp decks»,
+«Faltas», «Início» —, pela mesma ideia do `metrics.PALAVRA_KIND`. **Um nome
+desconhecido rebenta**, com a lista do que existe: uma aba mal escrita
+ignorada em silêncio deixava-o a olhar para um separador que mandou tirar.
+Sem a chave, nada escondido. Config real:
+`"abas": { "escondidas": ["a-mais", "pordeck", "pimp"] }`.
+
+**No `app.js`**, uma função (`abaVisivel`) e seis sítios: o `renderNav` (salta
+os itens e o grupo que fique vazio), o `seccaoValida`/`seccaoInicial` (uma
+secção escondida é, para as rotas, uma secção que não existe — o `#a-mais` de
+um favorito cai na primeira que se veja, e o `hashchange` faz o mesmo), o
+`deckFaltaTabs()`/`deckFaltaIds()` (o `DECK_FALTA_IDS` deixou de existir; a
+`DECK_FALTA_TABS` fica inteira, é o catálogo), o `loadDecks` (uma preferência
+guardada com o «Por deck» abre no primeiro deck), os atalhos do Início, e os
+DOIS textos que nomeavam as abas — a ajuda dos Decks (a única `ajuda` que
+passou a ser função, `ajudaListasDeCompra`) e a nota do «Falta comprar aos
+decks», que mandava ir ao «Por deck». **O `renderNav()` mudou-se para DEPOIS
+do `api/index.json`** (desenhá-lo antes mostrava por um instante uma aba que
+ele mandou tirar); se o índice falhar, o `boot().catch` desenha-o na mesma.
+
+**Medido a 2026-09-25 contra uma cópia do `data/` real
+(`_revisao\_medir_abas.py` + `_copiar_dados_abas.py`), o MESMO código e a
+MESMA cópia, mudando só o `abas.escondidas` — os dois JSON saem BYTE A BYTE
+IGUAIS** (164 285 bytes, mesmo sha256): denominador **928**, níveis
+**897/836/766 de 928**, wantlist «tudo» **162 linhas · 281 cópias ·
+1 028,67 €** (e as cinco por edição), valor **6 615,91 € · 2 573 cópias**,
+Faltas **555 cópias · 10 178,32 €** (a comprar 281 · 1 028,67 €) e as 20
+wantlists por bloco, A mais **69 cartas · 140 cópias** item a item (e 0
+libertadas), decks **0 cópias** (só o LeBlanc Hook montado, e está completo),
+Encomendas 0, Venda 0, o painel, os grupos, os blocos e a grelha impressão a
+impressão. **E o site gerado dos dois lados: 29 ficheiros, os mesmos nomes, e
+só o `api/index.json` difere** (a menos do relógio) — o `api/a_mais.json`
+(34 097 bytes) e o `api/compras.json` (13 881 bytes) saem idênticos.
+
+Fotografado a 1400 px e a 375 px contra o site gerado: a barra fica com
+Início · Coleção · Faltas · Decks · Staples · Encomendas · Venda, o índice dos
+decks com «Listas de compra: Staples» só, o Início com quatro atalhos, o
+`#a-mais` a cair noutra secção, e as duas frases sem as abas que saíram.
+
+`tests/test_abas.py` (29 testes, contra pastas temporárias e config
+temporário): o config (sem chave, a lista, os nomes dele, o desconhecido a
+rebentar, a lista mal escrita, **repor = tirar da lista**, o config real, o
+default, e o catálogo a bater certo com a `SECCOES`/`DECK_FALTA_TABS` do
+`app.js`); o payload (o índice, o servidor a continuar a servir o
+`a_mais.json` e o `compras.json`, o site publicado com os mesmos ficheiros, o
+A mais e as compras a darem o mesmo item a item, e ler não escreve); **a
+fotografia** — níveis, denominador, wantlists (geral e por edição), valor,
+totais, grelha, barras, painel, foil, blocos, Faltas com as wantlists por
+bloco, Encomendas, A mais, decks, compras, Venda e o `copies` inteiro — com as
+abas à vista, com as três escondidas, com as DEZ escondidas e repostas, tudo
+igual (mais um teste que exige que a fotografia não seja de zeros); nenhum
+módulo de contas importa o `abas`; e o `app.js`. Suite: **42 ficheiros, 0 a
+falhar**.
