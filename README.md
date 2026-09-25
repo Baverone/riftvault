@@ -846,6 +846,24 @@ isso os «2024 Trial Deck Set» e «2025 Trial Deck Set» continuam a ser dois.
 **tens** e o que **não tens**, com os contadores no topo e um filtro por baixo.
 Cada produto tem `+`/`−` e começa tudo a zero.
 
+**Link de compra para os dois mercados** (25/09/2026: *"Se possivel, mete link
+para compra no cardmarket e no cardtrader"*). Cada linha leva «Cardmarket» e
+«CardTrader», a abrir em separador novo; os templates vivem no bloco
+`mercados` do config, que é o mesmo que a Venda usa (`riftvault/mercados.py`).
+
+| | formato | validado? | quantos dos 98 |
+|---|---|---|---|
+| CardTrader | `cardtrader.com/en/cards/<blueprint_id>` | **sim**, 25/09/2026 — o id sozinho responde 200 e o site acrescenta-lhe o slug; um id inventado dá 404; sem o `/en/` a página abre em italiano | **81** directos |
+| Cardmarket | `…/Riftbound/Products?idProduct=<cardmarket_id>` | **não** — o site responde 403 a pedidos automáticos (nem o `robots.txt` responde) e não há conta | **52** directos |
+| pesquisa | `…/en/search?q=` e `…/Products/Search?searchString=` | o do CardTrader responde 200 | 17 e 46 |
+
+Quem não tem id nesse mercado leva o link de **pesquisa pelo nome**, e a linha
+**diz que é pesquisa** — nunca se monta um endereço com um id que não existe.
+O produto selado tem template próprio no Cardmarket: um display **não é um
+«Single»**, e escrever-lhe esse caminho era dizer no URL uma coisa que se sabe
+falsa. Se algum abrir em 404, é uma linha de config e todos os links mudam com
+ela.
+
 **Por sair.** A Radiance sai a 23/10/2026 e a Legacy e a The Reckoning estão
 anunciadas para 2027: esses produtos aparecem marcados **«por sair»** e **não
 contam para o que falta** — não se pode ter o que ainda não existe. As datas

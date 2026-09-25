@@ -1514,6 +1514,15 @@ body.readonly .btn.chegou { display: none; }
   white-space: normal; }
 .sl-tipo { display: inline-block; border: 1px solid var(--line2); border-radius: 6px;
   padding: 0 5px; margin-right: 5px; color: var(--ink); font-size: 11px; }
+/* Os dois links de compra (2026-09-25). Curtos e em `flex-wrap`, para caberem
+   a 375 px sem alargar a linha; o que é PESQUISA fica apagado e di-lo. A
+   altura mínima é a do dedo, não a do texto. */
+.sl-links { display: flex; flex-wrap: wrap; gap: 2px 12px; margin-top: 4px;
+  font-size: 12px; }
+.sl-links a { color: var(--accent); min-height: 28px; display: inline-flex;
+  align-items: center; gap: 4px; }
+.sl-links a.alt { color: var(--muted); }
+.sl-links a i { font-style: normal; font-size: 11px; opacity: .8; }
 .sl-marcas { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .sl-marca { font-size: 11px; border-radius: 6px; padding: 1px 6px;
   border: 1px solid var(--line2); color: var(--muted); }

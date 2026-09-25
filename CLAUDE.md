@@ -745,19 +745,27 @@ Se algo vier errado, é aqui:
    edição nova pode trazer um `variant` novo (`b`? `sp7`?). O parser de
    `variant` tem de falhar de forma visível, não silenciosa.
 7. **Endereço da página da carta**, no CardTrader e na RiftScribe. Nenhuma das
-   duas APIs o dá, e a aba "A subir" precisa de um link. Os formatos usados
-   (`cardtrader.com/cards/<blueprint_id>`, `riftscribe.gg/cards/<printing_id>`)
-   são **presunção minha, por abrir e confirmar**. Ficam em `a_subir.DEFAULTS`
-   e mudam-se numa linha.
-   **O mesmo no Cardmarket, desde 2026-09-25**: cada linha da Venda leva um
-   link para a página da carta lá, montado com o `cardmarket_id` do
-   `cardtrader_map` (`venda.cardmarket_url`, hoje
-   `cardmarket.com/en/Riftbound/Products/Singles?idProduct=<id>`). **Não foi
-   validado** — o site deles responde 403 a pedidos automáticos e não há conta
-   para experimentar —, e por isso cada linha leva também um **segundo link,
-   de pesquisa** pelo nome de mercado (`venda.cardmarket_busca`), que é a
-   forma que o Scryfall usa para o mesmo fim. Se o primeiro abrir em 404, é
-   uma linha de config e todos os links mudam com ela.
+   duas APIs o dá, e a aba "A subir" precisa de um link. O da RiftScribe
+   (`riftscribe.gg/cards/<printing_id>`) continua **presunção, por abrir e
+   confirmar**; fica em `a_subir.DEFAULTS` e muda-se numa linha.
+   **O do CARDTRADER FOI VALIDADO a 2026-09-25, à noite** (ver `mercados.py`,
+   e a secção própria no fim deste ficheiro): o `robots.txt` deles permite as
+   páginas e publica os sitemaps; os 348 780 URLs de blueprint estão todos no
+   formato `…/en/cards/<id>-<slug>`; o id sozinho (`/en/cards/330791`)
+   responde **200** e redirecciona para o slug; um id que não existe dá
+   **404**; e `…/en/search?q=` responde 200. O `/en/` faz falta — sem ele a
+   página abre em **italiano**, que é o que o link do «A subir» fazia desde
+   2026-09-08, corrigido nesse dia.
+   **O do Cardmarket continua por validar, desde 2026-09-25**: cada linha da
+   Venda, e agora cada linha do Produto Selado, leva um link para a página lá,
+   montado com o `cardmarket_id` (`mercados.cardmarket_url` e
+   `mercados.cardmarket_url_selado`; as duas chaves viviam no bloco `venda` e
+   mudaram-se nessa noite). **Não foi validado** — o site deles responde 403 a
+   pedidos automáticos, nem o `robots.txt` responde, e não há conta para
+   experimentar —, e por isso cada linha leva também um **segundo link, de
+   pesquisa** pelo nome (`mercados.cardmarket_busca`), que é a forma que o
+   Scryfall usa para o mesmo fim. Se o primeiro abrir em 404, é uma linha de
+   config e todos os links mudam com ela.
 
 ---
 
@@ -2583,6 +2591,15 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   próprio, **nunca somado ao da Coleção**; `selado.py`,
   `data/selado_catalogo.json`, `riftvault selado [--sync]`,
   `POST /api/selado/ajustar`. Ver a última secção deste ficheiro.
+- **Feito também:** os **links de compra** no Produto Selado (2026-09-25, à
+  noite) — «Cardmarket» e «CardTrader» em cada linha, directos quando há id
+  e de PESQUISA pelo nome quando não há (dito, nunca escondido); os
+  templates passaram do bloco `venda` para o bloco **`mercados`** do config
+  (`mercados.py`), que os dois separadores partilham. O do **CardTrader
+  ficou VALIDADO** (o `blueprint_id` sozinho responde 200; sem o `/en/` abria
+  em italiano — corrigido também no «A subir»); o do Cardmarket **não**
+  (403). Dos 98 selados: 81 com `blueprint_id`, 52 com `cardmarket_id`. Ver
+  a última secção deste ficheiro.
 - **Feito também:** tirar selados por config (2026-09-25, à noite) —
   `selado.excluidos`, 22 produtos fora (13 boosters soltos, 3 slim booster
   box, o Champion Deck Set da Origins, as Bulk Runes e os 4 Pre-Rift Kit de
@@ -5998,6 +6015,83 @@ fotografia** — a MESMA do `test_selado`, por referência, para não haver duas
 definições de «número da Coleção» — com selado, acessórios e extras metidos e
 tirados; e a página. Suite: **44 ficheiros, 0 a falhar**.
 
+## 25/09/2026, à noite — os LINKS DE COMPRA do Produto Selado, e o bloco `mercados` do config
+
+Palavras dele: *"Se possivel, mete link para compra no cardmarket e no
+cardtrader"*. Ramo `ai-pc/selado-links-2026-09-25`.
+
+### O CardTrader ficou VALIDADO; o Cardmarket não pôde ser
+
+Medido a 2026-09-25 da máquina dele, com o User-Agent de sempre
+(`riftvault/1.0 (colecao pessoal; +github)`), 1 pedido de cada vez:
+
+| pedido | resposta |
+|---|---|
+| `www.cardtrader.com/robots.txt` | **200** — só proíbe `/uploads/` (e permite `/uploads/blueprints/`), e publica os sitemaps |
+| `sitemaps/en/blueprint_products.xml.gz` + os 7 sub-ficheiros | 348 780 URLs, **todos** `…/en/cards/<blueprint_id>-<slug>` |
+| `…/en/cards/330791` | **200**, redirecciona para `…/330791-origins-booster-box-origins` |
+| `…/en/cards/999999999` | **404** — o formato é mesmo verificado |
+| `…/cards/330791` (sem o `/en/`) | 200, mas em **italiano** |
+| `…/en/search?q=Origins%20Booster%20Box` | **200**, com o produto na página |
+| `www.cardmarket.com/robots.txt` | **403** (Cloudflare, «Just a moment…») |
+
+O link do CardTrader **não é presunção**: o `blueprint_id` sozinho chega e o
+site acrescenta-lhe o slug. Não se contornou bloqueio nenhum — o Cardmarket
+responde 403 a tudo, e é dado e segue: o link directo lá continua NÃO
+VALIDADO, como na Venda, e por isso **cada linha leva dois links**.
+Aproveitou-se para corrigir o `a_subir.DEFAULTS.link_cardtrader`, que desde
+2026-09-08 abria em italiano (`cardtrader.com/cards/<id>`, sem o `/en/`).
+
+### Uma pergunta, um sítio: o bloco `mercados`
+
+As duas chaves do Cardmarket viviam no `venda` (25/09, à tarde) — nome de UMA
+aba para uma pergunta que passou a ser de duas. **Mudaram-se para
+`riftvault/mercados.py`**, bloco `mercados` do config, com mais três:
+
+    cardmarket_url          {id}  a carta       (NÃO VALIDADO)
+    cardmarket_url_selado   {id}  o produto     (NÃO VALIDADO)
+    cardmarket_busca        {q}   a pesquisa
+    cardtrader_url          {id}  o produto/carta   (VALIDADO)
+    cardtrader_busca        {q}   a pesquisa        (VALIDADO)
+
+**Um config escrito antes de hoje continua a valer**: se o `venda` trouxer
+`cardmarket_url`/`cardmarket_busca` e o `mercados` estiver nos defaults, são
+as do `venda` que mandam; com as duas escritas ganha a nova (a regra do
+`_migrar_master_set`). A comparação é com o DEFAULT e não com «está no
+ficheiro» porque o `config.load` funde por chave de topo — `cfg["mercados"]`
+traz sempre o bloco inteiro. Um template sem o `{id}`/`{q}` **rebenta**.
+
+**O selado tem template próprio de propósito**: um display não é um «Single»,
+e escrever-lhe o caminho `Products/Singles` era dizer no URL uma coisa que se
+sabe falsa. O que identifica o produto é o `idProduct`; o caminho é a
+categoria deles, e é a parte que se presume.
+
+### O que a página mostra
+
+Dois `<a>` curtos por linha — «Cardmarket» e «CardTrader» —, `target="_blank"`
+e `rel="noreferrer noopener"`, em `flex-wrap`. **Sem id nesse mercado, o link
+é de PESQUISA pelo nome e di-lo** («procurar», apagado, com o porquê no
+`title`); nunca se monta um endereço com um id que não existe. O termo é o
+nome mais a versão, **sem as aspas** (`Origins: "Jinx" Champion Deck` — numa
+caixa de pesquisa as aspas lêem-se como «frase exacta»). O cabeçalho diz
+quantos são pesquisa e que o do Cardmarket não está confirmado. No site
+publicado os links funcionam na mesma: são links, não controlos.
+
+**Medido a 2026-09-25 no catálogo real:** dos **98 produtos selados**, **81
+têm `blueprint_id`** (17 sem — os do `selado.extra`, que a API não tem) e **52
+têm `cardmarket_id`** (46 sem). Dos **19 acessórios**, 19 com `blueprint_id` e
+**nenhum** com `cardmarket_id` (o `--sync` ainda não passou por eles). O
+`payload.links` conta isto, por mercado, e diz qual está validado.
+
+**A 375 px** (Chrome, DevTools Protocol, contra o site gerado, com as 117
+linhas à vista): `scrollWidth == clientWidth == 375`, **zero** elementos fora
+do ecrã ou com scroll próprio; 234 links, todos com `_blank` e `noopener`, 82
+de pesquisa.
+
+**Nada da Coleção mexe** — é apresentação: `tests/test_selado_links.py` (39
+testes) repete a fotografia do `test_selado` por referência, e recusa que um
+módulo de contas importe o `mercados`.
+
 
 ## 25/09/2026, à noite — o André manda tirar 22 selados (`selado.excluidos`)
 
@@ -6052,7 +6146,7 @@ a lista — os invariantes da Coleção NÃO mexem:** denominador **928**, níve
 cópias**, totais, Faltas (555 cópias · 10 178,32 €), A mais, decks, Encomendas,
 Venda, painel e foil — **iguais**. E o **site gerado sai igual ficheiro a
 ficheiro (30 ficheiros)**: o único que difere a sério (sem o relógio) é o
-`api/selado.json`, que passa de 165 215 para **138 720 bytes**. Os **19
+`api/selado.json`, que passa de 219 495 para **183 966 bytes**. Os **19
 acessórios não mexem** (contadores e valor iguais).
 
 **O que muda:**
@@ -6086,4 +6180,4 @@ mesmo); o catálogo em disco fica intacto; o `scope` e o CLI dizem quais; o
 ficar); os 22 contra o **catálogo real** (98 → 76, cada nome casa com um, os 19
 acessórios não mexem, a conta por edição); o nome dobrado; **a fotografia** — a
 MESMA do `test_selado`, por referência — com produtos tirados e repostos; e a
-página. Suite: **45 ficheiros, 0 a falhar**.
+página. Suite: **46 ficheiros, 0 a falhar**.

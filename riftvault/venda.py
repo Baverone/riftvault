@@ -26,7 +26,9 @@ O TREND DO CARDMARKET É METIDO POR ELE, E NÃO HÁ OUTRA MANEIRA
     Por isso o preço de cada linha é um campo que ELE preenche, em euros, com
     o Trend que está a ver no Cardmarket — e a linha tem um link directo para
     a página da carta lá (`cardmarket_id`, que o `riftvault map` já recolhe do
-    CardTrader: 1178 das 1179 impressões têm um).
+    CardTrader: 1178 das 1179 impressões têm um). Os templates desses links
+    mudaram-se a 2026-09-25 para o bloco `mercados` do config (ver
+    `mercados.py`), porque o «Produto Selado» passou a precisar dos mesmos.
 
     O preço do CardTrader que a app já tem aparece ao lado, **rotulado como
     CardTrader e só como referência**. NUNCA entra na conta, nem como omissão
@@ -62,29 +64,21 @@ from __future__ import annotations
 
 import sqlite3
 from datetime import datetime, timedelta, timezone
-from urllib.parse import quote
 
-from . import cardmarket, collection, config, metrics
+from . import cardmarket, collection, config, mercados, metrics
 
 DEFAULTS: dict = {
     # A partir de quantos dias é que um Trend guardado se marca como velho.
     # Não se apaga: um Trend de há duas semanas é melhor ponto de partida do
     # que um campo em branco — só se diz que está velho.
     "trend_valido_dias": 7,
-    # O link para a página da carta no Cardmarket. `{id}` é o `cardmarket_id`
-    # do `cardtrader_map` (o `card_market_ids` dos blueprints do CardTrader).
-    #
-    # NÃO VALIDADO — o Cardmarket responde 403 a pedidos automáticos e não há
-    # conta para experimentar; é a mesma ressalva dos links do «A subir» (ver
-    # «Superfícies NÃO validadas» no CLAUDE.md, ponto 7). Se abrir em 404,
-    # muda-se esta linha e todos os links mudam com ela — e o `procurar` ao
-    # lado, que é a forma que o Scryfall usa para o mesmo fim, continua a
-    # funcionar.
-    "cardmarket_url": "https://www.cardmarket.com/en/Riftbound/Products/Singles?idProduct={id}",
-    # O segundo link de cada linha, e o único da impressão sem `cardmarket_id`
-    # (hoje uma só: o token `UNL-T04` Buff). `{q}` é o nome DE MERCADO, já
-    # codificado para URL.
-    "cardmarket_busca": "https://www.cardmarket.com/en/Riftbound/Products/Search?searchString={q}",
+    # OS DOIS LINKS DO CARDMARKET MUDARAM-SE PARA O BLOCO `mercados`
+    # (2026-09-25, quando o «Produto Selado» passou a precisar deles também):
+    # `mercados.cardmarket_url` e `mercados.cardmarket_busca`, em
+    # `riftvault/mercados.py`. Um config que ainda os traga aqui continua a
+    # valer — o `mercados.opcoes` lê-os. A ressalva é a mesma: o formato por
+    # id NÃO ESTÁ VALIDADO (o site responde 403 a pedidos automáticos), e é
+    # por isso que cada linha leva também o link de pesquisa.
 }
 
 
@@ -215,9 +209,8 @@ def limpar(con: sqlite3.Connection) -> int:
 # ---------------------------------------------------------------------------
 
 
-def _link(url: str, pid_cm, nome: str, busca: str) -> str:
-    return (url.format(id=pid_cm) if pid_cm
-            else busca.format(q=quote(nome or "", safe="")))
+# Os links vivem no `mercados.py` desde 2026-09-25 — é a mesma pergunta do
+# «Produto Selado», e tem de ter uma resposta só.
 
 
 def itens(con: sqlite3.Connection, cfg: dict | None = None) -> list[dict]:
@@ -231,6 +224,7 @@ def itens(con: sqlite3.Connection, cfg: dict | None = None) -> list[dict]:
 
     cfg = cfg or config.load()
     op = opcoes(cfg)
+    op_links = mercados.opcoes(cfg)
     dias = op["trend_valido_dias"]
     atuais = linhas(con)
     if not atuais:
@@ -286,9 +280,9 @@ def itens(con: sqlite3.Connection, cfg: dict | None = None) -> list[dict]:
             "market_name": nome_mercado,
             "market_set": mkt.get("set"),
             "cardmarket_id": ids_cm.get(pid),
-            "url": _link(op["cardmarket_url"], ids_cm.get(pid), nome_mercado,
-                         op["cardmarket_busca"]),
-            "url_busca": op["cardmarket_busca"].format(q=quote(nome_mercado or "", safe="")),
+            "url": mercados.cardmarket(nome_mercado, ids_cm.get(pid),
+                                       op=op_links)["url"],
+            "url_busca": mercados.cardmarket_busca(nome_mercado, op_links),
             # Avisos — marcam, não bloqueiam.
             "have": tem, "na_colecao": na_colecao.get(pid, 0),
             "a_mais_do_que_tens": max(0, qty - tem),

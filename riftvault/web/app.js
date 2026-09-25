@@ -351,6 +351,13 @@ const PAGINA = {
          + 'Quando o CardTrader tem <b>dois blueprints para o mesmo produto</b> (acontece nos '
          + 'Trial Decks da Origins: um par tem as ofertas todas, o outro zero) juntam-se num '
          + 'só, e a linha diz qual juntou.</p>'
+         + '<p>Cada linha tem <b>link de compra</b> para o <b>Cardmarket</b> e para o '
+         + '<b>CardTrader</b>. O do CardTrader está <b>confirmado</b> (o id do blueprint '
+         + 'sozinho abre a página do produto); o do Cardmarket <b>não pôde ser</b> — o site '
+         + 'deles responde 403 a pedidos automáticos e não há conta para experimentar. Por '
+         + 'isso quem não tem id nesse mercado leva um link de <b>pesquisa pelo nome</b>, que '
+         + 'diz que é pesquisa; se o link directo abrir em 404, muda-se uma linha do config '
+         + '(<code>mercados</code>) e todos os links mudam com ela.</p>'
          + '<p>O que a API não tem — regionais, promocionais, e o que quase não circula solto '
          + '(displays de decks, cases de vaults, kits de loja) — acrescenta-se à mão no '
          + '<code>riftvault_config.json</code>, em <code>selado.extra</code>, com o '
@@ -4506,6 +4513,7 @@ function renderSelado() {
         .map(x => `${x.n} ${x.categoria.replace(/^Riftbound /, '')}`).join(', '))}):
         não são produto selado nem acessório de coleção.` : ''}
       ${t.sem_preco ? ` ${plural(t.sem_preco, 'produto', 'produtos')} sem oferta no CardTrader.` : ''}
+      ${slLinksNota(p.links)}
       O selado <b>não entra</b> na Coleção — nem nos níveis, nem nas Faltas, nem no valor.</small>
     ${tirados.length ? `<details class="sl-tirados"><summary><b>${
       tirados.length}</b> ${tirados.length === 1 ? 'produto tirado' : 'produtos tirados'}
@@ -4630,6 +4638,7 @@ function slLinha(x) {
       <div class="codigo"><span class="sl-tipo">${escapeHTML(x.tipo_label)}</span>
         ${escapeHTML(x.edicao_label)}${x.categoria
           ? ` · ${escapeHTML(x.categoria.replace(/^Riftbound /, ''))}` : ''}</div>
+      ${slLinks(x)}
       ${marcas.length ? `<div class="sl-marcas">${marcas.join('')}</div>` : ''}
     </div>
     <div class="sl-dir">
@@ -4643,6 +4652,47 @@ function slLinha(x) {
       </div>` : `<div class="sl-tenho">${x.qty ? `tens ${x.qty}` : 'não tens'}</div>`}
     </div>
   </div>`;
+}
+
+/* Quantos links são a página do produto e quantos são pesquisa — dito uma vez
+   no cabeçalho, para não ser preciso descobri-lo linha a linha. */
+function slLinksNota(L) {
+  if (!L) return '';
+  const p = [];
+  if (L.cardmarket.pesquisa) {
+    p.push(`<b>${L.cardmarket.pesquisa}</b> sem id do Cardmarket (o link abre a pesquisa
+      pelo nome)`);
+  }
+  if (L.cardtrader.pesquisa) {
+    p.push(`<b>${L.cardtrader.pesquisa}</b> fora do catálogo do CardTrader (idem)`);
+  }
+  return `Cada linha leva <b>link de compra</b> para o Cardmarket e para o CardTrader${
+    p.length ? `: ${p.join(', ')}` : ''}. O endereço do CardTrader está confirmado; o do
+    Cardmarket <b>não</b> — o site deles responde 403 a pedidos automáticos, e é por isso
+    que há sempre um link de pesquisa ao lado.`;
+}
+
+/* Os dois links de compra de cada linha (2026-09-25). Curtos, porque a linha
+   tem de caber num telemóvel: «Cardmarket» e «CardTrader», e quem não tem id
+   nesse mercado leva «procurar» — dito, não escondido, porque um link de
+   pesquisa não é a página do produto. Os templates vêm do `mercados.py`; o do
+   CardTrader está validado, o do Cardmarket não (403 a pedidos automáticos). */
+function slLinks(x) {
+  const L = x.links;
+  if (!L) return '';
+  const um = (l, rot, titulo) => l ? `<a href="${escapeAttr(l.url)}" target="_blank"
+    rel="noreferrer noopener" class="${l.pesquisa ? 'alt' : ''}"
+    title="${escapeAttr(titulo)}">${rot}${l.pesquisa ? ' <i>procurar</i>' : ''}</a>` : '';
+  return `<div class="sl-links">${
+    um(L.cardmarket, 'Cardmarket', L.cardmarket && L.cardmarket.pesquisa
+      ? 'este produto não tem id do Cardmarket no catálogo — abre a pesquisa pelo nome'
+      : 'a página do produto no Cardmarket (o formato do endereço não está validado: '
+        + 'o site deles responde 403 a pedidos automáticos)')
+  }${
+    um(L.cardtrader, 'CardTrader', L.cardtrader && L.cardtrader.pesquisa
+      ? 'este produto não está no catálogo do CardTrader — abre a pesquisa pelo nome'
+      : 'a página do produto no CardTrader')
+  }</div>`;
 }
 
 function slLigar() {
