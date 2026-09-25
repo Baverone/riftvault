@@ -1543,6 +1543,19 @@ body.readonly .btn.chegou { display: none; }
 .sl-tenho { font-size: 12px; color: var(--muted); }
 #sl-filtros input[type="search"] { min-width: 180px; }
 
+/* O que ele mandou tirar (`selado.excluidos`): dobrado, porque são 22 linhas e
+   a resposta curta é o número. Nada se apagou — o texto de dentro diz que
+   repor é tirar o nome da lista. */
+.sl-tirados { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 10px; }
+.sl-tirados > summary { cursor: pointer; font-size: 12px; color: var(--dim); }
+.sl-tirados > summary:hover { color: var(--ink2); }
+.sl-tirados[open] > summary { margin-bottom: 8px; }
+.sl-tirados .nota { display: block; margin-bottom: 6px; }
+.sl-tirados-lista { list-style: none; margin: 0; padding: 0; display: grid;
+  gap: 2px; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
+.sl-tirados-lista li { font-size: 12px; color: var(--muted); }
+.sl-tirados-lista .dim { color: var(--dim); font-size: 11px; }
+
 @media (max-width: 699px) {
   .sl-nums { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

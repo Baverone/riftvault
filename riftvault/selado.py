@@ -52,6 +52,34 @@ OS ACESSÓRIOS DE COLEÇÃO TÊM SECÇÃO PRÓPRIA (2026-09-25)
     Box Set, e contá-los à parte era contar o mesmo produto duas vezes) e as
     oversized (284 — são CARTAS grandes, não produto selado).
 
+O QUE ELE MANDOU TIRAR (`selado.excluidos`, 2026-09-25)
+    Ele viu a lista dos 98 e mandou fora 22 produtos: os **boosters soltos**
+    (13), as **slim booster box** (3), o **Origins: Champion Deck Set** (*"compram
+    -se à unidade"*), as **Spiritforged Bulk Runes** e os quatro **Pre-Rift
+    Kit** — o de UM jogador, que não é o «Pre-Rift EVENT Kit» de 16 kits + 1
+    display.
+
+    **Faz-se por CONFIG e NÃO se apaga nada**: `selado.excluidos` é uma lista de
+    nomes (ou de ids `ct-<blueprint>`), o `data/selado_catalogo.json` fica
+    intacto, e **repor é tirar o nome da lista** — a mesma ideia do
+    `abas.escondidas`. Os excluídos saem da aba, dos contadores, da
+    percentagem e do total, nos dois modos; o `scope.excluidos` di-los um a um,
+    para nunca desaparecerem em silêncio.
+
+    **Um nome que não case REBENTA**, com os candidatos parecidos: um nome mal
+    escrito ignorado em silêncio deixava-o a olhar para um produto que mandou
+    tirar. O nome é exacto (sem maiúsculas nem espaços a mais), nunca um pedaço:
+    é o que faz o *Spiritforged Pre-Rift Kit* sair e o *Spiritforged Pre-Rift
+    EVENT Kit* ficar, e o *Origins Booster* sair sem levar o *Origins | Nexus
+    Night Promo Booster*. Um nome que case com mais do que um produto também
+    rebenta, e diz os ids — hoje nenhum dos 117 se repete.
+
+O NOME DOBRADO DO CATÁLOGO (2026-09-25)
+    O CardTrader escreve «2024 Trial Deck Set **Set**» e «2025 Trial Deck Set
+    **Set**». `nome_limpo` junta uma palavra repetida a seguir a si mesma — é
+    apresentação, **o `id` não muda** (vem do `blueprint_id`) e o `nome_bruto`
+    fica no item. Medido: mexe em 2 dos 117 produtos de hoje.
+
 O QUE O CARDTRADER REPETE (2026-09-25)
     Quatro dos Trial Decks da Origins aparecem com DOIS blueprints cada, com
     o mesmo nome, a mesma edição, a mesma categoria e a versão vazia nos dois.
@@ -182,6 +210,13 @@ DEFAULTS: dict = {
     # mão. Cada um: `nome` (obrigatório), `edicao`, `tipo`, `data`,
     # `preco_eur`, `conteudo` (o que vem dentro) e `nota` (ressalvas).
     "extra": [],
+    # Os produtos que ele NÃO quer ver (2026-09-25). Escreve-se o NOME, tal
+    # como aparece na lista, ou o id (`ct-<blueprint>` / `cfg-…`). Saem da aba,
+    # dos contadores, da percentagem e do total — **e não se apaga nada**: o
+    # catálogo em disco fica intacto e **repor é tirar o nome daqui**. Um nome
+    # que não case, ou que case com mais do que um produto, REBENTA. Ver o
+    # cabeçalho.
+    "excluidos": [],
 }
 
 # ---------------------------------------------------------------------------
@@ -303,6 +338,18 @@ def opcoes(cfg: dict | None = None) -> dict:
     if not isinstance(extra, (list, tuple)):
         raise ValueError("selado.extra: uma lista de produtos")
     out["extra"] = [_ler_extra(i, x) for i, x in enumerate(extra)]
+
+    excl = out.get("excluidos") or []
+    if not isinstance(excl, (list, tuple)):
+        raise ValueError("selado.excluidos: uma lista de nomes de produtos "
+                         "(ou de ids `ct-<blueprint>`); vazia = nada excluído")
+    limpos: list[str] = []
+    for i, x in enumerate(excl):
+        if not isinstance(x, str) or not x.strip():
+            raise ValueError(f"selado.excluidos[{i}]: {x!r} — escreve-se o NOME do "
+                             f"produto (ou o id `ct-<blueprint>`)")
+        limpos.append(x.strip())
+    out["excluidos"] = limpos
     return out
 
 
@@ -394,6 +441,12 @@ class ProdutoDesconhecido(ValueError):
     pass
 
 
+class ProdutoExcluido(ProdutoDesconhecido):
+    """Um produto que ele mandou tirar por `selado.excluidos`. É subclasse do
+    desconhecido de propósito — quem já tratava um, trata os dois —, mas a razão
+    é outra e a mensagem tem de a dizer: repor é tirar o nome da lista."""
+
+
 def tenho(con: sqlite3.Connection) -> dict[str, int]:
     return {r["product_id"]: r["qty"] for r in
             con.execute("SELECT product_id, qty FROM sealed_copies")}
@@ -407,8 +460,14 @@ def ajustar(con: sqlite3.Connection, product_id: str, delta: int = 1,
     `sealed_copies`. Um produto que não esteja na lista (nem da API nem do
     config) é `ProdutoDesconhecido`: um id inventado não pode nascer aqui.
     """
-    validos = {p["id"] for p in _crus(cfg)}
+    todos = _crus(cfg, com_excluidos=True)
+    validos = {p["id"] for p in todos if not p["excluido"]}
     if product_id not in validos:
+        fora_do_ecra = {p["id"]: p for p in todos if p["excluido"]}
+        if product_id in fora_do_ecra:
+            raise ProdutoExcluido(
+                f"{fora_do_ecra[product_id]['nome']} está em selado.excluidos — "
+                f"tira o nome da lista para o repor")
         raise ProdutoDesconhecido(f"{product_id} não está na lista do produto selado")
     atual = tenho(con).get(product_id, 0)
     novo = max(0, atual + int(delta))
@@ -431,6 +490,18 @@ def ajustar(con: sqlite3.Connection, product_id: str, delta: int = 1,
 def _slug(texto: str) -> str:
     s = re.sub(r"[^a-z0-9]+", "-", str(texto).lower()).strip("-")
     return s or "produto"
+
+
+# O CardTrader escreve «2024 Trial Deck Set Set» e «2025 Trial Deck Set Set» —
+# a palavra a dobrar vem do catálogo deles. Junta-se uma palavra repetida a
+# seguir a si mesma, em qualquer sítio do nome. É APRESENTAÇÃO: o `id` vem do
+# `blueprint_id` e não muda, e o `nome_bruto` fica no item. Medido a 2026-09-25:
+# mexe em 2 dos 117 produtos (os dois Trial Deck Set).
+_DOBRADA = re.compile(r"\b(\w+)(?:\s+\1)+\b", re.I)
+
+
+def nome_limpo(nome: str | None) -> str:
+    return _DOBRADA.sub(lambda m: m.group(1), str(nome or "")).strip()
 
 
 def _chave_duplicado(p: dict) -> tuple:
@@ -471,13 +542,85 @@ def _juntar_duplicados(lista: list[dict]) -> list[dict]:
     return [p for p in lista if fica_por_chave[_chave_duplicado(p)] is p]
 
 
-def _crus(cfg: dict | None = None) -> list[dict]:
+def _chave_nome(texto: str) -> str:
+    """Um nome como se escreve à mão: sem maiúsculas e sem espaços a mais. É
+    EXACTO, nunca um pedaço — é o que faz o *Spiritforged Pre-Rift Kit* sair e o
+    *Spiritforged Pre-Rift EVENT Kit* ficar."""
+    return re.sub(r"\s+", " ", str(texto or "")).strip().lower()
+
+
+def _resolver_excluidos(lista: list[dict], nomes: list[str],
+                        tolerante: bool = False) -> set[str]:
+    """Que `id` é que cada entrada do `selado.excluidos` nomeia.
+
+    Aceita o id (`ct-330949`, `cfg-…`) e o NOME do produto — o da lista ou o do
+    catálogo em cru, para um nome com palavra dobrada («2024 Trial Deck Set
+    Set») servir tal como ele o vê no CardTrader.
+
+    **Rebenta** se uma entrada não casar (com os candidatos parecidos) ou se
+    casar com mais do que um produto (com os ids, para ele escolher). Um nome
+    mal escrito ignorado em silêncio deixava-o a olhar para um produto que
+    mandou tirar — é a regra das outras listas do config.
+
+    `tolerante` é para quando **não há catálogo em disco** (ver o `_crus`): aí a
+    app não sabe se o nome existe ou não, e acusá-lo de um erro de escrita que
+    pode não existir era parar a página por não se ter sincronizado. Um nome
+    ambíguo continua a rebentar nos dois casos: escolher um dos dois tirava o
+    produto errado.
+    """
+    if not nomes or not lista:
+        return set()
+    por_id = {p["id"]: p for p in lista}
+    por_nome: dict[str, list[dict]] = {}
+    for p in lista:
+        for n in (p["nome"], p.get("nome_bruto")):
+            if n:
+                por_nome.setdefault(_chave_nome(n), []).append(p)
+    fora: set[str] = set()
+    for entrada in nomes:
+        if entrada in por_id:
+            fora.add(entrada)
+            continue
+        casam = por_nome.get(_chave_nome(entrada)) or []
+        # Um nome pode aparecer nas duas chaves do mesmo produto (limpo e
+        # bruto); é o mesmo produto, não uma ambiguidade.
+        ids = sorted({p["id"] for p in casam})
+        if len(ids) == 1:
+            fora.add(ids[0])
+            continue
+        if not ids:
+            if tolerante:
+                continue
+            raise ValueError(
+                f"selado.excluidos: {entrada!r} não é nenhum produto da lista"
+                + (f" — parecidos: {', '.join(_parecidos(entrada, lista))}"
+                   if _parecidos(entrada, lista) else "")
+                + ". O nome é exacto, ou escreve-se o id `ct-<blueprint>`.")
+        raise ValueError(f"selado.excluidos: {entrada!r} casa com {len(ids)} produtos "
+                         f"({', '.join(ids)}) — escreve o id em vez do nome")
+    return fora
+
+
+def _parecidos(entrada: str, lista: list[dict], n: int = 3) -> list[str]:
+    """Os nomes mais próximos, para a mensagem de erro dizer onde ele se
+    enganou em vez de só dizer que não existe."""
+    from difflib import get_close_matches
+    nomes = sorted({p["nome"] for p in lista})
+    return [repr(x) for x in get_close_matches(entrada, nomes, n=n, cutoff=0.6)]
+
+
+def _crus(cfg: dict | None = None, com_excluidos: bool = False) -> list[dict]:
     """Os produtos EM ÂMBITO, da API e do config, sem as contagens dele.
 
     Leva o produto selado E os acessórios (`acessorio: True`), porque é a
     lista que decide que ids existem — o `ajustar` valida contra ela, e os
     `+`/`−` de um binder têm de funcionar como os de um display. Quem conta
     é que separa os dois.
+
+    Os `selado.excluidos` SAEM daqui — é o ponto único, e por isso a aba, os
+    contadores, o total, o valor, o CLI e o `ajustar` vêem todos a mesma lista.
+    `com_excluidos=True` devolve-os na mesma, marcados (`excluido: True`), para
+    o `scope` os poder dizer um a um.
     """
     op = opcoes(cfg)
     cats = set(op["categorias"])
@@ -496,7 +639,10 @@ def _crus(cfg: dict | None = None) -> list[dict]:
             "fonte": "cardtrader",
             "acessorio": cid in acess,
             "blueprint_id": bid,
-            "nome": p.get("nome") or "",
+            # O nome LIMPO é o que se mostra e o que se escreve no
+            # `selado.excluidos`; o bruto fica para o registo (e também casa).
+            "nome": nome_limpo(p.get("nome")),
+            "nome_bruto": p.get("nome") or "",
             "versao": p.get("versao") or "",
             "categoria_id": p.get("categoria_id"),
             "edicao": (p.get("edicao") or "").upper(),
@@ -520,7 +666,7 @@ def _crus(cfg: dict | None = None) -> list[dict]:
             "fonte": "config",
             "acessorio": False,
             "blueprint_id": None,
-            "nome": x["nome"], "versao": "",
+            "nome": x["nome"], "nome_bruto": x["nome"], "versao": "",
             "categoria_id": None,
             "edicao": x["edicao"], "edicao_nome": "",
             "img": None, "cardmarket_id": None,
@@ -531,7 +677,17 @@ def _crus(cfg: dict | None = None) -> list[dict]:
             "duplicados": [],
             "tipo_forcado": x["tipo"], "data_forcada": x["data"],
         })
-    return out
+    # Sem catálogo em disco (o `--sync` ainda não correu) a lista é só os
+    # `extra` do config: os nomes do CardTrader não podem casar e não é erro
+    # dele. Aí o nome que não case ignora-se — a secção mostra-se vazia, como
+    # sempre fez, em vez de rebentar por não ter sido sincronizada.
+    fora_do_ecra = _resolver_excluidos(out, op["excluidos"],
+                                       tolerante=not dados.get("produtos"))
+    for p in out:
+        p["excluido"] = p["id"] in fora_do_ecra
+    if com_excluidos:
+        return out
+    return [p for p in out if not p["excluido"]]
 
 
 def _ordem_edicao(code: str, op: dict) -> tuple:
@@ -637,6 +793,27 @@ def por_edicao(lista: list[dict], cfg: dict | None = None) -> list[dict]:
     return ordenados
 
 
+def excluidos(cfg: dict | None = None) -> list[dict]:
+    """Os produtos que ele mandou tirar (`selado.excluidos`), um a um.
+
+    Nada desaparece em silêncio: a página e o CLI dizem quantos são e quais,
+    com o tipo e a edição, e que repor é tirar o nome da lista. **Não se apagou
+    nada** — o `data/selado_catalogo.json` está intacto.
+    """
+    op = opcoes(cfg)
+    saida = []
+    for p in _crus(cfg, com_excluidos=True):
+        if not p["excluido"]:
+            continue
+        tipo = p.get("tipo_forcado") or tipo_de(p["nome"], p["versao"], p["categoria_id"])
+        saida.append({"id": p["id"], "nome": p["nome"], "edicao": p["edicao"],
+                      "tipo": tipo, "tipo_label": TIPO_LABEL[tipo],
+                      "acessorio": p["acessorio"]})
+    saida.sort(key=lambda x: (_ordem_edicao(x["edicao"], op),
+                              TIPO_IDS.index(x["tipo"]), x["nome"].lower()))
+    return saida
+
+
 def fora(cfg: dict | None = None) -> list[dict]:
     """O que o CardTrader tem e NÃO entra em lado nenhum: playmats, sleeves,
     memorabilia, oversized. Contados por categoria — nunca se apagam em
@@ -688,6 +865,9 @@ def payload(con: sqlite3.Connection, cfg: dict | None = None,
             "acessorios": op["acessorios"],
             "juntar_duplicados": op["juntar_duplicados"],
             "juntos": sum(len(x["duplicados"]) for x in lista),
+            # O que ele mandou tirar, um a um: o catálogo em disco fica intacto
+            # e repor é tirar o nome do `selado.excluidos`.
+            "excluidos": excluidos(cfg),
             "fora": fora(cfg),
             "por_sair": op["por_sair"],
             "datas": op["datas_por_edicao"],
@@ -878,6 +1058,14 @@ def texto(p: dict) -> str:
                       f"selado): HÁ {at['ha']}  ·  TENHO {at['tenho']}  ·  NÃO TENHO "
                       f"{at['falta']}  ·  valor {eur(at['valor_cents'])}")
         linhas += _linhas_dos_grupos(ac.get("sets") or [])
+    ex = p["scope"].get("excluidos") or []
+    if ex:
+        linhas.append("")
+        linhas.append(f"Tirados por `selado.excluidos` ({len(ex)}) — o catálogo em "
+                      f"disco está intacto, repor é tirar o nome da lista:")
+        for x in ex:
+            linhas.append(f"  - {x['edicao'] or '—':<11} {x['tipo_label']:<16} "
+                          f"{x['nome']}")
     f = p["scope"]["fora"]
     if f:
         linhas.append("")
