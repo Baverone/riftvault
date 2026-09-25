@@ -31,7 +31,7 @@ import shutil
 from pathlib import Path
 
 from . import (a_mais, a_subir, config, db, decks, faltas, faltas_edicao, metrics,
-               pending, runas_vista, venda)
+               pending, runas_vista, selado, venda)
 
 # A pasta das imagens fica de fora da comparação: em `static_images: "local"`
 # são ~88 MB e não dependem da colecção — o que muda nelas é o `riftvault
@@ -202,6 +202,12 @@ def _gerar(out_dir: Path | str, log=print, imagens: bool = True) -> dict:
     vd = venda.payload(con, cfg, editable=False)
     (out / "api" / "venda.json").write_text(
         json.dumps(vd, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    # O «Produto Selado» (2026-09-25): a lista do que há, do que ele tem e do
+    # que não tem. Só de leitura no site publicado — os `+`/`−` são do modo
+    # edição (o mesmo `editable: False` da Coleção).
+    sl = selado.payload(con, cfg, editable=False)
+    (out / "api" / "selado.json").write_text(
+        json.dumps(sl, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     enc_dir = out / "api" / "encomendas"
     enc_dir.mkdir(parents=True, exist_ok=True)
     n_enc = 0
@@ -218,7 +224,8 @@ def _gerar(out_dir: Path | str, log=print, imagens: bool = True) -> dict:
         f"cópias a mais) + api/encomendas.json "
         f"({encomendas['totals']['copies']} cópias a caminho) + api/encomendas/*.json "
         f"({n_enc} impressões de Rara para cima) + api/venda.json "
-        f"({vd['totals']['lines']} linhas na venda em curso)")
+        f"({vd['totals']['lines']} linhas na venda em curso) + api/selado.json "
+        f"({sl['totals']['tenho']}/{sl['totals']['ha']} produtos selados)")
 
     n_img = 0
     if imagens and image_mode == "local" and config.IMAGES_DIR.exists():

@@ -51,6 +51,7 @@ ABAS: list[dict] = [
     {"id": "pimp", "tipo": VISTA, "dentro": "decks", "label": "Pimp decks"},
     {"id": "encomendas", "tipo": SECCAO, "label": "Encomendas"},
     {"id": "venda", "tipo": SECCAO, "label": "Venda"},
+    {"id": "selado", "tipo": SECCAO, "label": "Produto Selado"},
 ]
 
 IDS = [a["id"] for a in ABAS]

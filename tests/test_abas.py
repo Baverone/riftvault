@@ -146,7 +146,7 @@ class TestOConfig(Base):
         self.assertEqual(self.abas.escondidas(cfg), frozenset({"a-mais", "pordeck", "pimp"}))
         self.assertEqual(self.abas.visiveis(cfg),
                          ["inicio", "colecao", "faltas-edicao", "decks", "staples",
-                          "encomendas", "venda"])
+                          "encomendas", "venda", "selado"])
 
     def test_os_nomes_dele_casam_com_os_ids(self):
         """Ele escreveu «A mais», «Por Deck» e «Pimp Deck» — e é como as lê no

@@ -1,0 +1,3103 @@
+{
+ "generated_at": "2026-09-25T16:53:06+00:00",
+ "fonte": "cardtrader",
+ "game_id": 22,
+ "singles_category": 258,
+ "pedidos": 104,
+ "categorias": {
+  "258": "Riftbound Singles",
+  "259": "Riftbound Booster Boxes",
+  "260": "Riftbound Boosters",
+  "261": "Riftbound Bundles",
+  "262": "Riftbound Starter Decks",
+  "263": "Riftbound Box Sets & Displays",
+  "264": "Riftbound Playmats",
+  "265": "Riftbound Albums",
+  "266": "Riftbound Sleeves",
+  "267": "Riftbound Deck Boxes",
+  "268": "Riftbound Memorabilia and Gadgets",
+  "283": "Riftbound Complete Sets",
+  "284": "Riftbound Oversized"
+ },
+ "expansoes": [
+  {
+   "id": 4166,
+   "code": "OGN",
+   "name": "Origins"
+  },
+  {
+   "id": 4167,
+   "code": "PROMO-RIFT",
+   "name": "Promos"
+  },
+  {
+   "id": 4275,
+   "code": "OGS",
+   "name": "Origins Proving Grounds"
+  },
+  {
+   "id": 4287,
+   "code": "OP",
+   "name": "Organized Play"
+  },
+  {
+   "id": 4288,
+   "code": "JDG",
+   "name": "Judge Promos"
+  },
+  {
+   "id": 4289,
+   "code": "ARC",
+   "name": "Arcane"
+  },
+  {
+   "id": 4299,
+   "code": "SFD",
+   "name": "Spiritforged"
+  },
+  {
+   "id": 4347,
+   "code": "RIFT-CHAMP",
+   "name": "Championship Promo"
+  },
+  {
+   "id": 4348,
+   "code": "NNP",
+   "name": "Nexus Night Promos"
+  },
+  {
+   "id": 4349,
+   "code": "REP-RIFTBOUND",
+   "name": "Release Event Promos"
+  },
+  {
+   "id": 4425,
+   "code": "UNL",
+   "name": "Unleashed"
+  },
+  {
+   "id": 4521,
+   "code": "VEN",
+   "name": "Vendetta"
+  },
+  {
+   "id": 4522,
+   "code": "RAD",
+   "name": "Radiance"
+  },
+  {
+   "id": 4771,
+   "code": "T1S",
+   "name": "Riftbound x T1 2025 Worlds Champion Collection"
+  },
+  {
+   "id": 4803,
+   "code": "LGC",
+   "name": "Legacy"
+  },
+  {
+   "id": 4804,
+   "code": "PG2",
+   "name": "Legacy: Proving Grounds"
+  },
+  {
+   "id": 4806,
+   "code": "REC",
+   "name": "The Reckoning"
+  }
+ ],
+ "produtos": [
+  {
+   "blueprint_id": 330791,
+   "nome": "Origins Booster Box",
+   "versao": "",
+   "categoria_id": 259,
+   "edicao": "OGN",
+   "edicao_nome": "Origins",
+   "img": "https://cardtrader.com/uploads/blueprints/image/330791/preview_origins-booster-box-origins.jpg",
+   "cardmarket_id": 845721,
+   "tcg_player_id": 635368
+  },
+  {
+   "blueprint_id": 330792,
+   "nome": "Origins Sleeved Booster",
+   "versao": "",
+   "categoria_id": 260,
+   "edicao": "OGN",
+   "edicao_nome": "Origins",
+   "img": "https://cardtrader.com/uploads/blueprints/image/330792/preview_origins-booster-origins.jpg",
+   "cardmarket_id": 847069,
+   "tcg_player_id": 635459
+  },
+  {
+   "blueprint_id": 330793,
+   "nome": "Origins: \"Jinx\" Champion Deck",
+   "versao": "",
+   "categoria_id": 262,
+   "edicao": "OGN",
+   "edicao_nome": "Origins",
+   "img": "https://cardtrader.com/uploads/blueprints/image/330793/preview_origins-jinx-starter-deck-origins.jpg",
+   "cardmarket_id": 845733,
+   "tcg_player_id": 635371
+  },
+  {
+   "blueprint_id": 330794,
+   "nome": "Origins: \"Viktor\" Champion Deck",
+   "versao": "",
+   "categoria_id": 262,
+   "edicao": "OGN",
+   "edicao_nome": "Origins",
+   "img": "https://cardtrader.com/uploads/blueprints/image/330794/preview_origins-viktor-starter-deck-origins.jpg",
+   "cardmarket_id": 845735,
+   "tcg_player_id": 635374
+  },
+  {
+   "blueprint_id": 330795,
+   "nome": "Origins: \"Lee Sin\" Champion Deck",
+   "versao": "",
+   "categoria_id": 262,
+   "edicao": "OGN",
+   "edicao_nome": "Origins",
+   "img": "https://cardtrader.com/uploads/blueprints/image/330795/preview_origins-lee-sin-starter-deck-origins.jpg",
+   "cardmarket_id": 845734,
+   "tcg_player_id": 635375
+  },
+  {
+   "blueprint_id": 330886,
+   "nome": "Origins Booster Box Case",
+   "versao": "x6 Booster Boxes",
+   "categoria_id": 263,
+   "edicao": "OGN",
+   "edicao_nome": "Origins",
+   "img": "https://cardtrader.com/uploads/blueprints/image/330886/preview_origins-booster-box-case-x6-booster-boxes-promos.jpg",
+   "cardmarket_id": 848377,
+   "tcg_player_id": 635369
+  },
+  {
+   "blueprint_id": 330949,
+   "nome": "Origins Booster",
+   "versao": "",
+   "categoria_id": 260,
+   "edicao": "OGN",
+   "edicao_nome": "Origins",
+   "img": "https://cardtrader.com/uploads/blueprints/image/330949/preview_origins-booster-origins(2).jpg",
+   "cardmarket_id": 845728,
+   "tcg_player_id": 635366
+  },
+  {
+   "blueprint_id": 346727,
+   "nome": "Origins: Ahri Art Sleeves",
+   "versao": "100 Sleeves",
+   "categoria_id": 266,
+   "edicao": "OGN",
+   "edicao_nome": "Origins",
+   "img": "https://cardtrader.com/uploads/blueprints/image/346727/preview_origins-ahri-art-sleeves-100-sleeves-origins.jpg",
+   "cardmarket_id": 848155,
+   "tcg_player_id": 661899
+  },
+  {
+   "blueprint_id": 346728,
+   "nome": "Origins: Jinx Art Sleeves",
+   "versao": "100 Sleeves",
+   "categoria_id": 266,
+   "edicao": "OGN",
+   "edicao_nome": "Origins",
+   "img": "https://cardtrader.com/uploads/blueprints/image/346728/preview_origins-jinc-art-sleeves-100-sleeves-origins.jpg",
+   "cardmarket_id": 848167,
+   "tcg_player_id": 661903
+  },
+  {
+   "blueprint_id": 346729,
+   "nome": "Origins: Volibear Art Sleeves",
+   "versao": "100 Sleeves",
+   "categoria_id": 266,
+   "edicao": "OGN",
+   "edicao_nome": "Origins",
+   "img": "https://cardtrader.com/uploads/blueprints/image/346729/preview_origins-volibear-art-sleeves-100-sleeves-origins.jpg",
+   "cardmarket_id": 848174,
+   "tcg_player_id": 661902
+  },
+  {
+   "blueprint_id": 346730,
+   "nome": "Origins: Miss Fortune Art Sleeves",
+   "versao": "100 Sleeves",
+   "categoria_id": 266,
+   "edicao": "OGN",
+   "edicao_nome": "Origins",
+   "img": "https://cardtrader.com/uploads/blueprints/image/346730/preview_origins-miss-fortune-art-sleeves-100-sleeves-origins.jpg",
+   "cardmarket_id": 848173,
+   "tcg_player_id": 661898
+  },
+  {
+   "blueprint_id": 346731,
+   "nome": "Origins: Jinx Art Playmat",
+   "versao": "",
+   "categoria_id": 264,
+   "edicao": "OGN",
+   "edicao_nome": "Origins",
+   "img": "https://cardtrader.com/uploads/blueprints/image/346731/preview_origins-jinx-art-playmat-origins(2).jpg",
+   "cardmarket_id": 848175,
+   "tcg_player_id": 661889
+  },
+  {
+   "blueprint_id": 346732,
+   "nome": "Origins: Ahri Art Playmat",
+   "versao": "",
+   "categoria_id": 264,
+   "edicao": "OGN",
+   "edicao_nome": "Origins",
+   "img": "https://cardtrader.com/uploads/blueprints/image/346732/preview_origins-ahri-art-playmat-origins.jpg",
+   "cardmarket_id": 848194,
+   "tcg_player_id": 661888
+  },
+  {
+   "blueprint_id": 346733,
+   "nome": "Origins: Volibear Art Playmat",
+   "versao": "",
+   "categoria_id": 264,
+   "edicao": "OGN",
+   "edicao_nome": "Origins",
+   "img": "https://cardtrader.com/uploads/blueprints/image/346733/preview_origins-volibear-art-playmat-origins.jpg",
+   "cardmarket_id": 848181,
+   "tcg_player_id": 661892
+  },
+  {
+   "blueprint_id": 346734,
+   "nome": "Origins: Miss Fortune Art Playmat",
+   "versao": "",
+   "categoria_id": 264,
+   "edicao": "OGN",
+   "edicao_nome": "Origins",
+   "img": "https://cardtrader.com/uploads/blueprints/image/346734/preview_origins-miss-fortune-art-playmat-origins.jpg",
+   "cardmarket_id": 848188,
+   "tcg_player_id": 661891
+  },
+  {
+   "blueprint_id": 355460,
+   "nome": "Origins Slim Booster Box",
+   "versao": "",
+   "categoria_id": 259,
+   "edicao": "OGN",
+   "edicao_nome": "Origins",
+   "img": "https://cardtrader.com/uploads/blueprints/image/355460/preview_origins-slim-booster-box-origins.jpg",
+   "cardmarket_id": 862272,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 358702,
+   "nome": "Origins: Champion Deck Set",
+   "versao": "Set of 3 Decks",
+   "categoria_id": 262,
+   "edicao": "OGN",
+   "edicao_nome": "Origins",
+   "img": "https://cardtrader.com/uploads/blueprints/image/358702/preview_origins-champion-deck-set-set-of-3-decks-origins.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 361487,
+   "nome": "Origins Slim Booster",
+   "versao": "",
+   "categoria_id": 260,
+   "edicao": "OGN",
+   "edicao_nome": "Origins",
+   "img": "https://cardtrader.com/uploads/blueprints/image/361487/preview_origins-slim-booster-origins.jpg",
+   "cardmarket_id": 862351,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 330845,
+   "nome": "Origins: Jinx Trial Deck",
+   "versao": "",
+   "categoria_id": 262,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/330845/preview_origins-jinx-trial-deck-origins.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 330846,
+   "nome": "Origins: Viktor Trial Deck",
+   "versao": "",
+   "categoria_id": 262,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/330846/preview_origins-viktor-trial-deck-origins.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 330847,
+   "nome": "Origins: Yasuo Trial Deck",
+   "versao": "",
+   "categoria_id": 262,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/330847/preview_origins-yasuo-trial-deck-origins.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 330848,
+   "nome": "Origins: Volibear Trial Deck",
+   "versao": "",
+   "categoria_id": 262,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/330848/preview_origins-volibear-trial-deck-origins.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 330871,
+   "nome": "2024 Trial Deck Case",
+   "versao": "x4 Trial Decks | Sealed Case ©2024",
+   "categoria_id": 263,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/330871/preview_trial-deck-set-case-x4-trial-decks-origins.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 330873,
+   "nome": "2025 Trial Deck Case",
+   "versao": "x4 Trial Decks | Sealed Case ©2025",
+   "categoria_id": 263,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/330873/preview_trial-deck-set-case-x4-trial-decks-sealed-case-2025-promos.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 330874,
+   "nome": "Promo Pack",
+   "versao": "Chinese Exclusive",
+   "categoria_id": 260,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/330874/preview_promo-pack-chinese-exclusive-promos.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 330875,
+   "nome": "Arcane Promo Pack",
+   "versao": "Chinese Exclusive",
+   "categoria_id": 260,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/330875/preview_arcane-promo-pack-chinese-exclusive-promos.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 330877,
+   "nome": "50 Ahri Sleeves",
+   "versao": "Chinese Exclusive",
+   "categoria_id": 266,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/330877/preview_ahiri-sleeves-chinese-exclusive-promos.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 330880,
+   "nome": "Gold Coin New Year Exclusive",
+   "versao": "",
+   "categoria_id": 268,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/330880/preview_gold-coin-new-year-exclusive-promos.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 353676,
+   "nome": "Riftbound Worlds Bundle 2025",
+   "versao": "",
+   "categoria_id": 261,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/353676/preview_riftbound-worlds-bundle-2025-promos.jpg",
+   "cardmarket_id": 862801,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 353697,
+   "nome": "Riftbound Worlds Bundle 2025 Playmat",
+   "versao": "",
+   "categoria_id": 264,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/353697/preview_riftbound-worlds-bundle-2025-playmat-promos(2).jpg",
+   "cardmarket_id": 862803,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 355466,
+   "nome": "\"Blitzcrank - Impassive\" Playmat",
+   "versao": "Champion Prize",
+   "categoria_id": 264,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/355466/preview_blitzcrank-impassive-playmat-summoner-skirmish-prize-promos.jpg",
+   "cardmarket_id": 861140,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 357554,
+   "nome": "Origins | Nexus Night Promo Booster",
+   "versao": "",
+   "categoria_id": 260,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/357554/preview_nexus-night-promo-booster-promos.jpg",
+   "cardmarket_id": 856097,
+   "tcg_player_id": 675404
+  },
+  {
+   "blueprint_id": 363015,
+   "nome": "Aspirant's Climb",
+   "versao": "Oversized",
+   "categoria_id": 284,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/363015/preview_aspirant-s-climb-oversized-promos(2).jpg",
+   "cardmarket_id": 865820,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 363016,
+   "nome": "The Grand Plaza",
+   "versao": "Oversized",
+   "categoria_id": 284,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/363016/preview_the-grand-plaza-oversized-promos(2).jpg",
+   "cardmarket_id": 865822,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 363017,
+   "nome": "Bandle Tree",
+   "versao": "Oversized",
+   "categoria_id": 284,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/363017/preview_bandle-tree-oversized-promos(2).jpg",
+   "cardmarket_id": 865821,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 363018,
+   "nome": "Worlds Bundle 2025 Deck box",
+   "versao": "",
+   "categoria_id": 267,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/363018/preview_worlds-bundle-2025-deck-box-promos.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 363019,
+   "nome": "Worlds Bundle 2025 Sleeves",
+   "versao": "",
+   "categoria_id": 266,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/363019/preview_worlds-bundle-2025-sleeves-promos.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 363136,
+   "nome": "Origins: Jinx Trial Deck",
+   "versao": "",
+   "categoria_id": 262,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/363136/preview_origins-jinx-trial-deck-promos-363136.jpg",
+   "cardmarket_id": 862849,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 363137,
+   "nome": "Origins: Viktor Trial Deck",
+   "versao": "",
+   "categoria_id": 262,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/363137/preview_origins-viktor-trial-deck-promos-363137.jpg",
+   "cardmarket_id": 862851,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 363138,
+   "nome": "Origins: Volibear Trial Deck",
+   "versao": "",
+   "categoria_id": 262,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/363138/preview_origins-volibear-trial-deck-promos-363138.jpg",
+   "cardmarket_id": 862850,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 363139,
+   "nome": "Origins: Yasuo Trial Deck",
+   "versao": "",
+   "categoria_id": 262,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/363139/preview_origins-yasuo-trial-deck-promos-363139.jpg",
+   "cardmarket_id": 862852,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 374737,
+   "nome": "2026 Silver Poro Coin",
+   "versao": "Lunar Revel 2026",
+   "categoria_id": 268,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/374737/preview_2026-silver-poro-coin-promos.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 374739,
+   "nome": "Lunar Revel 2026 Bundle",
+   "versao": "",
+   "categoria_id": 261,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/374739/preview_lunar-revel-bundle-promos.jpg",
+   "cardmarket_id": 873304,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 374740,
+   "nome": "70 \"Irelia - Blade Dancer\" Sleeves",
+   "versao": "Lunar Revel 2026",
+   "categoria_id": 266,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/374740/preview_70-irelia-blade-dancer-sleeves-lunar-revel-bundle-promos.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 374741,
+   "nome": "\"Irelia - Blade Dancer\" Playmat",
+   "versao": "Lunar Revel 2026",
+   "categoria_id": 264,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/374741/preview_irelia-blade-dancer-playmat-lunar-revel-bundle-promos.jpg",
+   "cardmarket_id": 873305,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 374742,
+   "nome": "2026 Gold Poro Coin",
+   "versao": "Lunar Revel 2026",
+   "categoria_id": 268,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/374742/preview_2026-gold-poro-coin-promos.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 379338,
+   "nome": "Replacement Card Booster",
+   "versao": "",
+   "categoria_id": 260,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/379338/preview_replacement-card-booster-promos.jpg",
+   "cardmarket_id": 877733,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 379341,
+   "nome": "Origins: Instant Match Box 2025",
+   "versao": "Tournament Gift Box",
+   "categoria_id": 263,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/379341/preview_origins-tournament-gift-box-promos.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 379342,
+   "nome": "Instant Match Box 2025 Die",
+   "versao": "",
+   "categoria_id": 206,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/379342/preview_instant-match-box-2025-die-promos.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 379343,
+   "nome": "50 \"Lee Sin - Spirit Blossom\" Sleeves",
+   "versao": "Chinese Exclusive | Instant Match Box 2025",
+   "categoria_id": 266,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/379343/preview_50-lee-sin-spirit-blossom-sleeves-chinese-exclusive-instant-match-box-2025-promos.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 379344,
+   "nome": "70 \"Miss Fortune - Buccaneer\" Sleeves",
+   "versao": "Chinese | 70 Sleeves",
+   "categoria_id": 266,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/379344/preview_70-miss-fortune-buccaneer-sleeves-chinese-70-sleeves-promos.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 379345,
+   "nome": "70 \"Kai'Sa - Evolutionary\" Sleeves",
+   "versao": "Chinese | 70 Sleeves",
+   "categoria_id": 266,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/379345/preview_70-kai-sa-evolutionary-sleeves-chinese-70-sleeves-promos.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 379346,
+   "nome": "70 \"Lee Sin - Ascetic\" Sleeves",
+   "versao": "Chinese | 70 Sleeves",
+   "categoria_id": 266,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/379346/preview_70-lee-sin-ascetic-sleeves-chinese-70-sleeves-promos.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 379347,
+   "nome": "Collectors Edition Deck Box",
+   "versao": "Chinese",
+   "categoria_id": 267,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/379347/preview_collectors-edition-deck-box-chinese-promos.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 379348,
+   "nome": "70 Collectors Edition Sleeves",
+   "versao": "Chinese | 70 Sleeves",
+   "categoria_id": 266,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/379348/preview_70-collectors-edition-sleeves-chinese-70-sleeves-promos.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 379349,
+   "nome": "9-Pocket \"Miss Fortune - Buccaneer\" Binder",
+   "versao": "",
+   "categoria_id": 265,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/379349/preview_9-pocket-miss-fortune-buccaneer-binder-promos.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 379350,
+   "nome": "9-Pocket \"Lee Sin - Ascetic\" Binder",
+   "versao": "",
+   "categoria_id": 265,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/379350/preview_9-pocket-lee-sin-ascetic-binder-promos.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 379351,
+   "nome": "9-Pocket \"Kai'Sa - Evolutionary\" Binder",
+   "versao": "",
+   "categoria_id": 265,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/379351/preview_9-pocket-kai-sa-evolutionary-binder-promos.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 379355,
+   "nome": "\"Miss Fortune - Buccaneer\" Deck Box",
+   "versao": "Chinese",
+   "categoria_id": 267,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/379355/preview_miss-fortune-buccaneer-deck-box-chinese-promos.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 379356,
+   "nome": "\"Kai'Sa - Evolutionary\" Deck Box",
+   "versao": "Chinese",
+   "categoria_id": 267,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/379356/preview_kai-sa-evolutionary-deck-box-chinese-promos.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 379357,
+   "nome": "\"Lee Sin - Ascetic\" Deck Box",
+   "versao": "Chinese",
+   "categoria_id": 267,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/379357/preview_lee-sin-ascetic-deck-box-chinese-promos.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 379358,
+   "nome": "\"Miss Fortune - Buccaneer\" Playmat",
+   "versao": "",
+   "categoria_id": 264,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/379358/preview_miss-fortune-buccaneer-playmat-promos.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 379359,
+   "nome": "\"Kai'Sa - Evolutionary\" Playmat",
+   "versao": "",
+   "categoria_id": 264,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/379359/preview_kai-sa-evolutionary-playmat-promos.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 379360,
+   "nome": "\"Lee Sin - Ascetic\" Playmat",
+   "versao": "",
+   "categoria_id": 264,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/379360/preview_lee-sin-ascetic-playmat-promos.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 383045,
+   "nome": "2025 Trial Deck Set Set",
+   "versao": "Set of 4 Decks | ©2025",
+   "categoria_id": 262,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/383045/preview_trial-deck-set-set-set-of-4-decks-2025-promos.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 383046,
+   "nome": "2024 Trial Deck Set Set",
+   "versao": "Set of 4 Decks | ©2024",
+   "categoria_id": 262,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/383046/preview_trial-deck-set-set-set-of-4-decks-2024-promos.webp",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 394809,
+   "nome": "\"Poppy - Defender of the Meek\" Playmat",
+   "versao": "Top Cuts",
+   "categoria_id": 264,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/394809/preview_394809-poppy-defender-of-the-meek-playmat-top-cuts-promos.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 402914,
+   "nome": "Secret Garden Bundle Box",
+   "versao": "",
+   "categoria_id": 263,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/402914/preview_402914-secret-garden-box-set-promos.jpg",
+   "cardmarket_id": 898213,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 404544,
+   "nome": "Gift of the Rift Bundle",
+   "versao": "",
+   "categoria_id": 261,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/404544/preview_404544-gift-of-the-rift-bundle-promos.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 404562,
+   "nome": "\"Lillia - Bashful Bloom\" Sleeves",
+   "versao": "Secret Garden",
+   "categoria_id": 266,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/404562/preview_404562-lillia-bashful-bloom-sleeves-secret-garden-promos.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 404563,
+   "nome": "\"Ivern - Green Father\" Sleeves",
+   "versao": "Secret Garden",
+   "categoria_id": 266,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/404563/preview_404563-ivern-green-father-sleeves-secret-garden-promos.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 408675,
+   "nome": "Mystic Vortex",
+   "versao": "Oversized",
+   "categoria_id": 284,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/408675/preview_408675-mystic-vortex-oversized-promos.jpg",
+   "cardmarket_id": 904182,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 408676,
+   "nome": "Sandswept Tomb",
+   "versao": "Oversized",
+   "categoria_id": 284,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/408676/preview_408676-sandswept-tomb-oversized-promos(2).jpg",
+   "cardmarket_id": 904181,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 408683,
+   "nome": "Dusk Rose Lab",
+   "versao": "Oversized",
+   "categoria_id": 284,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/408683/preview_408683-dusk-rose-lab-oversized-promos.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 408684,
+   "nome": "Ripper's Bay",
+   "versao": "Oversized",
+   "categoria_id": 284,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/408684/preview_408684-ripper-s-bay-oversized-promos.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 408685,
+   "nome": "Emperor's Dais",
+   "versao": "Oversized",
+   "categoria_id": 284,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/408685/preview_408685-emperor-s-dais-oversized-promos(2).jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 408686,
+   "nome": "Treasure Hoard",
+   "versao": "Oversized",
+   "categoria_id": 284,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/408686/preview_408686-treasure-hoard-oversized-promos(2).jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 408687,
+   "nome": "Immersive Arcane Promo Pack",
+   "versao": "Chinese Exclusive",
+   "categoria_id": 260,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/408687/preview_408687-immersive-arcane-promo-pack-chinese-exclusive-promos(2).jpg",
+   "cardmarket_id": 904521,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 412572,
+   "nome": "Vex & Shadow Sleeves",
+   "versao": "100 Sleeves",
+   "categoria_id": 266,
+   "edicao": "PROMO-RIFT",
+   "edicao_nome": "Promos",
+   "img": "https://cardtrader.com/uploads/blueprints/image/412572/preview_412572-unleashed-vex-shadow-sleeves-100-sleeves-unleashed.jpg",
+   "cardmarket_id": 905503,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 330887,
+   "nome": "Origins: Proving Grounds",
+   "versao": "",
+   "categoria_id": 263,
+   "edicao": "OGS",
+   "edicao_nome": "Origins Proving Grounds",
+   "img": "https://cardtrader.com/uploads/blueprints/image/330887/preview_origins-proving-grounds-promos(2).jpg",
+   "cardmarket_id": 845793,
+   "tcg_player_id": 635460
+  },
+  {
+   "blueprint_id": 359015,
+   "nome": "Origins Proving Grounds: \"Annie\" Double-Sided Acrylic Standee",
+   "versao": "",
+   "categoria_id": 268,
+   "edicao": "OGS",
+   "edicao_nome": "Origins Proving Grounds",
+   "img": "https://cardtrader.com/uploads/blueprints/image/359015/preview_origins-proving-grounds-annie-double-sided-acrylic-standee-origins-proving-grounds.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 359016,
+   "nome": "Origins Proving Grounds: \"Garen\" Double-Sided Acrylic Standee",
+   "versao": "",
+   "categoria_id": 268,
+   "edicao": "OGS",
+   "edicao_nome": "Origins Proving Grounds",
+   "img": "https://cardtrader.com/uploads/blueprints/image/359016/preview_origins-proving-grounds-garen-double-sided-acrylic-standee-origins-proving-grounds.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 359020,
+   "nome": "Origins Proving Grounds: \"Lux\" Double-Sided Acrylic Standee",
+   "versao": "",
+   "categoria_id": 268,
+   "edicao": "OGS",
+   "edicao_nome": "Origins Proving Grounds",
+   "img": "https://cardtrader.com/uploads/blueprints/image/359020/preview_origins-proving-grounds-lux-double-sided-acrylic-standee-origins-proving-grounds.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 359024,
+   "nome": "Origins Proving Grounds: \"Master Yi\" Double-Sided Acrylic Standee",
+   "versao": "",
+   "categoria_id": 268,
+   "edicao": "OGS",
+   "edicao_nome": "Origins Proving Grounds",
+   "img": "https://cardtrader.com/uploads/blueprints/image/359024/preview_origins-proving-grounds-master-yi-double-sided-acrylic-standee-origins-proving-grounds.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 359045,
+   "nome": "Origins Proving Grounds: \"Tibbers\" Cardboard Playmat",
+   "versao": "",
+   "categoria_id": 264,
+   "edicao": "OGS",
+   "edicao_nome": "Origins Proving Grounds",
+   "img": "https://cardtrader.com/uploads/blueprints/image/359045/preview_origins-proving-grounds-tibbers-cardboard-playmat-championship-promo.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 359051,
+   "nome": "Origins Proving Grounds: \"Master Yi - Honed\" Cardboard Playmat",
+   "versao": "",
+   "categoria_id": 264,
+   "edicao": "OGS",
+   "edicao_nome": "Origins Proving Grounds",
+   "img": "https://cardtrader.com/uploads/blueprints/image/359051/preview_origins-proving-grounds-master-yi-honed-cardboard-playmat-championship-promo(2).jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 359053,
+   "nome": "Origins Proving Grounds: \"Garen - Commander\" Cardboard Playmat",
+   "versao": "",
+   "categoria_id": 264,
+   "edicao": "OGS",
+   "edicao_nome": "Origins Proving Grounds",
+   "img": "https://cardtrader.com/uploads/blueprints/image/359053/preview_origins-proving-grounds-garen-commander-cardboard-playmat-championship-promo.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 359059,
+   "nome": "Origins Proving Grounds: \"Lux - Illuminated\" Cardboard Playmat",
+   "versao": "",
+   "categoria_id": 264,
+   "edicao": "OGS",
+   "edicao_nome": "Origins Proving Grounds",
+   "img": "https://cardtrader.com/uploads/blueprints/image/359059/preview_origins-proving-grounds-lux-illuminated-cardboard-playmat-championship-promo.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 359062,
+   "nome": "Fortified Position",
+   "versao": "Oversized",
+   "categoria_id": 284,
+   "edicao": "OGS",
+   "edicao_nome": "Origins Proving Grounds",
+   "img": "https://cardtrader.com/uploads/blueprints/image/359062/preview_fortified-position-oversized-origins-proving-grounds.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": 664567
+  },
+  {
+   "blueprint_id": 359063,
+   "nome": "Startipped Peak",
+   "versao": "Oversized",
+   "categoria_id": 284,
+   "edicao": "OGS",
+   "edicao_nome": "Origins Proving Grounds",
+   "img": "https://cardtrader.com/uploads/blueprints/image/359063/preview_startipped-peak-oversized-origins-proving-grounds.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": 664569
+  },
+  {
+   "blueprint_id": 359064,
+   "nome": "Trifarian War Camp",
+   "versao": "Oversized",
+   "categoria_id": 284,
+   "edicao": "OGS",
+   "edicao_nome": "Origins Proving Grounds",
+   "img": "https://cardtrader.com/uploads/blueprints/image/359064/preview_trifarian-war-camp-oversized-origins-proving-grounds.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": 664570
+  },
+  {
+   "blueprint_id": 359065,
+   "nome": "Void Gate",
+   "versao": "Oversized",
+   "categoria_id": 284,
+   "edicao": "OGS",
+   "edicao_nome": "Origins Proving Grounds",
+   "img": "https://cardtrader.com/uploads/blueprints/image/359065/preview_void-gate-oversized-origins-proving-grounds.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": 664571
+  },
+  {
+   "blueprint_id": 375498,
+   "nome": "Tournament Gift Box",
+   "versao": "",
+   "categoria_id": 261,
+   "edicao": "OP",
+   "edicao_nome": "Organized Play",
+   "img": "https://cardtrader.com/uploads/blueprints/image/375498/preview_tournament-gift-box-organized-play.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 330876,
+   "nome": "Arcane Chinese Promo Set",
+   "versao": "",
+   "categoria_id": 263,
+   "edicao": "ARC",
+   "edicao_nome": "Arcane",
+   "img": "https://cardtrader.com/uploads/blueprints/image/330876/preview_arcane-chinese-promo-set-promos.jpg",
+   "cardmarket_id": 873075,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 349090,
+   "nome": "Arcane Box Set",
+   "versao": "6 Card Set",
+   "categoria_id": 263,
+   "edicao": "ARC",
+   "edicao_nome": "Arcane",
+   "img": "https://cardtrader.com/uploads/blueprints/image/349090/preview_arcane-box-set-6-card-set-arcane.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 349091,
+   "nome": "Arcane Complete Set",
+   "versao": "6 Card Set",
+   "categoria_id": 283,
+   "edicao": "ARC",
+   "edicao_nome": "Arcane",
+   "img": "https://cardtrader.com/uploads/blueprints/image/349091/preview_arcane-complete-set-6-card-set-arcane.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 346723,
+   "nome": "Spiritforged Booster",
+   "versao": "",
+   "categoria_id": 260,
+   "edicao": "SFD",
+   "edicao_nome": "Spiritforged",
+   "img": "https://cardtrader.com/uploads/blueprints/image/346723/preview_spiritforged-booster-spiritforged.jpg",
+   "cardmarket_id": 860999,
+   "tcg_player_id": 661954
+  },
+  {
+   "blueprint_id": 346724,
+   "nome": "Spiritforged Booster Box",
+   "versao": "",
+   "categoria_id": 259,
+   "edicao": "SFD",
+   "edicao_nome": "Spiritforged",
+   "img": "https://cardtrader.com/uploads/blueprints/image/346724/preview_spiritforged-booster-box-spiritforged.jpg",
+   "cardmarket_id": 860997,
+   "tcg_player_id": 661934
+  },
+  {
+   "blueprint_id": 346725,
+   "nome": "Spiritforged: \"Fiora\" Champion Deck",
+   "versao": "",
+   "categoria_id": 262,
+   "edicao": "SFD",
+   "edicao_nome": "Spiritforged",
+   "img": "https://cardtrader.com/uploads/blueprints/image/346725/preview_spiritforged-fiora-champion-deck-spiritforged.jpg",
+   "cardmarket_id": 861001,
+   "tcg_player_id": 661942
+  },
+  {
+   "blueprint_id": 346726,
+   "nome": "Spiritforged: \"Rumble\" Champion Deck",
+   "versao": "",
+   "categoria_id": 262,
+   "edicao": "SFD",
+   "edicao_nome": "Spiritforged",
+   "img": "https://cardtrader.com/uploads/blueprints/image/346726/preview_spiritforged-rumble-champion-deck-spiritforged.jpg",
+   "cardmarket_id": 861000,
+   "tcg_player_id": 661939
+  },
+  {
+   "blueprint_id": 357555,
+   "nome": "Spiritforged Pre-Rift Kit",
+   "versao": "",
+   "categoria_id": 261,
+   "edicao": "SFD",
+   "edicao_nome": "Spiritforged",
+   "img": "https://cardtrader.com/uploads/blueprints/image/357555/preview_spiritforged-pre-rift-kit-spiritforged.jpg",
+   "cardmarket_id": 871891,
+   "tcg_player_id": 679041
+  },
+  {
+   "blueprint_id": 361488,
+   "nome": "Spiritforged Booster Box Case",
+   "versao": "x6 Booster Boxes",
+   "categoria_id": 263,
+   "edicao": "SFD",
+   "edicao_nome": "Spiritforged",
+   "img": "https://cardtrader.com/uploads/blueprints/image/361488/preview_spiritforged-booster-box-case-x6-booster-boxes-spiritforged.jpg",
+   "cardmarket_id": 860998,
+   "tcg_player_id": 661937
+  },
+  {
+   "blueprint_id": 363126,
+   "nome": "Spiritforged Slim Booster Box",
+   "versao": "",
+   "categoria_id": 259,
+   "edicao": "SFD",
+   "edicao_nome": "Spiritforged",
+   "img": "https://cardtrader.com/uploads/blueprints/image/363126/preview_spiritforged-slim-booster-box-spiritforged.jpg",
+   "cardmarket_id": 864143,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 372417,
+   "nome": "Teemo - Strategist Sleeves",
+   "versao": "100 Sleeves",
+   "categoria_id": 266,
+   "edicao": "SFD",
+   "edicao_nome": "Spiritforged",
+   "img": "https://cardtrader.com/uploads/blueprints/image/372417/preview_teemo-strategist-sleeves-100-sleeves-spiritforged.jpg",
+   "cardmarket_id": 871899,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 372418,
+   "nome": "Ahri- Inquisitive Sleeves",
+   "versao": "100 Sleeves",
+   "categoria_id": 266,
+   "edicao": "SFD",
+   "edicao_nome": "Spiritforged",
+   "img": "https://cardtrader.com/uploads/blueprints/image/372418/preview_ahri-inquisitive-sleeves-100-sleeves-spiritforged.jpg",
+   "cardmarket_id": 871901,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 372419,
+   "nome": "Irelia - Fervent Sleeves",
+   "versao": "100 Sleeves",
+   "categoria_id": 266,
+   "edicao": "SFD",
+   "edicao_nome": "Spiritforged",
+   "img": "https://cardtrader.com/uploads/blueprints/image/372419/preview_irelia-fervent-sleeves-100-sleeves-spiritforged.jpg",
+   "cardmarket_id": 871902,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 372420,
+   "nome": "Darius - Executioner Sleeves",
+   "versao": "100 Sleeves",
+   "categoria_id": 266,
+   "edicao": "SFD",
+   "edicao_nome": "Spiritforged",
+   "img": "https://cardtrader.com/uploads/blueprints/image/372420/preview_darius-executioner-sleeves-100-sleeves-spiritforged.jpg",
+   "cardmarket_id": 871903,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 372421,
+   "nome": "Ahri - Inquisitive Playmat",
+   "versao": "",
+   "categoria_id": 264,
+   "edicao": "SFD",
+   "edicao_nome": "Spiritforged",
+   "img": "https://cardtrader.com/uploads/blueprints/image/372421/preview_ahri-inquisitive-playmat-spiritforged.jpg",
+   "cardmarket_id": 871905,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 372422,
+   "nome": "Irelia - Fervent Playmat",
+   "versao": "",
+   "categoria_id": 264,
+   "edicao": "SFD",
+   "edicao_nome": "Spiritforged",
+   "img": "https://cardtrader.com/uploads/blueprints/image/372422/preview_irelia-fervent-playmat-spiritforged.jpg",
+   "cardmarket_id": 871906,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 372423,
+   "nome": "Darius - Executioner Playmat",
+   "versao": "",
+   "categoria_id": 264,
+   "edicao": "SFD",
+   "edicao_nome": "Spiritforged",
+   "img": "https://cardtrader.com/uploads/blueprints/image/372423/preview_darius-executioner-playmat-spiritforged.jpg",
+   "cardmarket_id": 871907,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 372438,
+   "nome": "Spiritforged Bulk Runes",
+   "versao": "",
+   "categoria_id": 263,
+   "edicao": "SFD",
+   "edicao_nome": "Spiritforged",
+   "img": "https://cardtrader.com/uploads/blueprints/image/372438/preview_spiritforged-bulk-runes-spiritforged.jpg",
+   "cardmarket_id": 873123,
+   "tcg_player_id": 678130
+  },
+  {
+   "blueprint_id": 374694,
+   "nome": "Spiritforged Slim Booster",
+   "versao": "",
+   "categoria_id": 260,
+   "edicao": "SFD",
+   "edicao_nome": "Spiritforged",
+   "img": "https://cardtrader.com/uploads/blueprints/image/374694/preview_spiritforged-slim-booster-spiritforged.jpg",
+   "cardmarket_id": 866423,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 374734,
+   "nome": "Spiritforged | Nexus Night Promo Booster",
+   "versao": "",
+   "categoria_id": 260,
+   "edicao": "SFD",
+   "edicao_nome": "Spiritforged",
+   "img": "https://cardtrader.com/uploads/blueprints/image/374734/preview_spiritforged-nexus-night-promo-booster-spiritforged.jpg",
+   "cardmarket_id": 872892,
+   "tcg_player_id": 680454
+  },
+  {
+   "blueprint_id": 379352,
+   "nome": "Spiritforged Classic Series Deck Box",
+   "versao": "Chinese",
+   "categoria_id": 267,
+   "edicao": "SFD",
+   "edicao_nome": "Spiritforged",
+   "img": "https://cardtrader.com/uploads/blueprints/image/379352/preview_spiritforged-classic-series-deck-box-chinese-spiritforged.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 379353,
+   "nome": "Spiritforged Classic Series 9-Pocket Binder",
+   "versao": "",
+   "categoria_id": 265,
+   "edicao": "SFD",
+   "edicao_nome": "Spiritforged",
+   "img": "https://cardtrader.com/uploads/blueprints/image/379353/preview_spiritforged-classic-series-9-pocket-binder-spiritforged.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 379354,
+   "nome": "Spiritforged Classic Series Sleeves",
+   "versao": "Chinese | 70 Sleeves",
+   "categoria_id": 266,
+   "edicao": "SFD",
+   "edicao_nome": "Spiritforged",
+   "img": "https://cardtrader.com/uploads/blueprints/image/379354/preview_spiritforged-classic-series-sleeves-chinese-70-sleeves-spiritforged.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 379361,
+   "nome": "Spiritforged: 9-Pocket \"Irelia - Graceful\" Binder",
+   "versao": "",
+   "categoria_id": 265,
+   "edicao": "SFD",
+   "edicao_nome": "Spiritforged",
+   "img": "https://cardtrader.com/uploads/blueprints/image/379361/preview_spiritforged-irelia-graceful-playmat-spiritforged.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 379362,
+   "nome": "Spiritforged: 9-Pocket \"Fiora - Worthy\" Binder",
+   "versao": "",
+   "categoria_id": 265,
+   "edicao": "SFD",
+   "edicao_nome": "Spiritforged",
+   "img": "https://cardtrader.com/uploads/blueprints/image/379362/preview_spiritforged-fiora-worthy-9-pocket-binder-spiritforged.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 379363,
+   "nome": "Spiritforged: \"Irelia - Graceful\" Playmat",
+   "versao": "",
+   "categoria_id": 264,
+   "edicao": "SFD",
+   "edicao_nome": "Spiritforged",
+   "img": "https://cardtrader.com/uploads/blueprints/image/379363/preview_spiritforged-irelia-graceful-playmat-spiritforged.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 379364,
+   "nome": "Spiritforged: \"Fiora - Worthy\" Playmat",
+   "versao": "",
+   "categoria_id": 264,
+   "edicao": "SFD",
+   "edicao_nome": "Spiritforged",
+   "img": "https://cardtrader.com/uploads/blueprints/image/379364/preview_spiritforged-fiora-worthy-playmat-spiritforged.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 379365,
+   "nome": "70 \"Irelia - Graceful\" Sleeves",
+   "versao": "Chinese | 70 Sleeves",
+   "categoria_id": 266,
+   "edicao": "SFD",
+   "edicao_nome": "Spiritforged",
+   "img": "https://cardtrader.com/uploads/blueprints/image/379365/preview_70-irelia-graceful-sleeves-chinese-70-sleeves-spiritforged.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 379366,
+   "nome": "70 \"Fiora - Worthy\" Sleeves",
+   "versao": "Chinese | 70 Sleeves",
+   "categoria_id": 266,
+   "edicao": "SFD",
+   "edicao_nome": "Spiritforged",
+   "img": "https://cardtrader.com/uploads/blueprints/image/379366/preview_70-fiora-worthy-sleeves-chinese-70-sleeves-spiritforged.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 379367,
+   "nome": "\"Irelia - Graceful\" & \"Fiora - Worthy\" Deck Box",
+   "versao": "Chinese",
+   "categoria_id": 267,
+   "edicao": "SFD",
+   "edicao_nome": "Spiritforged",
+   "img": "https://cardtrader.com/uploads/blueprints/image/379367/preview_irelia-graceful-fiora-worthy-deck-box-chinese-spiritforged.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 379370,
+   "nome": "Spiritforged: 9-Pocket \"Ezreal - Dashing\" Binder",
+   "versao": "",
+   "categoria_id": 265,
+   "edicao": "SFD",
+   "edicao_nome": "Spiritforged",
+   "img": "https://cardtrader.com/uploads/blueprints/image/379370/preview_spiritforged-9-pocket-ezreal-dashing-binder-spiritforged.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 379372,
+   "nome": "\"Ezreal - Dashing\" Playmat",
+   "versao": "",
+   "categoria_id": 264,
+   "edicao": "SFD",
+   "edicao_nome": "Spiritforged",
+   "img": "https://cardtrader.com/uploads/blueprints/image/379372/preview_ezreal-dashing-playmat-spiritforged.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 355467,
+   "nome": "\"Miss Fortune - Buccaneer\" Playmat",
+   "versao": "Champion Prize",
+   "categoria_id": 264,
+   "edicao": "RIFT-CHAMP",
+   "edicao_nome": "Championship Promo",
+   "img": "https://cardtrader.com/uploads/blueprints/image/355467/preview_miss-fortune-buccaneer-playmat-champion-prize-championship-promo.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 379368,
+   "nome": "\"Edge of Night\" Playmat",
+   "versao": "Champion Prize",
+   "categoria_id": 264,
+   "edicao": "RIFT-CHAMP",
+   "edicao_nome": "Championship Promo",
+   "img": "https://cardtrader.com/uploads/blueprints/image/379368/preview_edge-of-night-playmat-champion-prize-championship-promo.jpg",
+   "cardmarket_id": 878254,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 379369,
+   "nome": "\"Yone - Blademaster\" Playmat",
+   "versao": "Champion Prize | Chinese",
+   "categoria_id": 264,
+   "edicao": "RIFT-CHAMP",
+   "edicao_nome": "Championship Promo",
+   "img": "https://cardtrader.com/uploads/blueprints/image/379369/preview_yone-spirit-blossom-playmat-champion-prize-championship-promo.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 380863,
+   "nome": "\"World Atlas\" Playmat",
+   "versao": "Champion Prize",
+   "categoria_id": 264,
+   "edicao": "RIFT-CHAMP",
+   "edicao_nome": "Championship Promo",
+   "img": "https://cardtrader.com/uploads/blueprints/image/380863/preview_world-atlas-playmat-champion-prize-championship-promo.jpg",
+   "cardmarket_id": 878255,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 394808,
+   "nome": "\"Lillia - Protector of Dreams\" Playmat",
+   "versao": "Champion Prize",
+   "categoria_id": 264,
+   "edicao": "RIFT-CHAMP",
+   "edicao_nome": "Championship Promo",
+   "img": "https://cardtrader.com/uploads/blueprints/image/394808/preview_394808-lillia-protector-of-dreams-playmat-champion-prize-championship-promo.jpg",
+   "cardmarket_id": 890064,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 394810,
+   "nome": "\"Poppy - Defender of the Meek\" Playmat",
+   "versao": "Champion Prize",
+   "categoria_id": 264,
+   "edicao": "RIFT-CHAMP",
+   "edicao_nome": "Championship Promo",
+   "img": "https://cardtrader.com/uploads/blueprints/image/394810/preview_394810-poppy-defender-of-the-meek-playmat-champion-prize-championship-promo.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 402940,
+   "nome": "\"Kayle - Justified\" Playmat",
+   "versao": "Champion Prize",
+   "categoria_id": 264,
+   "edicao": "RIFT-CHAMP",
+   "edicao_nome": "Championship Promo",
+   "img": "https://cardtrader.com/uploads/blueprints/image/402940/preview_402940-kayle-justified-playmat-champion-prize-championship-promo.jpg",
+   "cardmarket_id": 905977,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 406633,
+   "nome": "\"Lux - Crownguard\" Playmat",
+   "versao": "Top 128",
+   "categoria_id": 264,
+   "edicao": "RIFT-CHAMP",
+   "edicao_nome": "Championship Promo",
+   "img": "https://cardtrader.com/uploads/blueprints/image/406633/preview_406633-lux-crownguard-playmat-top-128-championship-promo.jpg",
+   "cardmarket_id": 905907,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 406635,
+   "nome": "\"Jayce - Brilliant Inventor\" Playmat",
+   "versao": "Top Cuts",
+   "categoria_id": 264,
+   "edicao": "RIFT-CHAMP",
+   "edicao_nome": "Championship Promo",
+   "img": "https://cardtrader.com/uploads/blueprints/image/406635/preview_406635-jayce-brilliant-inventor-playmat-top-cuts-championship-promo(2).jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 406636,
+   "nome": "\"Jayce - Brilliant Inventor\" Playmat",
+   "versao": "Champion",
+   "categoria_id": 264,
+   "edicao": "RIFT-CHAMP",
+   "edicao_nome": "Championship Promo",
+   "img": "https://cardtrader.com/uploads/blueprints/image/406636/preview_406636-jayce-brilliant-inventor-playmat-champion-championship-promo(2).jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 408592,
+   "nome": "\"Illaoi x Gangplank\" Playmat",
+   "versao": "GenCon Exclusive",
+   "categoria_id": 264,
+   "edicao": "RIFT-CHAMP",
+   "edicao_nome": "Championship Promo",
+   "img": "https://cardtrader.com/uploads/blueprints/image/408592/preview_408592-illaoi-x-gangplank-playmat-gencon-exclusive-championship-promo.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 408603,
+   "nome": "\"Illaoi - Prophet of the Great Kraken\" Champion Playmat",
+   "versao": "",
+   "categoria_id": 264,
+   "edicao": "RIFT-CHAMP",
+   "edicao_nome": "Championship Promo",
+   "img": "https://cardtrader.com/uploads/blueprints/image/408603/preview_408603-illaoi-prophet-of-the-great-kraken-champion-playmat-championship-promo.jpg",
+   "cardmarket_id": 904283,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 408612,
+   "nome": "\"K'Sante - Courageous\" Playmat",
+   "versao": "Top Cuts",
+   "categoria_id": 264,
+   "edicao": "RIFT-CHAMP",
+   "edicao_nome": "Championship Promo",
+   "img": "https://cardtrader.com/uploads/blueprints/image/408612/preview_408612-k-sante-courageous-playmat-top-cuts-vendetta.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 408617,
+   "nome": "\"Vex - Gloomist\" Playmat",
+   "versao": "Top 128",
+   "categoria_id": 264,
+   "edicao": "RIFT-CHAMP",
+   "edicao_nome": "Championship Promo",
+   "img": "https://cardtrader.com/uploads/blueprints/image/408617/preview_408617-vex-gloomist-playmat-top-128-championship-promo.jpg",
+   "cardmarket_id": 906839,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 408705,
+   "nome": "\"Sett - Brawler\" Premium Playmat",
+   "versao": "Crystal Rose Alternate Art",
+   "categoria_id": 264,
+   "edicao": "RIFT-CHAMP",
+   "edicao_nome": "Championship Promo",
+   "img": "https://cardtrader.com/uploads/blueprints/image/408705/preview_408705-sett-brawler-premium-playmat-crystal-rose-alternate-art-championship-promo.jpg",
+   "cardmarket_id": 904430,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 408706,
+   "nome": "\"Ahri - Inquisitive\" Premium Playmat",
+   "versao": "Crystal Rose Alternate Art",
+   "categoria_id": 264,
+   "edicao": "RIFT-CHAMP",
+   "edicao_nome": "Championship Promo",
+   "img": "https://cardtrader.com/uploads/blueprints/image/408706/preview_408706-ahri-inquisitive-premium-playmat-crystal-rose-alternate-art-championship-promo.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 408935,
+   "nome": "\"Treasure Hoard\" Playmat",
+   "versao": "Battlefield Boss",
+   "categoria_id": 264,
+   "edicao": "RIFT-CHAMP",
+   "edicao_nome": "Championship Promo",
+   "img": "https://cardtrader.com/uploads/blueprints/image/408935/preview_408935-treasure-hoard-playmat-boss-tournament-championship-promo.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 408936,
+   "nome": "\"Amateur Recital\" Playmat",
+   "versao": "Battlefield Boss",
+   "categoria_id": 264,
+   "edicao": "RIFT-CHAMP",
+   "edicao_nome": "Championship Promo",
+   "img": "https://cardtrader.com/uploads/blueprints/image/408936/preview_408936-amateur-recital-playmat-boss-tournament-championship-promo.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 363127,
+   "nome": "Unleashed Booster Box",
+   "versao": "",
+   "categoria_id": 259,
+   "edicao": "UNL",
+   "edicao_nome": "Unleashed",
+   "img": "https://cardtrader.com/uploads/blueprints/image/363127/preview_unleashed-booster-box-unleashed-363127.jpg",
+   "cardmarket_id": 872923,
+   "tcg_player_id": 678150
+  },
+  {
+   "blueprint_id": 363128,
+   "nome": "Unleashed Booster Box Case",
+   "versao": "x6 Booster Boxes",
+   "categoria_id": 263,
+   "edicao": "UNL",
+   "edicao_nome": "Unleashed",
+   "img": "https://cardtrader.com/uploads/blueprints/image/363128/preview_unleashed-booster-box-case-x6-booster-boxes-unleashed.jpg",
+   "cardmarket_id": 879290,
+   "tcg_player_id": 678152
+  },
+  {
+   "blueprint_id": 363129,
+   "nome": "Unleashed Booster",
+   "versao": "",
+   "categoria_id": 260,
+   "edicao": "UNL",
+   "edicao_nome": "Unleashed",
+   "img": "https://cardtrader.com/uploads/blueprints/image/363129/preview_unleashed-booster-unleashed-363129(2).jpg",
+   "cardmarket_id": 872949,
+   "tcg_player_id": 678149
+  },
+  {
+   "blueprint_id": 363130,
+   "nome": "Unleashed: \"Vi\" Champion Deck",
+   "versao": "",
+   "categoria_id": 262,
+   "edicao": "UNL",
+   "edicao_nome": "Unleashed",
+   "img": "https://cardtrader.com/uploads/blueprints/image/363130/preview_unleashed-vi-champion-deck-unleashed.jpg",
+   "cardmarket_id": 877275,
+   "tcg_player_id": 678157
+  },
+  {
+   "blueprint_id": 363131,
+   "nome": "Unleashed: \"Vex\" Champion Deck",
+   "versao": "",
+   "categoria_id": 262,
+   "edicao": "UNL",
+   "edicao_nome": "Unleashed",
+   "img": "https://cardtrader.com/uploads/blueprints/image/363131/preview_unleashed-vex-champion-deck-unleashed.jpg",
+   "cardmarket_id": 877298,
+   "tcg_player_id": 678155
+  },
+  {
+   "blueprint_id": 363132,
+   "nome": "Unleashed Sleeved Booster",
+   "versao": "",
+   "categoria_id": 260,
+   "edicao": "UNL",
+   "edicao_nome": "Unleashed",
+   "img": "https://cardtrader.com/uploads/blueprints/image/363132/preview_unleashed-sleeved-booster-unleashed.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 363133,
+   "nome": "Unleashed Pre-Rift Kit",
+   "versao": "",
+   "categoria_id": 261,
+   "edicao": "UNL",
+   "edicao_nome": "Unleashed",
+   "img": "https://cardtrader.com/uploads/blueprints/image/363133/preview_unleashed-pre-rift-kit-unleashed.jpg",
+   "cardmarket_id": 872934,
+   "tcg_player_id": 678898
+  },
+  {
+   "blueprint_id": 363134,
+   "nome": "Unleashed Vault",
+   "versao": "",
+   "categoria_id": 261,
+   "edicao": "UNL",
+   "edicao_nome": "Unleashed",
+   "img": "https://cardtrader.com/uploads/blueprints/image/363134/preview_unleashed-vault-unleashed.jpg",
+   "cardmarket_id": 877300,
+   "tcg_player_id": 678162
+  },
+  {
+   "blueprint_id": 380641,
+   "nome": "Unleashed: Poro Scene Set",
+   "versao": "6 Card Set",
+   "categoria_id": 283,
+   "edicao": "UNL",
+   "edicao_nome": "Unleashed",
+   "img": "https://cardtrader.com/uploads/blueprints/image/380641/preview_unleashed-poro-scene-set-6-card-set-unleashed.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 388487,
+   "nome": "Unleashed Slim Booster Box",
+   "versao": "",
+   "categoria_id": 259,
+   "edicao": "UNL",
+   "edicao_nome": "Unleashed",
+   "img": "https://cardtrader.com/uploads/blueprints/image/388487/preview_unleashed-slim-booster-box-unleashed.jpg",
+   "cardmarket_id": 884446,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 388488,
+   "nome": "Unleashed Slim Booster",
+   "versao": "",
+   "categoria_id": 260,
+   "edicao": "UNL",
+   "edicao_nome": "Unleashed",
+   "img": "https://cardtrader.com/uploads/blueprints/image/388488/preview_unleashed-slim-booster-unleashed.jpg",
+   "cardmarket_id": 884448,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 389903,
+   "nome": "Unleashed | Nexus Night Promo Booster",
+   "versao": "",
+   "categoria_id": 260,
+   "edicao": "UNL",
+   "edicao_nome": "Unleashed",
+   "img": "https://cardtrader.com/uploads/blueprints/image/389903/preview_389903-unleashed-nexus-night-promo-booster-unleashed.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 395458,
+   "nome": "\"Master Yi - Wuju Master\" Playmat",
+   "versao": "",
+   "categoria_id": 264,
+   "edicao": "UNL",
+   "edicao_nome": "Unleashed",
+   "img": "https://cardtrader.com/uploads/blueprints/image/395458/preview_395458-master-yi-wuju-master-playmat-unleashed(2).jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 395459,
+   "nome": "\"Poppy - Keeper of the Hammer\" Playmat",
+   "versao": "",
+   "categoria_id": 264,
+   "edicao": "UNL",
+   "edicao_nome": "Unleashed",
+   "img": "https://cardtrader.com/uploads/blueprints/image/395459/preview_395459-poppy-keeper-of-the-hammer-playmat-unleashed.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 395460,
+   "nome": "\"Vi - Piltover Enforcer\" Playmat",
+   "versao": "",
+   "categoria_id": 264,
+   "edicao": "UNL",
+   "edicao_nome": "Unleashed",
+   "img": "https://cardtrader.com/uploads/blueprints/image/395460/preview_395460-vi-piltover-enforcer-playmat-unleashed.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 395461,
+   "nome": "\"LeBlanc - Deceiver\" Playmat",
+   "versao": "",
+   "categoria_id": 264,
+   "edicao": "UNL",
+   "edicao_nome": "Unleashed",
+   "img": "https://cardtrader.com/uploads/blueprints/image/395461/preview_395461-leblanc-deceiver-playmat-unleashed.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 395462,
+   "nome": "Unleashed: \"LeBlanc - Deceiver\" Art Sleeves",
+   "versao": "100 Sleeves",
+   "categoria_id": 266,
+   "edicao": "UNL",
+   "edicao_nome": "Unleashed",
+   "img": "https://cardtrader.com/uploads/blueprints/image/395462/preview_395462-unleashed-leblanc-deceiver-art-sleeves-100-sleeves-unleashed(2).jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 395463,
+   "nome": "Unleashed: \"Vi - Piltover Enforcer\" Art Sleeves",
+   "versao": "100 Sleeves",
+   "categoria_id": 266,
+   "edicao": "UNL",
+   "edicao_nome": "Unleashed",
+   "img": "https://cardtrader.com/uploads/blueprints/image/395463/preview_395463-unleashed-vi-piltover-enforcer-art-sleeves-100-sleeves-unleashed(2).jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 395464,
+   "nome": "Unleashed: \"Poppy - Keeper of the Hammer\" Art Sleeves",
+   "versao": "100 Sleeves",
+   "categoria_id": 266,
+   "edicao": "UNL",
+   "edicao_nome": "Unleashed",
+   "img": "https://cardtrader.com/uploads/blueprints/image/395464/preview_395464-unleashed-poppy-keeper-of-the-hammer-art-sleeves-100-sleeves-unleashed(2).jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 395465,
+   "nome": "Unleashed: \"Master Yi - Wuju Master\" Art Sleeves",
+   "versao": "100 Sleeves",
+   "categoria_id": 266,
+   "edicao": "UNL",
+   "edicao_nome": "Unleashed",
+   "img": "https://cardtrader.com/uploads/blueprints/image/395465/preview_395465-unleashed-master-yi-wuju-master-art-sleeves-100-sleeves-unleashed(2).jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 374963,
+   "nome": "Vendetta Booster Box",
+   "versao": "",
+   "categoria_id": 259,
+   "edicao": "VEN",
+   "edicao_nome": "Vendetta",
+   "img": "https://cardtrader.com/uploads/blueprints/image/374963/preview_vendetta-booster-box-vendetta(2).jpg",
+   "cardmarket_id": 888358,
+   "tcg_player_id": 693380
+  },
+  {
+   "blueprint_id": 374964,
+   "nome": "Vendetta Booster Box Case",
+   "versao": "x6 Booster Boxes",
+   "categoria_id": 263,
+   "edicao": "VEN",
+   "edicao_nome": "Vendetta",
+   "img": "https://cardtrader.com/uploads/blueprints/image/374964/preview_vendetta-booster-box-case-x6-booster-boxes-vendetta(2).jpg",
+   "cardmarket_id": 888359,
+   "tcg_player_id": 693382
+  },
+  {
+   "blueprint_id": 379017,
+   "nome": "Vendetta Booster",
+   "versao": "",
+   "categoria_id": 260,
+   "edicao": "VEN",
+   "edicao_nome": "Vendetta",
+   "img": "https://cardtrader.com/uploads/blueprints/image/379017/preview_vendetta-booster-vendetta.jpg",
+   "cardmarket_id": 888357,
+   "tcg_player_id": 693377
+  },
+  {
+   "blueprint_id": 379018,
+   "nome": "Vendetta Vault",
+   "versao": "",
+   "categoria_id": 261,
+   "edicao": "VEN",
+   "edicao_nome": "Vendetta",
+   "img": "https://cardtrader.com/uploads/blueprints/image/379018/preview_vendetta-vault-vendetta.jpg",
+   "cardmarket_id": 888355,
+   "tcg_player_id": 697970
+  },
+  {
+   "blueprint_id": 379019,
+   "nome": "Vendetta: \"Zed vs Shen\" Showdown Deck",
+   "versao": "",
+   "categoria_id": 262,
+   "edicao": "VEN",
+   "edicao_nome": "Vendetta",
+   "img": "https://cardtrader.com/uploads/blueprints/image/379019/preview_vendetta-zed-vs-shen-showdown-deck-vendetta(2).jpg",
+   "cardmarket_id": 888360,
+   "tcg_player_id": 697971
+  },
+  {
+   "blueprint_id": 379020,
+   "nome": "Vendetta Pre-Rift Kit",
+   "versao": "",
+   "categoria_id": 261,
+   "edicao": "VEN",
+   "edicao_nome": "Vendetta",
+   "img": "https://cardtrader.com/uploads/blueprints/image/379020/preview_vendetta-pre-rift-kit-vendetta.jpg",
+   "cardmarket_id": 888354,
+   "tcg_player_id": 697969
+  },
+  {
+   "blueprint_id": 403205,
+   "nome": "Vendetta: Vi vs Jinx Sleeves",
+   "versao": "100 Sleeves",
+   "categoria_id": 266,
+   "edicao": "VEN",
+   "edicao_nome": "Vendetta",
+   "img": "https://cardtrader.com/uploads/blueprints/image/403205/preview_403205-vendetta-vi-vs-jinx-sleeves-100-sleeves-vendetta.jpg",
+   "cardmarket_id": 899570,
+   "tcg_player_id": 709025
+  },
+  {
+   "blueprint_id": 403206,
+   "nome": "Vendetta: Jayce vs Viktor Sleeves",
+   "versao": "100 Sleeves",
+   "categoria_id": 266,
+   "edicao": "VEN",
+   "edicao_nome": "Vendetta",
+   "img": "https://cardtrader.com/uploads/blueprints/image/403206/preview_403206-vendetta-jayce-vs-viktor-sleeves-100-sleeves-vendetta.jpg",
+   "cardmarket_id": 899571,
+   "tcg_player_id": 709026
+  },
+  {
+   "blueprint_id": 403207,
+   "nome": "Vendetta: Diana vs Leona Sleeves",
+   "versao": "100 Sleeves",
+   "categoria_id": 266,
+   "edicao": "VEN",
+   "edicao_nome": "Vendetta",
+   "img": "https://cardtrader.com/uploads/blueprints/image/403207/preview_403207-vendetta-diana-vs-leona-sleeves-100-sleeves-vendetta.jpg",
+   "cardmarket_id": 899572,
+   "tcg_player_id": 709027
+  },
+  {
+   "blueprint_id": 403208,
+   "nome": "Vendetta: Kayle vs Morgana Sleeves",
+   "versao": "100 Sleeves",
+   "categoria_id": 266,
+   "edicao": "VEN",
+   "edicao_nome": "Vendetta",
+   "img": "https://cardtrader.com/uploads/blueprints/image/403208/preview_403208-vendetta-kayle-vs-morgana-sleeves-100-sleeves-vendetta.jpg",
+   "cardmarket_id": 899573,
+   "tcg_player_id": 709028
+  },
+  {
+   "blueprint_id": 403209,
+   "nome": "Vendetta: Diana vs Leona Playmat",
+   "versao": "",
+   "categoria_id": 264,
+   "edicao": "VEN",
+   "edicao_nome": "Vendetta",
+   "img": "https://cardtrader.com/uploads/blueprints/image/403209/preview_403209-vendetta-diana-vs-leona-playmat-vendetta.jpg",
+   "cardmarket_id": 899576,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 403210,
+   "nome": "Vendetta: Vi vs Jinx Playmat",
+   "versao": "",
+   "categoria_id": 264,
+   "edicao": "VEN",
+   "edicao_nome": "Vendetta",
+   "img": "https://cardtrader.com/uploads/blueprints/image/403210/preview_403210-vendetta-vi-vs-jinx-playmat-vendetta.jpg",
+   "cardmarket_id": 899574,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 403211,
+   "nome": "Vendetta: Kayle vs Morgana Playmat",
+   "versao": "",
+   "categoria_id": 264,
+   "edicao": "VEN",
+   "edicao_nome": "Vendetta",
+   "img": "https://cardtrader.com/uploads/blueprints/image/403211/preview_403211-vendetta-kayle-vs-morgana-playmat-vendetta.jpg",
+   "cardmarket_id": 899577,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 403212,
+   "nome": "Vendetta: Jayce vs Viktor Playmat",
+   "versao": "",
+   "categoria_id": 264,
+   "edicao": "VEN",
+   "edicao_nome": "Vendetta",
+   "img": "https://cardtrader.com/uploads/blueprints/image/403212/preview_403212-vendetta-jayce-vs-viktor-playmat-vendetta.jpg",
+   "cardmarket_id": 899575,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 408608,
+   "nome": "\"Sona - Harmonious\" Playmat",
+   "versao": "",
+   "categoria_id": 264,
+   "edicao": "VEN",
+   "edicao_nome": "Vendetta",
+   "img": "https://cardtrader.com/uploads/blueprints/image/408608/preview_408608-sona-harmonious-playmat-vendetta.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 408694,
+   "nome": "Vendetta: Kayle vs Morgana Display Frame",
+   "versao": "",
+   "categoria_id": 268,
+   "edicao": "VEN",
+   "edicao_nome": "Vendetta",
+   "img": "https://cardtrader.com/uploads/blueprints/image/408694/preview_408694-vendetta-kayle-vs-morgana-display-frame-origins-proving-grounds.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 408695,
+   "nome": "Vendetta: Vi vs Jinx Display Frame",
+   "versao": "",
+   "categoria_id": 268,
+   "edicao": "VEN",
+   "edicao_nome": "Vendetta",
+   "img": "https://cardtrader.com/uploads/blueprints/image/408695/preview_408695-vendetta-vi-vs-jinx-display-frame-vendetta.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 408696,
+   "nome": "Vendetta: Jayce vs Viktor Display Frame",
+   "versao": "",
+   "categoria_id": 268,
+   "edicao": "VEN",
+   "edicao_nome": "Vendetta",
+   "img": "https://cardtrader.com/uploads/blueprints/image/408696/preview_408696-vendetta-jayce-vs-viktor-display-frame-vendetta.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 408697,
+   "nome": "Vendetta: Ambessa vs Mel Display Frame",
+   "versao": "",
+   "categoria_id": 268,
+   "edicao": "VEN",
+   "edicao_nome": "Vendetta",
+   "img": "https://cardtrader.com/uploads/blueprints/image/408697/preview_408697-vendetta-ambessa-vs-mel-display-frame-vendetta.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 408707,
+   "nome": "Vendetta | Nexus Night Promo Booster",
+   "versao": "",
+   "categoria_id": 260,
+   "edicao": "VEN",
+   "edicao_nome": "Vendetta",
+   "img": "https://cardtrader.com/uploads/blueprints/image/408707/preview_408707-vendetta-nexus-night-promo-booster-vendetta.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 374965,
+   "nome": "Radiance Booster Box",
+   "versao": "",
+   "categoria_id": 259,
+   "edicao": "RAD",
+   "edicao_nome": "Radiance",
+   "img": "https://cardtrader.com/uploads/blueprints/image/374965/preview_374965-radiance-booster-box-radiance.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 374966,
+   "nome": "Radiance Booster Box Case",
+   "versao": "x6 Booster Boxes",
+   "categoria_id": 263,
+   "edicao": "RAD",
+   "edicao_nome": "Radiance",
+   "img": "https://cardtrader.com/uploads/blueprints/image/374966/preview_radiance-booster-box-case-x6-booster-boxes-radiance.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 399489,
+   "nome": "Radiance Booster",
+   "versao": "",
+   "categoria_id": 260,
+   "edicao": "RAD",
+   "edicao_nome": "Radiance",
+   "img": "https://cardtrader.com/uploads/blueprints/image/399489/preview_399489-radiance-booster-radiance.jpg",
+   "cardmarket_id": 897512,
+   "tcg_player_id": 711362
+  },
+  {
+   "blueprint_id": 399490,
+   "nome": "Radiance Sleeved Booster",
+   "versao": "",
+   "categoria_id": 260,
+   "edicao": "RAD",
+   "edicao_nome": "Radiance",
+   "img": "https://cardtrader.com/uploads/blueprints/image/399490/preview_399490-radiance-sleeved-booster-radiance.jpg",
+   "cardmarket_id": 897513,
+   "tcg_player_id": 711363
+  },
+  {
+   "blueprint_id": 399491,
+   "nome": "Radiance Pre-Rift Kit",
+   "versao": "",
+   "categoria_id": 261,
+   "edicao": "RAD",
+   "edicao_nome": "Radiance",
+   "img": "https://cardtrader.com/uploads/blueprints/image/399491/preview_399491-radiance-pre-rift-kit-radiance.jpg",
+   "cardmarket_id": 897519,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 399492,
+   "nome": "Radiance Vault",
+   "versao": "",
+   "categoria_id": 261,
+   "edicao": "RAD",
+   "edicao_nome": "Radiance",
+   "img": "https://cardtrader.com/uploads/blueprints/image/399492/preview_399492-radiance-vault-radiance.jpg",
+   "cardmarket_id": 897518,
+   "tcg_player_id": 711372
+  },
+  {
+   "blueprint_id": 399493,
+   "nome": "Radiance: \"Evelynn vs Seraphine\" Showdown Deck",
+   "versao": "",
+   "categoria_id": 262,
+   "edicao": "RAD",
+   "edicao_nome": "Radiance",
+   "img": "https://cardtrader.com/uploads/blueprints/image/399493/preview_399493-radiance-evelynn-vs-seraphine-showdown-deck-radiance.jpg",
+   "cardmarket_id": 897517,
+   "tcg_player_id": 711368
+  },
+  {
+   "blueprint_id": 403214,
+   "nome": "Radiance: 9-Pocket Collector Binder",
+   "versao": "",
+   "categoria_id": 265,
+   "edicao": "RAD",
+   "edicao_nome": "Radiance",
+   "img": "https://cardtrader.com/uploads/blueprints/image/403214/preview_403214-radiance-9-pocket-collector-binder-radiance.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 400775,
+   "nome": "The T1 Worlds Champion | Signature Edition Box Set",
+   "versao": "",
+   "categoria_id": 263,
+   "edicao": "T1S",
+   "edicao_nome": "Riftbound x T1 2025 Worlds Champion Collection",
+   "img": "https://cardtrader.com/uploads/blueprints/image/400775/preview_400775-the-t1-worlds-champion-signature-edition-box-set-promos.jpg",
+   "cardmarket_id": 904026,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 400776,
+   "nome": "The T1 Worlds Champion | Player Bundle",
+   "versao": "",
+   "categoria_id": 261,
+   "edicao": "T1S",
+   "edicao_nome": "Riftbound x T1 2025 Worlds Champion Collection",
+   "img": "https://cardtrader.com/uploads/blueprints/image/400776/preview_400776-the-t1-worlds-champion-player-bundle-promos.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 400792,
+   "nome": "T1 Worlds Champion Deckbox",
+   "versao": "",
+   "categoria_id": 267,
+   "edicao": "T1S",
+   "edicao_nome": "Riftbound x T1 2025 Worlds Champion Collection",
+   "img": "https://cardtrader.com/uploads/blueprints/image/400792/preview_400792-t1-worlds-champion-deckbox-riftbound-x-t1-2025-worlds-champion-collection(2).jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 400793,
+   "nome": "T1 Worlds Champion Binder",
+   "versao": "",
+   "categoria_id": 265,
+   "edicao": "T1S",
+   "edicao_nome": "Riftbound x T1 2025 Worlds Champion Collection",
+   "img": "https://cardtrader.com/uploads/blueprints/image/400793/preview_400793-t1-worlds-champion-binder-riftbound-x-t1-2025-worlds-champion-collection.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 400794,
+   "nome": "T1 Worlds Champion Storage Box",
+   "versao": "",
+   "categoria_id": 267,
+   "edicao": "T1S",
+   "edicao_nome": "Riftbound x T1 2025 Worlds Champion Collection",
+   "img": "https://cardtrader.com/uploads/blueprints/image/400794/preview_400794-t1-worlds-champion-storage-box-riftbound-x-t1-2025-worlds-champion-collection.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 400795,
+   "nome": "T1 Worlds Champion Metal Die",
+   "versao": "Black & Gold",
+   "categoria_id": 268,
+   "edicao": "T1S",
+   "edicao_nome": "Riftbound x T1 2025 Worlds Champion Collection",
+   "img": "https://cardtrader.com/uploads/blueprints/image/400795/preview_400795-t1-worlds-champion-metal-die-black-gold-riftbound-x-t1-2025-worlds-champion-collection.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 400796,
+   "nome": "T1 Worlds Champion Metal Die",
+   "versao": "Red",
+   "categoria_id": 268,
+   "edicao": "T1S",
+   "edicao_nome": "Riftbound x T1 2025 Worlds Champion Collection",
+   "img": "https://cardtrader.com/uploads/blueprints/image/400796/preview_400796-t1-worlds-champion-metal-die-red-riftbound-x-t1-2025-worlds-champion-collection.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 404545,
+   "nome": "Legacy Booster Box",
+   "versao": "",
+   "categoria_id": 259,
+   "edicao": "LGC",
+   "edicao_nome": "Legacy",
+   "img": "https://cardtrader.com/uploads/blueprints/image/404545/preview_404545-legacy-booster-box-legacy.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 408618,
+   "nome": "Legacy Sleeves",
+   "versao": "100 Sleeves",
+   "categoria_id": 266,
+   "edicao": "LGC",
+   "edicao_nome": "Legacy",
+   "img": "https://cardtrader.com/uploads/blueprints/image/408618/preview_408618-legacy-sleeves-100-sleeves-legacy.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 408619,
+   "nome": "Legacy Booster",
+   "versao": "",
+   "categoria_id": 260,
+   "edicao": "LGC",
+   "edicao_nome": "Legacy",
+   "img": "https://cardtrader.com/uploads/blueprints/image/408619/preview_408619-legacy-booster-legacy.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 408620,
+   "nome": "Legacy: \"Ashe\" Champion Deck",
+   "versao": "",
+   "categoria_id": 262,
+   "edicao": "LGC",
+   "edicao_nome": "Legacy",
+   "img": "https://cardtrader.com/uploads/blueprints/image/408620/preview_408620-legacy-ashe-champion-deck-legacy.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 408621,
+   "nome": "Legacy: \"Tryndamere\" Champion Deck",
+   "versao": "",
+   "categoria_id": 262,
+   "edicao": "LGC",
+   "edicao_nome": "Legacy",
+   "img": "https://cardtrader.com/uploads/blueprints/image/408621/preview_408621-legacy-tryndamere-champion-deck-legacy.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 408622,
+   "nome": "Legacy: \"Lux\" Champion Deck",
+   "versao": "",
+   "categoria_id": 262,
+   "edicao": "LGC",
+   "edicao_nome": "Legacy",
+   "img": "https://cardtrader.com/uploads/blueprints/image/408622/preview_408622-legacy-lux-champion-deck-legacy.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 408623,
+   "nome": "Legacy: \"Garen\" Champion Deck",
+   "versao": "",
+   "categoria_id": 262,
+   "edicao": "LGC",
+   "edicao_nome": "Legacy",
+   "img": "https://cardtrader.com/uploads/blueprints/image/408623/preview_408623-legacy-garen-champion-deck-legacy.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 408699,
+   "nome": "Legacy Vault",
+   "versao": "",
+   "categoria_id": 261,
+   "edicao": "LGC",
+   "edicao_nome": "Legacy",
+   "img": "https://cardtrader.com/uploads/blueprints/image/408699/preview_408699-legacy-vault-legacy.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 408700,
+   "nome": "Legacy: 9-Pocket Collector Binder",
+   "versao": "",
+   "categoria_id": 265,
+   "edicao": "LGC",
+   "edicao_nome": "Legacy",
+   "img": "https://cardtrader.com/uploads/blueprints/image/408700/preview_408700-legacy-9-pocket-collector-binder-legacy.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 404546,
+   "nome": "Legacy: Proving Grounds",
+   "versao": "",
+   "categoria_id": 263,
+   "edicao": "PG2",
+   "edicao_nome": "Legacy: Proving Grounds",
+   "img": "https://cardtrader.com/uploads/blueprints/image/404546/preview_404546-legacy-proving-grounds-legacy.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 404547,
+   "nome": "The Reckoning Booster",
+   "versao": "",
+   "categoria_id": 260,
+   "edicao": "REC",
+   "edicao_nome": "The Reckoning",
+   "img": "https://cardtrader.com/uploads/blueprints/image/404547/preview_404547-the-reckoning-booster-the-reckoning.jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 404548,
+   "nome": "The Reckoning Booster Box",
+   "versao": "",
+   "categoria_id": 259,
+   "edicao": "REC",
+   "edicao_nome": "The Reckoning",
+   "img": "https://cardtrader.com/uploads/blueprints/image/404548/preview_404548-the-reckoning-booster-box-the-reckoning(2).jpg",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  }
+ ],
+ "precos": {
+  "330791": {
+   "cents": 16064,
+   "n_listings": 51,
+   "n_sellers": 48,
+   "n_copies": 167,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "330792": {
+   "cents": 5564,
+   "n_listings": 1,
+   "n_sellers": 1,
+   "n_copies": 3,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "330793": {
+   "cents": 3251,
+   "n_listings": 5,
+   "n_sellers": 5,
+   "n_copies": 11,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "330794": {
+   "cents": null,
+   "n_listings": 0,
+   "n_sellers": 0,
+   "n_copies": 0,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "330795": {
+   "cents": 2530,
+   "n_listings": 5,
+   "n_sellers": 5,
+   "n_copies": 13,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "330886": {
+   "cents": 114064,
+   "n_listings": 20,
+   "n_sellers": 17,
+   "n_copies": 30,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "330949": {
+   "cents": 754,
+   "n_listings": 16,
+   "n_sellers": 15,
+   "n_copies": 350,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "355460": {
+   "cents": null,
+   "n_listings": 0,
+   "n_sellers": 0,
+   "n_copies": 0,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "358702": {
+   "cents": null,
+   "n_listings": 0,
+   "n_sellers": 0,
+   "n_copies": 0,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "361487": {
+   "cents": null,
+   "n_listings": 0,
+   "n_sellers": 0,
+   "n_copies": 0,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "330845": {
+   "cents": null,
+   "n_listings": 0,
+   "n_sellers": 0,
+   "n_copies": 0,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "330846": {
+   "cents": null,
+   "n_listings": 0,
+   "n_sellers": 0,
+   "n_copies": 0,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "330847": {
+   "cents": null,
+   "n_listings": 0,
+   "n_sellers": 0,
+   "n_copies": 0,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "330848": {
+   "cents": null,
+   "n_listings": 0,
+   "n_sellers": 0,
+   "n_copies": 0,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "330871": {
+   "cents": null,
+   "n_listings": 0,
+   "n_sellers": 0,
+   "n_copies": 0,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "330873": {
+   "cents": null,
+   "n_listings": 0,
+   "n_sellers": 0,
+   "n_copies": 0,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "330874": {
+   "cents": null,
+   "n_listings": 0,
+   "n_sellers": 0,
+   "n_copies": 0,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "330875": {
+   "cents": null,
+   "n_listings": 0,
+   "n_sellers": 0,
+   "n_copies": 0,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "353676": {
+   "cents": 68064,
+   "n_listings": 9,
+   "n_sellers": 8,
+   "n_copies": 9,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "357554": {
+   "cents": 2027,
+   "n_listings": 12,
+   "n_sellers": 12,
+   "n_copies": 90,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "363136": {
+   "cents": 40059,
+   "n_listings": 1,
+   "n_sellers": 1,
+   "n_copies": 1,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "363137": {
+   "cents": 10064,
+   "n_listings": 2,
+   "n_sellers": 2,
+   "n_copies": 2,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "363138": {
+   "cents": 19564,
+   "n_listings": 2,
+   "n_sellers": 2,
+   "n_copies": 2,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "363139": {
+   "cents": 10064,
+   "n_listings": 3,
+   "n_sellers": 3,
+   "n_copies": 3,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "374739": {
+   "cents": null,
+   "n_listings": 0,
+   "n_sellers": 0,
+   "n_copies": 0,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "379338": {
+   "cents": null,
+   "n_listings": 0,
+   "n_sellers": 0,
+   "n_copies": 0,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "379341": {
+   "cents": null,
+   "n_listings": 0,
+   "n_sellers": 0,
+   "n_copies": 0,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "383045": {
+   "cents": null,
+   "n_listings": 0,
+   "n_sellers": 0,
+   "n_copies": 0,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "383046": {
+   "cents": null,
+   "n_listings": 0,
+   "n_sellers": 0,
+   "n_copies": 0,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "402914": {
+   "cents": null,
+   "n_listings": 0,
+   "n_sellers": 0,
+   "n_copies": 0,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "404544": {
+   "cents": 20063,
+   "n_listings": 3,
+   "n_sellers": 3,
+   "n_copies": 6,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "408687": {
+   "cents": null,
+   "n_listings": 0,
+   "n_sellers": 0,
+   "n_copies": 0,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "330887": {
+   "cents": null,
+   "n_listings": 0,
+   "n_sellers": 0,
+   "n_copies": 0,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "375498": {
+   "cents": null,
+   "n_listings": 0,
+   "n_sellers": 0,
+   "n_copies": 0,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "330876": {
+   "cents": null,
+   "n_listings": 0,
+   "n_sellers": 0,
+   "n_copies": 0,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "349090": {
+   "cents": 60064,
+   "n_listings": 4,
+   "n_sellers": 4,
+   "n_copies": 6,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "349091": {
+   "cents": null,
+   "n_listings": 0,
+   "n_sellers": 0,
+   "n_copies": 0,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "346723": {
+   "cents": 613,
+   "n_listings": 12,
+   "n_sellers": 8,
+   "n_copies": 122,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "346724": {
+   "cents": 16064,
+   "n_listings": 25,
+   "n_sellers": 24,
+   "n_copies": 93,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "346725": {
+   "cents": 1927,
+   "n_listings": 16,
+   "n_sellers": 16,
+   "n_copies": 47,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "346726": {
+   "cents": 1321,
+   "n_listings": 40,
+   "n_sellers": 40,
+   "n_copies": 135,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "357555": {
+   "cents": 4104,
+   "n_listings": 6,
+   "n_sellers": 6,
+   "n_copies": 25,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "361488": {
+   "cents": 105062,
+   "n_listings": 8,
+   "n_sellers": 8,
+   "n_copies": 10,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "363126": {
+   "cents": null,
+   "n_listings": 0,
+   "n_sellers": 0,
+   "n_copies": 0,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "372438": {
+   "cents": null,
+   "n_listings": 0,
+   "n_sellers": 0,
+   "n_copies": 0,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "374694": {
+   "cents": null,
+   "n_listings": 0,
+   "n_sellers": 0,
+   "n_copies": 0,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "374734": {
+   "cents": 714,
+   "n_listings": 15,
+   "n_sellers": 15,
+   "n_copies": 213,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "363127": {
+   "cents": 11564,
+   "n_listings": 14,
+   "n_sellers": 13,
+   "n_copies": 97,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "363128": {
+   "cents": 78064,
+   "n_listings": 8,
+   "n_sellers": 8,
+   "n_copies": 16,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "363129": {
+   "cents": 491,
+   "n_listings": 25,
+   "n_sellers": 19,
+   "n_copies": 484,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "363130": {
+   "cents": 1220,
+   "n_listings": 39,
+   "n_sellers": 38,
+   "n_copies": 193,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "363131": {
+   "cents": 1577,
+   "n_listings": 12,
+   "n_sellers": 12,
+   "n_copies": 47,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "363132": {
+   "cents": null,
+   "n_listings": 0,
+   "n_sellers": 0,
+   "n_copies": 0,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "363133": {
+   "cents": 1976,
+   "n_listings": 21,
+   "n_sellers": 20,
+   "n_copies": 194,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "363134": {
+   "cents": 3852,
+   "n_listings": 6,
+   "n_sellers": 6,
+   "n_copies": 9,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "380641": {
+   "cents": null,
+   "n_listings": 0,
+   "n_sellers": 0,
+   "n_copies": 0,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "388487": {
+   "cents": null,
+   "n_listings": 0,
+   "n_sellers": 0,
+   "n_copies": 0,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "388488": {
+   "cents": null,
+   "n_listings": 0,
+   "n_sellers": 0,
+   "n_copies": 0,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "389903": {
+   "cents": 799,
+   "n_listings": 13,
+   "n_sellers": 10,
+   "n_copies": 76,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "374963": {
+   "cents": 11564,
+   "n_listings": 14,
+   "n_sellers": 14,
+   "n_copies": 47,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "374964": {
+   "cents": 90063,
+   "n_listings": 5,
+   "n_sellers": 5,
+   "n_copies": 5,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "379017": {
+   "cents": 511,
+   "n_listings": 9,
+   "n_sellers": 8,
+   "n_copies": 95,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "379018": {
+   "cents": 2942,
+   "n_listings": 29,
+   "n_sellers": 29,
+   "n_copies": 135,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "379019": {
+   "cents": 1420,
+   "n_listings": 55,
+   "n_sellers": 53,
+   "n_copies": 466,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "379020": {
+   "cents": 2490,
+   "n_listings": 16,
+   "n_sellers": 16,
+   "n_copies": 124,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "408707": {
+   "cents": 815,
+   "n_listings": 6,
+   "n_sellers": 6,
+   "n_copies": 64,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "374965": {
+   "cents": 13418,
+   "n_listings": 18,
+   "n_sellers": 13,
+   "n_copies": 73,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "374966": {
+   "cents": 94998,
+   "n_listings": 11,
+   "n_sellers": 9,
+   "n_copies": 15,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "399489": {
+   "cents": 653,
+   "n_listings": 8,
+   "n_sellers": 7,
+   "n_copies": 164,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "399490": {
+   "cents": null,
+   "n_listings": 0,
+   "n_sellers": 0,
+   "n_copies": 0,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "399491": {
+   "cents": 4407,
+   "n_listings": 6,
+   "n_sellers": 5,
+   "n_copies": 29,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "399492": {
+   "cents": 3526,
+   "n_listings": 10,
+   "n_sellers": 8,
+   "n_copies": 27,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "399493": {
+   "cents": 3542,
+   "n_listings": 9,
+   "n_sellers": 8,
+   "n_copies": 39,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "400775": {
+   "cents": null,
+   "n_listings": 0,
+   "n_sellers": 0,
+   "n_copies": 0,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "400776": {
+   "cents": null,
+   "n_listings": 0,
+   "n_sellers": 0,
+   "n_copies": 0,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "404545": {
+   "cents": 33063,
+   "n_listings": 6,
+   "n_sellers": 4,
+   "n_copies": 14,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "408619": {
+   "cents": 1221,
+   "n_listings": 3,
+   "n_sellers": 3,
+   "n_copies": 38,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "408620": {
+   "cents": 5064,
+   "n_listings": 3,
+   "n_sellers": 3,
+   "n_copies": 16,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "408621": {
+   "cents": 5064,
+   "n_listings": 3,
+   "n_sellers": 3,
+   "n_copies": 16,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "408622": {
+   "cents": 5064,
+   "n_listings": 3,
+   "n_sellers": 3,
+   "n_copies": 22,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "408623": {
+   "cents": 5064,
+   "n_listings": 3,
+   "n_sellers": 3,
+   "n_copies": 22,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "408699": {
+   "cents": 7564,
+   "n_listings": 4,
+   "n_sellers": 2,
+   "n_copies": 4,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "404546": {
+   "cents": null,
+   "n_listings": 0,
+   "n_sellers": 0,
+   "n_copies": 0,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "404547": {
+   "cents": 1121,
+   "n_listings": 4,
+   "n_sellers": 3,
+   "n_copies": 44,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  },
+  "404548": {
+   "cents": 25064,
+   "n_listings": 5,
+   "n_sellers": 3,
+   "n_copies": 11,
+   "currency": "EUR",
+   "day": "2026-09-25"
+  }
+ }
+}

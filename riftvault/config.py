@@ -27,6 +27,11 @@ CONFIG_PATH = Path(os.environ.get("RIFTVAULT_CONFIG", ROOT / "riftvault_config.j
 # O «seguir jogadores» (2026-09-17): o estado (`estado.json`, vai para o Git)
 # e a última página lida de cada endereço (`paginas/`, não vai). Ver `seguir.py`.
 SEGUIR_DIR = Path(os.environ.get("RIFTVAULT_SEGUIR", DATA_DIR / "seguir"))
+# O «Produto Selado» (2026-09-25): a lista do que EXISTE — displays, cases,
+# decks, bundles, Proving Grounds —, tal como o CardTrader a dá. Vai para o
+# Git (é o catálogo, não a coleção: texto, pequeno, e o site publicado precisa
+# dele) e atualiza-se com `riftvault selado --sync`. Ver `selado.py`.
+SELADO_PATH = Path(os.environ.get("RIFTVAULT_SELADO", DATA_DIR / "selado_catalogo.json"))
 
 # Usados quando o ficheiro de config não existe ou não tem a chave.
 DEFAULTS: dict = {
@@ -315,6 +320,49 @@ DEFAULTS: dict = {
     # e aceitam-se também como ele as lê no ecrã («A mais», «Por deck», «Pimp
     # deck»). Um nome desconhecido rebenta. Ver `abas.py`.
     "abas": {"escondidas": []},
+    # O separador «Produto Selado» (André, 2026-09-25: *"tudo o que e produtos
+    # de coleccao do Riftbound, como displays ou boxcase, ou duel decks,
+    # proving ground, etc etc, para eu saber o que ha, o que tenho e o que nao
+    # tenho"*).
+    #   `categorias`        — os ids das CATEGORIAS do CardTrader que contam
+    #                         como produto selado. A separação selado/single é
+    #                         deles, não minha: o `GET /categories` dá treze
+    #                         categorias de Riftbound com nome, e a 258 são as
+    #                         cartas (`prices.SINGLES_CATEGORY`). Por omissão
+    #                         entram 259 Booster Boxes, 260 Boosters, 261
+    #                         Bundles, 262 Starter Decks, 263 Box Sets &
+    #                         Displays e 283 Complete Sets. Os ACESSÓRIOS — 264
+    #                         Playmats, 265 Albums, 266 Sleeves, 267 Deck
+    #                         Boxes, 268 Memorabilia — e as 284 Oversized ficam
+    #                         de fora, contados no `scope.fora` da página;
+    #                         metê-los é acrescentar o número aqui. Escrever a
+    #                         258 rebenta.
+    #   `datas_por_edicao`  — a data de saída de cada edição, por código do
+    #                         CardTrader. **Vem dele** — a API não dá data
+    #                         nenhuma (uma expansão são quatro campos). Um
+    #                         produto com data no futuro aparece «por sair» e
+    #                         NÃO conta para o que falta.
+    #   `por_sair`          — as edições anunciadas sem data exacta (*"depois
+    #                         Legacy (LGC) e The Reckoning (REC) em 2027"*).
+    #   `ordem_das_edicoes` — a ordem no ecrã; o que não estiver aqui vem a
+    #                         seguir, por código.
+    #   `extra`             — produtos que a API não tem (regionais,
+    #                         promocionais), à mão: `nome` (obrigatório),
+    #                         `edicao`, `tipo`, `data`, `preco_eur`, `nota`. A
+    #                         lista da app é a da API MAIS estes. Um `tipo` que
+    #                         não exista rebenta.
+    # O SELADO NÃO ENTRA NA COLEÇÃO: nem níveis, nem denominador, nem A mais,
+    # nem Faltas, nem wantlists, nem decks, nem foil, nem próprias, nem Venda —
+    # e o valor dele é um total próprio, nunca somado ao da Coleção. Ver
+    # `selado.py`.
+    "selado": {"categorias": [259, 260, 261, 262, 263, 283],
+               "datas_por_edicao": {"OGN": "2025-10-31", "SFD": "2026-02-13",
+                                    "UNL": "2026-05-08", "VEN": "2026-07-31",
+                                    "RAD": "2026-10-23"},
+               "por_sair": ["LGC", "PG2", "REC"],
+               "ordem_das_edicoes": ["OGN", "OGS", "SFD", "UNL", "VEN",
+                                     "RAD", "LGC", "PG2", "REC"],
+               "extra": []},
     "token_card_keys": [],
     "faltas_ignorar_tipos": ["Rune"],
     "pimp_ignorar_tipos": ["signature", "rune_promo"],

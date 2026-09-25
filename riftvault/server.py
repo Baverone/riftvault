@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 from flask import Flask, g, jsonify, redirect, request, send_from_directory
 
 from . import (a_mais, a_subir, collection, config, db, decks, faltas, faltas_edicao,
-               foil, locais, metrics, pending, proprias, runas_vista, venda)
+               foil, locais, metrics, pending, proprias, runas_vista, selado, venda)
 
 app = Flask(__name__, static_folder=None)
 
@@ -166,6 +166,45 @@ def api_foil_ajustar():
         return jsonify({"error": str(exc)}), 404
     except foil.ForaDoAmbito as exc:
         return jsonify({"error": str(exc)}), 400
+
+
+# --------------------------------------------------------------------------
+# «Produto Selado» (2026-09-25): o que HÁ, o que TEM e o que NÃO TEM de
+# displays, cases, decks, bundles e Proving Grounds. Ver `selado.py`.
+# --------------------------------------------------------------------------
+
+
+@app.get("/api/selado.json")
+def api_selado():
+    return jsonify(selado.payload(get_con(), editable=True))
+
+
+@app.post("/api/selado/ajustar")
+def api_selado_ajustar():
+    """Os `+`/`−` de um produto selado: `{product_id, delta}`.
+
+    Escreve SÓ na `sealed_copies` — o `copies`, a `ops`, os locais e o valor
+    da Coleção não mexem, e nenhuma conta do site lê este número. Nunca vai
+    abaixo de zero. Um produto que não esteja na lista (API + `selado.extra`)
+    é 404.
+    """
+    data = request.get_json(silent=True) or {}
+    try:
+        delta = int(data.get("delta", 0))
+    except (TypeError, ValueError):
+        return jsonify({"error": "delta inválido"}), 400
+    if delta == 0:
+        return jsonify({"error": "delta é zero"}), 400
+    if not data.get("product_id"):
+        return jsonify({"error": "falta product_id"}), 400
+    con = get_con()
+    try:
+        selado.ajustar(con, data["product_id"], delta, source="web")
+    except selado.ProdutoDesconhecido as exc:
+        return jsonify({"error": str(exc)}), 404
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    return jsonify(selado.payload(con, editable=True))
 
 
 # --------------------------------------------------------------------------

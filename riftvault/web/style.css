@@ -1470,6 +1470,79 @@ body.readonly .btn.chegou { display: none; }
   .vd-sub { text-align: right; }
 }
 
+/* ======================================================= «PRODUTO SELADO»
+
+   André, 2026-09-25: *"para eu saber o que ha, o que tenho e o que nao
+   tenho"*. Os três estados estão no cabeçalho, em números grandes, e o filtro
+   por baixo troca entre eles. A 375 px os quatro números passam a duas
+   colunas e a linha do produto parte-se — nada corre para o lado.           */
+
+.sl-nums { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px; margin-top: 12px; }
+.sl-num { background: var(--card3); border: 1px solid var(--line);
+  border-radius: var(--r2); padding: 9px 11px 10px; display: grid; gap: 1px; }
+.sl-num i { font-style: normal; font-size: 11px; text-transform: uppercase;
+  letter-spacing: .07em; color: var(--muted); }
+.sl-num b { font: 700 24px/1.1 var(--font-hd); }
+.sl-num small { font-size: 11px; color: var(--dim); }
+.sl-num.tem b { color: var(--ok); }
+.sl-num.falta b { color: var(--warn); }
+.sl-num.val b { font-size: 19px; }
+
+.sl-cab { margin-top: 22px; }
+.sl-lista { display: grid; gap: 10px; }
+.sl-linha { display: grid; grid-template-columns: 76px minmax(0, 1fr) auto; gap: 12px;
+  align-items: center; background: var(--card); border: 1px solid var(--line);
+  border-radius: var(--r2); padding: 10px 12px; }
+.sl-linha.tem { border-color: var(--accent-line); }
+/* O que ainda não saiu fica apagado: não conta para o que falta, e é isso que
+   a cor diz antes de se ler a etiqueta. */
+.sl-linha.porsair { opacity: .72; border-style: dashed; }
+.sl-art { position: relative; width: 76px; height: 76px; border-radius: 8px;
+  overflow: hidden; background: var(--card3); border: 1px solid var(--line2);
+  display: flex; align-items: center; justify-content: center; }
+.sl-art img { width: 100%; height: 100%; object-fit: cover; }
+.sl-semimg { font-size: 10px; color: var(--dim); text-align: center; padding: 2px; }
+.sl-qty { position: absolute; right: 3px; bottom: 3px; background: var(--accent);
+  color: #150f24; font: 700 11px var(--font); border-radius: 6px; padding: 1px 5px; }
+/* O nome de um produto selado é longo («Origins Booster Box Case x6 Booster
+   Boxes») e aqui não há código curto que o substitua: QUEBRA em vez de ser
+   cortado com reticências, que é o que o `.tname` faz nos tiles das cartas. */
+.sl-linha .tname { font-size: 15px; font-weight: 600; color: var(--ink);
+  white-space: normal; overflow: visible; text-overflow: clip; }
+.sl-linha .codigo { font-size: 12px; color: var(--muted); margin-top: 2px;
+  white-space: normal; }
+.sl-tipo { display: inline-block; border: 1px solid var(--line2); border-radius: 6px;
+  padding: 0 5px; margin-right: 5px; color: var(--ink); font-size: 11px; }
+.sl-marcas { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.sl-marca { font-size: 11px; border-radius: 6px; padding: 1px 6px;
+  border: 1px solid var(--line2); color: var(--muted); }
+.sl-marca.ps { color: var(--warn); border-color: rgba(240, 180, 41, .4); }
+.sl-marca.cfg { color: #c9a9ff; border-color: var(--accent-line); }
+.sl-dir { display: grid; gap: 6px; justify-items: end; }
+.sl-preco { text-align: right; font-weight: 700; font-size: 15px; }
+.sl-preco i { display: block; font-style: normal; font-weight: 400; font-size: 11px;
+  color: var(--dim); }
+.sl-dir .steppers { display: flex; align-items: center; gap: 6px; }
+.sl-dir .steppers b { min-width: 22px; text-align: center; }
+.sl-tenho { font-size: 12px; color: var(--muted); }
+#sl-filtros input[type="search"] { min-width: 180px; }
+
+@media (max-width: 699px) {
+  .sl-nums { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 559px) {
+  /* A 375 px: a foto e o nome em cima, o preço e os `+`/`−` numa fila por
+     baixo — a linha de três colunas não cabe. */
+  .sl-linha { grid-template-columns: 60px minmax(0, 1fr); align-items: start; }
+  .sl-art { width: 60px; height: 60px; }
+  .sl-dir { grid-column: 1 / -1; grid-auto-flow: column; align-items: center;
+    justify-content: space-between; justify-items: stretch;
+    border-top: 1px solid var(--line); padding-top: 8px; }
+  .sl-preco { text-align: left; }
+  .sl-dir .steppers { justify-self: end; }
+}
+
 /* ============================================================== TELEMÓVEL
 
    Abaixo dos 900 px a barra lateral sai do fluxo e passa a painel ☰; o índice

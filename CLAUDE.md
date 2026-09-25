@@ -58,7 +58,12 @@ abas «Master set», «A subir» e «A caminho» e do `api/quanto_custa.json` s�
 história; o `api/faltas.json` de antes de 2026-09-15 partiu-se em
 `api/wantlist.json` e `api/compras.json`, que ficam. O identificador
 `faltas` continua no `faltas.py`, que tem as listas de compra dos DECKS; no
-site já não há secção nenhuma com esse id.) E há uma **Venda** OUTRA VEZ, desde 2026-09-25 — mas é outra pergunta: a
+site já não há secção nenhuma com esse id.) Há também **Produto Selado** (2026-09-25 — displays, cases, decks, bundles,
+boosters e Proving Grounds: o que há, o que tem e o que não tem; a lista vem
+das CATEGORIAS do CardTrader, o catálogo em `data/selado_catalogo.json`, id
+`selado`, `api/selado.json`, `selado.py`; **não entra na Coleção** e o valor
+dele nunca se soma ao dela — ver a última secção deste ficheiro).
+E há uma **Venda** OUTRA VEZ, desde 2026-09-25 — mas é outra pergunta: a
 conta de uma venda em curso, para mostrar a quem compra, com os preços a
 serem o **Trend do Cardmarket metido à mão** (id `venda`, `api/venda.json`,
 `venda.py`); ver a última secção deste ficheiro. (A Venda de 2026-09-08 —
@@ -2562,6 +2567,15 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   Coleção e quem baixa as cópias é o botão separado «marcar como vendidas»,
   com confirmação e registo (`venda.py`, `api/venda.json`, `riftvault venda`).
   Ver a última secção deste ficheiro.
+- **Feito também:** o separador «Produto Selado» (2026-09-25) — displays,
+  cases, decks, bundles, boosters e Proving Grounds, com os três estados (o
+  que há · o que tem · o que não tem), filtro e contadores; a lista vem do
+  **CardTrader**, pelas CATEGORIAS dele (a 258 são as cartas), e os
+  acessórios ficam de fora, contados; os que ainda não saíram aparecem
+  marcados e não contam para o que falta; o valor do selado é um total
+  próprio, **nunca somado ao da Coleção**; `selado.py`,
+  `data/selado_catalogo.json`, `riftvault selado [--sync]`,
+  `POST /api/selado/ajustar`. Ver a última secção deste ficheiro.
 - **Por fazer:** a parte 2 do seguir — o separador no site e a tarefa diária;
   vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck,
   com as partilhadas assinaladas); e apagar decks pela interface (hoje apaga-se
@@ -5680,3 +5694,149 @@ abas à vista, com as três escondidas, com as DEZ escondidas e repostas, tudo
 igual (mais um teste que exige que a fotografia não seja de zeros); nenhum
 módulo de contas importa o `abas`; e o `app.js`. Suite: **42 ficheiros, 0 a
 falhar**.
+
+## 25/09/2026 — o separador «PRODUTO SELADO» (`selado.py`, `data/selado_catalogo.json`)
+
+Palavras dele: *"faz uma lista, para acrescentar um separador que e 'Produto
+Selado', em que vai tudo o que e produtos de coleccao do Riftbound, como
+displays ou boxcase, ou duel decks, proving ground, etc etc, para eu saber o
+que ha, o que tenho e o que nao tenho"*. Ramo `ai-pc/selado-2026-09-25`.
+
+### 1. A lista vem do CardTrader, e a separação selado/single é DELES
+
+**O catálogo da RiftScribe só tem cartas** — não há endpoint nem campo de
+display, booster box ou deck. A fonte é a API v2 do CardTrader, a mesma que já
+dá os preços, com o mesmo token.
+
+E não foi preciso adivinhar o que é selado: o CardTrader arruma os blueprints
+por **categoria** e publica-as em `GET /categories`. As do Riftbound são
+**treze**, com nome, e a **258 é «Riftbound Singles»** — é a constante
+`prices.SINGLES_CATEGORY`, que o `riftvault map` já usava desde 2026-08-31
+para ficar só com as cartas (*"booster boxes, playmats e afins"*, no
+comentário). Isto é o outro lado da mesma linha.
+
+| entra (`selado.categorias`) | n | fica de fora (acessórios) | n |
+|---|---|---|---|
+| 259 Booster Boxes | 10 | 264 Playmats | 48 |
+| 260 Boosters | 21 | 266 Sleeves | 31 |
+| 261 Bundles | 13 | 265 Albums | 10 |
+| 262 Starter Decks | 24 | 267 Deck Boxes | 9 |
+| 263 Box Sets & Displays | 15 | 268 Memorabilia | 13 |
+| 283 Complete Sets | 2 | 284 Oversized | 13 |
+| **total** | **85** | uma sem nome no Riftbound (206, um dado) | 1 |
+
+**Os acessórios não desaparecem em silêncio**: o `scope.fora` conta-os por
+categoria e o cabeçalho da página di-lo. Metê-los é acrescentar o número à
+lista do config; escrever a **258 rebenta** (punha 1180 cartas no separador).
+**São 210 não-singles ao todo** — o ficheiro guarda-os todos, para mudar a
+lista do config não obrigar a voltar à rede.
+
+**Resposta CRUA guardada** em `C:\Users\Catarina\_revisao\selado-cru-20260925-174327.json`
+(categorias + expansões + todos os não-singles por expansão) e as ofertas de
+quatro produtos em `selado-ofertas-cru.json`.
+
+### 2. O TIPO: a categoria, corrigida pelo nome
+
+`selado.tipo_de(nome, versao, categoria_id)`. A categoria decide — 259
+`display`, 260 `booster`, 261 `bundle`, 262 `deck`, 263 `caixa`, 283
+`conjunto` — **menos quando o nome diz outra coisa**, e é preciso: a 263 mete
+no mesmo saco o *Origins Booster Box Case* (seis displays), o *Origins:
+Proving Grounds* e a *Instant Match Box*. São três coisas diferentes para quem
+coleciona e ele nomeou duas delas, por isso o nome ganha: `\bcase\b` →
+`case`, `proving grounds` → `proving-grounds`. Os «duel decks» dele são os
+*Showdown Deck* do CardTrader, na categoria dos Starter Decks → `deck`.
+
+### 3. Os três estados, e os «por sair»
+
+`ha` (a lista toda) · `tenho` (unidades > 0) · `falta`. **O `falta` NÃO conta
+os «por sair»** — não se pode ter o que ainda não existe —, e por isso
+`tenho + falta == saiu`. Contadores no topo, filtro por baixo (Tudo · Tenho ·
+Não tenho · Por sair) e uma procura.
+
+**As datas vêm DELE** (`selado.datas_por_edicao`): OGN 2025-10-31, SFD
+2026-02-13, UNL 2026-05-08, VEN 2026-07-31, RAD 2026-10-23. **A API do
+CardTrader não dá data de lançamento nenhuma** — uma expansão são quatro
+campos (`id`, `game_id`, `code`, `name`). As edições anunciadas sem data
+exacta escrevem-se em `selado.por_sair` (hoje LGC, PG2 e REC, *"em 2027"*).
+O OGS **não tem data** porque ele não a deu — e sem data não é «por sair».
+
+### 4. O SELADO NÃO ENTRA NA COLEÇÃO
+
+As unidades vivem na tabela **`sealed_copies`** (vault.db), que mais nenhum
+módulo lê, e o **valor do selado é um total próprio, NUNCA somado ao valor da
+Coleção** — uma caixa por abrir não é uma carta no binder.
+
+**Medido a 2026-09-25 contra uma CÓPIA do `data/` real
+(`_revisao\_medir_selado.py`), o mesmo código, a gerar o site duas vezes —
+uma com a `sealed_copies` vazia, outra com 12 unidades (1 874,00 €) lá
+dentro:** níveis, denominador, wantlist, valor (**6 615,91 €, 2 573 cópias,
+igual dos dois lados**), totais, painel, foil, Faltas, A mais, decks,
+Encomendas, Venda e as edições do índice — **iguais**; e o site gerado sai
+**igual ficheiro a ficheiro (30 ficheiros)**, a menos do relógio. O único que
+difere é o `api/selado.json`, que é o desta secção.
+
+`tests/test_selado.py` (61 testes) fotografa níveis, denominador, wantlist,
+valor, totais, grelha, playset jogável, barras, painel, foil, blocos, Faltas,
+Encomendas, A mais, decks, uso, Venda, `copies`, locais e `ops`, mete e tira
+selado, e exige igualdade — mais um teste que exige que a fotografia não seja
+de zeros, e outro que recusa que qualquer módulo de contas importe o `selado`
+ou mencione a `sealed_copies`. É a defesa das cópias próprias (21/09), do
+foil (22/09) e da Venda (25/09).
+
+### 5. O preço do selado é OUTRA REGRA, medida
+
+Sondadas 4 blueprints (106 ofertas) a 2026-09-25: uma oferta de produto
+selado **não tem `condition`** (vem `None` em todas — não há «Near Mint» de um
+display) e traz duas propriedades próprias:
+
+    properties_hash.sealed             (bool)  <- ainda está por abrir
+    properties_hash.riftbound_language ('en', 'zh-CN', 'fr', 'kr')
+
+Por isso `selado.preco_do_selado`: fora o graded, o vendedor de férias e o que
+não esteja em EUR; **`sealed: false` não conta** (é um produto já aberto); e a
+língua segue o `precos.linguas` de sempre, porque a diferença é grande — no
+*Origins Booster Box* são 51 ofertas `en`, 6 `zh-CN` e 3 `fr`. **Hoje 34 dos
+85 não têm oferta em inglês** e aparecem a «—»; um produto sem preço vale zero
+no total e não rebenta.
+
+### 6. Onde fica, e o ritmo dos pedidos
+
+`data/selado_catalogo.json` (92 KB) **vai para o Git**: é o CATÁLOGO — o que
+existe —, é texto, e o site publicado precisa dele. Atualiza-se **à mão** com
+`riftvault selado --sync`: 1 pedido de cada vez, 1 s entre dois (o mesmo
+ritmo do `riftvault prices`), **104 pedidos** na primeira corrida (categorias
++ expansões + 17 blueprints/export + 85 preços). **O `riftvault prices`
+diário NÃO foi tocado** — isto não entra em tarefa nenhuma.
+
+### 7. O que ele pode mudar sem código
+
+`selado.categorias` (o que é selado), `datas_por_edicao`, `por_sair`,
+`ordem_das_edicoes` e **`selado.extra`** — produtos que a API não tem
+(regionais, promocionais), com `nome` (obrigatório), `edicao`, `tipo`, `data`,
+`preco_eur` e `nota`. A lista da app é a da API **mais** estes; um `tipo` que
+não exista rebenta com a lista dos que há, e tirar a entrada tira o produto.
+
+### 8. A página
+
+Cabeçalho com os quatro números (o que há · tenho · não tenho · valor do
+selado, dito «à parte do valor da Coleção»), a linha das categorias que
+ficaram de fora, o filtro e a procura, e a lista **agrupada por edição** pela
+ordem do config. Cada linha: a foto (do CardTrader), o nome, o tipo, a edição,
+a categoria, a data (ou «por sair»), o preço rotulado **CardTrader** e os
+`+`/`−`. **A 375 px** a linha parte-se — a foto e o nome em cima, o preço e os
+botões numa fila por baixo —, e os quatro números passam a duas colunas;
+medido no Chrome (DevTools Protocol): `documentElement.scrollWidth ==
+clientWidth == 375`, zero scroll lateral. No site publicado é só leitura
+(`editable: false`), pelo mesmo flag da Coleção. A aba respeita o
+`abas.escondidas` (id `selado`, ou «Produto Selado»).
+
+**Duplicados do CardTrader ficam como estão**: a *Origins: Jinx Trial Deck*
+aparece duas vezes (blueprints 330845 e 363136), e as quatro Trial Decks do
+mesmo modo. São dois blueprints deles; inventar uma deduplicação por nome
+escondia um produto que pode ser mesmo diferente. Fica anotado.
+
+**Alvo 1 de cada, implícito**: «tenho» é ter pelo menos uma unidade. Ele não
+disse quantas quer de cada produto, e não se inventou um alvo — o contador
+sobe o que ele quiser e a percentagem é sobre produtos, não sobre unidades.
+
+Suite: **43 ficheiros, 0 a falhar**.
