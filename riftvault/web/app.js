@@ -127,8 +127,10 @@ const state = {
            // e o filtro — tudo, só o que vem a caminho, só o que falta.
            encSet: null, encFilter: 'all',
            // «Produto Selado»: qual dos três estados está a ver — tudo, o que
-           // tem, o que não tem (e os que ainda não saíram, à parte).
-           selFiltro: 'all',
+           // tem, o que não tem (e os que ainda não saíram, à parte). O
+           // `selAcess` é o botão que esconde a secção dos acessórios
+           // (binders e deck boxes); começa à vista.
+           selFiltro: 'all', selAcess: true,
            section: 'colecao' },
 };
 
@@ -330,19 +332,30 @@ const PAGINA = {
     ajuda: '<p>A lista vem do <b>CardTrader</b>, que arruma os blueprints por '
          + '<b>categoria</b>: a 258 são as cartas e as outras são produto e acessórios. '
          + 'Entram seis categorias — <i>Booster Boxes, Boosters, Bundles, Starter Decks, '
-         + 'Box Sets &amp; Displays, Complete Sets</i>. <b>Playmats, sleeves, binders, deck '
-         + 'boxes, moedas e cartas oversized ficam de fora</b>: são acessórios, não produto '
-         + 'selado. O cabeçalho diz quantos são.</p>'
+         + 'Box Sets &amp; Displays, Complete Sets</i>. <b>Playmats, sleeves, moedas e '
+         + 'cartas oversized ficam de fora</b>: são acessórios de jogo, não produto selado. '
+         + 'O cabeçalho diz quantos são.</p>'
+         + '<p>Os <b>binders e os deck boxes</b> têm uma <b>secção à parte</b>, em baixo, '
+         + 'com contadores e valor próprios e um botão que a esconde: vendem-se selados e '
+         + 'guardam-se, mas um binder não é um display e <b>não conta</b> para o «o que há / '
+         + 'tenho / não tenho» do selado.</p>'
          + '<p>O que ainda <b>não saiu</b> aparece marcado e <b>não conta para o que falta</b> '
          + '— não se pode ter o que ainda não existe. As datas de saída vêm do config: a '
          + 'API do CardTrader não dá data nenhuma.</p>'
          + '<p>O <b>selado não entra na Coleção</b>: nem nos níveis, nem no denominador, nem '
          + 'nas Faltas, nem nas wantlists, nem no A mais, nem nos decks. O <b>valor do '
          + 'selado</b> é um total próprio e <b>nunca se soma ao valor da Coleção</b> — uma '
-         + 'caixa por abrir não é uma carta no binder.</p>'
-         + '<p>Os preços são a oferta mais barata do CardTrader, em inglês e por abrir. Um '
-         + 'produto que a API não tenha (regional, promocional) acrescenta-se à mão no '
-         + '<code>riftvault_config.json</code>, em <code>selado.extra</code>.</p>',
+         + 'caixa por abrir não é uma carta no binder. O dos acessórios é um terceiro total, '
+         + 'também à parte.</p>'
+         + '<p>Os preços são a oferta mais barata do CardTrader, em inglês e por abrir. '
+         + 'Quando o CardTrader tem <b>dois blueprints para o mesmo produto</b> (acontece nos '
+         + 'Trial Decks da Origins: um par tem as ofertas todas, o outro zero) juntam-se num '
+         + 'só, e a linha diz qual juntou.</p>'
+         + '<p>O que a API não tem — regionais, promocionais, e o que quase não circula solto '
+         + '(displays de decks, cases de vaults, kits de loja) — acrescenta-se à mão no '
+         + '<code>riftvault_config.json</code>, em <code>selado.extra</code>, com o '
+         + '<b>conteúdo</b> ao lado. Os <b>MSRP são em dólares</b> e ficam no conteúdo, nunca '
+         + 'no preço: não há câmbio validado aqui.</p>',
   },
 };
 
@@ -4451,6 +4464,10 @@ function renderSelado() {
   const p = state.selado;
   if (!p) return;
   const t = p.totals;
+  // Os ACESSÓRIOS (binders e deck boxes) são uma secção à parte com números
+  // próprios: não entram no «o que há / tenho / não tenho» nem no valor do
+  // selado. Ver `selado.py`.
+  const at = (p.acessorios && p.acessorios.totals) || { ha: 0 };
   const q = (state.slQ || '').trim().toLowerCase();
   const casa = x => !q || `${x.nome} ${x.versao} ${x.edicao} ${x.tipo_label}`
     .toLowerCase().includes(q);
@@ -4473,9 +4490,14 @@ function renderSelado() {
       ? ` (${escapeHTML(String(p.catalogo_em).slice(0, 10))})` : ''} — as categorias
       de produto selado dele${t.do_config ? `, mais ${plural(t.do_config, 'produto', 'produtos')}
       do config` : ''}.
-      ${fora ? `<b>${fora}</b> acessórios (${escapeHTML((p.scope.fora || [])
-        .map(x => `${x.n} ${x.categoria.replace(/^Riftbound /, '')}`).join(', '))})
-        ficam de fora: não são produto selado.` : ''}
+      ${at.ha ? `Os <b>${at.ha}</b> acessórios (binders e deck boxes) têm secção
+        própria em baixo e <b>não contam</b> para estes números.` : ''}
+      ${p.scope.juntos ? ` ${plural(p.scope.juntos, 'blueprint repetido', 'blueprints repetidos')}
+        do CardTrader ${p.scope.juntos === 1 ? 'foi juntado' : 'foram juntados'} ao produto
+        a que ${p.scope.juntos === 1 ? 'pertencia' : 'pertenciam'} — a linha di-lo.` : ''}
+      ${fora ? ` <b>${fora}</b> ficam de fora (${escapeHTML((p.scope.fora || [])
+        .map(x => `${x.n} ${x.categoria.replace(/^Riftbound /, '')}`).join(', '))}):
+        não são produto selado nem acessório de coleção.` : ''}
       ${t.sem_preco ? ` ${plural(t.sem_preco, 'produto', 'produtos')} sem oferta no CardTrader.` : ''}
       O selado <b>não entra</b> na Coleção — nem nos níveis, nem nas Faltas, nem no valor.</small>
   </div>`;
@@ -4486,11 +4508,22 @@ function renderSelado() {
         state.prefs.selFiltro === f.id ? ' is-on' : ''}" data-sl-filter="${f.id}">${
         f.rot}</button>`).join('')}
     </div>
+    ${at.ha ? `<button class="btn${state.prefs.selAcess === false ? '' : ' is-on'}"
+      id="sl-acess" aria-pressed="${state.prefs.selAcess === false ? 'false' : 'true'}">
+      Acessórios (${at.ha})</button>` : ''}
     <input id="sl-q" type="search" placeholder="Procurar produto…" autocomplete="off"
            value="${escapeAttr(state.slQ || '')}">`;
   for (const b of document.querySelectorAll('#sl-filtros [data-sl-filter]')) {
     b.onclick = () => {
       state.prefs.selFiltro = b.dataset.slFilter;
+      savePrefs();
+      renderSelado();
+    };
+  }
+  const ab = $('#sl-acess');
+  if (ab) {
+    ab.onclick = () => {
+      state.prefs.selAcess = state.prefs.selAcess === false;
       savePrefs();
       renderSelado();
     };
@@ -4516,15 +4549,29 @@ function renderSeladoCorpo(casa) {
       + '<code>riftvault selado --sync</code> no PC para a ir buscar ao CardTrader.</p>';
     return;
   }
-  let out = '';
-  for (const g of p.sets) {
-    const itens = g.items.filter(x => slServe(x) && casa(x));
-    if (!itens.length) continue;
-    const gt = g.totals;
-    out += `<h3 class="section-head sub sl-cab">
-      ${escapeHTML(g.label)}<small>${escapeHTML(g.set)}</small>
-      <span>${gt.tenho}/${gt.saiu}${gt.por_sair ? ` · ${gt.por_sair} por sair` : ''}</span></h3>
-      <div class="sl-lista">${itens.map(slLinha).join('')}</div>`;
+  const grupos = sets => {
+    let html = '';
+    for (const g of sets) {
+      const itens = g.items.filter(x => slServe(x) && casa(x));
+      if (!itens.length) continue;
+      const gt = g.totals;
+      html += `<h3 class="section-head sub sl-cab">
+        ${escapeHTML(g.label)}<small>${escapeHTML(g.set)}</small>
+        <span>${gt.tenho}/${gt.saiu}${gt.por_sair ? ` · ${gt.por_sair} por sair` : ''}</span></h3>
+        <div class="sl-lista">${itens.map(slLinha).join('')}</div>`;
+    }
+    return html;
+  };
+  let out = grupos(p.sets);
+  const ac = p.acessorios;
+  // A secção dos acessórios vem SEMPRE depois do selado e diz, no cabeçalho,
+  // que não conta para ele — é a razão de estar à parte e não de estar cá.
+  if (ac && ac.totals.ha && state.prefs.selAcess !== false) {
+    const corpo = grupos(ac.sets);
+    out += `<h2 class="section-head sl-acess-cab">Acessórios
+      <small>binders e deck boxes — <b>não contam</b> para o produto selado</small>
+      <span>${ac.totals.tenho}/${ac.totals.saiu} · ${eur(ac.totals.valor_cents)}</span></h2>
+      ${corpo || '<p class="empty">Nada corresponde a este filtro.</p>'}`;
   }
   $('#sl-body').innerHTML = out
     || '<p class="empty">Nada corresponde a este filtro.</p>';
@@ -4532,7 +4579,8 @@ function renderSeladoCorpo(casa) {
 }
 
 function slLinha(x) {
-  const cls = [x.qty > 0 ? 'tem' : '', x.por_sair ? 'porsair' : ''].join(' ');
+  const cls = [x.qty > 0 ? 'tem' : '', x.por_sair ? 'porsair' : '',
+    x.acessorio ? 'acess' : ''].join(' ');
   const marcas = [];
   if (x.por_sair) {
     marcas.push(`<span class="sl-marca ps">por sair${x.data ? ` · ${escapeHTML(x.data)}` : ''}</span>`);
@@ -4540,7 +4588,18 @@ function slLinha(x) {
     marcas.push(`<span class="sl-marca dt">${escapeHTML(x.data)}</span>`);
   }
   if (x.fonte === 'config') marcas.push('<span class="sl-marca cfg">do config</span>');
-  if (x.nota) marcas.push(`<span class="sl-marca cfg">${escapeHTML(x.nota)}</span>`);
+  // O CONTEÚDO (4 decks iguais, 16 kits + 1 display, 12 vaults) e a NOTA são
+  // duas coisas: o primeiro é o que vem dentro, a segunda é a ressalva. Um
+  // «12 vaults» com uma fonte a dizer 4 tem de se ler como dúvida, não como
+  // facto.
+  if (x.conteudo) marcas.push(`<span class="sl-marca dentro">${escapeHTML(x.conteudo)}</span>`);
+  if (x.nota) marcas.push(`<span class="sl-marca nota">${escapeHTML(x.nota)}</span>`);
+  if (x.duplicados && x.duplicados.length) {
+    marcas.push(`<span class="sl-marca dup" title="O CardTrader tem mais do que um
+      blueprint com este nome, esta edição e esta versão; o que ficou é o que tem as
+      ofertas.">junta ${plural(x.duplicados.length, 'blueprint', 'blueprints')} do
+      CardTrader (${escapeHTML(x.duplicados.map(d => d.blueprint_id).join(', '))})</span>`);
+  }
   // A imagem vem do CardTrader (é o dono da lista). Sem imagem, um quadrado
   // com o tipo lá dentro — nunca um ícone partido.
   const arte = x.img

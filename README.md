@@ -796,12 +796,32 @@ Singles»** — as cartas. Entram seis:
 | 262 Starter Decks | champion, trial e showdown («duel») decks | 24 |
 | 263 Box Sets & Displays | os **cases**, as box sets e os **Proving Grounds** | 15 |
 | 283 Complete Sets | sets de cartas vendidos juntos | 2 |
-| | **total** | **85** |
+| | da API, juntando os repetidos | 81 |
+| | mais os 17 do `selado.extra` | **98** |
 
-**Os acessórios ficam de fora** — 48 playmats, 31 sleeves, 10 binders, 9 deck
-boxes, 13 memorabilia e 13 cartas oversized: são acessórios, não produto
-selado. **Não desaparecem em silêncio**: o cabeçalho da página diz quantos são,
-por categoria. Metê-los é acrescentar o número a `selado.categorias`.
+**Os binders e os deck boxes têm secção própria** (25/09/2026): 10 Albums e 9
+Deck Boxes entram por `selado.acessorios`, numa secção **«Acessórios»** no fim,
+com contadores e valor próprios e um botão que a esconde. **Não contam para o
+produto selado** — nem no «o que há», nem no «tenho», nem no «não tenho», nem
+no valor do selado: vendem-se selados e guardam-se, mas um binder não é um
+display, e metê-los no meio mudava um número que ele já conhece. (O *Radiance:
+9-Pocket Collector Binder* anda a 33,99 € em loja portuguesa.)
+
+**Ficam mesmo de fora** — 48 playmats e 31 sleeves (acessórios de *jogo*, e 79
+linhas a afogar as do selado), 13 memorabilia (os standees acrílicos vêm
+**dentro** do Proving Grounds Box Set: contá-los à parte era contar o mesmo
+produto duas vezes) e 13 cartas oversized (são cartas, não produto).
+**Não desaparecem em silêncio**: o cabeçalho da página diz quantos são, por
+categoria. Metê-los é acrescentar o número a `selado.categorias`.
+
+**Blueprints repetidos juntam-se** (`selado.juntar_duplicados`, ligado). O
+CardTrader tem os quatro Trial Decks da Origins com **dois blueprints cada**,
+com o mesmo nome, a mesma edição, a mesma categoria e a versão vazia nos dois.
+Sondadas as ofertas dos oito a 25/09/2026: os antigos (330845–330848) têm
+**zero ofertas e nenhum id do Cardmarket**; os novos (363136–363139) têm as
+ofertas todas e um id cada. É duplicação do catálogo deles — juntam-se num só e
+a linha diz que blueprint juntou. **Não às cegas**: a chave leva a versão, por
+isso os «2024 Trial Deck Set» e «2025 Trial Deck Set» continuam a ser dois.
 
 **Três estados, que é o que ele pediu:** o que **há** (a lista toda), o que
 **tens** e o que **não tens**, com os contadores no topo e um filtro por baixo.
@@ -811,7 +831,9 @@ Cada produto tem `+`/`−` e começa tudo a zero.
 anunciadas para 2027: esses produtos aparecem marcados **«por sair»** e **não
 contam para o que falta** — não se pode ter o que ainda não existe. As datas
 vêm do config (`selado.datas_por_edicao`, ditas por ele): a API do CardTrader
-**não dá data de lançamento nenhuma**.
+**não dá data de lançamento nenhuma**. A Proving Grounds (OGS) ficou sem data
+no primeiro dia porque ele não a deu; é da era da Origins, **31/10/2025**
+(25/09/2026).
 
 **O selado NÃO entra na Coleção.** Nem nos níveis, nem no denominador, nem nas
 Faltas, nem nas wantlists, nem no A mais, nem nos decks, nem no foil, nem nas
@@ -823,9 +845,30 @@ unidades de selado (1 874,00 €) na base, o site gerado sai **igual ficheiro a
 ficheiro** (30 ficheiros), a menos do `api/selado.json`; o valor da Coleção
 continua nos 6 615,91 €. `tests/test_selado.py` fixa isso.
 
-**Acrescentar à mão** o que a API não tem (regionais, promocionais):
-`selado.extra` no `riftvault_config.json`, com `nome` (obrigatório), `edicao`,
-`tipo`, `data`, `preco_eur` e `nota`. A lista da app é a da API **mais** estes.
+**Acrescentar à mão** o que a API não tem: `selado.extra` no
+`riftvault_config.json`, com `nome` (obrigatório), `edicao`, `tipo`, `data`,
+`preco_eur`, `conteudo` (o que vem dentro) e `nota` (ressalvas). A lista da app
+é a da API **mais** estes.
+
+**São 17, e não são casos raros** (levantamento dele de 25/09/2026, em
+`ai-pc/work/riftbound-produto-selado.md`): é precisamente o que um catálogo de
+mercado não lista, porque quase não circula solto.
+
+| o quê | quantos | conteúdo |
+|---|---|---|
+| Champion Deck Displays — OGN Jinx/Viktor/Lee Sin, SFD Rumble/Fiora, UNL Vi/Vex | 7 | 4 decks iguais · MSRP 79,96 USD |
+| Showdown Decks Displays — VEN Zed vs Shen, RAD Evelynn vs Seraphine | 2 | 4 conjuntos de dois jogadores · MSRP 139,96 USD |
+| Vault Bundle Case — UNL, VEN, RAD | 3 | 12 vaults (o da UNL com a dúvida escrita: uma fonte diz 4) |
+| Proving Grounds Box Set Case — OGS | 1 | 6 caixas |
+| **Pre-Rift EVENT Kit** — SFD, UNL, VEN, RAD | 4 | 16 kits de jogador + 1 display · MSRP 480 USD |
+
+O **Pre-Rift EVENT Kit** e o «Pre-Rift Kit» do CardTrader são **produtos
+diferentes** — o segundo é o kit de UM jogador (~40 USD, 29,99 € em loja PT) —
+e por isso aparecem os dois, cada um com o seu conteúdo escrito.
+
+**Os MSRP dele são em dólares e ficam no `conteudo`, nunca no preço.** Não há
+taxa de câmbio validada em lado nenhum do riftvault, e inventar uma era
+escrever um número que ninguém mediu: a linha diz «—» e conta no «sem preço».
 
 **Os preços** são a oferta mais barata do CardTrader, em inglês e **por abrir**
 (`properties_hash.sealed`) — a regra é diferente da das cartas, porque uma

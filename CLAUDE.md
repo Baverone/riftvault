@@ -62,7 +62,12 @@ site já não há secção nenhuma com esse id.) Há também **Produto Selado** 
 boosters e Proving Grounds: o que há, o que tem e o que não tem; a lista vem
 das CATEGORIAS do CardTrader, o catálogo em `data/selado_catalogo.json`, id
 `selado`, `api/selado.json`, `selado.py`; **não entra na Coleção** e o valor
-dele nunca se soma ao dela — ver a última secção deste ficheiro).
+dele nunca se soma ao dela. **Desde a noite de 2026-09-25 são 98**: os 81 da
+API (4 blueprints repetidos juntados, `selado.juntar_duplicados`) mais 17
+escritos à mão em `selado.extra` — displays de champion e de showdown decks,
+cases de vaults, o case do Proving Grounds e os Pre-Rift EVENT Kit —, e os
+**binders e deck boxes** (`selado.acessorios`, 19) têm secção própria que
+**não conta** para o selado; ver a última secção deste ficheiro).
 E há uma **Venda** OUTRA VEZ, desde 2026-09-25 — mas é outra pergunta: a
 conta de uma venda em curso, para mostrar a quem compra, com os preços a
 serem o **Trend do Cardmarket metido à mão** (id `venda`, `api/venda.json`,
@@ -5830,13 +5835,156 @@ clientWidth == 375`, zero scroll lateral. No site publicado é só leitura
 (`editable: false`), pelo mesmo flag da Coleção. A aba respeita o
 `abas.escondidas` (id `selado`, ou «Produto Selado»).
 
-**Duplicados do CardTrader ficam como estão**: a *Origins: Jinx Trial Deck*
+**Duplicados do CardTrader ficam como estão** — ~~a *Origins: Jinx Trial Deck*
 aparece duas vezes (blueprints 330845 e 363136), e as quatro Trial Decks do
 mesmo modo. São dois blueprints deles; inventar uma deduplicação por nome
-escondia um produto que pode ser mesmo diferente. Fica anotado.
+escondia um produto que pode ser mesmo diferente. Fica anotado.~~
+**RESPONDIDO a 2026-09-25, à noite**: foram-se ver as ofertas dos oito e é
+DUPLICAÇÃO — juntam-se. Ver a secção a seguir.
 
 **Alvo 1 de cada, implícito**: «tenho» é ter pelo menos uma unidade. Ele não
 disse quantas quer de cada produto, e não se inventou um alvo — o contador
 sobe o que ele quiser e a percentagem é sobre produtos, não sobre unidades.
 
 Suite: **43 ficheiros, 0 a falhar**.
+
+## 25/09/2026, à noite — o que FALTAVA ao Produto Selado: 17 do `selado.extra`, a secção «Acessórios», e os Trial Decks eram duplicação
+
+Palavras dele: *"o catalogo do CardTrader NAO tem tudo: eu fiz um levantamento
+independente (loja oficial da Riot, playriftbound.com, TCGplayer com 76
+selados, fichas do distribuidor PHD Games e lojas portuguesas)"* — em
+`ai-pc/work/riftbound-produto-selado.md` — *"FALTAM ESTES, e sao precisamente o
+tipo de coisa que um catalogo de mercado nao lista porque quase nao circula
+solta. Mete-os pela chave `selado.extra` que ja fizeste (e para isto que ela
+serve)"*. Ramo `ai-pc/selado-extra-2026-09-25`.
+
+### 1. Os 17 produtos do `selado.extra`
+
+| o quê | n | edições | `conteudo` |
+|---|---|---|---|
+| Champion Deck Display | **7** | OGN Jinx/Viktor/Lee Sin · SFD Rumble/Fiora · UNL Vi/Vex | 4 decks iguais · MSRP 79,96 USD |
+| Showdown Decks Display | **2** | VEN Zed vs Shen · RAD Evelynn vs Seraphine | 4 conjuntos de dois jogadores · MSRP 139,96 USD |
+| Vault Bundle Case | **3** | UNL · VEN · RAD | 12 vaults |
+| Proving Grounds Box Set Case | **1** | OGS | 6 caixas |
+| **Pre-Rift EVENT Kit** | **4** | SFD · UNL · VEN · RAD | 16 kits de jogador + 1 display · MSRP 480 USD |
+
+**A `nota` é para as RESSALVAS, e por isso nasceu um campo `conteudo` à
+parte.** O case do Vault da Unleashed leva `conteudo: "12 vaults"` e
+`nota: "DÚVIDA: as fontes divergem — umas dizem 12 vaults, outras 4. Fica 12
+(como o da Vendetta e o da Radiance, confirmados), por confirmar."` — a página
+escreve as duas com cores diferentes (o conteúdo em branco, a nota a amarelo),
+porque um «12 vaults» com uma fonte a dizer 4 tem de se ler como dúvida e não
+como facto. Os quatro EVENT Kit levam nota a dizer que **não são** o
+«Pre-Rift Kit» do CardTrader, que é o kit de UM jogador (~40 USD, 29,99 € em
+loja PT): são dois produtos e aparecem os dois, lado a lado na mesma edição.
+
+**Os MSRP dele são em DÓLARES e ficam no `conteudo`, NUNCA no preço.** Não há
+taxa de câmbio validada em lado nenhum do riftvault, e pôr um número em euros
+era inventar dados. As 17 linhas dizem «—» e contam no `sem_preco`, que passou
+de 34 para 47.
+
+**A Proving Grounds (OGS) ganhou data**: `2025-10-31`, a da Origins. Ficou sem
+ela no primeiro dia porque ele não a tinha dado.
+
+### 2. Os ACESSÓRIOS numa secção à parte (`selado.acessorios`)
+
+Decisão pedida a mim, e é **sim** para os binders e os deck boxes: entram
+`[265, 267]` — 10 Albums e 9 Deck Boxes —, numa **secção «Acessórios»** no fim
+da página, com contadores e valor próprios e um botão que a esconde
+(`prefs.selAcess`, começa à vista). **Não contam para o produto selado**: nem
+no «o que há», nem no «tenho», nem no «não tenho», nem no valor do selado — há
+teste que fotografa os `totals` com a lista cheia e vazia e exige que sejam
+iguais. São **três totais separados**, e nenhum se soma ao da Coleção.
+
+Porquê estes e não os outros: vendem-se selados e guardam-se (o *Radiance:
+9-Pocket Collector Binder* anda a 33,99 € em loja portuguesa). **Ficam de
+fora**, contados no `scope.fora` como sempre: as 48 **playmats** e as 31
+**sleeves** (acessórios de *jogo*, e 79 linhas a afogar as 98 do selado), a
+**memorabilia** (268 — os quatro standees acrílicos vêm DENTRO do Proving
+Grounds Box Set, e contá-los à parte era contar o mesmo produto duas vezes) e
+as **oversized** (284 — são cartas grandes, não produto). Uma categoria nas
+duas listas rebenta; a 258 em qualquer das duas rebenta.
+
+Ganharam **tipo próprio** (`binder`, `deck-box`): «Outro» num binder não diz
+nada.
+
+**Os preços deles estão por ir buscar.** O `--sync` só pede preços do que está
+em `selado.categorias`, e a ordem dizia para não tocar em `data/` — que é onde
+vive o `selado_catalogo.json`. Os 19 aparecem a «—» e o valor dos acessórios
+é 0,00 € até correr `riftvault selado --sync`.
+
+### 3. Os Trial Decks eram DUPLICAÇÃO (`selado.juntar_duplicados`)
+
+A pergunta estava anotada («ficam como estão… fica anotado»). Foram-se ver as
+ofertas dos oito blueprints na API, a 2026-09-25
+(`_revisao\_trial_decks.py`, resposta crua em `trial-decks-ofertas.json`):
+
+| carta | blueprint | ofertas | vendedores | preço mín. | `card_market_ids` |
+|---|---|---|---|---|---|
+| Jinx | 330845 | **0** | 0 | — | `[]` |
+| Jinx | **363136** | 1 | 1 | 400,59 € | `[862849]` |
+| Viktor | 330846 | **0** | 0 | — | `[]` |
+| Viktor | **363137** | 2 | 2 | 100,64 € | `[862851]` |
+| Volibear | 330848 | **0** | 0 | — | `[]` |
+| Volibear | **363138** | 2 | 2 | 195,64 € | `[862850]` |
+| Yasuo | 330847 | **0** | 0 | — | `[]` |
+| Yasuo | **363139** | 3 | 3 | 100,64 € | `[862852]` |
+
+Mesma expansão (4167, `promo-rift`), mesma categoria (262), mesmo nome, versão
+vazia nos dois, `fixed_properties` vazias nos dois. **É duplicação do catálogo
+deles**: os 3308xx são de Outubro de 2025 e nunca foram ligados ao Cardmarket;
+os 3631xx têm as ofertas todas e um id cada. Juntam-se.
+
+**Não às cegas.** A chave é `(edição, nome, versão, categoria)`, e o que fica é
+o que tem id do Cardmarket → preço → mais anúncios → `blueprint_id` maior. Os
+«2024 Trial Deck Set» e «2025 Trial Deck Set» dizem o ano na VERSÃO e
+continuam a ser dois — há teste. A linha diz «junta 1 blueprint do CardTrader
+(330847)». E o que ele tivesse gravado num id que se juntou **continua a
+contar** (`itens` soma os `duplicados`): juntar duas linhas do catálogo deles
+não pode apagar unidades dele. `juntar_duplicados: false` mostra os dois.
+
+### Medido a 2026-09-25 contra cópias do `data/` real
+
+`_revisao\_medir_selado_extra.py`, `main` (`cf9b750`) e ramo na mesma corrida,
+cada lado a ler o SEU config — **os invariantes da Coleção NÃO mexem**:
+denominador **928**, níveis **897/836/766 de 928** (faltam 31/121/281 ·
+83,77/440,65/1 028,67 €), wantlist «tudo» **162 linhas · 281 cópias ·
+1 028,67 €**, valor **6 615,91 € · 2 573 cópias**, totais (1006 impressões,
+909 cartas), Faltas (555 cópias · 10 178,32 €), A mais, decks, Encomendas,
+Venda, painel e a grelha impressão a impressão — **tudo igual**.
+
+**O que muda:**
+
+| | antes | depois |
+|---|---|---|
+| produto selado | 85 (68 saíram · 17 por sair) | **98** (78 · 20) |
+| acessórios | — (10+9 no `fora`) | **19** em secção própria (17 · 2 por sair) |
+| blueprints juntos | 0 | **4** |
+| sem preço | 34 | **47** (os 17 do config, que não levam preço; −4 duplicados) |
+| `scope.fora` | 206×1, 264×48, **265×10**, 266×31, **267×9**, 268×13, 284×13 | 206×1, 264×48, 266×31, 268×13, 284×13 |
+
+Por edição (antes → depois, com quantos são do config): OGN 10 → **13** (3),
+OGS 1 → **2** (1), SFD 10 → **13** (3), UNL 12 → **16** (4), VEN 7 → **10**
+(3), RAD 7 → **10** (3), LGC 7, PG2 1, REC 2, ARC 3, OP 1, PROMO-RIFT 22 →
+**18** (os 4 juntos), T1S 2. Acessórios: SFD 6, PROMO-RIFT 8, T1S 3, RAD 1,
+LGC 1.
+
+**Um erro apanhado pela fotografia**, antes do merge: o `.section-head`
+capitaliza cada palavra, e o subtítulo dos Acessórios lia-se «Binders E Deck
+Boxes — Não Contam Para O Produto Selado». É uma frase, não um rótulo:
+`.sl-acess-cab small { text-transform: none }`, com teste. A 375 px
+(DevTools Protocol, contra o site gerado): `scrollWidth == clientWidth ==
+375`, zero elementos fora do ecrã e zero com scroll próprio.
+
+`tests/test_selado_extra.py` (50 testes, contra cópias e config temporário):
+os extras com o conteúdo, o MSRP que não vira preço, o conteúdo e a nota como
+campos diferentes, o EVENT Kit a par do kit de um jogador; os acessórios
+marcados, com contadores e valor próprios, a não mexerem nos do selado, a
+saírem do `fora` e a voltarem lá com a lista vazia, com tipo próprio, e as
+duas listas a rebentarem quando se cruzam; os duplicados juntos, o vivo
+escolhido, a versão a impedir a junção, o desligar, o que estava gravado no
+outro a contar, e o id juntado a deixar de ser válido; o config real (os 17,
+os 7, os 2, os 4 cases com a dúvida, os 4 EVENT Kit, a data da OGS); **a
+fotografia** — a MESMA do `test_selado`, por referência, para não haver duas
+definições de «número da Coleção» — com selado, acessórios e extras metidos e
+tirados; e a página. Suite: **44 ficheiros, 0 a falhar**.
