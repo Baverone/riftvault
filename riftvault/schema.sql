@@ -252,3 +252,25 @@ CREATE TABLE IF NOT EXISTS sale_log (
     source      TEXT    NOT NULL
 );
 CREATE INDEX IF NOT EXISTS ix_sale_log_venda ON sale_log(sale_id, id);
+
+-- ---------------------------------------------------------------------------
+-- PRODUTO SELADO (André, 2026-09-25): *"um separador que e 'Produto Selado',
+-- em que vai tudo o que e produtos de coleccao do Riftbound […] para eu saber
+-- o que ha, o que tenho e o que nao tenho"*. Ver `selado.py`.
+-- ---------------------------------------------------------------------------
+
+-- Quantas unidades ele tem de cada produto selado. O `product_id` é
+-- `ct-<blueprint_id>` (o que veio do CardTrader) ou `cfg-<slug>` (um produto
+-- escrito à mão no `selado.extra`). Começa VAZIA — tudo a zero.
+--
+-- O SELADO NÃO ENTRA NA COLEÇÃO. Esta tabela não é lida por módulo nenhum de
+-- contas: os níveis, o denominador, o A mais, as Faltas, as wantlists, o valor
+-- da Coleção, os decks, o foil, as cópias próprias e a Venda dão exactamente
+-- os mesmos números com ela cheia ou vazia (`tests/test_selado.py`
+-- fotografa-os). O valor do selado é um total PRÓPRIO, nunca somado ao da
+-- Coleção — uma caixa por abrir não é uma carta no binder.
+CREATE TABLE IF NOT EXISTS sealed_copies (
+    product_id TEXT    PRIMARY KEY,
+    qty        INTEGER NOT NULL CHECK (qty >= 0),
+    updated_at TEXT    NOT NULL
+);

@@ -20,6 +20,8 @@
     riftvault foil [REF] [--mais [N] | --menos [N]] [--edicao OGN]
     riftvault venda [--juntar REF [N] | --tirar REF [N]] [--trend REF EUR]
                     [--limpar] [--vender --sim]
+    riftvault selado [--sync] [--mais ID [N] | --menos ID [N]] [--edicao OGN]
+                     [--so-faltas | --so-tenho]
 """
 
 from __future__ import annotations
@@ -1086,6 +1088,76 @@ def cmd_foil(args) -> int:
     return 0
 
 
+def cmd_selado(args) -> int:
+    """PRODUTO SELADO (2026-09-25): o que HÁ, o que TEM e o que NÃO TEM.
+
+    Sem opções, a lista por edição com os três estados. `--sync` vai ao
+    CardTrader buscar o catálogo e os preços e reescreve o
+    `data/selado_catalogo.json` (é um comando À MÃO — o `riftvault prices`
+    diário não mexeu). `--mais/--menos ID [N]` mexem no que ele tem.
+
+    **Nada disto toca na Coleção**: escreve-se na `sealed_copies` e mais
+    nenhum módulo a lê. O valor do selado é um total próprio.
+    """
+    from . import selado as selado_mod
+
+    cfg = config.load()
+    if args.sync:
+        print("A ir buscar o produto selado ao CardTrader (1 pedido/s)...")
+        try:
+            r = selado_mod.sincronizar(cfg=cfg, log=print)
+        except prices.CardTraderError as exc:
+            print(str(exc), file=sys.stderr)
+            return 1
+        print(f"\n{r['produtos']} produtos (não-singles) e {r['precos']} preços "
+              f"em {r['pedidos']} pedidos -> {r['caminho']}")
+        if r["sem_preco"]:
+            print(f"  {r['sem_preco']} sem oferta no CardTrader")
+
+    con = db.connect()
+    n = _qty(args.n)
+    try:
+        if args.mais:
+            res = selado_mod.ajustar(con, args.mais, n, cfg, source="cli")
+            print(f"{res['product_id']}: {res['applied']:+d} -> {res['qty']}")
+        elif args.menos:
+            res = selado_mod.ajustar(con, args.menos, -n, cfg, source="cli")
+            print(f"{res['product_id']}: {res['applied']:+d} -> {res['qty']}")
+    except (selado_mod.ProdutoDesconhecido, ValueError) as exc:
+        print(str(exc), file=sys.stderr)
+        con.close()
+        return 1
+
+    p = selado_mod.payload(con, cfg, editable=True)
+    if args.edicao:
+        alvo = args.edicao.upper()
+        p["sets"] = [g for g in p["sets"] if g["set"] == alvo]
+        if not p["sets"]:
+            print(f"não há produto selado em {alvo}", file=sys.stderr)
+            con.close()
+            return 1
+    if args.so_faltas or args.so_tenho:
+        # «Falta» não conta os por sair — ele não pode ter o que ainda não saiu.
+        serve = ((lambda x: x["qty"] > 0) if args.so_tenho
+                 else (lambda x: x["qty"] == 0 and not x["por_sair"]))
+        for g in p["sets"]:
+            g["items"] = [x for x in g["items"] if serve(x)]
+        p["sets"] = [g for g in p["sets"] if g["items"]]
+    if not p["items"]:
+        print("A lista do produto selado está vazia — corre "
+              "`riftvault selado --sync` para a ir buscar ao CardTrader.")
+        con.close()
+        return 0
+    print(selado_mod.texto(p))
+    print(f"\nO valor do selado ({selado_mod.eur(p['totals']['valor_cents'])}) é "
+          f"à PARTE do valor da Coleção — nunca se somam.", file=sys.stderr)
+    if p["catalogo_em"]:
+        print(f"Catálogo de {p['catalogo_em']} (CardTrader). "
+              f"`riftvault selado --sync` para actualizar.", file=sys.stderr)
+    con.close()
+    return 0
+
+
 def cmd_venda(args) -> int:
     """A VENDA EM CURSO (2026-09-25): o que ele está a vender agora e a conta.
 
@@ -1852,6 +1924,19 @@ def main(argv: list[str] | None = None) -> int:
                    help="marca como vendidas: BAIXA as cópias (pede --sim)")
     p.add_argument("--sim", action="store_true", help="confirma o --vender")
     p.set_defaults(func=cmd_venda)
+
+    p = sub.add_parser("selado", help="produto selado (displays, cases, decks, bundles, "
+                                      "Proving Grounds): o que há, o que tens e o que não tens")
+    p.add_argument("--sync", action="store_true",
+                   help="vai ao CardTrader buscar a lista e os preços (1 pedido/s)")
+    p.add_argument("--mais", metavar="ID", help="mais unidades deste produto (ct-330791)")
+    p.add_argument("--menos", metavar="ID", help="menos unidades deste produto")
+    p.add_argument("n", nargs="?", help="quantas (3 ou x3; omissão 1)")
+    p.add_argument("--edicao", help="só esta edição (OGN, VEN, RAD, …)")
+    p.add_argument("--so-faltas", action="store_true",
+                   help="só o que não tens (sem os que ainda não saíram)")
+    p.add_argument("--so-tenho", action="store_true", help="só o que tens")
+    p.set_defaults(func=cmd_selado)
 
     p = sub.add_parser("proprias", help="as cópias PRÓPRIAS de cada deck (não contam "
                                         "para a Coleção): por deck, ou um deck carta a carta; + e -")

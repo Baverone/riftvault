@@ -84,6 +84,10 @@ const state = {
   // Só o `renderVenda` o lê — marcar cartas para venda não conta para nada, e
   // as cópias só descem no «marcar como vendidas».
   venda: null,
+  // O separador «Produto Selado» (2026-09-25): `api/selado.json`. Só o
+  // `renderSelado` o lê — o selado NÃO entra na Coleção (nem níveis, nem
+  // denominador, nem valor), e o total dele é um número à parte.
+  selado: null, slQ: '',
   // O bloco «Runas — 12 de cada» do fim da Coleção (2026-09-19):
   // `api/runas.json`. Só o `renderRunasVista` o lê — não conta para nada.
   runas: null,
@@ -122,6 +126,9 @@ const state = {
            // «Encomendas»: a edição aberta (uma de cada vez, como na Coleção)
            // e o filtro — tudo, só o que vem a caminho, só o que falta.
            encSet: null, encFilter: 'all',
+           // «Produto Selado»: qual dos três estados está a ver — tudo, o que
+           // tem, o que não tem (e os que ainda não saíram, à parte).
+           selFiltro: 'all',
            section: 'colecao' },
 };
 
@@ -178,6 +185,8 @@ const ICO = {
         + '<path d="m21 15.5-4.8-4.8L5.5 21"/>',
   menu: '<path d="M3.5 12h17"/><path d="M3.5 6h17"/><path d="M3.5 18h17"/>',
   venda: '<path d="M12 1.8v20.4"/><path d="M17 5.6H9.5a3.4 3.4 0 0 0 0 6.8h5a3.4 3.4 0 0 1 0 6.8H6"/>',
+  selado: '<path d="M2.5 8.2 12 3.1l9.5 5.1v7.6L12 20.9l-9.5-5.1z"/>'
+        + '<path d="M2.5 8.2 12 13.3l9.5-5.1"/><path d="M12 13.3v7.6"/>',
   ajuda: '<circle cx="12" cy="12" r="9.5"/>'
        + '<path d="M9.3 9.2a2.8 2.8 0 0 1 5.4.9c0 1.9-2.7 2.8-2.7 2.8"/><path d="M12 17h.01"/>',
 };
@@ -201,6 +210,8 @@ const NAV = [
     { sec: 'colecao', ico: 'colecao', rot: 'Coleção', nota: 'a grelha, por edição' },
     { sec: 'faltas-edicao', ico: 'faltas', rot: 'Faltas', nota: 'o que falta, por bloco' },
     { sec: 'a-mais', ico: 'amais', rot: 'A mais', nota: 'excedente e libertadas' },
+    { sec: 'selado', ico: 'selado', rot: 'Produto Selado',
+      nota: 'displays, cases, decks, bundles' },
   ] },
   { grupo: 'Decks', itens: [
     { sec: 'decks', ico: 'decks', rot: 'Decks', nota: 'as listas montadas' },
@@ -310,6 +321,28 @@ const PAGINA = {
          + '<p>O Trend fica guardado por impressão com a data, para a venda seguinte já vir '
          + 'preenchida. Passados uns dias aparece marcado como velho — vale a pena '
          + 'confirmá-lo antes de cobrar.</p>',
+  },
+  'selado': {
+    sub: 'Displays, cases, decks, bundles e Proving Grounds: o que <b>há</b>, o que '
+       + '<b>tens</b> e o que <b>não tens</b>. Não entra na Coleção.',
+    sub_ro: 'Displays, cases, decks, bundles e Proving Grounds: o que há, o que ele '
+          + 'tem e o que não tem. Não entra na Coleção.',
+    ajuda: '<p>A lista vem do <b>CardTrader</b>, que arruma os blueprints por '
+         + '<b>categoria</b>: a 258 são as cartas e as outras são produto e acessórios. '
+         + 'Entram seis categorias — <i>Booster Boxes, Boosters, Bundles, Starter Decks, '
+         + 'Box Sets &amp; Displays, Complete Sets</i>. <b>Playmats, sleeves, binders, deck '
+         + 'boxes, moedas e cartas oversized ficam de fora</b>: são acessórios, não produto '
+         + 'selado. O cabeçalho diz quantos são.</p>'
+         + '<p>O que ainda <b>não saiu</b> aparece marcado e <b>não conta para o que falta</b> '
+         + '— não se pode ter o que ainda não existe. As datas de saída vêm do config: a '
+         + 'API do CardTrader não dá data nenhuma.</p>'
+         + '<p>O <b>selado não entra na Coleção</b>: nem nos níveis, nem no denominador, nem '
+         + 'nas Faltas, nem nas wantlists, nem no A mais, nem nos decks. O <b>valor do '
+         + 'selado</b> é um total próprio e <b>nunca se soma ao valor da Coleção</b> — uma '
+         + 'caixa por abrir não é uma carta no binder.</p>'
+         + '<p>Os preços são a oferta mais barata do CardTrader, em inglês e por abrir. Um '
+         + 'produto que a API não tenha (regional, promocional) acrescenta-se à mão no '
+         + '<code>riftvault_config.json</code>, em <code>selado.extra</code>.</p>',
   },
 };
 
@@ -3314,7 +3347,7 @@ function wireEncomendas() {
    seletor de edição, e no telemóvel o `<select>` dos decks) já acima do topo
    do ecrã. Um `scrollTo(0, 0)` não chegava: o salto do browser é DEPOIS do
    `boot()`. Com os dois nomes separados não há âncora nenhuma a apanhar. */
-const SECCOES = ['inicio', 'colecao', 'decks', 'faltas-edicao', 'a-mais', 'encomendas', 'venda'];
+const SECCOES = ['inicio', 'colecao', 'decks', 'faltas-edicao', 'a-mais', 'encomendas', 'venda', 'selado'];
 
 /* Desenha a secção e põe a rota no URL. `sub` é a sub-vista — a edição, o deck
    ou a lista de compra. Vazia, usa-se a última que ele escolheu. */
@@ -3414,6 +3447,11 @@ function abrirSubVista(name, sub) {
     // A venda muda por fora (a CLI, outro telemóvel): relê-se sempre que se
     // entra — é um payload pequeno e é a conta que ele vai cobrar a alguém.
     loadVenda().catch(err => erro('#vd-body', err));
+    return;
+  }
+
+  if (name === 'selado') {
+    if (!state.selado) loadSelado().catch(err => erro('#sl-body', err));
   }
 }
 
@@ -3560,6 +3598,7 @@ function renderInicio() {
     ['decks', 'decks', 'Decks', 'o que falta a cada um'],
     ['encomendas', 'encomendas', 'Encomendas', 'o que vem a caminho'],
     ['a-mais', 'amais', 'A mais', 'o que sobra'],
+    ['selado', 'selado', 'Produto Selado', 'o que há e o que tens'],
   ];
   // Um atalho para uma aba escondida (2026-09-25) era um botão para uma página
   // a que já não se chega pela barra.
@@ -4348,6 +4387,197 @@ function renderVdConta() {
       state.decks = null; state.enc.payload = null; state.enc.resumo = null;
     } catch (err) { toast(err.message, { error: true }); }
   };
+}
+
+
+/* ================================================ «PRODUTO SELADO» (2026-09-25)
+
+   André: *"faz uma lista, para acrescentar um separador que e 'Produto
+   Selado', em que vai tudo o que e produtos de coleccao do Riftbound, como
+   displays ou boxcase, ou duel decks, proving ground, etc etc, para eu saber
+   o que ha, o que tenho e o que nao tenho"*.
+
+   TRÊS ESTADOS, que é o que ele pediu: o que HÁ (a lista toda), o que TEM
+   (unidades > 0) e o que NÃO TEM. Os contadores estão no topo e o filtro
+   troca entre eles. Os que ainda NÃO SAÍRAM aparecem marcados e NÃO contam
+   para o que falta.
+
+   O SELADO NÃO ENTRA NA COLEÇÃO. Os `+`/`−` escrevem numa tabela à parte
+   (`sealed_copies`) e não há nenhum número da Coleção que mexa com eles — o
+   valor do selado é um total próprio, e está escrito no ecrã que é à parte.
+   Ver `selado.py`.
+
+   Como na Venda, cada escrita devolve o payload inteiro e redesenha: a lista
+   tem dezenas de linhas, não centenas, e assim não há duas cópias do estado
+   a divergir.                                                               */
+
+const SL_FILTROS = [
+  { id: 'all', rot: 'Tudo' },
+  { id: 'tenho', rot: 'Tenho' },
+  { id: 'falta', rot: 'Não tenho' },
+  { id: 'porsair', rot: 'Por sair' },
+];
+
+async function loadSelado() {
+  $('#sl-body').innerHTML = '<p class="empty">a carregar…</p>';
+  state.selado = await getJSON('api/selado.json');
+  renderSelado();
+}
+
+async function slPost(corpo) {
+  const r = await fetch('api/selado/ajustar', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(corpo),
+  });
+  const res = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(res.error || `HTTP ${r.status}`);
+  state.selado = res;
+  renderSelado();
+  return res;
+}
+
+/* O filtro é do ECRÃ e não do servidor: a lista inteira vem no payload (são
+   dezenas de produtos) e os contadores do topo contam sempre TUDO — é o que
+   faz «o que há / o que tenho / o que não tenho» ser lido de uma vez. */
+function slServe(x) {
+  const f = state.prefs.selFiltro;
+  if (f === 'tenho') return x.qty > 0;
+  if (f === 'falta') return x.qty === 0 && !x.por_sair;
+  if (f === 'porsair') return x.por_sair;
+  return true;
+}
+
+function renderSelado() {
+  const p = state.selado;
+  if (!p) return;
+  const t = p.totals;
+  const q = (state.slQ || '').trim().toLowerCase();
+  const casa = x => !q || `${x.nome} ${x.versao} ${x.edicao} ${x.tipo_label}`
+    .toLowerCase().includes(q);
+
+  const fora = (p.scope.fora || []).reduce((s, x) => s + x.n, 0);
+  $('#sl-head').innerHTML = `<div class="deck-card">
+    <div class="deck-title"><b>Produto selado</b>
+      <span class="prio">${plural(t.copias, 'unidade', 'unidades')}</span></div>
+    <div class="sl-nums">
+      <span class="sl-num ha"><i>O que há</i><b>${t.ha}</b>
+        <small>${t.saiu} já saíram${t.por_sair ? ` · ${t.por_sair} por sair` : ''}</small></span>
+      <span class="sl-num tem"><i>Tenho</i><b>${t.tenho}</b>
+        <small>${fmtPct(t.pct)} dos que saíram</small></span>
+      <span class="sl-num falta"><i>Não tenho</i><b>${t.falta}</b>
+        <small>sem contar os que ainda não saíram</small></span>
+      <span class="sl-num val"><i>Valor do selado</i><b>${eur(t.valor_cents)}</b>
+        <small>à parte do valor da Coleção</small></span>
+    </div>
+    <small class="nota">Lista do <b>CardTrader</b>${p.catalogo_em
+      ? ` (${escapeHTML(String(p.catalogo_em).slice(0, 10))})` : ''} — as categorias
+      de produto selado dele${t.do_config ? `, mais ${plural(t.do_config, 'produto', 'produtos')}
+      do config` : ''}.
+      ${fora ? `<b>${fora}</b> acessórios (${escapeHTML((p.scope.fora || [])
+        .map(x => `${x.n} ${x.categoria.replace(/^Riftbound /, '')}`).join(', '))})
+        ficam de fora: não são produto selado.` : ''}
+      ${t.sem_preco ? ` ${plural(t.sem_preco, 'produto', 'produtos')} sem oferta no CardTrader.` : ''}
+      O selado <b>não entra</b> na Coleção — nem nos níveis, nem nas Faltas, nem no valor.</small>
+  </div>`;
+
+  $('#sl-filtros').innerHTML = `
+    <div class="seg" role="group" aria-label="Produto selado — o que mostrar">
+      ${SL_FILTROS.map(f => `<button class="seg-btn${
+        state.prefs.selFiltro === f.id ? ' is-on' : ''}" data-sl-filter="${f.id}">${
+        f.rot}</button>`).join('')}
+    </div>
+    <input id="sl-q" type="search" placeholder="Procurar produto…" autocomplete="off"
+           value="${escapeAttr(state.slQ || '')}">`;
+  for (const b of document.querySelectorAll('#sl-filtros [data-sl-filter]')) {
+    b.onclick = () => {
+      state.prefs.selFiltro = b.dataset.slFilter;
+      savePrefs();
+      renderSelado();
+    };
+  }
+  const cx = $('#sl-q');
+  if (cx) {
+    cx.oninput = () => { state.slQ = cx.value; renderSeladoCorpo(); };
+    cx.onkeydown = e => { if (e.key === 'Escape') { cx.value = ''; state.slQ = ''; renderSeladoCorpo(); } };
+  }
+  renderSeladoCorpo(casa);
+}
+
+function renderSeladoCorpo(casa) {
+  const p = state.selado;
+  if (!p) return;
+  if (!casa) {
+    const q = (state.slQ || '').trim().toLowerCase();
+    casa = x => !q || `${x.nome} ${x.versao} ${x.edicao} ${x.tipo_label}`
+      .toLowerCase().includes(q);
+  }
+  if (!p.items.length) {
+    $('#sl-body').innerHTML = '<p class="empty">A lista está vazia. Corre '
+      + '<code>riftvault selado --sync</code> no PC para a ir buscar ao CardTrader.</p>';
+    return;
+  }
+  let out = '';
+  for (const g of p.sets) {
+    const itens = g.items.filter(x => slServe(x) && casa(x));
+    if (!itens.length) continue;
+    const gt = g.totals;
+    out += `<h3 class="section-head sub sl-cab">
+      ${escapeHTML(g.label)}<small>${escapeHTML(g.set)}</small>
+      <span>${gt.tenho}/${gt.saiu}${gt.por_sair ? ` · ${gt.por_sair} por sair` : ''}</span></h3>
+      <div class="sl-lista">${itens.map(slLinha).join('')}</div>`;
+  }
+  $('#sl-body').innerHTML = out
+    || '<p class="empty">Nada corresponde a este filtro.</p>';
+  slLigar();
+}
+
+function slLinha(x) {
+  const cls = [x.qty > 0 ? 'tem' : '', x.por_sair ? 'porsair' : ''].join(' ');
+  const marcas = [];
+  if (x.por_sair) {
+    marcas.push(`<span class="sl-marca ps">por sair${x.data ? ` · ${escapeHTML(x.data)}` : ''}</span>`);
+  } else if (x.data) {
+    marcas.push(`<span class="sl-marca dt">${escapeHTML(x.data)}</span>`);
+  }
+  if (x.fonte === 'config') marcas.push('<span class="sl-marca cfg">do config</span>');
+  if (x.nota) marcas.push(`<span class="sl-marca cfg">${escapeHTML(x.nota)}</span>`);
+  // A imagem vem do CardTrader (é o dono da lista). Sem imagem, um quadrado
+  // com o tipo lá dentro — nunca um ícone partido.
+  const arte = x.img
+    ? `<img src="${escapeAttr(x.img)}" alt="" loading="lazy" decoding="async"
+            onerror="this.remove()">`
+    : `<span class="sl-semimg">${escapeHTML(x.tipo_label)}</span>`;
+  return `<div class="sl-linha ${cls}" data-pid="${escapeAttr(x.id)}">
+    <div class="sl-art">${arte}${x.qty ? `<span class="sl-qty">${x.qty}×</span>` : ''}</div>
+    <div class="sl-meio">
+      <div class="tname" title="${escapeAttr(x.nome)}">${escapeHTML(x.nome)}${
+        x.versao ? ` <i class="var">${escapeHTML(x.versao)}</i>` : ''}</div>
+      <div class="codigo"><span class="sl-tipo">${escapeHTML(x.tipo_label)}</span>
+        ${escapeHTML(x.edicao_label)}${x.categoria
+          ? ` · ${escapeHTML(x.categoria.replace(/^Riftbound /, ''))}` : ''}</div>
+      ${marcas.length ? `<div class="sl-marcas">${marcas.join('')}</div>` : ''}
+    </div>
+    <div class="sl-dir">
+      <div class="sl-preco">${x.preco_cents != null ? eur(x.preco_cents) : '—'}
+        <i>${x.preco_cents != null ? 'CardTrader' : 'sem oferta'}</i></div>
+      ${state.editable ? `<div class="steppers">
+        <button class="step minus" data-sl="-1" aria-label="menos um ${escapeAttr(x.nome)}"
+          ${x.qty ? '' : 'disabled'}>−</button>
+        <b>${x.qty}</b>
+        <button class="step plus" data-sl="1" aria-label="mais um ${escapeAttr(x.nome)}">+</button>
+      </div>` : `<div class="sl-tenho">${x.qty ? `tens ${x.qty}` : 'não tens'}</div>`}
+    </div>
+  </div>`;
+}
+
+function slLigar() {
+  for (const b of document.querySelectorAll('#sl-body .step[data-sl]')) {
+    b.onclick = async () => {
+      const pid = b.closest('.sl-linha').dataset.pid;
+      try { await slPost({ product_id: pid, delta: Number(b.dataset.sl) }); }
+      catch (err) { toast(err.message, { error: true }); }
+    };
+  }
 }
 
 

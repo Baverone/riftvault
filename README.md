@@ -115,6 +115,7 @@ nova é uma linha ali.
 | Decks | **Decks** | as listas montadas |
 | | **Staples** | as cartas que vários decks pedem |
 | | **Por deck** · **Pimp decks** | as outras listas de compra dos decks — **escondidas hoje** |
+| | **Produto Selado** | displays, cases, decks, bundles e Proving Grounds: o que há, o que tens e o que não tens |
 | Compras | **Encomendas** | o que compraste e ainda não chegou |
 | | **Venda** | o que estás a vender agora e a conta para quem compra |
 
@@ -125,9 +126,9 @@ apagar** — o «A mais» continua a ser calculado, o `api/a_mais.json` e o
 continua a responder. O que sai é o botão, no servidor local e no site
 publicado. **Repor é tirar o nome da lista, mais nada.** Os nomes são
 `inicio`, `colecao`, `faltas-edicao`, `a-mais`, `decks`, `staples`, `pordeck`,
-`pimp`, `encomendas` e `venda` (também se aceitam como se lêem no ecrã: «A
-mais», «Por deck», «Pimp deck»); um nome desconhecido rebenta. Ver
-`riftvault/abas.py`.
+`pimp`, `encomendas`, `venda` e `selado` (também se aceitam como se lêem no
+ecrã: «A mais», «Por deck», «Pimp deck», «Produto Selado»); um nome
+desconhecido rebenta. Ver `riftvault/abas.py`.
 
 **Cada vista tem endereço.** `#colecao/UNL`, `#faltas-edicao/OGN`,
 `#decks/ornn`, `#decks/staples`, `#encomendas/VEN` — dá para guardar nos
@@ -775,6 +776,68 @@ Na consola: `riftvault venda` (a lista e a conta), `--juntar REF [N]`,
 `--tirar REF [N]`, `--trend REF EUR`, `--limpar` e `--vender --sim`. No site
 publicado é só de leitura, como o resto.
 
+## Produto Selado (2026-09-25)
+
+*"Um separador que é «Produto Selado», em que vai tudo o que é produtos de
+coleção do Riftbound, como displays ou boxcase, ou duel decks, proving ground,
+etc etc, para eu saber o que há, o que tenho e o que não tenho."*
+
+**A lista vem do CardTrader**, porque o catálogo da RiftScribe só tem cartas —
+não tem produto selado nenhum. E a separação selado/single **não é um palpite**:
+o CardTrader arruma os blueprints por **categoria** e publica-as
+(`GET /categories`). As do Riftbound são treze, e a **258 é «Riftbound
+Singles»** — as cartas. Entram seis:
+
+| categoria | o que é | quantos (25/09/2026) |
+|---|---|---|
+| 259 Booster Boxes | os displays | 10 |
+| 260 Boosters | pacotes soltos | 21 |
+| 261 Bundles | vaults, pre-rift kits, bundles | 13 |
+| 262 Starter Decks | champion, trial e showdown («duel») decks | 24 |
+| 263 Box Sets & Displays | os **cases**, as box sets e os **Proving Grounds** | 15 |
+| 283 Complete Sets | sets de cartas vendidos juntos | 2 |
+| | **total** | **85** |
+
+**Os acessórios ficam de fora** — 48 playmats, 31 sleeves, 10 binders, 9 deck
+boxes, 13 memorabilia e 13 cartas oversized: são acessórios, não produto
+selado. **Não desaparecem em silêncio**: o cabeçalho da página diz quantos são,
+por categoria. Metê-los é acrescentar o número a `selado.categorias`.
+
+**Três estados, que é o que ele pediu:** o que **há** (a lista toda), o que
+**tens** e o que **não tens**, com os contadores no topo e um filtro por baixo.
+Cada produto tem `+`/`−` e começa tudo a zero.
+
+**Por sair.** A Radiance sai a 23/10/2026 e a Legacy e a The Reckoning estão
+anunciadas para 2027: esses produtos aparecem marcados **«por sair»** e **não
+contam para o que falta** — não se pode ter o que ainda não existe. As datas
+vêm do config (`selado.datas_por_edicao`, ditas por ele): a API do CardTrader
+**não dá data de lançamento nenhuma**.
+
+**O selado NÃO entra na Coleção.** Nem nos níveis, nem no denominador, nem nas
+Faltas, nem nas wantlists, nem no A mais, nem nos decks, nem no foil, nem nas
+cópias próprias, nem na Venda. As unidades vivem numa tabela à parte
+(`sealed_copies`) que mais nenhum módulo lê, e o **valor do selado é um total
+próprio, nunca somado ao valor da Coleção** — uma caixa por abrir não é uma
+carta no binder. Medido a 25/09/2026 contra uma cópia dos dados reais: com 12
+unidades de selado (1 874,00 €) na base, o site gerado sai **igual ficheiro a
+ficheiro** (30 ficheiros), a menos do `api/selado.json`; o valor da Coleção
+continua nos 6 615,91 €. `tests/test_selado.py` fixa isso.
+
+**Acrescentar à mão** o que a API não tem (regionais, promocionais):
+`selado.extra` no `riftvault_config.json`, com `nome` (obrigatório), `edicao`,
+`tipo`, `data`, `preco_eur` e `nota`. A lista da app é a da API **mais** estes.
+
+**Os preços** são a oferta mais barata do CardTrader, em inglês e **por abrir**
+(`properties_hash.sealed`) — a regra é diferente da das cartas, porque uma
+oferta de selado não tem condição nenhuma. Hoje 34 dos 85 não têm oferta em
+inglês e aparecem a «—».
+
+A lista em disco é o `data/selado_catalogo.json` (vai para o Git: é o catálogo,
+não a coleção). Atualiza-se **à mão** com `riftvault selado --sync` — um pedido
+por segundo, como o `riftvault prices`, que não foi tocado. Na consola:
+`riftvault selado [--edicao VEN] [--so-faltas | --so-tenho]`,
+`--mais ID [N]` e `--menos ID [N]`.
+
 ## A Venda anterior (apagada a 2026-09-15)
 
 Havia uma quarta secção, «Venda», com o excedente da caixa e uma análise das
@@ -1056,6 +1119,7 @@ riftvault local [...]                             # onde está cada cópia
 riftvault map / prices / value                    # CardTrader
 riftvault seguir [--jogador NOME] [--so-mudados]  # decks dos jogadores seguidos: o que falta
 riftvault venda [--juntar REF N] [--trend REF EUR] [--vender --sim]  # a venda em curso e a conta
+riftvault selado [--sync] [--mais ID N] [--edicao VEN] [--so-faltas]  # produto selado: o que há e o que tens
 ```
 
 O `add`/`remove` aceitam qualquer forma de escrever a impressão: `OGN-7`,
@@ -1073,6 +1137,7 @@ riftvault/
   a_subir.py      o que falta do master set (a subir, e a lista completa)
   seguir.py       os decks dos jogadores seguidos no Piltover Archive e o que falta
   venda.py        a venda em curso e a conta (preços: o Trend do Cardmarket, à mão)
+  selado.py       produto selado: o que há (CardTrader), o que tens e o que não tens
   server.py       modo edição (Flask)
   build.py        modo publicado (estático)
   cli.py          linha de comandos
@@ -1083,6 +1148,8 @@ data/
   vault.db        a coleção e os decks. VAI para o Git. Só tu escreves.
   prices.db       histórico de preços. VAI para o Git. Só o robô escreve.
   catalog.db      cache do catálogo. NÃO vai (está no .gitignore).
+  selado_catalogo.json  o produto selado que EXISTE, do CardTrader. VAI para o
+                  Git (é catálogo, não coleção); `riftvault selado --sync`.
   images/         cache das imagens. NÃO vai.
   seguir/         estado.json (os decks seguidos; VAI) e paginas/ (HTML lido; NÃO vai)
 decks/            listas de deck em .txt
