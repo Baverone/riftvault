@@ -31,7 +31,7 @@ import shutil
 from pathlib import Path
 
 from . import (a_mais, a_subir, config, db, decks, faltas, faltas_edicao, metrics,
-               pending, runas_vista)
+               pending, runas_vista, venda)
 
 # A pasta das imagens fica de fora da comparação: em `static_images: "local"`
 # são ~88 MB e não dependem da colecção — o que muda nelas é o `riftvault
@@ -196,6 +196,12 @@ def _gerar(out_dir: Path | str, log=print, imagens: bool = True) -> dict:
     # O separador «Encomendas» (2026-09-17): a grelha da Coleção de Rara para
     # cima, uma por edição, com o que vem a caminho. Sem controlos no site
     # publicado — o `editable: False` é o mesmo flag da Coleção.
+    # A «Venda» (2026-09-25): a venda em curso, só de leitura no site
+    # publicado — juntar, tirar, escrever o Trend e «marcar como vendidas» são
+    # do modo edição (o `editable: False` é o mesmo flag da Coleção).
+    vd = venda.payload(con, cfg, editable=False)
+    (out / "api" / "venda.json").write_text(
+        json.dumps(vd, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     enc_dir = out / "api" / "encomendas"
     enc_dir.mkdir(parents=True, exist_ok=True)
     n_enc = 0
@@ -211,7 +217,8 @@ def _gerar(out_dir: Path | str, log=print, imagens: bool = True) -> dict:
         f"cópias a comprar) + api/a_mais.json ({am['totals']['excedente']['copies']} "
         f"cópias a mais) + api/encomendas.json "
         f"({encomendas['totals']['copies']} cópias a caminho) + api/encomendas/*.json "
-        f"({n_enc} impressões de Rara para cima)")
+        f"({n_enc} impressões de Rara para cima) + api/venda.json "
+        f"({vd['totals']['lines']} linhas na venda em curso)")
 
     n_img = 0
     if imagens and image_mode == "local" and config.IMAGES_DIR.exists():

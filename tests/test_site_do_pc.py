@@ -88,7 +88,12 @@ class TestSiteDoPC(unittest.TestCase):
         for nome in ("index.html", "app.js", "style.css", ".nojekyll",
                      "api/index.json", "api/set/TST.json", "api/decks.json",
                      "api/wantlist.json", "api/compras.json",
-                     "api/encomendas.json", "api/encomendas/TST.json"):
+                     "api/encomendas.json", "api/encomendas/TST.json",
+                     # A «Venda» (2026-09-25) — a venda em curso, de leitura
+                     # no site publicado. Não é a Venda apagada a 2026-09-15
+                     # (aquela era uma sugestão do que sobra, e a pergunta
+                     # dela vive hoje no separador «A mais»).
+                     "api/venda.json"):
             self.assertTrue((self.out / nome).exists(), f"falta {nome} no site")
         # O `faltas.json` saiu a 2026-09-15 (à tarde) com o separador das faltas:
         # partiu-se em wantlist.json e compras.json.
@@ -96,10 +101,11 @@ class TestSiteDoPC(unittest.TestCase):
                          "o separador das faltas foi apagado e o build ainda gera api/faltas.json")
         # (A tabela de preços saiu a 2026-09-19 com o separador dela — o teste
         # da remoção é quem recusa o ficheiro dela.)
-        # A Venda saiu a 2026-09-15: um `venda.json` a aparecer aqui é código
-        # antigo a gerar um ficheiro que ninguém pede.
-        self.assertFalse((self.out / "api" / "venda.json").exists(),
-                         "a Venda foi apagada e o build ainda gera api/venda.json")
+        # O `api/venda.json` de hoje é a VENDA EM CURSO (2026-09-25) e vai só
+        # de leitura: sem `editable`, o site publicado não desenha os `+`/`−`
+        # da venda, o campo do Trend nem o «marcar como vendidas».
+        venda = json.loads((self.out / "api" / "venda.json").read_text(encoding="utf-8"))
+        self.assertFalse(venda["editable"])
         index = json.loads((self.out / "api" / "index.json").read_text(
             encoding="utf-8"))
         self.assertFalse(index["editable"],

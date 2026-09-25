@@ -18,6 +18,8 @@
     riftvault seguir [--jogador NOME] [--so-mudados] [--sem-rede] [--json]
     riftvault proprias [SLUG] [--mais REF [N] | --menos REF [N]]
     riftvault foil [REF] [--mais [N] | --menos [N]] [--edicao OGN]
+    riftvault venda [--juntar REF [N] | --tirar REF [N]] [--trend REF EUR]
+                    [--limpar] [--vender --sim]
 """
 
 from __future__ import annotations
@@ -1079,6 +1081,92 @@ def cmd_foil(args) -> int:
     return 0
 
 
+def cmd_venda(args) -> int:
+    """A VENDA EM CURSO (2026-09-25): o que ele está a vender agora e a conta.
+
+    Sem opções, a lista e o total. `--juntar/--tirar REF [N]` mexem nas
+    linhas; `--trend REF EUR` grava o Trend do Cardmarket (o número é DELE, a
+    olhar para a página deles — a app não tem preços do Cardmarket e o do
+    CardTrader nunca entra na conta); `--limpar` esvazia; `--vender` baixa as
+    cópias, e pede `--sim` para o fazer.
+    """
+    from . import venda as venda_mod
+
+    con = db.connect()
+    if db.catalog_is_empty(con):
+        print("catálogo vazio — corre `riftvault sync`.", file=sys.stderr)
+        return 1
+    cfg = config.load()
+    n = _qty(args.n)
+
+    try:
+        if args.juntar:
+            r = venda_mod.juntar(con, args.juntar, n, source="cli")
+            print(f"{r['printing_id']}: {r['applied']:+d} -> {r['qty']} na venda")
+        elif args.tirar:
+            r = venda_mod.juntar(con, args.tirar, -n, source="cli")
+            print(f"{r['printing_id']}: {r['applied']:+d} -> {r['qty']} na venda")
+        elif args.trend:
+            ref, valor = args.trend
+            cents = None if str(valor).strip() == "" else round(
+                float(str(valor).replace(",", ".").replace("€", "").strip()) * 100)
+            r = venda_mod.guardar_trend(con, ref, cents, source="cli")
+            print(f"{r['printing_id']}: Trend do Cardmarket = "
+                  + (prices.eur(r["cents"]) if r["cents"] is not None else "(apagado)"))
+        elif args.limpar:
+            print(f"venda limpa ({venda_mod.limpar(con)} linhas). "
+                  f"Os Trends guardados ficam.")
+        elif args.vender:
+            res = venda_mod.vender(con, confirmar=bool(args.sim), source="cli")
+            print(f"venda fechada: {res['copies']} cópias, "
+                  f"{prices.eur(res['totals']['cents'])}")
+            for f in res["itens"]:
+                print(f"  -{f['baixadas']} {f['name']} [{_codigo_curto(f['code'])}]"
+                      + (f"  (faltaram {f['em_falta']})" if f["em_falta"] else ""))
+    except (collection.UnknownPrinting, venda_mod.SemLinha, venda_mod.VendaVazia,
+            ValueError) as exc:
+        print(str(exc), file=sys.stderr)
+        con.close()
+        return 1
+    except venda_mod.PrecisaConfirmar as exc:
+        print(f"{exc} — junta `--sim`.", file=sys.stderr)
+        con.close()
+        return 1
+
+    lista = venda_mod.itens(con, cfg)
+    t = venda_mod.conta(lista)
+    if not lista:
+        print("Não há nada na venda. `riftvault venda --juntar OGN-045 3`.")
+        con.close()
+        return 0
+    largura = max(len(x["name"]) for x in lista)
+    print(f"\n{'carta':<{largura}}  {'código':<12} {'qtd':>4}  {'Trend':>10}  {'subtotal':>10}")
+    for x in lista:
+        trend = prices.eur(x["trend"]) if x["trend"] is not None else "— por meter"
+        marcas = []
+        if x["trend_velho"]:
+            marcas.append(f"Trend de há {x['trend_dias']} dias")
+        if x["a_mais_do_que_tens"]:
+            marcas.append(f"só tens {x['have']}")
+        if x["em_decks"]:
+            marcas.append("em " + ", ".join(x["em_decks"]))
+        print(f"{x['name']:<{largura}}  {_codigo_curto(x['code']):<12} {x['qty']:>4}  "
+              f"{trend:>10}  "
+              f"{prices.eur(x['subtotal']) if x['trend'] is not None else '—':>10}"
+              + (f"   ({'; '.join(marcas)})" if marcas else ""))
+    print(f"\nTOTAL: {prices.eur(t['cents'])}  ({t['copies']} "
+          f"{'carta' if t['copies'] == 1 else 'cartas'} em {t['lines']} "
+          f"{'linha' if t['lines'] == 1 else 'linhas'})")
+    if t["sem_trend"]:
+        print(f"FALTAM {t['sem_trend']} {'linha' if t['sem_trend'] == 1 else 'linhas'} "
+              f"sem Trend — {'vale' if t['sem_trend'] == 1 else 'valem'} ZERO no total. "
+              f"O preço do CardTrader não as substitui.", file=sys.stderr)
+    print("Os preços da conta são o Trend do Cardmarket, metido à mão "
+          "(`riftvault venda --trend OGN-045 12,50`).", file=sys.stderr)
+    con.close()
+    return 0
+
+
 def cmd_proprias(args) -> int:
     """As CÓPIAS PRÓPRIAS de cada deck (2026-09-21): sem deck, uma linha por
     deck (quantas tem guardadas, quantas servem, o que falta); com o SLUG,
@@ -1746,6 +1834,19 @@ def main(argv: list[str] | None = None) -> int:
                    help="desmarca N (nunca abaixo de 0)")
     p.add_argument("--edicao", help="só esta edição (OGN, SFD, …)")
     p.set_defaults(func=cmd_foil)
+
+    p = sub.add_parser("venda", help="a venda em curso e a conta para quem compra "
+                                     "(preços: o Trend do Cardmarket, metido à mão)")
+    p.add_argument("--juntar", metavar="REF", help="mete cópias desta impressão na venda")
+    p.add_argument("--tirar", metavar="REF", help="tira cópias da venda")
+    p.add_argument("n", nargs="?", help="quantas (3 ou x3; omissão 1)")
+    p.add_argument("--trend", nargs=2, metavar=("REF", "EUR"),
+                   help="grava o Trend do Cardmarket desta impressão (EUR vazio apaga)")
+    p.add_argument("--limpar", action="store_true", help="esvazia a venda (os Trends ficam)")
+    p.add_argument("--vender", action="store_true",
+                   help="marca como vendidas: BAIXA as cópias (pede --sim)")
+    p.add_argument("--sim", action="store_true", help="confirma o --vender")
+    p.set_defaults(func=cmd_venda)
 
     p = sub.add_parser("proprias", help="as cópias PRÓPRIAS de cada deck (não contam "
                                         "para a Coleção): por deck, ou um deck carta a carta; + e -")

@@ -80,6 +80,10 @@ const state = {
   faltasEdicao: null,
   // O separador «A mais» (2026-09-17): `api/a_mais.json`.
   aMais: null,
+  // O separador «Venda» (2026-09-25): a venda em curso (`api/venda.json`).
+  // Só o `renderVenda` o lê — marcar cartas para venda não conta para nada, e
+  // as cópias só descem no «marcar como vendidas».
+  venda: null,
   // O bloco «Runas — 12 de cada» do fim da Coleção (2026-09-19):
   // `api/runas.json`. Só o `renderRunasVista` o lê — não conta para nada.
   runas: null,
@@ -168,6 +172,7 @@ const ICO = {
   cartas: '<rect x="3" y="3" width="18" height="18" rx="2.2"/><circle cx="8.6" cy="8.6" r="1.6"/>'
         + '<path d="m21 15.5-4.8-4.8L5.5 21"/>',
   menu: '<path d="M3.5 12h17"/><path d="M3.5 6h17"/><path d="M3.5 18h17"/>',
+  venda: '<path d="M12 1.8v20.4"/><path d="M17 5.6H9.5a3.4 3.4 0 0 0 0 6.8h5a3.4 3.4 0 0 1 0 6.8H6"/>',
   ajuda: '<circle cx="12" cy="12" r="9.5"/>'
        + '<path d="M9.3 9.2a2.8 2.8 0 0 1 5.4.9c0 1.9-2.7 2.8-2.7 2.8"/><path d="M12 17h.01"/>',
 };
@@ -206,6 +211,7 @@ const NAV = [
   ] },
   { grupo: 'Compras', itens: [
     { sec: 'encomendas', ico: 'encomendas', rot: 'Encomendas', nota: 'o que vem a caminho' },
+    { sec: 'venda', ico: 'venda', rot: 'Venda', nota: 'a conta de quem compra' },
   ] },
 ];
 
@@ -275,6 +281,26 @@ const PAGINA = {
          + 'compra</b>, para não mandarem comprar outra vez.</p>'
          + '<p>Carregar em <b>Chegou</b> passa as cópias para a Coleção — e isso fica no '
          + 'registo, dá para desfazer.</p>',
+  },
+  'venda': {
+    sub: 'O que estás a vender agora e a conta para quem compra. '
+       + 'Os preços são o <b>Trend do Cardmarket</b>, metido por ti.',
+    sub_ro: 'A venda que estava em curso quando o site foi gerado. '
+          + 'Os preços são o Trend do Cardmarket, metido à mão.',
+    ajuda: '<p>O preço de cada linha é o <b>Trend do Cardmarket</b> e tens de ser tu a '
+         + 'metê-lo: a app <b>não tem preços do Cardmarket</b> e não os pode ter — a API '
+         + 'oficial deles está fechada a novas candidaturas e o site responde 403 a pedidos '
+         + 'automáticos. Cada linha tem o link para a página da carta lá: abres, vês o '
+         + 'Trend, escreves.</p>'
+         + '<p>O preço do <b>CardTrader</b> que aparece ao lado é a oferta mais barata de '
+         + 'lá, não um Trend — é só referência e <b>nunca entra na conta</b>. Uma linha sem '
+         + 'Trend vale <b>zero</b> e o total diz quantas faltam; não se substitui por nada.</p>'
+         + '<p>Marcar cartas para venda <b>não tira nada</b> da coleção: não mexe nos níveis, '
+         + 'nas Faltas, no valor, nos decks nem no A mais. Quem baixa as cópias é o botão '
+         + '<b>Marcar como vendidas</b>, que pede confirmação e fica no registo.</p>'
+         + '<p>O Trend fica guardado por impressão com a data, para a venda seguinte já vir '
+         + 'preenchida. Passados uns dias aparece marcado como velho — vale a pena '
+         + 'confirmá-lo antes de cobrar.</p>',
   },
 };
 
@@ -828,9 +854,21 @@ function tileHTML(g, p, comUso = false) {
       ${g.is_token ? 'token' : 'jogável'} ${play.owned}/${play.target}${p.price != null ? ` · ${eur(p.price)}` : ''}
     </div>
     ${foilLinha(p.id)}
+    ${venderLinha(p.id)}
     ${deckLine(p.id)}
     ${comUso ? usoLine(g) : ''}
   </div>`;
+}
+
+/* «juntar à venda» (2026-09-25), no tile da Coleção: só no modo edição e só
+   nas cartas de que ele TEM alguma cópia — não se vende o que não se tem, e
+   um botão em todos os 1180 tiles era ruído. Junta uma cópia desta IMPRESSÃO
+   à venda em curso (a versão que tem na mão é a que ele carrega) e não tira
+   nada de lado nenhum: a coleção só desce no «marcar como vendidas». */
+function venderLinha(pid) {
+  if (!state.editable || !(state.tot.get(pid) || 0)) return '';
+  return `<button type="button" class="vd-add" data-vender="1"
+    title="juntar uma à venda em curso">+ venda</button>`;
 }
 
 /* ================================ o contador de FOIL (André, 2026-09-22)
@@ -1830,6 +1868,14 @@ function imgFallback(e) {
 
 function wireControls() {
   $('#grid').addEventListener('click', (e) => {
+    // «+ venda» (2026-09-25): junta uma cópia desta impressão à venda em
+    // curso. Não mexe na coleção — ver `venda.py`.
+    const vend = e.target.closest('.vd-add');
+    if (vend) {
+      const t = vend.closest('.tile');
+      venderDaGrelha(t.dataset.pid, t.querySelector('.tname')?.textContent || '');
+      return;
+    }
     const btn = e.target.closest('.step');
     if (!btn) return;
     const tile = btn.closest('.tile');
@@ -1842,7 +1888,8 @@ function wireControls() {
   // Imagem local em falta cai para o CDN (e vice-versa no modo publicado).
   // Qualquer secção com artes tem de estar nesta lista: uma imagem que o cache
   // local ainda não tivesse aparecia partida e não caía para o CDN.
-  for (const alvo of ['#grid', '#deck-body', '#fe-body', '#am-body', '#enc-grid']) {
+  for (const alvo of ['#grid', '#deck-body', '#fe-body', '#am-body', '#enc-grid',
+                      '#vd-body']) {
     $(alvo).addEventListener('error', imgFallback, true);
   }
   wireEncomendas();
@@ -1888,7 +1935,10 @@ function wireKeyboard() {
     // DOM e o querySelectorAll apanhava-os na mesma. Sem esta guarda, uma seta
     // seguida de `+` na secção Decks somava uma cópia a uma carta que nem
     // sequer estava no ecrã, sem nada a dizer que tinha acontecido.
-    if ($('#colecao').hidden) return;
+    // (O id da secção passou a `sec-colecao` no rebrand de 2026-09-24 e esta
+    // linha ficou a perguntar por um elemento que já não existe — `null.hidden`
+    // rebentava a cada tecla premida fora de um campo de texto.)
+    if ($('#sec-colecao').hidden) return;
     const tiles = [...document.querySelectorAll('.tile')];
     if (!tiles.length) return;
 
@@ -3198,7 +3248,7 @@ function wireEncomendas() {
    seletor de edição, e no telemóvel o `<select>` dos decks) já acima do topo
    do ecrã. Um `scrollTo(0, 0)` não chegava: o salto do browser é DEPOIS do
    `boot()`. Com os dois nomes separados não há âncora nenhuma a apanhar. */
-const SECCOES = ['inicio', 'colecao', 'decks', 'faltas-edicao', 'a-mais', 'encomendas'];
+const SECCOES = ['inicio', 'colecao', 'decks', 'faltas-edicao', 'a-mais', 'encomendas', 'venda'];
 
 /* Desenha a secção e põe a rota no URL. `sub` é a sub-vista — a edição, o deck
    ou a lista de compra. Vazia, usa-se a última que ele escolheu. */
@@ -3276,6 +3326,13 @@ function abrirSubVista(name, sub) {
     if (!state.enc.payload || (val && sub !== state.enc.setId)) {
       loadEncomendas(val ? sub : null).catch(err => erro('#enc-grid', err));
     }
+    return;
+  }
+
+  if (name === 'venda') {
+    // A venda muda por fora (a CLI, outro telemóvel): relê-se sempre que se
+    // entra — é um payload pequeno e é a conta que ele vai cobrar a alguém.
+    loadVenda().catch(err => erro('#vd-body', err));
   }
 }
 
@@ -3879,6 +3936,319 @@ function amLibTile(x) {
       escapeHTML(deckCurto(x.deck))} a ${escapeHTML((x.ts || '').slice(0, 10))}</div>
     <div class="onde ${ainda ? 'shared' : 'tenho'}">${ainda ? `ainda pedida: ${ainda}` : 'nenhum deck a pede'}</div>
   </div>`;
+}
+
+
+/* ========================================================== «VENDA» (2026-09-25)
+
+   André: *"este separador permite-me marcar as cartas que estou a vender no
+   momento para apresentar a conta a pessoa. todos os precos tem que ser o
+   Trend do Cardmarket!"*.
+
+   O PREÇO DE CADA LINHA É METIDO POR ELE. A app não tem preços do Cardmarket
+   e não os pode ter (API deles fechada a novas candidaturas, site a responder
+   403 a pedidos automáticos, terceiros pagos) — por isso a linha tem um campo
+   em euros, o link para a página da carta lá, e o Trend fica guardado por
+   impressão com a data. O preço do CardTrader aparece ao lado, ROTULADO, e
+   nunca entra no total: uma linha por preencher vale ZERO e o total diz
+   quantas faltam.
+
+   Isto NÃO tira nada da coleção. Quem baixa cópias é o botão separado «marcar
+   como vendidas», com confirmação — ver `venda.py`.
+
+   Tudo vem e volta pelo servidor: cada `+`, cada Trend e cada «limpar»
+   devolvem o payload inteiro (`api/venda.json`), que é pequeno (a venda tem
+   linhas, não centenas). Não há estado otimista a manter em duas cópias. */
+
+async function loadVenda() {
+  $('#vd-body').innerHTML = '<p class="empty">a carregar…</p>';
+  state.venda = await getJSON('api/venda.json');
+  renderVenda();
+}
+
+/* Qualquer escrita devolve o payload novo — uma resposta, um desenho. */
+async function vdPost(url, corpo) {
+  const r = await fetch(url, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(corpo || {}),
+  });
+  const res = await r.json().catch(() => ({}));
+  if (!r.ok) { const e = new Error(res.error || `HTTP ${r.status}`); e.status = r.status; throw e; }
+  state.venda = res;
+  renderVenda();
+  return res;
+}
+
+function renderVenda() {
+  const p = state.venda;
+  if (!p) return;
+  const t = p.totals;
+  const avisos = [];
+  if (t.sem_trend) {
+    avisos.push(`<b>${t.sem_trend === 1 ? 'Falta' : 'Faltam'} ${
+      plural(t.sem_trend, 'linha', 'linhas')} sem Trend</b> — ${
+      t.sem_trend === 1 ? 'vale' : 'valem'} zero no total.
+      O preço do CardTrader <b>não</b> as substitui.`);
+  }
+  if (t.trend_velho) {
+    avisos.push(`${plural(t.trend_velho, 'linha tem', 'linhas têm')} o Trend com mais de
+      ${plural(p.trend_valido_dias, 'dia', 'dias')} — vale a pena confirmar antes de cobrar.`);
+  }
+  if (t.avisos_stock) {
+    avisos.push(`${plural(t.avisos_stock, 'linha vende', 'linhas vendem')} mais cópias do
+      que tens registadas.`);
+  }
+  if (t.em_decks) {
+    avisos.push(`${plural(t.em_decks, 'carta está', 'cartas estão')} a ser usada por um
+      deck montado.`);
+  }
+
+  $('#vd-head').innerHTML = `<div class="deck-card">
+    <div class="deck-title"><b>Venda em curso</b>
+      <span class="prio">${plural(t.copies, 'carta', 'cartas')} · ${
+        plural(t.lines, 'linha', 'linhas')}</span></div>
+    <div class="deck-meta">
+      <span><i>Total</i><b class="vd-total">${eur(t.cents)}</b></span>
+      <span><i>Preços</i>Trend do Cardmarket, metido por ti</span>
+      <span><i>Coleção</i>não mexe até carregares em «marcar como vendidas»</span>
+    </div>
+    ${avisos.length ? `<small class="nota vd-avisos">${avisos.join('<br>')}</small>` : ''}
+  </div>`;
+
+  $('#vd-juntar').innerHTML = state.editable ? `
+    <div class="vd-procura">
+      <label class="vlbl" for="vd-q">Juntar carta à venda</label>
+      <input id="vd-q" type="search" placeholder="nome ou código (Defy, OGN-045)…"
+             autocomplete="off">
+      <div id="vd-res" class="vd-res"></div>
+    </div>` : '';
+  if (state.editable) vdLigarProcura();
+
+  $('#vd-body').innerHTML = p.items.length
+    ? `<div class="vd-linhas">${p.items.map(vdLinha).join('')}</div>`
+    : `<p class="empty">A venda está vazia. ${state.editable
+        ? 'Procura a carta aqui em cima, ou carrega em «vender» no tile dela, na Coleção.'
+        : 'Não havia nada em venda quando este site foi gerado.'}</p>`;
+  vdLigarLinhas();
+  renderVdConta();
+}
+
+/* Uma linha: a carta, os `+`/`−` da quantidade, o campo do TREND (dele), o
+   preço do CardTrader ao lado — rotulado, e fora da conta — e os links para
+   o Cardmarket. */
+function vdLinha(x) {
+  // As classes levam o prefixo `vd-`: `aviso` sozinha é uma caixa de texto do
+  // resto do site (com `max-width: 62ch`) e encolhia a linha a meio da lista.
+  const cls = [x.a_mais_do_que_tens ? 'vd-alerta' : '',
+               x.trend == null ? 'vd-st' : ''].join(' ');
+  const trend = x.trend == null ? '' : (x.trend / 100).toFixed(2);
+  const marcas = [];
+  if (x.a_mais_do_que_tens) {
+    marcas.push(`<span class="vd-marca av">só tens ${x.have}</span>`);
+  }
+  if (x.em_decks.length) {
+    marcas.push(`<span class="vd-marca deck">${escapeHTML(x.em_decks.map(deckCurto).join(' · '))}</span>`);
+  }
+  if (x.trend != null && x.trend_velho) {
+    marcas.push(`<span class="vd-marca velho">Trend de há ${plural(x.trend_dias, 'dia', 'dias')}</span>`);
+  }
+  return `<div class="vd-linha ${cls}" data-pid="${escapeAttr(x.printing_id)}">
+    ${artHTML(x, `<span class="need">${x.qty}×</span>`)}
+    <div class="vd-meio">
+      <div class="tname" title="${escapeAttr(x.name)}">${escapeHTML(x.name)}${
+        x.label && x.label !== 'Base' ? ` <i class="var">${escapeHTML(x.label)}</i>` : ''}</div>
+      <div class="codigo">${escapeHTML((x.code || '').split('/')[0])} ·
+        ${escapeHTML(x.set_name)}</div>
+      <div class="vd-links">
+        <a href="${escapeAttr(x.url)}" target="_blank" rel="noreferrer noopener">Cardmarket</a>
+        <a href="${escapeAttr(x.url_busca)}" target="_blank" rel="noreferrer noopener"
+           class="alt">procurar</a>
+        <span class="vd-ct" title="a oferta mais barata do CardTrader — não é um Trend e
+          não entra na conta">${x.price != null ? eur(x.price) : '—'} <i>CardTrader, só referência</i></span>
+      </div>
+      ${marcas.length ? `<div class="vd-marcas">${marcas.join('')}</div>` : ''}
+    </div>
+    <div class="vd-dir">
+      ${state.editable ? `<div class="steppers">
+        <button class="step minus" data-vd="-1" aria-label="menos uma de ${escapeAttr(x.name)}">−</button>
+        <b>${x.qty}</b>
+        <button class="step plus" data-vd="1" aria-label="mais uma de ${escapeAttr(x.name)}">+</button>
+      </div>` : `<div class="vd-qtd">${x.qty}×</div>`}
+      <label class="vd-trend">
+        <span>Trend €</span>
+        ${state.editable
+          ? `<input type="number" inputmode="decimal" step="0.01" min="0" value="${trend}"
+                    data-trend placeholder="—" aria-label="Trend do Cardmarket de ${escapeAttr(x.name)}">`
+          : `<b>${x.trend != null ? eur(x.trend) : '—'}</b>`}
+      </label>
+      <div class="vd-sub">${x.trend != null ? eur(x.subtotal) : '<i>sem Trend</i>'}</div>
+    </div>
+  </div>`;
+}
+
+function vdLigarLinhas() {
+  for (const b of document.querySelectorAll('#vd-body .step[data-vd]')) {
+    b.onclick = () => vdAjustar(b.closest('.vd-linha').dataset.pid, Number(b.dataset.vd));
+  }
+  for (const i of document.querySelectorAll('#vd-body input[data-trend]')) {
+    // No `change` (Enter ou sair do campo), não a cada tecla: gravar a meio de
+    // «12,5» punha lá 12 e redesenhava a linha por baixo dos dedos dele.
+    i.onchange = () => vdTrend(i.closest('.vd-linha').dataset.pid, i.value);
+    i.onkeydown = e => { if (e.key === 'Enter') i.blur(); };
+  }
+}
+
+/* O «+ venda» do tile da Coleção. Não desenha a secção Venda (ele está na
+   Coleção); marca-a por reler e diz no toast o que aconteceu, com um atalho
+   para lá ir. */
+async function venderDaGrelha(pid, nome) {
+  try {
+    const r = await fetch('api/venda/linha', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ printing_id: pid, delta: 1 }),
+    });
+    const res = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(res.error || `HTTP ${r.status}`);
+    state.venda = res;
+    const n = (res.items.find(x => x.printing_id === pid) || {}).qty || 1;
+    toast(`${nome || 'carta'}: ${n} na venda · ${res.totals.lines} linhas`, {
+      action: { label: 'ver a venda', run: () => showSection('venda') },
+    });
+  } catch (err) { toast(err.message, { error: true }); }
+}
+
+async function vdAjustar(pid, delta) {
+  try {
+    await vdPost('api/venda/linha', { printing_id: pid, delta });
+  } catch (err) { toast(err.message, { error: true }); }
+}
+
+async function vdTrend(pid, valor) {
+  try {
+    await vdPost('api/venda/trend', { printing_id: pid, eur: valor });
+  } catch (err) { toast(err.message, { error: true }); }
+}
+
+/* A procura: só no modo edição (o site publicado não tem servidor para
+   responder). Devolve impressões do catálogo inteiro — é a única maneira de
+   juntar uma carta de uma edição que não esteja aberta na Coleção. */
+function vdLigarProcura() {
+  const cx = $('#vd-q');
+  let t = null;
+  cx.addEventListener('input', () => {
+    clearTimeout(t);
+    t = setTimeout(() => vdProcurar(cx.value.trim()), 200);
+  });
+}
+
+async function vdProcurar(q) {
+  const alvo = $('#vd-res');
+  if (!alvo) return;
+  if (q.length < 2) { alvo.innerHTML = ''; return; }
+  try {
+    const r = await getJSON('api/venda/procurar?q=' + encodeURIComponent(q));
+    alvo.innerHTML = r.items.length
+      ? r.items.map(x => `<button type="button" class="vd-hit" data-pid="${escapeAttr(x.printing_id)}">
+          <span class="nm">${escapeHTML(x.name)}${x.label && x.label !== 'Base'
+            ? ` <i class="var">${escapeHTML(x.label)}</i>` : ''}</span>
+          <span class="cd">${escapeHTML((x.code || '').split('/')[0])} · ${escapeHTML(x.set_name)}
+            · tens ${x.have}${x.na_venda ? ` · ${x.na_venda} na venda` : ''}</span>
+        </button>`).join('')
+      : '<p class="empty">Nada com esse nome ou código.</p>';
+    for (const b of alvo.querySelectorAll('.vd-hit')) {
+      b.onclick = async () => {
+        await vdAjustar(b.dataset.pid, 1);
+        $('#vd-q').value = '';
+        $('#vd-res').innerHTML = '';
+        $('#vd-q').focus();
+      };
+    }
+  } catch (err) { alvo.innerHTML = `<p class="empty">${escapeHTML(err.message)}</p>`; }
+}
+
+/* A CONTA, limpa, para virar o ecrã para quem compra: nome, edição, número,
+   quantidade, Trend unitário, subtotal e o total. A 375 px cada linha vira
+   cartão (as colunas de uma tabela de seis não cabem num telemóvel). */
+function renderVdConta() {
+  const p = state.venda;
+  const t = p.totals;
+  if (!p.items.length) { $('#vd-conta').innerHTML = ''; return; }
+  const linhas = p.items.map(x => `<tr${x.trend == null ? ' class="r-sem"' : ''}>
+    <td class="v-nome" data-l="Carta">${escapeHTML(x.name)}</td>
+    <td data-l="Edição">${escapeHTML(x.set)}</td>
+    <td data-l="Nº">${escapeHTML((x.code || '').split('/')[0])}</td>
+    <td data-l="Qtd">${x.qty}×</td>
+    <td data-l="Trend">${x.trend != null ? eur(x.trend) : '<i>sem Trend</i>'}</td>
+    <td data-l="Subtotal" class="v-sub">${x.trend != null ? eur(x.subtotal) : '—'}</td>
+  </tr>`).join('');
+
+  $('#vd-conta').innerHTML = `
+    <h3 class="section-head sub vd-cab">A conta<small>para mostrar a quem compra</small>
+      <span>${eur(t.cents)}</span></h3>
+    <div class="vd-conta">
+      <table class="vd-tab">
+        <thead><tr><th>Carta</th><th>Edição</th><th>Nº</th><th>Qtd</th>
+          <th>Trend</th><th>Subtotal</th></tr></thead>
+        <tbody>${linhas}</tbody>
+        <tfoot><tr><td colspan="4" data-l="Total">TOTAL</td>
+          <td data-l="Cartas">${t.copies}×</td>
+          <td class="v-tot" data-l="Total">${eur(t.cents)}</td></tr></tfoot>
+      </table>
+      ${t.sem_trend ? `<p class="vd-falta">${plural(t.sem_trend, 'linha', 'linhas')}
+        sem Trend — ${t.sem_trend === 1 ? 'não está' : 'não estão'} no total.</p>` : ''}
+      <p class="vd-fonte">Preços: <b>Trend do Cardmarket</b>.</p>
+    </div>
+    <div class="wl-zona vd-botoes">
+      <button class="btn" id="vd-copiar">Copiar a conta</button>
+      ${state.editable ? `<button class="btn ghost" id="vd-limpar">Limpar a venda</button>
+        <button class="btn perigo" id="vd-vender">Marcar como vendidas</button>` : ''}
+      <textarea id="vd-txt" class="wl-txt" readonly hidden></textarea>
+      <small class="nota" id="vd-nota" hidden></small>
+    </div>`;
+
+  $('#vd-copiar').onclick = () => {
+    const tx = $('#vd-txt'), nt = $('#vd-nota');
+    tx.value = p.texto;
+    tx.rows = Math.min(16, Math.max(4, p.texto.split('\n').length));
+    tx.hidden = false; nt.hidden = false;
+    tx.focus(); tx.select();
+    nt.textContent = 'A conta está aqui — copia com Ctrl+C (no telemóvel, toca e mantém).';
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(tx.value)
+        .then(() => { nt.textContent = 'Conta copiada.'; }).catch(() => {});
+    }
+  };
+  if (!state.editable) return;
+
+  $('#vd-limpar').onclick = async () => {
+    if (!confirm(`Limpar a venda (${plural(t.lines, 'linha', 'linhas')})? `
+                 + 'Não mexe na coleção, e os Trends ficam guardados.')) return;
+    try { await vdPost('api/venda/limpar'); toast('Venda limpa.'); }
+    catch (err) { toast(err.message, { error: true }); }
+  };
+
+  // «Marcar como vendidas» é o único botão desta página que mexe na coleção:
+  // pede confirmação, diz o que vai baixar, e o servidor recusa sem o
+  // `confirmar` (409). Não é automático em circunstância nenhuma.
+  $('#vd-vender').onclick = async () => {
+    const aviso = `Marcar como vendidas?\n\n`
+      + `Isto BAIXA ${plural(t.copies, 'cópia', 'cópias')} da coleção`
+      + (t.sem_trend ? `\n${plural(t.sem_trend, 'linha', 'linhas')} sem Trend — vão a zero.` : '')
+      + `\n\nTotal a cobrar: ${eur(t.cents).replace(/ /g, ' ')}`;
+    if (!confirm(aviso)) return;
+    try {
+      const res = await vdPost('api/venda/vender', { confirmar: true });
+      const v = res.vendida;
+      toast(`Vendidas ${plural(v.copies, 'cópia', 'cópias')} · ${eur(v.totals.cents)}`
+            + (v.em_falta ? ` (faltaram ${v.em_falta})` : ''), { ms: 9000 });
+      // As cópias baixaram: a Coleção, as listas de compra e os decks ficam
+      // por reler, como depois de um «Chegou» das Encomendas.
+      state.colecaoVelha = true;
+      wlDesatualizar();
+      state.compras = null; state.faltasEdicao = null; state.aMais = null;
+      state.decks = null; state.enc.payload = null; state.enc.resumo = null;
+    } catch (err) { toast(err.message, { error: true }); }
+  };
 }
 
 

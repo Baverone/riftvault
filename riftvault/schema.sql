@@ -199,3 +199,56 @@ CREATE TABLE IF NOT EXISTS pending (
     arrived_at  TEXT                -- preenchido quando entra na coleção
 );
 CREATE INDEX IF NOT EXISTS ix_pending_aberto ON pending(arrived_at, printing_id);
+
+-- ---------------------------------------------------------------------------
+-- A VENDA EM CURSO (André, 2026-09-25): *"permite-me marcar as cartas que
+-- estou a vender no momento para apresentar a conta a pessoa"*. Ver `venda.py`.
+-- ---------------------------------------------------------------------------
+
+-- As cartas que ele está a vender AGORA. Uma linha por IMPRESSÃO (é ele que
+-- escolhe a versão que tem na mão), uma venda de cada vez — o «limpar venda»
+-- esvazia a tabela.
+--
+-- MARCAR PARA VENDA NÃO TIRA NADA DE LADO NENHUM: isto é uma lista de
+-- intenção e mais nenhum módulo a lê. Os níveis, o denominador, as Faltas, as
+-- wantlists, o valor, o A mais, os decks, o foil e as cópias próprias dão
+-- exactamente os mesmos números com a tabela cheia ou vazia
+-- (`tests/test_venda.py` fotografa-os). Quem baixa as cópias é o botão
+-- separado «marcar como vendidas» (`venda.vender`), pelo `collection.adjust`.
+CREATE TABLE IF NOT EXISTS sale_lines (
+    printing_id TEXT    PRIMARY KEY,
+    qty         INTEGER NOT NULL CHECK (qty > 0),
+    added_at    TEXT    NOT NULL
+);
+
+-- O TREND DO CARDMARKET, metido À MÃO por ele, por impressão.
+--
+-- A app não tem — nem pode ter — preços do Cardmarket: o `price_latest` é do
+-- CardTrader e é a oferta mais barata, a API oficial deles está fechada a
+-- novas candidaturas e o site responde 403 a pedidos automáticos. Por isso o
+-- número vem do campo que ele preenche a olhar para a página da carta lá, e
+-- fica guardado com a DATA, para a venda seguinte vir preenchida e para se
+-- poder dizer que está velho (`venda.trend_valido_dias`). Nunca se escreve
+-- aqui um preço do CardTrader.
+CREATE TABLE IF NOT EXISTS cardmarket_trend (
+    printing_id TEXT    PRIMARY KEY,
+    cents       INTEGER NOT NULL CHECK (cents >= 0),
+    updated_at  TEXT    NOT NULL,
+    source      TEXT    NOT NULL   -- 'web' | 'cli' — sempre à mão
+);
+
+-- O registo das vendas FECHADAS. Uma linha por carta, agrupadas pelo
+-- `sale_id` (o instante em que ele carregou em «marcar como vendidas»), com o
+-- Trend que estava em vigor nessa altura: a conta de uma venda antiga não
+-- muda quando o Trend mudar. As cópias descem pelo `collection.adjust`, por
+-- isso o desfazer é o de sempre (a `ops`).
+CREATE TABLE IF NOT EXISTS sale_log (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts          TEXT    NOT NULL,
+    sale_id     TEXT    NOT NULL,
+    printing_id TEXT    NOT NULL,
+    qty         INTEGER NOT NULL,
+    unit_cents  INTEGER,            -- o Trend na altura; NULL = linha sem Trend
+    source      TEXT    NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ix_sale_log_venda ON sale_log(sale_id, id);

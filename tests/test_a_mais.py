@@ -354,12 +354,15 @@ class TestRotasEBuild(Base):
         self.assertIn("sec: 'a-mais'", js)
         self.assertIn("api/a_mais.json", js)
         self.assertIn("'a-mais'", js)
-        # Não é a Venda: sem botões do Cardmarket nem totais a vender.
+        # Não é a Venda: sem botões do Cardmarket nem totais a vender. (A
+        # Venda voltou a 2026-09-25, com outra pergunta — a conta de uma venda
+        # em curso —, por isso o que se exige é que o A mais não a chame: a
+        # busca é no TROÇO desta secção, não no ficheiro inteiro.)
         inicio = js.index("«A MAIS»")
         fim = js.index("function amLibTile")
         self.assertNotIn("cmLigar", js[inicio:fim])
         self.assertNotIn("cardmarket", js[inicio:fim].lower())
-        self.assertNotIn("api/venda", js)
+        self.assertNotIn("api/venda", js[inicio:fim])
 
 
 if __name__ == "__main__":
