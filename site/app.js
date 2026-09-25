@@ -362,7 +362,11 @@ const PAGINA = {
          + '(displays de decks, cases de vaults, kits de loja) — acrescenta-se à mão no '
          + '<code>riftvault_config.json</code>, em <code>selado.extra</code>, com o '
          + '<b>conteúdo</b> ao lado. Os <b>MSRP são em dólares</b> e ficam no conteúdo, nunca '
-         + 'no preço: não há câmbio validado aqui.</p>',
+         + 'no preço: não há câmbio validado aqui.</p>'
+         + '<p>O que <b>tu mandaste tirar</b> vive em <code>selado.excluidos</code>, no '
+         + 'mesmo ficheiro: sai da lista, dos contadores, da percentagem e do total. '
+         + '<b>Esconder não é apagar</b> — o catálogo em disco fica intacto e <b>repor é '
+         + 'tirar o nome da lista</b>. O cabeçalho diz quantos são e quais.</p>',
   },
 };
 
@@ -4480,6 +4484,9 @@ function renderSelado() {
     .toLowerCase().includes(q);
 
   const fora = (p.scope.fora || []).reduce((s, x) => s + x.n, 0);
+  // O que ele mandou tirar (`selado.excluidos`). Diz-se quantos e quais: o
+  // catálogo em disco está intacto e repor é tirar o nome da lista.
+  const tirados = p.scope.excluidos || [];
   $('#sl-head').innerHTML = `<div class="deck-card">
     <div class="deck-title"><b>Produto selado</b>
       <span class="prio">${plural(t.copias, 'unidade', 'unidades')}</span></div>
@@ -4508,6 +4515,15 @@ function renderSelado() {
       ${t.sem_preco ? ` ${plural(t.sem_preco, 'produto', 'produtos')} sem oferta no CardTrader.` : ''}
       ${slLinksNota(p.links)}
       O selado <b>não entra</b> na Coleção — nem nos níveis, nem nas Faltas, nem no valor.</small>
+    ${tirados.length ? `<details class="sl-tirados"><summary><b>${
+      tirados.length}</b> ${tirados.length === 1 ? 'produto tirado' : 'produtos tirados'}
+      por ti — não contam para estes números</summary>
+      <small class="nota">Estão em <code>selado.excluidos</code>, no
+        <code>riftvault_config.json</code>. <b>Nada foi apagado</b>: o catálogo em disco
+        está intacto e <b>repor é tirar o nome da lista</b>.</small>
+      <ul class="sl-tirados-lista">${tirados.map(x => `<li>${escapeHTML(x.nome)}
+        <span class="dim">${escapeHTML(x.edicao || '—')} · ${
+          escapeHTML(x.tipo_label)}</span></li>`).join('')}</ul></details>` : ''}
   </div>`;
 
   $('#sl-filtros').innerHTML = `
