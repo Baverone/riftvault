@@ -797,7 +797,26 @@ Singles»** — as cartas. Entram seis:
 | 263 Box Sets & Displays | os **cases**, as box sets e os **Proving Grounds** | 15 |
 | 283 Complete Sets | sets de cartas vendidos juntos | 2 |
 | | da API, juntando os repetidos | 81 |
-| | mais os 17 do `selado.extra` | **98** |
+| | mais os 17 do `selado.extra` | 98 |
+| | menos os 22 do `selado.excluidos` | **76** |
+
+**O que ele mandou tirar** (25/09/2026): os **13 boosters soltos**, as **3 slim
+booster box**, o «Origins: Champion Deck Set» (*compram-se à unidade*), as
+«Spiritforged Bulk Runes» e os **4 Pre-Rift Kit de UM jogador** — 22 produtos,
+em `selado.excluidos`. **Esconder não é apagar**, como no `abas.escondidas`: o
+`data/selado_catalogo.json` fica intacto e **repor é tirar o nome da lista**.
+Saem da aba, dos contadores, da percentagem e do total, no 8770 e no site
+publicado; o cabeçalho diz quantos são e quais, para nunca desaparecerem em
+silêncio. O nome é **exacto**, nunca um pedaço — é o que faz o «Spiritforged
+Pre-Rift Kit» sair e o «Spiritforged Pre-Rift **EVENT** Kit» ficar, e o «Origins
+Booster» sair sem levar o «Origins | Nexus Night Promo Booster». Um nome que não
+case rebenta, com os parecidos. Ficam, porque ele não os nomeou: os 4 EVENT Kit,
+os 9 displays de decks, os 4 Nexus Night Promo Booster, os Trial Deck Set, e
+todas as booster box normais, cases, vaults, decks e Proving Grounds.
+
+O CardTrader escreve «2024 Trial Deck Set **Set**» e «2025 Trial Deck Set
+**Set**»: `selado.nome_limpo` junta a palavra repetida. É apresentação — o `id`
+vem do `blueprint_id` e não muda —, e mexe em 2 dos 117 produtos.
 
 **Os binders e os deck boxes têm secção própria** (25/09/2026): 10 Albums e 9
 Deck Boxes entram por `selado.acessorios`, numa secção **«Acessórios»** no fim,

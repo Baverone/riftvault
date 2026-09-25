@@ -62,12 +62,14 @@ site já não há secção nenhuma com esse id.) Há também **Produto Selado** 
 boosters e Proving Grounds: o que há, o que tem e o que não tem; a lista vem
 das CATEGORIAS do CardTrader, o catálogo em `data/selado_catalogo.json`, id
 `selado`, `api/selado.json`, `selado.py`; **não entra na Coleção** e o valor
-dele nunca se soma ao dela. **Desde a noite de 2026-09-25 são 98**: os 81 da
+dele nunca se soma ao dela. **Desde a noite de 2026-09-25 são 76**: os 81 da
 API (4 blueprints repetidos juntados, `selado.juntar_duplicados`) mais 17
 escritos à mão em `selado.extra` — displays de champion e de showdown decks,
-cases de vaults, o case do Proving Grounds e os Pre-Rift EVENT Kit —, e os
-**binders e deck boxes** (`selado.acessorios`, 19) têm secção própria que
-**não conta** para o selado; ver a última secção deste ficheiro).
+cases de vaults, o case do Proving Grounds e os Pre-Rift EVENT Kit —,
+**menos os 22 que ele mandou tirar** (`selado.excluidos`, a mesma ideia das
+abas: esconder não é apagar, o catálogo fica intacto e repor é tirar o nome
+da lista); e os **binders e deck boxes** (`selado.acessorios`, 19) têm secção
+própria que **não conta** para o selado; ver a última secção deste ficheiro).
 E há uma **Venda** OUTRA VEZ, desde 2026-09-25 — mas é outra pergunta: a
 conta de uma venda em curso, para mostrar a quem compra, com os preços a
 serem o **Trend do Cardmarket metido à mão** (id `venda`, `api/venda.json`,
@@ -2598,6 +2600,13 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   em italiano — corrigido também no «A subir»); o do Cardmarket **não**
   (403). Dos 98 selados: 81 com `blueprint_id`, 52 com `cardmarket_id`. Ver
   a última secção deste ficheiro.
+- **Feito também:** tirar selados por config (2026-09-25, à noite) —
+  `selado.excluidos`, 22 produtos fora (13 boosters soltos, 3 slim booster
+  box, o Champion Deck Set da Origins, as Bulk Runes e os 4 Pre-Rift Kit de
+  um jogador): 98 → **76**. Esconder não é apagar — o catálogo em disco fica
+  intacto e repor é tirar o nome da lista; o nome é exacto e um que não case
+  rebenta. Mais a limpeza do «Trial Deck Set **Set**» do catálogo
+  (`selado.nome_limpo`, sem mexer no id). Ver a última secção deste ficheiro.
 - **Por fazer:** a parte 2 do seguir — o separador no site e a tarefa diária;
   vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck,
   com as partilhadas assinaladas); e apagar decks pela interface (hoje apaga-se
@@ -6082,3 +6091,93 @@ de pesquisa.
 **Nada da Coleção mexe** — é apresentação: `tests/test_selado_links.py` (39
 testes) repete a fotografia do `test_selado` por referência, e recusa que um
 módulo de contas importe o `mercados`.
+
+
+## 25/09/2026, à noite — o André manda tirar 22 selados (`selado.excluidos`)
+
+Palavras dele, depois de ver a lista dos 98: *"Tira estes"* — os **boosters
+soltos** (13), as **slim booster box** (3), o **«Origins: Champion Deck Set»**
+(*"compram-se à unidade"*), as **«Spiritforged Bulk Runes»** e os quatro
+**Pre-Rift Kit**, o de UM jogador. Ramo `ai-pc/selado-tirar-2026-09-25`.
+
+**ESCONDER NÃO É APAGAR.** É a arquitectura do `abas.escondidas` (25/09) para
+outra lista: `selado.excluidos` é uma lista de **nomes** (ou de ids
+`ct-<blueprint>`), o `data/selado_catalogo.json` **fica intacto** e **repor é
+tirar o nome da lista**. Os 22 saem da aba, dos contadores, da percentagem e do
+total, no 8770 e no site publicado; o `scope.excluidos` di-los um a um (id,
+nome, edição, tipo) e a página mostra-os num `<details>` a dizer que nada foi
+apagado. Uma unidade gravada num produto excluído **não se apaga** e volta a
+contar quando o nome sair da lista (há teste).
+
+**O ponto único é o `_crus`**, que filtra antes de qualquer conta: aba,
+contadores, valor, CLI, `build` e `ajustar` vêem todos a mesma lista. Um `+`
+num excluído levanta `ProdutoExcluido` (subclasse de `ProdutoDesconhecido` —
+quem tratava um trata os dois) a dizer como se repõe.
+
+**O nome é EXACTO, nunca um pedaço** (`_chave_nome`: colapsa espaços, tira
+maiúsculas). É o que faz o *Spiritforged Pre-Rift Kit* sair e o *Spiritforged
+Pre-Rift **EVENT** Kit* ficar — são dois produtos, e o nome de um está dentro do
+outro —, e o *Origins Booster* sair sem levar o *Origins | Nexus Night Promo
+Booster* nem a *Origins Booster Box*. **Um nome que não case REBENTA**, com os
+parecidos (difflib) e a dica do id; um nome que case com **mais do que um**
+também rebenta, e diz os ids (hoje nenhum dos 117 se repete). A excepção, e é
+estreita: **sem catálogo em disco** (o `--sync` ainda não correu, ou um `build`
+num `data/` limpo) um nome do CardTrader não pode casar e ignora-se — a secção
+mostra-se vazia como sempre fez, em vez de parar a página por não ter sido
+sincronizada. Um nome ambíguo rebenta nos dois casos. **Risco anotado**: se um
+blueprint for retirado do CardTrader e o `--sync` correr, o nome dele na lista
+passa a não casar e a página rebenta até ele o tirar do config — é a regra desta
+casa para config que deixa de bater com os dados (`master_set.fora`), e o
+`--sync` é um comando à mão.
+
+**O nome dobrado do catálogo.** O CardTrader escreve «2024 Trial Deck Set
+**Set**» e «2025 Trial Deck Set **Set**». `selado.nome_limpo` junta uma palavra
+repetida a seguir a si mesma (`\b(\w+)(?:\s+\1)+\b`, re.I) — **apresentação**:
+o `id` vem do `blueprint_id` e não muda, o item leva `nome_bruto`, e o
+`excluidos` casa com as **duas** escritas. Medido: mexe em **2 dos 117**. A
+junção de duplicados continua a distinguir pela VERSÃO, por isso os dois Trial
+Deck Set continuam a ser dois (os nomes limpos são iguais).
+
+**Medido a 2026-09-25 contra uma cópia do `data/` real
+(`_revisao\_medir_selado_tirar.py`), o MESMO código e a MESMA cópia, mudando só
+a lista — os invariantes da Coleção NÃO mexem:** denominador **928**, níveis
+**897/836/766 de 928** (faltam 31/121/281 · 83,77/440,65/1 028,67 €), wantlist
+«tudo» **162 linhas · 281 cópias · 1 028,67 €**, valor **6 615,91 € · 2 573
+cópias**, totais, Faltas (555 cópias · 10 178,32 €), A mais, decks, Encomendas,
+Venda, painel e foil — **iguais**. E o **site gerado sai igual ficheiro a
+ficheiro (30 ficheiros)**: o único que difere a sério (sem o relógio) é o
+`api/selado.json`, que passa de 219 495 para **183 966 bytes**. Os **19
+acessórios não mexem** (contadores e valor iguais).
+
+**O que muda:**
+
+| | antes | depois |
+|---|---|---|
+| produto selado | 98 (78 saíram · 20 por sair) | **76** (61 · 15) |
+| não tenho | 78 | **61** |
+| sem preço | 47 | **37** |
+| acessórios | 19 | **19** |
+
+Por edição (o que há): OGN 13 → **8**, OGS 2, SFD 13 → **8**, UNL 16 → **11**,
+VEN 10 → **8**, RAD 10 → **7**, LGC 7 → **6**, PG2 1, REC 2 → **1**, ARC 3,
+OP 1, PROMO-RIFT 18, T1S 2.
+
+**Confirmado um a um, e nenhum saiu por acidente:** os 4 **Pre-Rift EVENT Kit**,
+os 9 **displays de decks** (7 champion + 2 showdown), os 4 **Nexus Night Promo
+Booster**, os **Trial Deck Set** de 2024 e 2025 (com o nome corrigido), o
+**Arcane Promo Pack**, o **Immersive Arcane Promo Pack**, o **Promo Pack** e o
+**Replacement Card Booster** (ele não se pronunciou sobre estes quatro — ficam),
+e todas as **Booster Box** normais, **Booster Box Case**, **Vault**, **Vault
+Bundle Case**, decks e **Proving Grounds**.
+
+`tests/test_selado_tirar.py` (56 testes, contra cópias e config temporário): a
+gramática da chave (nome, id, maiúsculas e espaços, o que não casa, o ambíguo, o
+que não é texto, a lista mal escrita, sem catálogo); saem dos contadores, da
+percentagem, do valor e das duas vistas (8770 e publicado); a unidade gravada
+não se apaga e volta; **repor é tirar o nome da lista** (o payload volta ao
+mesmo); o catálogo em disco fica intacto; o `scope` e o CLI dizem quais; o
+`ajustar` recusa; o config REAL (os 22 pelos cinco grupos, e os que têm de
+ficar); os 22 contra o **catálogo real** (98 → 76, cada nome casa com um, os 19
+acessórios não mexem, a conta por edição); o nome dobrado; **a fotografia** — a
+MESMA do `test_selado`, por referência — com produtos tirados e repostos; e a
+página. Suite: **46 ficheiros, 0 a falhar**.
