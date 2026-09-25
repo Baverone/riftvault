@@ -3,7 +3,8 @@
 Gestor da minha coleção de **Riftbound**. Objetivo: ter playsets, incluindo as
 artes normais **e** as alternativas.
 
-Secções: **Coleção**, **Decks**, **Faltas**, **A mais** e **Encomendas**. O
+Secções: **Coleção**, **Decks**, **Faltas**, **A mais** (escondida desde
+25/09/2026), **Encomendas** e **Venda**. O
 catálogo vem da API pública da
 [RiftScribe](https://riftscribe.gg) e os preços do
 [CardTrader](https://www.cardtrader.com).
@@ -110,11 +111,23 @@ nova é uma linha ali.
 | — | **Início** | o painel de hoje: master set, o que falta comprar, valor, decks montados, o que vem a caminho, a coleção extra |
 | Coleção | **Coleção** | a grelha, edição a edição |
 | | **Faltas** | o que falta para fechar cada edição, em quatro blocos |
-| | **A mais** | o excedente e o que os decks libertaram |
+| | **A mais** | o excedente e o que os decks libertaram — **escondida hoje** |
 | Decks | **Decks** | as listas montadas |
-| | **Staples** · **Por deck** · **Pimp decks** | as listas de compra dos decks |
+| | **Staples** | as cartas que vários decks pedem |
+| | **Por deck** · **Pimp decks** | as outras listas de compra dos decks — **escondidas hoje** |
 | Compras | **Encomendas** | o que compraste e ainda não chegou |
 | | **Venda** | o que estás a vender agora e a conta para quem compra |
+
+**Esconder uma aba é uma linha de config** (25/09/2026):
+`"abas": { "escondidas": ["a-mais", "pordeck", "pimp"] }`. Esconder **não é
+apagar** — o «A mais» continua a ser calculado, o `api/a_mais.json` e o
+`api/compras.json` continuam a ser gerados e servidos, e o `riftvault a-mais`
+continua a responder. O que sai é o botão, no servidor local e no site
+publicado. **Repor é tirar o nome da lista, mais nada.** Os nomes são
+`inicio`, `colecao`, `faltas-edicao`, `a-mais`, `decks`, `staples`, `pordeck`,
+`pimp`, `encomendas` e `venda` (também se aceitam como se lêem no ecrã: «A
+mais», «Por deck», «Pimp deck»); um nome desconhecido rebenta. Ver
+`riftvault/abas.py`.
 
 **Cada vista tem endereço.** `#colecao/UNL`, `#faltas-edicao/OGN`,
 `#decks/ornn`, `#decks/staples`, `#encomendas/VEN` — dá para guardar nos

@@ -29,6 +29,7 @@ import json
 import re
 import sys
 
+from . import abas
 from . import a_mais as a_mais_mod
 from . import a_subir as a_subir_mod
 from . import build as build_mod
@@ -256,6 +257,10 @@ def cmd_stats(args) -> int:
                  if tot["disputed"] else "")
               + (f" — {tot['ordered']} já a caminho (não contam na falta)"
                  if tot["ordered"] else ""))
+
+    # As abas escondidas (2026-09-25). Só o BOTÃO sai — tudo o que está acima
+    # continua a ser calculado, esteja a aba à vista ou não.
+    print("\n" + abas.texto())
 
     if getattr(args, "usadas", False):
         _imprimir_usadas(con)

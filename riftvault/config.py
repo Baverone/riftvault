@@ -305,6 +305,16 @@ DEFAULTS: dict = {
     # trava a listagem `/decks?q=<nome>` para um nome muito comum não puxar
     # centenas de páginas. Ver `seguir.py`.
     "seguir": {"jogadores": [], "intervalo_segundos": 1.0, "max_paginas": 10},
+    # As abas que NÃO se mostram (André, 2026-09-25: "Tira a aba 'A mais',
+    # 'Por Deck' e 'Pimp Deck'"). Escondidas, não apagadas: o cálculo, as rotas
+    # e a CLI ficam — o «A mais» continua a ser calculado e o
+    # `api/a_mais.json` a ser gerado; o que sai é o botão, no 8770 e no site
+    # publicado. **Repor uma aba é tirar o nome desta lista, mais nada.** Os
+    # nomes são os ids das abas — `inicio`, `colecao`, `faltas-edicao`,
+    # `a-mais`, `decks`, `staples`, `pordeck`, `pimp`, `encomendas`, `venda` —
+    # e aceitam-se também como ele as lê no ecrã («A mais», «Por deck», «Pimp
+    # deck»). Um nome desconhecido rebenta. Ver `abas.py`.
+    "abas": {"escondidas": []},
     "token_card_keys": [],
     "faltas_ignorar_tipos": ["Rune"],
     "pimp_ignorar_tipos": ["signature", "rune_promo"],
