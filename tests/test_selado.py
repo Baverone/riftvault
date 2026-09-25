@@ -418,6 +418,8 @@ class TestPorSair(Base):
         t = self.selado.payload(con)["totals"]
         self.assertEqual(t["tenho"], 1)
         self.assertEqual(t["falta"], 7, "e a falta não mexe")
+        self.assertEqual(t["pct"], 0.0,
+                         "a percentagem é «dos que saíram» e este não saiu")
 
 
 # ---------------------------------------------------------------------------

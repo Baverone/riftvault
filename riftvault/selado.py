@@ -452,6 +452,10 @@ def contar(lista: list[dict]) -> dict:
     """
     saiu = [x for x in lista if not x["por_sair"]]
     tem = [x for x in lista if x["qty"] > 0]
+    # A percentagem é «dos que saíram», e por isso o numerador também: uma
+    # pré-encomenda já entregue de um produto por sair conta no `tenho` (ele
+    # tem-na) mas não nesta conta, senão dava mais de 100 %.
+    tem_saiu = [x for x in saiu if x["qty"] > 0]
     return {
         "ha": len(lista),
         "saiu": len(saiu),
@@ -459,7 +463,7 @@ def contar(lista: list[dict]) -> dict:
         "tenho": len(tem),
         "copias": sum(x["qty"] for x in lista),
         "falta": sum(1 for x in saiu if x["qty"] == 0),
-        "pct": round(100 * len(tem) / len(saiu), 1) if saiu else 0.0,
+        "pct": round(100 * len(tem_saiu) / len(saiu), 1) if saiu else 0.0,
         # O VALOR DO SELADO. É um total PRÓPRIO — nunca se soma ao valor da
         # Coleção, que conta cartas. Ver o cabeçalho.
         "valor_cents": sum(x["valor_cents"] for x in tem),
