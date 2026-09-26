@@ -846,7 +846,7 @@ Singles»** — as cartas. Entram seis:
 | 283 Complete Sets | sets de cartas vendidos juntos | 2 |
 | | da API, juntando os repetidos | 81 |
 | | mais os 17 do `selado.extra` | 98 |
-| | menos os 32 do `selado.excluidos` | **66** |
+| | menos os 43 do `selado.excluidos` | **55** |
 
 **O que ele mandou tirar** (25/09/2026), em duas ordens da mesma noite e na
 mesma lista: primeiro os **13 boosters soltos**, as **3 slim booster box**, o
@@ -854,7 +854,16 @@ mesma lista: primeiro os **13 boosters soltos**, as **3 slim booster box**, o
 Runes» e os **4 Pre-Rift Kit de UM jogador** — 22; depois os **2 «Card Set»** da
 categoria «Complete Sets» (*são conjuntos de cartas*), com que essa categoria
 fica vazia na aba, e os **8 Trial Deck** da PROMO-RIFT (os 4 «Origins: X Trial
-Deck», os 2 «Trial Deck Set» e os 2 «Trial Deck Case») — **32 ao todo**.
+Deck», os 2 «Trial Deck Set» e os 2 «Trial Deck Case») — 32.
+
+**E a 26/09/2026 mais 11**, na mesma lista (66 → **55**): os **Champion Deck
+todos** (*"retira os Champion Deck todos"*) — OGN Jinx/Viktor/Lee Sin, SFD
+Rumble/Fiora, UNL Vi/Vex e LGC Ashe/Tryndamere/Lux/Garen, todos da 262.
+**Ficam** os **2 Showdown Deck** (Vendetta «Zed vs Shen», Radiance «Evelynn vs
+Seraphine»), que são outra linha de produto, e os **7 Champion Deck Display**
+do `selado.extra`, que ele nunca nomeou — é a prova do «o nome é exacto, nunca
+um pedaço»: o nome de cada um dos 11 está DENTRO do nome do display dele, e
+mesmo assim os displays não vão atrás.
 
 **Esconder não é apagar**, como no `abas.escondidas`: o
 `data/selado_catalogo.json` fica intacto e **repor é tirar o nome da lista**.

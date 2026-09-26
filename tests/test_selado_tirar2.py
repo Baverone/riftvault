@@ -231,9 +231,9 @@ class TestOsDezContraOCatalogoReal(unittest.TestCase):
                   "Origins: Instant Match Box 2025", "Secret Garden Bundle Box"):
             self.assertIn(n, self.nomes, n)
 
-    def test_a_aba_fica_com_66_selados(self):
+    def test_a_aba_fica_com_55_selados(self):
         selados = [x for x in self.lista if not x["acessorio"]]
-        self.assertEqual(len(selados), 66, "98 − 22 − 10")
+        self.assertEqual(len(selados), 55, "98 − 22 − 10 − 11")
 
     def test_por_edicao_depois_dos_dez(self):
         """Os números que ele vai ver, edição a edição."""
@@ -241,10 +241,10 @@ class TestOsDezContraOCatalogoReal(unittest.TestCase):
         for x in self.lista:
             if not x["acessorio"]:
                 por[x["edicao"]] = por.get(x["edicao"], 0) + 1
-        self.assertEqual(por, {"OGN": 8, "OGS": 2, "SFD": 8, "UNL": 10, "VEN": 8,
-                               "RAD": 7, "LGC": 6, "PG2": 1, "REC": 1, "ARC": 2,
+        self.assertEqual(por, {"OGN": 5, "OGS": 2, "SFD": 6, "UNL": 8, "VEN": 8,
+                               "RAD": 7, "LGC": 2, "PG2": 1, "REC": 1, "ARC": 2,
                                "OP": 1, "PROMO-RIFT": 10, "T1S": 2})
-        self.assertEqual(sum(por.values()), 66)
+        self.assertEqual(sum(por.values()), 55)
 
     def test_a_promo_rift_fica_com_dez(self):
         """Eram 18: saíram os 8 Trial Deck."""
@@ -289,9 +289,10 @@ class TestOConfigReal(unittest.TestCase):
         cls.sel = json.loads(
             (REPO / "riftvault_config.json").read_text(encoding="utf-8"))["selado"]
 
-    def test_a_lista_tem_32_sem_repetidos(self):
-        self.assertEqual(len(self.sel["excluidos"]), 32)
-        self.assertEqual(len(set(self.sel["excluidos"])), 32)
+    def test_a_lista_tem_43_sem_repetidos(self):
+        """22 (25/09, manhã) + 10 (25/09, noite) + 11 Champion Deck (26/09)."""
+        self.assertEqual(len(self.sel["excluidos"]), 43)
+        self.assertEqual(len(set(self.sel["excluidos"])), 43)
 
     def test_os_dez_estao_la(self):
         for n in OS_DEZ:
