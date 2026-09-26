@@ -62,6 +62,11 @@
   /* 104px dá 3 colunas num telemóvel de 375px. Menos do que isto e os +/-
      ficam pequenos de mais para o polegar. */
   --tile: 104px;
+  /* O CHÃO do tile nas filas do binder (2026-09-26, ver `.grid.binder`): é o
+     mesmo 104px, e de propósito — encolher mais não evitava o scroll num
+     telemóvel de 375px (8 tiles nunca cabem lá) e estragava os +/-. */
+  --tile-binder: 104px;
+  --binder-gap: 8px;
 
   /* A paleta do «layout H» (André, 2026-09-21), a da maqueta
      `layout-H-cartoes.html`, RETINTADA para o roxo do projeto a 2026-09-24:
@@ -462,6 +467,55 @@ h1.pgt { margin: 0; font-size: clamp(21px, 2.6vw, 27px); font-weight: 700; lette
   content: "";
   position: absolute; left: 5px; top: 10px; bottom: 10px; width: 3px;
   border-radius: 3px; background: var(--accent); opacity: .55;
+}
+
+/* ------------------------------------------- as filas do binder: 4 e 8 e 8
+
+   Pedido do André, à letra (2026-09-26): *"quero que as filas da coleccao
+   estejam organizas por / primeira fila de todas 4 / depois de 8 em 8 / que e
+   como fica o Binder"*.
+
+   A POSIÇÃO DE UM TILE É A POSIÇÃO DA CARTA NA PASTA DELE: primeira fila 4
+   bolsas, todas as seguintes 8. É para isso que serve — abrir a página,
+   contar a fila e ir buscar a carta. Por isso:
+
+   * o número por fila é FIXO (8 colunas escritas), nunca `auto-fill` como o
+     resto da grelha. Com `auto-fill` o número por fila mudava com a largura
+     da janela e a 5.ª carta deixava de estar na 2.ª fila;
+   * NÃO REFLUI em ecrãs estreitos. O tile encolhe até `--tile-binder` e,
+     abaixo disso, é o BLOCO que corre na horizontal (`.binder-wrap`), sozinho
+     — o `overflow-x` faz dele um contentor de scroll, e por isso a largura
+     mínima das 8 colunas não empurra a página nem a grelha de fora;
+   * cada IMPRESSÃO ocupa EXACTAMENTE UMA célula. No binder cada carta ocupa
+     uma bolsa, e é por isso que aqui não há `.group.multi` a ocupar várias
+     colunas: nas filas do binder cada impressão sai no seu `.group`.
+
+   Só a SEQUÊNCIA do master set anda assim — é a que ele arruma por número. Os
+   outros blocos (sobrenumeradas, artes alternativas, promos, …) ficam em
+   `auto-fill`: não são a ordem da pasta. E quando um filtro esconde parte da
+   sequência, as filas deixariam de ser as do binder: aí o `render()` volta ao
+   `auto-fill` e escreve o porquê (`.binder-nota`). */
+
+.binder-wrap {
+  grid-column: 1 / -1;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+.grid.binder {
+  grid-template-columns: repeat(8, minmax(var(--tile-binder), 1fr));
+  gap: var(--binder-gap);
+  /* O chão das 8 colunas: é ele que faz o bloco transbordar (e portanto
+     scrollar) em vez de refluir. */
+  min-width: calc(8 * var(--tile-binder) + 7 * var(--binder-gap));
+  /* E o teto, para num ecrã largo os tiles não crescerem sem fim. */
+  max-width: calc(8 * var(--tile) + 7 * var(--binder-gap));
+}
+/* Fecha a primeira fila nas 4: ocupa as outras 4 colunas e empurra a 5.ª
+   carta para a fila de baixo. Não se vê nem se lê. */
+.binder-gap { grid-column: span 4; }
+.binder-nota {
+  grid-column: 1 / -1;
+  margin: 0 0 2px; font-size: 12px; color: var(--dim); line-height: 1.5;
 }
 
 /* Cabeçalho de secção quando se ordena por tipo, raridade ou custo.

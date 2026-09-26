@@ -181,6 +181,17 @@ responder, o cartão fica a «—» e a página aguenta-se.
 
 ## Ordenar e filtrar a grelha
 
+- **As filas do binder — 4 e depois 8 em 8** (2026-09-26: *"quero que as filas
+  da coleccao estejam organizas por / primeira fila de todas 4 / depois de 8 em
+  8 / que e como fica o Binder"*). A **sequência do master set** de cada edição
+  sai com a primeira fila de **4** cartas e todas as seguintes de **8**, para a
+  posição na página ser a posição da carta na **pasta**: a 5.ª carta está na
+  2.ª fila, a 13.ª abre a 3.ª. O número por fila é fixo — não muda com a
+  largura da janela —, cada impressão ocupa **uma** célula, e num ecrã
+  estreito é o **bloco** que corre para o lado (abaixo de ~1206 px de janela),
+  nunca a página. Só a sequência: os outros blocos não são a pasta. **Com um
+  filtro ligado** (a procura, «Faltas», «só artes base») as filas deixariam de
+  ser as do binder — aí a grelha volta ao arranjo normal e diz-te porquê.
 - **Ordem:** blocos seguidos, nunca intercalados, pela ordem de 2026-09-19
   (*"coloca as OverNumbered a seguir ao master Set, depois as AltArt, depois
   as Promos"*): primeiro a **sequência do master set**, por número de
