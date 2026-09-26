@@ -417,14 +417,23 @@ class TestOAmbito(Base):
             self.foil.ajustar(con, "nao-existe", 1, source="test")
 
     def test_o_config_real_diz_comuns_e_incomuns_fora_o_ogs(self):
+        """O âmbito (22/09) e as TRÊS chaves de hoje.
+
+        As duas primeiras nasceram a `false` a 2026-09-26 de manhã e ele
+        respondeu-as na mesma tarde — *"contam para o valor sim, e contabilizas
+        tambem como parte do master set"* —, com a terceira a impedir que os
+        foils apareçam como excedente no «A mais».
+        """
         cfg = json.loads((REPO / "riftvault_config.json").read_text(encoding="utf-8"))
         self.assertEqual(cfg["foil"]["raridades"], ["common", "uncommon"])
         self.assertEqual(cfg["foil"]["edicoes_fora"], ["OGS"])
-        self.assertIs(cfg["foil"]["conta_para_coleccao"], False)
-        self.assertIs(cfg["foil"]["conta_para_valor"], False)
+        self.assertIs(cfg["foil"]["conta_para_coleccao"], True)
+        self.assertIs(cfg["foil"]["conta_para_valor"], True)
+        self.assertIs(cfg["foil"]["entra_no_a_mais"], False)
         self.assertEqual(self.config.DEFAULTS["foil"],
                          {"raridades": ["common", "uncommon"], "edicoes_fora": ["OGS"],
-                          "conta_para_coleccao": False, "conta_para_valor": False})
+                          "conta_para_coleccao": True, "conta_para_valor": True,
+                          "entra_no_a_mais": False})
 
 
 class TestNaoMexeEmNadaDoQueJaExiste(Base):

@@ -650,6 +650,16 @@ b.fo, .fo-num b.fo { color: var(--foil); }
   color: var(--foil); border-color: rgba(217, 164, 65, .45);
 }
 
+/* A RESSALVA DO PREÇO DO FOIL (2026-09-26): com o `foil.conta_para_valor`
+   ligado, as foils contam ao preço da NORMAL — não há preço de foil no
+   catálogo —, por isso o valor é um piso. A frase vive por baixo do valor e
+   tem de se ler como ressalva, não como um número a mais. */
+.fo-piso { font-style: normal; color: var(--foil); }
+/* No «A mais»: as foils não entram no que sobra, e o tile di-lo. */
+.onde.fo-fora { color: var(--h-dim-2); }
+/* Na tabela de montagem do deck: quantas das cópias da Coleção são foil. */
+.m-foil { font-style: normal; color: var(--foil); font-size: 11px; white-space: nowrap; }
+
 @media (max-width: 699px) {
   .fo-linhas { grid-template-columns: 1fr; gap: 8px; }
 }

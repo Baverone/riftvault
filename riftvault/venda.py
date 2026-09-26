@@ -233,7 +233,12 @@ def itens(con: sqlite3.Connection, cfg: dict | None = None) -> list[dict]:
     tr = trends(con)
     precos = metrics.prices_map(con)
     mercado = cardmarket.versoes(con)
-    na_colecao = locais.na_colecao(con)
+    # SÓ as normais (2026-09-26): o aviso de stock é sobre as cópias que o
+    # «marcar como vendidas» vai baixar, e esse baixa o `copies.qty`. Com os
+    # foils a contar para a Coleção (`foil.conta_para_coleccao`) dizer que ele
+    # tem 6 quando tem 3 normais e 3 foil mandava-o vender o que não quer
+    # vender — a mesma razão do `foil.entra_no_a_mais: false`.
+    na_colecao = locais.na_colecao(con, com_foil=False)
     totais = collection.get_many(con)
     ids_cm = {r["printing_id"]: r["cardmarket_id"] for r in
               con.execute("SELECT printing_id, cardmarket_id FROM catalog.cardtrader_map")}

@@ -1175,6 +1175,75 @@ def _por_impressao(con: sqlite3.Connection, monte: str,
     return out
 
 
+def foils_nos_decks(con: sqlite3.Connection, cfg: dict | None = None,
+                    alloc: dict | None = None) -> dict:
+    """As cópias FOIL da Coleção que os decks acabaram por levar.
+
+    André, 2026-09-26: *"um deck joga a carta, foil ou normal, tanto faz — mas
+    nao lhe tires um foil se houver normal disponivel"*.
+
+    AS NORMAIS SERVEM PRIMEIRO, E É ESTRUTURAL. O monte da Coleção é **um
+    número por impressão** (`locais.na_colecao`, que desde hoje soma as foils
+    por `foil.conta_para_coleccao`): o que o `allocate` tira dele são as normais
+    até elas acabarem, e só o que passa desse número é que é foil. Não houve
+    ordenação a inventar — não há por onde tirar uma foil primeiro.
+
+    O que faltava era DIZÊ-LO, e é o que esta função faz: quantas das cópias que
+    cada deck leva da Coleção são foils. Sem isto a tabela «Montar este deck,
+    carta a carta» mandava-o procurar no binder uma normal que não existe.
+
+    Entre decks, é o de prioridade MAIS BAIXA que fica com a foil — os de cima
+    já levaram as normais, que é exactamente a ordem em que ele monta.
+
+      `por_impressao[pid]`   → {foil, decks: [{slug, deck, qty}]}
+      `por_deck[slug][ck]`   → quantas cópias daquela carta são foil
+
+    Devolve `{}`/`{}` com o botão desligado, porque aí o monte da Coleção nem
+    conhece as foils.
+    """
+    from . import locais
+
+    cfg = cfg or config.load()
+    normais = locais.na_colecao(con, cfg, com_foil=False)
+    alloc = alloc if alloc is not None else allocate(con)
+    ck_de = {r["printing_id"]: r["card_key"] for r in con.execute(
+        "SELECT printing_id, card_key FROM catalog.printings")}
+
+    # Pela mesma ordem do `_por_impressao`: prioridade, e só os MONTADOS (um
+    # deck desmontado não leva cópia nenhuma — 2026-09-24).
+    levadas: dict[str, list[dict]] = {}
+    for d in deck_rows(con):
+        a = alloc.get(d["deck_id"]) or {}
+        g = a.get("grupo") or {}
+        if not g.get("lider") or not a.get("montado"):
+            continue
+        for pid, n in (g.get("impressoes") or {}).get("na_colecao", {}).items():
+            levadas.setdefault(pid, []).append(
+                {"slug": d["name"], "deck": g["rotulo"], "qty": n})
+
+    por_impressao: dict[str, dict] = {}
+    por_deck: dict[str, dict[str, int]] = {}
+    for pid, lista in levadas.items():
+        n_normais = normais.get(pid, 0)
+        usado = 0
+        for x in lista:
+            antes, usado = usado, usado + x["qty"]
+            # O que deste take passou da linha das normais é foil.
+            f = max(0, usado - n_normais) - max(0, antes - n_normais)
+            if not f:
+                continue
+            e = por_impressao.setdefault(pid, {"foil": 0, "decks": []})
+            e["foil"] += f
+            e["decks"].append({"slug": x["slug"], "deck": x["deck"], "qty": f})
+            ck = ck_de.get(pid)
+            if ck:
+                d_ = por_deck.setdefault(x["slug"], {})
+                d_[ck] = d_.get(ck, 0) + f
+    return {"por_impressao": por_impressao, "por_deck": por_deck,
+            "copies": sum(e["foil"] for e in por_impressao.values()),
+            "printings": len(por_impressao)}
+
+
 def deck_rows(con: sqlite3.Connection) -> list[sqlite3.Row]:
     return con.execute(
         "SELECT deck_id, name, display_name, legend, champion, priority, "
@@ -2081,7 +2150,12 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
         return None
     from . import locais, pending
 
-    a = allocate(con)[deck_id]
+    alloc = allocate(con)
+    a = alloc[deck_id]
+    # Quantas das cópias que este deck leva da Coleção são FOIL (2026-09-26):
+    # as normais servem primeiro, e o que passa delas é foil. É informação para
+    # a tabela de montagem não o mandar procurar uma normal que não existe.
+    foil_ck = foils_nos_decks(con, alloc=alloc)["por_deck"].get(d["name"], {})
     # A impressão em que o `+` de cada linha grava a encomenda (a normal mais
     # barata; na Legend/Champion a versão especial mais barata), para o ecrã
     # dizer qual é antes de ele carregar.
@@ -2278,6 +2352,11 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
                 "proprias": proprias,
                 "no_deck": no_deck, "no_binder": no_binder,
                 "na_colecao": tenho - proprias - no_deck - no_binder,
+                # Quantas dessas da Coleção são FOIL (2026-09-26): o deck joga
+                # foil ou normal, tanto faz, mas as NORMAIS servem primeiro e
+                # só o que passa delas é foil. Zero é o caso normal.
+                "foil_na_colecao": min(foil_ck.get(ck, 0),
+                                       tenho - proprias - no_deck - no_binder),
                 "contado": True,
                 # A regra de raridade (2026-09-24): a raridade de jogo da
                 # carta e quantas cópias DESTA linha saem da Coleção contra a
@@ -2319,6 +2398,8 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
                          "no_deck": sum(c["no_deck"] for c in contadas),
                          "no_binder": sum(c["no_binder"] for c in contadas),
                          "na_colecao": sum(c["na_colecao"] for c in contadas),
+                         "foil_na_colecao": sum(c.get("foil_na_colecao", 0)
+                                                for c in contadas),
                          "nao_contadas": sum(c["wanted"] for c in cards
                                              if not c["contado"])})
 
@@ -2338,6 +2419,12 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
         "raridade_colecao": raridade_da_colecao(),
         "aviso_colecao": sum(a["aviso_colecao"].values()),
         "aviso_cartas": len(a["aviso_colecao"]),
+        # Quantas cópias deste deck saem da Coleção em FOIL (2026-09-26): as
+        # normais servem primeiro e estas são as que sobraram para as foils.
+        # O ecrã di-lo para ele não as ir procurar em normal.
+        "foil_na_colecao": sum(s["foil_na_colecao"] for s in sections),
+        "foil_cartas": len({c["card_key"] for s in sections for c in s["cards"]
+                            if c.get("foil_na_colecao")}),
         "local_proprias": locais.proprio_local(d["name"]),
         # As próprias que não servem este deck (outra versão, carta que a
         # lista não pede, acima do pedido) — com o motivo, para ele as tirar.

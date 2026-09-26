@@ -6421,3 +6421,186 @@ gémeo em JavaScript, a rota, a CLI e o `app.js` (que já não corta o foil no
 `applyLocal`). O guarda das importações ficou **mais forte**: nenhum módulo de
 contas importa o `foil`, e o `qty_foil` só pode aparecer no `locais` e no
 `prices`, cada um com a sua chave. Suite: **47 ficheiros, 0 a falhar**.
+
+## 26/09/2026, à tarde — o FOIL CONTA: para o valor e para o master set; e NUNCA no «A mais»
+
+Palavras dele, a responder às duas perguntas que a ordem da manhã deixou em
+config: *"contam para o valor sim, e contabilizas tambem como parte do master
+set"*. Ramo `ai-pc/foil-conta-2026-09-26`.
+
+**As duas chaves passaram a `true`** (`riftvault_config.json` e
+`config.DEFAULTS`), e nasceu uma terceira, `entra_no_a_mais: false`, que é uma
+decisão dele tomada na mesma mensagem. O mecanismo já estava todo feito de
+manhã — os dois funis (`locais.na_colecao`, `locais.contadas` +
+`prices.copias_sql`) já liam as chaves —, por isso o trabalho desta ordem não
+foi ligá-las: foi o que se parte quando elas ligam.
+
+    copies.qty        as cópias NORMAIS
+    copies.qty_foil   as cópias FOIL
+    o que a impressão TEM (níveis, denominador, Faltas, wantlists, valor)
+                    = qty + qty_foil
+
+### 1. O PREÇO DO FOIL: o valor é um PISO, e a página di-lo
+
+**Não há fonte de preço de foil, e não se inventou nenhuma.** O catálogo tem um
+preço por impressão; o Cardmarket responde 403 e a API deles está fechada; o
+CardTrader não dá trend (provado a 25/09, ordem `0-venda-preco-ct`). Por isso as
+foils contam **ao preço da NORMAL**, o valor fica **por baixo** do real, e isso
+diz-se em **todos** os sítios onde o número aparece: a barra do valor da
+Coleção, o cartão do Início, o resumo do foil e o `riftvault value`.
+
+**A ressalva vai DENTRO do `collection_value`** (a chave `foils`), não à parte:
+uma vista que mostrasse o total tinha de ir buscar a ressalva à mão, e mais
+cedo ou mais tarde uma esquecia-se.
+
+**Há um caso SEM ressalva, e é preciso separá-lo:** quando o
+`price_latest.from_foil` é 1 o CardTrader só listava oferta foil e **o preço já
+é de foil** — essa cópia está avaliada com o preço certo (e é a NORMAL que pode
+estar sobreavaliada, a ressalva de sempre desde 2026-08-31).
+`prices.valor_dos_foils` parte os foils em três: `ao_preco_da_normal` (com
+ressalva), `preco_de_foil` (sem) e `sem_preco` (não contam).
+
+**Medido no `data/` real: as 159 foils dele caem TODAS no primeiro caso** — 58
+impressões, 17,49 €, nenhuma com `from_foil` e nenhuma sem preço. São comuns e
+incomuns do VEN a 11 cêntimos, o mínimo do CardTrader.
+
+### 2. A CONSEQUÊNCIA QUE ELE DECIDIU: os foils não são excedente
+
+Com os foils a contar, uma carta com 3 normais e 3 foil tem **6 cópias contra
+um alvo de 3**, e o «A mais» diria **«3 a mais»** — mandava-o vender os foils.
+Decisão dele: **`foil.entra_no_a_mais: false`**. O excedente conta primeiro as
+**NORMAIS** (`locais.na_colecao(..., com_foil=False)`) e os foils nunca entram
+no que sobra. São peça de coleção, não excedente.
+
+**Medido, e é a razão de a chave existir:** o excedente fica **exactamente
+igual** — 69 impressões · 140 cópias, item a item, `extra` a `extra` —; com a
+chave a `true` passava a **127 · 299**, com **58 impressões** a dizer «a mais»
+que hoje dizem zero (`VEN-001` a 3 a mais, `VEN-002` a 3, …). A prova pela
+negativa está em teste.
+
+**Ficam de fora, mas dizem-se**, como as runas desde 17/09: `scope.foil` conta
+**159 cópias em 58 impressões** e o cabeçalho escreve-o; uma linha que TENHA
+foils e excedente ao mesmo tempo diz os dois («2 a mais · 3 foil, que não
+entram»). O `scope.foil` conta **todas** as foils que a Coleção conta, não só as
+das impressões que chegam aos tiles — a maioria tem o alvo cumprido só com as
+normais e nunca aparece na lista, e contar só essas dava zero com 159 lá.
+
+**O `have` do tile continua a ser as normais.** Com as foils dentro lia-se
+«tens 9/3 · 2 a mais», que é ilegível.
+
+### 3. A MESMA CAUTELA em mais três sítios, cada um pela sua razão
+
+Não é a regra do «A mais» repetida: é que estes três contam **cópias físicas de
+acabamento normal**, não alvos. Todos passaram a `na_colecao(..., com_foil=False)`:
+
+| onde | porquê |
+|---|---|
+| `locais.propor_deck` | propõe MOVER uma cópia para `copy_locations`, e essa tabela conta normais — propor uma foil era mandar marcar uma normal que não existe |
+| **Venda** (`venda.itens`) | o aviso de stock é sobre as cópias que o «marcar como vendidas» vai baixar, e esse baixa o `copies.qty`. Dizer que tem 6 quando tem 3 normais e 3 foil mandava-o vender o que não quer vender |
+| o `−` da grelha | baixa as NORMAIS. Com 0 normais e 3 foils o `qty` da Coleção é 3 e o botão tem de estar **desligado** — `qtyNormais()` no `app.js`, em vez do `qty` |
+
+### 4. NOS DECKS: as normais servem primeiro, e é estrutural
+
+Palavras dele: *"um deck joga a carta, foil ou normal, tanto faz — mas nao lhe
+tires um foil se houver normal disponivel"*.
+
+**Não houve ordenação a inventar, e é importante dizer porquê:** o monte da
+Coleção é **um número por impressão** (`pool_dos_decks["colecao"]`), não uma
+lista de cópias com acabamento. O que o `allocate` tira dele são as normais até
+elas acabarem; só o que passa desse número é que é foil. Não há por onde tirar
+uma foil primeiro.
+
+**O que faltava era DIZÊ-LO**, e é o que se fez: `decks.foils_nos_decks(con,
+cfg, alloc=None)` devolve, por impressão e por (deck, carta), quantas das cópias
+que o deck leva da Coleção são foils — `total consumido − normais`, e entre
+decks é o de **prioridade mais baixa** que fica com a foil, porque os de cima já
+levaram as normais (que é a ordem em que ele monta). Sem isto a tabela «Montar
+este deck, carta a carta» mandava-o procurar no binder uma normal que não
+existe. Aparece: `foil_na_colecao` por carta e por secção no `deck_payload`,
+`foil_na_colecao`/`foil_cartas` no deck, a célula «Coleção» da tabela de
+montagem com «N foil», a nota do `<details>`, e o `riftvault deck <slug>`.
+
+**Medido no `data/` real: ZERO.** Nenhum deck se serve de uma foil hoje — as 58
+impressões com foil são comuns e incomuns do VEN com os 3 normais completos, e
+os decks levam normais. O mecanismo está em teste (1 normal + 2 foil → «2 vieram
+das foils»; 2 normais + 5 foils com um deck a pedir 3 → **1** foil, não 3).
+
+**Um deck DESMONTADO não leva foil nenhuma**, como não leva normal nenhuma
+(24/09).
+
+### 5. Um `+` de foil passou a mexer no ecrã todo
+
+Com as chaves ligadas, o contador do foil deixou de ser um canto isolado: o
+`state.qty` do cliente é `normais + foils`, e é dele que saem o crachá, as três
+barras, o painel, os níveis e o valor. O `foilAplicarLocal` (o gémeo do
+`applyLocal` das normais) mexe no `state.qty`, no playset jogável e marca a
+wantlist como velha; com as duas chaves desligadas continua a mexer só na linha
+do foil, como antes. A frase do `title` da linha («não contam para os alvos nem
+para o valor») **mentia** com as chaves ligadas e passou a sair das chaves
+(`foilContamTxt`).
+
+### Medido a 2026-09-26 contra CÓPIAS do `data/` real
+
+`_revisao\_medir_foil_conta.py` (+ `_worker.py`), quatro corridas sobre cópias
+independentes do mesmo `data/`: **A** `main`, **B** ramo com os dois botões a
+`false`, **C** ramo com o **config real** (o DEPOIS), **D** ramo com
+`entra_no_a_mais: true` (só para provar que a regra faz diferença). O `data/` a
+sério nunca se tocou — ele estava a mexer na coleção.
+
+**A == B em 25 invariantes** (só o campo `foil` novo, a zeros, e as funções que
+o `main` ainda não tem): o código novo com os botões desligados mede
+exactamente o de antes.
+
+| | ANTES (B) | DEPOIS (C) |
+|---|---|---|
+| **valor** | **6 645,21 € · 2 573 cópias** | **6 662,70 € · 2 732 cópias** (**+17,49 €**, +159) |
+| valor do VEN | 1 058,56 € | 1 076,05 € (as outras quatro não mexem) |
+| denominador | 928 | **928** |
+| nível 1 · 2 · playset | **897 / 836 / 766 de 928** | **897 / 836 / 766 de 928** |
+| faltam, por nível | 31 / 121 / 281 cópias | **iguais** |
+| € por nível | 89,27 / 458,08 / 1 056,62 € | **iguais** |
+| wantlist «tudo» | 162 linhas · 281 cópias · 1 056,62 € | **igual** (e as cinco por edição) |
+| Faltas, fechar os 4 blocos | 317 · 555 · 10 232,99 € | **igual** (os 20 blocos por edição, zero a mexer) |
+| A mais, excedente | 69 impressões · 140 cópias | **69 · 140**, item a item |
+| decks (falta comprar) | 0 cópias | **0** |
+| decks a levar foil | — | **0 cópias, 0 impressões** |
+| Encomendas · Venda · painel | — | **iguais** |
+| cópias na grelha | — | **58 tiles** passam de `3` a `6` (`VEN-001` «6/3» a verde) |
+
+**Níveis por edição, antes e depois (iguais nos dois):** OGN 279/247/217 de
+298 · OGS 24/24/11 de 24 · SFD 215/200/188 de 221 · UNL 216/206/195 de 219 ·
+VEN 163/159/155 de 166.
+
+### QUANTAS IMPRESSÕES SOBEM DE NÍVEL: **ZERO** — e é a resposta certa
+
+O «tenho» sobe em **58 impressões** e **nenhuma** cumpre mais um degrau: **as 58
+com foil têm todas as 3 normais**, ou seja o playset já estava feito. Ele só
+marcou foil em cartas de que já tinha o playset. Por isso os níveis, o
+denominador, as Faltas e as **cinco wantlists** ficam **iguais ao cêntimo** —
+não é o mecanismo a não funcionar, é a coleção dele. A primeira foil numa carta
+incompleta muda isto, e há teste: 1 normal + 2 foil de um alvo de 3 fecha o
+playset e sai da wantlist.
+
+**Os foils que ele tem, na cópia medida: 159 em 58 impressões, todas comuns e
+incomuns do VEN; nenhuma carta só em foil (0 normais).**
+
+`tests/test_foil_conta.py` (**48 testes**, contra pastas temporárias e config
+temporário): as três chaves no config real e nos `DEFAULTS`, a omissão da
+terceira a `false`; o tile a dizer `3 normais + 3 foil = 6`, duas foils a
+fechar um playset, uma carta só em foil a passar a contar, o denominador
+quieto, as Faltas e a wantlist a descontá-las, desligar a chave a voltar atrás,
+as foils de uma runa retirada a não contar; o valor ao preço da normal, a
+repartição nos três casos (com ressalva, `from_foil`, sem preço), a ressalva
+dentro do `collection_value`, e **os dois botões a serem separados**; o «A
+mais» igual com e sem foils, o excedente a contar primeiro as normais, o
+`scope.foil`, o `have` sem foils, e a **prova pela negativa** com a chave a
+`true`; os decks (nenhum leva foil havendo normais; leva e diz-se; a foil é a
+ÚLTIMA a sair; entre decks calha ao de baixo; desmontado não leva; com a chave
+desligada não vê foil); as três cautelas (`propor_deck`, Venda, o `−`); a
+fronteira (nenhum módulo de contas importa o `foil`; a coluna só se lê nos dois
+funis — e é por isso que o `a_mais` e o `decks` passaram a saber que há foils
+**pelo `locais`**, nunca pela coluna); e a interface (a ressalva nos três
+sítios, o `from_foil` separado, o «não entram no que sobra», a frase velha
+apagada, o `+` a mexer no crachá, a tabela de montagem, o CSS e o CLI).
+
+Suite: **48 ficheiros, 0 a falhar**.
