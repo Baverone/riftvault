@@ -341,7 +341,9 @@ def cmd_value(args) -> int:
           f"({v['copias']} cópias, preços de {v['day']})")
     print("  critério: preço mais baixo em Near Mint/Mint, inglês, no CardTrader")
     if v["copias_sem_preco"]:
-        print(f"  {v['copias_sem_preco']} cópias sem preço (sem oferta no CardTrader)")
+        n = v["copias_sem_preco"]
+        print(f"  {n} {'cópia' if n == 1 else 'cópias'} sem preço "
+              f"(sem oferta no CardTrader)")
     if v["cents_de_foil"]:
         pct = 100 * v["cents_de_foil"] / v["cents"] if v["cents"] else 0
         print(f"  ATENÇÃO: {prices.eur(v['cents_de_foil'])} ({pct:.0f}% do total, "
