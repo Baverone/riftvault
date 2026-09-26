@@ -34,22 +34,28 @@ def _columns(con: sqlite3.Connection, table: str, schema: str = "main") -> set[s
         return set()
 
 
-def backup(con: sqlite3.Connection, motivo: str) -> Path | None:
-    """Uma cópia do vault.db ANTES de uma migração que mexe na tabela `copies`.
+def backup(con: sqlite3.Connection, motivo: str, schema: str = "main",
+           nome: str | None = None) -> Path | None:
+    """Uma cópia de uma base ANTES de uma migração que lhe mexe nas tabelas.
 
-    `VACUUM main INTO` em vez de copiar o ficheiro: o vault.db está em WAL e
-    uma cópia de ficheiro podia apanhar uma base a meio de uma transação. Vai
+    `VACUUM <schema> INTO` em vez de copiar o ficheiro: as bases estão em WAL e
+    uma cópia de ficheiro podia apanhar uma a meio de uma transação. Vai
     para `data/backups/` (que está no `.gitignore`) e nunca se apaga sozinha —
     é a rede de segurança da coleção, que é a única coisa insubstituível aqui.
+
+    `schema` é o nome do schema a copiar, e é um valor interno (nunca vem de
+    fora): o SQLite não aceita um parâmetro ali. Com `catalog_only()` o catálogo
+    É o `main`, e é por isso que o nome do ficheiro se passa à parte.
 
     Devolve o caminho, ou `None` se não deu (uma migração não pode falhar por
     causa do backup; quem chama decide).
     """
+    nome = nome or ("vault" if schema == "main" else schema)
     alvo = config.DATA_DIR / "backups" / (
-        f"vault-{motivo}-{datetime.now().strftime('%Y%m%d-%H%M%S')}.db")
+        f"{nome}-{motivo}-{datetime.now().strftime('%Y%m%d-%H%M%S')}.db")
     try:
         alvo.parent.mkdir(parents=True, exist_ok=True)
-        con.execute("VACUUM main INTO ?", (str(alvo),))
+        con.execute(f"VACUUM {schema} INTO ?", (str(alvo),))
         return alvo
     except (sqlite3.Error, OSError):
         return None
@@ -99,6 +105,45 @@ def _tirar_o_tecto_do_foil(con: sqlite3.Connection) -> None:
         raise
 
 
+def _migrar_price_latest(con: sqlite3.Connection, schema: str = "catalog") -> None:
+    """As colunas que a `price_latest` ganhou depois da primeira versão.
+
+    Corre com o catálogo ANEXADO (`connect`, schema `catalog`) e com o catálogo
+    como base principal (`catalog_only`, schema `main`) — é a mesma tabela, e
+    uma delas só a migrar deixava o `riftvault map` a olhar para colunas que não
+    existem.
+
+      `n_sellers`, `n_copies`     o tamanho da oferta (2026-09-10)
+      `price_foil_cents`,
+      `n_listings_foil`           o PREÇO DA FOIL, à parte (2026-09-26)
+
+    As duas últimas levam BACKUP do catálogo antes. O `catalog.db` é
+    reconstruível (`riftvault sync` + `riftvault map` + `riftvault prices`) e
+    está no `.gitignore` — mas reconstruí-lo custa o catálogo inteiro e o
+    mercado das cinco expansões, e o backup custa um `VACUUM INTO`. Idempotente:
+    a segunda ligação já encontra as colunas e não faz nada.
+    """
+    tabela = "price_latest" if schema == "main" else f"{schema}.price_latest"
+    cols = _columns(con, "price_latest", schema)
+    if not cols:
+        return
+    for name in ("n_sellers", "n_copies"):
+        if name not in cols:
+            con.execute(f"ALTER TABLE {tabela} ADD COLUMN {name} "
+                        f"INTEGER NOT NULL DEFAULT 0")
+    # O preço da foil (André, 2026-09-26): *"podes meter filtro no cardtrader e
+    # tirar o preco da foil mais barata?, para diferenciar os precos"*. Nasce
+    # VAZIA (NULL em todas) e enche-se no `riftvault prices` seguinte; até aí as
+    # cópias foil contam ao preço da normal, que é o fallback de sempre.
+    if "price_foil_cents" not in cols or "n_listings_foil" not in cols:
+        backup(con, "antes-do-preco-do-foil", schema=schema, nome="catalog")
+        if "price_foil_cents" not in cols:
+            con.execute(f"ALTER TABLE {tabela} ADD COLUMN price_foil_cents INTEGER")
+        if "n_listings_foil" not in cols:
+            con.execute(f"ALTER TABLE {tabela} ADD COLUMN n_listings_foil "
+                        f"INTEGER NOT NULL DEFAULT 0")
+
+
 def _migrate(con: sqlite3.Connection) -> None:
     """Colunas acrescentadas depois da primeira versão do schema.
 
@@ -137,15 +182,10 @@ def _migrate(con: sqlite3.Connection) -> None:
             if name not in cols:
                 con.execute(f"ALTER TABLE decks ADD COLUMN {name} {decl}")
 
-    # O tamanho da oferta (2026-09-10): quantos vendedores e quantas cópias
-    # estão à venda, a par do número de anúncios que já lá estava. É o mais
-    # perto que há de "quais é que se vendem mais" — ver o `comuns.py`.
-    cols = _columns(con, "price_latest", "catalog")
-    if cols:
-        for name in ("n_sellers", "n_copies"):
-            if name not in cols:
-                con.execute(f"ALTER TABLE catalog.price_latest "
-                            f"ADD COLUMN {name} INTEGER NOT NULL DEFAULT 0")
+    # As colunas da `price_latest`: o tamanho da oferta (2026-09-10) e o preço
+    # da foil (2026-09-26). Vive numa função porque o `catalog_only()` também a
+    # chama, com o catálogo como base principal.
+    _migrar_price_latest(con, "catalog")
 
     # O histórico de preços mudou de casa: era do vault.db, passou a ser do
     # prices.db, para o robô do GitHub Actions poder fazer commit dele sem
@@ -185,6 +225,11 @@ def catalog_only() -> sqlite3.Connection:
     con.row_factory = sqlite3.Row
     con.execute("PRAGMA journal_mode=WAL")
     _apply_schema(con, "catalog_schema.sql")
+    # Aqui o catálogo É o `main`. O `IF NOT EXISTS` do schema não acrescenta
+    # colunas a uma tabela que já exista, por isso a migração corre também por
+    # este caminho — senão um `riftvault map` num catálogo antigo ficava sem as
+    # colunas até alguém abrir o vault.db.
+    _migrar_price_latest(con, "main")
     return con
 
 

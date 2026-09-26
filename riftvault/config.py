@@ -291,13 +291,14 @@ DEFAULTS: dict = {
     #                            passa a ser `qty + qty_foil`.
     #   `conta_para_valor`     — os foils contam para o VALOR? Ligado, entram
     #                            pelo `locais.contadas` e pelo
-    #                            `prices.copias_sql`, **ao preço da normal**:
-    #                            não há preço de foil no catálogo (o
-    #                            CardTrader dá um preço por impressão), por
-    #                            isso o valor é um PISO, não uma estimativa —
-    #                            e a página di-lo. Nas impressões que o
-    #                            CardTrader só lista em foil (`from_foil`) o
-    #                            preço já é de foil e não há ressalva.
+    #                            `prices.copias_sql`, **ao PREÇO DA FOIL** (o
+    #                            `price_latest.price_foil_cents`, desde a tarde
+    #                            de 2026-09-26: *"podes meter filtro no
+    #                            cardtrader e tirar o preco da foil mais
+    #                            barata?"*). Só quando não há oferta foil é que
+    #                            a cópia cai para o preço da normal, e esse
+    #                            FALLBACK é contado e dito — é ele que faz do
+    #                            total um PISO (`prices.valor_dos_foils`).
     #   `entra_no_a_mais`      — os foils entram no que SOBRA no «A mais»?
     #                            **NÃO** (2026-09-26, decisão dele): com os
     #                            foils a contar para a Coleção, 3 normais + 3

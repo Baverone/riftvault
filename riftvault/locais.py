@@ -323,10 +323,12 @@ def contadas(con: sqlite3.Connection, cfg: dict | None = None, *,
         for pid, n in mapa.items():
             total[pid] = max(0, total.get(pid, 0) - n)
     # As foils entram aqui com `foil.conta_para_valor` ligado — e desde
-    # 2026-09-26 está: *"contam para o valor sim"*. Contam ao PREÇO DA NORMAL
-    # (não há preço de foil no catálogo, só um preço por impressão), por isso o
-    # valor é um piso e a página di-lo. `com_foil=False` devolve só as normais,
-    # para quem conta cópias físicas de acabamento normal (ver o `na_colecao`).
+    # 2026-09-26 está: *"contam para o valor sim"*. **Quem as multiplica por um
+    # preço tem de as separar**: uma foil vale o `price_foil_cents`, não o
+    # `price_cents` (`prices.valor_sql`); este número é só «quantas cópias
+    # contam». `com_foil=False` devolve só as normais, para quem conta cópias
+    # físicas de acabamento normal (ver o `na_colecao`), e o
+    # `foils_que_contam(..., "conta_para_valor")` dá a outra metade.
     if com_foil:
         for pid, n in _foils(con, "conta_para_valor", cfg).items():
             total[pid] = total.get(pid, 0) + n

@@ -53,18 +53,18 @@ O QUE O FOIL CONTA, DESDE 2026-09-26
                                   «quantas cópias tem a Coleção».
       `foil.conta_para_valor`     **true**. Os foils contam para o VALOR, pelo
                                   `locais.contadas` e pelo `prices.copias_sql`,
-                                  **AO PREÇO DA NORMAL** — não há preço de foil
-                                  no catálogo, só um preço por impressão, e não
-                                  há fonte de onde o ir buscar (o Cardmarket
-                                  responde 403 e a API deles está fechada; o
-                                  CardTrader não dá trend). Por isso o valor é
-                                  um **PISO, não uma estimativa**, e a página
-                                  di-lo onde o número aparece. Excepção: nas
-                                  impressões que o CardTrader só lista em foil
-                                  (`price_latest.from_foil`) o preço JÁ é de
-                                  foil e não há ressalva — o
-                                  `prices.valor_dos_foils` separa os dois casos
-                                  e conta quantas caem em cada um.
+                                  **AO PREÇO DA FOIL** — o `price_foil_cents`,
+                                  que desde a tarde de 2026-09-26 é o mínimo das
+                                  ofertas FOIL do CardTrader com os mesmos
+                                  filtros das normais (*"podes meter filtro no
+                                  cardtrader e tirar o preco da foil mais
+                                  barata?"*). Só quando o CardTrader não tem
+                                  oferta foil nenhuma é que a cópia cai para o
+                                  preço da normal, e esse FALLBACK é contado e
+                                  dito (`prices.valor_dos_foils`) — é ele que
+                                  faz do total um **PISO**. Até essa tarde
+                                  contavam TODAS ao preço da normal, que nas
+                                  comuns era o chão do CardTrader.
       `foil.entra_no_a_mais`      **false**. Os foils NÃO entram no que sobra no
                                   «A mais»: com eles a contar, 3 normais + 3
                                   foil contra um alvo de 3 diriam «3 a mais para
@@ -212,11 +212,12 @@ def entra_no_a_mais(cfg: dict | None = None) -> bool:
 
 
 def conta_para_valor(cfg: dict | None = None) -> bool:
-    """Os foils somam-se ao VALOR, ao preço da normal? Omissão: **não**.
+    """Os foils somam-se ao VALOR? **SIM desde 2026-09-26** (*"contam para o
+    valor sim"*). Omissão: não.
 
-    Não há preço de foil no catálogo — o CardTrader dá um preço por impressão
-    (e, quando só há oferta foil, marca-a `from_foil`). Ligar isto é assumir
-    que uma foil vale o mesmo que a normal.
+    Ao PREÇO DA FOIL (`price_latest.price_foil_cents`, o mínimo das ofertas foil
+    do CardTrader), e só ao da normal quando não há oferta foil — o fallback que
+    o `prices.valor_dos_foils` conta e que faz do total um piso.
     """
     return bool(((cfg or config.load()).get("foil") or {}).get("conta_para_valor", False))
 
@@ -428,7 +429,32 @@ def ajustar(con: sqlite3.Connection, ref: str, delta: int,
 
     return {"printing_id": pid, "code": r["public_code"], "name": r["name"],
             "set": r["set_id"], "foil": novo, "normal": normal,
-            "total": normal + novo, "applied": applied}
+            "total": normal + novo, "applied": applied,
+            # Os dois preços (2026-09-26, à tarde), para o tile e a CLI
+            # dizerem quanto vale uma foil desta impressão sem ir buscá-los
+            # a outro lado. `price_foil` a `None` é o FALLBACK: a cópia foil
+            # conta ao `price`.
+            **_precos(con, pid)}
+
+
+def _precos(con: sqlite3.Connection, pid: str) -> dict:
+    """`{price, price_foil}` em cêntimos — o da normal e o da FOIL, ou `None`.
+
+    Num catálogo sem a tabela (ou sem a coluna) dá os dois a `None`: a contagem
+    de foil funciona sem preços, e é só isso que este módulo garante.
+    """
+    try:
+        row = con.execute(
+            "SELECT price_cents, "
+            # A regra do `prices.valor_dos_foils`: com `from_foil` o preço da
+            # normal JÁ é de foil, e é esse que a cópia foil vale.
+            "       CASE WHEN price_foil_cents IS NOT NULL THEN price_foil_cents "
+            "            WHEN from_foil = 1 THEN price_cents END AS foil "
+            "FROM catalog.price_latest WHERE printing_id = ?", (pid,)).fetchone()
+    except sqlite3.OperationalError:
+        return {"price": None, "price_foil": None}
+    return {"price": row["price_cents"] if row else None,
+            "price_foil": row["foil"] if row else None}
 
 
 def historico(con: sqlite3.Connection, limit: int = 20) -> list[dict]:
@@ -438,8 +464,43 @@ def historico(con: sqlite3.Connection, limit: int = 20) -> list[dict]:
         "ORDER BY f.id DESC LIMIT ?", (limit,))]
 
 
-def texto(r: dict, sets: list[dict]) -> str:
-    """O resumo em consola, para o `riftvault foil` e o `riftvault stats`."""
+def _eur(cents: int) -> str:
+    """Os euros de uma linha deste resumo. O `prices.eur` faz o mesmo, mas
+    importá-lo aqui punha este módulo a conhecer o `prices` por causa de uma
+    vírgula decimal."""
+    return f"{cents / 100:.2f} €"
+
+
+def _linha_do_valor(valor: dict | None) -> str:
+    """O que as foils valem, e quantas caem no FALLBACK (2026-09-26, à tarde).
+
+    Sem `valor` (quem chama não o tinha) diz-se só a regra. Com ele, os números:
+    o preço de foil do CardTrader é o que manda, e as que não têm oferta foil
+    contam ao preço da normal — é esse pedaço que faz do total um PISO.
+    """
+    if not valor or not valor.get("copies"):
+        return ("no valor contam ao PREÇO DA FOIL do CardTrader; sem oferta foil "
+                "caem para o preço da normal (`riftvault value` diz quantas).")
+    pf, fb = valor["preco_de_foil"], valor["ao_preco_da_normal"]
+    partes = [f"as tuas {valor['copies']} foils valem {_eur(valor['cents'])}"]
+    if pf["copies"]:
+        partes.append(f"{pf['copies']} a preço de FOIL ({_eur(pf['cents'])})")
+    if fb["copies"]:
+        partes.append(f"{fb['copies']} ao preço da NORMAL, por não haver oferta "
+                      f"foil ({_eur(fb['cents'])}) — é um PISO")
+    if valor["sem_preco"]["copies"]:
+        partes.append(f"{valor['sem_preco']['copies']} sem preço, não contam")
+    return "no valor: " + "; ".join(partes) + "."
+
+
+def texto(r: dict, sets: list[dict], valor: dict | None = None) -> str:
+    """O resumo em consola, para o `riftvault foil` e o `riftvault stats`.
+
+    `valor` é o `prices.valor_dos_foils(con)`, quando quem chama o tem: o preço
+    das foils diz-se onde a contagem delas aparece (2026-09-26, à tarde), com o
+    FALLBACK marcado. Vem por parâmetro e não por import para este módulo
+    continuar a não conhecer o `prices`.
+    """
     nomes = {s["id"]: s["name"] for s in sets}
     nomes[TODAS] = "TODAS"
     ordem = [s["id"] for s in sets if s["id"] in r["sets"]] + [TODAS]
@@ -468,8 +529,7 @@ def texto(r: dict, sets: list[dict]) -> str:
                   f"{'CONTAM' if r.get('conta_para_valor') else 'não contam'}"
                   f" para o valor (foil.conta_para_valor).")
     if r.get("conta_para_valor"):
-        linhas.append("no valor contam AO PREÇO DA NORMAL — não há preço de foil no "
-                      "catálogo, por isso o valor é um PISO (ver `riftvault value`).")
+        linhas.append(_linha_do_valor(valor))
     if r.get("conta_para_coleccao") and not r.get("entra_no_a_mais"):
         linhas.append("no «A mais» NÃO entram no que sobra: o excedente conta primeiro "
                       "as normais (foil.entra_no_a_mais).")
