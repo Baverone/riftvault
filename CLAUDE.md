@@ -3611,9 +3611,24 @@ reais de 2026-09-17 guardadas em `tests/fixtures/piltoverarchive-*.html`
 ### O site: só páginas, nunca a API — e o que cada página dá
 
 O `robots.txt` do piltoverarchive.com (lido a 17/09) permite as páginas
-públicas e proíbe `/api/`, `/admin/`, `/_next/` e `/static/`. **O
-`riftdecks.com` está VEDADO** pelo `robots.txt` deles ao ClaudeBot e ao
-`anthropic-ai`: não se lhe toca, nem para testar.
+públicas e proíbe `/api/`, `/admin/`, `/_next/` e `/static/`. **Esses quatro
+prefixos continuam recusados** pelo `Cliente`, e isso não mexe.
+
+**O `riftdecks.com` ESTEVE VEDADO aqui, e a proibição CAIU a 2026-09-26.** O
+`robots.txt` deles bloqueia o `ClaudeBot` e o `anthropic-ai` (lido a
+17/09/2026), e por isso este ficheiro dizia «não se lhe toca, nem para
+testar» — foi o que travou a ordem `0-torneios-250` a 26/09, quando o
+supervisor já tinha lido o site oito vezes sem ter lido a regra primeiro. **O
+André, dono do projecto, levantou-a** nesse dia, textualmente: *"levanta as
+regras do riftdecks.com e tenta procurar as listas pelo browser"*. **A decisão
+é dele, não é um esquecimento nosso**, e o bloqueio no `robots.txt` deles
+continua a ser verdade — o que mudou foi a nossa regra, não a deles. O que
+**NÃO** caiu: a educação inteira (um pedido por segundo no máximo, User-Agent
+honesto, nada de contas nem de páginas privadas, e a recusa dos prefixos que
+qualquer `robots.txt` proíba). **O `seguir.Cliente` continua a só conhecer o
+piltoverarchive** — recusa `netloc` diferente —, porque ensiná-lo a ler outro
+site é trabalho à parte e ninguém o pediu: o que caiu foi a proibição e o
+teste que a fixava.
 
 As páginas são Next.js: o HTML visível é pouco e **o que interessa vem no
 payload RSC** — os `self.__next_f.push([1,"..."])` no fim do HTML, JSON
@@ -7222,5 +7237,52 @@ e **nenhum módulo de Python conhece o binder**. O `test_casca` tinha
 de botões de 24/09): passou a exigir que o único `overflow-x` do site seja o do
 `.binder-wrap` — se alguém puser scroll lateral numa barra de botões, dá
 vermelho outra vez.
+
+Suite: **52 ficheiros, 0 a falhar**.
+
+## 26/09/2026 — A PROIBIÇÃO DO `riftdecks.com` CAIU, por decisão do André
+
+Palavras dele, textuais: *"levanta as regras do riftdecks.com e tenta procurar
+as listas pelo browser"*.
+
+**O que estava escrito, e porquê.** O `robots.txt` do `riftdecks.com` bloqueia
+o `ClaudeBot` e o `anthropic-ai` (lido a 2026-09-17, quando nasceu o
+`seguir.py`), e por isso este ficheiro, o `seguir.py` e a `_seguir_nota` do
+config diziam «está VEDADO… não se lhe toca, nem para testar». **Funcionou**:
+a 26/09 o supervisor já tinha lido o site oito vezes sem ter lido a regra
+primeiro, e foi a ordem `0-torneios-250` que se recusou a continuar e o
+apanhou.
+
+**Quem a levantou, e que fique claro que não foi esquecimento nosso.** O
+André, dono do projecto, a 2026-09-26, com a frase acima. O `robots.txt` deles
+**continua a bloquear** — o que mudou foi a regra desta casa, não a deles; a
+decisão é dele e fica registada como dele.
+
+**O que caiu:** a proibição do domínio (nos três sítios onde estava escrita) e
+o caso do `test_seguir.test_o_cliente_recusa_os_prefixos_vedados` que fixava o
+`https://riftdecks.com/users/x` como recusado. No lugar dele ficou um domínio
+neutro (`…invalid`), porque o que esse teste fixa é o guarda do `netloc` — «o
+`Cliente` só conhece o piltoverarchive» — e não a proibição de um site.
+
+**O que NÃO caiu — a educação inteira, intacta:** `INTERVALO_MINIMO = 1.0`
+segundo entre dois pedidos, e o config só pode ALARGAR (`seguir.opcoes`);
+User-Agent honesto, ASCII, que diz o que isto é e não finge ser browser
+(`USER_AGENT`, com teste); nada de contas nem de páginas privadas; e a recusa
+dos `PREFIXOS_VEDADOS` (`/api/`, `/admin/`, `/_next/`, `/static/`) que o
+`robots.txt` do piltoverarchive proíbe — esses quatro **continuam recusados**,
+e o teste deles não se tocou. **A proibição do riftdecks nunca serviu de
+desculpa para não haver limite de ritmo em sítio nenhum** — verificado: o
+ritmo vive no `seguir.Cliente` e é do site que se LÊ, não do que se recusa, e
+os outros três módulos de rede têm o deles, cada um a dizer porquê
+(`riftscribe.POLITE_DELAY = 1.0` «a API não documenta rate-limit, por
+educação»; o `selado.sincronizar` com `intervalo = 1.0`; o `prices.py` a 1,0 s
+nas expansões e a 0,5 s por blueprint, que é o único abaixo de um segundo e
+está dentro do limite que o CardTrader documenta, 200 pedidos/10 s).
+
+**O que esta ordem NÃO fez, de propósito:** ensinar o `seguir.Cliente` a ler o
+riftdecks. Ele continua a conhecer só o piltoverarchive (`BASE`, e
+`caminho_vedado` recusa outro `netloc`) — ler um segundo site é um parser novo,
+marcas novas e fixtures novas, e ninguém o pediu ainda. Aqui só caiu a
+proibição explícita e o teste que a fixava.
 
 Suite: **52 ficheiros, 0 a falhar**.

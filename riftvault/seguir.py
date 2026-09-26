@@ -40,8 +40,17 @@ EDUCAÇÃO
     privadas, e o `Cliente` recusa qualquer endereço debaixo dos prefixos que
     o `robots.txt` proíbe — mesmo que alguém lho peça. Só se vai buscar a
     página de um deck quando ele é NOVO ou o `editedAt` mudou; o resto vem do
-    estado guardado (`estado.json`). O `riftdecks.com` está VEDADO pelo
-    `robots.txt` deles ao ClaudeBot e ao anthropic-ai e não se toca.
+    estado guardado (`estado.json`).
+
+    O `riftdecks.com` ESTEVE VEDADO aqui e a proibição CAIU a 2026-09-26: o
+    `robots.txt` deles bloqueia o ClaudeBot e o anthropic-ai (lido a
+    2026-09-17) e este módulo dizia «não se toca», até o André — dono do
+    projecto — a levantar, textualmente: *"levanta as regras do riftdecks.com
+    e tenta procurar as listas pelo browser"*. A decisão é dele, não é um
+    esquecimento nosso. Cai a proibição de um domínio, **não** a educação: o
+    ritmo, o User-Agent e a recusa dos prefixos ficam. E o `Cliente` continua
+    a só conhecer o piltoverarchive (`BASE`, e `caminho_vedado` recusa outro
+    `netloc`) — ler outro site é trabalho à parte, ainda não pedido.
 
 O QUE CONTA COMO «TER» (decisões desta ordem — ver o relatório)
     - TUDO o que ele possui, incluindo as cópias que estão nos decks DELE: um

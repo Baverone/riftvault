@@ -301,9 +301,14 @@ class TestFalharAlto(Base):
 
     def test_o_cliente_recusa_os_prefixos_vedados(self):
         c = self.seguir.Cliente(pasta=self.pasta)
+        # Os quatro prefixos que o robots.txt do piltoverarchive proíbe, mais um
+        # endereço fora do site — o `Cliente` só conhece o piltoverarchive. O
+        # `riftdecks.com` esteve nesta lista até 2026-09-26, quando o André
+        # levantou a proibição dele; aqui usa-se um domínio neutro, porque o que
+        # se fixa é o guarda do `netloc` e não a proibição de um site.
         for url in ("https://piltoverarchive.com/api/trpc/decks", "https://piltoverarchive.com/admin/",
                     "https://piltoverarchive.com/_next/static/x.js", "https://piltoverarchive.com/static/a",
-                    "https://riftdecks.com/users/x"):
+                    "https://exemplo-qualquer.invalid/users/x"):
             with self.assertRaises(self.seguir.SeguirError, msg=url):
                 c(url)
         self.assertEqual(c.pedidos, 0)
