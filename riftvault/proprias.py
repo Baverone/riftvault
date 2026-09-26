@@ -180,11 +180,9 @@ def ajustar(con: sqlite3.Connection, slug: str, ref: str, delta: int,
             return {"deck": d["name"], "printing_id": pid, "qty": no_local, "total": total,
                     "applied": 0, "op_id": None, "duplicate": False}
         novo_total = total + applied
-        # Como no `collection.adjust`: o foil marcado nunca pode passar o total
-        # (2026-09-22). Um `−` que leve o total abaixo dele corta-o primeiro.
-        from . import foil
-        if applied < 0:
-            foil.ao_descer(con, pid, novo_total, source=source)
+        # Como no `collection.adjust`: o FOIL não se toca (2026-09-26). O
+        # `qty_foil` é uma contagem à parte do `qty`, não uma fatia dele, e um
+        # `−` nas próprias tira uma normal. Até 2026-09-26 cortava o foil aqui.
         con.execute(
             "INSERT INTO copies (printing_id, qty, updated_at) VALUES (?,?,?) "
             "ON CONFLICT(printing_id) DO UPDATE SET qty = excluded.qty, "

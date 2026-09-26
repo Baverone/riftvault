@@ -7,14 +7,30 @@
 --
 -- `qty_foil` (2026-09-22: *"para comuns e incomuns, coloca contagem para Foil
 -- e Non-Foil, para todas as edicoes excepto Proving Grounds"*) é quantas
--- dessas cópias são foil. É uma REPARTIÇÃO do que já está contado, não um
--- acabamento novo: não entra em conta nenhuma do site (ver `foil.py`).
+-- cópias FOIL ele tem daquela impressão.
 --
--- O NÃO-FOIL NUNCA SE GRAVA: é `qty - qty_foil`, sempre derivado. Guardar os
--- dois era ter duas verdades que mais cedo ou mais tarde deixavam de somar o
--- total. O CHECK garante a invariante; quando o `qty` desce abaixo do
--- `qty_foil`, é o `foil.ao_descer` que corta o foil primeiro, com linha na
--- `foil_ops`.
+-- O FOIL SOMA-SE AO NORMAL (André, 2026-09-26: *"as foils quando eu marco é
+-- que tenho TAMBÉM foil, ou seja, normal + foil e não apenas 1, no caso daria
+-- 3+3"*). São DUAS contagens independentes, e não uma repartição:
+--
+--     qty       = as cópias NORMAIS
+--     qty_foil  = as cópias FOIL
+--     total     = qty + qty_foil          (nunca se grava: é sempre a soma)
+--
+-- Com 3 normais e 3 foil ele tem SEIS cópias, não três. Até 2026-09-26 o
+-- modelo era o contrário — o `qty` era o total e o `qty_foil` estava lá dentro
+-- (`CHECK (qty_foil <= qty)`), e por isso marcar foil CONVERTIA uma cópia
+-- normal. Era erro nosso; a migração está no `db._migrate`.
+--
+-- Consequências do modelo novo, todas de propósito:
+--   * o `+` do foil não mexe no `qty`, e o `−` da grelha não mexe no
+--     `qty_foil` — são dois contadores, cada um com o seu botão;
+--   * `qty = 0` com `qty_foil > 0` é um estado LEGÍTIMO (uma carta que ele só
+--     tenha em foil), e por isso o CHECK do tecto tinha de sair. O que fica é
+--     `qty_foil >= 0` e um tecto largo, só por sanidade contra um dedo preso;
+--   * o `qty` continua a ser o número que TODA a app conta — o foil é um
+--     registo paralelo, com contadores próprios. Quem quiser somá-lo aos
+--     alvos ou ao valor liga `foil.conta_para_coleccao`/`conta_para_valor`.
 --
 -- Sem FK para catalog.printings: são bases de dados diferentes e o SQLite não
 -- suporta FK entre bases anexadas. A integridade é garantida no código
@@ -23,15 +39,17 @@ CREATE TABLE IF NOT EXISTS copies (
     printing_id TEXT    PRIMARY KEY,
     qty         INTEGER NOT NULL CHECK (qty >= 0),
     updated_at  TEXT    NOT NULL,
-    qty_foil    INTEGER NOT NULL DEFAULT 0 CHECK (qty_foil >= 0 AND qty_foil <= qty)
+    qty_foil    INTEGER NOT NULL DEFAULT 0 CHECK (qty_foil >= 0 AND qty_foil <= 9999)
 );
 
 -- O rasto da contagem de foil (2026-09-22). É o gémeo da `location_ops`, para
--- a outra pergunta: quantas cópias de cada impressão ele marcou como foil, e
--- quando. Guarda TAMBÉM as descidas forçadas — quando um `−` na grelha põe o
--- total abaixo do foil marcado, o foil desce com ele e a linha fica aqui
--- (`source` acaba em `:ajuste ao total`), para nenhuma cópia foil se evaporar
--- em silêncio. Vive no vault.db, que vai para o Git.
+-- a outra pergunta: quantas cópias FOIL de cada impressão ele tem, e quando as
+-- contou. Vive no vault.db, que vai para o Git.
+--
+-- As linhas com `source` acabado em `:ajuste ao total` são de ANTES de
+-- 2026-09-26: eram as descidas forçadas do modelo em que o foil era um
+-- subconjunto do total. Deixaram de se escrever — o `qty` e o `qty_foil` são
+-- independentes —, mas as antigas ficam: é o registo do que se passou.
 CREATE TABLE IF NOT EXISTS foil_ops (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     ts          TEXT    NOT NULL,

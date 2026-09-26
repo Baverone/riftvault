@@ -497,7 +497,7 @@ def _sem_retiradas(con: sqlite3.Connection) -> tuple[str, list[str]]:
     return " AND c.printing_id NOT IN (" + ",".join("?" * len(ids)) + ")", ids
 
 
-def copias_sql(con: sqlite3.Connection) -> tuple[str, list]:
+def copias_sql(con: sqlite3.Connection, cfg: dict | None = None) -> tuple[str, list]:
     """O `FROM` das cópias que a COLEÇÃO conta como suas, aliás `c`.
 
     É o `copies` menos as cópias PRÓPRIAS dos decks (`proprio:<slug>`,
@@ -505,10 +505,19 @@ def copias_sql(con: sqlite3.Connection) -> tuple[str, list]:
     a coleccao"*) — o valor é da Coleção, e um `+` num deck não o pode mexer.
     O gémeo em Python, por impressão, é o `locais.contadas`. (fragmento,
     parâmetros) — os parâmetros vêm ANTES dos do `WHERE`.
+
+    As cópias FOIL (`copies.qty_foil`, 2026-09-26) somam-se aqui **só** com
+    `foil.conta_para_valor` ligado, e hoje está desligado. A chave lê-se do
+    config directamente, sem importar o `foil`, como no `locais._foils`: é o
+    mesmo botão, e ligá-lo é assumir que uma foil vale o preço da normal —
+    não há preço de foil no catálogo.
     """
     from . import locais
 
-    return ("(SELECT c0.printing_id, c0.qty - COALESCE(cl.q, 0) AS qty FROM copies c0 "
+    foil = "+ COALESCE(c0.qty_foil, 0) " if (
+        ((cfg or config.load()).get("foil") or {}).get("conta_para_valor", False)) else ""
+    return (f"(SELECT c0.printing_id, c0.qty {foil}- COALESCE(cl.q, 0) AS qty "
+            " FROM copies c0 "
             " LEFT JOIN (SELECT printing_id, SUM(qty) AS q FROM copy_locations "
             "            WHERE location LIKE ? GROUP BY printing_id) cl "
             " ON cl.printing_id = c0.printing_id) c", [locais.PROPRIO_PREFIX + "%"])

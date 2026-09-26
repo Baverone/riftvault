@@ -1,52 +1,85 @@
-"""Quantas das comuns e incomuns são FOIL (2026-09-22).
+"""Quantas comuns e incomuns ele tem em FOIL (2026-09-22, corrigido 2026-09-26).
 
 Palavras do André: *"para comuns e incomuns, coloca contagem para Foil e
 Non-Foil, para todas as edicoes excepto Proving Grounds"*. «Proving Grounds»
 é o OGS, por isso vale para o OGN, o SFD, o UNL e o VEN.
 
-UMA VERDADE SÓ, NUNCA DUAS
-    A contagem do foil é a coluna `copies.qty_foil` — quantas das cópias que
-    ele tem daquela impressão são foil. **O não-foil NUNCA se grava**: é
-    sempre `qty − qty_foil`, derivado na leitura. Se se guardassem os dois,
-    mais cedo ou mais tarde deixavam de somar o total, e passava a haver duas
-    respostas à mesma pergunta. É a mesma arquitectura da Coleção, que também
-    não se grava (`locais.na_colecao`: é o `copies.qty` menos os outros
-    locais).
+O FOIL SOMA-SE AO NORMAL — SÃO DUAS CONTAGENS, NÃO UMA REPARTIÇÃO
+    Palavras dele a 2026-09-26, a corrigir-nos: *"as foils quando eu marco é
+    que tenho TAMBÉM foil, ou seja, normal + foil e não apenas 1, no caso
+    daria 3+3"*.
 
-    A base garante-o: `CHECK (qty_foil >= 0 AND qty_foil <= qty)`. E quando o
-    total desce abaixo do que estava marcado como foil — um `−` na grelha —,
-    o `qty_foil` desce com ele (`ao_descer`, chamado pelo `collection.adjust`
-    e pelo `proprias.ajustar` dentro da mesma transação), com linha na
-    `foil_ops`: uma cópia foil não se pode evaporar em silêncio.
+        copies.qty       = as cópias NORMAIS
+        copies.qty_foil  = as cópias FOIL
+        total            = qty + qty_foil     (nunca se grava: é a soma)
 
-ISTO NÃO É UM ACABAMENTO NOVO NO GRÃO DA COLEÇÃO
+    Com 3 normais e 3 foil ele tem **SEIS** cópias, não três. Os dois
+    contadores são independentes: o `+` do foil não mexe no `qty`, e o `−` da
+    grelha não mexe no `qty_foil`.
+
+    Até 2026-09-26 o modelo era o CONTRÁRIO, e era erro nosso: o `qty` era o
+    total, o `qty_foil` estava lá dentro (`CHECK (qty_foil <= qty)`), o
+    não-foil era `qty − qty_foil`, e por isso o `+` do foil CONVERTIA uma
+    cópia normal em foil em vez de acrescentar uma. O `ao_descer`, que cortava
+    o foil quando o total descia, existia por causa desse tecto e foi-se com
+    ele — as linhas `:ajuste ao total` que ficaram na `foil_ops` são desse
+    tempo. Nenhum dado precisou de migrar: os números guardados já eram os
+    certos para este modelo (verificação no CLAUDE.md), só o CHECK saiu.
+
+    **`qty = 0` com `qty_foil > 0` é um estado legítimo** desde hoje — uma
+    carta que ele só tenha em foil. A grelha mostra-a como carta que ele não
+    tem (a Coleção conta o `qty`) com a linha «0 normais · 2 foil» ao lado.
+
+O FOIL É UM REGISTO PARALELO — O QUE CONTA CONTINUA A SER O `qty`
     A decisão de 2026-08-31 continua de pé: *"foil e normal contam como a
     mesma coisa"*, a chave do `copies` é só `(printing_id)`, e o alvo do
-    master set é por impressão — qualquer cópia o cumpre. O `qty_foil` é uma
-    REPARTIÇÃO do que ele já tem, para ele saber quantas são de cada; não
-    entra em conta nenhuma. Marcar cópias como foil não mexe um único número:
-    nem o total de cópias, nem os três níveis, nem o denominador, nem o A
-    mais, nem as Faltas, nem as quatro wantlists por bloco, nem o valor, nem
-    as Encomendas, nem os decks, nem a alocação. `tests/test_foil.py`
-    fotografa tudo isso, mete e tira foils, e exige que fique igual.
+    master set é por impressão. Os níveis, o denominador, as Faltas, as
+    wantlists, o A mais, os decks, as próprias, a Venda e o valor leem o
+    `qty` e mais nada — marcar foil não mexe um único número desses.
+    `tests/test_foil.py` fotografa tudo isso, mete e tira foils, e exige que
+    fique igual.
+
+    DUAS PERGUNTAS QUE SÃO DELE, e por isso ficam em config (2026-09-26),
+    as duas a `false` — o que a app mede hoje é exactamente o de sempre:
+
+      `foil.conta_para_coleccao`  os foils contam para os ALVOS da Coleção
+                                  (os três níveis, o denominador, as Faltas,
+                                  as wantlists)? Ligado, entram pelo
+                                  `locais.na_colecao`, que é o funil único
+                                  de «quantas cópias tem a Coleção».
+      `foil.conta_para_valor`     os foils contam para o VALOR? Ligado, entram
+                                  pelo `locais.contadas` e pelo
+                                  `prices.copias_sql`, ao preço da normal —
+                                  **não há preço de foil no catálogo**, só um
+                                  preço por impressão, e por isso ligar isto
+                                  é assumir que uma foil vale o mesmo que a
+                                  normal, o que é falso no mercado.
+
+    Os dois funis leem a chave DIRECTAMENTE do config, sem importar este
+    módulo: é o que deixa o `locais` e o `prices` continuarem a não conhecer
+    o foil, e o teste a poder provar que nenhum módulo de contas o importa.
 
 O ÂMBITO, EM CONFIG (`foil.raridades`, `foil.edicoes_fora`)
     As impressões BASE (não sobrenumeradas) das raridades da lista, nas
     edições que não estiverem fora. Hoje: comuns e incomuns, fora o OGS —
-    **512 impressões, 1376 cópias** no `data/` de 2026-09-22 (OGN 88/291 +
-    84/132, SFD 60/180 + 63/165, UNL 60/180 + 63/166, VEN 48/144 + 46/118).
-    Fora do âmbito não aparece contador nenhum, e a rota e a CLI recusam.
+    **512 impressões** no `data/` de 2026-09-22. Fora do âmbito não aparece
+    contador nenhum, e a rota e a CLI recusam.
 
     «Base» e «não sobrenumerada» é a mesma pergunta que os decks fazem
     (`decks.Versoes`): a arte alternativa e a reimpressão de topo de set são
     outra impressão, com outro preço e outro mercado. A raridade é a IMPRESSA
     (`rarity`) — numa impressão base ela é, por construção, a da carta.
 
-O TOTAL A QUE O FOIL SE COMPARA É O FÍSICO
-    `qty_foil <= copies.qty`, o total de cópias, esteja a cópia na Coleção,
-    num deck ou nas cópias próprias de um deck: uma carta não deixa de ser
-    foil por estar sleevada. É o mesmo número que o tile já mostra em
-    `qty_valor`/`qty_total`, e não o `qty` da Coleção, que é outra pergunta.
+O CONTADOR DO FOIL NÃO TEM TECTO NATURAL
+    Não há número nenhum na app que diga quantas foils ele pode ter — o foil
+    não é uma fatia de nada. O `LIMITE` é só sanidade contra um dedo preso no
+    `+`, e é o mesmo do CHECK da base.
+
+    As NORMAIS a que o foil se compara na página são as FÍSICAS
+    (`locais.totais`), esteja a cópia na Coleção, num deck ou nas cópias
+    próprias dele: uma carta não deixa de ser normal por estar sleevada. Os
+    locais (`copy_locations`) continuam a contar só as normais — onde está
+    cada foil é pergunta que ele nunca fez.
 """
 
 from __future__ import annotations
@@ -68,6 +101,13 @@ RARIDADE_LABEL = {
 
 # A chave do resumo com as edições todas somadas — a mesma do `painel.TODAS`.
 TODAS = "all"
+
+# O tecto do contador de foil (2026-09-26). Não é um número de coleção nenhum:
+# o foil deixou de ser uma fatia do total e não tem tecto natural. É sanidade
+# contra um dedo preso no `+`, e é o mesmo do `CHECK` da base — se um dia
+# mudar, muda nos dois sítios (e o `db._tirar_o_tecto_do_foil` também o
+# escreve).
+LIMITE = 9999
 
 
 class ForaDoAmbito(ValueError):
@@ -112,6 +152,34 @@ def raridades(cfg: dict | None = None) -> list[str]:
     """As raridades do âmbito, pela ordem do catálogo (`metrics.RARITY_ORDER`)."""
     rars, _ = opcoes(cfg)
     return [r for r in metrics.RARITY_ORDER if r in rars]
+
+
+# ---------------------------------------------------------------------------
+# As duas perguntas que são DELE (2026-09-26)
+# ---------------------------------------------------------------------------
+#
+# Estas duas funções são a leitura de referência das chaves, para a CLI, a
+# página e os testes. Os FUNIS (`locais.na_colecao`, `locais.contadas`,
+# `prices.copias_sql`) leem a mesma chave do config directamente, com um
+# helper próprio de uma linha, para não terem de importar este módulo — é o
+# que mantém a fronteira (e o teste que a prova) de pé.
+
+
+def conta_para_coleccao(cfg: dict | None = None) -> bool:
+    """Os foils somam-se aos ALVOS da Coleção (níveis, denominador, Faltas,
+    wantlists)? Omissão: **não** — o foil é um registo paralelo."""
+    return bool(((cfg or config.load()).get("foil") or {})
+                .get("conta_para_coleccao", False))
+
+
+def conta_para_valor(cfg: dict | None = None) -> bool:
+    """Os foils somam-se ao VALOR, ao preço da normal? Omissão: **não**.
+
+    Não há preço de foil no catálogo — o CardTrader dá um preço por impressão
+    (e, quando só há oferta foil, marca-a `from_foil`). Ligar isto é assumir
+    que uma foil vale o mesmo que a normal.
+    """
+    return bool(((cfg or config.load()).get("foil") or {}).get("conta_para_valor", False))
 
 
 def no_ambito(printing, cfg: dict | None = None) -> bool:
@@ -166,30 +234,32 @@ def _vazio() -> dict:
     return {"printings": 0, "copies": 0, "foil": 0, "normal": 0, "foil_printings": 0}
 
 
-def _somar(slot: dict, copias: int, foil: int) -> None:
+def _somar(slot: dict, normal: int, foil: int) -> None:
     slot["printings"] += 1
-    slot["copies"] += copias
+    slot["normal"] += normal
     slot["foil"] += foil
-    slot["normal"] += copias - foil
+    slot["copies"] += normal + foil
     slot["foil_printings"] += 1 if foil > 0 else 0
 
 
 def contar(itens) -> dict:
-    """O resumo de uma lista de `(raridade, cópias, foil)`.
+    """O resumo de uma lista de `(raridade, normais, foil)`.
 
     `{printings, copies, foil, normal, foil_printings, rarity: [...]}` — o
-    total e uma linha por raridade. `copies` é o TOTAL FÍSICO (o `copies.qty`)
-    e `normal` é sempre `copies − foil`, nunca um número guardado.
+    total e uma linha por raridade. `normal` e `foil` são as DUAS contagens
+    guardadas, e `copies` é a SOMA delas (2026-09-26: *"normal + foil"*) —
+    nunca um número guardado. Até essa data era ao contrário: o `copies` era o
+    total guardado e o `normal` a subtracção.
 
     É o gémeo do `foilContar` do `app.js`, que recalcula o mesmo a cada
     `+`/`−`; há teste que corre os dois sobre os mesmos itens.
     """
     total = _vazio()
     por: dict[str, dict] = {}
-    for rar, copias, foil in itens:
+    for rar, normal, foil in itens:
         rar = str(rar or "?").lower()
-        _somar(total, copias, foil)
-        _somar(por.setdefault(rar, _vazio()), copias, foil)
+        _somar(total, normal, foil)
+        _somar(por.setdefault(rar, _vazio()), normal, foil)
     ordem = [r for r in metrics.RARITY_ORDER if r in por]
     ordem += sorted(r for r in por if r not in metrics.RARITY_ORDER)
     total["rarity"] = [{"id": r, "label": RARIDADE_LABEL.get(r, r.capitalize()),
@@ -199,13 +269,18 @@ def contar(itens) -> dict:
 
 def itens(con: sqlite3.Connection, cfg: dict | None = None,
           set_id: str | None = None):
-    """`(set_id, raridade, cópias, foil)` de cada impressão do âmbito."""
+    """`(set_id, raridade, normais, foil)` de cada impressão do âmbito.
+
+    As NORMAIS são as cópias físicas (`copies.qty`, todos os locais — uma
+    cópia sleevada num deck não deixa de ser normal), e o FOIL é a outra
+    contagem. O total é a soma, e faz-se no `contar`.
+    """
     cfg = cfg or config.load()
-    totais = {r["printing_id"]: r["qty"] for r in
-              con.execute("SELECT printing_id, qty FROM copies")}
+    normais = {r["printing_id"]: r["qty"] for r in
+               con.execute("SELECT printing_id, qty FROM copies")}
     foils = qty_foil(con)
     return [(r["set_id"], (r["rarity"] or r["base_rarity"] or "?").lower(),
-             totais.get(pid, 0), foils.get(pid, 0))
+             normais.get(pid, 0), foils.get(pid, 0))
             for pid, r in ids_do_ambito(con, cfg, set_id).items()]
 
 
@@ -221,14 +296,19 @@ def resumo(con: sqlite3.Connection, cfg: dict | None = None,
     cfg = cfg or config.load()
     rars, fora = opcoes(cfg)
     por: dict[str, list] = {}
-    for sid, rar, copias, foil in itens(con, cfg, set_id):
-        item = (rar, copias, foil)
+    for sid, rar, normal, foil in itens(con, cfg, set_id):
+        item = (rar, normal, foil)
         por.setdefault(sid, []).append(item)
         por.setdefault(TODAS, []).append(item)
     return {"sets": {sid: contar(v) for sid, v in por.items()},
             "raridades": raridades(cfg),
             "labels": {r: RARIDADE_LABEL.get(r, r.capitalize()) for r in raridades(cfg)},
-            "sem_edicoes": sorted(fora)}
+            "sem_edicoes": sorted(fora),
+            # O tecto do `+` e as duas perguntas dele, para o cliente não ter
+            # segunda cópia de nenhuma das três.
+            "limite": LIMITE,
+            "conta_para_coleccao": conta_para_coleccao(cfg),
+            "conta_para_valor": conta_para_valor(cfg)}
 
 
 def do_set(con: sqlite3.Connection, set_id: str, cfg: dict | None = None) -> dict | None:
@@ -253,40 +333,23 @@ def _registar(con: sqlite3.Connection, printing_id: str, delta: int,
                 "VALUES (?,?,?,?,?)", (_now(), printing_id, delta, qty_after, source))
 
 
-def ao_descer(con: sqlite3.Connection, printing_id: str, novo_total: int,
-              source: str = "cli") -> int:
-    """Corta o `qty_foil` ao novo total de cópias, e regista quanto caiu.
-
-    Chama-se DENTRO da transação que baixa o `copies.qty` e ANTES de a
-    escrever (`collection.adjust`, `proprias.ajustar`): baixar primeiro o
-    `qty_foil` mantém o `CHECK (qty_foil <= qty)` verdadeiro a cada passo.
-
-    Se ele tinha 3 cópias, 2 marcadas foil, e tira duas, ficam 1 cópia e 1
-    foil — a cópia que desapareceu tinha de ser alguma, e o registo na
-    `foil_ops` diz que foi uma foil. Devolve quantas desceram (0 quase
-    sempre).
-    """
-    antes = de(con, printing_id)
-    if antes <= max(0, novo_total):
-        return 0
-    novo = max(0, novo_total)
-    con.execute("UPDATE copies SET qty_foil = ? WHERE printing_id = ?",
-                (novo, printing_id))
-    _registar(con, printing_id, novo - antes, novo, f"{source}:ajuste ao total")
-    return antes - novo
-
-
 def ajustar(con: sqlite3.Connection, ref: str, delta: int,
             source: str = "web", cfg: dict | None = None) -> dict:
-    """Soma `delta` às cópias FOIL de uma impressão. Não mexe no total.
+    """Soma `delta` às cópias FOIL de uma impressão. Não mexe nas normais.
 
-    É só uma repartição do que ele já tem: o `+` converte uma cópia que ele
-    já tinha em foil, e trava no total (`min(delta, qty − qty_foil)`); o `−`
-    trava no zero. **O `copies.qty` nunca mexe por aqui** — e por isso nenhuma
-    conta do site mexe. Fora do âmbito rebenta (`ForaDoAmbito`).
+    São DUAS contagens independentes (2026-09-26): o `+` acrescenta uma foil
+    às que ele já tinha — **não converte uma normal** —, e por isso o total da
+    impressão SOBE. O `−` trava no zero; o `+` só trava no `LIMITE`, que é
+    sanidade e não um número de coleção. **O `copies.qty` nunca mexe por
+    aqui** — e por isso nenhuma conta do site mexe (com os dois botões dele
+    desligados, que é a omissão). Fora do âmbito rebenta (`ForaDoAmbito`).
 
     Deixa rasto na `foil_ops` (no vault.db, que vai para o Git), que é o
     registo a sério — como a `location_ops` é o dos locais.
+
+    Devolve `normal` (as cópias normais, que não mexeram), `foil` e `total` (a
+    soma). **Não devolve `qty`**, de propósito: era o nome ambíguo que estava
+    por baixo do erro do modelo antigo.
     """
     from . import collection
 
@@ -303,16 +366,20 @@ def ajustar(con: sqlite3.Connection, ref: str, delta: int,
 
     con.execute("BEGIN IMMEDIATE")
     try:
-        total = collection.get_qty(con, pid)
+        normal = collection.get_qty(con, pid)
         atual = de(con, pid)
-        novo = max(0, min(atual + delta, total))
+        novo = max(0, min(atual + delta, LIMITE))
         applied = novo - atual
         if applied:
+            # A linha pode ainda não existir — uma carta que ele só tenha em
+            # foil entra com `qty = 0`, que desde hoje é estado legítimo. O
+            # `ON CONFLICT` mexe SÓ no `qty_foil`: as normais não são desta
+            # pergunta.
             con.execute(
                 "INSERT INTO copies (printing_id, qty, qty_foil, updated_at) "
                 "VALUES (?,?,?,?) ON CONFLICT(printing_id) DO UPDATE SET "
                 "qty_foil = excluded.qty_foil, updated_at = excluded.updated_at",
-                (pid, total, novo, _now()))
+                (pid, normal, novo, _now()))
             _registar(con, pid, applied, novo, source)
         con.execute("COMMIT")
     except Exception:
@@ -320,8 +387,8 @@ def ajustar(con: sqlite3.Connection, ref: str, delta: int,
         raise
 
     return {"printing_id": pid, "code": r["public_code"], "name": r["name"],
-            "set": r["set_id"], "foil": novo, "normal": total - novo,
-            "qty": total, "applied": applied}
+            "set": r["set_id"], "foil": novo, "normal": normal,
+            "total": normal + novo, "applied": applied}
 
 
 def historico(con: sqlite3.Connection, limit: int = 20) -> list[dict]:
@@ -337,19 +404,27 @@ def texto(r: dict, sets: list[dict]) -> str:
     nomes[TODAS] = "TODAS"
     ordem = [s["id"] for s in sets if s["id"] in r["sets"]] + [TODAS]
     w = max([len(nomes.get(s, s)) for s in ordem] + [6])
-    linhas = [f"{'edição':<{w}}  {'impressões':>10}  {'cópias':>7}  "
-              f"{'normais':>8}  {'foil':>6}  {'com foil':>8}"]
+    linhas = [f"{'edição':<{w}}  {'impressões':>10}  {'normais':>8}  "
+              f"{'foil':>6}  {'total':>7}  {'com foil':>8}"]
     for sid in ordem:
         c = r["sets"].get(sid)
         if not c:
             continue
         linhas.append(f"{nomes.get(sid, sid):<{w}}  {c['printings']:>10}  "
-                      f"{c['copies']:>7}  {c['normal']:>8}  {c['foil']:>6}  "
+                      f"{c['normal']:>8}  {c['foil']:>6}  {c['copies']:>7}  "
                       f"{c['foil_printings']:>8}")
         for x in c["rarity"]:
             linhas.append(f"{'  · ' + x['label']:<{w}}  {x['printings']:>10}  "
-                          f"{x['copies']:>7}  {x['normal']:>8}  {x['foil']:>6}  "
+                          f"{x['normal']:>8}  {x['foil']:>6}  {x['copies']:>7}  "
                           f"{x['foil_printings']:>8}")
     if r["sem_edicoes"]:
         linhas.append(f"\n(fora do âmbito: {', '.join(r['sem_edicoes'])})")
+    # O total é a SOMA (2026-09-26), e as duas perguntas dele dizem-se sempre,
+    # para nunca haver dúvida sobre o que é que este número está a mexer.
+    linhas.append("\no total é normais + foil: as duas contagens são "
+                  "independentes.")
+    linhas.append(f"os foils {'CONTAM' if r.get('conta_para_coleccao') else 'não contam'}"
+                  f" para os alvos da Coleção (foil.conta_para_coleccao) e "
+                  f"{'CONTAM' if r.get('conta_para_valor') else 'não contam'}"
+                  f" para o valor (foil.conta_para_valor).")
     return "\n".join(linhas)

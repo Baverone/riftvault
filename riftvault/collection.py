@@ -95,14 +95,11 @@ def adjust(con: sqlite3.Connection, ref: str, delta: int, source: str = "cli",
             return {"printing_id": printing_id, "qty": current, "applied": 0,
                     "op_id": None, "duplicate": False}
 
-        # A contagem de foil (2026-09-22) é uma repartição do total: se o total
-        # desce abaixo do que estava marcado como foil, o foil desce com ele —
-        # primeiro, para o `CHECK (qty_foil <= qty)` ser verdade a cada passo —
-        # e fica registo na `foil_ops`.
-        from . import foil
-        foil_descido = foil.ao_descer(con, printing_id, new_qty, source=source) \
-            if applied < 0 else 0
-
+        # O FOIL NÃO SE TOCA (2026-09-26). O `qty` são as cópias NORMAIS e o
+        # `qty_foil` são as foils: duas contagens independentes, cada uma com o
+        # seu botão. Um `−` na grelha tira uma normal e não pode levar uma foil
+        # com ele. Até 2026-09-26 levava — o foil era uma fatia do total, havia
+        # um `CHECK (qty_foil <= qty)`, e o `foil.ao_descer` cortava-o aqui.
         con.execute(
             "INSERT INTO copies (printing_id, qty, updated_at) VALUES (?,?,?) "
             "ON CONFLICT(printing_id) DO UPDATE SET qty = excluded.qty, "
@@ -133,14 +130,16 @@ def adjust(con: sqlite3.Connection, ref: str, delta: int, source: str = "cli",
 
     return {"printing_id": printing_id, "qty": new_qty, "applied": applied,
             "op_id": op_id, "duplicate": False,
+            # Vai de volta para o tile poder desenhar a linha «N normais · M
+            # foil» sem um segundo pedido. Não mexeu — é informação.
             "foil": get_foil(con, printing_id),
-            **({"foil_descido": foil_descido} if foil_descido else {}),
             **({"saidas": saidas} if saidas else {})}
 
 
 def get_foil(con: sqlite3.Connection, printing_id: str) -> int:
-    """Quantas das cópias desta impressão estão marcadas como foil
-    (2026-09-22). O não-foil é sempre `qty − isto`, nunca um número guardado."""
+    """Quantas cópias FOIL desta impressão (2026-09-22). É uma contagem à parte
+    do `qty`, que são as normais: o total da impressão é a soma das duas
+    (2026-09-26)."""
     row = con.execute("SELECT qty_foil FROM copies WHERE printing_id = ?",
                       (printing_id,)).fetchone()
     return row["qty_foil"] if row else 0

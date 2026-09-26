@@ -1057,12 +1057,16 @@ def owned_by_card(con: sqlite3.Connection, cfg: dict | None = None) -> dict[str,
     from . import locais
 
     cfg = cfg or config.load()
-    contadas = locais.contadas(con)
+    contadas = locais.contadas(con, cfg)
     out: dict[str, int] = {}
+    # O `qty_foil > 0` no WHERE é para uma carta que ele SÓ tenha em foil (0
+    # normais) não ficar de fora quando o `foil.conta_para_valor` estiver
+    # ligado — desligado, o `contadas` devolve 0 para ela e o `if` abaixo
+    # ignora-a, como sempre. Quem decide é o `contadas`, não este WHERE.
     for r in con.execute(
         "SELECT p.printing_id, p.card_key AS k, p.type, p.variant_kind, c.qty FROM copies c "
         "JOIN catalog.printings p ON p.printing_id = c.printing_id "
-        "WHERE c.qty > 0"
+        "WHERE c.qty > 0 OR c.qty_foil > 0"
     ):
         n = contadas.get(r["printing_id"], 0)
         if n and not retirada(r, cfg):
@@ -1090,18 +1094,19 @@ def set_payload(con: sqlite3.Connection, set_id: str, editable: bool = True,
     # `qty` é o que a COLEÇÃO tem — é ele que manda nas barras, no filtro
     # "Faltas" e na contagem por níveis. O total físico vai à parte em
     # `qty_total`, e o `locations` diz onde estão as outras.
-    qty = locais.na_colecao(con)
+    qty = locais.na_colecao(con, cfg)
     totais = locais.totais(con)
     # O que a Coleção conta como seu para o VALOR: tudo, menos as cópias
     # próprias dos decks (2026-09-21, `locais.contadas`).
-    contadas = locais.contadas(con)
+    contadas = locais.contadas(con, cfg)
     locais_por_pid = locais.por_local(con)
     nomes_decks = locais.nomes_dos_decks(con)
     owned_cards = owned_by_card(con)
     price = prices_map(con)
-    # A contagem de foil (2026-09-22): quantas das cópias FÍSICAS de cada
-    # impressão são foil, e quais é que levam contador. É uma repartição do
-    # `qty_valor` — não mexe em número nenhum desta página.
+    # A contagem de foil (2026-09-22): quantas cópias FOIL ele tem de cada
+    # impressão, e quais é que levam contador. Desde 2026-09-26 é uma contagem
+    # À PARTE das normais, não uma fatia delas — o total da impressão é
+    # `qty_total + foil` —, e não mexe em número nenhum desta página.
     foil_qty = foil.qty_foil(con)
     foil_ambito = set(foil.ids_do_ambito(con, cfg, set_id))
     # Onde estão as cópias que não estão no binder de coleção: nos decks.
@@ -1180,9 +1185,9 @@ def set_payload(con: sqlite3.Connection, set_id: str, editable: bool = True,
             # O que conta para o valor: o total menos as cópias próprias dos
             # decks (2026-09-21); igual ao `qty_total` sem próprias.
             "qty_valor": contadas.get(r["printing_id"], 0),
-            # Quantas das cópias FÍSICAS são foil, e se esta impressão tem
-            # contador (2026-09-22). O não-foil é `qty_total − foil`, sempre
-            # derivado — aqui e no `app.js`.
+            # Quantas cópias FOIL, e se esta impressão tem contador
+            # (2026-09-22). As NORMAIS são o `qty_total`, e o total da
+            # impressão é a soma dos dois (2026-09-26) — aqui e no `app.js`.
             "foil": foil_qty.get(r["printing_id"], 0),
             "foil_ok": r["printing_id"] in foil_ambito,
             "locations": [

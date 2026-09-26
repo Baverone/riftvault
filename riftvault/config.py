@@ -271,10 +271,30 @@ DEFAULTS: dict = {
     #   `edicoes_fora`  — as edições sem contador. «Proving Grounds» é o OGS.
     # Vale só para as impressões BASE, não sobrenumeradas — a arte alternativa
     # e a reimpressão de topo de set são outra impressão. Hoje dá 512
-    # impressões e 1376 cópias. O contador é uma REPARTIÇÃO do que ele já tem
-    # (`copies.qty_foil`, com o não-foil sempre derivado) e não entra em conta
-    # nenhuma do site. Ver `foil.py`.
-    "foil": {"raridades": ["common", "uncommon"], "edicoes_fora": ["OGS"]},
+    # impressões.
+    #
+    # O FOIL SOMA-SE ÀS NORMAIS (André, 2026-09-26: *"as foils quando eu marco
+    # é que tenho TAMBÉM foil, ou seja, normal + foil e não apenas 1, no caso
+    # daria 3+3"*): `copies.qty` são as normais, `copies.qty_foil` são as
+    # foils, e o total é a soma. São dois contadores independentes — até
+    # 2026-09-26 o foil era uma fatia do `qty`, e marcar foil convertia uma
+    # normal. Erro nosso, corrigido; ver `foil.py`.
+    #
+    # As DUAS PERGUNTAS que são dele, e que por isso se mudam aqui sem código
+    # (as duas a `false`: o foil é um registo paralelo, com contadores
+    # próprios, e não mexe um número da app):
+    #   `conta_para_coleccao`  — os foils contam para os ALVOS da Coleção (os
+    #                            três níveis, o denominador, as Faltas, as
+    #                            wantlists)? Ligado, entram pelo
+    #                            `locais.na_colecao`.
+    #   `conta_para_valor`     — os foils contam para o VALOR? Ligado, entram
+    #                            pelo `locais.contadas` e pelo
+    #                            `prices.copias_sql`, **ao preço da normal**:
+    #                            não há preço de foil no catálogo (o
+    #                            CardTrader dá um preço por impressão), por
+    #                            isso ligar isto é assumir que valem o mesmo.
+    "foil": {"raridades": ["common", "uncommon"], "edicoes_fora": ["OGS"],
+             "conta_para_coleccao": False, "conta_para_valor": False},
     # O separador «Venda» (André, 2026-09-25: *"permite-me marcar as cartas
     # que estou a vender no momento para apresentar a conta a pessoa. todos os
     # precos tem que ser o Trend do Cardmarket!"*).

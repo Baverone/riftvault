@@ -699,34 +699,53 @@ código com esta; não existe.
 
 Não se distingue foil de normal no GRÃO da coleção: uma cópia é uma cópia, e o
 alvo do master set é por impressão. Desde 2026-09-22 há, ao lado disso, uma
-**contagem** de quantas dessas cópias são foil — ver a secção a seguir.
+**contagem** de quantas foils tens de cada — que se SOMA às normais e não conta
+para nada; ver a secção a seguir.
 
-## Foil e não-foil, nas comuns e incomuns (2026-09-22)
+## Foil e não-foil, nas comuns e incomuns (2026-09-22, corrigido a 2026-09-26)
 
 *"Para comuns e incomuns, coloca contagem para Foil e Non-Foil, para todas as
 edicoes excepto Proving Grounds"* — «Proving Grounds» é o OGS, por isso vale
 para o OGN, o SFD, o UNL e o VEN.
 
+**O foil SOMA-SE ao normal.** São duas contagens independentes:
+
+    copies.qty       as cópias NORMAIS
+    copies.qty_foil  as cópias FOIL
+    total            qty + qty_foil   (nunca se grava: é a soma)
+
+Com 3 normais e 3 foil tens **seis** cópias, não três. (Até 2026-09-26 era ao
+contrário — o `qty` era o total e o foil estava lá dentro, por isso o `+` do
+foil *convertia* uma normal. Era erro nosso: *"as foils quando eu marco é que
+tenho TAMBÉM foil, ou seja, normal + foil e não apenas 1, no caso daria 3+3"*.
+Nenhum número guardado precisou de mudar — o que saiu foi o `CHECK` da base.)
+
 Nas cartas do âmbito — as impressões **base**, não sobrenumeradas, comuns e
-incomuns, dessas quatro edições: **512 impressões e 1376 cópias** — o tile da
-Coleção ganha, por baixo dos `+`/`−` de sempre, um contador pequeno de foil e
-a linha «N normais · M foil». O `+` do foil **nunca aumenta o total**: converte
-uma cópia que já tens, e trava em 0 e no total. Por baixo do painel do topo há
-o resumo da edição aberta (ou de «Todas»): impressões, cópias, normais e foil,
-com uma linha por raridade.
+incomuns, dessas quatro edições: **512 impressões** — o tile da Coleção ganha,
+por baixo dos `+`/`−` de sempre, um contador pequeno de foil e a linha «3
+normais · 3 foil = 6». O `+` do foil **não mexe nas normais** (e o `−` da
+grelha não mexe nas foils): acrescenta uma foil, e o total sobe. Não tem tecto
+natural — trava só num limite de sanidade. Por baixo do painel do topo há o
+resumo da edição aberta (ou de «Todas»), com uma linha por raridade.
 
-É uma **repartição do que já tens**, e não conta para nada: marcar cópias como
-foil não mexe um único número — nem o total de cópias, nem os três níveis, nem
-o denominador, nem o A mais, nem as Faltas, nem as quatro wantlists por bloco,
-nem o valor, nem as Encomendas, nem os decks. O `tests/test_foil.py` fotografa
-tudo isso, mete e tira foils, e exige que fique igual.
+**Uma carta só em foil** (0 normais, foil > 0) é estado legítimo desde
+2026-09-26: o tile mostra-a a cinzento, com o crachá `0/3`, porque a Coleção
+conta as normais — e a linha de baixo diz «0 normais · 2 foil = 2».
 
-O número vive na coluna `copies.qty_foil`, e o **não-foil nunca se grava**: é
-sempre `qty − qty_foil`, para não haver duas verdades que deixem de somar o
-total (a base garante-o com `CHECK (qty_foil <= qty)`). Um `−` que ponha o
-total abaixo do foil marcado corta o foil primeiro, com linha na tabela
-`foil_ops` — nenhuma cópia foil se evapora em silêncio. O âmbito muda-se no
-config sem código: `foil.raridades` e `foil.edicoes_fora`.
+**O foil é um registo paralelo e não conta para nada**: marcar foils não mexe
+um único número — nem os três níveis, nem o denominador, nem o A mais, nem as
+Faltas, nem as quatro wantlists por bloco, nem o valor, nem as Encomendas, nem
+os decks, nem a Venda, nem o Selado. O `tests/test_foil.py` fotografa tudo
+isso, mete e tira foils, e exige que fique igual.
+
+Duas chaves de config mudam isso sem código, as duas a `false`:
+
+| chave | o que liga |
+|---|---|
+| `foil.conta_para_coleccao` | os foils contam para os alvos (níveis, denominador, Faltas, wantlists) |
+| `foil.conta_para_valor` | os foils contam para o valor, **ao preço da normal** — não há preço de foil no catálogo |
+
+O âmbito muda-se no mesmo sítio: `foil.raridades` e `foil.edicoes_fora`.
 
 Na consola: `riftvault foil` (o resumo, `--edicao OGN` para uma só),
 `riftvault foil OGN-045` (uma impressão) e `riftvault foil OGN-045 --mais 2` /
