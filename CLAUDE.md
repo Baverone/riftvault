@@ -6557,6 +6557,16 @@ dia desligar só o do valor, o playset jogável deixa de as contar, o que não �
 que a frase dele diz. **Fica anotado, não se inventou uma terceira chave**: é
 pergunta para ele, e vale zero hoje.
 
+**E uma segunda, do mesmo tipo:** a referência «na coleção: N» do bloco das
+runas (`runas_vista._qtys`) lê o `copies.qty` cru — as **normais** —, e a
+docstring promete «tudo o que ele fisicamente tem dela, de todas as versões».
+As 6 runas base do OGN são comuns, base e não sobrenumeradas, por isso **estão
+no âmbito do foil e têm contador**: se ele marcar foil numa delas, a referência
+fica por baixo. **Vale zero hoje** — as 58 impressões com foil são todas do VEN,
+e no VEN não há runas na lane principal (as `VEN-R` são `rune_promo`, fora do
+âmbito). Não se mexeu: aquele bloco é o contador DELE e não conta para nada, e o
+`test_runas_vista` proíbe-o de ler a coluna do foil. Fica anotado.
+
 ### 5. Um `+` de foil passou a mexer no ecrã todo
 
 Com as chaves ligadas, o contador do foil deixou de ser um canto isolado: o
