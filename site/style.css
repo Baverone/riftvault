@@ -634,6 +634,7 @@ b.fo, .fo-num b.fo { color: var(--foil); }
 /* A linha no tile: «2 normais · 1 foil», com o contador pequeno à direita. */
 .foil-linha {
   display: flex; align-items: center; justify-content: space-between; gap: 6px;
+  flex-wrap: wrap;
   font-size: 11px; color: var(--muted); background: var(--foil-bg);
   border-radius: 6px; padding: 2px 6px; font-variant-numeric: tabular-nums;
 }
@@ -643,6 +644,19 @@ b.fo, .fo-num b.fo { color: var(--foil); }
    375 px qualquer frase mais longa punha a grelha fora do ecrã — medido, a
    versão comprida dava `scrollWidth` 377 em 375. */
 .foil-txt i.dim { white-space: nowrap; font-style: normal; opacity: .8; }
+/* O PREÇO DA FOIL no tile (2026-09-26, à tarde): «foil 1,50 €», ou «foil ao
+   preço da normal» quando o CardTrader não a tem em foil.
+
+   LINHA PRÓPRIA, com a largura toda do tile (`flex-basis: 100%` no `.foil-linha`
+   que tem `flex-wrap`): ao lado dos `+`/`−` sobravam ~50 px e a 375 px a frase
+   do fallback saía a uma palavra por linha — medido. Sem `nowrap`, ao contrário
+   do total: ela TEM de poder partir-se. */
+.foil-linha .fo-preco {
+  flex: 0 0 100%; margin-top: 1px; opacity: .85; line-height: 1.3;
+}
+/* O fallback leva também o `.fo-piso` e fica da cor do foil: é a marca de que
+   aquele preço não é de foil, e distingue-se de um preço a sério de relance. */
+.foil-linha .fo-piso { color: var(--foil); opacity: 1; }
 .steppers.foil { gap: 4px; align-items: center; }
 .steppers.foil b { font-size: 11px; color: var(--foil); min-width: 10px; text-align: center; }
 .steppers.foil .step {
@@ -650,10 +664,10 @@ b.fo, .fo-num b.fo { color: var(--foil); }
   color: var(--foil); border-color: rgba(217, 164, 65, .45);
 }
 
-/* A RESSALVA DO PREÇO DO FOIL (2026-09-26): com o `foil.conta_para_valor`
-   ligado, as foils contam ao preço da NORMAL — não há preço de foil no
-   catálogo —, por isso o valor é um piso. A frase vive por baixo do valor e
-   tem de se ler como ressalva, não como um número a mais. */
+/* A RESSALVA DO PREÇO DO FOIL (2026-09-26): as foils contam ao preço da foil do
+   CardTrader, mas as que ele não tem em foil caem para o preço da NORMAL, e esse
+   pedaço faz do valor um piso. A frase vive por baixo do valor e tem de se ler
+   como ressalva, não como um número a mais. */
 .fo-piso { font-style: normal; color: var(--foil); }
 /* No «A mais»: as foils não entram no que sobra, e o tile di-lo. */
 .onde.fo-fora { color: var(--h-dim-2); }
