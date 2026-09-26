@@ -38,6 +38,23 @@ from tests.test_selado import APP_JS, CATALOGO, CSS, Base  # noqa: E402
 
 REPO = Path(__file__).resolve().parent.parent
 
+# OS 22 DESTA ORDEM (2026-09-25, de manhã), tal como ficam escritos no
+# `riftvault_config.json`. A lista tem hoje 50 — as outras 28 vieram das três
+# ordens seguintes, e é contra esta constante que se prova o que ESTA não
+# tirou.
+OS_22 = [
+    "Origins Booster", "Origins Sleeved Booster", "Origins Slim Booster",
+    "Spiritforged Booster", "Spiritforged Slim Booster",
+    "Unleashed Booster", "Unleashed Sleeved Booster", "Unleashed Slim Booster",
+    "Vendetta Booster", "Radiance Booster", "Radiance Sleeved Booster",
+    "Legacy Booster", "The Reckoning Booster",
+    "Origins Slim Booster Box", "Spiritforged Slim Booster Box",
+    "Unleashed Slim Booster Box",
+    "Origins: Champion Deck Set", "Spiritforged Bulk Runes",
+    "Spiritforged Pre-Rift Kit", "Unleashed Pre-Rift Kit",
+    "Vendetta Pre-Rift Kit", "Radiance Pre-Rift Kit",
+]
+
 # O catálogo de brincar do `test_selado`, mais o que esta ordem obriga a ter:
 # um par «X» / «X EVENT Kit» (o nome de um está DENTRO do outro), um par
 # «Booster» / «| Nexus Night Promo Booster», e um nome com palavra dobrada.
@@ -338,12 +355,13 @@ class TestOConfigReal(unittest.TestCase):
         cls.cfg = json.loads((REPO / "riftvault_config.json").read_text(encoding="utf-8"))
         cls.excl = cls.cfg["selado"]["excluidos"]
 
-    def test_a_chave_existe_e_tem_43(self):
+    def test_a_chave_existe_e_tem_50(self):
         """22 da primeira ordem de 25/09 + 10 da segunda (os 2 «Complete Sets»
-        e os 8 Trial Deck) + 11 de 26/09 (os Champion Deck). Os 22 continuam
-        lá, um a um, nos testes a seguir."""
-        self.assertEqual(len(self.excl), 43)
-        self.assertEqual(len(set(self.excl)), 43, "sem repetidos")
+        e os 8 Trial Deck) + 11 de 26/09 (os Champion Deck) + 7 da mesma noite
+        (os que não se compram em lado nenhum). Os 22 continuam lá, um a um,
+        nos testes a seguir."""
+        self.assertEqual(len(self.excl), 50)
+        self.assertEqual(len(set(self.excl)), 50, "sem repetidos")
 
     def test_os_13_boosters_soltos(self):
         for n in ("Origins Booster", "Origins Sleeved Booster", "Origins Slim Booster",
@@ -381,13 +399,27 @@ class TestOConfigReal(unittest.TestCase):
         for n in displays:
             self.assertNotIn(n, self.excl)
 
-    def test_nada_de_nexus_night_nem_de_promo_pack_saiu(self):
+    def test_nenhum_nexus_night_saiu_nesta_ordem(self):
         """O «Trial Deck» SAIU desta lista a 2026-09-25, na segunda ordem — os
-        oito são hoje excluídos, e quem o fixa é o `test_selado_tirar2.py`."""
-        for pedaco in ("Nexus Night", "Promo Pack",
-                       "Replacement Card Booster"):
-            maus = [n for n in self.excl if pedaco.lower() in n.lower()]
-            self.assertEqual(maus, [], f"{pedaco} não era para sair")
+        oito são hoje excluídos, e quem o fixa é o `test_selado_tirar2.py`. Os
+        «Promo Pack» e o «Replacement Card Booster» também deixaram de estar
+        nesta condição: saíram a 26/09, por não se comprarem em lado nenhum
+        (`test_selado_sem_mercado`) — o que ESTA ordem não tirou continua a não
+        ter sido tirada por ela, e é o que o teste a seguir prova.
+
+        Os quatro «Nexus Night» nunca saíram, e é o único pedaço que se pode
+        exigir ausente da lista inteira."""
+        maus = [n for n in self.excl if "nexus night" in n.lower()]
+        self.assertEqual(maus, [], "Nexus Night não era para sair")
+
+    def test_o_que_saiu_a_26_09_nao_saiu_por_esta_ordem(self):
+        """Os «Promo Pack» e o «Replacement Card Booster» estão hoje na lista,
+        mas a entrada deles é de 26/09 e não desta: aqui prova-se que nenhum
+        dos 22 desta ordem os nomeia."""
+        for n in ("Arcane Promo Pack", "Immersive Arcane Promo Pack", "Promo Pack",
+                  "Replacement Card Booster"):
+            self.assertNotIn(n, OS_22, n)
+            self.assertIn(n, self.excl, n)
 
     def test_nem_as_booster_box_normais_os_cases_os_vaults_ou_o_proving_grounds(self):
         for n in self.excl:
@@ -430,14 +462,16 @@ class TestOs22ContraOCatalogoReal(unittest.TestCase):
         importlib.reload(cls.config)
         cls.config.load.cache_clear()
 
-    def test_saem_exactamente_43_e_cada_nome_casa_com_um(self):
+    def test_saem_exactamente_50_e_cada_nome_casa_com_um(self):
         ex = self.selado.excluidos(self.cfg)
-        self.assertEqual(len(ex), 43)
-        self.assertEqual(len({x["id"] for x in ex}), 43)
+        self.assertEqual(len(ex), 50)
+        self.assertEqual(len({x["id"] for x in ex}), 50)
 
-    def test_a_aba_fica_com_55_selados(self):
+    def test_a_aba_fica_com_48_selados(self):
+        """Estes 22 levaram-na de 98 a 76; os 10 da segunda ordem a 66, os 11
+        Champion Deck a 55 e os 7 sem mercado a 48."""
         lista = [x for x in self.selado.itens(None, self.cfg) if not x["acessorio"]]
-        self.assertEqual(len(lista), 55, "98 − 22 − 10 − 11")
+        self.assertEqual(len(lista), 48, "98 − 22 − 10 − 11 − 7")
 
     def test_os_acessorios_estao_desligados(self):
         """`selado.acessorios` ficou VAZIA a 2026-09-25 (ele mandou tirar os
@@ -458,8 +492,6 @@ class TestOs22ContraOCatalogoReal(unittest.TestCase):
                   "Spiritforged | Nexus Night Promo Booster",
                   "Unleashed | Nexus Night Promo Booster",
                   "Vendetta | Nexus Night Promo Booster",
-                  "Arcane Promo Pack", "Immersive Arcane Promo Pack", "Promo Pack",
-                  "Replacement Card Booster",
                   "Origins Booster Box", "Spiritforged Booster Box",
                   "Unleashed Booster Box", "Vendetta Booster Box",
                   "Radiance Booster Box", "Legacy Booster Box",
@@ -505,8 +537,8 @@ class TestOs22ContraOCatalogoReal(unittest.TestCase):
             por[x["edicao"]] = por.get(x["edicao"], 0) + 1
         self.assertEqual(por, {"OGN": 5, "OGS": 2, "SFD": 6, "UNL": 8, "VEN": 8,
                                "RAD": 7, "LGC": 2, "PG2": 1, "REC": 1, "ARC": 2,
-                               "OP": 1, "PROMO-RIFT": 10, "T1S": 2})
-        self.assertEqual(sum(por.values()), 55)
+                               "PROMO-RIFT": 5, "T1S": 1})
+        self.assertEqual(sum(por.values()), 48)
 
 
 # ---------------------------------------------------------------------------

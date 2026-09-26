@@ -846,7 +846,7 @@ Singles»** — as cartas. Entram seis:
 | 283 Complete Sets | sets de cartas vendidos juntos | 2 |
 | | da API, juntando os repetidos | 81 |
 | | mais os 17 do `selado.extra` | 98 |
-| | menos os 43 do `selado.excluidos` | **55** |
+| | menos os 50 do `selado.excluidos` | **48** |
 
 **O que ele mandou tirar** (25/09/2026), em duas ordens da mesma noite e na
 mesma lista: primeiro os **13 boosters soltos**, as **3 slim booster box**, o
@@ -864,6 +864,31 @@ Seraphine»), que são outra linha de produto, e os **7 Champion Deck Display**
 do `selado.extra`, que ele nunca nomeou — é a prova do «o nome é exacto, nunca
 um pedaço»: o nome de cada um dos 11 está DENTRO do nome do display dele, e
 mesmo assim os displays não vão atrás.
+
+**E na mesma noite os últimos 7** (55 → **48**): *"os produtos selados que
+ainda ficaram, que eu procuro no cardmarket e nao tem disponivel, podes
+tirar"*. O pedido não se mede à letra — o Cardmarket responde **403** a pedidos
+automáticos e a API deles está fechada —, por isso cruzaram-se as duas coisas
+que **se medem**: o `cardmarket_id` do catálogo (sem ele o Cardmarket nem
+página tem para o produto) e o número de ofertas no CardTrader, medido **ao
+vivo** nesse dia. **Zero nas duas colunas = ninguém vende, em lado nenhum.**
+São o «Tournament Gift Box», o «Arcane Promo Pack», o «Origins: Instant Match
+Box 2025», o «Promo Pack» e o «The T1 Worlds Champion | Player Bundle» (os
+cinco sem id e sem uma oferta) e o «Immersive Arcane Promo Pack» e o
+«Replacement Card Booster», que têm página no Cardmarket mas zero ofertas — e
+o segundo **nem produto é**: é o serviço da Riot de substituição de cartas
+danificadas. Medido ao vivo: dos 38 visíveis com `blueprint_id`, estes 7 são
+exactamente os que estão a zero.
+
+**As edições POR SAIR não saem, e é o ponto que este critério protege.** A
+LGC, a PG2, a REC e a RAD não têm `cardmarket_id` nenhum — é normal, ainda não
+saíram — mas têm ofertas a sério em **pré-venda** (Legacy Booster Box 6,
+Radiance Booster Box 18, Radiance Booster Box Case 11, The Reckoning Booster
+Box 5, Legacy: Proving Grounds 5, Legacy Vault 4, Arcane Box Set 4, Gift of
+the Rift Bundle 3). Um critério de «não tem Cardmarket, sai» tirava
+exactamente o que ele quer ver a chegar, e há teste que fica vermelho se
+alguém o simplificar assim. Os 17 do `selado.extra` também não se medem por
+aqui: foram escritos à mão *porque* um catálogo de mercado não os lista.
 
 **Esconder não é apagar**, como no `abas.escondidas`: o
 `data/selado_catalogo.json` fica intacto e **repor é tirar o nome da lista**.

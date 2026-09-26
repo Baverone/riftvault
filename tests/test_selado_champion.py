@@ -190,10 +190,11 @@ class TestOConfigReal(unittest.TestCase):
         cls.sel = json.loads(
             (REPO / "riftvault_config.json").read_text(encoding="utf-8"))["selado"]
 
-    def test_a_lista_tem_43_sem_repetidos(self):
-        """22 (25/09, manhã) + 10 (25/09, noite) + 11 Champion Deck (26/09)."""
-        self.assertEqual(len(self.sel["excluidos"]), 43)
-        self.assertEqual(len(set(self.sel["excluidos"])), 43)
+    def test_a_lista_tem_50_sem_repetidos(self):
+        """22 (25/09, manhã) + 10 (25/09, noite) + 11 Champion Deck (26/09)
+        + 7 sem mercado (26/09, ver `test_selado_sem_mercado`)."""
+        self.assertEqual(len(self.sel["excluidos"]), 50)
+        self.assertEqual(len(set(self.sel["excluidos"])), 50)
 
     def test_os_onze_estao_la(self):
         for n in OS_ONZE:
@@ -313,21 +314,24 @@ class TestOsOnzeContraOCatalogoReal(RealBase):
                  if "showdown decks display" in x["nome"].lower()]
         self.assertEqual(len(ficam), 2)
 
-    def test_a_aba_fica_com_55_selados(self):
+    def test_a_aba_fica_com_48_selados(self):
+        """Os 11 desta ordem levaram-na de 66 a 55; os 7 sem mercado, na mesma
+        noite, a 48 (ver `test_selado_sem_mercado`)."""
         selados = [x for x in self.lista if not x["acessorio"]]
-        self.assertEqual(len(selados), 55, "98 − 22 − 10 − 11")
+        self.assertEqual(len(selados), 48, "98 − 22 − 10 − 11 − 7")
 
     def test_por_edicao_depois_dos_onze(self):
-        """Os números que ele vai ver, edição a edição. Mexem quatro: OGN
-        8→5, SFD 8→6, UNL 10→8, LGC 6→2."""
+        """Os números que ele vai ver, edição a edição. Desta ordem mexem
+        quatro: OGN 8→5, SFD 8→6, UNL 10→8, LGC 6→2; a OP, a PROMO-RIFT e a
+        T1S mexeram com os 7 sem mercado, a seguir."""
         por = {}
         for x in self.lista:
             if not x["acessorio"]:
                 por[x["edicao"]] = por.get(x["edicao"], 0) + 1
         self.assertEqual(por, {"OGN": 5, "OGS": 2, "SFD": 6, "UNL": 8, "VEN": 8,
                                "RAD": 7, "LGC": 2, "PG2": 1, "REC": 1, "ARC": 2,
-                               "OP": 1, "PROMO-RIFT": 10, "T1S": 2})
-        self.assertEqual(sum(por.values()), 55)
+                               "PROMO-RIFT": 5, "T1S": 1})
+        self.assertEqual(sum(por.values()), 48)
 
     def test_a_legacy_fica_so_com_os_por_sair_que_nao_sao_champion(self):
         """Eram 6: saem os 4 Champion Deck."""
@@ -336,10 +340,10 @@ class TestOsOnzeContraOCatalogoReal(RealBase):
         for n in lgc:
             self.assertNotIn("champion deck", n.lower())
 
-    def test_saem_exactamente_43_e_cada_nome_casa_com_um(self):
+    def test_saem_exactamente_50_e_cada_nome_casa_com_um(self):
         ex = self.selado.excluidos(self.cfg)
-        self.assertEqual(len(ex), 43)
-        self.assertEqual(len({x["id"] for x in ex}), 43)
+        self.assertEqual(len(ex), 50)
+        self.assertEqual(len({x["id"] for x in ex}), 50)
 
     def test_ler_nao_escreve(self):
         antes = (REPO / "data" / "selado_catalogo.json").read_bytes()
