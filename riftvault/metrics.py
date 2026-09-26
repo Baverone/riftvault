@@ -1351,7 +1351,11 @@ def set_payload(con: sqlite3.Connection, set_id: str, editable: bool = True,
                 value_full += p["target"] * p["price"]
     # As escondidas: valem o que ele tem delas, e não entram no «se estivesse
     # completa» — estão fora da percentagem por construção (ver `_fora`).
-    value_owned += sum(escondidas_valor)
+    # Vai à parte no payload (`hidden_owned`) porque o CLIENTE recalcula o valor
+    # a cada `+`/`−` varrendo a GRELHA, e estas nunca lá chegam: sem este número
+    # a barra dele ficava por baixo do servidor (1,65 € no `data/` de 26/09).
+    valor_escondidas = sum(escondidas_valor)
+    value_owned += valor_escondidas
 
     # Cada bloco leva o seu "tens N de M"; o `counts` diz quais é que se somam
     # na barra do master set. A percentagem global é a soma dos que contam.
@@ -1375,6 +1379,9 @@ def set_payload(con: sqlite3.Connection, set_id: str, editable: bool = True,
             "playset": {"done": play_done, "total": play_total},
             "master": {"done": master_done, "total": master_total},
             "value": {"owned": value_owned, "full": value_full,
+                      # O pedaço do `owned` que NÃO está na grelha (as
+                      # escondidas), para o cliente o somar ao que recalcula.
+                      "hidden_owned": valor_escondidas,
                       "currency": "EUR", "has_prices": bool(price)},
             "rarities": rarities,
             # 1 de cada, 2 de cada, o playset — DESTA edição. Os degraus são os

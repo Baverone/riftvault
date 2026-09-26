@@ -1551,7 +1551,10 @@ function renderProgress() {
   const val = state.payload.progress.value;
   const block = $('#value-block');
   if (val && val.has_prices) {
-    let owned = 0;
+    // As ESCONDIDAS (tokens, signatures, runas sem numeração) valem o que ele
+    // tem delas mas nunca chegam à grelha: o servidor manda esse pedaço à parte
+    // para a barra recalculada aqui dar o mesmo número que a dele.
+    let owned = val.hidden_owned || 0;
     for (const g of state.payload.groups) {
       for (const p of g.printings) {
         if (p.price != null) owned += valorDasCopias(p.id, p.price);

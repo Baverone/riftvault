@@ -553,6 +553,38 @@ class TestOsTresGemeos(Base):
         self.assertEqual(out.returncode, 0, out.stderr)
         self.assertEqual(json.loads(out.stdout), [c[4] for c in CASOS_GEMEOS])
 
+    def test_a_barra_do_cliente_da_o_MESMO_que_o_servidor(self):
+        """O cliente recalcula o valor varrendo a GRELHA; o servidor soma o
+        mesmo MAIS as escondidas, que lá não chegam. Com o `hidden_owned` os
+        dois números fecham — e é isso que «a barra bate certo» quer dizer."""
+        con = self.catalogo()
+        # Uma escondida (token) com cópias e preço: é ela que separava os dois.
+        self.v.add_printing(con, "tst-t01", "TST", 90, "Gold", variant="t01",
+                            kind="token", lane="t", card_type="Unit")
+        self.v.rebuild(con)
+        con.execute("INSERT INTO catalog.price_latest (printing_id, price_cents) "
+                    "VALUES ('tst-t01', 400)")
+        self.collection.adjust(con, "tst-t01", 2, source="test")
+        self.foil.ajustar(con, "tst-001-100", 2, source="test")
+
+        p = self.metrics.set_payload(con, "TST")
+        ids = [t["id"] for g in p["groups"] for t in g["printings"]]
+        self.assertNotIn("tst-t01", ids, "a escondida não está na grelha")
+        # O gémeo do `valorDasCopias`, sobre o que o cliente vê.
+        cliente = p["progress"]["value"]["hidden_owned"]
+        for g in p["groups"]:
+            for t in g["printings"]:
+                if t["price"] is not None:
+                    cliente += self.prices.valor_das_copias(
+                        t["qty_valor"] - t["qty_valor_foil"], t["qty_valor_foil"],
+                        t["price"], t["price_foil"])
+        self.assertEqual(p["progress"]["value"]["hidden_owned"], 2 * 400)
+        self.assertEqual(cliente, p["progress"]["value"]["owned"])
+
+    def test_o_app_js_soma_o_pedaco_escondido(self):
+        js = APP.read_text(encoding="utf-8")
+        self.assertIn("val.hidden_owned", js)
+
     def test_o_cliente_conta_as_normais_do_valor_e_nao_as_da_colecao(self):
         """Uma cópia num deck vale na mesma (o valor é do que ele TEM), e por
         isso o cliente lê o `qty_valor`, não o `qty` da Coleção: era esse que
