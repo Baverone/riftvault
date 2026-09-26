@@ -788,14 +788,14 @@ O alvo do master set é por impressão, e qualquer cópia serve para o cumprir.
 Se um dia isto mudar: acrescentar `finish TEXT NOT NULL DEFAULT 'normal'` a
 `copies`, passar a PK a `(printing_id, finish)`, e o mesmo em `ops`.
 
-**Isto CONTINUA DE PÉ depois de 2026-09-22 e de 2026-09-26.** A
+**Isto CONTINUA DE PÉ depois de 2026-09-22 e de 2026-09-26, no GRÃO.** A
 `copies.qty_foil` não é um acabamento no grão: a chave continua a ser
-`(printing_id)`, o alvo continua a ser por impressão e nenhuma conta do site a
-lê. É uma CONTAGEM à parte — e desde 26/09 uma contagem que **se soma** às
-normais (3 normais + 3 foil = 6 cópias), não uma fatia delas. Quem a quiser
-nas contas tem dois botões de config, os dois desligados
-(`foil.conta_para_coleccao`, `foil.conta_para_valor`) — ver a última secção
-deste ficheiro.
+`(printing_id)` e o alvo continua a ser por impressão. É uma CONTAGEM à parte —
+e desde 26/09 uma contagem que **se soma** às normais (3 normais + 3 foil = 6
+cópias), não uma fatia delas. **O que mudou é que ela CONTA**: os dois botões
+(`foil.conta_para_coleccao`, `foil.conta_para_valor`) estão a `true` desde a
+tarde de 26/09, e à noite desse dia a foil ganhou **preço próprio**
+(`price_latest.price_foil_cents`) — ver as duas últimas secções deste ficheiro.
 
 ## Artes alternativas fora do master set
 
@@ -2579,8 +2579,18 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   `qty_foil` = foils, **total = a soma**, com o `CHECK` do tecto e o
   `ao_descer` fora (migração só de schema, com backup — **nenhum número dos
   dados mexeu**, verificado impressão a impressão na `foil_ops`). Um `qty`
-  a 0 com foil é estado legítimo. Duas chaves novas, as duas a `false`:
-  `foil.conta_para_coleccao` e `foil.conta_para_valor`. Ver a última secção
+  a 0 com foil é estado legítimo. Duas chaves novas, que nasceram a `false`
+  e que ele mandou LIGAR nessa tarde: `foil.conta_para_coleccao` e
+  `foil.conta_para_valor`. Ver as três secções do fim deste ficheiro.
+- **Feito também:** o PREÇO DA FOIL, à parte (2026-09-26, à noite) —
+  *"podes meter filtro no cardtrader e tirar o preco da foil mais barata?,
+  para diferenciar os precos"*: `price_latest.price_foil_cents` e
+  `n_listings_foil` (o mínimo das ofertas foil, com os mesmos filtros das
+  normais), uma cópia foil vale esse preço, e o **FALLBACK** (sem oferta
+  foil, conta ao da normal) é contado e dito em vez de ficar num
+  comentário. O preço da cópia NORMAL não mexeu — há teste contra o mercado
+  real. Medido: **1144 das 1180** impressões com preço de foil, as 259 foils
+  dele de 29,65 € para **50,78 €**, zero no fallback. Ver a última secção
   deste ficheiro.
 - **Feito também:** montado ou desmontado, a regra de raridade e o modo
   de remontagem (2026-09-24) — `decks.montados` (hoje só o LeBlanc Hook;
@@ -6421,6 +6431,155 @@ gémeo em JavaScript, a rota, a CLI e o `app.js` (que já não corta o foil no
 `applyLocal`). O guarda das importações ficou **mais forte**: nenhum módulo de
 contas importa o `foil`, e o `qty_foil` só pode aparecer no `locais` e no
 `prices`, cada um com a sua chave. Suite: **47 ficheiros, 0 a falhar**.
+
+## 26/09/2026, à noite — o PREÇO DA FOIL, à parte (`price_latest.price_foil_cents`)
+
+Palavras dele: *"podes meter filtro no cardtrader e tirar o preco da foil mais
+barata?, para diferenciar os precos"*. Ramo `ai-pc/foil-preco-2026-09-26`.
+
+**O que estava mal.** A ordem da tarde ligou o `foil.conta_para_valor` mas não
+fez a parte do preço: as foils contavam ao `price_cents`, que é o preço da
+NORMAL. Medido no `data/` real antes de mexer: **103 impressões, 254 cópias
+foil, TODAS avaliadas a 11 ou 14 cêntimos** (o chão do CardTrader para uma
+comum), a somar 27,97 € — e nenhuma com `from_foil = 1`, ou seja o único caso
+que o código tratava como «já é preço de foil» não acontecia em nenhuma delas.
+O pior é que os docstrings **documentavam a falha em vez de a resolver**: o
+`prices.py` dizia «não há preço de foil no catálogo» e «hoje está desligado»
+(estava ligado desde essa tarde).
+
+### A coluna, e o filtro que já lá estava
+
+`catalog.price_latest` ganhou **`price_foil_cents`** e **`n_listings_foil`**
+(migração `db._migrar_price_latest`, com **backup do catalog.db** — `VACUUM
+catalog INTO data/backups/catalog-antes-do-preco-do-foil-*.db`; o catálogo é
+reconstruível, mas reconstruí-lo custa o mercado das cinco expansões). A
+migração corre pelas DUAS portas — `db.connect()` (catálogo anexado) e
+`db.catalog_only()` (catálogo como base principal, que é por onde o `riftvault
+map` entra) —, porque o `CREATE TABLE IF NOT EXISTS` não acrescenta colunas e
+uma delas só a migrar deixava o `map` a olhar para colunas que não existem.
+
+**Não houve filtro novo a inventar.** O `prices.oferta()` já separava as ofertas
+em `normal` e `foil` pelo `properties_hash.riftbound_foil` — e **deitava a lista
+das foils fora**. Passou a guardá-la: `foil_cents = min(foil)`, com o `_usable`
+de sempre (Mint/Near Mint, a língua do `precos.linguas`, sem
+graded/signed/altered, vendedor presente, EUR). Só a `riftbound_foil` muda.
+
+**O preço NORMAL não mexeu, e prova-se.** A escolha do `cents`/`from_foil` é a
+mesma linha de antes; o `tests/test_foil_preco.py` guarda uma cópia fiel da
+implementação anterior (`oferta_como_era`) e compara os cinco campos dela com os
+novos sobre o **mercado real do OGS** (`tests/fixtures/cardtrader-ogs-market.json`)
+e sobre 14 casos gerados. Nessa fixture há **uma** oferta foil utilizável, e é o
+caso a sério: o blueprint `344333` tem normal **82** cêntimos e foil **171** —
+mais do dobro, e era a 82 que contava.
+
+**Quando `from_foil` é 1 os dois preços são o mesmo número**: a única oferta era
+foil. Guardam-se os dois de propósito, para a leitura do valor ser uniforme (uma
+cópia foil lê sempre o `price_foil_cents`) em vez de ter de perguntar pelo
+`from_foil` primeiro. Um `NULL` novo **apaga** o antigo, como no `price_cents`:
+se hoje não há oferta foil, a cópia tem de cair para o fallback contado em vez
+de ficar presa ao preço da semana passada.
+
+### O valor: uma conta, três implementações
+
+`prices.copias_sql` passou a dar **três colunas** — `qty_normal` (as normais
+menos as próprias dos decks), `qty_foil` (as foils que contam, zero com o botão
+desligado) e `qty` (a soma, que é o que o `collection.totals` lê e por isso
+manteve o nome). E nasceu o **`prices.valor_sql`**, a única definição do valor:
+
+    normais × price_cents  +  foils × COALESCE(price_foil_cents, price_cents)
+
+O `COALESCE` de dentro é o **FALLBACK**, e é ele que faz do total um PISO. Os
+gémeos: `prices.valor_das_copias` (Python, para o payload da edição, que já tem
+os números na mão) e `valorDasCopias` (JavaScript, que recalcula a cada `+`/`−`).
+`tests/test_foil_preco.py::TestOsTresGemeos` corre os três sobre os mesmos oito
+casos, o JS no node.
+
+**O `valor_dos_foils` reescreveu-se** e agora responde à pergunta certa:
+`preco_de_foil` (há `price_foil_cents` — ou `from_foil`, que é o mesmo número),
+**`ao_preco_da_normal`** (o fallback: não há oferta foil, a cópia conta ao preço
+da normal) e `sem_preco`. É este segundo número que a página, o `riftvault foil`
+e o `riftvault value` dizem — o fallback ficou **contado e visível**, não num
+comentário.
+
+**Um erro de rigor corrigido pelo caminho:** o `cents_de_foil` (a ressalva de
+2026-08-31, «quanto do total vem de cartas que o CardTrader só lista em foil»)
+passou a contar só as cópias **normais** dessas impressões. As foils delas têm
+agora o preço certo e não são ressalva nenhuma.
+
+### O que se vê
+
+No tile, a par da contagem: **«· foil 1,50 €»**, ou **«· foil ao preço da
+normal»** (a amarelo, com o porquê no `title`) quando o CardTrader não a tem em
+foil. Sem `nowrap`, ao contrário do total — a frase é longa e a 375 px tem de
+poder partir-se; com `nowrap` era a avaria medida a 22/09. O payload da edição
+leva `price_foil` e `qty_valor_foil` por impressão.
+
+**A barra do valor passou a bater certo com o servidor.** O cliente somava
+`state.qty × price` — o `qty` da COLEÇÃO —, enquanto o servidor soma o
+`qty_valor` (as físicas menos as próprias dos decks): numa coleção com cópias
+sleevadas num deck a barra dizia menos. Passou a haver `state.valNorm`, semeado
+do `qty_valor − qty_valor_foil` e a andar com os `+`/`−` como o `state.tot`.
+(Hoje dá o mesmo número porque a `copy_locations` está vazia; era um bug à
+espera da primeira marcação.)
+
+Na consola: o `riftvault foil REF` diz os dois preços e marca o fallback
+(`_precos_foil`); o `riftvault foil` e o `riftvault stats` levam a linha do
+valor (`foil._linha_do_valor`, que recebe o `valor_dos_foils` por parâmetro para
+o `foil.py` continuar a não conhecer o `prices`); o `riftvault value` diz quantas
+caem em cada caso; e o top das mais valiosas deixou de mentir a multiplicação —
+com foils a linha diz «3x 0,11 € + 2 foil x 1,50 €».
+
+### Medido a 2026-09-26, à noite, contra o `data/` REAL
+
+`riftvault prices` corrido com o código novo (5 expansões, 1227 linhas):
+**1144 das 1180 impressões do catálogo ficaram com preço de foil** (mais 29 das
+`market_only` = 1173 linhas). As 36 sem preço de foil não têm oferta foil no
+CardTrader; **uma** não tem preço nenhum (a `VEN-T04`, o token que eles não
+listam, desde 2026-08-31).
+
+**O efeito isolado** (`_revisao\_medir_foil_preco_efeito.py`, o MESMO `data/` e
+os MESMOS preços, mudando só a regra):
+
+| | ao preço da normal (a regra da tarde) | ao preço da foil (agora) |
+|---|---|---|
+| valor da coleção | **6 869,23 €** | **6 890,36 €** (+21,13 €) |
+| as 259 cópias foil dele | 29,65 € | **50,78 €** (+71 %) |
+| impressões com foil | 108 | 108, **todas com preço de foil a sério** |
+| no fallback | — | **zero** |
+
+As mais caras em foil: `OGN-045` Defy **5,02 €** em foil contra 1,25 € em normal
+(32 anúncios foil), `OGN-213` Hidden Blade 2,09 € contra 0,11 €, `VEN-083`
+Rampage 1,06 € contra 0,11 €. É esta a diferença que ele queria ver: a maioria
+das foils dele são comuns cujo normal está no chão dos 11 cêntimos e cuja foil
+vale três a vinte vezes mais.
+
+**Os invariantes NÃO mexem:** denominador **928**, níveis **908/867/805 de 928**
+(faltam 20/79/200), **2 888 cópias**, e o **«A mais» igual** — `foil.
+entra_no_a_mais` continua `false` e o preço não faz nascer excedente nenhum (há
+teste com a prova pela negativa). **O `copies` não se tocou**: nem o `qty` nem o
+`qty_foil`, verificado antes e depois da corrida do sync (e ele esteve a marcar
+foils durante a ordem — as 103/254 do início eram 108/259 no fim, e isso é ele,
+não nós).
+
+**O valor «antes desta ordem» era 6 925,80 €** e ficou em 6 890,36 €, mas **a
+descida não é desta mudança**: o `riftvault prices` trouxe os preços de hoje e
+121 das 1227 impressões mudaram de preço normal (o mercado). Com os preços novos,
+a mudança desta ordem vale **+21,13 €** — é a linha da tabela acima, que é a
+única comparação honesta.
+
+**O histórico continua a ser só do preço normal.** A `price_history` tem uma
+coluna de preço e o «A subir» mede a subida da carta que ele compra; uma série
+da foil é outra pergunta, e ele não a fez.
+
+`tests/test_foil_preco.py` (55 testes): a coluna e a migração (de raiz, num
+catálogo antigo, com backup, idempotente, pelas duas portas); o `oferta()` (o
+mínimo das foils, os seis filtros um a um, a língua do config); **o preço normal
+igual ao de antes** (fixture real + gerados); o valor (foil ao preço da foil, o
+fallback contado, o `from_foil`, sem preço, por edição, o top, a barra da edição,
+a chave desligada, a runa retirada); os três gémeos; o que não mexe (`copies`,
+alvos, «A mais», histórico); os docstrings que mentiam (em cinco ficheiros); a
+interface; e o `sync_prices` a gravar as duas colunas. Suite: **49 ficheiros, 0 a
+falhar**.
 
 ## 26/09/2026, à tarde — o FOIL CONTA: para o valor e para o master set; e NUNCA no «A mais»
 

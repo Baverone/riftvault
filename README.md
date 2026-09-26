@@ -724,7 +724,8 @@ Nenhum número guardado precisou de mudar — o que saiu foi o `CHECK` da base.)
 Nas cartas do âmbito — as impressões **base**, não sobrenumeradas, comuns e
 incomuns, dessas quatro edições: **512 impressões** — o tile da Coleção ganha,
 por baixo dos `+`/`−` de sempre, um contador pequeno de foil e a linha «3
-normais · 3 foil = 6». O `+` do foil **não mexe nas normais** (e o `−` da
+normais · 3 foil = 6», mais o **preço da foil** (ou a marca de que aquela conta
+ao preço da normal). O `+` do foil **não mexe nas normais** (e o `−` da
 grelha não mexe nas foils): acrescenta uma foil, e o total sobe. Não tem tecto
 natural — trava só num limite de sanidade. Por baixo do painel do topo há o
 resumo da edição aberta (ou de «Todas»), com uma linha por raridade.
@@ -743,17 +744,23 @@ vale como cópia da impressão:
 | chave | hoje | o que faz |
 |---|---|---|
 | `foil.conta_para_coleccao` | **true** | os foils contam para os ALVOS: os três níveis, o denominador, as Faltas e as wantlists. O que a impressão tem é `qty + qty_foil` |
-| `foil.conta_para_valor` | **true** | os foils contam para o VALOR, **ao preço da normal** |
+| `foil.conta_para_valor` | **true** | os foils contam para o VALOR, **ao preço da foil** |
 | `foil.entra_no_a_mais` | **false** | os foils **não** entram no que sobra no «A mais» |
 
-**O valor é um PISO, e a página di-lo.** Não há fonte de preço de foil — o
-catálogo tem um preço por impressão, o Cardmarket responde 403 e o CardTrader não
-dá trend —, por isso as foils contam ao preço da versão normal e o valor real é
-mais alto. A ressalva aparece em todos os sítios onde o número aparece (a barra
-da Coleção, o cartão do Início, o resumo do foil, o `riftvault value`). Nas
-impressões que o CardTrader **só lista em foil** (`from_foil`) o preço já é de
-foil e essas não levam ressalva — o `riftvault value` diz quantas caem em cada
-caso.
+**E o preço da foil é o da FOIL** (2026-09-26, à tarde: *"podes meter filtro no
+cardtrader e tirar o preco da foil mais barata?, para diferenciar os precos"*). O
+`riftvault prices` grava duas colunas novas na `price_latest`:
+`price_foil_cents`, o mínimo das ofertas **foil** com exactamente os mesmos
+filtros das normais (Mint/Near Mint, inglês, sem graded/signed/altered, vendedor
+presente, EUR), e `n_listings_foil`. Uma cópia foil vale esse preço; o preço da
+cópia normal **não mexeu**.
+
+**O FALLBACK é contado, e é ele que faz do valor um piso.** Quando o CardTrader
+não tem oferta foil de uma impressão, a cópia foil conta ao preço da normal — e
+essas cópias dizem-se, uma a uma no tile («foil ao preço da normal») e somadas em
+todos os sítios onde o total aparece (a barra da Coleção, o cartão do Início, o
+resumo do foil, o `riftvault foil`, o `riftvault value`). Quem tem preço de foil
+a sério não leva ressalva nenhuma.
 
 **Os foils nunca são excedente.** Com eles a contar, 3 normais + 3 foil contra um
 alvo de 3 dariam «3 a mais para vender» no «A mais» — e os foils são peça de
