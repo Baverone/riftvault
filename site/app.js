@@ -253,9 +253,10 @@ const PAGINA = {
          + 'runas em arte alternativa estão retiradas de tudo. O bloco <b>Runas — 12 de '
          + 'cada</b>, no fim, é o contador dele: os <b>+</b>/<b>−</b> de lá escrevem numa '
          + 'tabela à parte e não contam para número nenhum do site.</p>'
-         + '<p>Debaixo dos tiles das comuns e incomuns está a repartição <b>normais · '
-         + 'foil</b>. Ela não mexe no total nem em nenhuma conta — é só a dizer quantas '
-         + 'das que tens são foil.</p>',
+         + '<p>Debaixo dos tiles das comuns e incomuns estão as duas contagens, '
+         + '<b>normais</b> e <b>foil</b>. São independentes e somam-se: 3 normais e 3 '
+         + 'foil são 6 cópias. Os alvos, os níveis, as wantlists e o valor contam só as '
+         + 'normais — marcar foils não mexe em conta nenhuma.</p>',
   },
   'decks': {
     sub: 'As listas montadas, o que cada uma tem e o que lhe falta. '
@@ -999,36 +1000,46 @@ function venderLinha(pid) {
    por baixo dos `+`/`−` de sempre, um contador pequeno de foil e a linha «N
    normais · M foil».
 
-   O `+` do foil NUNCA aumenta o total: converte uma cópia que ele já tem.
-   Trava em 0 e no TOTAL FÍSICO (`state.tot`, todas as cópias — uma carta não
-   deixa de ser foil por estar sleevada num deck), que é o mesmo tecto do
-   `CHECK (qty_foil <= qty)` da base. O não-foil nunca se guarda: é sempre
-   `total − foil`, aqui como no Python.                                      */
+   O FOIL SOMA-SE ÀS NORMAIS (André, 2026-09-26): *"as foils quando eu marco é
+   que tenho TAMBÉM foil, ou seja, normal + foil e não apenas 1, no caso daria
+   3+3"*. São DUAS contagens independentes — as normais são o `state.tot` (o
+   `copies.qty`, cópias físicas de todos os locais: uma carta não deixa de ser
+   normal por estar sleevada num deck) e as foils são o `state.foil` —, e o
+   total da impressão é a SOMA. O `+` do foil acrescenta uma foil e faz SUBIR o
+   total; não converte nada, e por isso não tem tecto natural: trava só no
+   `limite` que o servidor manda (sanidade, o mesmo do CHECK da base).
+
+   Até 2026-09-26 era ao contrário: o foil era uma fatia do total e o `+`
+   convertia uma normal. Era erro nosso.                                     */
+
+function foilLimite() { return state.index?.foil?.limite || 9999; }
 
 function foilLinha(pid) {
   if (!state.foilOk.has(pid)) return '';
-  const tot = state.tot.get(pid) || 0;
-  const f = Math.min(state.foil.get(pid) || 0, tot);
+  const norm = state.tot.get(pid) || 0;
+  const f = state.foil.get(pid) || 0;
+  const lim = foilLimite();
   const controlos = state.editable ? `<span class="steppers foil">
       <button class="step minus" data-foil="-1" aria-label="menos uma foil"
               ${f <= 0 ? 'disabled' : ''}>−</button>
       <b>${f}</b>
       <button class="step plus" data-foil="1" aria-label="mais uma foil"
-              ${f >= tot ? 'disabled' : ''}>+</button>
+              ${f >= lim ? 'disabled' : ''}>+</button>
     </span>` : '';
-  return `<div class="foil-linha" title="das ${tot} cópias que tens desta impressão, ${f} ${
-    f === 1 ? 'é foil' : 'são foil'} — não conta para nada, é só a repartição">
-    <span class="foil-txt"><b>${tot - f}</b> normais · <b class="fo">${f}</b> foil</span>${controlos}</div>`;
+  return `<div class="foil-linha" title="tens ${norm} normais e ${f} ${
+    f === 1 ? 'foil' : 'foils'} desta impressão — ${norm + f} cópias ao todo. As duas contagens são independentes e não contam para os alvos nem para o valor.">
+    <span class="foil-txt"><b>${norm}</b> normais · <b class="fo">${f}</b> foil${
+      f ? ` <i class="dim">= ${norm + f}</i>` : ''}</span>${controlos}</div>`;
 }
 
 /* A fila é por impressão: o ecrã anda já, e só a última resposta manda. Não há
-   `request_id` — o foil não é uma cópia nova, é uma repartição, e repetir o
-   mesmo pedido dá o mesmo resultado (`min`/`max` no servidor). */
+   `request_id` — repetir o mesmo pedido dá o mesmo resultado (`min`/`max` no
+   servidor). O `+` do foil NUNCA manda um `+` de cópias normais: são dois
+   contadores, cada um com a sua rota. */
 async function foilAjustar(pid, delta) {
   if (!state.editable || !state.foilOk.has(pid)) return;
-  const tot = state.tot.get(pid) || 0;
-  const antes = Math.min(state.foil.get(pid) || 0, tot);
-  const novo = Math.max(0, Math.min(antes + delta, tot));
+  const antes = state.foil.get(pid) || 0;
+  const novo = Math.max(0, Math.min(antes + delta, foilLimite()));
   if (novo === antes) return;
   state.foil.set(pid, novo);
   refreshFoil(pid);
@@ -1078,19 +1089,21 @@ function refreshFoil(pid) {
    o poder correr no node tal e qual. */
 function foilContar(itens, labels) {
   const novo = () => ({ printings: 0, copies: 0, foil: 0, normal: 0, foil_printings: 0 });
-  const somar = (slot, copias, f) => {
-    slot.printings++; slot.copies += copias; slot.foil += f;
-    slot.normal += copias - f; slot.foil_printings += f > 0 ? 1 : 0;
+  // `copies` é a SOMA das duas contagens (2026-09-26), nunca um número
+  // guardado; até essa data era o total guardado e o `normal` a subtracção.
+  const somar = (slot, normal, f) => {
+    slot.printings++; slot.normal += normal; slot.foil += f;
+    slot.copies += normal + f; slot.foil_printings += f > 0 ? 1 : 0;
   };
   const ORDEM = ['common', 'uncommon', 'rare', 'epic', 'showcase'];
   const total = novo();
   const por = new Map();
   for (const it of itens) {
     const rar = String(it.rarity || '?').toLowerCase();
-    const copias = it.copies || 0, f = it.foil || 0;
+    const normal = it.normal || 0, f = it.foil || 0;
     if (!por.has(rar)) por.set(rar, novo());
-    somar(total, copias, f);
-    somar(por.get(rar), copias, f);
+    somar(total, normal, f);
+    somar(por.get(rar), normal, f);
   }
   const chaves = ORDEM.filter(r => por.has(r))
     .concat([...por.keys()].filter(r => !ORDEM.includes(r)).sort());
@@ -1107,9 +1120,9 @@ function foilItens() {
   for (const g of state.payload?.groups || []) {
     for (const p of g.printings) {
       if (!state.foilOk.has(p.id)) continue;
-      const tot = state.tot.get(p.id) || 0;
-      itens.push({ rarity: p.rarity || g.rarity || '?', copies: tot,
-                   foil: Math.min(state.foil.get(p.id) || 0, tot) });
+      itens.push({ rarity: p.rarity || g.rarity || '?',
+                   normal: state.tot.get(p.id) || 0,
+                   foil: state.foil.get(p.id) || 0 });
     }
   }
   return itens;
@@ -1131,15 +1144,21 @@ function renderFoilResumo() {
   const bloco = (rot, c) => `<div class="fo-bloco">
     <div class="fo-rot">${escapeHTML(rot)}</div>
     <div class="fo-num"><b>${c.normal}</b> normais · <b class="fo">${c.foil}</b> foil</div>
-    <div class="fo-sub">${c.printings} impressões · ${c.copies} cópias${
+    <div class="fo-sub">${c.printings} impressões · ${c.copies} cópias ao todo${
       c.foil_printings ? ` · ${c.foil_printings} com foil` : ''}</div>
   </div>`;
   const nomes = (cat.raridades || []).map(r => (cat.labels || {})[r] || r);
+  // As duas perguntas dele dizem-se sempre: a linha muda quando ele ligar um
+  // dos botões, em vez de o número mudar sem aviso.
+  const contam = [cat.conta_para_coleccao ? 'para os alvos da Coleção' : null,
+                  cat.conta_para_valor ? 'para o valor' : null].filter(Boolean);
   el.innerHTML = `<div class="fo-head">Foil e não-foil
       <small>${escapeHTML(nomes.join(' e ').toLowerCase() || 'comuns e incomuns')},
       só as impressões base${(cat.sem_edicoes || []).length
         ? ` — o ${escapeHTML(cat.sem_edicoes.join(', '))} fica de fora` : ''}.
-      É uma repartição do que tens: não conta para nada.</small></div>
+      São duas contagens independentes e o total é a soma: 3 normais e 3 foil são 6 cópias.
+      ${contam.length ? `Os foils contam ${escapeHTML(contam.join(' e '))}.`
+        : 'Não contam para os alvos nem para o valor.'}</small></div>
     <div class="fo-linhas">${bloco('Tudo', conta)}${
       conta.rarity.map(r => bloco(r.label, r)).join('')}</div>`;
 }
@@ -1858,12 +1877,11 @@ function refreshTiles(pid, cardKey) {
 function applyLocal(pid, delta) {
   const ck = state.meta.get(pid)?.card_key;
   state.qty.set(pid, Math.max(0, (state.qty.get(pid) || 0) + delta));
-  // O total FÍSICO anda com o `+`/`−` (é o `copies.qty` que muda); e o foil
-  // marcado nunca o pode passar — se o total desce abaixo dele, desce com ele,
-  // como o `foil.ao_descer` faz na base (2026-09-22).
-  const tot = Math.max(0, (state.tot.get(pid) || 0) + delta);
-  state.tot.set(pid, tot);
-  if ((state.foil.get(pid) || 0) > tot) state.foil.set(pid, tot);
+  // As NORMAIS físicas andam com o `+`/`−` (é o `copies.qty` que muda). O FOIL
+  // não se toca: são duas contagens independentes desde 2026-09-26, cada uma
+  // com o seu botão. Até essa data o foil era cortado aqui, porque era uma
+  // fatia do total.
+  state.tot.set(pid, Math.max(0, (state.tot.get(pid) || 0) + delta));
   // O `+`/`-` mexe nos binders de COLEÇÃO — é a grelha da Coleção. As cópias
   // que estão num deck ou no binder Decks/Venda não mexem daqui.
   const locs = (state.locs.get(pid) || []).slice();
