@@ -689,15 +689,25 @@ def _locais_de(printing_id: str) -> dict:
     da Coleção mostra outra coisa desde 2026-09-10 (só as que estão nos binders
     de coleção), por isso o número dela vai à parte e não como `qty`: são duas
     perguntas e trocá-las era pôr a barra a contar cartas que estão em decks.
+
+    O `qty_colecao` sai do MESMO funil que a grelha (`locais.na_colecao`), e
+    desde 2026-09-26 isso importa: com o `foil.conta_para_coleccao` ligado, o
+    número da grelha é `normais + foils`. Tirá-lo do `por_local` — que conta
+    só as normais, porque uma foil não tem local — fazia o crachá perder as
+    foils no primeiro `+`/`−` (de «6/3» para «4/3» em vez de «7/3»).
+    O `locations` continua a vir do `por_local`: onde estão as cópias é
+    pergunta das NORMAIS.
     """
     from . import locais
     con = get_con()
     onde = (locais.por_local(con)).get(printing_id) or {}
     nomes = locais.nomes_dos_decks(con)
     return {
-        "qty_colecao": onde.get(locais.COLECAO, 0),
-        # O foil (2026-09-22) é contra o total FÍSICO: um `−` que leve o total
-        # abaixo dele corta-o, e o tile tem de o saber.
+        "qty_colecao": locais.na_colecao(con).get(printing_id, 0),
+        # As cópias FOIL desta impressão. São uma contagem à parte do `qty` — o
+        # `−` da grelha não lhes toca (2026-09-26) — e o tile precisa delas para
+        # escrever «3 normais · 3 foil = 6» e para saber se o `−` pode estar
+        # ligado (o `qtyNormais` do `app.js`).
         "foil": collection.get_foil(con, printing_id),
         "locations": [{"loc": loc, "label": locais.rotulo(loc, nomes), "qty": n}
                       for loc, n in sorted(onde.items(),

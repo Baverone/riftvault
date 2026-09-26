@@ -6528,6 +6528,35 @@ das foils»; 2 normais + 5 foils com um deck a pedir 3 → **1** foil, não 3).
 **Um deck DESMONTADO não leva foil nenhuma**, como não leva normal nenhuma
 (24/09).
 
+### 4b. UM BUG QUE AS CHAVES ACORDARAM: o `qty_colecao` do `/api/adjust`
+
+Apanhado a testar o ecrã, não a ler o código. O `+`/`−` de uma cópia normal
+devolve `qty_colecao`, e é dele que o cliente faz o `state.qty` — o número do
+crachá. Vinha do `locais.por_local`, que conta **só as normais** (uma foil não
+tem local), enquanto a grelha vem do `locais.na_colecao`, que desde hoje soma as
+foils. Resultado: um `+` numa carta com foils **perdia-as no crachá** — de «6/3»
+para «4/3» em vez de «7/3», até recarregar a página.
+
+`server._locais_de` passou a tirar o `qty_colecao` do **mesmo funil da grelha**.
+O `locations` continua a vir do `por_local`: «onde estão as cópias» é pergunta
+das normais. Há teste, e ele fica **vermelho** com a linha antiga (4 != 7).
+
+**A lição, para a próxima chave de config:** quando um número passa a vir de um
+funil novo, não basta o payload da página — há que procurar **todos** os sítios
+que devolvem «o mesmo número» por outro caminho. Aqui eram dois (a grelha e a
+resposta do `adjust`) e só um estava ligado ao funil.
+
+### 4c. UMA COLEAÇÃO ANOTADA: o playset JOGÁVEL anda com o botão do VALOR
+
+`metrics.owned_by_card` (a métrica 1, o «playset jogável» da grelha) lê o
+`locais.contadas`, e é o `foil.conta_para_valor` que manda nesse funil. Ou seja:
+o playset jogável conta as foils **porque o botão do valor está ligado**, não
+porque exista um botão de «as foils jogam-se». Hoje dá o resultado certo — uma
+foil é jogável e vale dinheiro, e os dois botões estão ligados —, mas se ele um
+dia desligar só o do valor, o playset jogável deixa de as contar, o que não é o
+que a frase dele diz. **Fica anotado, não se inventou uma terceira chave**: é
+pergunta para ele, e vale zero hoje.
+
 ### 5. Um `+` de foil passou a mexer no ecrã todo
 
 Com as chaves ligadas, o contador do foil deixou de ser um canto isolado: o
@@ -6584,7 +6613,7 @@ playset e sai da wantlist.
 **Os foils que ele tem, na cópia medida: 159 em 58 impressões, todas comuns e
 incomuns do VEN; nenhuma carta só em foil (0 normais).**
 
-`tests/test_foil_conta.py` (**48 testes**, contra pastas temporárias e config
+`tests/test_foil_conta.py` (**49 testes**, contra pastas temporárias e config
 temporário): as três chaves no config real e nos `DEFAULTS`, a omissão da
 terceira a `false`; o tile a dizer `3 normais + 3 foil = 6`, duas foils a
 fechar um playset, uma carta só em foil a passar a contar, o denominador
@@ -6599,8 +6628,9 @@ mais» igual com e sem foils, o excedente a contar primeiro as normais, o
 desligada não vê foil); as três cautelas (`propor_deck`, Venda, o `−`); a
 fronteira (nenhum módulo de contas importa o `foil`; a coluna só se lê nos dois
 funis — e é por isso que o `a_mais` e o `decks` passaram a saber que há foils
-**pelo `locais`**, nunca pela coluna); e a interface (a ressalva nos três
-sítios, o `from_foil` separado, o «não entram no que sobra», a frase velha
-apagada, o `+` a mexer no crachá, a tabela de montagem, o CSS e o CLI).
+**pelo `locais`**, nunca pela coluna); a interface (a ressalva nos três sítios, o
+`from_foil` separado, o «não entram no que sobra», a frase velha apagada, o `+` a
+mexer no crachá, a tabela de montagem, o CSS e o CLI); e o `qty_colecao` do
+`/api/adjust` a bater com a grelha (4b).
 
 Suite: **48 ficheiros, 0 a falhar**.

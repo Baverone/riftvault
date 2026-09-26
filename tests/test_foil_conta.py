@@ -709,6 +709,29 @@ class TestOPayload(Base):
         self.assertTrue(idx["foil"]["conta_para_valor"])
         self.assertFalse(idx["foil"]["entra_no_a_mais"])
 
+    def test_o_adjust_devolve_o_MESMO_numero_que_a_grelha(self):
+        """O `qty_colecao` do `/api/adjust` é o que o cliente mete no
+        `state.qty`, e o crachá sai de lá. Tem de ser o MESMO funil da grelha
+        (`locais.na_colecao`) — tirá-lo do `por_local`, que só conta normais,
+        fazia o crachá perder as foils no primeiro `+` («6/3» → «4/3»).
+        """
+        con = self.catalogo()
+        self.foil.ajustar(con, "tst-001-100", 3, source="test")
+        self.assertEqual(self.tile(con, "tst-001-100")["qty"], 6)
+        from riftvault import server
+        importlib.reload(server)
+        server.app.config["TESTING"] = True
+        with server.app.test_client() as c:
+            r = c.post("/api/adjust", json={"printing_id": "tst-001-100", "delta": 1,
+                                            "request_id": "t1"})
+            self.assertEqual(r.status_code, 200, r.get_data(as_text=True))
+            d = r.get_json()
+        self.assertEqual(d["qty"], 4, "o total FÍSICO são as normais")
+        self.assertEqual(d["foil"], 3)
+        self.assertEqual(d["qty_colecao"], 7,
+                         "4 normais + 3 foil — o mesmo número que a grelha")
+        self.assertEqual(self.tile(con, "tst-001-100")["qty"], d["qty_colecao"])
+
     def test_ler_nao_escreve(self):
         con = self.catalogo()
         cfg = self.config.load()
