@@ -55,6 +55,50 @@ def backup(con: sqlite3.Connection, motivo: str) -> Path | None:
         return None
 
 
+def _sql_da_copies(con: sqlite3.Connection) -> str:
+    row = con.execute("SELECT sql FROM main.sqlite_master WHERE type='table' "
+                      "AND name='copies'").fetchone()
+    return (row[0] if row and row[0] else "").replace("\n", " ")
+
+
+def _tirar_o_tecto_do_foil(con: sqlite3.Connection) -> None:
+    """Deixa cair o `CHECK (qty_foil <= qty)` do modelo antigo do foil.
+
+    O SQLite não sabe largar um CHECK: é preciso refazer a tabela (o
+    procedimento de 12 passos da documentação deles). Aqui é a versão curta e
+    segura porque ninguém aponta para a `copies` — não há FK para ela, nem
+    índice próprio (a PK viaja no RENAME), nem trigger. Confirmado no
+    `schema.sql`; se algum dia houver, tem de vir para aqui.
+
+    OS NÚMEROS NÃO SE TOCAM, e é isso que faz esta migração não ter risco: o
+    `qty` e o `qty_foil` de cada linha copiam-se tal e qual. O modelo mudou de
+    LEITURA (o `qty_foil` deixou de estar dentro do `qty` e passou a somar-se),
+    não de conteúdo — as cópias que ele marcou como foil já eram as foils que
+    tem a mais das normais. Ver a verificação no CLAUDE.md.
+
+    Tudo numa transação só, para o que ele gravar entretanto ficar de um lado
+    ou do outro e nunca a meio: o SQLite serializa os escritores, por isso um
+    `+` que chegue antes é copiado e um que chegue depois vai para a tabela
+    nova.
+    """
+    con.execute("BEGIN IMMEDIATE")
+    try:
+        con.execute("CREATE TABLE copies_nova ("
+                    "printing_id TEXT PRIMARY KEY, "
+                    "qty INTEGER NOT NULL CHECK (qty >= 0), "
+                    "updated_at TEXT NOT NULL, "
+                    "qty_foil INTEGER NOT NULL DEFAULT 0 "
+                    "  CHECK (qty_foil >= 0 AND qty_foil <= 9999))")
+        con.execute("INSERT INTO copies_nova (printing_id, qty, updated_at, qty_foil) "
+                    "SELECT printing_id, qty, updated_at, qty_foil FROM copies")
+        con.execute("DROP TABLE copies")
+        con.execute("ALTER TABLE copies_nova RENAME TO copies")
+        con.execute("COMMIT")
+    except Exception:
+        con.execute("ROLLBACK")
+        raise
+
+
 def _migrate(con: sqlite3.Connection) -> None:
     """Colunas acrescentadas depois da primeira versão do schema.
 
@@ -69,7 +113,17 @@ def _migrate(con: sqlite3.Connection) -> None:
     if cols and "qty_foil" not in cols:
         backup(con, "antes-do-foil")
         con.execute("ALTER TABLE copies ADD COLUMN qty_foil INTEGER NOT NULL "
-                    "DEFAULT 0 CHECK (qty_foil >= 0 AND qty_foil <= qty)")
+                    "DEFAULT 0 CHECK (qty_foil >= 0 AND qty_foil <= 9999)")
+
+    # O FOIL SOMA-SE (André, 2026-09-26): *"as foils quando eu marco é que tenho
+    # TAMBÉM foil, ou seja, normal + foil e não apenas 1, no caso daria 3+3"*.
+    # O `CHECK (qty_foil <= qty)` era do modelo errado — com ele, uma carta que
+    # ele só tenha em foil (0 normais, 2 foil) não se podia gravar. Sai, com
+    # BACKUP antes, porque toca na tabela `copies`. Idempotente: a segunda
+    # ligação já não encontra o CHECK antigo e não faz nada.
+    if "qty_foil <= qty" in _sql_da_copies(con):
+        backup(con, "antes-do-foil-somar")
+        _tirar_o_tecto_do_foil(con)
 
     cols = _columns(con, "decks")
     if cols:

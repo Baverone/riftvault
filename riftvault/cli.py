@@ -242,9 +242,9 @@ def cmd_stats(args) -> int:
     print("\nPainel da Coleção (impressões que chegaram a cada nível, sem runas):")
     print(painel.texto(painel.payload(con), sets))
 
-    # A contagem de foil das comuns e incomuns (2026-09-22): quantas cópias
-    # do âmbito estão marcadas como foil e quantas como normais. É uma
-    # repartição do que ele tem — não mexe em nenhuma das contas acima.
+    # A contagem de foil das comuns e incomuns (2026-09-22): quantas normais e
+    # quantas foils. São duas contagens independentes e o total é a soma
+    # (2026-09-26) — nenhuma das contas acima as soma.
     print("\nFoil e não-foil (comuns e incomuns, impressões base):")
     print(foil_mod.texto(foil_mod.resumo(con), sets))
 
@@ -1033,10 +1033,14 @@ def cmd_runas(args) -> int:
 def cmd_foil(args) -> int:
     """A contagem de FOIL e NÃO-FOIL das comuns e incomuns (2026-09-22).
 
-    Sem REF, o resumo por edição e por raridade (impressões, cópias, normais,
-    foil). Com REF, quantas dessa impressão são foil; `--mais`/`--menos [N]`
-    marcam e desmarcam. NÃO mexe no total de cópias — é só uma repartição do
-    que ele já tem, e nenhum número do site muda com isto.
+    Sem REF, o resumo por edição e por raridade (impressões, normais, foil,
+    total). Com REF, quantas foils dessa impressão; `--mais`/`--menos [N]`
+    acrescentam e tiram FOILS.
+
+    O FOIL SOMA-SE (2026-09-26): `--mais 2` dá-lhe duas foils a mais das
+    normais que já tinha, e o total da impressão SOBE. Não mexe nas cópias
+    normais (`copies.qty`) e, com os dois botões dele desligados — a omissão —,
+    nenhum número do site muda com isto.
     """
     con = db.connect()
     if db.catalog_is_empty(con):
@@ -1056,9 +1060,9 @@ def cmd_foil(args) -> int:
             print(str(exc), file=sys.stderr)
             con.close()
             return 1
-        print(f"{r['name']} [{_codigo_curto(r['code'])}]: {r['applied']:+d} -> "
-              f"{r['normal']} normais · {r['foil']} foil (de {r['qty']} cópias; "
-              f"o total não mexeu)")
+        print(f"{r['name']} [{_codigo_curto(r['code'])}]: {r['applied']:+d} foil -> "
+              f"{r['normal']} normais · {r['foil']} foil = {r['total']} cópias "
+              f"(as normais não mexeram)")
         con.close()
         return 0
     if args.ref:
@@ -1069,7 +1073,7 @@ def cmd_foil(args) -> int:
             con.close()
             return 1
         print(f"{r['name']} [{_codigo_curto(r['code'])}]: {r['normal']} normais · "
-              f"{r['foil']} foil (de {r['qty']} cópias)")
+              f"{r['foil']} foil = {r['total']} cópias")
         con.close()
         return 0
     sets = metrics.sets_payload(con, cfg)
@@ -1083,7 +1087,8 @@ def cmd_foil(args) -> int:
     print(foil_mod.texto(r, sets))
     print(f"\nâmbito: impressões base, não sobrenumeradas, de raridade "
           f"{'/'.join(r['raridades'])} (foil.raridades/foil.edicoes_fora). "
-          f"O não-foil é sempre cópias − foil: nunca se grava.", file=sys.stderr)
+          f"As normais e as foils são duas contagens independentes; o total "
+          f"nunca se grava, é a soma.", file=sys.stderr)
     con.close()
     return 0
 

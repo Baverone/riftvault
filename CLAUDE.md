@@ -144,7 +144,10 @@ não inverter a ordem.
 - `data/vault.db` — a coleção e os decks. **Commitado. Só o André escreve.**
   (Desde 2026-09-22 a `copies` tem a coluna `qty_foil` — a contagem de foil
   das comuns e incomuns; a migração fez backup em `data/backups/`, que está
-  no `.gitignore`. Ver a última secção deste ficheiro.)
+  no `.gitignore`. **DESDE 2026-09-26 o `qty` são as cópias NORMAIS e o
+  `qty_foil` as FOIL, e o total é a SOMA** — eram duas leituras da mesma
+  cópia até aí, e o `+` do foil convertia uma normal; erro nosso. Ver a
+  última secção deste ficheiro.)
 - `data/prices.db` — histórico de preços. **Commitado. Só o robô escreve.**
 - `data/catalog.db` — cache do catálogo da RiftScribe. **No `.gitignore`**
   (reconstruível com `riftvault sync`).
@@ -785,10 +788,14 @@ O alvo do master set é por impressão, e qualquer cópia serve para o cumprir.
 Se um dia isto mudar: acrescentar `finish TEXT NOT NULL DEFAULT 'normal'` a
 `copies`, passar a PK a `(printing_id, finish)`, e o mesmo em `ops`.
 
-**Isto CONTINUA DE PÉ depois de 2026-09-22.** A `copies.qty_foil` dessa data
-não é um acabamento no grão: a chave continua a ser `(printing_id)`, o alvo
-continua a ser por impressão e nenhuma conta do site a lê. É uma CONTAGEM à
-parte — ver a última secção deste ficheiro.
+**Isto CONTINUA DE PÉ depois de 2026-09-22 e de 2026-09-26.** A
+`copies.qty_foil` não é um acabamento no grão: a chave continua a ser
+`(printing_id)`, o alvo continua a ser por impressão e nenhuma conta do site a
+lê. É uma CONTAGEM à parte — e desde 26/09 uma contagem que **se soma** às
+normais (3 normais + 3 foil = 6 cópias), não uma fatia delas. Quem a quiser
+nas contas tem dois botões de config, os dois desligados
+(`foil.conta_para_coleccao`, `foil.conta_para_valor`) — ver a última secção
+deste ficheiro.
 
 ## Artes alternativas fora do master set
 
@@ -2560,14 +2567,21 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   (`decks.so_base`); `proprias.py`, `POST /api/proprias/ajustar`. Ver a
   última secção deste ficheiro.
 - **Feito também:** a contagem de FOIL e NÃO-FOIL das comuns e incomuns
-  (2026-09-22) — a coluna `copies.qty_foil` (o não-foil nunca se grava: é
-  `qty − qty_foil`), o âmbito em config (`foil.raridades`,
-  `foil.edicoes_fora`: as impressões base, não sobrenumeradas, comuns e
-  incomuns, fora o OGS — 512 impressões, 1376 cópias), o contador pequeno em
-  cada tile («N normais · M foil», travado em 0..qty, sem mexer no total), o
-  resumo por edição e em «Todas» por baixo do painel, `riftvault foil` e
-  `POST /api/foil/ajustar`. **Não mexe em número nenhum do site** e há teste
-  que o fotografa. Ver a última secção deste ficheiro.
+  (2026-09-22) — a coluna `copies.qty_foil`, o âmbito em config
+  (`foil.raridades`, `foil.edicoes_fora`: as impressões base, não
+  sobrenumeradas, comuns e incomuns, fora o OGS — 512 impressões), o contador
+  pequeno em cada tile, o resumo por edição e em «Todas» por baixo do painel,
+  `riftvault foil` e `POST /api/foil/ajustar`. **Não mexe em número nenhum do
+  site** e há teste que o fotografa.
+- **CORRIGIDO a 2026-09-26:** o FOIL **soma-se** ao normal — *"normal + foil
+  e não apenas 1, no caso daria 3+3"*. Fizemo-lo como uma FATIA do total (o
+  `+` do foil convertia uma cópia normal); passou a `qty` = normais,
+  `qty_foil` = foils, **total = a soma**, com o `CHECK` do tecto e o
+  `ao_descer` fora (migração só de schema, com backup — **nenhum número dos
+  dados mexeu**, verificado impressão a impressão na `foil_ops`). Um `qty`
+  a 0 com foil é estado legítimo. Duas chaves novas, as duas a `false`:
+  `foil.conta_para_coleccao` e `foil.conta_para_valor`. Ver a última secção
+  deste ficheiro.
 - **Feito também:** montado ou desmontado, a regra de raridade e o modo
   de remontagem (2026-09-24) — `decks.montados` (hoje só o LeBlanc Hook;
   um deck desmontado não consome NADA da Coleção e a página dele é uma
@@ -5143,7 +5157,15 @@ chave do `copies` é `(printing_id)`, o alvo do master set é por impressão e
 qualquer cópia o cumpre. O que nasceu é uma REPARTIÇÃO do que ele já tem, ao
 lado das contas — e a prova de que não entra em nenhuma é um teste.
 
-### 1. Uma verdade só, nunca duas
+### 1. Uma verdade só, nunca duas — **ESTE PONTO ESTAVA ERRADO, ver 26/09**
+
+> **REVOGADO a 2026-09-26.** O que se segue descreve o foil como uma FATIA do
+> total, e não é o que ele queria: *"as foils quando eu marco é que tenho
+> TAMBÉM foil, ou seja, normal + foil"*. Hoje o `qty` são as NORMAIS, o
+> `qty_foil` são as FOILS, o total é a SOMA, o `CHECK` do tecto saiu e o
+> `ao_descer` deixou de existir. Ver a última secção deste ficheiro. O que
+> fica de pé desta secção é o ponto 2 (o âmbito), o ponto 3 (o foil não mexe
+> em conta nenhuma) e a migração da coluna.
 
 A contagem é a coluna **`copies.qty_foil`** — quantas das cópias daquela
 impressão são foil. **O não-foil NUNCA se grava**: é sempre `qty − qty_foil`,
@@ -6275,3 +6297,127 @@ com os dez tirados e os acessórios desligados, e depois repostos.
 `test_selado_tirar.py` e `test_selado_extra.py` foram ajustados nos NÚMEROS (22 →
 32, 76 → 66, os 19 acessórios → desligados) — o teste é que descrevia o de
 antes, não o código. Suite: **47 ficheiros, 0 a falhar**.
+
+## 26/09/2026 — ERRO NOSSO: o FOIL SOMA-SE ao normal, não é uma fatia dele
+
+Palavras dele, apanhado enquanto actualizava a coleção: *"as foils quando eu
+marco é que tenho TAMBÉM foil, ou seja, **normal + foil e não apenas 1**, no
+caso daria **3+3**"*. Ramo `ai-pc/foil-soma-2026-09-26`.
+
+**O que estava mal.** Fizemos o foil de 22/09 como um SUBCONJUNTO do total: o
+`copies.qty` era o total, o `qty_foil` estava lá dentro (`CHECK (qty_foil <=
+qty)`), o não-foil era `qty − qty_foil`, e por isso **o `+` do foil CONVERTIA
+uma cópia normal em foil** em vez de acrescentar uma. Com 3 cópias e 3 foils
+ele via «0 normais · 3 foil» quando o que queria dizer era «tenho 3 normais E 3
+foils».
+
+**O modelo que fica:**
+
+    copies.qty       = as cópias NORMAIS
+    copies.qty_foil  = as cópias FOIL
+    total            = qty + qty_foil     (nunca se grava: é a soma)
+
+São **dois contadores independentes**, cada um com o seu botão: o `+` do foil
+não mexe no `qty` e o `−` da grelha (ou das cópias próprias de um deck) não
+mexe no `qty_foil`. Com 3 normais e 3 foil ele tem **seis** cópias.
+
+### Os dados guardados JÁ ESTAVAM CERTOS — verificado antes de mexer
+
+Nenhuma migração de dados. Conferido impressão a impressão contra a `foil_ops`
+(45 linhas, todas de 26/09, todas `web`) e contra a `ops`:
+
+* as impressões com foil tinham **todas `qty = 3` desde 2026-09-11 às 20:23**,
+  de uma sessão de entrada em bloco — muito antes de o foil existir. São mesmo
+  as 3 NORMAIS dele;
+* os `+` do foil de 26/09 vieram todos por cima disso, sem lhe tocar;
+* **as 3 linhas `:ajuste ao total` que existem são do `ven-012-166`** e não são
+  conversão: às 12:39:49 ele carregou 3× no `−` da GRELHA (o `qty` foi 3→0), o
+  `ao_descer` cortou o foil com ele, e às 12:40–12:50 ele repôs os dois. A
+  `ops` mostra o mesmo padrão de ida e volta em sete impressões (`ven-002`,
+  `003`, `005`, `007`, `012`, `014`, `025`) — **todas com saldo ZERO**, todas a
+  acabar nos mesmos `qty = 3` de 11/09. Era ele a lutar com o tecto.
+
+A soma dos deltas da `foil_ops` bate com o `qty_foil` guardado em **todas** as
+impressões (0 a divergir). **Nenhum caso de conversão a assinalar.**
+
+(Os números andaram durante a sessão, porque ele estava a marcar foils ao mesmo
+tempo: a ordem falava de 13 impressões e 35 foils, a primeira leitura deu 15/39,
+a medição deu **48 impressões e 124 foils** e a fotografia final 49/126. Todas
+VEN, todas comuns e incomuns, todas com os 3 normais completos.)
+
+### O que mudou mesmo
+
+1. **O `CHECK` perdeu o tecto** (`qty_foil <= qty` → só `qty_foil >= 0` e um
+   `<= 9999` de sanidade, o `foil.LIMITE`). O SQLite não sabe largar um CHECK:
+   é preciso refazer a tabela, e é o que o `db._tirar_o_tecto_do_foil` faz —
+   numa transação só, com **BACKUP antes** (`vault-antes-do-foil-somar-*.db`,
+   por `VACUUM INTO`), idempotente, e **sem tocar num único número** (os
+   `qty`/`qty_foil` copiam-se tal e qual). Não há FK, índice próprio nem
+   trigger a apontar para a `copies` — confirmado no `schema.sql`.
+2. **`qty = 0` com `qty_foil > 0` passou a ser estado legítimo**: uma carta que
+   ele só tenha em foil. Era impossível de gravar até aqui.
+3. **O `foil.ao_descer` foi-se**, e com ele as chamadas no `collection.adjust`
+   e no `proprias.ajustar`: um `−` nas normais não pode levar uma foil. As
+   linhas `:ajuste ao total` que ficaram na `foil_ops` são história e a tabela
+   di-lo.
+4. **O `+` do foil não trava no `qty`** — trava no `LIMITE`, que é sanidade e
+   não um número de coleção. O tile diz «**3 normais · 3 foil = 6**» e o resumo
+   por edição passou a «N normais · M foil / X cópias ao todo».
+
+### As duas perguntas que são dele, em config e DESLIGADAS
+
+`foil.conta_para_coleccao` e `foil.conta_para_valor`, as duas a **`false`** —
+com elas assim a app mede **exactamente** o de sempre. Ligam-se numa linha:
+
+| chave | o que liga | por onde entra |
+|---|---|---|
+| `conta_para_coleccao` | os foils contam para os ALVOS (os três níveis, o denominador, as Faltas, as wantlists) | `locais.na_colecao` |
+| `conta_para_valor` | os foils contam para o VALOR, **ao preço da normal** | `locais.contadas` e `prices.copias_sql` |
+
+Os dois funis leem a chave **directamente do config**, sem importar o `foil` —
+é o que deixa o `locais` e o `prices` continuarem a não conhecer o módulo, e o
+teste a poder prová-lo. **Não há preço de foil no catálogo** (o CardTrader dá
+um preço por impressão), por isso ligar o segundo é assumir que uma foil vale o
+mesmo que a normal, o que é falso no mercado.
+
+**Medido a 2026-09-26 contra cópias do `data/` real
+(`_revisao\_medir_foil_soma.py`, cinco corridas sobre cópias independentes do
+mesmo `data/`, o `main` e o ramo na mesma corrida):**
+
+* **`main` vs ramo com os botões desligados: ZERO diferenças** em 23
+  invariantes — denominador **928**, níveis **897/836/766 de 928** (faltam
+  31/121/281 · 89,27/458,08/1 056,62 €), wantlist «tudo» **162 linhas · 281
+  cópias · 1 056,62 €** e as cinco por edição, valor **6 645,21 € · 2 573
+  cópias** e por edição, totais, Faltas (**555 cópias · 10 232,99 €**; a
+  comprar 281 · 1 056,62 €) e os quatro blocos por edição, A mais (excedente
+  item a item e libertadas), decks, Encomendas, painel, Venda, Selado, a grelha
+  impressão a impressão e o `copies` inteiro.
+* **`conta_para_coleccao: true` → ZERO impressões sobem de nível.** É a
+  resposta à pergunta (a), e tem razão de ser: **as 48 impressões com foil têm
+  todas os 3 normais**, ou seja o alvo já estava cumprido — ele só marcou foil
+  em cartas de que já tinha o playset. Níveis, denominador, Faltas e wantlists
+  ficam iguais ao cêntimo. **O que mudaria mesmo era o «A mais»**: 69 → **117**
+  itens e 140 → **264** cópias, porque cada foil passa a ser excedente acima do
+  alvo. Fica anotado — é o efeito que ele não pediu.
+* **`conta_para_valor: true` → +13,64 €.** 6 645,21 € → **6 658,85 €**, +124
+  cópias, **todas no VEN** (1 058,56 → 1 072,20 €). São comuns e incomuns a
+  **11 cêntimos**, o mínimo do CardTrader. Os níveis, o denominador e a
+  wantlist não mexem — são botões separados, e há teste que o fixa.
+* **Cartas só em foil (0 normais, foil > 0): ZERO hoje.** Fotografado o caso à
+  mão numa cópia (o `VEN-011` Pendulum Blade a 0 normais + 2 foil): o tile fica
+  **a cinzento, com o crachá `0/3`** — a Coleção conta as normais, e para ela
+  ele não a tem —, o `−` desligado, sem o botão «+ venda», e a linha por baixo
+  a dizer «**0 normais · 2 foil = 2**» com o contador do foil a 2. A 375 px
+  `scrollWidth == clientWidth == 375` e zero elementos fora do ecrã.
+
+`tests/test_foil.py` passou de 31 para **44 testes**: o CHECK sem tecto, as
+duas migrações (a da coluna e a de hoje, esta a provar que **nenhum número
+mexe** e que a PK sobrevive ao RENAME), «3+3 dão 6», as duas contagens
+independentes nos dois sítios que baixam o `qty`, o estado `0 normais + foil`,
+a fotografia de tudo (com mais foils do que normais, e com uma carta só em
+foil) mais um teste que exige que a fotografia não seja de zeros, os dois
+botões ligados um a um e os dois juntos (e a reversibilidade), o limite, o
+gémeo em JavaScript, a rota, a CLI e o `app.js` (que já não corta o foil no
+`applyLocal`). O guarda das importações ficou **mais forte**: nenhum módulo de
+contas importa o `foil`, e o `qty_foil` só pode aparecer no `locais` e no
+`prices`, cada um com a sua chave. Suite: **47 ficheiros, 0 a falhar**.

@@ -638,6 +638,11 @@ b.fo, .fo-num b.fo { color: var(--foil); }
   border-radius: 6px; padding: 2px 6px; font-variant-numeric: tabular-nums;
 }
 .foil-txt b { color: var(--text); font-weight: 600; }
+/* O total (2026-09-26, quando o foil passou a somar-se) escreve-se «= 6» e
+   não «· 6 ao todo»: é a aritmética dele («3+3»), lê-se de relance, e a
+   375 px qualquer frase mais longa punha a grelha fora do ecrã — medido, a
+   versão comprida dava `scrollWidth` 377 em 375. */
+.foil-txt i.dim { white-space: nowrap; font-style: normal; opacity: .8; }
 .steppers.foil { gap: 4px; align-items: center; }
 .steppers.foil b { font-size: 11px; color: var(--foil); min-width: 10px; text-align: center; }
 .steppers.foil .step {

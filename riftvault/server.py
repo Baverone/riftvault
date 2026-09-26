@@ -145,11 +145,12 @@ def api_foil_ajustar():
     """Os `+`/`−` do contador de FOIL de um tile (2026-09-22):
     `{printing_id, delta}`.
 
-    Mexe SÓ na coluna `copies.qty_foil` — o total de cópias não mexe, e por
-    isso nenhuma conta do site mexe: é uma repartição do que ele já tem. Trava
-    em 0 e no total (`min(delta, qty − qty_foil)`), sem erro. Uma impressão
-    fora do âmbito (`foil.raridades`/`foil.edicoes_fora`) é 400; uma que não
-    exista é 404.
+    Mexe SÓ na coluna `copies.qty_foil` — as cópias NORMAIS (`copies.qty`) não
+    mexem, e por isso nenhuma conta do site mexe. O FOIL SOMA-SE às normais
+    (2026-09-26), não é uma fatia delas: o `+` acrescenta uma foil e o total da
+    impressão sobe. Trava em 0 e no `foil.LIMITE` (sanidade), sem erro. Uma
+    impressão fora do âmbito (`foil.raridades`/`foil.edicoes_fora`) é 400; uma
+    que não exista é 404.
     """
     data = request.get_json(silent=True) or {}
     try:
