@@ -4063,7 +4063,20 @@ function renderStaples() {
    (`cmLinha`), só com o que há a comprar. Só os blocos com `in_lists` (o
    master set) entram na wantlist GERAL da Coleção — os outros dizem-no no
    cabeçalho; a wantlist deles é própria do bloco. Uma carta a caminho
-   aparece marcada e não vai para nenhuma das duas.                          */
+   aparece marcada e não vai para nenhuma das duas.
+
+   DUAS METADES, DESDE 2026-09-27 (André: "quero as faltas separadas, as
+   normais e as foils / as foils nao sao faltas, sao apenas complemento e
+   indicativo / mais tarde poderao vir a ser compradas, entao preciso que
+   tenham uma wantlist a parte"). Em cada edição: primeiro as NORMAIS, os
+   quatro blocos como sempre; depois as FOILS (`s.foil`, do
+   `faltas_foil.bloco`), num bloco só, com a QUINTA wantlist. O alvo delas é o
+   playset do TIPO (Rune 12, Battlefield 1) e o preço é o da FOIL.
+
+   As foils NÃO SOMAM a nada do que está em cima: os `totals`, os
+   `totals_lists` e os quatro blocos vêm do `faltas_edicao.payload` e não
+   sabem que esta metade existe. O cabeçalho conta-as à parte, e o número
+   grande do separador continua a ser o das normais.                         */
 
 async function loadFaltasEdicao(sub = '') {
   $('#fe-body').innerHTML = '<p class="empty">a carregar…</p>';
@@ -4145,11 +4158,13 @@ function renderFaltasEdicao() {
       O que vem a caminho aparece marcado e não vai para nenhuma lista.
       Preço mais baixo em Near Mint/Mint no CardTrader, só ofertas em inglês.${
       fora.length ? `<br>Fora deste separador: ${fora.join(', ')} — não estão em nenhum dos ${quantos} blocos.` : ''}</small>
+    ${feFoilCabecalho(p.foil)}
   </div>`;
 
   $('#fe-body').innerHTML = sets.map(s => `
     <h2 class="section-head fe-set">${escapeHTML(s.name)}
       <span>${feResumo(s)}</span></h2>
+    <p class="fe-metade normais">Normais — <b>as faltas</b></p>
     ${s.blocks.map(g => `
       <h3 class="section-head sub fe-bloco ${g.id}${g.in_lists ? '' : ' fe-ver'}">${escapeHTML(g.label)}
         <small>${escapeHTML(g.target_label)}${g.in_lists ? '' : ' · wantlist própria'}</small>
@@ -4157,20 +4172,89 @@ function renderFaltasEdicao() {
       ${g.items.length
         ? `<div class="grid deck-grid fe-grid">${g.items.map(feTile).join('')}</div>`
         : `<p class="empty fe-vazio">${g.scope ? 'Nada falta neste bloco.' : 'Esta edição não tem impressões neste bloco.'}</p>`}
-      ${feWantlistHTML(s, g)}`).join('')}`).join('');
+      ${feWantlistHTML(s, g)}`).join('')}
+    ${feFoilMetade(s)}`).join('');
 
   // As caixas vêm preenchidas, como as da Coleção: a wantlist está ali, sem
   // carregar em nada. Uma por (edição, bloco), com id próprio para as
-  // botões não colidirem.
+  // botões não colidirem. A das foils é a quinta e liga-se igual; a nota dela
+  // é outra (`foilTodas`), porque ali TODAS as linhas precisam do filtro.
   for (const s of sets) {
-    for (const g of s.blocks) {
+    for (const g of feBlocosTodos(s)) {
       const itens = feWantlistItens(g);
       if (!itens.length) continue;
       const zid = feWlId(s, g) + '-cm';
       cmLigar(zid, () => feWantlistItens(g), `riftvault-faltas-${s.set}-${g.id}-${hojeISO()}.csv`);
-      cmMostrar(zid, itens, false, { foco: false, copiar: false });
+      cmMostrar(zid, itens, false,
+                { foco: false, copiar: false, foilTodas: g.id === 'foil' });
     }
   }
+}
+
+/* Os blocos de uma edição, nas duas metades: os quatro das normais e, se a
+   edição tiver âmbito de foil (o OGS não tem), o das foils. */
+function feBlocosTodos(s) {
+  return s.foil ? [...s.blocks, s.foil] : s.blocks;
+}
+
+/* A metade das FOILS de uma edição: a mesma forma de um bloco, com o rótulo
+   da metade por cima para não se confundir com as faltas. */
+function feFoilMetade(s) {
+  const g = s.foil;
+  if (!g) return `<p class="fe-metade foil">Foils — <b>esta edição não tem
+    impressões com contagem de foil</b> (fora do âmbito).</p>`;
+  return `<p class="fe-metade foil">Foils — <b>complemento</b>, não são faltas
+      <i>${feResumo(g)}</i></p>
+    <h3 class="section-head sub fe-bloco foil fe-ver">${escapeHTML(g.label)}
+      <small>${escapeHTML(g.target_label)} · wantlist própria</small>
+      <span>${feResumo(g)}</span></h3>
+    ${g.items.length
+      ? `<div class="grid deck-grid fe-grid">${g.items.map(feTile).join('')}</div>`
+      : `<p class="empty fe-vazio">${g.scope
+          ? 'Tens o playset em foil de tudo o que pode existir em foil nesta edição.'
+          : 'Esta edição não tem impressões com contagem de foil.'}</p>`}
+    ${feWantlistHTML(s, g)}`;
+}
+
+/* O que o cabeçalho diz das foils: a conta à parte, o âmbito, e o AVISO das
+   impressões em que a foil está a tapar um buraco das normais. Nada disto
+   soma aos números de cima — é o que ele quis dizer com «complemento». */
+function feFoilCabecalho(f) {
+  if (!f) return '';
+  const t = f.totals, s = f.scope, av = f.aviso_normais || [];
+  return `<div class="fe-foil-resumo">
+    <div class="deck-meta">
+      <span><i>Foils — complemento</i>${feResumo(t)}</span>
+      <span><i>Tens</i>${plural(s.owned, 'foil', 'foils')} em ${s.owned_printings} de ${
+        plural(s.printings, 'impressão', 'impressões')} · alvo ${s.target}</span>
+    </div>
+    <small class="nota">As foils <b>não são faltas</b> — são complemento e
+      indicativo, e têm <b>wantlist própria</b>. Não entram na contagem de
+      faltas aqui em cima, na percentagem da Coleção, nos três níveis nem nas
+      listas de compra que já existem. O alvo é o <b>playset do tipo</b>
+      (Unit/Spell/Gear 3, Battlefield 1, <b>Rune 12</b>) e só se listam
+      ${escapeHTML((s.rarities || []).map(r => (s.rarity_labels || {})[r] || r).join(' e ')
+        .toLowerCase())}${s.sem_edicoes && s.sem_edicoes.length
+        ? `, fora ${escapeHTML(s.sem_edicoes.join(', '))}` : ''}: de rara para cima as
+      cartas só existem em foil — a carta normal <i>é</i> a foil, e listá-las era
+      duplicar a coleção.
+      O preço é o da <b>foil</b> no CardTrader${t.no_foil_price
+        ? ` — ${plural(t.no_foil_price, 'linha', 'linhas')} conta${
+            t.no_foil_price === 1 ? '' : 'm'} ao preço da normal por não haver oferta
+          foil, por isso o total é um <b>piso</b>` : ''}.
+      O texto da wantlist não leva marca de foil: liga o filtro <i>Foil</i> em cada
+      entrada depois de colares.</small>
+    ${av.length ? `<details class="fe-aviso"><summary>${plural(av.length,
+        'impressão', 'impressões')} com foil e o playset das <b>normais</b> ainda
+        incompleto — a foil está a tapar o buraco</summary>
+      <ul>${av.map(x => `<li><code>${escapeHTML((x.code || '').split('/')[0])}</code>
+        ${escapeHTML(x.name)} — normais <b>${x.normais}/${x.target}</b> · ${
+        plural(x.foil, 'foil', 'foils')}</li>`).join('')}</ul>
+      <p class="nota">O tile da Coleção diz <code>${av[0].target}/${av[0].target}</code>
+        porque a foil conta para o master set desde 2026-09-26; em normais faltam-te
+        as que aqui se dizem. Não muda regra nenhuma — está aqui para se ver.</p>
+    </details>` : ''}
+  </div>`;
 }
 
 /* A wantlist de um bloco é só o que há a COMPRAR — o que vem a caminho está
@@ -4198,18 +4282,24 @@ function feWantlistHTML(s, g) {
 }
 
 /* Um tile: a arte, «faltam N» no canto (ou «a caminho» quando o pendente
-   cobre tudo), o total no outro canto, «tens H/T» em baixo. */
+   cobre tudo), o total no outro canto, «tens H/T» em baixo.
+
+   Nas FOILS (2026-09-27) o mesmo tile diz «tens H/T foil» e, quando o preço
+   veio da normal por não haver oferta foil, marca-o — é o PISO. Não há segundo
+   tile: é a mesma pergunta («quantas faltam») sobre a outra contagem. */
 function feTile(x) {
-  const cls = x.missing > 0 ? 'gone' : 'a-caminho';
+  const cls = (x.missing > 0 ? 'gone' : 'a-caminho') + (x.foil ? ' fe-foil' : '');
   const crachá = x.missing > 0 ? `faltam ${x.missing}` : 'a caminho';
+  const piso = x.foil && x.price != null && !x.price_is_foil;
   return `<div class="dtile ${cls}">
     ${artHTML(x, `<span class="need">${crachá}</span>
-      <span class="ja-tens">tens ${x.have}/${x.target}</span>
+      <span class="ja-tens">tens ${x.have}/${x.target}${x.foil ? ' foil' : ''}</span>
       ${x.price != null && x.missing > 0 ? `<span class="price">${eurShort(x.total)}</span>` : ''}`)}
     <div class="tname" title="${escapeAttr(x.name)}">${escapeHTML(x.name)}${
       x.label && x.label !== 'Base' ? ` <i class="var">${escapeHTML(x.label)}</i>` : ''}</div>
     <div class="codigo">${escapeHTML((x.code || '').split('/')[0])}${
-      x.price != null ? ` · ${eur(x.price)}` : ' · sem preço'}</div>
+      x.price != null ? ` · ${eur(x.price)}${x.foil ? (piso ? ' <i class="piso" title="Não há oferta foil no CardTrader: conta ao preço da normal, por isso o total é um piso.">normal</i>' : ' foil') : ''}`
+        : ' · sem preço'}</div>
     ${x.pending ? `<div class="onde caminho">${x.pending} a caminho${
       x.missing > 0 ? ` · ${x.missing} por comprar` : ''}</div>` : ''}
   </div>`;
@@ -5108,7 +5198,8 @@ function cmLigar(id, getItens, nomeFicheiro) {
    preenchidas sem ninguém carregar em nada: aí roubar o foco atirava a página
    para o fim, e escrever no clipboard sem ele pedir apagava-lhe o que lá
    tivesse. Nos botões continuam ligados, que é o que se espera de um clique. */
-function cmMostrar(id, itens, comCodigo, { foco = true, copiar = true } = {}) {
+function cmMostrar(id, itens, comCodigo, { foco = true, copiar = true,
+                                           foilTodas = false } = {}) {
   const linhas = itens.map(it => cmLinha(it, comCodigo));
   const txt = $(`#${id}-txt`), nota = $(`#${id}-nota`), fnota = $(`#${id}-foil`);
   txt.value = linhas.join('\n');
@@ -5148,13 +5239,19 @@ function cmMostrar(id, itens, comCodigo, { foco = true, copiar = true } = {}) {
   // um scroll sem fim. Fica aberta quando é curta, que é quando se lê de
   // relance. O <details> é do próprio browser: não precisa de JavaScript e o
   // texto continua todo lá para copiar.
+  //
+  // `foilTodas` é a wantlist das FOILS (2026-09-27): ali a lista É de foils, e
+  // dizer «só têm oferta foil no mercado» era outra frase — o que se diz é que
+  // todas precisam do filtro.
   const foil = linhas.filter((_, i) => itens[i].foil_only);
   fnota.hidden = !foil.length;
   if (foil.length) {
     const porque = `O texto da wantlist não leva marca de foil — depois de
          colares, liga o filtro <i>Foil</i> nestas entradas.`;
-    fnota.innerHTML = `<b>${foil.length} ${foil.length === 1 ? 'destas só tem'
-      : 'destas só têm'} oferta foil no mercado.</b> ${porque}
+    fnota.innerHTML = `<b>${foilTodas
+      ? `${foil.length === 1 ? 'Esta linha é' : 'Estas ' + foil.length + ' linhas são'} FOIL.`
+      : `${foil.length} ${foil.length === 1 ? 'destas só tem' : 'destas só têm'}
+         oferta foil no mercado.`}</b> ${porque}
       <details class="foil-lista"${foil.length <= 8 ? ' open' : ''}>
         <summary>ver ${plural(foil.length, 'linha', 'linhas')}</summary>
         ${foil.map(escapeHTML).join('<br>')}</details>`;

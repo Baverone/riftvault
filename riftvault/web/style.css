@@ -1255,10 +1255,52 @@ body.readonly .btn.chegou { display: none; }
 }
 .fe-wl-head span { margin-left: auto; font-weight: 400; }
 .fe-wl .wl-zona { margin-top: 8px; }
+
+/* AS DUAS METADES (2026-09-27): "quero as faltas separadas, as normais e as
+   foils". A linha da metade é o que as separa à vista — a das normais discreta
+   (é o que a página sempre foi), a das foils com o «não são faltas» escrito,
+   para nunca se ler o número dela como uma falta.
+
+   A cor é a `--foil` de 2026-09-22, a mesma do contador no tile da Coleção:
+   uma segunda cor de foil era o mesmo assunto com duas caras. */
+.fe-metade {
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+  margin: 12px 0 0; padding-top: 8px; border-top: 1px solid var(--line);
+  font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--dim);
+}
+.fe-metade b { color: var(--text); letter-spacing: normal; text-transform: none; }
+.fe-metade i {
+  margin-left: auto; font-style: normal; letter-spacing: normal;
+  text-transform: none; font-size: 12px;
+}
+.fe-metade.foil { margin-top: 20px; border-top-color: var(--foil); }
+.fe-metade.foil b { color: var(--foil); }
+.fe-bloco.foil { --cor: var(--foil); }
+/* O tile de uma foil: a moldura na cor do foil, para não se confundir com uma
+   falta das normais na mesma página. O «normal» do preço é o PISO. */
+.dtile.fe-foil .art { border-color: rgba(217, 164, 65, .5); }
+.dtile.fe-foil .codigo i.piso { font-style: normal; color: var(--accent-2); }
+/* O resumo das foils no cabeçalho do separador: à parte do das normais, com a
+   mesma cor da metade, para não haver dúvida sobre o que soma a quê. */
+.fe-foil-resumo {
+  margin-top: 12px; padding-top: 10px;
+  border-top: 1px dashed var(--foil);
+}
+.fe-foil-resumo .deck-meta i { color: var(--foil); }
+.fe-aviso { margin-top: 8px; font-size: 12px; }
+.fe-aviso summary { cursor: pointer; color: var(--accent-2); }
+.fe-aviso ul { margin: 8px 0 0; padding-left: 18px; color: var(--dim); }
+.fe-aviso li { margin: 2px 0; }
+.fe-aviso li b { color: var(--text); }
+.fe-aviso .nota { margin-top: 8px; }
 @media (max-width: 560px) {
   .fe-bloco { flex-wrap: wrap; }
   .fe-bloco span { margin-left: 0; text-align: left; flex-basis: 100%; }
   .fe-wl-head span { margin-left: 0; flex-basis: 100%; }
+  /* A conta da metade das foils passa para baixo do rótulo, em vez de ser
+     empurrada para fora do ecrã pelo `margin-left: auto`. */
+  .fe-metade i { margin-left: 0; flex-basis: 100%; }
 }
 
 /* --------------------------------------------------------------- «A mais»

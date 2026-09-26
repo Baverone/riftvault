@@ -18,7 +18,7 @@ from datetime import datetime, timezone
 
 from flask import Flask, g, jsonify, redirect, request, send_from_directory
 
-from . import (a_mais, a_subir, collection, config, db, decks, faltas, faltas_edicao,
+from . import (a_mais, a_subir, collection, config, db, decks, faltas, faltas_foil,
                foil, locais, metrics, pending, proprias, runas_vista, selado, venda)
 
 app = Flask(__name__, static_folder=None)
@@ -396,10 +396,15 @@ def api_proprias_ajustar():
 
 @app.get("/api/faltas_edicao.json")
 def api_faltas_edicao():
-    """O separador «Faltas» (2026-09-15, fim da tarde): por edição, em quatro
-    blocos — master set, sobrenumeradas, alt art, promos. Lê os locais e o
-    pendente, não os decks."""
-    return jsonify(faltas_edicao.payload(get_con()))
+    """O separador «Faltas» (2026-09-15, fim da tarde): por edição, em DUAS
+    METADES — as NORMAIS em quatro blocos (master set, sobrenumeradas, alt art,
+    promos) e as FOILS à parte (2026-09-27, *"as foils nao sao faltas, sao
+    apenas complemento e indicativo"*). Lê os locais, o pendente e a contagem
+    de foil; não lê os decks. Quem compõe as duas metades é o
+    `faltas_foil.payload_completo` — a das normais vem do
+    `faltas_edicao.payload` tal e qual, e é isso que garante que os números
+    delas não mexem."""
+    return jsonify(faltas_foil.payload_completo(get_con()))
 
 
 @app.get("/api/a_mais.json")

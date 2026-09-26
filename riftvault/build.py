@@ -30,7 +30,7 @@ import json
 import shutil
 from pathlib import Path
 
-from . import (a_mais, a_subir, config, db, decks, faltas, faltas_edicao, metrics,
+from . import (a_mais, a_subir, config, db, decks, faltas, faltas_foil, metrics,
                pending, runas_vista, selado, venda)
 
 # A pasta das imagens fica de fora da comparação: em `static_images: "local"`
@@ -177,8 +177,10 @@ def _gerar(out_dir: Path | str, log=print, imagens: bool = True) -> dict:
     (out / "api" / "compras.json").write_text(
         json.dumps(faltas.compras(con), ensure_ascii=False, separators=(",", ":")),
         encoding="utf-8")
-    # O separador «Faltas» (2026-09-15, fim da tarde): por edição, quatro blocos.
-    fe = faltas_edicao.payload(con)
+    # O separador «Faltas» (2026-09-15, fim da tarde): por edição, as DUAS
+    # metades — os quatro blocos de NORMAIS e, desde 2026-09-27, as FOILS à
+    # parte, com a quinta wantlist.
+    fe = faltas_foil.payload_completo(con)
     (out / "api" / "faltas_edicao.json").write_text(
         json.dumps(fe, ensure_ascii=False, separators=(",", ":")),
         encoding="utf-8")
@@ -220,7 +222,8 @@ def _gerar(out_dir: Path | str, log=print, imagens: bool = True) -> dict:
     log(f"  api/decks.json  ({len(index_decks)} decks, "
         f"{sum(d['proprias'] for d in index_decks)} cópias próprias) + api/wantlist.json"
         f" + api/compras.json + api/faltas_edicao.json ({fe['totals']['copies']} "
-        f"cópias a comprar) + api/a_mais.json ({am['totals']['excedente']['copies']} "
+        f"cópias a comprar · {fe['foil']['totals']['copies']} foils à parte, que "
+        f"não são faltas) + api/a_mais.json ({am['totals']['excedente']['copies']} "
         f"cópias a mais) + api/encomendas.json "
         f"({encomendas['totals']['copies']} cópias a caminho) + api/encomendas/*.json "
         f"({n_enc} impressões de Rara para cima) + api/venda.json "
