@@ -338,11 +338,12 @@ class TestOConfigReal(unittest.TestCase):
         cls.cfg = json.loads((REPO / "riftvault_config.json").read_text(encoding="utf-8"))
         cls.excl = cls.cfg["selado"]["excluidos"]
 
-    def test_a_chave_existe_e_tem_32(self):
+    def test_a_chave_existe_e_tem_43(self):
         """22 da primeira ordem de 25/09 + 10 da segunda (os 2 «Complete Sets»
-        e os 8 Trial Deck). Os 22 continuam lá, um a um, nos testes a seguir."""
-        self.assertEqual(len(self.excl), 32)
-        self.assertEqual(len(set(self.excl)), 32, "sem repetidos")
+        e os 8 Trial Deck) + 11 de 26/09 (os Champion Deck). Os 22 continuam
+        lá, um a um, nos testes a seguir."""
+        self.assertEqual(len(self.excl), 43)
+        self.assertEqual(len(set(self.excl)), 43, "sem repetidos")
 
     def test_os_13_boosters_soltos(self):
         for n in ("Origins Booster", "Origins Sleeved Booster", "Origins Slim Booster",
@@ -429,14 +430,14 @@ class TestOs22ContraOCatalogoReal(unittest.TestCase):
         importlib.reload(cls.config)
         cls.config.load.cache_clear()
 
-    def test_saem_exactamente_32_e_cada_nome_casa_com_um(self):
+    def test_saem_exactamente_43_e_cada_nome_casa_com_um(self):
         ex = self.selado.excluidos(self.cfg)
-        self.assertEqual(len(ex), 32)
-        self.assertEqual(len({x["id"] for x in ex}), 32)
+        self.assertEqual(len(ex), 43)
+        self.assertEqual(len({x["id"] for x in ex}), 43)
 
-    def test_a_aba_fica_com_66_selados(self):
+    def test_a_aba_fica_com_55_selados(self):
         lista = [x for x in self.selado.itens(None, self.cfg) if not x["acessorio"]]
-        self.assertEqual(len(lista), 66, "98 − 22 − 10")
+        self.assertEqual(len(lista), 55, "98 − 22 − 10 − 11")
 
     def test_os_acessorios_estao_desligados(self):
         """`selado.acessorios` ficou VAZIA a 2026-09-25 (ele mandou tirar os
@@ -502,10 +503,10 @@ class TestOs22ContraOCatalogoReal(unittest.TestCase):
         por = {}
         for x in lista:
             por[x["edicao"]] = por.get(x["edicao"], 0) + 1
-        self.assertEqual(por, {"OGN": 8, "OGS": 2, "SFD": 8, "UNL": 10, "VEN": 8,
-                               "RAD": 7, "LGC": 6, "PG2": 1, "REC": 1, "ARC": 2,
+        self.assertEqual(por, {"OGN": 5, "OGS": 2, "SFD": 6, "UNL": 8, "VEN": 8,
+                               "RAD": 7, "LGC": 2, "PG2": 1, "REC": 1, "ARC": 2,
                                "OP": 1, "PROMO-RIFT": 10, "T1S": 2})
-        self.assertEqual(sum(por.values()), 66)
+        self.assertEqual(sum(por.values()), 55)
 
 
 # ---------------------------------------------------------------------------

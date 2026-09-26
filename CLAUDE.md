@@ -62,14 +62,15 @@ site já não há secção nenhuma com esse id.) Há também **Produto Selado** 
 boosters e Proving Grounds: o que há, o que tem e o que não tem; a lista vem
 das CATEGORIAS do CardTrader, o catálogo em `data/selado_catalogo.json`, id
 `selado`, `api/selado.json`, `selado.py`; **não entra na Coleção** e o valor
-dele nunca se soma ao dela. **Desde a noite de 2026-09-25 são 66**: os 81 da
+dele nunca se soma ao dela. **Desde 2026-09-26 são 55**: os 81 da
 API (4 blueprints repetidos juntados, `selado.juntar_duplicados`) mais 17
 escritos à mão em `selado.extra` — displays de champion e de showdown decks,
 cases de vaults, o case do Proving Grounds e os Pre-Rift EVENT Kit —,
-**menos os 32 que ele mandou tirar** (`selado.excluidos`, a mesma ideia das
+**menos os 43 que ele mandou tirar** (`selado.excluidos`, a mesma ideia das
 abas: esconder não é apagar, o catálogo fica intacto e repor é tirar o nome
 da lista — 22 numa primeira ordem, mais 2 «Card Set» e 8 Trial Deck numa
-segunda). A secção dos **binders e deck boxes** (`selado.acessorios`) ficou
+segunda, mais os 11 **Champion Deck** a 26/09; os 7 Champion Deck **Display**
+da `extra` e os 2 Showdown Deck ficam). A secção dos **binders e deck boxes** (`selado.acessorios`) ficou
 com a **lista VAZIA** nessa mesma noite — ele mandou tirar os acessórios
 todos —, e por isso não aparece; a chave e o código ficam, e repor é escrever
 os números outra vez. Ver a última secção deste ficheiro.)
@@ -6828,3 +6829,112 @@ mexer no crachá, a tabela de montagem, o CSS e o CLI); e o `qty_colecao` do
 `/api/adjust` a bater com a grelha (4b).
 
 Suite: **48 ficheiros, 0 a falhar**.
+
+## 26/09/2026 — os CHAMPION DECK saem do Produto Selado (66 → 55); e o «bug» dos Trial Deck Set NÃO EXISTIA
+
+Palavras dele: *"retira os Champion Deck todos"*. Ramo
+`ai-pc/selado-champion-2026-09-26`.
+
+**NÃO HÁ MECANISMO NOVO, pela terceira vez** — é a mesma `selado.excluidos`
+das duas ordens de 25/09 (22 → 32 → **43**), e mais nada. Zero linhas de
+lógica; o trabalho foi verificar o que sai, o que fica, e a parte da ordem
+que estava errada.
+
+### 1. Os 11 que saem, todos da categoria 262
+
+OGN «Jinx» / «Viktor» / «Lee Sin» · SFD «Rumble» / «Fiora» · UNL «Vi» /
+«Vex» · LGC «Ashe» / «Tryndamere» / «Lux» / «Garen». O «Origins: Champion
+Deck Set» já saíra a 25/09 (*"compram-se à unidade"*). Confirmado contra o
+catálogo real: cada nome casa com UM produto, e depois destes **não fica na
+aba nenhum Champion Deck vindo do CardTrader**.
+
+### 2. O que FICA, e é onde era fácil enganar-se
+
+- **Os 2 Showdown Deck** (Vendetta «Zed vs Shen», Radiance «Evelynn vs
+  Seraphine»): outra linha de produto, e ele nomeou o Champion Deck.
+- **Os 7 Champion Deck Display** da `selado.extra` (OGN Jinx/Viktor/Lee Sin,
+  SFD Rumble/Fiora, UNL Vi/Vex). **É a prova do «o nome é EXACTO, nunca um
+  pedaço»**: o nome de cada um dos 11 está literalmente DENTRO do nome do
+  display dele (`Origins: "Jinx" Champion Deck` ⊂ `Origins: "Jinx" Champion
+  Deck Display`), e mesmo assim os displays não vão atrás. Ele nunca os
+  nomeou, e o padrão dele ao longo de 25/09 foi tratar a unidade e o display
+  como linhas separadas (as «Slim Booster Box» foram pedidas à parte dos
+  «boosters soltos»). **Ficam até ele dizer** — e os 2 Showdown Decks
+  Display também, o que dá 9 displays de decks na `extra`, como antes.
+
+### 3. O BUG REPORTADO NÃO EXISTIA — e por isso não se escreveu nada
+
+A ordem trazia um bug a corrigir: *«há dois Trial Decks ainda visíveis por o
+nome não bater — o catálogo tem "2024 Trial Deck Set Set" e a lista tem "2024
+Trial Deck Set"»*. **Os dois estão fora desde 25/09 e nunca estiveram
+visíveis.** O `_resolver_excluidos` indexa cada produto pelas DUAS escritas —
+o nome LIMPO (`selado.nome_limpo`, que junta a palavra dobrada) e o
+`nome_bruto` do catálogo —, é o que a nota do config já dizia («o bruto do
+catálogo casa na mesma») e o que o
+`test_selado_tirar2.test_o_nome_limpo_e_o_que_casa_nos_trial_deck_set` já
+fixava, a passar. Medido no payload real, antes de tocar em nada: **zero
+produtos com «trial deck» no nome visíveis**.
+
+**Não se acrescentaram os nomes dobrados, e a razão não é só serem
+redundantes:** seriam uma segunda linha para o mesmo produto que passaria a
+**REBENTAR** no dia em que o CardTrader corrigisse o nome — aí o `nome_bruto`
+passava a «2024 Trial Deck Set» e a entrada «… Set Set» deixava de casar com
+nada, que é `ValueError` e página parada. Escrever o nome limpo é a escrita
+que sobrevive às duas versões do catálogo.
+
+### 4. A pergunta geral que a ordem fez bem em fazer: exclusões mortas
+
+*«Vê se há mais casos do mesmo — nomes na `selado.excluidos` que não casam
+com nenhum produto.»* **Hoje são ZERO**: as 43 entradas casam todas, cada uma
+com exactamente um produto.
+
+O que faltava era o guarda permanente. O `_resolver_excluidos` já rebenta com
+uma entrada morta — mas só quando alguém lhe pede o payload, e o `tolerante`
+cala-o de propósito quando não há catálogo em disco.
+`TestNenhumaExclusaoMorta` faz a pergunta de frente, para a lista INTEIRA e
+não para os nomes de uma ordem: todas casam, nenhuma é ambígua, e a prova
+pela negativa (uma entrada inventada tem de rebentar). É o teste que apanha o
+caso a sério que há-de vir — **um blueprint retirado do CardTrader depois de
+um `--sync`**, que faz o nome dele na lista deixar de casar.
+
+### Medido a 2026-09-26 contra uma CÓPIA do `data/` real
+
+`_revisao\_medir_champion.py`: o MESMO código e a MESMA cópia, mudando só a
+lista, a gerar o site dos dois lados. **Os 30 ficheiros saem IGUAIS ficheiro
+a ficheiro** (a menos do relógio) — o único que difere é o `api/selado.json`,
+de 128 523 para **110 194 bytes**. Nada fora do selado mexe, e não é asserção:
+é o site inteiro comparado byte a byte. (O `data/` a sério nunca se tocou —
+ele estava a marcar foils.)
+
+| | antes | depois |
+|---|---|---|
+| produto selado | 66 (51 saíram · 15 por sair) | **55** |
+| não tenho | 51 | **44** (os 4 da LGC são «por sair» e nunca contaram) |
+| excluídos | 32 | **43** |
+| acessórios | 0 | **0** |
+| champion decks do CardTrader na aba | 11 | **0** |
+| champion deck displays na aba | 7 | **7** |
+| showdown decks na aba | 2 | **2** |
+
+Por edição (o que há): **OGN 8 → 5**, **SFD 8 → 6**, **UNL 10 → 8**, **LGC
+6 → 2**; as outras nove não mexem (OGS 2, VEN 8, RAD 7, PG2 1, REC 1, ARC 2,
+OP 1, PROMO-RIFT 10, T1S 2). **Total 66 → 55.**
+
+`tests/test_selado_champion.py` (45 testes, contra cópias e config
+temporário): o mecanismo (o deck sai, o **display dele fica**, o showdown
+fica, sai dos contadores, o `scope` di-lo, repor é tirar o nome, a unidade
+gravada não se apaga e volta, o `+` recusa, o catálogo em disco intacto); o
+**config real** (43 sem repetidos, os 11 lá, as 32 das ordens anteriores
+inteiras, os 7 displays e os 2 showdown FORA da lista e dentro da `extra`, os
+nomes dobrados não escritos); os **11 contra o catálogo real** (cada um casa,
+todos da 262, nenhum champion deck do CardTrader fica, os 7 displays ficam e
+são 7, os 2 showdown ficam, 55 selados, a conta por edição, a LGC sem
+champion decks); **nenhuma exclusão morta** (as 43 casam, nenhuma ambígua, e
+uma inventada rebenta); os **Trial Deck Set já fora** (o catálogo escreve-os
+dobrados, a lista limpa, e mesmo assim casam e não se vêem); e **a
+fotografia** — a MESMA do `test_selado`, por referência — a tirar e a repor.
+`test_selado_tirar` e `test_selado_tirar2` foram ajustados nos NÚMEROS (32 →
+43, 66 → 55, a conta por edição): o teste é que descrevia o de antes, não o
+código.
+
+Suite: **50 ficheiros, 0 a falhar**.
