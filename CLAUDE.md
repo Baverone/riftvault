@@ -6514,13 +6514,29 @@ foil. Sem `nowrap`, ao contrário do total — a frase é longa e a 375 px tem d
 poder partir-se; com `nowrap` era a avaria medida a 22/09. O payload da edição
 leva `price_foil` e `qty_valor_foil` por impressão.
 
-**A barra do valor passou a bater certo com o servidor.** O cliente somava
-`state.qty × price` — o `qty` da COLEÇÃO —, enquanto o servidor soma o
-`qty_valor` (as físicas menos as próprias dos decks): numa coleção com cópias
-sleevadas num deck a barra dizia menos. Passou a haver `state.valNorm`, semeado
-do `qty_valor − qty_valor_foil` e a andar com os `+`/`−` como o `state.tot`.
-(Hoje dá o mesmo número porque a `copy_locations` está vazia; era um bug à
-espera da primeira marcação.)
+**A barra do valor passou a bater certo com o servidor — duas divergências,
+as duas fechadas.** O cliente recalcula o valor a cada `+`/`−` varrendo a
+grelha, e dava um número diferente do `progress.value.owned` por dois motivos:
+
+1. somava `state.qty × price` — o `qty` da COLEÇÃO —, enquanto o servidor soma
+   o `qty_valor` (as físicas menos as próprias dos decks): numa coleção com
+   cópias sleevadas num deck a barra dizia menos. Passou a haver
+   `state.valNorm`, semeado do `qty_valor − qty_valor_foil` e a andar com os
+   `+`/`−` como o `state.tot`. (Hoje dá o mesmo número porque a
+   `copy_locations` está vazia; era um bug à espera da primeira marcação.)
+2. as **escondidas** (tokens, signatures, runas sem numeração) valem o que ele
+   tem delas e entram no `owned` do servidor, mas **nunca chegam à grelha** —
+   o cliente não tinha por onde as somar. O payload passou a levar
+   `progress.value.hidden_owned`, o pedaço do `owned` que não está na grelha, e
+   o cliente parte dele. Medido no `data/` real: era **1,65 €** (SFD 0,55 · UNL
+   0,88 · VEN 0,22); **agora as cinco edições fecham ao cêntimo** — OGN
+   1 907,50 · OGS 81,12 · SFD 1 779,31 · UNL 1 752,56 · VEN 1 264,49 €, cliente
+   igual a servidor em todas.
+
+Fica de pé, anotada, uma terceira diferença que **não é do cliente**: a soma
+das cinco edições (6 784,98 €) não é o valor da coleção inteira (6 890,36 €) —
+faltam-lhe as `market_only` (as runas do CardTrader que a RiftScribe não tem),
+que não pertencem a edição nenhuma do payload. É de sempre e é outra pergunta.
 
 Na consola: o `riftvault foil REF` diz os dois preços e marca o fallback
 (`_precos_foil`); o `riftvault foil` e o `riftvault stats` levam a linha do
@@ -6571,15 +6587,24 @@ a mudança desta ordem vale **+21,13 €** — é a linha da tabela acima, que �
 coluna de preço e o «A subir» mede a subida da carta que ele compra; uma série
 da foil é outra pergunta, e ele não a fez.
 
-`tests/test_foil_preco.py` (55 testes): a coluna e a migração (de raiz, num
+**A 375 px o preço foi para uma LINHA PRÓPRIA** dentro do bloco do foil
+(`flex: 0 0 100%`, com `flex-wrap` no `.foil-linha`). Ao lado dos `+`/`−`
+sobravam ~50 px num tile de ~109 px e «foil ao preço da normal» saía a **uma
+palavra por linha** — visto na fotografia, não no código. Medido depois:
+`documentElement.scrollWidth == clientWidth == 375`, zero elementos fora do ecrã
+e **zero com scroll próprio** (antes o `.foil-linha` transbordava 3 px, e isso
+subia pela `.group` e pela `.grid` acima).
+
+`tests/test_foil_preco.py` (57 testes): a coluna e a migração (de raiz, num
 catálogo antigo, com backup, idempotente, pelas duas portas); o `oferta()` (o
 mínimo das foils, os seis filtros um a um, a língua do config); **o preço normal
 igual ao de antes** (fixture real + gerados); o valor (foil ao preço da foil, o
 fallback contado, o `from_foil`, sem preço, por edição, o top, a barra da edição,
-a chave desligada, a runa retirada); os três gémeos; o que não mexe (`copies`,
-alvos, «A mais», histórico); os docstrings que mentiam (em cinco ficheiros); a
-interface; e o `sync_prices` a gravar as duas colunas. Suite: **49 ficheiros, 0 a
-falhar**.
+a chave desligada, a runa retirada); os três gémeos; **a barra do cliente igual
+à do servidor**, com uma escondida com cópias e preço a prová-lo; o que não mexe
+(`copies`, alvos, «A mais», histórico); os docstrings que mentiam (em cinco
+ficheiros); a interface; e o `sync_prices` a gravar as duas colunas. Suite:
+**49 ficheiros, 0 a falhar**.
 
 ## 26/09/2026, à tarde — o FOIL CONTA: para o valor e para o master set; e NUNCA no «A mais»
 
