@@ -27,6 +27,15 @@ página dele mostra é uma SIMULAÇÃO. Do mesmo dia, a REGRA DE RARIDADE
 (`decks.coleccao_so_a_partir_de: "epic"`): abaixo desse patamar a cópia devia
 vir das próprias do deck — **marca, não bloqueia**.
 
+**DESDE 2026-09-26 A GRELHA DA COLEÇÃO TEM AS FILAS DO BINDER** — a sequência
+do master set sai com a **primeira fila de 4 e as seguintes de 8**, porque é
+assim que a pasta dele está (`.grid.binder` no CSS, `BINDER_PRIMEIRA`/
+`BINDER_FILA` no `app.js`; ver a última secção deste ficheiro). A posição de um
+tile É a posição da carta na pasta: por isso o número por fila é FIXO (nada de
+`auto-fill` ali), cada impressão ocupa UMA célula (nada de `.group.multi` na
+sequência), e num ecrã estreito o bloco corre para o lado em vez de refluir.
+**Não mexe em número nenhum** — é desenho, e nenhum `.py` sabe que existe.
+
 **DESDE 2026-09-25 AS ABAS ESCONDEM-SE POR CONFIG** (`abas.escondidas`, hoje
 `["a-mais", "pordeck", "pimp"]`) — ver a última secção deste ficheiro.
 Esconder **não é apagar**: o «A mais», o «Por deck» e o «Pimp decks» continuam
@@ -7087,3 +7096,131 @@ lista, mas não por essas ordens — e é isso que os testes novos lá dizem). O
 `test_selado_tirar` ganhou a constante `OS_22`, que não existia.
 
 Suite: **51 ficheiros, 0 a falhar**.
+
+## 26/09/2026 — AS FILAS DA COLEÇÃO SÃO AS DO BINDER: 4, e depois 8 em 8
+
+Palavras dele: *"quero que as filas da coleccao estejam organizas por /
+primeira fila de todas 4 / depois de 8 em 8 / que e como fica o Binder"*. Ramo
+`ai-pc/binder-2026-09-26`.
+
+**O objectivo manda em tudo o resto: a posição de um tile na grelha é a
+posição da carta na PASTA dele.** É uma ferramenta para encontrar a carta —
+abrir a página, contar a fila, ir buscá-la. Tudo o que quebre essa
+correspondência está errado, por melhor que fique. É essa frase que decide as
+cinco decisões abaixo.
+
+**É SÓ DESENHO.** Não se tocou num único `.py` do pacote: a mudança é o
+`riftvault/web/style.css` e o `riftvault/web/app.js`. Medido na página, num
+Chrome a sério, com a MESMA cópia do `data/` real, antes e depois: painel,
+barras, resumo do foil, cabeçalhos dos blocos, a linha de contagem e **os 2 244
+crachás dos tiles** (alvo e linha do foil, impressão a impressão) nas cinco
+edições e no «Todas» — **zero diferenças em 6 separadores × 7 leituras**.
+
+### 1. O ritmo é FIXO: 4 + 8, nunca `auto-fill`
+
+A `.grid` da Coleção era `repeat(auto-fill, minmax(var(--tile), 1fr))` — o
+número de cartas por fila mudava com a largura da janela. Para a pasta isso é
+inútil: a 5.ª carta tem de estar SEMPRE na 2.ª fila. A sequência passou a ter
+**8 colunas escritas** (`.grid.binder`) e a primeira fila fecha nas 4 com um
+calço invisível de 4 colunas (`.binder-gap`), que o `render()` põe a seguir ao
+4.º tile de cada edição. O calço não é um tile: não entra no `state.tiles`
+(as setas não param nele) e leva `aria-hidden`.
+
+Os dois números vivem num sítio (`BINDER_PRIMEIRA = 4`, `BINDER_FILA = 8`, no
+`app.js`) e o ritmo **recomeça em cada edição** — em «Todas» são cinco pastas
+seguidas, não uma de 928 cartas. Medido no browser: 5 calços, cada edição a
+abrir na sua fila 1 (OGN-001, OGS-001, SFD-001, UNL-001, VEN-001).
+
+### 2. UMA IMPRESSÃO, UMA CÉLULA — e o `.group.multi` que havia
+
+O problema que estava no caminho: `.group.multi` põe `--span:N` e faz um grupo
+com N variantes ocupar **N colunas**. Com isso a fila deixava de ter 8 cartas e
+a correspondência partia-se. No binder cada carta ocupa uma bolsa, ponto — por
+isso nas filas do binder cada impressão sai no seu `.group` e **nenhum grupo
+ocupa mais do que uma célula**.
+
+**Quantos grupos `multi` há hoje: ZERO, em todos os blocos e nas cinco
+edições** (medido a 26/09: 928 grupos no bloco `master`, TODOS de uma impressão
+só). E há uma razão estrutural para isso, que se fixou em teste: os blocos
+separam as variantes — a base vai para a sequência, a arte alternativa para o
+bloco `alt_art`, a sobrenumerada para o `overnumbered` —, e `multi` só
+aparecia se duas impressões do MESMO grupo caíssem no MESMO bloco. O `multi`
+fica no código para os outros blocos (é lá que continua a ser a resposta
+certa); na sequência não se usa.
+
+### 3. Só a SEQUÊNCIA do master set
+
+É a que ele arruma na pasta por número. Os outros blocos — sobrenumeradas,
+artes alternativas, promos, runas especiais — ficam em `auto-fill` como
+estavam. **A grelha das Encomendas também não muda**: é a da Coleção CORTADA
+na raridade (de Rara para cima, 17/09), faltam-lhe cartas, e as posições nunca
+seriam as da pasta.
+
+**Por decidir com ele** (não se aplicou nada «por coerência»): a cauda da
+grelha é uma lista de 12 a 96 cartas por bloco que ele guarda noutro sítio, e
+pô-la a 4 + 8 prometia uma posição de pasta que não existe. A leitura que
+proponho é: as sobrenumeradas, as artes alternativas e as promos **só** devem
+seguir o ritmo se ele as arrumar na MESMA pasta a seguir à sequência — e aí a
+pergunta seguinte é se a contagem continua de onde a sequência ficou (a 299.ª
+carta na fila 38, posição 7) ou se cada bloco começa numa página nova. Enquanto
+ele não disser, ficam como estão.
+
+### 4. ECRÃS ESTREITOS: encolhe até 104 px e depois CORRE, sem refluir
+
+Refluir para 4 ou 2 por fila mataria a funcionalidade. O tile encolhe até
+`--tile-binder`, e o chão é **104 px** — o mesmo que o `--tile` já
+documentava como mínimo para o polegar. Não se foi abaixo disso de propósito:
+8 tiles nunca cabem num telemóvel de 375 px, por isso encolher mais não evitava
+o scroll e só estragava os `+`/`−`. Abaixo do chão é o **bloco** que corre
+(`.binder-wrap { overflow-x: auto }`), e é o `overflow` que impede a largura
+mínima das 8 colunas de empurrar a página.
+
+**Medido num Chrome a sério, 11 larguras, a página do OGN** (janela → largura
+do bloco → scroll?):
+
+| janela | bloco | coluna | scroll no bloco | scroll na página |
+|---|---|---|---|---|
+| 1600 | 1140 px | 135,5 px | não | não |
+| 1440 | 1122 px | 133,3 px | não | não |
+| 1280 | 962 px | 113,2 px | não | não |
+| **1206** | **888 px** | **104 px** | **não** (é o limite) | não |
+| 1200 | 882 px | 104 px | **sim** | não |
+| 1100 | 785 px | 104 px | sim | não |
+| 900 | 595 px | 104 px | sim | não |
+| 375 | 347 px | 104 px | sim | não |
+
+**A partir de 1206 px de janela não há scroll; abaixo disso o bloco corre.** As
+8 colunas precisam de 888 px (8 × 104 + 7 × 8 de `gap`); a barra lateral come
+258 px e o `.wrap` até 60 px de margem. A página **nunca** corre para o lado, em
+largura nenhuma — medido.
+
+### 5. Quando um filtro esconde parte da sequência, NÃO se finge
+
+A procura, o «Faltas», o «só artes base» e os filtros de tipo tiram impressões
+da grelha. Com elas de fora, a carta que ficasse no lugar da escondida apontava
+a bolsa errada — e uma posição errada é pior do que um desenho diferente. O
+`binderCheio()` compara o que se vê com a sequência inteira; se faltar alguma,
+a grelha volta ao `auto-fill` e escreve porquê («vêem-se 43 de 298 impressões»,
+medido com o filtro «Faltas» no OGN).
+
+**Onde ele pode conferir, na OGN** (medido na página, não em aritmética — a
+posição saiu do `getBoundingClientRect` de cada tile): 1.ª carta `OGN-001`
+fila 1 posição 1; 4.ª `OGN-004` fila 1 posição 4; 5.ª `OGN-005` **fila 2
+posição 1**; 12.ª `OGN-012` fila 2 posição 8; 13.ª `OGN-013` **fila 3
+posição 1**; e a última, `OGN-298`, na fila 38 posição 6 (298 = 4 + 8×36 + 6).
+As cinco edições: OGN 298 impressões, OGS 24, SFD 221, UNL 219, VEN 166.
+
+`tests/test_binder.py` (30 testes): o ritmo e os dois números; as 8 colunas
+fixas e o resto da grelha em `auto-fill`; o calço a fechar a primeira fila e a
+não ser tile; o recomeço por edição; as posições que ele vai conferir contra a
+pasta; uma impressão uma célula (e o `multi` a ficar para os outros blocos, com
+o mecanismo dos blocos a explicar o zero de hoje); só o master set, com as
+Encomendas de fora; a sequência a sair por número de coleção; **nenhum `@media`
+mexe nas filas**; o chão, o scroll no bloco e não na página; o aviso do filtro;
+e **nenhum módulo de Python conhece o binder**. O `test_casca` tinha
+`assertNotIn("overflow-x: auto", CSS)` para a página inteira (a lição das filas
+de botões de 24/09): passou a exigir que o único `overflow-x` do site seja o do
+`.binder-wrap` — se alguém puser scroll lateral numa barra de botões, dá
+vermelho outra vez.
+
+Suite: **52 ficheiros, 0 a falhar**.

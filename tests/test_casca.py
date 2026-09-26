@@ -165,9 +165,25 @@ class TestSemScrollLateral(unittest.TestCase):
     def test_nenhuma_barra_de_navegacao_tem_overflow_x(self):
         """A regra `.tabs { overflow-x: auto }` era o que escondia os botões:
         o `scrollWidth` do documento continuava a dar 390, e por isso um teste
-        que só olhasse para ele dizia que estava tudo bem."""
-        self.assertNotIn("overflow-x: auto", CSS)
-        self.assertNotIn("overflow-x:auto", CSS)
+        que só olhasse para ele dizia que estava tudo bem.
+
+        A regra continua a ser «nenhuma navegação corre para o lado». O que
+        mudou a 2026-09-26 é que há UMA excepção, e é pedido dele: as filas do
+        binder (`.binder-wrap`) têm de ter 8 colunas fixas e, quando não
+        cabem, é o bloco que corre — refluir apagava a correspondência com a
+        pasta. Por isso o teste deixou de ser «a palavra não aparece» e passou
+        a ser «só aparece onde é a resposta certa»: se alguém puser scroll
+        lateral numa barra de botões, isto dá vermelho outra vez.
+        """
+        permitidos = {".binder-wrap"}
+        for m in re.finditer(r"overflow-x:\s*auto", CSS):
+            # O seletor a que a regra pertence: o `{` aberto mais próximo.
+            abre = CSS.rindex("{", 0, m.start())
+            corte = max(CSS.rfind(";", 0, abre), CSS.rfind("}", 0, abre),
+                        CSS.rfind("*/", 0, abre))
+            seletor = CSS[corte + 1:abre].strip().splitlines()[-1].strip()
+            self.assertIn(seletor, permitidos,
+                          f"`{seletor}` tem scroll lateral e não é o binder")
         self.assertNotIn(".tabs {", CSS)
 
     def test_o_seletor_de_edicao_envolve(self):

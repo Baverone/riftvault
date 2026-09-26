@@ -1393,6 +1393,32 @@ function deckCurto(name) {
   return base.split(' · ')[0] + sufixo;
 }
 
+/* O ritmo do binder dele (André, 2026-09-26): *"primeira fila de todas 4 /
+   depois de 8 em 8 / que e como fica o Binder"*. Números FIXOS — a posição de
+   um tile é a posição da carta na pasta, e um número que mudasse com a largura
+   da janela não servia para encontrar a carta. Ver `.grid.binder` no CSS. */
+const BINDER_PRIMEIRA = 4;
+const BINDER_FILA = 8;
+
+/* O bloco que é a ordem do binder: a sequência numerada do master set. Os
+   outros blocos NÃO são a pasta (são a cauda da grelha) e ficam como estavam
+   — decisão por confirmar com ele, ver o CLAUDE.md. */
+const BLOCO_BINDER = 'master';
+
+/* As filas do binder só valem com a SEQUÊNCIA INTEIRA no ecrã.
+   Qualquer filtro — a procura, «Faltas», «só artes base», os tipos — esconde
+   impressões, e a carta que ficasse no lugar da escondida passava a apontar a
+   bolsa errada. Nesse caso volta-se ao `auto-fill` e diz-se porquê: mentir na
+   posição é pior do que mudar de desenho. */
+function binderCheio() {
+  let todas = 0, vistas = 0;
+  for (const g of state.payload?.groups || []) {
+    todas += g.printings.filter(p => (p.block || 'master') === BLOCO_BINDER).length;
+    vistas += visiblePrintings(g).filter(p => (p.block || 'master') === BLOCO_BINDER).length;
+  }
+  return { cheio: todas > 0 && vistas === todas, todas, vistas };
+}
+
 /* A grelha em blocos (André, 2026-09-08): *"master set playset todo seguido"*,
    nunca intercalados. A ORDEM é a de 2026-09-19 (*"coloca as OverNumbered a
    seguir ao master Set, depois as AltArt, depois as Promos"*): primeiro a
@@ -1402,18 +1428,29 @@ function deckCurto(name) {
    Os blocos, a ordem e os rótulos vêm do payload (`metrics.ordem_dos_blocos`,
    `master_set.ordem_dos_blocos` no config), para a regra viver num sítio só; o
    contador de cada um é recalculado aqui, como as barras, para andar ao mesmo
-   tempo que os +/-. */
+   tempo que os +/-.
+
+   A SEQUÊNCIA sai nas filas do binder (4 + 8) quando está inteira no ecrã —
+   ver `binderCheio` aqui em cima e `.grid.binder` no CSS. */
 function render() {
   const grid = $('#grid');
   const parts = [];
   state.tiles = [];
 
   const grupos = state.payload?.groups || [];
-  const blocos = state.payload?.blocks || [{ id: 'master', label: null }];
+  const blocos = state.payload?.blocks || [{ id: BLOCO_BINDER, label: null }];
   let mostrados = 0;
+
+  const binder = binderCheio();
 
   for (const b of blocos) {
     const pedacos = [];
+    // As filas do binder valem para a sequência, e só com ela inteira.
+    const filasDoBinder = b.id === BLOCO_BINDER && binder.cheio;
+    // Quantos tiles já saíram na edição que está a ser desenhada: é ele que
+    // decide onde entra o calço que fecha a primeira fila nas 4. Recomeça a
+    // cada edição — em «Todas» cada edição é a sua pasta.
+    let naEdicao = 0;
     let feitas = 0, total = 0, alguma = 0, alvoMax = 0;
     let edicao = null;
     for (const g of grupos) {
@@ -1424,6 +1461,7 @@ function render() {
       // OGS-001 ficavam colados sem nada a dizer que a edição acabou.
       if (g.set && g.set !== edicao) {
         edicao = g.set;
+        naEdicao = 0;
         pedacos.push(`<h3 class="section-head edicao">${escapeHTML(g.set_name || g.set)}</h3>`);
       }
       for (const p of list) {
@@ -1434,6 +1472,23 @@ function render() {
         if (q >= t) feitas++;
         if (q > 0) alguma++;
         alvoMax = Math.max(alvoMax, t);
+      }
+      if (filasDoBinder) {
+        // UMA IMPRESSÃO, UMA CÉLULA — no binder cada carta ocupa uma bolsa.
+        // Nada de `.group.multi` a ocupar várias colunas: a fila deixava de
+        // ter 8 cartas e a posição deixava de ser a da pasta. (Hoje não há
+        // grupo nenhum com duas impressões no mesmo bloco — medido a
+        // 2026-09-26 nas cinco edições —, mas a regra não pode depender
+        // disso.)
+        list.forEach((p, i) => {
+          state.tiles.push(p.id);
+          pedacos.push(`<div class="group">${tileHTML(g, p, i === 0)}</div>`);
+          naEdicao++;
+          if (naEdicao === BINDER_PRIMEIRA) {
+            pedacos.push('<div class="binder-gap" aria-hidden="true"></div>');
+          }
+        });
+        continue;
       }
       const inner = list.map((p, i) => {
         state.tiles.push(p.id);
@@ -1463,7 +1518,18 @@ function render() {
         <span>tens <b>${alguma}</b> de <b>${total}</b>${completos} — ${b.counts ? '' : 'não '}
         contam para a percentagem de master set</span></h2>`);
     }
-    parts.push(pedacos.join(''));
+    if (b.id === BLOCO_BINDER && !binder.cheio) {
+      // Um filtro escondeu parte da sequência. Dizer isto é o que impede a
+      // página de apontar a bolsa errada em silêncio.
+      parts.push(`<p class="binder-nota">As filas <b>não</b> são as do binder:
+        um filtro está a esconder parte da sequência (vêem-se
+        <b>${binder.vistas}</b> de <b>${binder.todas}</b> impressões). Limpa a
+        procura e os filtros para voltar às filas de
+        ${BINDER_PRIMEIRA} + ${BINDER_FILA}.</p>`);
+    }
+    parts.push(filasDoBinder
+      ? `<div class="binder-wrap"><div class="grid binder">${pedacos.join('')}</div></div>`
+      : pedacos.join(''));
   }
 
   grid.innerHTML = parts.join('');
