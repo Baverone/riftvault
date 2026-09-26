@@ -1393,17 +1393,6 @@ function deckCurto(name) {
   return base.split(' · ')[0] + sufixo;
 }
 
-/* A grelha em blocos (André, 2026-09-08): *"master set playset todo seguido"*,
-   nunca intercalados. A ORDEM é a de 2026-09-19 (*"coloca as OverNumbered a
-   seguir ao master Set, depois as AltArt, depois as Promos"*): primeiro a
-   sequência do master set, por número de coleção; depois as sobrenumeradas;
-   depois as artes alternativas; depois as promos.
-
-   Os blocos, a ordem e os rótulos vêm do payload (`metrics.ordem_dos_blocos`,
-   `master_set.ordem_dos_blocos` no config), para a regra viver num sítio só; o
-   contador de cada um é recalculado aqui, como as barras, para andar ao mesmo
-   tempo que os +/-. */
-
 /* O ritmo do binder dele (André, 2026-09-26): *"primeira fila de todas 4 /
    depois de 8 em 8 / que e como fica o Binder"*. Números FIXOS — a posição de
    um tile é a posição da carta na pasta, e um número que mudasse com a largura
@@ -1430,6 +1419,19 @@ function binderCheio() {
   return { cheio: todas > 0 && vistas === todas, todas, vistas };
 }
 
+/* A grelha em blocos (André, 2026-09-08): *"master set playset todo seguido"*,
+   nunca intercalados. A ORDEM é a de 2026-09-19 (*"coloca as OverNumbered a
+   seguir ao master Set, depois as AltArt, depois as Promos"*): primeiro a
+   sequência do master set, por número de coleção; depois as sobrenumeradas;
+   depois as artes alternativas; depois as promos.
+
+   Os blocos, a ordem e os rótulos vêm do payload (`metrics.ordem_dos_blocos`,
+   `master_set.ordem_dos_blocos` no config), para a regra viver num sítio só; o
+   contador de cada um é recalculado aqui, como as barras, para andar ao mesmo
+   tempo que os +/-.
+
+   A SEQUÊNCIA sai nas filas do binder (4 + 8) quando está inteira no ecrã —
+   ver `binderCheio` aqui em cima e `.grid.binder` no CSS. */
 function render() {
   const grid = $('#grid');
   const parts = [];
