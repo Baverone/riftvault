@@ -198,13 +198,23 @@ def _foils(con: sqlite3.Connection, chave: str, cfg: dict | None = None) -> dict
     `foil -> metrics -> locais`. A leitura de referência das duas chaves, para
     a página e a CLI, é o `foil.conta_para_coleccao`/`conta_para_valor`.
 
-    Com o botão desligado — a omissão, e o que vale hoje — devolve `{}` e
-    nenhuma conta desta casa muda um número.
+    Com o botão desligado devolve `{}` e nenhuma conta desta casa muda um
+    número. Desde 2026-09-26 os dois estão LIGADOS: *"contam para o valor sim,
+    e contabilizas tambem como parte do master set"*.
     """
     if not ((cfg or config.load()).get("foil") or {}).get(chave, False):
         return {}
     return {r["printing_id"]: r["qty_foil"] for r in
             con.execute("SELECT printing_id, qty_foil FROM copies WHERE qty_foil > 0")}
+
+
+def foils_que_contam(con: sqlite3.Connection, chave: str,
+                     cfg: dict | None = None) -> dict[str, int]:
+    """As cópias foil que o botão `foil.<chave>` manda contar — a leitura
+    pública do `_foils`, para quem precisa de saber QUANTO é que elas
+    acrescentaram (o «A mais», que as tira do que sobra, e os decks, que as
+    servem depois das normais)."""
+    return _foils(con, chave, cfg)
 
 
 def fora_da_colecao(con: sqlite3.Connection) -> dict[str, dict[str, int]]:
@@ -217,7 +227,8 @@ def fora_da_colecao(con: sqlite3.Connection) -> dict[str, dict[str, int]]:
     return out
 
 
-def na_colecao(con: sqlite3.Connection, cfg: dict | None = None) -> dict[str, int]:
+def na_colecao(con: sqlite3.Connection, cfg: dict | None = None, *,
+               com_foil: bool = True) -> dict[str, int]:
     """printing_id -> cópias que estão nos binders de COLEÇÃO.
 
     É esta a base de tudo o que mede a Coleção — a percentagem de master set, a
@@ -225,16 +236,29 @@ def na_colecao(con: sqlite3.Connection, cfg: dict | None = None) -> dict[str, in
     deck deixa de contar aqui, mesmo sendo a mesma impressão: foi exactamente
     isso que ele pediu.
 
-    As cópias FOIL entram aqui **só** com `foil.conta_para_coleccao` ligado
-    (2026-09-26), e hoje está desligado. Entram por cima dos locais e não
-    debaixo deles de propósito: os `copy_locations` contam as normais, por isso
-    uma foil nunca está «num deck» e está sempre na Coleção.
+    As cópias FOIL entram aqui com `foil.conta_para_coleccao` ligado — e desde
+    2026-09-26 está: *"contabilizas tambem como parte do master set"*. O que a
+    impressão TEM passa a ser `qty + qty_foil`. Entram por cima dos locais e
+    não debaixo deles de propósito: os `copy_locations` contam as normais, por
+    isso uma foil nunca está «num deck» e está sempre na Coleção.
+
+    `com_foil=False` devolve **só as normais**, e é para quem conta cópias
+    FÍSICAS de acabamento normal, não alvos:
+
+      * o «A mais» (`foil.entra_no_a_mais: false`) — o excedente conta primeiro
+        as normais e os foils nunca entram no que sobra, porque ele não os
+        vende;
+      * o `propor_deck`, que grava em `copy_locations` — e esses só contam
+        normais, por isso propor uma foil era mover uma normal;
+      * a Venda, cujo «marcar como vendidas» baixa o `copies.qty`;
+      * os decks, para servirem as NORMAIS primeiro (`decks.foils_nos_decks`).
     """
     total = totais(con)
     for pid, locs in fora_da_colecao(con).items():
         total[pid] = max(0, total.get(pid, 0) - sum(locs.values()))
-    for pid, n in _foils(con, "conta_para_coleccao", cfg).items():
-        total[pid] = total.get(pid, 0) + n
+    if com_foil:
+        for pid, n in _foils(con, "conta_para_coleccao", cfg).items():
+            total[pid] = total.get(pid, 0) + n
     return {pid: q for pid, q in total.items() if q > 0}
 
 
@@ -281,7 +305,8 @@ def proprias_de(con: sqlite3.Connection, slug: str) -> dict[str, int]:
     return em(con, proprio_local(slug))
 
 
-def contadas(con: sqlite3.Connection, cfg: dict | None = None) -> dict[str, int]:
+def contadas(con: sqlite3.Connection, cfg: dict | None = None, *,
+             com_foil: bool = True) -> dict[str, int]:
     """printing_id -> as cópias físicas que a COLEÇÃO conta como suas.
 
     É o `totais` (todos os locais — uma carta sleevada num deck não vale
@@ -297,11 +322,14 @@ def contadas(con: sqlite3.Connection, cfg: dict | None = None) -> dict[str, int]
     for mapa in proprias(con).values():
         for pid, n in mapa.items():
             total[pid] = max(0, total.get(pid, 0) - n)
-    # As foils entram aqui só com `foil.conta_para_valor` ligado (2026-09-26),
-    # e hoje está desligado. Ligar é assumir que uma foil vale o mesmo que a
-    # normal: não há preço de foil no catálogo, só um preço por impressão.
-    for pid, n in _foils(con, "conta_para_valor", cfg).items():
-        total[pid] = total.get(pid, 0) + n
+    # As foils entram aqui com `foil.conta_para_valor` ligado — e desde
+    # 2026-09-26 está: *"contam para o valor sim"*. Contam ao PREÇO DA NORMAL
+    # (não há preço de foil no catálogo, só um preço por impressão), por isso o
+    # valor é um piso e a página di-lo. `com_foil=False` devolve só as normais,
+    # para quem conta cópias físicas de acabamento normal (ver o `na_colecao`).
+    if com_foil:
+        for pid, n in _foils(con, "conta_para_valor", cfg).items():
+            total[pid] = total.get(pid, 0) + n
     return {pid: q for pid, q in total.items() if q > 0}
 
 
@@ -626,7 +654,11 @@ def propor_deck(con: sqlite3.Connection, slug: str) -> dict:
         return {"deck": slug, "items": []}
 
     ja_tem = em(con, deck_local(slug))
-    colecao = na_colecao(con)
+    # SÓ as normais (2026-09-26): o que se propõe aqui é MOVER uma cópia física
+    # para `copy_locations`, e essa tabela conta normais. Com os foils a contar
+    # para a Coleção (`foil.conta_para_coleccao`), propor uma foil era mandar
+    # marcar uma normal que não existe.
+    colecao = na_colecao(con, com_foil=False)
     card_key = {r["printing_id"]: r["card_key"] for r in con.execute(
         "SELECT printing_id, card_key FROM catalog.printings")}
 

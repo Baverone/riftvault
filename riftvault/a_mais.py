@@ -40,6 +40,26 @@ A CONTA DO EXCEDENTE, por impressão
     signatures, runas sem numeração) tem alvo 0 e sobra inteiro, marcado. O
     que está RETIRADO (as runas em alt art, 2026-09-17) nem aparece.
 
+OS FOILS NUNCA ENTRAM NO QUE SOBRA (2026-09-26)
+    Decisão dele, no mesmo dia em que mandou os foils contarem para a Coleção e
+    para o valor (`foil.conta_para_coleccao`/`conta_para_valor`): com eles a
+    contar, uma carta com 3 normais e 3 foil tem 6 cópias contra um alvo de 3, e
+    este separador diria «3 a mais». Os foils não são excedente — são peça de
+    coleção, e ele não os vende.
+
+    `foil.entra_no_a_mais: false` (a omissão) faz o excedente contar primeiro as
+    NORMAIS: `locais.na_colecao(..., com_foil=False)`. Cada linha leva `foil`
+    com quantas ficaram de fora, e o `scope.foil` soma-as — ficam de fora, mas
+    dizem-se. A conta do excedente é a MESMA de sempre, e por isso este
+    separador dá exactamente os mesmos números que dava antes de os dois botões
+    dele serem ligados.
+
+    Com a chave a `true` os foils entram no `extra` como cópias normais — mas
+    uma impressão de que ele só tenha FOILS continua a não aparecer, porque a
+    varredura é `copies.qty > 0` e este módulo não pode ler a coluna do foil
+    directamente (é a fronteira que o `test_foil` exige: quem lê o foil são os
+    funis do `locais`). Fica anotado: a chave é `false` e é decisão dele.
+
 AS RUNAS NUNCA APARECEM (2026-09-17, à noite)
     André: *"no a mais nunca aparece Runas"*. Com `a_mais.sem_runas: true`
     (o default) uma runa (`runas_especiais.tipos`) não entra em NENHUM dos
@@ -75,6 +95,24 @@ DEFAULTS: dict = {
 
 def sem_runas(cfg: dict | None = None) -> bool:
     return bool(opcoes(cfg)["sem_runas"])
+
+
+def foil_no_excedente(cfg: dict | None = None) -> bool:
+    """As cópias FOIL entram no que SOBRA? Omissão: **NÃO**.
+
+    Decisão dele a 2026-09-26, no mesmo dia em que mandou os foils contarem
+    para a Coleção e para o valor: com eles a contar, uma carta com 3 normais e
+    3 foil tem 6 cópias contra um alvo de 3, e este separador diria «3 a mais»
+    — mandava-o vender os foils, que são peça de coleção e não excedente.
+
+    Com `foil.entra_no_a_mais: false` o excedente conta primeiro as NORMAIS
+    (`locais.na_colecao(..., com_foil=False)`) e os foils nunca entram no que
+    sobra; o número deles aparece na linha, para se ver que estão lá e que
+    estão de fora de propósito. A chave lê-se do config directamente, como nos
+    dois funis (`locais._foils`): este módulo não conhece o `foil`.
+    """
+    return bool(((cfg or config.load()).get("foil") or {})
+                .get("entra_no_a_mais", False))
 
 
 def _e_runa(r, cfg: dict) -> bool:
@@ -130,6 +168,16 @@ def _usadas(con: sqlite3.Connection) -> dict[str, dict]:
     return out
 
 
+def _foils_de_fora(con: sqlite3.Connection, cfg: dict) -> dict:
+    """As cópias FOIL que a Coleção conta e que este separador deixa de fora do
+    que sobra (`foil.entra_no_a_mais: false`). `{copies: 0, printings: 0}` com a
+    chave ligada — aí estão dentro do `extra` e não há nada a ressalvar."""
+    if foil_no_excedente(cfg):
+        return {"copies": 0, "printings": 0}
+    f = locais.foils_que_contam(con, "conta_para_coleccao", cfg)
+    return {"copies": sum(f.values()), "printings": len(f)}
+
+
 def excedente(con: sqlite3.Connection, cfg: dict | None = None,
               todas: bool = False) -> list[dict]:
     """As impressões com cópias a mais, e quantas — a conta da Venda, sem a Venda.
@@ -141,11 +189,18 @@ def excedente(con: sqlite3.Connection, cfg: dict | None = None,
     cfg = cfg or config.load()
     usadas = _usadas(con)
     no_binder = locais.em(con, locais.BINDER)
-    na_colecao = locais.na_colecao(con)
+    # As FOILS ficam fora do que sobra (2026-09-26, `foil.entra_no_a_mais`):
+    # o excedente conta primeiro as normais. Ver o `foil_no_excedente`.
+    com_foil = foil_no_excedente(cfg)
+    na_colecao = locais.na_colecao(con, cfg, com_foil=com_foil)
     # O `have` do item é o que a Coleção conta como seu: sem as cópias
     # próprias dos decks (2026-09-21; a conta do excedente já as não via — não
     # estão na Coleção nem no binder —; é só para o número do tile não mentir).
-    contadas = locais.contadas(con)
+    contadas = locais.contadas(con, cfg, com_foil=com_foil)
+    # Quantas foils tem cada impressão, só para a linha o DIZER: ficaram de
+    # fora do que sobra e isso tem de se ver, não de se adivinhar.
+    foils = ({} if com_foil else
+             locais.foils_que_contam(con, "conta_para_coleccao", cfg))
     precos = metrics.prices_map(con)
 
     itens: list[dict] = []
@@ -197,6 +252,11 @@ def excedente(con: sqlite3.Connection, cfg: dict | None = None,
             "from_binder": do_binder, "from_colecao": da_colecao,
             # `extra` é o número do crachá: quantas estão a mais.
             "extra": sobra,
+            # As cópias FOIL desta impressão, que NÃO entram no que sobra
+            # (2026-09-26, `foil.entra_no_a_mais`). Vai na linha para se ver
+            # que existem e que estão de fora de propósito; com a chave ligada
+            # vem 0, porque aí já estão dentro do `extra`.
+            "foil": foils.get(pid, 0),
             "price": preco,
             "runa": runa,
         })
@@ -309,5 +369,13 @@ def payload(con: sqlite3.Connection, cfg: dict | None = None) -> dict:
             "sem_runas": sem_runas(cfg),
             "runas": {"excedente": _soma(runas_exc, "extra"),
                       "libertadas": _soma(runas_lib, "qty")},
+            # As cópias FOIL que ficaram de fora do que sobra (2026-09-26,
+            # `foil.entra_no_a_mais: false`). São TODAS as que a Coleção conta,
+            # não só as das impressões que aparecem nos tiles: a maioria das
+            # impressões com foil tem o alvo cumprido só com as normais e por
+            # isso não chega aqui — contar só essas dava zero e o cabeçalho
+            # calava-se. Ficam de fora, mas dizem-se, como as runas.
+            "foil_no_excedente": foil_no_excedente(cfg),
+            "foil": _foils_de_fora(con, cfg),
         },
     }

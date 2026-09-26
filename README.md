@@ -699,8 +699,9 @@ código com esta; não existe.
 
 Não se distingue foil de normal no GRÃO da coleção: uma cópia é uma cópia, e o
 alvo do master set é por impressão. Desde 2026-09-22 há, ao lado disso, uma
-**contagem** de quantas foils tens de cada — que se SOMA às normais e não conta
-para nada; ver a secção a seguir.
+**contagem** de quantas foils tens de cada — que se SOMA às normais e, desde
+2026-09-26 à tarde, **conta** para o master set e para o valor; ver a secção a
+seguir.
 
 ## Foil e não-foil, nas comuns e incomuns (2026-09-22, corrigido a 2026-09-26)
 
@@ -729,21 +730,42 @@ natural — trava só num limite de sanidade. Por baixo do painel do topo há o
 resumo da edição aberta (ou de «Todas»), com uma linha por raridade.
 
 **Uma carta só em foil** (0 normais, foil > 0) é estado legítimo desde
-2026-09-26: o tile mostra-a a cinzento, com o crachá `0/3`, porque a Coleção
-conta as normais — e a linha de baixo diz «0 normais · 2 foil = 2».
+2026-09-26, e conta: o crachá lê `2/3`, porque as foils são cópias da impressão.
+A linha de baixo diz «0 normais · 2 foil = 2» e o `−` fica desligado — ele baixa
+as normais, e não há nenhuma.
 
-**O foil é um registo paralelo e não conta para nada**: marcar foils não mexe
-um único número — nem os três níveis, nem o denominador, nem o A mais, nem as
-Faltas, nem as quatro wantlists por bloco, nem o valor, nem as Encomendas, nem
-os decks, nem a Venda, nem o Selado. O `tests/test_foil.py` fotografa tudo
-isso, mete e tira foils, e exige que fique igual.
+### O FOIL CONTA (2026-09-26, à tarde)
 
-Duas chaves de config mudam isso sem código, as duas a `false`:
+*"Contam para o valor sim, e contabilizas tambem como parte do master set"*. As
+duas chaves que nasceram desligadas de manhã estão **ligadas**, e uma cópia foil
+vale como cópia da impressão:
 
-| chave | o que liga |
-|---|---|
-| `foil.conta_para_coleccao` | os foils contam para os alvos (níveis, denominador, Faltas, wantlists) |
-| `foil.conta_para_valor` | os foils contam para o valor, **ao preço da normal** — não há preço de foil no catálogo |
+| chave | hoje | o que faz |
+|---|---|---|
+| `foil.conta_para_coleccao` | **true** | os foils contam para os ALVOS: os três níveis, o denominador, as Faltas e as wantlists. O que a impressão tem é `qty + qty_foil` |
+| `foil.conta_para_valor` | **true** | os foils contam para o VALOR, **ao preço da normal** |
+| `foil.entra_no_a_mais` | **false** | os foils **não** entram no que sobra no «A mais» |
+
+**O valor é um PISO, e a página di-lo.** Não há fonte de preço de foil — o
+catálogo tem um preço por impressão, o Cardmarket responde 403 e o CardTrader não
+dá trend —, por isso as foils contam ao preço da versão normal e o valor real é
+mais alto. A ressalva aparece em todos os sítios onde o número aparece (a barra
+da Coleção, o cartão do Início, o resumo do foil, o `riftvault value`). Nas
+impressões que o CardTrader **só lista em foil** (`from_foil`) o preço já é de
+foil e essas não levam ressalva — o `riftvault value` diz quantas caem em cada
+caso.
+
+**Os foils nunca são excedente.** Com eles a contar, 3 normais + 3 foil contra um
+alvo de 3 dariam «3 a mais para vender» no «A mais» — e os foils são peça de
+coleção. O excedente conta primeiro as **normais**, e o cabeçalho diz quantas
+foils ficaram de fora. A mesma cautela vale para o aviso de stock da Venda, para
+a proposta de marcação dos locais e para o `−` do tile: os três contam cópias
+físicas de acabamento normal, não alvos.
+
+**Nos decks as normais servem primeiro.** Um deck joga foil ou normal, tanto faz,
+mas não se lhe tira um foil havendo normal — e quando não há, a página e a tabela
+de montagem dizem quantas das cópias que ele vai buscar à Coleção são foils, para
+não o mandarem procurar uma normal que não existe.
 
 O âmbito muda-se no mesmo sítio: `foil.raridades` e `foil.edicoes_fora`.
 

@@ -348,6 +348,26 @@ def cmd_value(args) -> int:
               f"{v['copias_de_foil']} cópias) vem de cartas que o CardTrader só "
               f"lista em foil.\n  Como o riftvault não distingue acabamentos, se "
               f"as tuas forem normais o valor real é mais baixo.")
+    # A ressalva do foil MARCADO (2026-09-26): com `foil.conta_para_valor`
+    # ligado as foils dele contam AO PREÇO DA NORMAL, porque não há preço de
+    # foil no catálogo. O valor é um PISO. Nas que o CardTrader só lista em
+    # foil (`from_foil`) o preço já é de foil e não há ressalva.
+    f = v.get("foils")
+    if f and f["copies"]:
+        n, pf = f["ao_preco_da_normal"], f["preco_de_foil"]
+        print(f"  os teus {f['copies']} foils contam {prices.eur(f['cents'])} "
+              f"no total acima:")
+        if n["copies"]:
+            print(f"    {n['copies']} cópias em {n['printings']} impressões "
+                  f"({prices.eur(n['cents'])}) AO PREÇO DA NORMAL — não há preço "
+                  f"de foil no catálogo, por isso é um PISO e o real é mais alto")
+        if pf["copies"]:
+            print(f"    {pf['copies']} cópias em {pf['printings']} impressões "
+                  f"({prices.eur(pf['cents'])}) já com preço de foil (o "
+                  f"CardTrader só as lista assim) — sem ressalva")
+        if f["sem_preco"]["copies"]:
+            print(f"    {f['sem_preco']['copies']} cópias sem preço no CardTrader "
+                  f"— não contam")
 
     by = prices.value_by_set(con)
     if by:
@@ -668,9 +688,9 @@ def _por_carta(p: dict) -> list[dict]:
                 e = out[c["card_key"]] = {"name": c["name"], "rarity": c.get("rarity"),
                                           "wanted": 0, "proprias": 0, "no_deck": 0,
                                           "no_binder": 0, "na_colecao": 0, "missing": 0,
-                                          "ordered": 0, "aviso": 0}
+                                          "ordered": 0, "aviso": 0, "foil_na_colecao": 0}
             for campo in ("wanted", "proprias", "no_deck", "no_binder", "na_colecao",
-                          "missing", "ordered", "aviso"):
+                          "missing", "ordered", "aviso", "foil_na_colecao"):
                 e[campo] += c.get(campo) or 0
     return list(out.values())
 
@@ -702,9 +722,17 @@ def _montagem(p: dict) -> None:
         aviso = c.get("aviso") or 0
         marca = "x" if c["missing"] else ("!" if aviso else " ")
         rar = f"  [{c.get('rarity') or '?'}]" if aviso else ""
+        # Quantas das que saem da Coleção são FOIL (2026-09-26): as normais
+        # servem primeiro, e dizer-lho poupa-lhe uma volta ao binder.
+        f = c.get("foil_na_colecao") or 0
+        foil = f"  ({f} em foil)" if f else ""
         print(f"  {marca:2} {c['wanted']:>7} {c.get('proprias', 0):>8} "
               f"{c['no_binder'] + c['no_deck']:>6} {c['na_colecao']:>7} "
-              f"{c['missing']:>5}  {c['name'][:34]}{rar}")
+              f"{c['missing']:>5}  {c['name'][:34]}{rar}{foil}")
+    if p.get("foil_na_colecao"):
+        print(f"    {p['foil_na_colecao']} cópias de {p['foil_cartas']} cartas saem da "
+              f"Coleção em FOIL — as normais servem primeiro, estas são as que "
+              f"sobraram para foil (o deck joga foil ou normal, tanto faz).")
     if minima and p.get("aviso_colecao"):
         print(f"  ! {p['aviso_colecao']} cópias de {p['aviso_cartas']} cartas saem da "
               f"Coleção abaixo de «{minima}» — pela regra, essas deviam ser cópias "

@@ -965,7 +965,7 @@ function tileHTML(g, p, comUso = false) {
     <div class="tname" title="${escapeAttr(p.name)}">${escapeHTML(p.name)}</div>
     <div class="steppers">
       <button class="step minus" data-act="-1" aria-label="menos uma de ${escapeAttr(p.name)}"
-              ${q <= 0 ? 'disabled' : ''}>−</button>
+              ${qtyNormais(p.id) <= 0 ? 'disabled' : ''}>−</button>
       <button class="step plus" data-act="1" aria-label="mais uma de ${escapeAttr(p.name)}">+</button>
     </div>
     <div class="playset ${play.target > 0 && play.owned >= play.target ? 'is-done' : ''}"
@@ -1026,10 +1026,35 @@ function foilLinha(pid) {
       <button class="step plus" data-foil="1" aria-label="mais uma foil"
               ${f >= lim ? 'disabled' : ''}>+</button>
     </span>` : '';
+  // O que as foils contam vem do servidor (`foil.conta_para_coleccao` /
+  // `conta_para_valor`, que ele mandou ligar a 2026-09-26): a frase muda com as
+  // chaves em vez de ficar a dizer o de antes.
+  const contam = foilContamTxt();
   return `<div class="foil-linha" title="tens ${norm} normais e ${f} ${
-    f === 1 ? 'foil' : 'foils'} desta impressão — ${norm + f} cópias ao todo. As duas contagens são independentes e não contam para os alvos nem para o valor.">
+    f === 1 ? 'foil' : 'foils'} desta impressão — ${norm + f} cópias ao todo. As duas contagens são independentes${
+    contam ? ` e os foils contam ${contam}` : ' e não contam para os alvos nem para o valor'}.">
     <span class="foil-txt"><b>${norm}</b> normais · <b class="fo">${f}</b> foil${
       f ? ` <i class="dim">= ${norm + f}</i>` : ''}</span>${controlos}</div>`;
+}
+
+/* «para os alvos da Coleção e para o valor» — das chaves do servidor, para não
+   haver segunda lista no cliente. Vazio quando nenhuma está ligada. */
+function foilContamTxt() {
+  const cat = state.index?.foil || {};
+  return [cat.conta_para_coleccao ? 'para os alvos da Coleção' : null,
+          cat.conta_para_valor ? 'para o valor' : null].filter(Boolean).join(' e ');
+}
+
+/* AS CÓPIAS NORMAIS QUE A COLEÇÃO TEM (2026-09-26)
+
+   Com `foil.conta_para_coleccao` ligado, o `state.qty` de uma impressão é
+   `normais na Coleção + foils`. O `−` do tile baixa o `copies.qty`, que são as
+   NORMAIS: com 0 normais e 3 foils o `qty` é 3 e o botão tem de estar
+   DESLIGADO, senão prometia tirar uma cópia que não existe. */
+function qtyNormais(pid) {
+  const q = state.qty.get(pid) || 0;
+  if (!(state.index?.foil || {}).conta_para_coleccao) return q;
+  return Math.max(0, q - (state.foil.get(pid) || 0));
 }
 
 /* A fila é por impressão: o ecrã anda já, e só a última resposta manda. Não há
@@ -1042,7 +1067,7 @@ async function foilAjustar(pid, delta) {
   const novo = Math.max(0, Math.min(antes + delta, foilLimite()));
   if (novo === antes) return;
   state.foil.set(pid, novo);
-  refreshFoil(pid);
+  foilAplicarLocal(pid, novo - antes);
   renderFoilResumo();
 
   const emVoo = (state.foilVoo.get(pid) || 0) + 1;
@@ -1058,17 +1083,53 @@ async function foilAjustar(pid, delta) {
     const resto = (state.foilVoo.get(pid) || 1) - 1;
     state.foilVoo.set(pid, resto);
     if (resto === 0) {
+      const d = res.foil - (state.foil.get(pid) || 0);
       state.foil.set(pid, res.foil);
-      refreshFoil(pid);
+      foilAplicarLocal(pid, d);
       renderFoilResumo();
     }
   } catch (err) {
     state.foilVoo.set(pid, Math.max(0, (state.foilVoo.get(pid) || 1) - 1));
+    const d = antes - (state.foil.get(pid) || 0);
     state.foil.set(pid, antes);
-    refreshFoil(pid);
+    foilAplicarLocal(pid, d);
     renderFoilResumo();
     toast(`Não gravou o foil: ${err.message}`, { error: true });
   }
+}
+
+/* COM OS BOTÕES DELE LIGADOS, UMA FOIL É UMA CÓPIA DA IMPRESSÃO (2026-09-26)
+
+   `foil.conta_para_coleccao` faz do `qty` da Coleção `normais + foils`, e é
+   desse `qty` que saem o crachá, as três barras, o painel, os níveis e (no
+   cliente) o valor. Por isso um `+` de foil tem de mexer no `state.qty`, como o
+   `applyLocal` faz com as normais — senão o número do tile ficava atrasado até
+   ao próximo carregamento e ele via o contador do foil a subir sem mais nada a
+   acontecer.
+
+   As NORMAIS (`state.tot`) nunca mexem por aqui: são duas contagens
+   independentes, e é o que o `−` do tile continua a baixar. */
+function foilAplicarLocal(pid, delta) {
+  const cat = state.index?.foil || {};
+  if (!cat.conta_para_coleccao && !cat.conta_para_valor) {
+    refreshFoil(pid);           // o registo paralelo: só a linha do foil mexe
+    return;
+  }
+  const ck = state.meta.get(pid)?.card_key;
+  if (delta) {
+    // `state.qty` é o que a Coleção TEM desta impressão, e é dele que saem o
+    // crachá, as três barras, o painel, os níveis e o valor no cliente.
+    if (cat.conta_para_coleccao) {
+      state.qty.set(pid, Math.max(0, (state.qty.get(pid) || 0) + delta));
+      wlDesatualizar();         // o que a impressão tem mudou: a lista ficou velha
+    }
+    // O playset JOGÁVEL da carta lê o `contadas`, que o outro botão alimenta.
+    const play = state.play.get(ck);
+    if (play && cat.conta_para_valor) play.owned = Math.max(0, play.owned + delta);
+  }
+  // O tile inteiro (crachá, estado, o `−`, a linha do foil) e, no fim, as
+  // barras — o `refreshTiles` já chama o `renderProgress`.
+  refreshTiles(pid, ck);
 }
 
 function refreshFoil(pid) {
@@ -1128,6 +1189,37 @@ function foilItens() {
   return itens;
 }
 
+/* O PREÇO DO FOIL: O VALOR É UM PISO, NÃO UMA ESTIMATIVA (2026-09-26)
+
+   Com o `foil.conta_para_valor` ligado as foils somam-se ao valor AO PREÇO DA
+   NORMAL, porque o catálogo tem um preço por impressão e não há fonte de preço
+   de foil (o Cardmarket responde 403, a API deles está fechada, e o CardTrader
+   não dá trend). O total fica por baixo do real, e isso diz-se onde o valor
+   aparece em vez de se apresentar um número limpo.
+
+   Nas impressões que o CardTrader só lista em foil (`from_foil`) o preço JÁ é
+   de foil: essas cópias estão avaliadas com o preço certo e não levam
+   ressalva. O `prices.valor_dos_foils` separa os dois casos. */
+function foilNotaValor(curto) {
+  const f = state.index?.value?.foils;
+  if (!f || !f.copies) return '';
+  const n = f.ao_preco_da_normal || {};
+  if (!n.copies) {
+    return curto ? '' : `As ${f.copies} cópias foil já estão contadas a preço de
+      foil (o CardTrader só as lista assim).`;
+  }
+  if (curto) return `inclui ${n.copies} foil ao preço da normal — o real é mais alto`;
+  return `<b>${n.copies} cópias foil</b> estão contadas <b>ao preço da versão
+    normal</b> — não há preço de foil no catálogo, por isso este valor é um
+    <b>piso</b> e o real é mais alto.${
+      (f.preco_de_foil || {}).copies
+        ? ` As outras ${f.preco_de_foil.copies} já têm preço de foil (o CardTrader
+            só as lista assim) e essas não levam ressalva.` : ''}${
+      (f.sem_preco || {}).copies
+        ? ` ${f.sem_preco.copies} sem preço no CardTrader não contam.` : ''}`;
+}
+
+
 function renderFoilResumo() {
   const el = $('#foil-resumo');
   if (!el) return;
@@ -1158,7 +1250,11 @@ function renderFoilResumo() {
         ? ` — o ${escapeHTML(cat.sem_edicoes.join(', '))} fica de fora` : ''}.
       São duas contagens independentes e o total é a soma: 3 normais e 3 foil são 6 cópias.
       ${contam.length ? `Os foils contam ${escapeHTML(contam.join(' e '))}.`
-        : 'Não contam para os alvos nem para o valor.'}</small></div>
+        : 'Não contam para os alvos nem para o valor.'}
+      ${cat.conta_para_valor ? foilNotaValor() : ''}
+      ${cat.conta_para_coleccao ? `No «A mais» <b>não entram no que sobra</b>:
+        o excedente conta primeiro as normais — os foils são peça de coleção,
+        não excedente.` : ''}</small></div>
     <div class="fo-linhas">${bloco('Tudo', conta)}${
       conta.rarity.map(r => bloco(r.label, r)).join('')}</div>`;
 }
@@ -1396,7 +1492,11 @@ function renderProgress() {
       state.setId === TODAS ? 'Valor das edições todas' : 'Valor nesta edição';
     $('#value-num').textContent = eur(owned);
     $('#value-bar').style.width = val.full ? `${Math.min(100, (owned / val.full) * 100)}%` : '0';
-    $('#value-sub').textContent = `de ${eur(val.full)} se estivesse completa`;
+    // A ressalva do foil (2026-09-26): as foils contam ao preço da normal, por
+    // isso este número é um piso. Nunca mostrar o valor sem ela.
+    const nota = foilNotaValor(true);
+    $('#value-sub').innerHTML = `de ${eur(val.full)} se estivesse completa${
+      nota ? ` · <i class="fo-piso">${escapeHTML(nota)}</i>` : ''}`;
   } else {
     block.hidden = true;
   }
@@ -1851,7 +1951,9 @@ function refreshTiles(pid, cardKey) {
     const focused = el.classList.contains('focus');
     el.className = `tile ${tileState(pid)}${focused ? ' focus' : ''} flash`;
     el.querySelector('.badge').textContent = t > 0 ? `${q}/${t}` : `${q}`;
-    el.querySelector('.step.minus').disabled = q <= 0;
+    // O `−` baixa as NORMAIS, não o `qty` da Coleção (que desde 2026-09-26
+    // pode trazer foils por cima) — ver o `qtyNormais`.
+    el.querySelector('.step.minus').disabled = qtyNormais(pid) <= 0;
     const linha = el.querySelector('.indeck');
     if (linha) linha.outerHTML = deckLine(pid);
     const fo = el.querySelector('.foil-linha');
@@ -2414,11 +2516,11 @@ function montagemHTML(p) {
       let e = por.get(c.card_key);
       if (!e) {
         e = { name: c.name, rarity: c.rarity, wanted: 0, proprias: 0, no_deck: 0,
-              no_binder: 0, na_colecao: 0, missing: 0, aviso: 0 };
+              no_binder: 0, na_colecao: 0, missing: 0, aviso: 0, foil_na_colecao: 0 };
         por.set(c.card_key, e);
       }
       for (const k of ['wanted', 'proprias', 'no_deck', 'no_binder', 'na_colecao',
-                       'missing', 'aviso']) e[k] += c[k] || 0;
+                       'missing', 'aviso', 'foil_na_colecao']) e[k] += c[k] || 0;
     }
   }
   const cartas = [...por.values()];
@@ -2442,7 +2544,12 @@ function montagemHTML(p) {
       ${td('próprias', c.proprias || 0, c.proprias ? 'm-prop' : 'm-zero')}
       ${td('deck/binder', (c.no_deck || 0) + (c.no_binder || 0),
         (c.no_deck || c.no_binder) ? '' : 'm-zero')}
-      ${td('Coleção', c.na_colecao || 0, c.aviso ? 'm-aviso' : (c.na_colecao ? '' : 'm-zero'))}
+      ${td('Coleção', `${c.na_colecao || 0}${c.foil_na_colecao
+        ? `<i class="m-foil" title="${escapeAttr(
+            `${c.foil_na_colecao} dessas cópias são FOIL — as normais servem `
+            + `primeiro, e estas são as que sobraram para foil`)}"> ${
+            c.foil_na_colecao} foil</i>` : ''}`,
+        c.aviso ? 'm-aviso' : (c.na_colecao ? '' : 'm-zero'))}
       ${td('falta', c.missing || 0, c.missing ? 'm-falta' : 'm-zero')}
     </tr>`;
   }).join('');
@@ -2455,7 +2562,11 @@ function montagemHTML(p) {
       ${p.montado === false ? '<b>O deck está desmontado</b>: os números da Coleção são a simulação de o montares a seguir aos que estão montados. ' : ''}
       ${p.raridade_colecao ? `O <b>!</b> é a regra de raridade: abaixo de
         <b>${escapeHTML(p.raridade_colecao)}</b> a cópia devia ser <b>própria do deck</b>,
-        não sair da Coleção.` : ''}</p>
+        não sair da Coleção.` : ''}
+      ${p.foil_na_colecao ? `<b>${plural(p.foil_na_colecao, 'cópia', 'cópias')}</b> de ${
+        plural(p.foil_cartas, 'carta', 'cartas')} saem da Coleção <b>em foil</b>: o deck
+        joga foil ou normal, tanto faz, mas as <b>normais servem primeiro</b> — estas são
+        as que sobraram para foil.` : ''}</p>
     <table class="mont-tab">
       <thead><tr><th>carta</th><th>precisa</th><th>próprias</th><th>deck/binder</th>
         <th>Coleção</th><th>falta</th></tr></thead>
@@ -3600,7 +3711,7 @@ function renderInicio() {
     v.cents != null ? eur(v.cents) : tr,
     `${num(tt.copies || 0)} cópias de ${num(tt.cards || 0)} cartas${
       v.copias_sem_preco ? ` · ${plural(v.copias_sem_preco, 'cópia sem preço', 'cópias sem preço')}` : ''}.
-     As cópias próprias dos decks não contam.`);
+     As cópias próprias dos decks não contam. ${foilNotaValor()}`);
 
   if (decks) {
     const cheios = decks.filter(d => !d.missing).length;
@@ -4032,6 +4143,16 @@ function renderAMais() {
         plural(ru.excedente.cards, 'impressão', 'impressões')} de runa${
         ru.libertadas.copies ? ` e ${plural(ru.libertadas.copies, 'runa libertada', 'runas libertadas')} dos decks` : ''}.`
     : (sc.sem_runas ? '<br>Sem runas, de propósito — organizas as runas à mão.' : '');
+  // OS FOILS NUNCA ENTRAM NO QUE SOBRA (2026-09-26, `foil.entra_no_a_mais`):
+  // com eles a contar para a Coleção, 3 normais + 3 foil contra um alvo de 3
+  // diriam «3 a mais», e ele não vende os foils. Ficam de fora, e diz-se.
+  const fo = sc.foil || {};
+  const foilFora = (!sc.foil_no_excedente && fo.copies)
+    ? `<br><b>Os foils não entram no que sobra</b>: o excedente conta primeiro as
+       normais. Ficaram de fora ${plural(fo.copies, 'cópia foil', 'cópias foil')} em ${
+       plural(fo.printings, 'impressão', 'impressões')} — contam para a Coleção e
+       para o valor, mas são peça de coleção, não excedente.`
+    : '';
 
   $('#am-head').innerHTML = `<div class="deck-card">
     <div class="deck-title"><b>A mais</b>
@@ -4052,7 +4173,7 @@ function renderAMais() {
       levam nunca conta como a mais.
       <b>Libertadas dos decks</b>: o que uma lista pedia e deixou de pedir — o
       registo nasceu a 2026-09-17 e só sabe do que mudou desde então.
-      Isto só mostra: não muda alvos nem contas, e não é uma lista de venda.${runasFora}${
+      Isto só mostra: não muda alvos nem contas, e não é uma lista de venda.${runasFora}${foilFora}${
       semBotao.length ? `<br>Sem botão próprio: ${semBotao.map(escapeHTML).join(', ')} — aparece em «Todas».` : ''}</small>
   </div>`;
 
@@ -4098,7 +4219,9 @@ function amTile(x) {
       x.price != null ? ` · ${eur(x.price)}` : ''}</div>
     <div class="onde tenho">${escapeHTML(origem)}${
       x.used ? ` · ${x.used} nos decks` : ''}${
-      x.hidden ? ` · <i>${escapeHTML(x.block_label)}, sem alvo</i>` : ''}</div>
+      x.hidden ? ` · <i>${escapeHTML(x.block_label)}, sem alvo</i>` : ''}</div>${
+    x.foil ? `<div class="onde tenho fo-fora"><b class="fo">${x.foil} foil</b> —
+      não entram no que sobra</div>` : ''}
   </div>`;
 }
 

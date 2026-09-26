@@ -30,30 +30,56 @@ O FOIL SOMA-SE AO NORMAL — SÃO DUAS CONTAGENS, NÃO UMA REPARTIÇÃO
     carta que ele só tenha em foil. A grelha mostra-a como carta que ele não
     tem (a Coleção conta o `qty`) com a linha «0 normais · 2 foil» ao lado.
 
-O FOIL É UM REGISTO PARALELO — O QUE CONTA CONTINUA A SER O `qty`
-    A decisão de 2026-08-31 continua de pé: *"foil e normal contam como a
-    mesma coisa"*, a chave do `copies` é só `(printing_id)`, e o alvo do
-    master set é por impressão. Os níveis, o denominador, as Faltas, as
-    wantlists, o A mais, os decks, as próprias, a Venda e o valor leem o
-    `qty` e mais nada — marcar foil não mexe um único número desses.
-    `tests/test_foil.py` fotografa tudo isso, mete e tira foils, e exige que
-    fique igual.
+O QUE O FOIL CONTA, DESDE 2026-09-26
+    A decisão de 2026-08-31 continua de pé no GRÃO: *"foil e normal contam como
+    a mesma coisa"*, a chave do `copies` é só `(printing_id)` e o alvo do master
+    set é por impressão — o foil não é um acabamento no grão, é uma contagem à
+    parte. O que mudou é que essa contagem **entra nas contas**: os dois botões
+    dele estão ligados, e uma cópia foil vale como cópia da impressão para os
+    níveis, o denominador, as Faltas, as wantlists e o valor.
 
-    DUAS PERGUNTAS QUE SÃO DELE, e por isso ficam em config (2026-09-26),
-    as duas a `false` — o que a app mede hoje é exactamente o de sempre:
+    Os três sítios onde NÃO entra (e cada um pela sua razão, abaixo): o «A
+    mais», o `propor_deck` e a Venda.
 
-      `foil.conta_para_coleccao`  os foils contam para os ALVOS da Coleção
-                                  (os três níveis, o denominador, as Faltas,
-                                  as wantlists)? Ligado, entram pelo
-                                  `locais.na_colecao`, que é o funil único
-                                  de «quantas cópias tem a Coleção».
-      `foil.conta_para_valor`     os foils contam para o VALOR? Ligado, entram
-                                  pelo `locais.contadas` e pelo
-                                  `prices.copias_sql`, ao preço da normal —
-                                  **não há preço de foil no catálogo**, só um
-                                  preço por impressão, e por isso ligar isto
-                                  é assumir que uma foil vale o mesmo que a
-                                  normal, o que é falso no mercado.
+    AS DUAS PERGUNTAS ERAM DELE E ELE RESPONDEU-AS (2026-09-26): *"contam para
+    o valor sim, e contabilizas tambem como parte do master set"*. As duas
+    chaves estão a `true`, e a terceira nasceu com elas:
+
+      `foil.conta_para_coleccao`  **true**. Os foils contam para os ALVOS da
+                                  Coleção (os três níveis, o denominador, as
+                                  Faltas, as wantlists): o que a impressão TEM
+                                  é `qty + qty_foil`. Entram pelo
+                                  `locais.na_colecao`, o funil único de
+                                  «quantas cópias tem a Coleção».
+      `foil.conta_para_valor`     **true**. Os foils contam para o VALOR, pelo
+                                  `locais.contadas` e pelo `prices.copias_sql`,
+                                  **AO PREÇO DA NORMAL** — não há preço de foil
+                                  no catálogo, só um preço por impressão, e não
+                                  há fonte de onde o ir buscar (o Cardmarket
+                                  responde 403 e a API deles está fechada; o
+                                  CardTrader não dá trend). Por isso o valor é
+                                  um **PISO, não uma estimativa**, e a página
+                                  di-lo onde o número aparece. Excepção: nas
+                                  impressões que o CardTrader só lista em foil
+                                  (`price_latest.from_foil`) o preço JÁ é de
+                                  foil e não há ressalva — o
+                                  `prices.valor_dos_foils` separa os dois casos
+                                  e conta quantas caem em cada um.
+      `foil.entra_no_a_mais`      **false**. Os foils NÃO entram no que sobra no
+                                  «A mais»: com eles a contar, 3 normais + 3
+                                  foil contra um alvo de 3 diriam «3 a mais para
+                                  vender», e ele não vende os foils — são peça
+                                  de coleção. O excedente conta primeiro as
+                                  NORMAIS (`na_colecao(..., com_foil=False)`) e
+                                  por isso o separador dá exactamente os mesmos
+                                  números que dava antes. Ver o
+                                  `a_mais.foil_no_excedente`.
+
+    A MESMA CAUTELA em três sítios mais, pela mesma razão — contam cópias
+    FÍSICAS de acabamento normal, não alvos: o `locais.propor_deck` (grava em
+    `copy_locations`, que só conta normais), a **Venda** (o «marcar como
+    vendidas» baixa o `copies.qty`) e os **decks**, que servem as normais
+    primeiro (`decks.foils_nos_decks`).
 
     Os dois funis leem a chave DIRECTAMENTE do config, sem importar este
     módulo: é o que deixa o `locais` e o `prices` continuarem a não conhecer
@@ -167,9 +193,22 @@ def raridades(cfg: dict | None = None) -> list[str]:
 
 def conta_para_coleccao(cfg: dict | None = None) -> bool:
     """Os foils somam-se aos ALVOS da Coleção (níveis, denominador, Faltas,
-    wantlists)? Omissão: **não** — o foil é um registo paralelo."""
+    wantlists)? **SIM desde 2026-09-26** (*"contabilizas tambem como parte do
+    master set"*): o que a impressão TEM é `qty + qty_foil`."""
     return bool(((cfg or config.load()).get("foil") or {})
                 .get("conta_para_coleccao", False))
+
+
+def entra_no_a_mais(cfg: dict | None = None) -> bool:
+    """Os foils entram no que SOBRA, no «A mais»? **NÃO** (2026-09-26).
+
+    Com os foils a contar para a Coleção, 3 normais + 3 foil contra um alvo de 3
+    dariam «3 a mais para vender» — e ele não vende os foils, são peça de
+    coleção. O excedente conta primeiro as NORMAIS. A leitura que o separador
+    usa é o `a_mais.foil_no_excedente`, que lê a mesma chave.
+    """
+    return bool(((cfg or config.load()).get("foil") or {})
+                .get("entra_no_a_mais", False))
 
 
 def conta_para_valor(cfg: dict | None = None) -> bool:
@@ -308,7 +347,8 @@ def resumo(con: sqlite3.Connection, cfg: dict | None = None,
             # segunda cópia de nenhuma das três.
             "limite": LIMITE,
             "conta_para_coleccao": conta_para_coleccao(cfg),
-            "conta_para_valor": conta_para_valor(cfg)}
+            "conta_para_valor": conta_para_valor(cfg),
+            "entra_no_a_mais": entra_no_a_mais(cfg)}
 
 
 def do_set(con: sqlite3.Connection, set_id: str, cfg: dict | None = None) -> dict | None:
@@ -427,4 +467,10 @@ def texto(r: dict, sets: list[dict]) -> str:
                   f" para os alvos da Coleção (foil.conta_para_coleccao) e "
                   f"{'CONTAM' if r.get('conta_para_valor') else 'não contam'}"
                   f" para o valor (foil.conta_para_valor).")
+    if r.get("conta_para_valor"):
+        linhas.append("no valor contam AO PREÇO DA NORMAL — não há preço de foil no "
+                      "catálogo, por isso o valor é um PISO (ver `riftvault value`).")
+    if r.get("conta_para_coleccao") and not r.get("entra_no_a_mais"):
+        linhas.append("no «A mais» NÃO entram no que sobra: o excedente conta primeiro "
+                      "as normais (foil.entra_no_a_mais).")
     return "\n".join(linhas)

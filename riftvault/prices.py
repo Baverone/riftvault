@@ -543,7 +543,63 @@ def collection_value(con: sqlite3.Connection) -> dict:
     return {"cents": row["cents"] or 0, "currency": "EUR",
             "copias_sem_preco": row["sem_preco"] or 0, "copias": row["copias"] or 0,
             "cents_de_foil": row["cents_foil"] or 0, "copias_de_foil": row["copias_foil"] or 0,
+            # Quanto do total vem das foils MARCADAS e ao preço de quê
+            # (2026-09-26). Vai DENTRO do valor, e não à parte, para nenhuma
+            # vista poder mostrar o total sem a ressalva: as que contam ao preço
+            # da normal fazem deste número um PISO. `None` com o botão
+            # desligado. Ver o `valor_dos_foils`.
+            "foils": valor_dos_foils(con),
             "day": day["d"] if day else None}
+
+
+def valor_dos_foils(con: sqlite3.Connection, cfg: dict | None = None) -> dict | None:
+    """Quanto do valor vem das cópias FOIL, e AO PREÇO DE QUÊ (2026-09-26).
+
+    O catálogo tem **um preço por impressão** e não há fonte de preço de foil
+    (o Cardmarket responde 403, a API deles está fechada, e o CardTrader não dá
+    trend) — por isso com `foil.conta_para_valor` ligado as foils contam ao
+    preço da NORMAL. Isso faz do valor um **piso**, não uma estimativa, e a
+    página tem de o dizer em vez de o apresentar como um total limpo.
+
+    Há um caso em que NÃO há ressalva: quando o `price_latest.from_foil` é 1, a
+    única oferta que o CardTrader tinha era foil e o preço JÁ é de foil. Aí a
+    foil está avaliada com o preço certo (e é a NORMAL que pode estar
+    sobreavaliada — a ressalva de sempre, desde 2026-08-31).
+
+      `ao_preco_da_normal`  {printings, copies, cents} — com ressalva: o preço
+                            é de oferta não-foil, o valor real é mais alto
+      `preco_de_foil`       {printings, copies, cents} — `from_foil = 1`, o
+                            preço já é de foil: sem ressalva
+      `sem_preco`           {printings, copies} — sem oferta no CardTrader
+
+    `None` com o botão desligado: não há foils no valor e não há nada a
+    ressalvar.
+    """
+    if not ((cfg or config.load()).get("foil") or {}).get("conta_para_valor", False):
+        return None
+    fora, params = _sem_retiradas(con)
+    # As foils de uma impressão RETIRADA não contam, como as normais dela.
+    rows = con.execute(
+        "SELECT c.qty_foil AS n, p.price_cents AS cents, "
+        "       COALESCE(p.from_foil, 0) AS ff "
+        "FROM copies c LEFT JOIN catalog.price_latest p "
+        "  ON p.printing_id = c.printing_id "
+        "WHERE c.qty_foil > 0" + fora, params).fetchall()
+    out = {k: {"printings": 0, "copies": 0, "cents": 0}
+           for k in ("ao_preco_da_normal", "preco_de_foil")}
+    out["sem_preco"] = {"printings": 0, "copies": 0}
+    for r in rows:
+        if r["cents"] is None:
+            out["sem_preco"]["printings"] += 1
+            out["sem_preco"]["copies"] += r["n"]
+            continue
+        slot = out["preco_de_foil"] if r["ff"] else out["ao_preco_da_normal"]
+        slot["printings"] += 1
+        slot["copies"] += r["n"]
+        slot["cents"] += r["n"] * r["cents"]
+    out["copies"] = sum(r["n"] for r in rows)
+    out["cents"] = out["ao_preco_da_normal"]["cents"] + out["preco_de_foil"]["cents"]
+    return out
 
 
 def value_by_set(con: sqlite3.Connection) -> dict[str, int]:

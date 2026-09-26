@@ -1369,7 +1369,11 @@ def index_payload(con: sqlite3.Connection, editable: bool = True,
                   image_mode: str = "local", cfg: dict | None = None) -> dict:
     from . import abas, collection, foil, painel, prices
 
+    cfg = cfg or config.load()
     try:
+        # O `value` traz `foils` de dentro (2026-09-26): quanto vem das foils e
+        # ao preço de quê. As que contam ao preço da normal fazem do total um
+        # PISO, e a página tem de o dizer.
         value = prices.collection_value(con)
     except sqlite3.OperationalError:
         value = None            # ainda não correu `riftvault prices`

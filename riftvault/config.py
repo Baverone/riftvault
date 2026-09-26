@@ -280,21 +280,34 @@ DEFAULTS: dict = {
     # 2026-09-26 o foil era uma fatia do `qty`, e marcar foil convertia uma
     # normal. Erro nosso, corrigido; ver `foil.py`.
     #
-    # As DUAS PERGUNTAS que são dele, e que por isso se mudam aqui sem código
-    # (as duas a `false`: o foil é um registo paralelo, com contadores
-    # próprios, e não mexe um número da app):
+    # As TRÊS PERGUNTAS que são dele, e que por isso se mudam aqui sem código.
+    # As duas primeiras nasceram a `false` (o foil como registo paralelo) e
+    # ele RESPONDEU a 2026-09-26: *"contam para o valor sim, e contabilizas
+    # tambem como parte do master set"* — estão as duas a `true`.
     #   `conta_para_coleccao`  — os foils contam para os ALVOS da Coleção (os
     #                            três níveis, o denominador, as Faltas, as
     #                            wantlists)? Ligado, entram pelo
-    #                            `locais.na_colecao`.
+    #                            `locais.na_colecao`: o que a impressão TEM
+    #                            passa a ser `qty + qty_foil`.
     #   `conta_para_valor`     — os foils contam para o VALOR? Ligado, entram
     #                            pelo `locais.contadas` e pelo
     #                            `prices.copias_sql`, **ao preço da normal**:
     #                            não há preço de foil no catálogo (o
     #                            CardTrader dá um preço por impressão), por
-    #                            isso ligar isto é assumir que valem o mesmo.
+    #                            isso o valor é um PISO, não uma estimativa —
+    #                            e a página di-lo. Nas impressões que o
+    #                            CardTrader só lista em foil (`from_foil`) o
+    #                            preço já é de foil e não há ressalva.
+    #   `entra_no_a_mais`      — os foils entram no que SOBRA no «A mais»?
+    #                            **NÃO** (2026-09-26, decisão dele): com os
+    #                            foils a contar para a Coleção, 3 normais + 3
+    #                            foil contra um alvo de 3 diriam «3 a mais para
+    #                            vender», e ele não vende os foils — são peça
+    #                            de coleção. O excedente conta primeiro as
+    #                            NORMAIS e os foils nunca entram no que sobra.
     "foil": {"raridades": ["common", "uncommon"], "edicoes_fora": ["OGS"],
-             "conta_para_coleccao": False, "conta_para_valor": False},
+             "conta_para_coleccao": True, "conta_para_valor": True,
+             "entra_no_a_mais": False},
     # O separador «Venda» (André, 2026-09-25: *"permite-me marcar as cartas
     # que estou a vender no momento para apresentar a conta a pessoa. todos os
     # precos tem que ser o Trend do Cardmarket!"*).
