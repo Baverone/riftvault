@@ -1086,9 +1086,36 @@ def prices_map(con: sqlite3.Connection) -> dict[str, int]:
     return {r["printing_id"]: r["price_cents"] for r in rows}
 
 
+def precos_de_foil_map(con: sqlite3.Connection) -> dict[str, int]:
+    """printing_id -> preço da FOIL em cêntimos (2026-09-26).
+
+    Só as que TÊM preço de foil; as outras não aparecem, e a cópia foil dele
+    conta ao preço da normal — o fallback do `prices.valor_sql`, que se conta e
+    se diz. Vazio num catálogo que ainda não tenha corrido o `riftvault prices`
+    depois da coluna nascer, e aí o valor é o de antes, não um erro.
+
+    `from_foil = 1` entra aqui com o `price_cents`: é a impressão que o
+    CardTrader só lista em foil, e aquele preço JÁ é de foil (o mesmo número que
+    o `price_foil_cents` traz quando está gravado). A regra é a do
+    `prices.valor_dos_foils`, para o tile e o valor não classificarem o mesmo
+    caso de maneiras diferentes.
+    """
+    try:
+        rows = con.execute(
+            "SELECT printing_id, "
+            "       COALESCE(price_foil_cents, price_cents) AS c "
+            "FROM catalog.price_latest "
+            "WHERE price_foil_cents IS NOT NULL "
+            "   OR (from_foil = 1 AND price_cents IS NOT NULL)"
+        ).fetchall()
+    except sqlite3.OperationalError:
+        return {}               # catálogo antigo, sem a coluna ainda
+    return {r["printing_id"]: r["c"] for r in rows}
+
+
 def set_payload(con: sqlite3.Connection, set_id: str, editable: bool = True,
                 image_mode: str = "local") -> dict:
-    from . import decks, foil, locais, painel
+    from . import decks, foil, locais, painel, prices
 
     cfg = config.load()
     # `qty` é o que a COLEÇÃO tem — é ele que manda nas barras, no filtro
@@ -1103,10 +1130,20 @@ def set_payload(con: sqlite3.Connection, set_id: str, editable: bool = True,
     nomes_decks = locais.nomes_dos_decks(con)
     owned_cards = owned_by_card(con)
     price = prices_map(con)
+    # O preço da FOIL, à parte (2026-09-26, à tarde): é ele que avalia as cópias
+    # foil. Sem oferta foil no CardTrader a impressão não está aqui e a cópia
+    # cai para o preço da normal — o fallback, que o `prices.valor_dos_foils`
+    # conta para o total se poder ler como um piso.
+    price_foil = precos_de_foil_map(con)
+    # As foils que contam para o VALOR (zero com `foil.conta_para_valor`
+    # desligado). O `contadas` já as tem lá dentro somadas; aqui vêm à parte
+    # porque não valem o mesmo que as normais.
+    foil_valor = locais.foils_que_contam(con, "conta_para_valor", cfg)
     # A contagem de foil (2026-09-22): quantas cópias FOIL ele tem de cada
     # impressão, e quais é que levam contador. Desde 2026-09-26 é uma contagem
     # À PARTE das normais, não uma fatia delas — o total da impressão é
-    # `qty_total + foil` —, e não mexe em número nenhum desta página.
+    # `qty_total + foil` — e, com os dois botões dele ligados, CONTA para os
+    # alvos e para o valor.
     foil_qty = foil.qty_foil(con)
     foil_ambito = set(foil.ids_do_ambito(con, cfg, set_id))
     # Onde estão as cópias que não estão no binder de coleção: nos decks.
@@ -1130,13 +1167,21 @@ def set_payload(con: sqlite3.Connection, set_id: str, editable: bool = True,
     # total desta edição tem de bater certo com o `prices.collection_value`,
     # que lê o `copies` inteiro. As RETIRADAS (as runas em alt art,
     # 2026-09-17) nem para o valor: não existem para o riftvault.
-    escondidas_valor: list[tuple[int, int]] = []
+    escondidas_valor: list[int] = []
     groups: dict[str, dict] = {}
     for r in rows:
         if escondida(r, cfg):
-            preco = price.get(r["printing_id"])
+            pid = r["printing_id"]
+            preco = price.get(pid)
             if preco is not None and not retirada(r, cfg):
-                escondidas_valor.append((contadas.get(r["printing_id"], 0), preco))
+                # Pela mesma conta das outras (`prices.valor_das_copias`), que
+                # é o que a faz bater com a coleção inteira. Uma escondida não
+                # tem contador de foil (o âmbito são as base comuns/incomuns),
+                # por isso o pedaço foil é zero — mas a conta é a mesma e não
+                # há um segundo caminho para o valor.
+                fo = foil_valor.get(pid, 0)
+                escondidas_valor.append(prices.valor_das_copias(
+                    contadas.get(pid, 0) - fo, fo, preco, price_foil.get(pid)))
             continue
         g = groups.get(r["group_key"])
         if g is None:
@@ -1176,6 +1221,11 @@ def set_payload(con: sqlite3.Connection, set_id: str, editable: bool = True,
             # Battlefields vêm 'landscape' — o tile tem de mudar de proporção.
             "landscape": (r["orientation"] or "").lower() == "landscape",
             "price": price.get(r["printing_id"]),   # cêntimos, ou None
+            # O preço da FOIL desta impressão (2026-09-26), ou None se o
+            # CardTrader não tem oferta foil — e aí a cópia foil conta ao
+            # `price`, que é o fallback. É o tile que o mostra, ao lado da
+            # contagem de foil.
+            "price_foil": price_foil.get(r["printing_id"]),
             "in_decks": nos_decks.get(r["printing_id"], []),
             "qty": qty.get(r["printing_id"], 0),
             # Cópias FÍSICAS (todos os locais) e onde estão. A barra mede o
@@ -1183,8 +1233,12 @@ def set_payload(con: sqlite3.Connection, set_id: str, editable: bool = True,
             # 1 no deck Azir». São dois números diferentes de propósito.
             "qty_total": totais.get(r["printing_id"], 0),
             # O que conta para o valor: o total menos as cópias próprias dos
-            # decks (2026-09-21); igual ao `qty_total` sem próprias.
+            # decks (2026-09-21); igual ao `qty_total` sem próprias. Inclui as
+            # foils com `foil.conta_para_valor` ligado — e por isso vem a par
+            # `qty_valor_foil`, quantas delas são foil: as duas metades não
+            # valem o mesmo desde 2026-09-26.
             "qty_valor": contadas.get(r["printing_id"], 0),
+            "qty_valor_foil": foil_valor.get(r["printing_id"], 0),
             # Quantas cópias FOIL, e se esta impressão tem contador
             # (2026-09-22). As NORMAIS são o `qty_total`, e o total da
             # impressão é a soma dos dois (2026-09-26) — aqui e no `app.js`.
@@ -1282,7 +1336,14 @@ def set_payload(con: sqlite3.Connection, set_id: str, editable: bool = True,
             # não vale menos por estar sleevada. Por isso o total físico, e não
             # o `qty` da Coleção — menos as cópias próprias dos decks
             # (2026-09-21, `qty_valor`: não são da Coleção, não valem aqui).
-            value_owned += p["qty_valor"] * p["price"]
+            #
+            # As cópias FOIL contam ao PREÇO DA FOIL (2026-09-26, à tarde), e só
+            # caem para o da normal quando não há oferta foil. A conta é a mesma
+            # do `prices.valor_sql`, pela mesma função, para o total desta
+            # edição não poder divergir do da coleção inteira.
+            value_owned += prices.valor_das_copias(
+                p["qty_valor"] - p["qty_valor_foil"], p["qty_valor_foil"],
+                p["price"], p["price_foil"])
             # "se estivesse completa" é sobre o MASTER SET: o que não entra na
             # percentagem também não entra no preço de a fechar — a coleção
             # extra é a mais, e o preço dela está nas wantlists.
@@ -1290,8 +1351,11 @@ def set_payload(con: sqlite3.Connection, set_id: str, editable: bool = True,
                 value_full += p["target"] * p["price"]
     # As escondidas: valem o que ele tem delas, e não entram no «se estivesse
     # completa» — estão fora da percentagem por construção (ver `_fora`).
-    for qty_total, preco in escondidas_valor:
-        value_owned += qty_total * preco
+    # Vai à parte no payload (`hidden_owned`) porque o CLIENTE recalcula o valor
+    # a cada `+`/`−` varrendo a GRELHA, e estas nunca lá chegam: sem este número
+    # a barra dele ficava por baixo do servidor (1,65 € no `data/` de 26/09).
+    valor_escondidas = sum(escondidas_valor)
+    value_owned += valor_escondidas
 
     # Cada bloco leva o seu "tens N de M"; o `counts` diz quais é que se somam
     # na barra do master set. A percentagem global é a soma dos que contam.
@@ -1315,6 +1379,9 @@ def set_payload(con: sqlite3.Connection, set_id: str, editable: bool = True,
             "playset": {"done": play_done, "total": play_total},
             "master": {"done": master_done, "total": master_total},
             "value": {"owned": value_owned, "full": value_full,
+                      # O pedaço do `owned` que NÃO está na grelha (as
+                      # escondidas), para o cliente o somar ao que recalcula.
+                      "hidden_owned": valor_escondidas,
                       "currency": "EUR", "has_prices": bool(price)},
             "rarities": rarities,
             # 1 de cada, 2 de cada, o playset — DESTA edição. Os degraus são os
@@ -1372,8 +1439,9 @@ def index_payload(con: sqlite3.Connection, editable: bool = True,
     cfg = cfg or config.load()
     try:
         # O `value` traz `foils` de dentro (2026-09-26): quanto vem das foils e
-        # ao preço de quê. As que contam ao preço da normal fazem do total um
-        # PISO, e a página tem de o dizer.
+        # ao preço de quê — as que têm preço de foil e as que caem no FALLBACK
+        # (preço da normal), que são as que fazem do total um PISO. A página tem
+        # de o dizer, e por isso a ressalva viaja dentro do valor.
         value = prices.collection_value(con)
     except sqlite3.OperationalError:
         value = None            # ainda não correu `riftvault prices`

@@ -246,7 +246,7 @@ def cmd_stats(args) -> int:
     # quantas foils. São duas contagens independentes e o total é a soma
     # (2026-09-26) — nenhuma das contas acima as soma.
     print("\nFoil e não-foil (comuns e incomuns, impressões base):")
-    print(foil_mod.texto(foil_mod.resumo(con), sets))
+    print(foil_mod.texto(foil_mod.resumo(con), sets, prices.valor_dos_foils(con)))
 
     # O que os decks têm de comprar (2026-09-11): a soma do `missing` de todos,
     # com o que dois decks disputam e a Coleção não chega a contar como falta.
@@ -341,30 +341,32 @@ def cmd_value(args) -> int:
           f"({v['copias']} cópias, preços de {v['day']})")
     print("  critério: preço mais baixo em Near Mint/Mint, inglês, no CardTrader")
     if v["copias_sem_preco"]:
-        print(f"  {v['copias_sem_preco']} cópias sem preço (sem oferta no CardTrader)")
+        n = v["copias_sem_preco"]
+        print(f"  {n} {'cópia' if n == 1 else 'cópias'} sem preço "
+              f"(sem oferta no CardTrader)")
     if v["cents_de_foil"]:
         pct = 100 * v["cents_de_foil"] / v["cents"] if v["cents"] else 0
         print(f"  ATENÇÃO: {prices.eur(v['cents_de_foil'])} ({pct:.0f}% do total, "
               f"{v['copias_de_foil']} cópias) vem de cartas que o CardTrader só "
               f"lista em foil.\n  Como o riftvault não distingue acabamentos, se "
               f"as tuas forem normais o valor real é mais baixo.")
-    # A ressalva do foil MARCADO (2026-09-26): com `foil.conta_para_valor`
-    # ligado as foils dele contam AO PREÇO DA NORMAL, porque não há preço de
-    # foil no catálogo. O valor é um PISO. Nas que o CardTrader só lista em
-    # foil (`from_foil`) o preço já é de foil e não há ressalva.
+    # O foil MARCADO (2026-09-26): com `foil.conta_para_valor` ligado as foils
+    # dele contam ao PREÇO DA FOIL do CardTrader; as que não têm oferta foil
+    # caem para o preço da normal, e esse FALLBACK é o que faz do total um PISO.
     f = v.get("foils")
     if f and f["copies"]:
         n, pf = f["ao_preco_da_normal"], f["preco_de_foil"]
         print(f"  os teus {f['copies']} foils contam {prices.eur(f['cents'])} "
               f"no total acima:")
-        if n["copies"]:
-            print(f"    {n['copies']} cópias em {n['printings']} impressões "
-                  f"({prices.eur(n['cents'])}) AO PREÇO DA NORMAL — não há preço "
-                  f"de foil no catálogo, por isso é um PISO e o real é mais alto")
         if pf["copies"]:
             print(f"    {pf['copies']} cópias em {pf['printings']} impressões "
-                  f"({prices.eur(pf['cents'])}) já com preço de foil (o "
-                  f"CardTrader só as lista assim) — sem ressalva")
+                  f"({prices.eur(pf['cents'])}) ao PREÇO DA FOIL do CardTrader "
+                  f"— sem ressalva")
+        if n["copies"]:
+            print(f"    {n['copies']} cópias em {n['printings']} impressões "
+                  f"({prices.eur(n['cents'])}) ao preço da NORMAL, por o "
+                  f"CardTrader não ter oferta foil delas — este pedaço é um "
+                  f"PISO e o real é mais alto")
         if f["sem_preco"]["copies"]:
             print(f"    {f['sem_preco']['copies']} cópias sem preço no CardTrader "
                   f"— não contam")
@@ -381,7 +383,17 @@ def cmd_value(args) -> int:
         print(f"\nas {len(top)} mais valiosas:")
         for r in top:
             foil = " (preço de foil)" if r["from_foil"] else ""
-            print(f"  {prices.eur(r['total']):>10}  {r['qty']}x {prices.eur(r['price_cents']):>8}  "
+            # Com cópias foil a linha não é `qty × price_cents`: elas contam ao
+            # preço delas (ou ao da normal, quando não há oferta foil). Diz-se,
+            # senão a multiplicação não fecha com o total ao lado.
+            if r["qty_foil"]:
+                pf = (prices.eur(r["price_foil_cents"]) if r["price_foil_cents"]
+                      is not None else prices.eur(r["price_cents"]) + " (o da normal)")
+                quanto = (f"{r['qty_normal']}x {prices.eur(r['price_cents'])} + "
+                          f"{r['qty_foil']} foil x {pf}")
+            else:
+                quanto = f"{r['qty']}x {prices.eur(r['price_cents'])}"
+            print(f"  {prices.eur(r['total']):>10}  {quanto:>28}  "
                   f"{r['name']} [{r['variant_label']}]{foil}")
     con.close()
     return 0
@@ -1058,6 +1070,21 @@ def cmd_runas(args) -> int:
     return 0
 
 
+def _precos_foil(r: dict) -> str:
+    """« · foil 1,50 € (normal 0,11 €)» — os dois preços de uma impressão.
+
+    Sem preço de foil no CardTrader diz-se que a cópia foil conta ao da normal:
+    é o FALLBACK, e ele tem de o ver na linha em vez de o adivinhar.
+    """
+    if r.get("price") is None and r.get("price_foil") is None:
+        return ""
+    if r.get("price_foil") is not None:
+        return (f" · foil {prices.eur(r['price_foil'])} "
+                f"(normal {prices.eur(r['price'])})")
+    return (f" · sem oferta foil no CardTrader — uma foil conta ao preço da "
+            f"normal, {prices.eur(r['price'])}")
+
+
 def cmd_foil(args) -> int:
     """A contagem de FOIL e NÃO-FOIL das comuns e incomuns (2026-09-22).
 
@@ -1090,7 +1117,7 @@ def cmd_foil(args) -> int:
             return 1
         print(f"{r['name']} [{_codigo_curto(r['code'])}]: {r['applied']:+d} foil -> "
               f"{r['normal']} normais · {r['foil']} foil = {r['total']} cópias "
-              f"(as normais não mexeram)")
+              f"(as normais não mexeram){_precos_foil(r)}")
         con.close()
         return 0
     if args.ref:
@@ -1101,7 +1128,7 @@ def cmd_foil(args) -> int:
             con.close()
             return 1
         print(f"{r['name']} [{_codigo_curto(r['code'])}]: {r['normal']} normais · "
-              f"{r['foil']} foil = {r['total']} cópias")
+              f"{r['foil']} foil = {r['total']} cópias{_precos_foil(r)}")
         con.close()
         return 0
     sets = metrics.sets_payload(con, cfg)
@@ -1112,7 +1139,9 @@ def cmd_foil(args) -> int:
             con.close()
             return 1
     r = foil_mod.resumo(con, cfg, set_id=sets[0]["id"] if args.edicao else None)
-    print(foil_mod.texto(r, sets))
+    # O preço das foils diz-se onde a contagem aparece (2026-09-26, à tarde):
+    # quanto valem ao preço de foil e quantas caem no fallback.
+    print(foil_mod.texto(r, sets, prices.valor_dos_foils(con, cfg)))
     print(f"\nâmbito: impressões base, não sobrenumeradas, de raridade "
           f"{'/'.join(r['raridades'])} (foil.raridades/foil.edicoes_fora). "
           f"As normais e as foils são duas contagens independentes; o total "

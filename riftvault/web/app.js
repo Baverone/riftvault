@@ -34,8 +34,18 @@ const state = {
   tot: new Map(),
   // printing_id -> cópias marcadas como foil, e o conjunto das impressões que
   // têm contador (as comuns e incomuns base, fora o OGS — `foil.no_ambito`).
-  // O NÃO-FOIL nunca se guarda: é sempre `tot − foil`, como no Python.
+  // Desde 2026-09-26 é uma contagem À PARTE do `tot`, não uma fatia dele: o
+  // total da impressão é a soma dos dois, e nunca se guarda.
   foil: new Map(), foilOk: new Set(),
+  // Os dois preços por impressão, em cêntimos. O da FOIL (2026-09-26, à tarde)
+  // só existe nas que o CardTrader tem em foil: quem não está lá conta ao preço
+  // da normal — o FALLBACK, que se marca na linha e faz do valor um piso.
+  preco: new Map(), precoFoil: new Map(),
+  // As cópias NORMAIS que contam para o VALOR (`qty_valor` menos as foils): as
+  // físicas menos as próprias dos decks. Não é o `qty` da Coleção nem o
+  // `qty_total` — é o número que o servidor usa (`metrics.set_payload`), e tê-lo
+  // aqui é o que faz a barra do valor bater certo com o backend.
+  valNorm: new Map(),
   // Os `+`/`−` do contador de foil: fila e pedidos em voo por impressão, como
   // as runas e as Encomendas — o último a chegar é que manda.
   foilFila: new Map(), foilVoo: new Map(),
@@ -255,8 +265,10 @@ const PAGINA = {
          + 'tabela à parte e não contam para número nenhum do site.</p>'
          + '<p>Debaixo dos tiles das comuns e incomuns estão as duas contagens, '
          + '<b>normais</b> e <b>foil</b>. São independentes e somam-se: 3 normais e 3 '
-         + 'foil são 6 cópias. Os alvos, os níveis, as wantlists e o valor contam só as '
-         + 'normais — marcar foils não mexe em conta nenhuma.</p>',
+         + 'foil são 6 cópias. Os foils <b>contam</b> para os alvos, os níveis, as '
+         + 'wantlists e o valor — no valor ao <b>preço da foil</b> do CardTrader, e só '
+         + 'ao da normal quando não há oferta foil (a linha do tile diz qual é o caso). '
+         + 'No «A mais» não entram: não são excedente.</p>',
   },
   'decks': {
     sub: 'As listas montadas, o que cada uma tem e o que lhe falta. '
@@ -630,6 +642,7 @@ async function loadSet(setId, { url = true } = {}) {
   state.qty.clear(); state.play.clear(); state.targets.clear();
   state.blocks.clear(); state.meta.clear(); state.counting.clear();
   state.locs.clear(); state.tot.clear(); state.foil.clear(); state.foilOk.clear();
+  state.preco.clear(); state.precoFoil.clear(); state.valNorm.clear();
   for (const b of p.blocks || []) if (b.counts) state.counting.add(b.id);
   if (!(p.blocks || []).length) state.counting.add('master');
   for (const g of p.groups) {
@@ -639,6 +652,9 @@ async function loadSet(setId, { url = true } = {}) {
       state.tot.set(pr.id, pr.qty_total || 0);
       if (pr.foil) state.foil.set(pr.id, pr.foil);
       if (pr.foil_ok) state.foilOk.add(pr.id);
+      state.valNorm.set(pr.id, (pr.qty_valor || 0) - (pr.qty_valor_foil || 0));
+      if (pr.price != null) state.preco.set(pr.id, pr.price);
+      if (pr.price_foil != null) state.precoFoil.set(pr.id, pr.price_foil);
       state.locs.set(pr.id, pr.locations || []);
       state.targets.set(pr.id, pr.target);
       state.blocks.set(pr.id, pr.block || 'master');
@@ -1030,11 +1046,46 @@ function foilLinha(pid) {
   // `conta_para_valor`, que ele mandou ligar a 2026-09-26): a frase muda com as
   // chaves em vez de ficar a dizer o de antes.
   const contam = foilContamTxt();
+  const pf = foilPrecoTxt(pid);
+  // O PREÇO vai numa LINHA PRÓPRIA, a seguir aos `+`/`−` e com a largura toda
+  // do tile (`flex-basis: 100%`), não encostado às contagens: a 375 px o tile
+  // tem ~109 px e a metade que sobrava ao lado dos botões punha «foil ao preço
+  // da normal» a uma palavra por linha. Medido.
   return `<div class="foil-linha" title="tens ${norm} normais e ${f} ${
     f === 1 ? 'foil' : 'foils'} desta impressão — ${norm + f} cópias ao todo. As duas contagens são independentes${
-    contam ? ` e os foils contam ${contam}` : ' e não contam para os alvos nem para o valor'}.">
+    contam ? ` e os foils contam ${contam}` : ' e não contam para os alvos nem para o valor'}.${
+    pf ? ` ${pf.title}` : ''}">
     <span class="foil-txt"><b>${norm}</b> normais · <b class="fo">${f}</b> foil${
-      f ? ` <i class="dim">= ${norm + f}</i>` : ''}</span>${controlos}</div>`;
+      f ? ` <i class="dim">= ${norm + f}</i>` : ''}</span>${controlos}${
+    pf ? `<span class="${pf.cls}">${pf.txt}</span>` : ''}</div>`;
+}
+
+/* O PREÇO DA FOIL NO TILE (2026-09-26, à tarde)
+
+   Onde aparece a contagem de foil aparece o preço dela — e a marca de quando é
+   FALLBACK. Duas leituras, de propósito diferentes à vista:
+
+     `foil 1,50 €`             há oferta foil no CardTrader: é este o preço a que
+                               as cópias foil dele contam no valor
+     `foil ao preço da normal` não há oferta foil: a cópia conta ao preço da
+                               normal, e o valor dela é um PISO
+
+   Só se mostra com o `foil.conta_para_valor` ligado: com ele desligado o preço
+   da foil não entra em conta nenhuma e era ruído no tile. */
+function foilPrecoTxt(pid) {
+  if (!(state.index?.foil || {}).conta_para_valor) return null;
+  const pf = state.precoFoil.get(pid);
+  if (pf != null) {
+    return { txt: `foil ${eur(pf)}`, cls: 'fo-preco',
+             title: `Uma cópia foil conta ${eur(pf)} no valor — o preço da foil mais `
+                  + 'barata no CardTrader (Near Mint/Mint, inglês).' };
+  }
+  // Sem `price` não há nada a dizer: a impressão não tem oferta nenhuma.
+  const p = state.preco.get(pid);
+  if (p == null) return null;
+  return { txt: 'foil ao preço da normal', cls: 'fo-preco fo-piso',
+           title: `O CardTrader não tem esta em foil: uma cópia foil conta ${eur(p)}, `
+                + 'o preço da normal. É um piso — o real é mais alto.' };
 }
 
 /* «para os alvos da Coleção e para o valor» — das chaves do servidor, para não
@@ -1189,32 +1240,51 @@ function foilItens() {
   return itens;
 }
 
-/* O PREÇO DO FOIL: O VALOR É UM PISO, NÃO UMA ESTIMATIVA (2026-09-26)
+/* O VALOR DAS CÓPIAS DE UMA IMPRESSÃO, em cêntimos — o terceiro gémeo do
+   `prices.valor_sql` (SQL, a coleção inteira) e do `prices.valor_das_copias`
+   (Python, o payload da edição). Aqui recalcula-se a cada `+`/`−`, como as
+   barras, e por isso tem de dar o MESMO número que o servidor.
 
-   Com o `foil.conta_para_valor` ligado as foils somam-se ao valor AO PREÇO DA
-   NORMAL, porque o catálogo tem um preço por impressão e não há fonte de preço
-   de foil (o Cardmarket responde 403, a API deles está fechada, e o CardTrader
-   não dá trend). O total fica por baixo do real, e isso diz-se onde o valor
-   aparece em vez de se apresentar um número limpo.
+   As normais ao preço da normal; as FOIL ao preço da foil, e só ao da normal
+   quando o CardTrader não as tem em foil (o fallback). Com
+   `foil.conta_para_valor` desligado as foils não entram.
 
-   Nas impressões que o CardTrader só lista em foil (`from_foil`) o preço JÁ é
-   de foil: essas cópias estão avaliadas com o preço certo e não levam
-   ressalva. O `prices.valor_dos_foils` separa os dois casos. */
+   As normais são o `state.valNorm` — as físicas menos as próprias dos decks —,
+   não o `state.qty` da Coleção: era esse que estava aqui, e numa coleção com
+   cópias sleevadas num deck a barra do valor dizia menos do que o servidor. */
+function valorDasCopias(pid, preco) {
+  const cat = state.index?.foil || {};
+  const norm = state.valNorm.get(pid) || 0;
+  const fo = cat.conta_para_valor ? (state.foil.get(pid) || 0) : 0;
+  const pf = state.precoFoil.get(pid);
+  return norm * preco + fo * (pf != null ? pf : preco);
+}
+
+/* O PREÇO DO FOIL: O FALLBACK FAZ DO VALOR UM PISO (2026-09-26)
+
+   Com o `foil.conta_para_valor` ligado as foils somam-se ao valor ao PREÇO DA
+   FOIL (`price_latest.price_foil_cents`, o mínimo das ofertas foil do
+   CardTrader). Só quando não há oferta foil nenhuma é que a cópia cai para o
+   preço da normal — e é ESSE pedaço que faz do total um piso, por isso diz-se
+   onde o valor aparece em vez de se apresentar um número limpo.
+
+   `curto` é a versão de uma linha, para debaixo da barra do valor. O
+   `prices.valor_dos_foils` é quem separa os dois casos e os conta. */
 function foilNotaValor(curto) {
   const f = state.index?.value?.foils;
   if (!f || !f.copies) return '';
   const n = f.ao_preco_da_normal || {};
+  const pf = f.preco_de_foil || {};
   if (!n.copies) {
-    return curto ? '' : `As ${f.copies} cópias foil já estão contadas a preço de
-      foil (o CardTrader só as lista assim).`;
+    return curto ? '' : `As ${f.copies} cópias foil estão contadas ao
+      <b>preço da foil</b> do CardTrader.`;
   }
   if (curto) return `inclui ${n.copies} foil ao preço da normal — o real é mais alto`;
-  return `<b>${n.copies} cópias foil</b> estão contadas <b>ao preço da versão
-    normal</b> — não há preço de foil no catálogo, por isso este valor é um
+  return `${pf.copies ? `<b>${pf.copies} cópias foil</b> estão contadas ao
+    <b>preço da foil</b> do CardTrader. ` : ''}<b>${n.copies}</b> ${
+    pf.copies ? 'contam' : 'cópias foil estão contadas'} <b>ao preço da versão
+    normal</b>, por o CardTrader não ter oferta foil delas — esse pedaço é um
     <b>piso</b> e o real é mais alto.${
-      (f.preco_de_foil || {}).copies
-        ? ` As outras ${f.preco_de_foil.copies} já têm preço de foil (o CardTrader
-            só as lista assim) e essas não levam ressalva.` : ''}${
       (f.sem_preco || {}).copies
         ? ` ${f.sem_preco.copies} sem preço no CardTrader não contam.` : ''}`;
 }
@@ -1481,10 +1551,13 @@ function renderProgress() {
   const val = state.payload.progress.value;
   const block = $('#value-block');
   if (val && val.has_prices) {
-    let owned = 0;
+    // As ESCONDIDAS (tokens, signatures, runas sem numeração) valem o que ele
+    // tem delas mas nunca chegam à grelha: o servidor manda esse pedaço à parte
+    // para a barra recalculada aqui dar o mesmo número que a dele.
+    let owned = val.hidden_owned || 0;
     for (const g of state.payload.groups) {
       for (const p of g.printings) {
-        if (p.price != null) owned += (state.qty.get(p.id) || 0) * p.price;
+        if (p.price != null) owned += valorDasCopias(p.id, p.price);
       }
     }
     block.hidden = false;
@@ -1492,8 +1565,9 @@ function renderProgress() {
       state.setId === TODAS ? 'Valor das edições todas' : 'Valor nesta edição';
     $('#value-num').textContent = eur(owned);
     $('#value-bar').style.width = val.full ? `${Math.min(100, (owned / val.full) * 100)}%` : '0';
-    // A ressalva do foil (2026-09-26): as foils contam ao preço da normal, por
-    // isso este número é um piso. Nunca mostrar o valor sem ela.
+    // A ressalva do foil (2026-09-26): as foils que o CardTrader não tem em
+    // foil contam ao preço da normal, e por isso este número é um piso. Nunca
+    // mostrar o valor sem ela.
     const nota = foilNotaValor(true);
     $('#value-sub').innerHTML = `de ${eur(val.full)} se estivesse completa${
       nota ? ` · <i class="fo-piso">${escapeHTML(nota)}</i>` : ''}`;
@@ -1984,6 +2058,10 @@ function applyLocal(pid, delta) {
   // com o seu botão. Até essa data o foil era cortado aqui, porque era uma
   // fatia do total.
   state.tot.set(pid, Math.max(0, (state.tot.get(pid) || 0) + delta));
+  // O que conta para o VALOR anda com as físicas: um `+` na grelha é uma cópia
+  // da Coleção, e as próprias dos decks (que é o que o `qty_valor` desconta)
+  // não mexem por aqui.
+  state.valNorm.set(pid, Math.max(0, (state.valNorm.get(pid) || 0) + delta));
   // O `+`/`-` mexe nos binders de COLEÇÃO — é a grelha da Coleção. As cópias
   // que estão num deck ou no binder Decks/Venda não mexem daqui.
   const locs = (state.locs.get(pid) || []).slice();

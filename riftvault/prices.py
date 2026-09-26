@@ -23,9 +23,17 @@ O PREÇO
     Riftbound está em EUR.
 
     Prefere-se a oferta NÃO foil; só se não houver nenhuma é que se usa a foil
-    (fica marcado em `from_foil`). Como o riftvault não distingue acabamentos,
-    é a escolha conservadora: nunca inflaciona a coleção com um preço de foil
-    quando o mais provável é a carta ser normal.
+    (fica marcado em `from_foil`). É a escolha conservadora para o preço da
+    cópia NORMAL: nunca a inflaciona com um preço de foil.
+
+    E DESDE 2026-09-26 GRAVA-SE TAMBÉM O PREÇO DA FOIL, à parte, em
+    `price_foil_cents` — palavras dele: *"podes meter filtro no cardtrader e
+    tirar o preco da foil mais barata?, para diferenciar os precos"*. Mesmos
+    filtros, só a `riftbound_foil` muda. Uma cópia foil da coleção
+    (`copies.qty_foil`) vale esse preço; só quando ele não existe é que cai para
+    o da normal, e esse FALLBACK é contado e dito (`valor_dos_foils`). Antes
+    disto as foils dele contavam todas ao preço da normal, o que no `data/` real
+    era o chão do CardTrader (11 cêntimos) para 254 cópias.
 
 ONDE FICA
     `catalog.price_latest` — preço atual das 1180 impressões. Descartável.
@@ -301,7 +309,8 @@ def oferta(products: list[dict], aceites: frozenset[str] | None = None) -> dict:
     oferta noutra língua não entra no preço nem nas contagens — ele só compra
     inglês, e um preço de uma carta japonesa não é o preço que ele paga.
 
-    Devolve `cents`, `from_foil` e três contagens que medem coisas diferentes:
+    Devolve `cents`, `from_foil`, `foil_cents` e quatro contagens que medem
+    coisas diferentes:
 
       `n_listings` — quantas ofertas utilizáveis há (uma por anúncio).
       `n_sellers`  — quantos vendedores DISTINTOS as põem. Um vendedor com dez
@@ -309,6 +318,20 @@ def oferta(products: list[dict], aceites: frozenset[str] | None = None) -> dict:
                      que diz se a oferta é de muita gente ou de um armazém.
       `n_copies`   — quantas cópias estão à venda ao todo (o `quantity` de cada
                      anúncio somado). É a oferta a sério.
+      `n_listings_foil` — dos anúncios utilizáveis, quantos são FOIL.
+
+    O PREÇO DA FOIL, À PARTE (2026-09-26: *"podes meter filtro no cardtrader e
+    tirar o preco da foil mais barata?, para diferenciar os precos"*).
+    `foil_cents` é o mínimo das ofertas FOIL, com **exactamente os mesmos
+    filtros** das normais (o `_usable`: Mint/Near Mint, a língua do config, sem
+    graded/signed/altered, vendedor presente, EUR) — só a `riftbound_foil` muda.
+    `None` quando não há oferta foil nenhuma.
+
+    A escolha do `cents`/`from_foil` NÃO mexeu com isto, de propósito: a lista
+    das foils era deitada fora e agora guarda-se, mas quem decide o preço
+    «normal» continua a ser a mesma linha. Uma impressão não pode mudar de preço
+    por causa desta coluna nova, e há teste que compara as duas implementações
+    sobre o mercado real.
 
     **Isto é OFERTA, não procura** (André, 2026-09-10: *"quais as comuns e
     incomuns que costumam vender-se mais"*). Nem o CardTrader nem o Cardmarket
@@ -328,15 +351,25 @@ def oferta(products: list[dict], aceites: frozenset[str] | None = None) -> dict:
         h = p.get("properties_hash") or {}
         (foil if h.get("riftbound_foil") else normal).append(p)
 
+    # O preço da foil sai da lista das foils, sempre — mesmo quando é ela que
+    # dá o preço «normal» (`from_foil`), e aí os dois números são o mesmo: a
+    # única oferta que havia era foil. Guardar os dois faz a leitura do valor
+    # ficar uniforme (uma cópia foil lê sempre o `price_foil_cents` quando ele
+    # existe) em vez de ter de perguntar pelo `from_foil` primeiro.
+    foil_cents = min((p["price_cents"] for p in foil), default=None)
+
     escolhidos, from_foil = (normal, False) if normal else (foil, True)
     if not escolhidos:
-        return {"cents": None, "from_foil": False,
-                "n_listings": 0, "n_sellers": 0, "n_copies": 0}
+        return {"cents": None, "from_foil": False, "foil_cents": None,
+                "n_listings": 0, "n_sellers": 0, "n_copies": 0,
+                "n_listings_foil": 0}
     vendedores = {(p.get("user") or {}).get("id") for p in escolhidos}
     vendedores.discard(None)
     return {
         "cents": min(p["price_cents"] for p in escolhidos),
         "from_foil": from_foil,
+        "foil_cents": foil_cents,
+        "n_listings_foil": len(foil),
         # Quando o preço vem da foil, as normais não existem — mas quando vem
         # das normais, o total de anúncios inclui as foil, como sempre incluiu.
         "n_listings": len(normal) + len(foil) if normal else len(foil),
@@ -388,7 +421,7 @@ def sync_prices(ct: CardTrader | None = None, log=print) -> dict:
     # vive no prices.db, um ficheiro pequeno e à parte do vault.db.
     catalogadas = {r["printing_id"] for r in con.execute(
         "SELECT printing_id FROM catalog.printings")}
-    rows, sem_preco = [], 0
+    rows, sem_preco, com_foil = [], 0, 0
     aceites = linguas()
     log(f"  línguas que contam: {', '.join(sorted(aceites))}")
 
@@ -400,10 +433,13 @@ def sync_prices(ct: CardTrader | None = None, log=print) -> dict:
             o = oferta(products, aceites)
             if o["cents"] is None:
                 sem_preco += 1
+            if o["foil_cents"] is not None:
+                com_foil += 1
             for pid in bp_to_printings[bid]:
                 rows.append((pid, o["cents"], "EUR", 1 if o["from_foil"] else 0,
                              o["n_listings"], o["n_sellers"], o["n_copies"],
-                             today, "cardtrader"))
+                             today, "cardtrader",
+                             o["foil_cents"], o["n_listings_foil"]))
         del market              # 45 MB por expansão; liberta antes da próxima
         log(f"  expansão {expansion_id}: {len(exps[expansion_id])} blueprints")
         time.sleep(1.0)
@@ -411,19 +447,30 @@ def sync_prices(ct: CardTrader | None = None, log=print) -> dict:
     con.execute("BEGIN")
     con.executemany(
         "INSERT INTO catalog.price_latest (printing_id, price_cents, currency, "
-        "from_foil, n_listings, n_sellers, n_copies, day, source) "
-        "VALUES (?,?,?,?,?,?,?,?,?) "
+        "from_foil, n_listings, n_sellers, n_copies, day, source, "
+        "price_foil_cents, n_listings_foil) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?) "
         "ON CONFLICT(printing_id) DO UPDATE SET price_cents=excluded.price_cents, "
         "currency=excluded.currency, from_foil=excluded.from_foil, "
         "n_listings=excluded.n_listings, n_sellers=excluded.n_sellers, "
-        "n_copies=excluded.n_copies, day=excluded.day, source=excluded.source",
+        "n_copies=excluded.n_copies, day=excluded.day, source=excluded.source, "
+        # O preço da foil actualiza-se como o outro, e um `NULL` novo APAGA o
+        # antigo de propósito: se hoje não há oferta foil, o valor da cópia foil
+        # tem de cair para o fallback contado em vez de ficar preso ao preço da
+        # semana passada. É a mesma regra do `price_cents`.
+        "price_foil_cents=excluded.price_foil_cents, "
+        "n_listings_foil=excluded.n_listings_foil",
         rows)
 
     # Histórico: de tudo o que está no catálogo (as `market_only` ficam de
     # fora, não têm impressão nossa), e só quando o valor muda face ao último
     # registo. Assim o prices.db não cresce em dias em que nada mexeu.
+    # O histórico continua a ser só do preço NORMAL (`price_history` tem uma
+    # coluna de preço): o «A subir» mede a subida da carta que ele compra, e a
+    # série da foil seria outra pergunta, que ele não fez.
     gravadas, gravadas_of = 0, 0
-    for pid, cents, cur, _foil, n_list, n_sell, n_cop, *_ in rows:
+    for (pid, cents, cur, _foil, n_list, n_sell, n_cop,
+         _day, _src, _foil_cents, _n_foil) in rows:
         if pid not in catalogadas:
             continue
         if cents is not None:
@@ -443,6 +490,10 @@ def sync_prices(ct: CardTrader | None = None, log=print) -> dict:
     val = collection_value(con)
     con.close()
     return {"printings": len(rows), "sem_preco": sem_preco,
+            # Quantos BLUEPRINTS ficaram com preço de foil (2026-09-26). É por
+            # blueprint e não por impressão porque é o que se mediu contra o
+            # mercado; uma impressão nossa pode partilhar blueprint com outra.
+            "com_preco_foil": com_foil,
             "historico_gravado": gravadas, "oferta_gravada": gravadas_of,
             "valor": val}
 
@@ -506,36 +557,84 @@ def copias_sql(con: sqlite3.Connection, cfg: dict | None = None) -> tuple[str, l
     O gémeo em Python, por impressão, é o `locais.contadas`. (fragmento,
     parâmetros) — os parâmetros vêm ANTES dos do `WHERE`.
 
-    As cópias FOIL (`copies.qty_foil`, 2026-09-26) somam-se aqui **só** com
-    `foil.conta_para_valor` ligado, e hoje está desligado. A chave lê-se do
-    config directamente, sem importar o `foil`, como no `locais._foils`: é o
-    mesmo botão, e ligá-lo é assumir que uma foil vale o preço da normal —
-    não há preço de foil no catálogo.
+    Dá TRÊS colunas, porque as cópias normais e as foil não valem o mesmo desde
+    2026-09-26:
+
+      `qty_normal`  as cópias normais (`copies.qty`) menos as próprias dos decks
+      `qty_foil`    as cópias foil (`copies.qty_foil`) que contam — **zero** com
+                    `foil.conta_para_valor` desligado. Os locais não se
+                    descontam aqui: a `copy_locations` só conta normais.
+      `qty`         a soma, que é «quantas cópias a Coleção conta». É esta que o
+                    `collection.totals` lê, e é por isso que ela mantém o nome.
+
+    Quem quiser o VALOR usa o `valor_sql`, nunca `qty * price_cents`: a cópia
+    foil vale o `price_foil_cents`. A chave lê-se do config directamente, sem
+    importar o `foil`, como no `locais._foils`.
     """
     from . import locais
 
-    foil = "+ COALESCE(c0.qty_foil, 0) " if (
-        ((cfg or config.load()).get("foil") or {}).get("conta_para_valor", False)) else ""
-    return (f"(SELECT c0.printing_id, c0.qty {foil}- COALESCE(cl.q, 0) AS qty "
+    foil = ("COALESCE(c0.qty_foil, 0)" if (
+        ((cfg or config.load()).get("foil") or {}).get("conta_para_valor", False))
+        else "0")
+    return (f"(SELECT c0.printing_id, "
+            f"        c0.qty - COALESCE(cl.q, 0) AS qty_normal, "
+            f"        {foil} AS qty_foil, "
+            f"        c0.qty - COALESCE(cl.q, 0) + {foil} AS qty "
             " FROM copies c0 "
             " LEFT JOIN (SELECT printing_id, SUM(qty) AS q FROM copy_locations "
             "            WHERE location LIKE ? GROUP BY printing_id) cl "
             " ON cl.printing_id = c0.printing_id) c", [locais.PROPRIO_PREFIX + "%"])
 
 
+def valor_sql(c: str = "c", p: str = "p") -> str:
+    """O valor das cópias de uma impressão, em cêntimos — a ÚNICA definição.
+
+    As normais ao `price_cents` e **as foil ao `price_foil_cents`**
+    (2026-09-26). O `COALESCE` de dentro é o FALLBACK: sem oferta foil no
+    CardTrader a cópia foil conta ao preço da normal, e essas cópias são
+    contadas à parte no `valor_dos_foils` para o total se poder ler como um
+    PISO. O `COALESCE` de fora deixa uma impressão sem preço valer zero em vez
+    de anular a soma inteira.
+
+    `c` é o alias do `copias_sql` e `p` o do `price_latest`.
+    """
+    return (f"(COALESCE({c}.qty_normal * {p}.price_cents, 0) "
+            f" + COALESCE({c}.qty_foil * COALESCE({p}.price_foil_cents, "
+            f"                                    {p}.price_cents), 0))")
+
+
+def valor_das_copias(qty_normal: int, qty_foil: int, price_cents: int | None,
+                     price_foil_cents: int | None) -> int:
+    """O `valor_sql` em Python, por impressão — a mesma conta, em cêntimos.
+
+    São precisas as duas porque o valor se calcula em dois sítios com formas
+    diferentes: em SQL sobre a coleção inteira (`collection_value`) e em Python
+    sobre o payload de uma edição (`metrics.set_payload`), que já tem os números
+    na mão. O terceiro gémeo é o `valorDasCopias` do `app.js`, que recalcula no
+    cliente a cada `+`/`−`. Há teste que corre os três sobre os mesmos casos.
+    """
+    preco_foil = price_foil_cents if price_foil_cents is not None else price_cents
+    return ((qty_normal * price_cents if price_cents is not None else 0)
+            + (qty_foil * preco_foil if preco_foil is not None else 0))
+
+
 def collection_value(con: sqlite3.Connection) -> dict:
-    """Valor total da coleção: soma de quantidade x preço — sem as retiradas."""
+    """Valor total da coleção: as normais ao preço da normal, as foil ao preço
+    da foil (2026-09-26) — sem as retiradas. Ver o `valor_sql`."""
     fonte, p_fonte = copias_sql(con)
     fora, params = _sem_retiradas(con)
     row = con.execute(
-        "SELECT COALESCE(SUM(c.qty * p.price_cents), 0) AS cents, "
+        f"SELECT COALESCE(SUM({valor_sql()}), 0) AS cents, "
         "       COALESCE(SUM(CASE WHEN p.price_cents IS NULL THEN c.qty ELSE 0 END), 0) AS sem_preco, "
         "       COALESCE(SUM(c.qty), 0) AS copias, "
         # Quanto do total vem de cartas que o CardTrader só lista em foil. É
-        # o número que diz se dá para confiar no total: como o riftvault não
-        # distingue acabamentos, essas podem estar sobreavaliadas.
-        "       COALESCE(SUM(CASE WHEN p.from_foil = 1 THEN c.qty * p.price_cents ELSE 0 END), 0) AS cents_foil, "
-        "       COALESCE(SUM(CASE WHEN p.from_foil = 1 THEN c.qty ELSE 0 END), 0) AS copias_foil "
+        # o número que diz se dá para confiar no total: uma cópia NORMAL dessas
+        # está avaliada a preço de foil, logo sobreavaliada. Conta só as
+        # normais: desde 2026-09-26 as foil dessas impressões têm o preço certo
+        # (o `price_foil_cents`, que ali é o mesmo número) e não são ressalva.
+        "       COALESCE(SUM(CASE WHEN p.from_foil = 1 "
+        "                    THEN c.qty_normal * p.price_cents ELSE 0 END), 0) AS cents_foil, "
+        "       COALESCE(SUM(CASE WHEN p.from_foil = 1 THEN c.qty_normal ELSE 0 END), 0) AS copias_foil "
         f"FROM {fonte} LEFT JOIN catalog.price_latest p ON p.printing_id = c.printing_id "
         "WHERE c.qty > 0" + fora, [*p_fonte, *params]
     ).fetchone()
@@ -545,9 +644,10 @@ def collection_value(con: sqlite3.Connection) -> dict:
             "cents_de_foil": row["cents_foil"] or 0, "copias_de_foil": row["copias_foil"] or 0,
             # Quanto do total vem das foils MARCADAS e ao preço de quê
             # (2026-09-26). Vai DENTRO do valor, e não à parte, para nenhuma
-            # vista poder mostrar o total sem a ressalva: as que contam ao preço
-            # da normal fazem deste número um PISO. `None` com o botão
-            # desligado. Ver o `valor_dos_foils`.
+            # vista poder mostrar o total sem a ressalva: as que caem no
+            # FALLBACK (preço da normal, por não haver oferta foil) fazem deste
+            # número um PISO. `None` com o botão desligado. Ver o
+            # `valor_dos_foils`.
             "foils": valor_dos_foils(con),
             "day": day["d"] if day else None}
 
@@ -555,25 +655,29 @@ def collection_value(con: sqlite3.Connection) -> dict:
 def valor_dos_foils(con: sqlite3.Connection, cfg: dict | None = None) -> dict | None:
     """Quanto do valor vem das cópias FOIL, e AO PREÇO DE QUÊ (2026-09-26).
 
-    O catálogo tem **um preço por impressão** e não há fonte de preço de foil
-    (o Cardmarket responde 403, a API deles está fechada, e o CardTrader não dá
-    trend) — por isso com `foil.conta_para_valor` ligado as foils contam ao
-    preço da NORMAL. Isso faz do valor um **piso**, não uma estimativa, e a
-    página tem de o dizer em vez de o apresentar como um total limpo.
+    Desde a tarde de 2026-09-26 há preço de foil a sério: o `price_foil_cents`,
+    o mínimo das ofertas FOIL do CardTrader com os mesmos filtros das normais
+    (*"podes meter filtro no cardtrader e tirar o preco da foil mais barata?,
+    para diferenciar os precos"*). Uma cópia foil vale esse preço — e só quando
+    ele não existe é que cai para o da normal. Esse FALLBACK é o que faz do
+    total um PISO, e por isso conta-se e diz-se, em vez de ficar num comentário.
 
-    Há um caso em que NÃO há ressalva: quando o `price_latest.from_foil` é 1, a
-    única oferta que o CardTrader tinha era foil e o preço JÁ é de foil. Aí a
-    foil está avaliada com o preço certo (e é a NORMAL que pode estar
-    sobreavaliada — a ressalva de sempre, desde 2026-08-31).
+      `preco_de_foil`       {printings, copies, cents} — há `price_foil_cents`
+                            (ou `from_foil`, que é o mesmo número): preço de
+                            foil a sério, sem ressalva
+      `ao_preco_da_normal`  {printings, copies, cents} — **o FALLBACK**: não há
+                            oferta foil no CardTrader e a cópia conta ao preço
+                            da normal. O valor real é mais alto (uma foil
+                            raramente vale menos do que a normal)
+      `sem_preco`           {printings, copies} — sem oferta nenhuma; não contam
+      `copies`, `cents`     o total das foils no valor
 
-      `ao_preco_da_normal`  {printings, copies, cents} — com ressalva: o preço
-                            é de oferta não-foil, o valor real é mais alto
-      `preco_de_foil`       {printings, copies, cents} — `from_foil = 1`, o
-                            preço já é de foil: sem ressalva
-      `sem_preco`           {printings, copies} — sem oferta no CardTrader
+    Quando o `from_foil` é 1 a impressão cai em `preco_de_foil` — e é o mesmo
+    número do `price_cents`, porque a única oferta que havia era foil. Era esse
+    o único caso «sem ressalva» até hoje; agora é o caso geral.
 
-    `None` com o botão desligado: não há foils no valor e não há nada a
-    ressalvar.
+    `None` com `foil.conta_para_valor` desligado: não há foils no valor e não há
+    nada a ressalvar.
     """
     if not ((cfg or config.load()).get("foil") or {}).get("conta_para_valor", False):
         return None
@@ -581,24 +685,33 @@ def valor_dos_foils(con: sqlite3.Connection, cfg: dict | None = None) -> dict | 
     # As foils de uma impressão RETIRADA não contam, como as normais dela.
     rows = con.execute(
         "SELECT c.qty_foil AS n, p.price_cents AS cents, "
-        "       COALESCE(p.from_foil, 0) AS ff "
+        "       p.price_foil_cents AS foil_cents, COALESCE(p.from_foil, 0) AS ff "
         "FROM copies c LEFT JOIN catalog.price_latest p "
         "  ON p.printing_id = c.printing_id "
         "WHERE c.qty_foil > 0" + fora, params).fetchall()
     out = {k: {"printings": 0, "copies": 0, "cents": 0}
-           for k in ("ao_preco_da_normal", "preco_de_foil")}
+           for k in ("preco_de_foil", "ao_preco_da_normal")}
     out["sem_preco"] = {"printings": 0, "copies": 0}
     for r in rows:
-        if r["cents"] is None:
+        normal = r["cents"]
+        # `from_foil = 1` diz que o `price_cents` JÁ é de foil — não havia oferta
+        # normal nenhuma. Conta como preço de foil mesmo que o
+        # `price_foil_cents` esteja vazio, que é o estado de um catálogo entre a
+        # migração e o `riftvault prices` seguinte: o número é o mesmo, e chamar
+        # àquilo «fallback» era dizer que o preço é da normal quando não é.
+        se_foil = (r["foil_cents"] if r["foil_cents"] is not None
+                   else (normal if r["ff"] else None))
+        preco = se_foil if se_foil is not None else normal
+        if preco is None:
             out["sem_preco"]["printings"] += 1
             out["sem_preco"]["copies"] += r["n"]
             continue
-        slot = out["preco_de_foil"] if r["ff"] else out["ao_preco_da_normal"]
+        slot = out["preco_de_foil"] if se_foil is not None else out["ao_preco_da_normal"]
         slot["printings"] += 1
         slot["copies"] += r["n"]
-        slot["cents"] += r["n"] * r["cents"]
+        slot["cents"] += r["n"] * preco
     out["copies"] = sum(r["n"] for r in rows)
-    out["cents"] = out["ao_preco_da_normal"]["cents"] + out["preco_de_foil"]["cents"]
+    out["cents"] = out["preco_de_foil"]["cents"] + out["ao_preco_da_normal"]["cents"]
     return out
 
 
@@ -606,7 +719,7 @@ def value_by_set(con: sqlite3.Connection) -> dict[str, int]:
     fonte, p_fonte = copias_sql(con)
     fora, params = _sem_retiradas(con)
     rows = con.execute(
-        "SELECT pr.set_id AS s, COALESCE(SUM(c.qty * p.price_cents), 0) AS cents "
+        f"SELECT pr.set_id AS s, COALESCE(SUM({valor_sql()}), 0) AS cents "
         f"FROM {fonte} "
         "JOIN catalog.printings pr ON pr.printing_id = c.printing_id "
         "LEFT JOIN catalog.price_latest p ON p.printing_id = c.printing_id "
@@ -620,7 +733,10 @@ def top_value(con: sqlite3.Connection, limit: int = 15) -> list[dict]:
     fora, params = _sem_retiradas(con)
     rows = con.execute(
         "SELECT pr.public_code, pr.name, pr.variant_label, c.qty, p.price_cents, "
-        "       c.qty * p.price_cents AS total, p.from_foil "
+        # O total leva as foils ao preço delas (`valor_sql`), e as duas colunas
+        # ao lado dizem porque é que a linha não é `qty × price_cents`.
+        "       c.qty_normal, c.qty_foil, p.price_foil_cents, "
+        f"       {valor_sql()} AS total, p.from_foil "
         f"FROM {fonte} "
         "JOIN catalog.printings pr ON pr.printing_id = c.printing_id "
         "JOIN catalog.price_latest p ON p.printing_id = c.printing_id "

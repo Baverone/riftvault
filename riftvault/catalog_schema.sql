@@ -101,11 +101,21 @@ CREATE TABLE IF NOT EXISTS price_latest (
     price_cents INTEGER,
     currency    TEXT NOT NULL DEFAULT 'EUR',
     from_foil   INTEGER NOT NULL DEFAULT 0,  -- 1: não havia oferta normal
+    -- O PREÇO DA FOIL, à parte (2026-09-26: *"podes meter filtro no cardtrader
+    -- e tirar o preco da foil mais barata?, para diferenciar os precos"*). O
+    -- mínimo das ofertas FOIL, com os mesmos filtros do `price_cents`
+    -- (Mint/Near Mint, inglês, sem graded/signed/altered, vendedor presente,
+    -- EUR). NULL quando não há oferta foil nenhuma — e aí uma cópia foil dele
+    -- conta ao `price_cents`, que é o FALLBACK contado no
+    -- `prices.valor_dos_foils`. Quando `from_foil` é 1 este é igual ao
+    -- `price_cents`: a única oferta que havia era foil.
+    price_foil_cents INTEGER,
     -- O TAMANHO da oferta, em três medidas (ver `prices.oferta`). É OFERTA, não
     -- procura: nem o CardTrader nem o Cardmarket publicam volume de vendas.
     n_listings  INTEGER NOT NULL DEFAULT 0,  -- anúncios utilizáveis
     n_sellers   INTEGER NOT NULL DEFAULT 0,  -- vendedores distintos
     n_copies    INTEGER NOT NULL DEFAULT 0,  -- cópias à venda ao todo
+    n_listings_foil INTEGER NOT NULL DEFAULT 0,  -- desses, quantos são foil
     day         TEXT,
     source      TEXT NOT NULL DEFAULT 'cardtrader'
 );

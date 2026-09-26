@@ -173,8 +173,11 @@ class TestAsTresChaves(Base):
         self.assertFalse(r["entra_no_a_mais"])
         t = self.foil.texto(r, [{"id": "TST", "name": "TST"}])
         self.assertIn("CONTAM", t)
-        self.assertIn("AO PREÇO DA NORMAL", t)
-        self.assertIn("PISO", t)
+        # Desde a tarde de 2026-09-26 contam ao PREÇO DA FOIL; a menção ao preço
+        # da normal (e ao piso) é do FALLBACK, e aparece quando há foils que
+        # caiam nele — ver o `test_foil_preco`.
+        self.assertIn("PREÇO DA FOIL", t)
+        self.assertIn("preço da normal", t)
         self.assertIn("NÃO entram no que sobra", t)
 
 
@@ -654,9 +657,14 @@ class TestAInterfaceDiz(Base):
                       "o resumo do foil")
 
     def test_o_app_js_separa_o_caso_from_foil(self):
+        """As duas metades dizem-se as duas: as que têm preço de foil e as que
+        caem no fallback. (A frase «já têm preço de foil» era do tempo em que o
+        único caso sem ressalva era o `from_foil`; desde a tarde de 2026-09-26 o
+        preço de foil é o caso GERAL — ver o `test_foil_preco`.)"""
         js = APP.read_text(encoding="utf-8")
         self.assertIn("preco_de_foil", js)
-        self.assertIn("já têm preço de foil", js)
+        self.assertIn("preço da foil", js)
+        self.assertIn("ao preço da versão", js)
 
     def test_o_app_js_diz_que_os_foils_nao_entram_no_a_mais(self):
         js = APP.read_text(encoding="utf-8")
@@ -689,7 +697,7 @@ class TestAInterfaceDiz(Base):
 
     def test_o_cli_do_valor_diz_a_ressalva(self):
         fonte = (REPO / "riftvault" / "cli.py").read_text(encoding="utf-8")
-        self.assertIn("AO PREÇO DA NORMAL", fonte)
+        self.assertIn("ao preço da NORMAL", fonte)
         self.assertIn("PISO", fonte)
         self.assertIn("sem ressalva", fonte)
 
