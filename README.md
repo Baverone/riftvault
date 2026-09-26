@@ -747,7 +747,7 @@ vale como cópia da impressão:
 | `foil.conta_para_valor` | **true** | os foils contam para o VALOR, **ao preço da foil** |
 | `foil.entra_no_a_mais` | **false** | os foils **não** entram no que sobra no «A mais» |
 
-**E o preço da foil é o da FOIL** (2026-09-26, à tarde: *"podes meter filtro no
+**E o preço da foil é o da FOIL** (2026-09-26, à noite: *"podes meter filtro no
 cardtrader e tirar o preco da foil mais barata?, para diferenciar os precos"*). O
 `riftvault prices` grava duas colunas novas na `price_latest`:
 `price_foil_cents`, o mínimo das ofertas **foil** com exactamente os mesmos
