@@ -62,3 +62,7 @@ __pycache__/
 data/backups/
 _lixo/
 
+
+# artefactos do FUSE (acesso a pasta montada a partir do Claude); nunca sao trabalho
+.fuse_hidden*
+data/.fuse_hidden*
