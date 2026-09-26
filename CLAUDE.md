@@ -62,15 +62,17 @@ site já não há secção nenhuma com esse id.) Há também **Produto Selado** 
 boosters e Proving Grounds: o que há, o que tem e o que não tem; a lista vem
 das CATEGORIAS do CardTrader, o catálogo em `data/selado_catalogo.json`, id
 `selado`, `api/selado.json`, `selado.py`; **não entra na Coleção** e o valor
-dele nunca se soma ao dela. **Desde 2026-09-26 são 55**: os 81 da
+dele nunca se soma ao dela. **Desde 2026-09-26 são 48**: os 81 da
 API (4 blueprints repetidos juntados, `selado.juntar_duplicados`) mais 17
 escritos à mão em `selado.extra` — displays de champion e de showdown decks,
 cases de vaults, o case do Proving Grounds e os Pre-Rift EVENT Kit —,
-**menos os 43 que ele mandou tirar** (`selado.excluidos`, a mesma ideia das
+**menos os 50 que ele mandou tirar** (`selado.excluidos`, a mesma ideia das
 abas: esconder não é apagar, o catálogo fica intacto e repor é tirar o nome
 da lista — 22 numa primeira ordem, mais 2 «Card Set» e 8 Trial Deck numa
-segunda, mais os 11 **Champion Deck** a 26/09; os 7 Champion Deck **Display**
-da `extra` e os 2 Showdown Deck ficam). A secção dos **binders e deck boxes** (`selado.acessorios`) ficou
+segunda, mais os 11 **Champion Deck** a 26/09, mais os **7 que não se compram
+em lado nenhum** na mesma noite; os 7 Champion Deck **Display**
+da `extra` e os 2 Showdown Deck ficam, e as **edições por sair também ficam**
+— não têm `cardmarket_id` mas têm ofertas em pré-venda). A secção dos **binders e deck boxes** (`selado.acessorios`) ficou
 com a **lista VAZIA** nessa mesma noite — ele mandou tirar os acessórios
 todos —, e por isso não aparece; a chave e o código ficam, e repor é escrever
 os números outra vez. Ver a última secção deste ficheiro.)
@@ -2635,6 +2637,16 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   intacto e repor é tirar o nome da lista; o nome é exacto e um que não case
   rebenta. Mais a limpeza do «Trial Deck Set **Set**» do catálogo
   (`selado.nome_limpo`, sem mexer no id). Ver a última secção deste ficheiro.
+- **Feito também:** os 7 selados que não se compram em lado nenhum
+  (2026-09-26) — *"os produtos selados que ainda ficaram, que eu procuro no
+  cardmarket e nao tem disponivel, podes tirar"*: `selado.excluidos` 43 →
+  **50**, a aba 55 → **48**. O critério é o cruzamento das duas coisas que se
+  medem (**o Cardmarket responde 403** e não dá para lhe ver o stock): sem
+  `cardmarket_id` **e** zero ofertas no CardTrader, medidas AO VIVO. As
+  **edições por sair ficam** — não têm id mas têm pré-venda —, e há teste que
+  rebenta se alguém simplificar o critério para «não tem Cardmarket, sai».
+  **Por decidir:** os «Nexus Night Promo Booster» do UNL e do VEN. Ver a
+  última secção deste ficheiro.
 - **Por fazer:** a parte 2 do seguir — o separador no site e a tarefa diária;
   vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck,
   com as partilhadas assinaladas); e apagar decks pela interface (hoje apaga-se
@@ -6938,3 +6950,140 @@ fotografia** — a MESMA do `test_selado`, por referência — a tirar e a repor
 código.
 
 Suite: **50 ficheiros, 0 a falhar**.
+
+## 26/09/2026 — os 7 selados que NÃO SE COMPRAM EM LADO NENHUM (48); as edições POR SAIR ficam
+
+Palavras dele: *"os produtos selados que ainda ficaram, que eu procuro no
+cardmarket e nao tem disponivel, podes tirar"*. Ramo
+`ai-pc/selado-sem-mercado-2026-09-26`.
+
+**NÃO HÁ MECANISMO NOVO, pela quarta vez** — é a mesma `selado.excluidos` das
+três ordens anteriores (22 → 32 → 43 → **50**), e mais nada. O trabalho desta
+ordem foi **medir**, e depois **não** tirar o que a letra do pedido tiraria.
+
+### 1. O pedido dele não se mede à letra — e o critério que o substitui
+
+**O Cardmarket não se pode consultar.** Responde **403** a pedidos automáticos
+(está no CLAUDE.md desde 2026-08-31), a API pública morreu (410) e a de
+parceiros está fechada a novas candidaturas. Não há maneira de saber se um
+produto tem stock lá. Cruzaram-se por isso as duas coisas que **se medem**:
+
+| coluna | o que diz |
+|---|---|
+| `cardmarket_id` do catálogo | sem ele o Cardmarket **nem página tem** para o produto |
+| ofertas no CardTrader | medidas **AO VIVO** pela API v2, a 2026-09-26 |
+
+    ZERO NAS DUAS COLUNAS = ninguém vende, em lado nenhum.
+
+**As ofertas do catálogo em disco não servem para isto**, e foi preciso
+descobri-lo: o `data/selado_catalogo.json` é do `--sync` de 25/09 e já estava
+velho — dizia **zero** ofertas na «Origins: Proving Grounds», que ao vivo tinha
+**24**. Medir pelo disco tirava um produto que se compra. O script é
+`_revisao\_medir_selado_cm.py` (1 pedido de cada vez), e a resposta crua ficou
+em `_revisao\selado-ofertas-vivo.json`.
+
+### 2. Os 7, e o que cada um tinha
+
+Medido ao vivo: **dos 38 visíveis com `blueprint_id`, estes 7 são EXACTAMENTE
+os que têm zero ofertas** — nem um a mais, nem um a menos.
+
+| produto | edição | Cardmarket | ofertas CT |
+|---|---|---|---|
+| Tournament Gift Box | OP | — | 0 |
+| Arcane Promo Pack | PROMO-RIFT | — | 0 |
+| Origins: Instant Match Box 2025 | PROMO-RIFT | — | 0 |
+| Promo Pack | PROMO-RIFT | — | 0 |
+| The T1 Worlds Champion \| Player Bundle | T1S | — | 0 |
+| Immersive Arcane Promo Pack | PROMO-RIFT | 904521 | 0 |
+| Replacement Card Booster | PROMO-RIFT | 877733 | 0 |
+
+Os dois últimos têm página no Cardmarket e zero ofertas — que é a mesma coisa
+para quem quer comprar. E o **«Replacement Card Booster» nem produto é**: é o
+serviço da Riot de substituição de cartas danificadas. Ficou avisado a 25/09 e
+por decidir; sai agora com os outros.
+
+**Os três «Promo Pack» são a prova do «o nome é EXACTO, nunca um pedaço»** —
+«Promo Pack» está dentro de «Arcane Promo Pack», que está dentro de
+«Immersive Arcane Promo Pack». Escreveram-se os três, um a um, e cada um casa
+com o seu (há teste que confirma os três ids distintos).
+
+### 3. O QUE NÃO SAI, e é o ponto desta ordem
+
+**As edições POR SAIR não têm `cardmarket_id` NENHUM — e têm ofertas a sério
+em pré-venda.** Tirá-las por não terem Cardmarket era tirar exactamente o que
+ele quer ver a chegar:
+
+| produto | ofertas CT (ao vivo) |
+|---|---|
+| Legacy Booster Box | 6 |
+| Legacy Vault | 4 |
+| Legacy: Proving Grounds | 5 |
+| Radiance Booster Box | 18 |
+| Radiance Booster Box Case | 11 |
+| The Reckoning Booster Box | 5 |
+| Arcane Box Set | 4 |
+| Gift of the Rift Bundle | 3 |
+
+É por isto que o critério exige **zero nas DUAS colunas** e não basta faltar o
+id. `TestOCriterioNaoEFaltarOIdDoCardmarket` fica **vermelho** se alguém o
+simplificar, e tem a prova pela negativa lá dentro (a regra errada, escrita à
+mão, apanha a pré-venda).
+
+**Os 17 do `selado.extra` não se medem por este critério.** Não têm
+`blueprint_id` nem `cardmarket_id` — a API não os tem —, e por isso pela letra
+saíam todos. **Ficam:** foram escritos à mão a 25/09 *precisamente porque* um
+catálogo de mercado não os lista, e aplicar-lhes a regra era desfazer essa
+ordem. Fica dito no config e há teste.
+
+### 4. POR DECIDIR: os «Nexus Night Promo Booster» do UNL e do VEN
+
+Não têm `cardmarket_id` mas **têm 13 e 6 ofertas** no CardTrader. Pela letra do
+pedido saíam; por se comprarem, ficam. **Não se decidiu aqui** — ficaram na aba
+e a pergunta foi devolvida. O do OGN tem Cardmarket (856097) e 12 ofertas, e
+fica de certeza; o do SFD tem Cardmarket (872892) e 15.
+
+### Medido a 2026-09-26 contra uma CÓPIA do `data/` real
+
+`_revisao\_medir_selado_sem_mercado.py`: o MESMO código e a MESMA cópia,
+mudando só a lista, a gerar o site dos dois lados. **Os 30 ficheiros saem
+IGUAIS ficheiro a ficheiro** (a menos do relógio) — o único que difere é o
+`api/selado.json`, de 110 194 para **98 040 bytes**. Nada fora do selado mexe,
+e não é asserção: é o site inteiro comparado byte a byte. (O `data/` a sério
+nunca se tocou.)
+
+| | antes | depois |
+|---|---|---|
+| produto selado | 55 | **48** |
+| não tenho | 44 | **37** |
+| por sair | 11 | **11** (não mexe — é o ponto) |
+| sem preço | 30 | **23** |
+| excluídos | 43 | **50** |
+| acessórios | 0 | **0** |
+| Nexus Night na aba | 4 | **4** |
+
+Por edição (o que há): **a OP desaparece** (1 → 0, tinha um produto só), a
+**PROMO-RIFT 10 → 5** e a **T1S 2 → 1**; as outras dez não mexem (OGN 5, OGS 2,
+SFD 6, UNL 8, VEN 8, RAD 7, LGC 2, PG2 1, REC 1, ARC 2). **Total 55 → 48.**
+
+`tests/test_selado_sem_mercado.py` (52 testes, contra cópias e config
+temporário): o mecanismo (tira-se por nome; **zero ofertas sozinho NÃO esconde
+nada** — esconder é decisão dele, senão a aba mudava a cada `--sync`; ter
+página no Cardmarket não salva quem está nomeado; o nome exacto com o par
+«Promo Pack»; sai dos contadores e do valor; repor é tirar o nome; a unidade
+gravada não se apaga e volta; o `+` recusa; o catálogo intacto); **o critério**
+(sem id mas com ofertas FICA, e a prova pela negativa); o **config real** (50
+sem repetidos, os 7 lá, as 43 anteriores inteiras, a pré-venda e os Nexus Night
+**fora** da lista, os 17 da `extra` fora, e a nota a explicar o critério); os
+**7 contra o catálogo real** (cada um casa, saem da aba, os ids batem com o
+medido, 48 selados, a conta por edição, a OP desaparece); **o que fica** (a
+pré-venda visível e sem `cardmarket_id`, as quatro edições por sair, o Arcane
+Box Set, os 4 Nexus Night, os 17 da `extra`, os três «Promo Pack» com ids
+distintos); **nenhuma exclusão morta** com as 50; e **a fotografia** — a MESMA
+do `test_selado`, por referência. `test_selado_tirar`, `test_selado_tirar2` e
+`test_selado_champion` foram ajustados nos NÚMEROS (43 → 50, 55 → 48, a conta
+por edição) e nos produtos que **deixaram de ser exemplo de «parecido que
+fica»** (o «Origins: Instant Match Box 2025» e os «Promo Pack»: estão hoje na
+lista, mas não por essas ordens — e é isso que os testes novos lá dizem). O
+`test_selado_tirar` ganhou a constante `OS_22`, que não existia.
+
+Suite: **51 ficheiros, 0 a falhar**.

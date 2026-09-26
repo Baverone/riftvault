@@ -73,9 +73,16 @@ TEM_DE_FICAR = [
     "Arcane Chinese Promo Set",
     "The T1 Worlds Champion | Signature Edition Box Set",
     "Origins: Proving Grounds Box Set Case",
-    "Origins: Instant Match Box 2025",
     "Secret Garden Bundle Box",
 ]
+
+# O «Origins: Instant Match Box 2025» estava nesta lista — ele não o nomeou
+# nesta ordem e ficou. Saiu HORAS DEPOIS, na dos 7 sem mercado (sem
+# `cardmarket_id` e zero ofertas no CardTrader — ver `test_selado_sem_mercado`),
+# e por isso deixou de poder ser o exemplo de «parecido que fica». O que este
+# ficheiro prova continua de pé pelos outros cinco: tira-se por NOME, nunca
+# por categoria.
+SAIU_DEPOIS = "Origins: Instant Match Box 2025"
 
 # O catálogo de brincar do `test_selado`, mais um binder e um deck box (as duas
 # categorias de acessório que esta ordem desliga) e um segundo «Complete Set».
@@ -228,12 +235,17 @@ class TestOsDezContraOCatalogoReal(unittest.TestCase):
         # E os que ele nomeou para ficar, todos da 263, continuam lá.
         for n in ("Arcane Box Set", "Arcane Chinese Promo Set",
                   "The T1 Worlds Champion | Signature Edition Box Set",
-                  "Origins: Instant Match Box 2025", "Secret Garden Bundle Box"):
+                  "Secret Garden Bundle Box"):
             self.assertIn(n, self.nomes, n)
+        # E o que saiu da 263 não saiu por ser da 263: o `SAIU_DEPOIS` foi-se
+        # na ordem seguinte, por não ter mercado em lado nenhum.
+        self.assertNotIn(SAIU_DEPOIS, OS_DEZ)
 
-    def test_a_aba_fica_com_55_selados(self):
+    def test_a_aba_fica_com_48_selados(self):
+        """Estes 10 levaram-na de 76 a 66; os 11 Champion Deck a 55 e os 7 sem
+        mercado a 48 (ver `test_selado_champion`, `test_selado_sem_mercado`)."""
         selados = [x for x in self.lista if not x["acessorio"]]
-        self.assertEqual(len(selados), 55, "98 − 22 − 10 − 11")
+        self.assertEqual(len(selados), 48, "98 − 22 − 10 − 11 − 7")
 
     def test_por_edicao_depois_dos_dez(self):
         """Os números que ele vai ver, edição a edição."""
@@ -243,18 +255,18 @@ class TestOsDezContraOCatalogoReal(unittest.TestCase):
                 por[x["edicao"]] = por.get(x["edicao"], 0) + 1
         self.assertEqual(por, {"OGN": 5, "OGS": 2, "SFD": 6, "UNL": 8, "VEN": 8,
                                "RAD": 7, "LGC": 2, "PG2": 1, "REC": 1, "ARC": 2,
-                               "OP": 1, "PROMO-RIFT": 10, "T1S": 2})
-        self.assertEqual(sum(por.values()), 55)
+                               "PROMO-RIFT": 5, "T1S": 1})
+        self.assertEqual(sum(por.values()), 48)
 
-    def test_a_promo_rift_fica_com_dez(self):
-        """Eram 18: saíram os 8 Trial Deck."""
+    def test_a_promo_rift_fica_com_cinco(self):
+        """Eram 18: saíram os 8 Trial Deck desta ordem, e depois os 5 sem
+        mercado (o Promo Pack, o Arcane Promo Pack, o Immersive, o Replacement
+        Card Booster e o Instant Match Box)."""
         pr = [x["nome"] for x in self.lista if x["edicao"] == "PROMO-RIFT"]
-        self.assertEqual(len(pr), 10)
-        for n in ("Origins: Instant Match Box 2025", "Secret Garden Bundle Box",
-                  "Origins | Nexus Night Promo Booster", "Promo Pack",
-                  "Arcane Promo Pack", "Immersive Arcane Promo Pack",
-                  "Replacement Card Booster"):
-            self.assertIn(n, pr)
+        self.assertEqual(sorted(pr), [
+            "Gift of the Rift Bundle", "Lunar Revel 2026 Bundle",
+            "Origins | Nexus Night Promo Booster", "Riftbound Worlds Bundle 2025",
+            "Secret Garden Bundle Box"])
 
     def test_a_arc_fica_com_duas(self):
         """Eram 3: saiu o «Arcane Complete Set» e ficam a caixa e o promo set."""
@@ -289,10 +301,11 @@ class TestOConfigReal(unittest.TestCase):
         cls.sel = json.loads(
             (REPO / "riftvault_config.json").read_text(encoding="utf-8"))["selado"]
 
-    def test_a_lista_tem_43_sem_repetidos(self):
-        """22 (25/09, manhã) + 10 (25/09, noite) + 11 Champion Deck (26/09)."""
-        self.assertEqual(len(self.sel["excluidos"]), 43)
-        self.assertEqual(len(set(self.sel["excluidos"])), 43)
+    def test_a_lista_tem_50_sem_repetidos(self):
+        """22 (25/09, manhã) + 10 (25/09, noite) + 11 Champion Deck (26/09)
+        + 7 sem mercado (26/09)."""
+        self.assertEqual(len(self.sel["excluidos"]), 50)
+        self.assertEqual(len(set(self.sel["excluidos"])), 50)
 
     def test_os_dez_estao_la(self):
         for n in OS_DEZ:
@@ -315,6 +328,12 @@ class TestOConfigReal(unittest.TestCase):
     def test_nenhum_dos_que_ficam_foi_parar_a_lista(self):
         for n in TEM_DE_FICAR:
             self.assertNotIn(n, self.sel["excluidos"])
+
+    def test_o_que_saiu_depois_saiu_por_outra_razao(self):
+        """O `SAIU_DEPOIS` está hoje na lista, mas não por esta ordem: não é
+        um dos 10, e a sua entrada veio da dos 7 sem mercado."""
+        self.assertNotIn(SAIU_DEPOIS, OS_DEZ)
+        self.assertIn(SAIU_DEPOIS, self.sel["excluidos"])
 
     def test_os_acessorios_estao_vazios_e_a_chave_ficou(self):
         """Esvaziar, não apagar — é o que deixa repor sem mexer em código."""
