@@ -1047,13 +1047,17 @@ function foilLinha(pid) {
   // chaves em vez de ficar a dizer o de antes.
   const contam = foilContamTxt();
   const pf = foilPrecoTxt(pid);
+  // O PREÇO vai numa LINHA PRÓPRIA, a seguir aos `+`/`−` e com a largura toda
+  // do tile (`flex-basis: 100%`), não encostado às contagens: a 375 px o tile
+  // tem ~109 px e a metade que sobrava ao lado dos botões punha «foil ao preço
+  // da normal» a uma palavra por linha. Medido.
   return `<div class="foil-linha" title="tens ${norm} normais e ${f} ${
     f === 1 ? 'foil' : 'foils'} desta impressão — ${norm + f} cópias ao todo. As duas contagens são independentes${
     contam ? ` e os foils contam ${contam}` : ' e não contam para os alvos nem para o valor'}.${
     pf ? ` ${pf.title}` : ''}">
     <span class="foil-txt"><b>${norm}</b> normais · <b class="fo">${f}</b> foil${
-      f ? ` <i class="dim">= ${norm + f}</i>` : ''}${
-      pf ? ` <i class="${pf.cls}">${pf.txt}</i>` : ''}</span>${controlos}</div>`;
+      f ? ` <i class="dim">= ${norm + f}</i>` : ''}</span>${controlos}${
+    pf ? `<span class="${pf.cls}">${pf.txt}</span>` : ''}</div>`;
 }
 
 /* O PREÇO DA FOIL NO TILE (2026-09-26, à tarde)
@@ -1061,10 +1065,10 @@ function foilLinha(pid) {
    Onde aparece a contagem de foil aparece o preço dela — e a marca de quando é
    FALLBACK. Duas leituras, de propósito diferentes à vista:
 
-     `foil 1,50 €`            há oferta foil no CardTrader: é este o preço a que
-                              as cópias foil dele contam no valor
+     `foil 1,50 €`             há oferta foil no CardTrader: é este o preço a que
+                               as cópias foil dele contam no valor
      `foil ao preço da normal` não há oferta foil: a cópia conta ao preço da
-                              normal, e o valor dela é um PISO
+                               normal, e o valor dela é um PISO
 
    Só se mostra com o `foil.conta_para_valor` ligado: com ele desligado o preço
    da foil não entra em conta nenhuma e era ruído no tile. */
@@ -1072,14 +1076,14 @@ function foilPrecoTxt(pid) {
   if (!(state.index?.foil || {}).conta_para_valor) return null;
   const pf = state.precoFoil.get(pid);
   if (pf != null) {
-    return { txt: `· foil ${eur(pf)}`, cls: 'fo-preco',
+    return { txt: `foil ${eur(pf)}`, cls: 'fo-preco',
              title: `Uma cópia foil conta ${eur(pf)} no valor — o preço da foil mais `
                   + 'barata no CardTrader (Near Mint/Mint, inglês).' };
   }
   // Sem `price` não há nada a dizer: a impressão não tem oferta nenhuma.
   const p = state.preco.get(pid);
   if (p == null) return null;
-  return { txt: '· foil ao preço da normal', cls: 'fo-preco fo-piso',
+  return { txt: 'foil ao preço da normal', cls: 'fo-preco fo-piso',
            title: `O CardTrader não tem esta em foil: uma cópia foil conta ${eur(p)}, `
                 + 'o preço da normal. É um piso — o real é mais alto.' };
 }

@@ -712,8 +712,12 @@ class TestAInterface(Base):
 
     def test_o_css_tem_a_classe_do_preco(self):
         css = CSS.read_text(encoding="utf-8")
-        self.assertIn(".foil-txt i.fo-preco", css)
-        self.assertIn(".foil-txt i.fo-piso", css)
+        self.assertIn(".foil-linha .fo-preco", css)
+        self.assertIn(".foil-linha .fo-piso", css)
+        # Linha própria, com a largura toda: ao lado dos `+`/`−` a frase do
+        # fallback saía a uma palavra por linha a 375 px.
+        self.assertIn("flex: 0 0 100%", css)
+        self.assertIn("flex-wrap: wrap", css)
 
     def test_o_cli_do_foil_diz_os_dois_precos(self):
         fonte = (REPO / "riftvault" / "cli.py").read_text(encoding="utf-8")
