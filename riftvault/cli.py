@@ -16,6 +16,7 @@
     riftvault local [REF N --para deck:azir] [--deck azir --propor|--marcar ...]
     riftvault encomendas [--mais REF [N] | --menos REF [N] | --chegou [REF]] [--foil]
     riftvault seguir [--jogador NOME] [--so-mudados] [--sem-rede] [--json]
+    riftvault principal [--definir SLUG | --limpar] [--cardmarket] [--codigos]
     riftvault proprias [SLUG] [--mais REF [N] | --menos REF [N]]
     riftvault foil [REF] [--mais [N] | --menos [N]] [--edicao OGN]
     riftvault venda [--juntar REF [N] | --tirar REF [N]] [--trend REF EUR]
@@ -40,7 +41,7 @@ from . import faltas as faltas_mod
 from . import faltas_edicao, faltas_foil
 from . import foil as foil_mod
 from . import locais as locais_mod
-from . import metrics, painel, pending as pending_mod, prices
+from . import metrics, painel, pending as pending_mod, prices, principal
 from . import proprias as proprias_mod
 from . import runas_vista as runas_vista_mod
 from . import seguir as seguir_mod
@@ -413,12 +414,18 @@ def cmd_decks(args) -> int:
         if not slug:
             continue
         try:
-            est = decks_mod.alternar_montado(con, slug, montar)
+            # Pelo `principal.montar` (2026-09-27): desmontar o DECK PRINCIPAL
+            # despromove-o e manda as cópias próprias que valham o mínimo para
+            # a Venda. Entrar na Venda não é vender.
+            est = principal.montar(con, slug, montar, source="cli")
         except decks_mod.DeckDesconhecido as exc:
             print(f"erro: {exc}", file=sys.stderr)
             return 1
         print(f"{slug}: {'montado' if montar else 'desmontado'}.  "
-              f"montados: {', '.join(est['montados']) or '(nenhum)'}\n")
+              f"montados: {', '.join(est['montados']) or '(nenhum)'}")
+        if est["movimento"]:
+            _dizer_despromocao(est["despromovido"], est["movimento"])
+        print()
     if args.order:
         if decks_mod.ordem_fixa():
             print(f"erro: a ordem dos decks está em `decks.{decks_mod.ORDEM}` no "
@@ -1309,6 +1316,13 @@ def cmd_venda(args) -> int:
             marcas.append(f"só tens {x['have']}")
         if x["em_decks"]:
             marcas.append("em " + ", ".join(x["em_decks"]))
+        # De onde veio a linha (2026-09-27): o deck que deixou de ser
+        # principal, e o preço que decidiu que ela vinha.
+        if x.get("origem_deck"):
+            marcas.append(f"veio do deck {x['origem_deck']}"
+                          + (f" · {prices.eur(x['preco_criterio'])}"
+                             f"{' foil' if x['criterio_foil'] else ''}"
+                             if x["preco_criterio"] is not None else ""))
         print(f"{x['name']:<{largura}}  {_codigo_curto(x['code']):<12} {x['qty']:>4}  "
               f"{trend:>10}  "
               f"{prices.eur(x['subtotal']) if x['trend'] is not None else '—':>10}"
@@ -1322,6 +1336,111 @@ def cmd_venda(args) -> int:
               f"O preço do CardTrader não as substitui.", file=sys.stderr)
     print("Os preços da conta são o Trend do Cardmarket, metido à mão "
           "(`riftvault venda --trend OGN-045 12,50`).", file=sys.stderr)
+    con.close()
+    return 0
+
+
+def _dizer_despromocao(slug: str, mov: dict) -> None:
+    """O que aconteceu às cópias próprias de um deck que deixou de ser principal.
+
+    Diz as duas metades — o que foi para a Venda e o que FICOU —, porque a
+    segunda é decisão escrita (as de menos de 0,50 € não desaparecem) e um
+    silêncio sobre elas lia-se como se tivessem ido também.
+    """
+    minimo = prices.eur(mov["minimo_cents"])
+    vai, fica = mov["para_a_venda"], mov["ficam"]
+    print(f"  {slug}: {vai['copies']} "
+          f"{'cópia própria foi' if vai['copies'] == 1 else 'cópias próprias foram'} "
+          f"para a Venda ({prices.eur(vai['cents'])}, de {minimo} para cima).")
+    if fica["copies"]:
+        print(f"  Ficam {fica['copies']} "
+              f"{'cópia própria' if fica['copies'] == 1 else 'cópias próprias'} "
+              f"abaixo de {minimo} ({prices.eur(fica['cents'])}) — continuam do deck, "
+              f"fora da Coleção.")
+    print("  Entrar na Venda NÃO é vender: nada saiu do deck e nada baixou. "
+          "`riftvault venda` mostra-as.")
+
+
+def cmd_principal(args) -> int:
+    """O DECK PRINCIPAL (2026-09-27) e a wantlist dele.
+
+    Sem argumentos diz quem é e lista o que lhe falta para ser
+    AUTO-SUFICIENTE — o que ainda não está nas cópias próprias dele —, com as
+    comuns e incomuns em FOIL. `--definir SLUG` escolhe, `--limpar` deixa sem
+    principal; nos dois casos o deck que sai é despromovido e as cópias
+    próprias dele que valham o mínimo ganham uma linha na Venda.
+    """
+    con = db.connect()
+    if db.catalog_is_empty(con):
+        print("catálogo vazio — corre `riftvault sync`.", file=sys.stderr)
+        return 1
+    decks_mod.import_all(con, log=lambda *_: None)
+
+    if args.definir or args.limpar:
+        try:
+            res = principal.definir(con, None if args.limpar else args.definir,
+                                    source="cli")
+        except decks_mod.DeckDesconhecido as exc:
+            print(f"erro: {exc}", file=sys.stderr)
+            con.close()
+            return 1
+        e = res["estado"]
+        print(f"deck principal: {e['name'] or '(nenhum)'}")
+        if res["movimento"]:
+            _dizer_despromocao(res["despromovido"], res["movimento"])
+        print()
+
+    w = principal.wantlist(con, com_codigo=bool(args.codigos))
+    if not w["slug"]:
+        alvo = w["nao_encontrado"]
+        print(f"não há deck principal"
+              + (f" — `decks.principal` diz {alvo!r} e não há deck com esse nome"
+                 if alvo else "") + ".")
+        print("`riftvault principal --definir leblanc-hook` escolhe um.",
+              file=sys.stderr)
+        con.close()
+        return 0
+
+    t = w["totals"]
+    print(f"DECK PRINCIPAL: {w['name']}")
+    if args.cardmarket:
+        print(w["wantlist"]["text"])
+    elif not w["items"]:
+        print("A wantlist está vazia: já tens cópias próprias de tudo o que este "
+              "deck pede.")
+    else:
+        largura = max(len(x["name"]) for x in w["items"])
+        print(f"\n{'carta':<{largura}}  {'código':<12} {'falta':>5} {'acab.':<6} "
+              f"{'preço':>9} {'total':>10}  da Coleção")
+        for x in w["items"]:
+            preco = prices.eur(x["price"]) if x["price"] is not None else "—"
+            piso = " (preço da normal)" if x["foil"] and not x["price_is_foil"] else ""
+            print(f"{x['name']:<{largura}}  {_codigo_curto(x['code']):<12} "
+                  f"{x['missing']:>5} {'foil' if x['foil'] else 'normal':<6} "
+                  f"{preco:>9} {prices.eur(x['total']):>10}  "
+                  f"{x['na_colecao'] or ''}{piso}")
+    print(f"\nFalta para este deck ser auto-suficiente: {t['copies']} "
+          f"{'cópia' if t['copies'] == 1 else 'cópias'} de {t['cards']} "
+          f"{'carta' if t['cards'] == 1 else 'cartas'} · {prices.eur(t['cents'])}"
+          f"  ({t['foil_copies']} em foil)", file=sys.stderr)
+    if t["no_foil_price"]:
+        print(f"{t['no_foil_price']} {'linha foil conta' if t['no_foil_price'] == 1 else 'linhas foil contam'}"
+              f" ao preço da NORMAL — o CardTrader não as tem em foil. O total é um piso.",
+              file=sys.stderr)
+    if w["runas"]["copies"]:
+        print(f"Fora: {w['runas']['copies']} runas ({w['runas']['cards']} cartas) — "
+              f"os decks não as contam, organizas à mão.", file=sys.stderr)
+    print("O foil NÃO se marca no texto do Cardmarket: é um filtro por entrada, "
+          "ligado lá na interface.", file=sys.stderr)
+
+    pv = principal.proprias_por_valor(con, w["slug"])
+    a, b = pv["totais"]["acima"], pv["totais"]["abaixo"]
+    print(f"\nSe este deck deixar de ser principal: {a['copies']} "
+          f"{'cópia própria vai' if a['copies'] == 1 else 'cópias próprias vão'} "
+          f"para a Venda ({prices.eur(a['cents'])}, de "
+          f"{prices.eur(pv['minimo_cents'])} para cima) e {b['copies']} "
+          f"{'fica' if b['copies'] == 1 else 'ficam'} ({prices.eur(b['cents'])}).",
+          file=sys.stderr)
     con.close()
     return 0
 
@@ -2071,6 +2190,17 @@ def main(argv: list[str] | None = None) -> int:
                    help="só o que não tens (sem os que ainda não saíram)")
     p.add_argument("--so-tenho", action="store_true", help="só o que tens")
     p.set_defaults(func=cmd_selado)
+
+    p = sub.add_parser("principal", help="o DECK PRINCIPAL e a wantlist dele: o que "
+                                         "falta para ser auto-suficiente (comuns e "
+                                         "incomuns em foil)")
+    p.add_argument("--definir", metavar="SLUG", help="passa a ser este o deck principal")
+    p.add_argument("--limpar", action="store_true", help="deixa de haver deck principal")
+    p.add_argument("--cardmarket", action="store_true",
+                   help="só o texto para colar na wantlist do Cardmarket")
+    p.add_argument("--codigos", action="store_true",
+                   help="com o código em vez da versão e da edição")
+    p.set_defaults(func=cmd_principal)
 
     p = sub.add_parser("proprias", help="as cópias PRÓPRIAS de cada deck (não contam "
                                         "para a Coleção): por deck, ou um deck carta a carta; + e -")

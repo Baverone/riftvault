@@ -1377,13 +1377,20 @@ function usoLine(g) {
   // parte, com o mesmo número que a página do deck mostra.
   // O que o deck cobre com as suas cópias PRÓPRIAS (2026-09-21) não é uso
   // da Coleção: `wanted` já vem sem isso, e diz-se ao lado quantas são.
-  const txt = uso.map(u => `${escapeHTML(deckCurto(u.deck))} ${u.wanted}`
+  // O DECK PRINCIPAL (2026-09-27) di-lo por extenso — *"na coleção aparece
+  // que está a ser usado em X Deck"*. Esta cópia é da Coleção e continua
+  // dela: o empréstimo é de apresentação, nada saiu daqui.
+  const txt = uso.map(u => (u.principal
+    ? `<b>em uso no deck ${escapeHTML(deckCurto(u.deck))}</b> ${u.wanted}`
+    : `${escapeHTML(deckCurto(u.deck))} ${u.wanted}`)
     + (u.missing ? ` (falta${u.missing === 1 ? '' : 'm'} ${u.missing})` : '')
     + (u.ordered ? ` (${u.ordered} a caminho)` : '')
     + (u.proprias ? ` <i class="dim">+${u.proprias} próprias</i>` : '')).join(' · ');
   const falta = uso.reduce((s, u) => s + u.missing, 0);
-  return `<div class="emdecks${falta ? ' falta' : ''}" title="${escapeAttr(uso.map(u =>
-    `${u.deck}: pede ${u.wanted} à Coleção, tem ${u.have}${u.missing ? `, faltam ${u.missing}` : ''}${
+  const pri = uso.some(u => u.principal);
+  return `<div class="emdecks${falta ? ' falta' : ''}${pri ? ' principal' : ''}"
+    title="${escapeAttr(uso.map(u =>
+    `${u.deck}${u.principal ? ' (deck principal)' : ''}: pede ${u.wanted} à Coleção, tem ${u.have}${u.missing ? `, faltam ${u.missing}` : ''}${
       u.ordered ? `, ${u.ordered} a caminho` : ''}${u.proprias ? `, mais ${u.proprias} próprias do deck` : ''}`)
     .join(' / '))}">${txt}</div>`;
 }
@@ -2566,12 +2573,19 @@ function renderDeck() {
 
   const chip = (ok, txt) => `<span class="chip-l ${ok ? 'ok' : 'bad'}">${txt}</span>`;
   const pct = idx.wanted ? (idx.have / idx.wanted) * 100 : 0;
+  // O DECK PRINCIPAL (2026-09-27). Vem em todos os decks; `e_principal` diz
+  // se é este. Um payload antigo (o 8770 por relançar) não o traz.
+  const pri = p.principal || {};
 
   $('#deck-head').innerHTML = `
     <div class="deck-card">
       <div class="deck-title">
         <b>${escapeHTML(p.name)}</b>
-        <span class="prio">${p.priority === 1 ? 'principal' : `prioridade ${p.priority}`}</span>
+        ${/* «principal» é o DECK PRINCIPAL (2026-09-27), não a prioridade 1:
+              são duas perguntas e tinham a mesma palavra. A prioridade diz
+              quem se serve primeiro da Coleção. */ ''}
+        ${pri.e_principal ? '<span class="prio pri">DECK PRINCIPAL</span>' : ''}
+        <span class="prio">prioridade ${p.priority}</span>
         ${p.montado === false ? '<span class="prio off">desmontado</span>' : ''}
         ${p.grupo && p.grupo.variantes ? `<span class="prio grupo">variante de ${
           escapeHTML(p.grupo.irmaos.map(deckCurto).join(', '))}</span>` : ''}
@@ -2612,13 +2626,17 @@ function renderDeck() {
         ? '<small class="nota">O Champion conta para as 40 do main.</small>' : ''}
       ${p.unresolved.length ? `<small class="nota bad">Não casaram no catálogo:
         ${p.unresolved.map(u => escapeHTML(u.name)).join(', ')}</small>` : ''}
+      ${principalNota(p, pri)}
       ${deckLocais(p)}
       <div class="deck-actions">
+        ${state.editable ? `<button class="btn ${pri.e_principal ? '' : 'primaria'}"
+          data-act="${pri.e_principal ? 'despromover' : 'tornar-principal'}">${
+          pri.e_principal ? 'Deixar de ser o deck principal' : 'Tornar DECK PRINCIPAL'}</button>` : ''}
         ${state.editable ? `<button class="btn ${p.montado === false ? 'primaria' : ''}"
           data-act="${p.montado === false ? 'montar' : 'desmontar'}">${
           p.montado === false ? 'Montar este deck' : 'Desmontar'}</button>` : ''}
         ${state.editable && !state.ordemFixa && p.priority !== 1
-          ? `<button class="btn" data-act="principal">Tornar principal</button>` : ''}
+          ? `<button class="btn" data-act="principal">Passar a prioridade 1</button>` : ''}
         ${state.editable && !state.ordemFixa ? `<button class="btn" data-act="subir">Subir</button>
           <button class="btn" data-act="descer">Descer</button>` : ''}
         <button class="btn" data-act="csv">Lista de compras (CSV)</button>
@@ -2660,13 +2678,19 @@ function renderDeck() {
       tira-as com o <b>−</b>, ou deixa-as ficar. Não contam para a Coleção.</p>
     <div class="grid deck-grid">${p.proprias_fora.map(propriaForaTile).join('')}</div>` : '';
 
-  $('#deck-body').innerHTML = montagemHTML(p) + listas + foraP + faltas;
+  $('#deck-body').innerHTML = principalWantlist(p, pri) + montagemHTML(p)
+    + listas + foraP + faltas;
 
   for (const b of document.querySelectorAll('#deck-head .btn[data-act]')) {
     b.onclick = () => deckAction(b.dataset.act);
   }
   for (const b of document.querySelectorAll('#deck-head .btn[data-loc]')) {
     b.onclick = () => locaisAction(b.dataset.loc);
+  }
+  // A wantlist do deck principal sai pelo gerador único, como todas as outras.
+  if (pri.e_principal && pri.wantlist && pri.wantlist.items.length) {
+    cmLigar('pri', () => pri.wantlist.items,
+            `riftvault-deck-${p.slug}-${hojeISO()}.csv`);
   }
   ligarProprias();
 }
@@ -2760,6 +2784,87 @@ function montagemHTML(p) {
    Decks/Venda por ir buscar, ou na Coleção, que desde 2026-09-11 conta («se há
    na coleção o deck usa»). O que falta compra-se; se parte disso existe num
    deck de cima, diz-se quantas («disputadas»), só como informação. */
+/* AS DUAS INDICAÇÕES do Deck Principal (André, 2026-09-27): *"No deck aparece
+   algo do genero: X cartas em uso da colecao, ainda falta especifica para o
+   deck"*. A outra metade é no tile da Coleção (`usoLine`).
+
+   O empréstimo é de APRESENTAÇÃO: a Coleção não perde cópia nenhuma, não muda
+   níveis nem valor — *"a Coleção é soberana, não é para mexer"*. O que a linha
+   diz é de onde vem cada cópia que o deck está a jogar hoje, e quanto ainda
+   falta comprar para ele ficar com as suas. */
+function principalNota(p, pri) {
+  if (!pri || pri.slug === undefined) return '';
+  const usa = pri.em_uso_da_colecao || 0;
+  const falta = pri.falta_proprias || 0;
+  if (!pri.e_principal) {
+    return pri.slug ? `<small class="nota">O deck principal é
+      <b>${escapeHTML(pri.name || pri.slug)}</b>${state.editable
+        ? ' — a wantlist e a regra da Venda são dele.' : '.'}</small>` : '';
+  }
+  return `<div class="pri-linha">
+    <b>${usa}</b> ${usa === 1 ? 'carta em uso' : 'cartas em uso'} da Coleção${
+      pri.cartas_da_colecao ? ` (${plural(pri.cartas_da_colecao, 'carta', 'cartas')} distintas)` : ''},
+    ainda ${falta === 1 ? 'falta' : 'faltam'} <b>${falta}</b> específica${
+      falta === 1 ? '' : 's'} para o deck${
+      pri.falta_cents ? ` · ${eur(pri.falta_cents)}` : ''}.
+    <small>As da Coleção continuam da Coleção — estão emprestadas, não saíram de
+      lá. As <b>próprias</b> deste deck são ${pri.proprias || 0}.</small>
+  </div>`;
+}
+
+/* A WANTLIST DO DECK PRINCIPAL: *"todas as cartas do Deck sao Wantlist, as
+   comuns e incomuns em Foil"*. É o que falta para o deck ser AUTO-SUFICIENTE —
+   o que ainda não está nas cópias próprias dele —, e uma carta marcada com o
+   `+` sai daqui. O acabamento é o do contador de foil do tile. */
+function principalWantlist(p, pri) {
+  const w = pri && pri.wantlist;
+  if (!pri || !pri.e_principal || !w) return '';
+  const t = w.totals;
+  const cab = `<h2 class="section-head">Wantlist do deck principal
+    <span>${t.copies} ${t.copies === 1 ? 'cópia' : 'cópias'} de ${
+      plural(t.cards, 'carta', 'cartas')}${t.cents ? ` · ${eur(t.cents)}` : ''}</span></h2>`;
+  if (!w.items.length) {
+    return `${cab}<p class="note">Já tens cópias próprias de tudo o que este deck
+      pede. Nada a comprar.</p>`;
+  }
+  const linhas = w.items.map(x => `<tr class="${x.foil ? 'pri-foil' : ''}">
+    <td data-l="falta"><b>${x.missing}</b></td>
+    <td data-l="carta">${escapeHTML(x.name)}</td>
+    <td data-l="código"><code>${escapeHTML((x.code || '').split('/')[0])}</code></td>
+    <td data-l="acabamento">${x.foil
+      ? `<span class="foil">foil</span>${x.price !== null && !x.price_is_foil
+          ? ' <i class="dim" title="o CardTrader não a tem em foil: conta ao preço da normal">piso</i>' : ''}`
+      : '<span class="dim">normal</span>'}</td>
+    <td data-l="preço">${x.price === null ? '—' : eur(x.price)}</td>
+    <td data-l="total">${x.price === null ? '—' : eur(x.total)}</td>
+    <td data-l="da Coleção">${x.na_colecao
+      ? `<span class="pri-emprestada">${x.na_colecao} emprestada${x.na_colecao === 1 ? '' : 's'}</span>`
+      : ''}</td>
+  </tr>`).join('');
+  return `${cab}
+  <p class="note">O que falta para este deck ser <b>auto-suficiente</b>: tudo o
+    que ele pede e ainda não marcaste como <b>cópia própria</b>. As
+    <b>comuns e incomuns</b> querem-se em <b>foil</b>; de rara para cima é a
+    carta normal (no Riftbound essas já só existem em foil). As que dizem
+    «emprestadas» estão a ser jogadas com cópias da Coleção — continuam a
+    fazer falta ao deck.${w.runas.copies ? ` As <b>${w.runas.copies}</b> runas
+    ficam de fora, como em todos os decks: organizas à mão.` : ''}</p>
+  ${t.no_foil_price ? `<p class="note aviso">${plural(t.no_foil_price, 'linha foil conta', 'linhas foil contam')}
+    ao preço da <b>normal</b> — o CardTrader não as tem em foil. O total é um
+    <b>piso</b>.</p>` : ''}
+  ${/* Sem scroll lateral: a 375 px cada linha passa a cartão, como a tabela
+        de montagem (o CSS trata disso, com o `data-l` de cada célula). O
+        único `overflow-x` do site é o das filas do binder. */ ''}
+  <table class="pri-tabela"><thead><tr>
+    <th>falta</th><th>carta</th><th>código</th><th>acab.</th>
+    <th>preço</th><th>total</th><th>da Coleção</th>
+  </tr></thead><tbody>${linhas}</tbody></table>
+  <p class="note">O <b>foil não se marca no texto</b> do Cardmarket: lá é um
+    filtro por entrada, ligado na interface deles — ${plural(t.foil_cards, 'linha', 'linhas')}
+    ${t.foil_cards === 1 ? 'precisa' : 'precisam'} dele.</p>
+  ${cmZonaHTML('pri')}`;
+}
+
 function deckLocais(p) {
   const l = p.locais || {};
   const chip = (mau, txt) => `<span class="chip-l ${mau ? 'bad' : 'ok'}">${txt}</span>`;
@@ -3194,6 +3299,8 @@ function especialNota(x) {
 async function deckAction(act) {
   if (act === 'csv') return exportCSV();
   if (act === 'montar' || act === 'desmontar') return montarDeck(act === 'montar');
+  if (act === 'tornar-principal') return definirPrincipal(state.deck.slug);
+  if (act === 'despromover') return definirPrincipal(null);
   const ids = state.decks.map(d => d.id);
   const i = ids.indexOf(state.deckId);
   let novo = ids.slice();
@@ -3218,6 +3325,44 @@ async function deckAction(act) {
   }
 }
 
+/* O DECK PRINCIPAL (André, 2026-09-27). Escreve `decks.principal` no config,
+   como o montar/desmontar escreve o `decks.montados`.
+
+   O deck que SAI é despromovido: as cópias próprias dele que valham pelo menos
+   0,50 € ganham uma linha na Venda, marcada com a origem. **Entrar na Venda
+   não é vender** — nada saiu do deck e nada baixou —, e as de menos de 0,50 €
+   continuam próprias. O toast diz as duas metades. */
+async function definirPrincipal(slug) {
+  try {
+    const r = await fetch('api/decks/principal', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slug }),
+    });
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(body.error || `HTTP ${r.status}`);
+    state.decks = body.decks;
+    state.colecaoVelha = true;
+    state.compras = null;
+    state.aMais = null;
+    state.venda = null;
+    renderDeckTabs();
+    await loadDeck(state.deckId);
+    const mov = body.movimento;
+    let msg = slug
+      ? `«${body.estado.name}» passou a ser o DECK PRINCIPAL.`
+      : 'Já não há deck principal.';
+    if (mov) {
+      const a = mov.para_a_venda, b = mov.ficam;
+      msg += ` ${a.copies} ${a.copies === 1 ? 'cópia própria foi' : 'cópias próprias foram'}`
+        + ` para a Venda (${eur(a.cents)})`
+        + (b.copies ? `; ${b.copies} abaixo de ${eur(mov.minimo_cents)} ficaram no deck.` : '.');
+    }
+    toast(msg);
+  } catch (err) {
+    toast(`Não deu para mudar o deck principal: ${err.message}`, { error: true });
+  }
+}
+
 /* MONTAR / DESMONTAR (André, 2026-09-24). Escreve `decks.montados` no
    `riftvault_config.json` (o estado é de lá, «para não se perder») e refaz a
    alocação de toda a gente: desmontar liberta o que o deck estava a usar da
@@ -3237,11 +3382,22 @@ async function montarDeck(montado) {
     state.compras = null;
     state.aMais = null;
     state.enc.payload = null;
+    state.venda = null;
     renderDeckTabs();
     await loadDeck(state.deckId);
-    toast(montado
+    let msg = montado
       ? `«${p.name}» montado — volta a servir-se da Coleção.`
-      : `«${p.name}» desmontado — deixou de usar a Coleção.`);
+      : `«${p.name}» desmontado — deixou de usar a Coleção.`;
+    // Desmontar o DECK PRINCIPAL despromove-o (2026-09-27), e as cópias
+    // próprias dele que valham o mínimo passam a linhas da Venda.
+    if (body.movimento) {
+      const a = body.movimento.para_a_venda, b = body.movimento.ficam;
+      msg += ` Já não é o deck principal: ${a.copies} `
+        + `${a.copies === 1 ? 'cópia própria foi' : 'cópias próprias foram'} para a `
+        + `Venda (${eur(a.cents)})`
+        + (b.copies ? `; ${b.copies} abaixo de ${eur(body.movimento.minimo_cents)} ficaram.` : '.');
+    }
+    toast(msg);
   } catch (err) {
     toast(`Não deu para ${montado ? 'montar' : 'desmontar'}: ${err.message}`, { error: true });
   }
@@ -4855,6 +5011,7 @@ function renderVenda() {
       <span><i>Coleção</i>não mexe até carregares em «marcar como vendidas»</span>
     </div>
     ${avisos.length ? `<small class="nota vd-avisos">${avisos.join('<br>')}</small>` : ''}
+    ${vdOrigens(t)}
   </div>`;
 
   $('#vd-juntar').innerHTML = state.editable ? `
@@ -4875,6 +5032,30 @@ function renderVenda() {
   renderVdConta();
 }
 
+/* AS LINHAS QUE VIERAM DE UM DECK (André, 2026-09-27): *"se eu 'desfazer' o
+   deck ou deixar de ser o principal, essas cartas passam a venda (apenas se
+   valerem pelo menos 0,50 euros)"*.
+
+   Vê-se de onde vieram e tiram-se de uma vez — entrar na Venda **não é
+   vender**: é uma marcação, e ele tira de lá o que quiser. O «limpar» com
+   origem deixa intactas as linhas que ele marcou à mão. */
+function vdOrigens(t) {
+  const lst = t.origens || [];
+  if (!lst.length) return '';
+  return `<div class="vd-origens">${lst.map(o => `
+    <div class="vd-origem">
+      <span><b>${o.copies}</b> ${o.copies === 1 ? 'cópia veio' : 'cópias vieram'} de
+        <b>${escapeHTML(deckCurto(o.deck || o.slug || ''))}</b> deixar de ser o deck
+        principal${o.cents ? ` · ${eur(o.cents)}` : ''}</span>
+      ${state.editable ? `<button class="btn ghost" data-vd-origem="${escapeAttr(o.origem)}">
+        Tirar as deste deck</button>` : ''}
+    </div>`).join('')}
+    <small class="nota">São cópias <b>próprias</b> desse deck (não da Coleção) que
+      valiam pelo menos o mínimo. <b>Continuam no deck</b>: entrar na Venda não é
+      vender, e quem baixa cópias é o «marcar como vendidas».</small>
+  </div>`;
+}
+
 /* Uma linha: a carta, os `+`/`−` da quantidade, o campo do TREND (dele), o
    preço do CardTrader ao lado — rotulado, e fora da conta — e os links para
    o Cardmarket. */
@@ -4893,6 +5074,15 @@ function vdLinha(x) {
   }
   if (x.trend != null && x.trend_velho) {
     marcas.push(`<span class="vd-marca velho">Trend de há ${plural(x.trend_dias, 'dia', 'dias')}</span>`);
+  }
+  // DE ONDE VEIO (2026-09-27): esta linha não foi ele que a marcou — veio de
+  // um deck que deixou de ser principal, e o preço que a pôs aqui é este.
+  if (x.origem_deck) {
+    marcas.push(`<span class="vd-marca origem" title="${escapeAttr(
+      'cópia própria deste deck; entrou por valer pelo menos o mínimo. '
+      + 'Entrar na Venda não é vender — nada saiu do deck.')}">do deck ${
+      escapeHTML(deckCurto(x.origem_deck))}${x.preco_criterio != null
+        ? ` · ${eur(x.preco_criterio)}${x.criterio_foil ? ' foil' : ''}` : ''}</span>`);
   }
   return `<div class="vd-linha ${cls}" data-pid="${escapeAttr(x.printing_id)}">
     ${artHTML(x, `<span class="need">${x.qty}×</span>`)}
@@ -4929,6 +5119,9 @@ function vdLinha(x) {
 }
 
 function vdLigarLinhas() {
+  for (const b of document.querySelectorAll('#vd-head [data-vd-origem]')) {
+    b.onclick = () => vdLimparOrigem(b.dataset.vdOrigem);
+  }
   for (const b of document.querySelectorAll('#vd-body .step[data-vd]')) {
     b.onclick = () => vdAjustar(b.closest('.vd-linha').dataset.pid, Number(b.dataset.vd));
   }
@@ -4968,6 +5161,16 @@ async function vdAjustar(pid, delta) {
 async function vdTrend(pid, valor) {
   try {
     await vdPost('api/venda/trend', { printing_id: pid, eur: valor });
+  } catch (err) { toast(err.message, { error: true }); }
+}
+
+/* Tira de uma vez as linhas que vieram de um deck. Não mexe nas cópias: elas
+   continuam próprias do deck, como sempre estiveram. */
+async function vdLimparOrigem(origem) {
+  try {
+    const res = await vdPost('api/venda/limpar', { origem });
+    toast(`${plural(res.limpas, 'linha saiu', 'linhas saíram')} da venda — as cópias
+      continuam no deck.`);
   } catch (err) { toast(err.message, { error: true }); }
 }
 

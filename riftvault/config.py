@@ -221,6 +221,14 @@ DEFAULTS: dict = {
               # `None` (e não `[]`) é o default de propósito: sem a chave,
               # TODOS montados. A lista vazia quer dizer «nenhum».
               "montados": None,
+              # O DECK PRINCIPAL (2026-09-27): um só, de cada vez — o que ele
+              # está a jogar. `None` = não há nenhum, e aí não há wantlist de
+              # deck principal nem despromoção a disparar. O principal conta
+              # sempre como MONTADO. Ver `principal.py`.
+              "principal": None,
+              # O que uma cópia própria tem de valer para ir à Venda quando o
+              # deck deixa de ser principal ou é desfeito (2026-09-27).
+              "venda_minimo_cents": 50,
               "coleccao_so_a_partir_de": "epic",
               "modo": "coleccao"},
     # O bloco das runas especiais ("1 runa especial de cada para cada set",
@@ -520,42 +528,56 @@ def reload() -> dict:
 
 
 def escrever_lista(seccao: str, chave: str, valores: list[str]) -> list[str]:
+    """`escrever_valor` com uma lista. Ficou como o nome por onde o
+    «montar/desmontar» (`decks.montados`) lhe chama desde 2026-09-24."""
+    escrever_valor(seccao, chave, list(valores))
+    return list(valores)
+
+
+# O valor já escrito de uma chave, para o trocar sem reformatar o ficheiro: uma
+# lista, um texto, `null`, um booleano ou um número. A alternativa era reler e
+# reescrever o JSON inteiro — ver o porquê no `escrever_valor`.
+_VALOR = r'(\[[^\]]*\]|"(?:[^"\\]|\\.)*"|null|true|false|-?\d+(?:\.\d+)?)'
+
+
+def escrever_valor(seccao: str, chave: str, valor):
     """Escreve `<seccao>.<chave>` no `riftvault_config.json`, **sem reformatar
     o resto do ficheiro**, e relê o config.
 
-    É a porta para o único botão que escreve no config: o «montar/desmontar»
-    de um deck (`decks.montados`, 2026-09-24) — *"o estado é do config, não só
-    da base, para não se perder"*. O ficheiro é escrito À MÃO pelo André, com
+    É a porta dos dois botões que escrevem no config: o «montar/desmontar» de
+    um deck (`decks.montados`, 2026-09-24) e o «Deck Principal»
+    (`decks.principal`, 2026-09-27) — *"o estado é do config, não só da base,
+    para não se perder"*. O ficheiro é escrito À MÃO pelo André, com
     objectos numa linha (`{ "name": "OGN", "order": 1 }`) e dezenas de `_notas`
     pelo meio; um `json.dumps(indent=2)` do ficheiro inteiro reformatava-o todo
     a cada clique. Por isso troca-se **só o valor desta chave**, como texto:
     procura-se o bloco da secção a contar chavetas e, lá dentro, a linha da
     chave; se ela ainda não existir, entra logo a seguir ao `{` da secção.
 
-    Devolve a lista escrita. Sem ficheiro nenhum (os testes que apontam o
+    Devolve o valor escrito. Sem ficheiro nenhum (os testes que apontam o
     `RIFTVAULT_CONFIG` para um caminho que não existe) cria um com a secção.
     """
-    texto = json.dumps(list(valores), ensure_ascii=False)
+    texto = json.dumps(valor, ensure_ascii=False)
     if not CONFIG_PATH.exists():
         CONFIG_PATH.write_text(
-            json.dumps({seccao: {chave: list(valores)}}, ensure_ascii=False, indent=2) + "\n",
+            json.dumps({seccao: {chave: valor}}, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8")
         reload()
-        return list(valores)
+        return valor
 
     bruto = CONFIG_PATH.read_text(encoding="utf-8")
     ini, fim = _bloco_do_config(bruto, seccao)
     if ini is None:
         # A secção não existe no ficheiro: acrescenta-se inteira, no fim.
         raw = json.loads(bruto)
-        raw[seccao] = {**(raw.get(seccao) or {}), chave: list(valores)}
+        raw[seccao] = {**(raw.get(seccao) or {}), chave: valor}
         CONFIG_PATH.write_text(json.dumps(raw, ensure_ascii=False, indent=2) + "\n",
                                encoding="utf-8")
         reload()
-        return list(valores)
+        return valor
 
     bloco = bruto[ini:fim]
-    alvo = re.search(r'"' + re.escape(chave) + r'"\s*:\s*\[[^\]]*\]', bloco)
+    alvo = re.search(r'"' + re.escape(chave) + r'"\s*:\s*' + _VALOR, bloco)
     if alvo:
         novo = bloco[:alvo.start()] + f'"{chave}": {texto}' + bloco[alvo.end():]
     else:
@@ -567,7 +589,7 @@ def escrever_lista(seccao: str, chave: str, valores: list[str]) -> list[str]:
         novo = bloco[:abre] + f'\n{indent}"{chave}": {texto},' + bloco[abre:]
     CONFIG_PATH.write_text(bruto[:ini] + novo + bruto[fim:], encoding="utf-8")
     reload()
-    return list(valores)
+    return valor
 
 
 def _bloco_do_config(bruto: str, seccao: str) -> tuple[int | None, int | None]:

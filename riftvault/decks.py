@@ -597,6 +597,91 @@ SO_BASE = "so_base"
 # que a pergunta «se montasse este agora?» quer dizer. Ver `allocate`.
 MONTADOS = "montados"
 
+# O DECK PRINCIPAL (André, 2026-09-27): *"os decks quero uma coisa / Deck
+# Principal: neste caso LeBlanc / eu coloco + e - se tenho a carta no Deck / a
+# Colecao e soberana, nao e para mexer / todas as cartas do Deck sao Wantlist"*.
+# `decks.principal` é UM deck, escrito como as outras listas (o slug ou o
+# `Nome:`).
+#
+# A RELAÇÃO COM O `montados`, que é a pergunta a não deixar por responder:
+# `montados` diz QUAIS estão montados; `principal` diz qual DESSES é o que ele
+# está a jogar. **O principal é sempre montado** — se a lista não o nomear,
+# conta como montado à mesma (`montados_estado`, com `principal_implicito` para
+# a página o poder dizer) e o `definir` escreve-o nas duas chaves, para o config
+# nunca ficar a dizer duas coisas. Desmontar o principal DESPROMOVE-O (limpa a
+# chave): não há deck principal desfeito. **Sem a chave não há principal** — e
+# nesse caso não há wantlist de deck principal nem despromoção a disparar; é de
+# propósito, porque a despromoção mexe na Venda e isso não pode acontecer por
+# uma leitura nem por uma mudança de ordem.
+#
+# NÃO CONFUNDIR COM A PRIORIDADE 1. A prioridade (`decks.ordem`) diz quem se
+# serve primeiro da Coleção; o principal é o deck a que a wantlist e a regra da
+# Venda se aplicam. Hoje calham no mesmo deck (LeBlanc Hook) e podem não
+# calhar. O ecrã deixou de chamar «principal» à prioridade 1 por causa disto.
+#
+# A parte da Venda vive no `principal.py`: aqui está só o config.
+PRINCIPAL = "principal"
+VENDA_MINIMO = "venda_minimo_cents"
+VENDA_MINIMO_OMISSAO = 50
+
+
+def principal_nome(cfg: dict | None = None) -> str | None:
+    """`decks.principal` tal como está escrito, ou `None` quando não há."""
+    valor = _opcoes_decks(cfg).get(PRINCIPAL)
+    if valor in (None, ""):
+        return None
+    if not isinstance(valor, str):
+        raise ValueError(f"decks.{PRINCIPAL}: tem de ser o nome de UM deck "
+                         f"(slug ou `Nome:`), ou null — veio {valor!r}")
+    return valor.strip() or None
+
+
+def venda_minimo_cents(cfg: dict | None = None) -> int:
+    """`decks.venda_minimo_cents` (2026-09-27): quanto uma cópia própria tem de
+    valer para ir à Venda quando o deck deixa de ser principal. 50 = 0,50 €."""
+    valor = _opcoes_decks(cfg).get(VENDA_MINIMO, VENDA_MINIMO_OMISSAO)
+    if not isinstance(valor, int) or isinstance(valor, bool) or valor < 0:
+        raise ValueError(f"decks.{VENDA_MINIMO}: tem de ser um número de "
+                         f"cêntimos >= 0 — veio {valor!r}")
+    return valor
+
+
+def _principal_de(rows: list[sqlite3.Row], cfg: dict | None = None) -> tuple[str | None, str | None]:
+    """(slug do principal, nome escrito que não casou) a partir das linhas.
+
+    Recebe as `deck_rows` já lidas porque o `montados_estado` também as tem na
+    mão — e porque assim não há duas consultas para a mesma pergunta. Um nome
+    sem deck não rebenta: avisa-se e não há principal, como na `decks.ordem`.
+    """
+    nome = principal_nome(cfg)
+    if not nome:
+        return None, None
+    for r in rows:
+        if norm(r["name"]) == norm(nome) or (
+                r["display_name"] and norm(r["display_name"]) == norm(nome)):
+            return r["name"], None
+    return None, nome
+
+
+def principal_estado(con: sqlite3.Connection, cfg: dict | None = None) -> dict:
+    """`{nome, slug, name, nao_encontrado}` — quem é o deck principal.
+
+    `slug` a `None` quer dizer «não há deck principal»: ou porque a chave não
+    está escrita, ou porque o nome que lá está não casa com deck nenhum (e aí
+    `nao_encontrado` di-lo, para a página avisar em vez de fingir).
+    """
+    rows = deck_rows(con)
+    slug, nao = _principal_de(rows, cfg)
+    d = next((r for r in rows if r["name"] == slug), None) if slug else None
+    return {"nome": principal_nome(cfg), "slug": slug,
+            "name": (d["display_name"] or d["name"]) if d is not None else None,
+            "nao_encontrado": nao}
+
+
+def principal_slug(con: sqlite3.Connection, cfg: dict | None = None) -> str | None:
+    """O slug do deck principal, ou `None`."""
+    return _principal_de(deck_rows(con), cfg)[0]
+
 
 def montados_lista(cfg: dict | None = None) -> list[str] | None:
     """`decks.montados` tal como está escrita, ou `None` quando não há chave.
@@ -620,12 +705,18 @@ def montados_estado(con: sqlite3.Connection, cfg: dict | None = None) -> dict:
     Casa pelo SLUG ou pelo `Nome:`, sem olhar a maiúsculas (`norm`), como a
     `decks.ordem`. Um nome sem deck não rebenta — avisa-se e ignora-se: o site
     tem de continuar a servir os decks que há.
+
+    O DECK PRINCIPAL CONTA SEMPRE COMO MONTADO (2026-09-27): é o que ele está a
+    jogar, e as duas chaves não podem dizer coisas diferentes. Quando a lista
+    não o nomeia, entra aqui e `principal_implicito` di-lo.
     """
     lista = montados_lista(cfg)
     rows = deck_rows(con)
+    pri, _ = _principal_de(rows, cfg)
     if lista is None:
         return {"montados": [r["name"] for r in rows], "desmontados": [],
-                "nao_encontrados": [], "lista": None, "todos": True}
+                "nao_encontrados": [], "lista": None, "todos": True,
+                "principal": pri, "principal_implicito": False}
     por_chave: dict[str, str] = {}
     for r in rows:
         por_chave.setdefault(norm(r["name"]), r["name"])
@@ -638,9 +729,13 @@ def montados_estado(con: sqlite3.Connection, cfg: dict | None = None) -> dict:
             nao.append(entrada)
         elif slug not in on:
             on.append(slug)
+    implicito = bool(pri) and pri not in on
+    if implicito:
+        on.append(pri)
     return {"montados": [r["name"] for r in rows if r["name"] in on],
             "desmontados": [r["name"] for r in rows if r["name"] not in on],
-            "nao_encontrados": nao, "lista": lista, "todos": False}
+            "nao_encontrados": nao, "lista": lista, "todos": False,
+            "principal": pri, "principal_implicito": implicito}
 
 
 def montados(con: sqlite3.Connection, cfg: dict | None = None) -> frozenset[str]:
@@ -658,6 +753,14 @@ def alternar_montado(con: sqlite3.Connection, slug: str, montar: bool,
     `Nome:` continua `Nome:`) e acrescenta pelo `Nome:` quando o deck tem um,
     que é como ele as escreve. Desmontar o último escreve `[]` — a lista vazia
     é «nenhum montado», e é por isso que ela não pode querer dizer «todos».
+
+    DESMONTAR O PRINCIPAL DESPROMOVE-O (2026-09-27): limpa também a
+    `decks.principal`, senão o «o principal conta como montado» do
+    `montados_estado` voltava a montá-lo e o clique não fazia nada. O
+    `despromovido` do resultado diz o slug a quem chama — é o gatilho das
+    cópias próprias irem à Venda, e essa parte vive no `principal.py`, não
+    aqui: esta função só escreve config. A porta que faz as duas coisas é o
+    `principal.montar`.
     """
     rows = deck_rows(con)
     d = next((r for r in rows if r["name"] == slug), None)
@@ -674,7 +777,39 @@ def alternar_montado(con: sqlite3.Connection, slug: str, montar: bool,
     if montar:
         fica.append(rotulo)
     config.escrever_lista("decks", MONTADOS, fica)
-    return montados_estado(con, config.load())
+    despromovido = None
+    if not montar and estado["principal"] == d["name"]:
+        despromovido = d["name"]
+        config.escrever_valor("decks", PRINCIPAL, None)
+    return {**montados_estado(con, config.load()), "despromovido": despromovido}
+
+
+def escrever_principal(con: sqlite3.Connection, slug: str | None,
+                       cfg: dict | None = None) -> dict:
+    """Escreve `decks.principal` (e garante-o em `decks.montados`).
+
+    Só config: quem trata das cópias próprias do deck que sai é o
+    `principal.definir`, que é a porta. `None` limpa a chave — fica sem deck
+    principal. Escreve pelo `Nome:` quando o deck tem um, que é como ele
+    escreve as outras listas.
+    """
+    rows = deck_rows(con)
+    if slug is None:
+        config.escrever_valor("decks", PRINCIPAL, None)
+        return principal_estado(con, config.load())
+    d = next((r for r in rows if r["name"] == slug), None)
+    if d is None:
+        raise DeckDesconhecido(f"não há deck chamado {slug!r} "
+                               f"(há: {', '.join(r['name'] for r in rows) or 'nenhum'})")
+    config.escrever_valor("decks", PRINCIPAL, d["display_name"] or d["name"])
+    # O principal é sempre montado: escreve-se também na lista, para o config
+    # não ficar a dizer duas coisas (o `montados_estado` já o implicava, mas
+    # implicar não é o mesmo que estar escrito).
+    estado = montados_estado(con, config.load())
+    if estado["lista"] is not None and estado["principal_implicito"]:
+        rotulo = d["display_name"] or d["name"]
+        config.escrever_lista("decks", MONTADOS, list(estado["lista"]) + [rotulo])
+    return principal_estado(con, config.load())
 
 
 class DeckDesconhecido(ValueError):
@@ -1868,6 +2003,10 @@ def uso_por_carta(con: sqlite3.Connection) -> dict[str, list[dict]]:
     alloc = allocate(con)
     por_slug = {d["name"]: d for d in deck_rows(con)}
     fora = cartas_nao_contadas(con)
+    # O DECK PRINCIPAL (2026-09-27): a entrada dele leva `principal: true`, e é
+    # isso que faz o tile da Coleção dizer «em uso no deck X» em vez de só
+    # «X 3». *"Na colecao aparece que esta a ser usado em X Deck"*.
+    pri = principal_slug(con)
     out: dict[str, list[dict]] = {}
     for d in deck_rows(con):
         a = alloc[d["deck_id"]]
@@ -1891,6 +2030,7 @@ def uso_por_carta(con: sqlite3.Connection) -> dict[str, list[dict]]:
                 "have": g["alloc"].get(ck, 0), "ordered": g["a_caminho"].get(ck, 0),
                 "missing": g["missing"].get(ck, 0),
                 "proprias": g["proprias"].get(ck, 0),
+                "principal": bool(pri) and pri in g["slugs"],
             })
     return out
 
@@ -2061,6 +2201,7 @@ def decks_index(con: sqlite3.Connection) -> list[dict]:
     alloc = allocate(con)
     por_slug = {d["name"]: d["deck_id"] for d in deck_rows(con)}
     fora = cartas_nao_contadas(con)
+    pri = principal_slug(con)
     out = []
     for d in deck_rows(con):
         a = alloc[d["deck_id"]]
@@ -2088,6 +2229,10 @@ def decks_index(con: sqlite3.Connection) -> list[dict]:
             # nada da Coleção e o que se mostra dele é uma SIMULAÇÃO: o que
             # sairia da Coleção se fosse montado a seguir aos montados.
             "montado": a["montado"],
+            # O DECK PRINCIPAL (2026-09-27): um só, o que ele está a jogar. É
+            # o que tem wantlist própria e o que manda as cópias próprias para
+            # a Venda quando deixa de o ser. Não é a prioridade 1.
+            "principal": d["name"] == pri,
             # A REGRA DE RARIDADE (mesmo dia): cópias que saem da Coleção com
             # raridade abaixo do patamar — deviam vir das próprias do deck.
             "aviso_colecao": sum(a["aviso_colecao"].values()),
@@ -2148,7 +2293,8 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
     d = con.execute("SELECT * FROM decks WHERE deck_id = ?", (deck_id,)).fetchone()
     if not d:
         return None
-    from . import locais, pending
+    # O `principal` importa o `decks`, por isso entra aqui e não no topo.
+    from . import locais, pending, principal
 
     alloc = allocate(con)
     a = alloc[deck_id]
@@ -2413,6 +2559,12 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
         # é uso da Coleção: é a SIMULAÇÃO de o montar a seguir aos que estão
         # montados — é com ela que ele decide o que vai buscar ao binder.
         "montado": a["montado"],
+        # O DECK PRINCIPAL (2026-09-27): a wantlist deste deck (o que lhe
+        # falta para ser auto-suficiente), as duas indicações que ele pediu e
+        # o que iria para a Venda se deixasse de o ser. Vai em todos os decks
+        # — `e_principal` diz qual é —, para ele poder ver o que vai acontecer
+        # antes de mudar.
+        "principal": principal.do_deck(con, d["name"], alloc),
         # A regra de raridade (mesmo dia): a raridade a partir da qual um deck
         # pode servir-se da Coleção sem aviso, e quantas cópias a estão a
         # contrariar neste deck.

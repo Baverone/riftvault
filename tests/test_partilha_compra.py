@@ -260,9 +260,11 @@ class TestColecaoDizOndeEUsada(Base):
                          [{"deck": uso[1]["deck"], "membros": [uso[1]["deck"]],
                            "slug": "ornn", "priority": 2,
                            # `proprias` (2026-09-21): as cópias próprias do
-                           # deck, que não são uso da Coleção.
+                           # deck, que não são uso da Coleção. `principal`
+                           # (2026-09-27): a entrada do DECK PRINCIPAL, que o
+                           # tile diz por extenso («em uso no deck X»).
                            "wanted": 1, "have": 0, "ordered": 0, "missing": 1,
-                           "proprias": 0}])
+                           "proprias": 0, "principal": False}])
         self.assertEqual(grupos["brutalizer"]["decks"][0]["slug"], "azir")
         con.close()
 
