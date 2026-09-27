@@ -1244,6 +1244,56 @@ body.readonly .btn.chegou { display: none; }
   .mont-tab tr.r-ok td.m-zero { display: none; }
 }
 
+/* ------------------------------------------------- O DECK PRINCIPAL (2026-09-27)
+
+   André: *"Deck Principal: neste caso LeBlanc […] todas as cartas do Deck sao
+   Wantlist, as comuns e incomuns em Foil"*. O crachá no título, a linha das
+   duas indicações, e a tabela da wantlist — que a 559 px vira cartões, como a
+   de montagem: **nada de scroll lateral** (o único do site é o das filas do
+   binder). */
+.prio.pri { background: rgba(167, 123, 255, .16); border-color: rgba(167, 123, 255, .5);
+  color: #c9a9ff; font-weight: 700; letter-spacing: .06em; }
+.pri-linha { margin: 10px 0 0; padding: 10px 12px; border-radius: 10px;
+  background: rgba(167, 123, 255, .08); border: 1px solid rgba(167, 123, 255, .25);
+  font-size: 14px; color: var(--ink2); line-height: 1.6; }
+.pri-linha b { color: var(--ink); }
+.pri-linha small { display: block; margin-top: 4px; font-size: 12px; color: var(--dim); }
+.pri-tabela { width: 100%; border-collapse: collapse; font-size: 14px; margin: 4px 0 12px; }
+.pri-tabela th, .pri-tabela td { padding: 7px 10px; border-top: 1px solid var(--line);
+  text-align: right; }
+.pri-tabela th:nth-child(2), .pri-tabela td:nth-child(2),
+.pri-tabela th:last-child, .pri-tabela td:last-child { text-align: left; }
+.pri-tabela thead th { font-size: 11px; text-transform: uppercase; letter-spacing: .08em;
+  color: var(--muted); font-weight: 600; }
+.pri-tabela td:first-child { font-weight: 700; }
+.pri-tabela code { font-size: 12px; color: var(--ink2); }
+.pri-tabela .foil { color: var(--foil, #7fd8ff); font-weight: 600; }
+.pri-tabela .dim { color: var(--dim); }
+.pri-emprestada { font-size: 12px; color: var(--warn); }
+.pri-tabela tr.pri-foil td:first-child { color: var(--foil, #7fd8ff); }
+
+@media (max-width: 559px) {
+  .pri-tabela thead { display: none; }
+  .pri-tabela, .pri-tabela tbody, .pri-tabela tr, .pri-tabela td {
+    display: block; width: auto; }
+  .pri-tabela tr { border-top: 1px solid var(--line); padding: 8px 2px 10px; }
+  .pri-tabela td { border: 0; padding: 2px 0; text-align: left;
+    display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  .pri-tabela td::before { content: attr(data-l); color: var(--muted); font-size: 12px; }
+  .pri-tabela td:empty { display: none; }
+}
+
+/* A cópia da Coleção que o DECK PRINCIPAL está a usar: dito por extenso no
+   tile, porque é a metade do pedido que se lê na grelha. */
+.emdecks.principal b { color: #c9a9ff; font-weight: 600; }
+
+/* As linhas da Venda que vieram de um deck deixar de ser principal. */
+.vd-origens { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.vd-origem { display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+  font-size: 13px; color: var(--ink2); }
+.vd-origem b { color: var(--ink); }
+.vd-marca.origem { border-color: rgba(167, 123, 255, .45); color: #c9a9ff; }
+
 /* --------------------------------------------------------------- «Faltas»
 
    Por edição, quatro blocos (2026-09-15, fim da tarde; o quarto a

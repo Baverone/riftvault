@@ -247,10 +247,18 @@ CREATE INDEX IF NOT EXISTS ix_pending_aberto ON pending(arrived_at, printing_id)
 -- exactamente os mesmos números com a tabela cheia ou vazia
 -- (`tests/test_venda.py` fotografa-os). Quem baixa as cópias é o botão
 -- separado «marcar como vendidas» (`venda.vender`), pelo `collection.adjust`.
+--
+-- A `origem` (2026-09-27) diz DE ONDE veio a linha: `NULL` é ele a marcá-la à
+-- mão, `deck:<slug>` é uma cópia própria de um deck que deixou de ser
+-- principal ou foi desfeito (*"se eu 'desfazer' o deck ou deixar de ser o
+-- principal, essas cartas passam a venda (apenas se valerem pelo menos 0,50
+-- euros)"*). É o que deixa a página dizer de onde vieram e tirá-las de uma
+-- vez — entrar na Venda não é vender.
 CREATE TABLE IF NOT EXISTS sale_lines (
     printing_id TEXT    PRIMARY KEY,
     qty         INTEGER NOT NULL CHECK (qty > 0),
-    added_at    TEXT    NOT NULL
+    added_at    TEXT    NOT NULL,
+    origem      TEXT
 );
 
 -- O TREND DO CARDMARKET, metido À MÃO por ele, por impressão.

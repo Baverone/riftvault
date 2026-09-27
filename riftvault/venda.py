@@ -170,12 +170,27 @@ def linhas(con: sqlite3.Connection) -> dict[str, int]:
             con.execute("SELECT printing_id, qty FROM sale_lines")}
 
 
+def origens(con: sqlite3.Connection) -> dict[str, str | None]:
+    """printing_id -> de onde veio a linha (2026-09-27).
+
+    `None` é ele a ter marcado à mão; `deck:<slug>` é uma cópia própria de um
+    deck que deixou de ser principal ou foi desfeito (`principal.despromover`).
+    """
+    return {r["printing_id"]: r["origem"] for r in
+            con.execute("SELECT printing_id, origem FROM sale_lines")}
+
+
 def juntar(con: sqlite3.Connection, ref: str, delta: int = 1,
-           source: str = "web") -> dict:
+           source: str = "web", origem: str | None = None) -> dict:
     """Soma `delta` cópias de uma impressão à venda em curso.
 
     Uma linha por impressão — ele escolhe a versão que está a vender. A zero,
     a linha sai. Um `−` numa carta que não está na venda é `SemLinha`.
+
+    A `origem` marca-se quando a linha NASCE aqui e ainda não existia: uma
+    linha que ele já tinha marcado à mão continua a ser dele, mesmo que um deck
+    desfeito lhe some cópias por cima (misturar as duas era dizer-lhe que a
+    linha inteira veio do deck, e o «tirar as do deck» levava as dele).
 
     **Não mexe no `copies` nem em conta nenhuma**: isto é uma lista de
     intenção. Quem baixa as cópias é o `vender()`.
@@ -190,17 +205,27 @@ def juntar(con: sqlite3.Connection, ref: str, delta: int = 1,
         con.execute("DELETE FROM sale_lines WHERE printing_id = ?", (pid,))
     else:
         con.execute(
-            "INSERT INTO sale_lines (printing_id, qty, added_at) VALUES (?,?,?) "
-            "ON CONFLICT(printing_id) DO UPDATE SET qty = excluded.qty",
-            (pid, novo, _now()))
-    return {"printing_id": pid, "qty": novo, "applied": novo - atual}
+            "INSERT INTO sale_lines (printing_id, qty, added_at, origem) "
+            "VALUES (?,?,?,?) ON CONFLICT(printing_id) DO UPDATE SET "
+            "qty = excluded.qty", (pid, novo, _now(), origem if not atual else None))
+    return {"printing_id": pid, "qty": novo, "applied": novo - atual,
+            "origem": origens(con).get(pid)}
 
 
-def limpar(con: sqlite3.Connection) -> int:
-    """Esvazia a venda em curso. Os Trends guardados FICAM — são da carta, não
-    desta venda."""
-    n = con.execute("SELECT COUNT(*) AS n FROM sale_lines").fetchone()["n"]
-    con.execute("DELETE FROM sale_lines")
+def limpar(con: sqlite3.Connection, origem: str | None = None) -> int:
+    """Esvazia a venda em curso — ou só as linhas de uma `origem`.
+
+    Com `origem` tira de uma vez as que vieram de desfazer um deck
+    (`deck:<slug>`) e deixa as que ele marcou à mão. Os Trends guardados FICAM
+    nos dois casos — são da carta, não desta venda.
+    """
+    if origem is None:
+        n = con.execute("SELECT COUNT(*) AS n FROM sale_lines").fetchone()["n"]
+        con.execute("DELETE FROM sale_lines")
+        return n
+    n = con.execute("SELECT COUNT(*) AS n FROM sale_lines WHERE origem = ?",
+                    (origem,)).fetchone()["n"]
+    con.execute("DELETE FROM sale_lines WHERE origem = ?", (origem,))
     return n
 
 
@@ -213,6 +238,43 @@ def limpar(con: sqlite3.Connection) -> int:
 # «Produto Selado», e tem de ter uma resposta só.
 
 
+def preco_de_referencia(pid: str, *, foil: bool, tr: dict, precos: dict,
+                        precos_foil: dict) -> dict:
+    """Quanto vale UMA cópia desta impressão, para quem precisa de um número.
+
+    É o preço que a linha da Venda mostra, por esta ordem:
+
+      1. o **Trend do Cardmarket** que ele meteu (é o que a conta usa);
+      2. senão o do **CardTrader** — e o da FOIL quando a cópia é foil, com o
+         fallback para a normal que o `metrics.precos_de_foil_map` já faz e que
+         faz do número um PISO.
+
+    Existe por causa do critério dos 0,50 € do Deck Principal (2026-09-27):
+    **o preço que decide tem de ser o mesmo que a Venda mostra**, senão o
+    número no ecrã não bate com a regra que pôs a linha lá. Por isso é uma
+    função, e não duas contas parecidas em dois ficheiros.
+
+    Devolve `{cents, fonte}` — `fonte` ∈ `trend` | `cardtrader` |
+    `cardtrader-foil` | `None` (não há preço nenhum, e aí `cents` é `None`).
+    """
+    linha_tr = tr.get(pid)
+    if linha_tr is not None and linha_tr["cents"] is not None:
+        return {"cents": linha_tr["cents"], "fonte": "trend"}
+    if foil:
+        pf = precos_foil.get(pid)
+        if pf is not None:
+            return {"cents": pf, "fonte": "cardtrader-foil"}
+    c = precos.get(pid)
+    return {"cents": c, "fonte": "cardtrader" if c is not None else None}
+
+
+def preco_da_linha(con: sqlite3.Connection, pid: str, foil: bool = False) -> dict:
+    """O `preco_de_referencia` de UMA impressão, a ler os mapas de caminho."""
+    return preco_de_referencia(pid, foil=foil, tr=trends(con),
+                               precos=metrics.prices_map(con),
+                               precos_foil=metrics.precos_de_foil_map(con))
+
+
 def itens(con: sqlite3.Connection, cfg: dict | None = None) -> list[dict]:
     """As linhas da venda, com tudo o que a página precisa de dizer.
 
@@ -220,7 +282,7 @@ def itens(con: sqlite3.Connection, cfg: dict | None = None) -> list[dict]:
     faz-se com o `trend`, que é dele. Uma linha sem Trend tem `trend: None` e
     `subtotal: 0`.
     """
-    from . import decks, locais
+    from . import decks, foil as foil_mod, locais
 
     cfg = cfg or config.load()
     op = opcoes(cfg)
@@ -232,6 +294,9 @@ def itens(con: sqlite3.Connection, cfg: dict | None = None) -> list[dict]:
 
     tr = trends(con)
     precos = metrics.prices_map(con)
+    precos_foil = metrics.precos_de_foil_map(con)
+    de_onde = origens(con)
+    nomes_decks = locais.nomes_dos_decks(con)
     mercado = cardmarket.versoes(con)
     # SÓ as normais (2026-09-26): o aviso de stock é sobre as cópias que o
     # «marcar como vendidas» vai baixar, e esse baixa o `copies.qty`. Com os
@@ -264,6 +329,15 @@ def itens(con: sqlite3.Connection, cfg: dict | None = None) -> list[dict]:
         nome_mercado = mkt.get("name") or r["name"]
         tem = totais.get(pid, 0)
         em_decks = [d["deck"] for d in uso.get(r["card_key"], [])]
+        # DE ONDE VEIO A LINHA (2026-09-27). Quando veio de um deck que deixou
+        # de ser principal, mostra-se O MESMO preço que decidiu que ela vinha
+        # (o critério dos 0,50 €) — e é foil quando a carta é das que o deck
+        # quer em foil (comuns e incomuns, `foil.no_ambito`).
+        origem = de_onde.get(pid)
+        slug_deck = origem[5:] if (origem or "").startswith("deck:") else None
+        crit_foil = bool(slug_deck) and foil_mod.no_ambito(r, cfg)
+        criterio = (preco_de_referencia(pid, foil=crit_foil, tr=tr, precos=precos,
+                                        precos_foil=precos_foil) if slug_deck else None)
         out.append({
             "printing_id": pid,
             "name": r["name"], "code": r["public_code"],
@@ -292,6 +366,13 @@ def itens(con: sqlite3.Connection, cfg: dict | None = None) -> list[dict]:
             "have": tem, "na_colecao": na_colecao.get(pid, 0),
             "a_mais_do_que_tens": max(0, qty - tem),
             "em_decks": em_decks,
+            # De onde veio esta linha (2026-09-27): `None` = ele marcou-a.
+            "origem": origem,
+            "origem_deck": nomes_decks.get(slug_deck, slug_deck) if slug_deck else None,
+            "origem_slug": slug_deck,
+            "preco_criterio": criterio["cents"] if criterio else None,
+            "criterio_fonte": criterio["fonte"] if criterio else None,
+            "criterio_foil": crit_foil,
         })
     return out
 
@@ -334,6 +415,19 @@ def conta(lista: list[dict]) -> dict:
     """
     com = [x for x in lista if x["trend"] is not None]
     sem = [x for x in lista if x["trend"] is None]
+    # As linhas que vieram de desfazer/despromover um deck (2026-09-27),
+    # agrupadas pela origem — é com isto que a página as mostra à parte e
+    # oferece o «tirar todas de uma vez». Entrar na Venda não é vender.
+    de_decks: dict[str, dict] = {}
+    for x in lista:
+        if not x.get("origem"):
+            continue
+        d = de_decks.setdefault(x["origem"], {
+            "origem": x["origem"], "deck": x.get("origem_deck"),
+            "slug": x.get("origem_slug"), "lines": 0, "copies": 0, "cents": 0})
+        d["lines"] += 1
+        d["copies"] += x["qty"]
+        d["cents"] += (x.get("preco_criterio") or 0) * x["qty"]
     return {
         "lines": len(lista),
         "copies": sum(x["qty"] for x in lista),
@@ -344,6 +438,7 @@ def conta(lista: list[dict]) -> dict:
         "trend_velho": sum(1 for x in com if x["trend_velho"]),
         "avisos_stock": sum(1 for x in lista if x["a_mais_do_que_tens"]),
         "em_decks": sum(1 for x in lista if x["em_decks"]),
+        "origens": sorted(de_decks.values(), key=lambda d: d["origem"]),
     }
 
 

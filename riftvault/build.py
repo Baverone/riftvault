@@ -31,7 +31,7 @@ import shutil
 from pathlib import Path
 
 from . import (a_mais, a_subir, config, db, decks, faltas, faltas_foil, metrics,
-               pending, runas_vista, selado, venda)
+               pending, principal, runas_vista, selado, venda)
 
 # A pasta das imagens fica de fora da comparação: em `static_images: "local"`
 # são ~88 MB e não dependem da colecção — o que muda nelas é o `riftvault
@@ -161,7 +161,10 @@ def _gerar(out_dir: Path | str, log=print, imagens: bool = True) -> dict:
     (out / "api" / "decks.json").write_text(
         json.dumps({"editable": False, "decks": index_decks, "rules": decks.rules(),
                     "ordem_fixa": decks.ordem_fixa(), "so_base": decks.so_base(),
-                    "raridade_colecao": decks.raridade_da_colecao()},
+                    "raridade_colecao": decks.raridade_da_colecao(),
+                    # O DECK PRINCIPAL (2026-09-27): quem é. A wantlist dele
+                    # vai no payload de cada deck, como tudo o resto.
+                    "principal": principal.estado(con)},
                    ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     for d in index_decks:
         (deck_dir / f"{d['id']}.json").write_text(

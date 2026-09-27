@@ -19,7 +19,8 @@ from datetime import datetime, timezone
 from flask import Flask, g, jsonify, redirect, request, send_from_directory
 
 from . import (a_mais, a_subir, collection, config, db, decks, faltas, faltas_foil,
-               foil, locais, metrics, pending, proprias, runas_vista, selado, venda)
+               foil, locais, metrics, pending, principal, proprias, runas_vista,
+               selado, venda)
 
 app = Flask(__name__, static_folder=None)
 
@@ -287,8 +288,14 @@ def api_venda_trend():
 
 @app.post("/api/venda/limpar")
 def api_venda_limpar():
+    """Esvazia a venda em curso — ou só as linhas de uma `origem`.
+
+    Com `{"origem": "deck:<slug>"}` tira de uma vez as que vieram de desfazer
+    ou despromover um deck (2026-09-27) e deixa as que ele marcou à mão.
+    """
+    data = request.get_json(silent=True) or {}
     con = get_con()
-    n = venda.limpar(con)
+    n = venda.limpar(con, origem=data.get("origem") or None)
     return jsonify({"limpas": n, **venda.payload(con, editable=True)})
 
 
@@ -337,7 +344,11 @@ def api_decks():
                     "so_base": decks.so_base(),
                     # A regra de raridade (2026-09-24): a partir de que
                     # raridade um deck se pode servir da Coleção sem aviso.
-                    "raridade_colecao": decks.raridade_da_colecao()})
+                    "raridade_colecao": decks.raridade_da_colecao(),
+                    # O DECK PRINCIPAL (2026-09-27): quem é, e a partir de
+                    # quanto uma cópia própria dele vai à Venda quando deixar
+                    # de o ser.
+                    "principal": principal.estado(con)})
 
 
 @app.post("/api/decks/montar")
@@ -347,6 +358,11 @@ def api_decks_montar():
     Escreve `decks.montados` no `riftvault_config.json` — *"o estado é do
     config, não só da base, para não se perder"* — e devolve o índice já
     recalculado. Um deck desmontado deixa de consumir a Coleção na hora.
+
+    Passa pelo `principal.montar` (2026-09-27): desmontar o DECK PRINCIPAL
+    despromove-o e manda as cópias próprias dele que valham o mínimo para a
+    Venda — é o *"se eu 'desfazer' o deck"* do pedido. `movimento` diz o que
+    foi e o que ficou; entrar na Venda não é vender.
     """
     data = request.get_json(silent=True) or {}
     if not data.get("slug"):
@@ -354,11 +370,30 @@ def api_decks_montar():
     con = get_con()
     _reimport_if_changed(con)
     try:
-        estado = decks.alternar_montado(con, data["slug"], bool(data.get("montado")))
+        res = principal.montar(con, data["slug"], bool(data.get("montado")))
     except decks.DeckDesconhecido as exc:
         return jsonify({"error": str(exc)}), 404
-    return jsonify({"montados": estado["montados"], "desmontados": estado["desmontados"],
-                    "decks": decks.decks_index(con)})
+    return jsonify({**res, "decks": decks.decks_index(con)})
+
+
+@app.post("/api/decks/principal")
+def api_decks_principal():
+    """O DECK PRINCIPAL (2026-09-27): `{slug}` — ou `{slug: null}` para limpar.
+
+    Escreve `decks.principal` no config (e garante o deck em `decks.montados`:
+    o principal é sempre montado). O deck que SAI é despromovido — as cópias
+    próprias dele que valham `decks.venda_minimo_cents` ganham uma linha na
+    Venda, marcada com a origem. **Nada sai do `proprio:<slug>` e nada se
+    vende**; as de menos de 0,50 € ficam, e o `movimento` diz quantas são.
+    """
+    data = request.get_json(silent=True) or {}
+    con = get_con()
+    _reimport_if_changed(con)
+    try:
+        res = principal.definir(con, data.get("slug") or None)
+    except decks.DeckDesconhecido as exc:
+        return jsonify({"error": str(exc)}), 404
+    return jsonify({**res, "decks": decks.decks_index(con)})
 
 
 @app.post("/api/proprias/ajustar")

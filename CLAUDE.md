@@ -19,6 +19,21 @@ secções abaixo que falam da Legend/Champion em versão especial (17/09) ou de
 outras versões a tapar buracos descrevem a regra que `so_base: false` liga;
 com `true` (hoje) não valem.
 
+**DESDE 2026-09-27 HÁ UM DECK PRINCIPAL** (`decks.principal`, hoje «LeBlanc
+Hook») — *"Deck Principal: neste caso LeBlanc […] todas as cartas do Deck sao
+Wantlist, as comuns e incomuns em Foil"*. É UM só, é sempre montado
+(`montados` diz quais estão montados; esta chave diz qual deles ele joga), e
+**não é a prioridade 1**. Tem WANTLIST própria — o que lhe falta para ser
+auto-suficiente (`precisa − cópias próprias`; uma carta marcada com o `+` sai
+da lista), com as comuns e incomuns em foil. **A Coleção é soberana**: o que o
+deck usa dela é um empréstimo de APRESENTAÇÃO (o tile diz «em uso no deck X», a
+página do deck diz «X cartas em uso da Coleção, ainda falta Y específica») e
+não muda um número. Ao deixar de ser principal ou ao ser desfeito, as cópias
+PRÓPRIAS dele que valham **0,50 €** (`decks.venda_minimo_cents`) ganham uma
+linha na Venda marcada com a origem — as de menos continuam próprias, e
+**entrar na Venda não é vender** (nada sai do `proprio:<slug>`). Ver a última
+secção deste ficheiro.
+
 **DESDE 2026-09-24 CADA DECK ESTÁ MONTADO OU DESMONTADO** (`decks.montados`,
 hoje `["LeBlanc Hook"]` — os outros cinco desmontados) — ver a última secção
 deste ficheiro. Um deck DESMONTADO não consome NADA da Coleção: a Coleção dá
@@ -2704,6 +2719,16 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   são todas comuns/incomuns — **10 linhas de normais e 412 de foils** ficam
   fora dos tiles; a `encomendas.raridade_minima` NÃO se mudou). Ver a última
   secção deste ficheiro.
+- **Feito também:** o DECK PRINCIPAL (2026-09-27) — `decks.principal` (um só,
+  sempre montado, não é a prioridade 1), a WANTLIST dele (`precisa − próprias`,
+  comuns e incomuns em foil ao preço de foil com o fallback contado; uma carta
+  marcada com o `+` sai), as duas indicações («em uso no deck X» no tile,
+  «X cartas em uso da Coleção, ainda falta Y» na página do deck) — e ao deixar
+  de ser principal ou ser desfeito, as cópias próprias de **0,50 € para cima**
+  vão à Venda marcadas com a origem, as de menos ficam, e **nada sai do deck**.
+  A Coleção não muda um número: medido, zero diferenças em 24 invariantes.
+  `principal.py`, `POST /api/decks/principal`, `riftvault principal`. Ver a
+  última secção deste ficheiro.
 - **Por fazer:** a parte 2 do seguir — o separador no site e a tarefa diária;
   vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck,
   com as partilhadas assinaladas); e apagar decks pela interface (hoje apaga-se
@@ -7814,3 +7839,172 @@ inalteradas; o config (chave, default, omissão segura, a nota); e a interface.
 o valor antigo da chave, a casa antiga do alvo e o formato antigo da linha.
 
 Suite: **55 ficheiros, 0 a falhar**.
+
+## 27/09/2026 — O DECK PRINCIPAL: a wantlist dele, as duas indicações, e a Venda ao desfazer (`principal.py`)
+
+Palavras dele: *"os decks quero uma coisa / **Deck Principal**: neste caso
+LeBlanc / eu coloco + e - se tenho a carta no Deck / **a Colecao e soberana,
+nao e para mexer** / todas as cartas do Deck sao Wantlist, as comuns e incomuns
+em Foil, / caso eu ainda nao tenha marcado, usa da colecao mas aparece
+indicado: / Na colecao aparece que esta a ser usado em X Deck / No deck aparece
+algo do genero: X cartas em uso da colecao, ainda falta especifica para o deck
+/ Se eu 'desfazer' o deck ou deixar de ser o principal, essas cartas passam a
+venda (apenas se valerem pelo menos 0,50 euros)"*. Ramo
+`ai-pc/deck-principal-2026-09-27`.
+
+**METADE JÁ EXISTIA, E REUTILIZOU-SE INTEIRA.** As cópias próprias de cada deck
+são de 21/09 (`proprias.py`): o local `proprio:<slug>`, os `+`/`−` em cada carta
+da página do deck, o não entrarem na Coleção nem no valor, o servirem primeiro.
+O `deck:<slug>` é de 10/09 e o «Azir 3» da grelha (`decks.uso_por_carta`) de
+11/09. **Não há mecanismo novo ao lado** — o que nasceu foi só o que faltava.
+
+### 1. `decks.principal`, e a relação com o `montados`
+
+`decks.principal` é UM deck (o slug ou o `Nome:`, como a `ordem` e os
+`montados`), hoje **«LeBlanc Hook»**. A relação, que é a pergunta a não deixar
+por responder:
+
+| chave | responde a |
+|---|---|
+| `decks.montados` | QUAIS estão montados (um desmontado não consome a Coleção — 24/09) |
+| `decks.principal` | qual DESSES é o que ele está a jogar |
+
+**O principal é SEMPRE montado** (`montados_estado`: se a lista não o nomear,
+conta como montado à mesma e `principal_implicito` di-lo; o botão escreve-o nas
+duas chaves, para o config nunca dizer duas coisas), e **desmontar o principal
+DESPROMOVE-O** — limpa a chave; sem isso o «o principal conta como montado»
+voltava a montá-lo e o clique não fazia nada. **Sem a chave não há principal**,
+e aí não há wantlist de deck principal nem despromoção a disparar: é de
+propósito, porque a despromoção mexe na Venda e isso não pode acontecer por uma
+leitura nem por uma mudança de ordem.
+
+**NÃO É A PRIORIDADE 1.** A prioridade (`decks.ordem`) diz quem se serve
+primeiro da Coleção; hoje calham no mesmo deck e podem não calhar. O ecrã
+deixou de chamar «principal» à prioridade 1 (o crachá passou a «prioridade 1» e
+o botão a «Passar a prioridade 1»): duas perguntas com a mesma palavra no mesmo
+sítio liam-se como uma.
+
+### 2. A wantlist: `precisa − próprias`, e o acabamento manda no preço
+
+«Todas as cartas do Deck são Wantlist» é o deck inteiro menos o que ele já
+marcou com `+`: **uma carta marcada SAI da lista**. **Não desconta a Coleção** —
+é o ponto do pedido: se ainda não a marcou, o deck joga com a da Coleção e as
+duas indicações dizem-no, mas ela continua na wantlist porque o que se quer é o
+deck ficar com as suas.
+
+**Comuns e incomuns em FOIL, rara para cima a normal.** O critério é o
+**`foil.no_ambito`** — exactamente as impressões que têm contador de foil no
+tile (base, não sobrenumerada, comum ou incomum, fora o OGS). Não se escreveu
+uma segunda definição de «isto quer-se em foil»: se ele alargar o
+`foil.raridades`, alarga aqui também, e há teste que compara os dois conjuntos.
+Em Riftbound de rara para cima a carta *é* a foil, e não há acabamento a
+escolher.
+
+O preço de uma linha foil é o `price_foil_cents` (26/09), com o **fallback para
+o da normal contado e dito** (`no_foil_price`) — o mesmo que a metade das foils
+das Faltas faz, e que faz do total um **PISO**. O texto sai do gerador único
+(`cardmarket.gerar`) e **não leva marca de foil** (lá é um filtro por entrada,
+regra de 01/09). **As runas ficam de fora**, como em todos os decks desde 17/09
+à noite; a página diz quantas são.
+
+### 3. As duas indicações — e o empréstimo é de APRESENTAÇÃO
+
+* **Na Coleção, no tile:** a entrada do deck principal em `uso_por_carta` leva
+  `principal: true` e o tile escreve **«em uso no deck LeBlanc Hook 3»**.
+* **Na página do deck:** «**53** cartas em uso da Coleção (26 cartas
+  distintas), ainda faltam **54** específicas para o deck · 226,66 €».
+
+**A Coleção é soberana, e prova-se.** Nada disto move uma cópia: o que o deck
+usa da Coleção continua a ser o `decks.allocate` de sempre, que não escreve
+nada. Ver a medição.
+
+### 4. Quando deixa de ser principal ou é desfeito: a Venda, de 0,50 € para cima
+
+As cópias PRÓPRIAS dele passam a linhas da Venda, **só as que valham
+`decks.venda_minimo_cents`** (50). As emprestadas da Coleção não vão a lado
+nenhum — deixam simplesmente de estar emprestadas. **TRÊS DECISÕES minhas,
+ditas:**
+
+**(a) O preço que decide é o mesmo que a Venda mostra** — o Trend do Cardmarket
+se ele já o meteu, senão o do CardTrader, e o **preço de foil** quando a carta é
+das que o deck quer em foil. É uma função só (`venda.preco_de_referencia`), e a
+linha da Venda mostra-a em `preco_criterio`: senão o número no ecrã não batia
+com o critério que a pôs lá. Uma cópia **sem preço nenhum** não chega ao mínimo
+e fica.
+
+**(b) As de menos de 0,50 € NÃO desaparecem:** continuam cópias próprias daquele
+deck, fora da Coleção e do valor, e a página diz quantas são e quanto valem ao
+todo (`proprias_por_valor`, que responde **antes e depois** — é com ela que ele
+vê o que vai acontecer antes de carregar).
+
+**(c) Entrar na Venda NÃO é vender.** A Venda é uma área de marcação
+(`sale_lines`) que não mexe em número nenhum; quem baixa cópias é o botão
+separado «marcar como vendidas». Por isso **nada sai do `proprio:<slug>`**: a
+cópia fica onde está e ganha uma linha marcada `deck:<slug>` (a coluna
+**`origem`**, migrada com backup), que a página mostra à parte com o preço que a
+trouxe e se tira de uma vez (`venda.limpar(origem=...)`, botão «Tirar as deste
+deck»). Uma linha que ele já tivesse marcado à mão **não muda de dono** — senão
+o «tirar as do deck» levava as dele.
+
+### Medido a 2026-09-27 contra uma CÓPIA do `data/` real
+
+`_revisao\_medir_principal.py` (o `main` num worktree e o ramo, cada um com a
+sua cópia do MESMO instante dos dados, por `VACUUM INTO` — o `data/` a sério
+nunca se escreveu; ele estava a mexer na coleção enquanto isto corria). Cada
+lado leu o SEU config.
+
+**ZERO DIFERENÇAS em 24 invariantes:** denominador **928**, níveis, valor
+**7 802,52 €**, valor por edição, totais, wantlist geral e as cinco por edição,
+painel, resumo do foil, **as Faltas normais (`totals`, `totals_lists` e os 20
+blocos por edição, com as quatro wantlists)**, **a metade das FOILS e a QUINTA
+wantlist** (`totals`, `scope` e por edição), A mais item a item, Encomendas,
+falta dos decks, o índice dos decks, o `copies` inteiro e a grelha impressão a
+impressão nas cinco edições. As faltas: **305 cartas · 480 cópias ·
+9 074,59 €** dos dois lados.
+
+**O que o separador diz, com os dados de hoje** (LeBlanc Hook, o único montado):
+
+| | |
+|---|---|
+| wantlist do deck principal | **54 cópias de 26 cartas · 226,66 €** |
+| em foil (comuns e incomuns) | 25 cópias em 13 cartas · 25,11 € |
+| ao preço da normal (piso) | **0** — todas têm oferta foil |
+| normais (rara para cima) | 29 cópias em 13 cartas · 201,55 € |
+| runas de fora | 12 (2 cartas) |
+| em uso da Coleção | **53 cópias em 26 cartas** |
+| cópias próprias hoje | **0** — nada iria para a Venda se o despromovesse agora |
+
+Por raridade: comuns 6 cartas · 14 cópias · 5,20 € (foil); incomuns 7 · 11 ·
+19,91 € (foil); raras 9 · 20 · 45,95 € (normal); épicas 4 · 9 · 155,60 €
+(normal). As mais caras: 3× Baited Hook `OGN-242` 115,86 €, 2× Thousand-Tailed
+Watcher `OGN-116` 27,80 €, 2× Mirror Image `UNL-200` 21,42 €.
+
+**Exercitado pela rota, contra a cópia:** marcadas 1 Baited Hook (rara,
+38,62 €) e 1 Soaring Scout (comum, 0,19 € em foil) como próprias; ao passar o
+principal para outro deck foi **1 cópia · 38,62 €** para a Venda e **ficou 1 ·
+0,19 €** no deck, com a linha a dizer «do deck LeBlanc Hook · 38,62 €» e o
+botão «Tirar as deste deck». As duas próprias continuaram no
+`proprio:leblanc-hook`.
+
+**Fotografado** a 1280 e a 375 px contra o ramo servido no 8779 (a cópia):
+`documentElement.scrollWidth == clientWidth == 375`, zero elementos fora do
+ecrã. A tabela da wantlist vira cartões a 559 px — **nada de scroll lateral**,
+que continua a ser só o das filas do binder.
+
+`tests/test_deck_principal.py` (51 testes, contra pastas temporárias e config
+temporário): a chave e a relação com o `montados` (implícito, escrita nas duas,
+desmontar despromove, sem chave não há, nome que não casa avisa, mal escrita
+rebenta); a wantlist (`precisa − próprias`, o `+` a tirar a linha, o acabamento
+igual ao contador do tile e a andar com o config, o preço de foil, o fallback
+contado, o total, as runas fora, o texto do gerador único); as duas indicações;
+**a Coleção não muda um número** (a mesma fotografia do `test_copias_proprias`,
+mais a metade das foils e a quinta wantlist) e um teste que exige que ela não
+seja de zeros; a despromoção (só as >= 0,50 €, as de menos ficam próprias, nada
+sai do local, o Trend dele a ganhar ao CardTrader, sem preço fica, o mínimo do
+config, desfazer o deck faz o mesmo, a origem e o «tirar de uma vez», a linha
+dele que não muda de dono, escolher o mesmo deck não faz nada, a migração numa
+base antiga); e as rotas, o `build`, a CLI, o `app.js` e o CSS.
+`test_partilha_compra` foi ajustado — descrevia a entrada do uso sem o campo
+novo.
+
+Suite: **56 ficheiros, 0 a falhar**.

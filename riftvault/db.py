@@ -135,6 +135,30 @@ def _migrar_pending_foil(con: sqlite3.Connection) -> None:
         raise
 
 
+def _migrar_sale_lines_origem(con: sqlite3.Connection) -> None:
+    """A coluna `origem` da `sale_lines` (2026-09-27, com o Deck Principal).
+
+    Sem ela não se sabe que linhas da Venda vieram de desfazer um deck, e ele
+    pediu para isso ser VISÍVEL e para as poder tirar de uma vez. As linhas que
+    já cá estão ficam a `NULL` — foram todas marcadas à mão, que era a única
+    maneira que havia.
+
+    LEVA BACKUP na mesma: é uma tabela do vault.db, e a regra desta casa é essa
+    (a tabela é só de intenção, o backup custa um `VACUUM INTO`). Idempotente.
+    """
+    cols = _columns(con, "sale_lines")
+    if not cols or "origem" in cols:
+        return
+    backup(con, "antes-da-origem-da-venda")
+    con.execute("BEGIN IMMEDIATE")
+    try:
+        con.execute("ALTER TABLE sale_lines ADD COLUMN origem TEXT")
+        con.execute("COMMIT")
+    except Exception:
+        con.execute("ROLLBACK")
+        raise
+
+
 def _migrar_price_latest(con: sqlite3.Connection, schema: str = "catalog") -> None:
     """As colunas que a `price_latest` ganhou depois da primeira versão.
 
@@ -203,6 +227,10 @@ def _migrate(con: sqlite3.Connection) -> None:
     # O acabamento da encomenda (2026-09-27): sem ela uma foil encomendada nas
     # Faltas entrava na coleção como normal.
     _migrar_pending_foil(con)
+
+    # De onde veio cada linha da Venda (2026-09-27): à mão, ou de um deck que
+    # deixou de ser principal.
+    _migrar_sale_lines_origem(con)
 
     cols = _columns(con, "decks")
     if cols:
