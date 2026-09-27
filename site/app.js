@@ -87,7 +87,12 @@ const state = {
   // apagada com o separador dela a 2026-09-19 — ver o CLAUDE.md.)
   wantlist: null, wantlistP: null, compras: null, comprasP: null,
   // O separador «Faltas» (2026-09-15, fim da tarde): `api/faltas_edicao.json`.
-  faltasEdicao: null,
+  // Os `+`/`−` de «já encomendei» (2026-09-27) escrevem na mesma `pending` do
+  // separador «Encomendas» — um número só, duas vistas — e têm a mesma fila
+  // por linha, para dois cliques rápidos serem dois pedidos e nunca um a
+  // dobrar. A chave é (impressão, acabamento): a mesma carta pode estar em
+  // falta nas duas metades.
+  faltasEdicao: null, feFila: new Map(), feVoo: new Map(),
   // O separador «A mais» (2026-09-17): `api/a_mais.json`.
   aMais: null,
   // O separador «Venda» (2026-09-25): a venda em curso (`api/venda.json`).
@@ -3358,11 +3363,16 @@ function renderEncHead() {
       para cima, tenhas a carta ou não.</small>
     ${fora.length ? `<div class="enc-fora">
       <b>A caminho nesta edição, fora da grelha</b> (abaixo de ${
-        escapeHTML(rarityLabel(p.rarity_min))}, ou fora do catálogo da RiftScribe):
-      ${fora.map(x => `<span class="enc-fora-item">${x.qty}× ${escapeHTML(x.name || x.printing_id)}
-        <i>${escapeHTML((x.code || '').split('/')[0])}${x.market_only ? ' · fora do catálogo' : ''}</i>
+        escapeHTML(rarityLabel(p.rarity_min))}, fora do catálogo da RiftScribe,
+      ou <i class="foil">foils</i> — que são todas comuns e incomuns e por isso
+      nunca cabem nesta grelha):
+      ${fora.map(x => `<span class="enc-fora-item${x.foil ? ' foil' : ''}">${x.qty}× ${
+        escapeHTML(x.name || x.printing_id)}
+        <i>${escapeHTML((x.code || '').split('/')[0])}${x.foil ? ' · FOIL' : ''}${
+        x.market_only ? ' · fora do catálogo' : ''}</i>
         ${state.editable ? `<button class="btn chegou mini" data-chegou-pid="${escapeAttr(x.printing_id)}"
-          title="dar entrada na Coleção">Chegou</button>` : ''}</span>`).join('')}
+          data-chegou-foil="${x.foil ? '1' : '0'}"
+          title="dar entrada na Coleção${x.foil ? ', no contador de foil' : ''}">Chegou</button>` : ''}</span>`).join('')}
     </div>` : ''}
     ${state.editable && t.copies ? `<div class="deck-actions">
       <button class="btn" id="enc-chegou-tudo">Chegou tudo (${plural(t.copies, 'cópia', 'cópias')}, todas as edições)</button>
@@ -3370,7 +3380,8 @@ function renderEncHead() {
   </div>`;
 
   for (const b of document.querySelectorAll('#enc-head [data-chegou-pid]')) {
-    b.onclick = () => encChegou(b.dataset.chegouPid, b);
+    b.onclick = () => encChegou(b.dataset.chegouPid, b,
+                                b.dataset.chegouFoil === '1');
   }
   const tudo = $('#enc-chegou-tudo');
   if (tudo) tudo.onclick = () => encChegouTudo(tudo);
@@ -3460,6 +3471,7 @@ function encTile(g, p, comUso = false) {
               title="comprei mais uma (fica a caminho)">+</button>
     </div>
     <div class="onde ${n ? 'caminho' : 'tenho'}">${n ? `<b>${n}</b> a caminho` : 'nada a caminho'}${
+      p.ordered_foil ? ` · <b>${p.ordered_foil}</b> foil` : ''}${
       p.price != null ? ` · ${eur(p.price)}` : ''}</div>
     ${n ? `<button class="btn chegou" data-chegou-pid="${escapeAttr(p.id)}"
       title="dar entrada na Coleção das ${n} que vêm a caminho">Chegou (${n})</button>` : ''}
@@ -3567,20 +3579,26 @@ async function encRecalcularResumo() {
 
 /* «Chegou» num tile: tudo o que está a caminho DESSA impressão entra na
    Coleção (`/api/pending/arrive`, o mesmo do «Chegou tudo» e da CLI). */
-async function encChegou(pid, botao) {
+async function encChegou(pid, botao, foil) {
   if (!pid) return toast('Não sei que carta é esta.', { error: true });
   if (botao) { botao.disabled = true; botao.textContent = 'a dar entrada…'; }
   try {
     const r = await fetch('api/pending/arrive', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ printing_id: pid }),
+      // Com `foil` entram só as linhas desse acabamento, e cada uma no
+      // contador dela: uma foil soma ao `qty_foil` (2026-09-27).
+      body: JSON.stringify(foil === undefined
+        ? { printing_id: pid } : { printing_id: pid, foil: !!foil }),
     });
     if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `HTTP ${r.status}`);
     const res = await r.json();
     const n = res.arrived.reduce((s, x) => s + x.qty, 0);
-    toast(`${n} ${n === 1 ? 'cópia entrou' : 'cópias entraram'} na Coleção.`);
-    // No tile: as que chegaram passam de «a caminho» a tidas.
-    if (state.enc.ordered.has(pid)) {
+    const nf = res.arrived.filter(x => x.foil).reduce((s, x) => s + x.qty, 0);
+    toast(`${n} ${n === 1 ? 'cópia entrou' : 'cópias entraram'} na Coleção${
+      nf ? ` (${nf} no contador de foil)` : ''}.`);
+    // No tile: as que chegaram passam de «a caminho» a tidas. Uma FOIL mexe no
+    // outro contador (o `qty_foil`, que este tile não segue) — relê-se.
+    if (!foil && state.enc.ordered.has(pid)) {
       state.enc.ordered.set(pid, 0);
       state.enc.qty.set(pid, (state.enc.qty.get(pid) || 0) + n);
       const g = state.enc.payload.groups.find(x => x.printings.some(pr => pr.id === pid));
@@ -4161,6 +4179,11 @@ function renderFaltasEdicao() {
       soVer.length ? ` — <b>${escapeHTML(soVer.join(', '))}</b> não entram lá
       (<code>listas_de_compra.so_master_set</code>): acompanhar não é comprar em bloco,
       cada uma dessas listas copia-se à parte` : ''}.
+      ${state.editable ? `O <b>+</b> de cada carta marca «<b>já encomendei</b>» e o
+      <b>−</b> desmarca — são os mesmos botões do separador <b>Encomendas</b>, o
+      mesmo registo e o mesmo número. A linha <b>não desaparece</b>: passa a dizer
+      quanto ainda falta e quantas vêm a caminho, e só sai da wantlist (não se
+      compra duas vezes). O <b>Chegou</b> continua nas Encomendas. ` : ''}
       O que vem a caminho aparece marcado e não vai para nenhuma lista.
       Preço mais baixo em Near Mint/Mint no CardTrader, só ofertas em inglês.${
       fora.length ? `<br>Fora deste separador: ${fora.join(', ')} — não estão em nenhum dos ${quantos} blocos.` : ''}</small>
@@ -4169,12 +4192,12 @@ function renderFaltasEdicao() {
 
   $('#fe-body').innerHTML = sets.map(s => `
     <h2 class="section-head fe-set">${escapeHTML(s.name)}
-      <span>${feResumo(s)}</span></h2>
+      <span data-fe-res="set:${escapeAttr(s.set)}">${feResumo(s)}</span></h2>
     <p class="fe-metade normais">Normais — <b>as faltas</b></p>
     ${s.blocks.map(g => `
       <h3 class="section-head sub fe-bloco ${g.id}${g.in_lists ? '' : ' fe-ver'}">${escapeHTML(g.label)}
         <small>${escapeHTML(g.target_label)}${g.in_lists ? '' : ' · wantlist própria'}</small>
-        <span>${feResumo(g)}</span></h3>
+        <span data-fe-res="bloco:${escapeAttr(s.set)}:${escapeAttr(g.id)}">${feResumo(g)}</span></h3>
       ${g.items.length
         ? `<div class="grid deck-grid fe-grid">${g.items.map(feTile).join('')}</div>`
         : `<p class="empty fe-vazio">${g.scope ? 'Nada falta neste bloco.' : 'Esta edição não tem impressões neste bloco.'}</p>`}
@@ -4195,12 +4218,225 @@ function renderFaltasEdicao() {
                 { foco: false, copiar: false, foilTodas: g.id === 'foil' });
     }
   }
+  ligarFeEnc();
 }
 
 /* Os blocos de uma edição, nas duas metades: os quatro das normais e, se a
    edição tiver âmbito de foil (o OGS não tem), o das foils. */
 function feBlocosTodos(s) {
   return s.foil ? [...s.blocks, s.foil] : s.blocks;
+}
+
+/* ---------------------------------------------------------------- «JÁ ENCOMENDEI»
+
+   O gémeo do `faltas_edicao.soma` em JavaScript: as contas de um bloco, de uma
+   edição e do separador saem daqui a cada `+`/`−`, como as barras da Coleção se
+   recalculam a cada clique. Há teste que corre os dois sobre os mesmos itens. */
+
+/* @fe-soma:inicio — troço puro, corrido no node pelo teste que o compara com
+   o `faltas_edicao.soma` em Python. Não toca no DOM nem no estado. */
+function feSoma(itens) {
+  return {
+    cards: itens.filter(x => x.missing > 0).length,
+    copies: itens.reduce((n, x) => n + x.missing, 0),
+    cents: itens.reduce((n, x) => n + (x.total || 0), 0),
+    no_price: itens.filter(x => x.missing > 0 && x.price == null).length,
+    pending_cards: itens.filter(x => x.pending > 0).length,
+    pending_copies: itens.reduce((n, x) => n + (x.pending || 0), 0),
+    short_cards: itens.length,
+  };
+}
+/* @fe-soma:fim */
+
+/* O resumo da wantlist de um bloco — só o que há a COMPRAR. É o gémeo do
+   `faltas_edicao._wantlist_do_bloco`: o que vem a caminho sai da lista (não se
+   compra duas vezes) mas fica no tile, marcado. */
+function feWlSoma(g) {
+  const itens = feWantlistItens(g);
+  return { lines: itens.length,
+           copies: itens.reduce((n, x) => n + cmQtd(x), 0),
+           cents: itens.reduce((n, x) => n + (x.total || 0), 0),
+           foil: itens.filter(x => x.foil_only).length };
+}
+
+/* Refaz as somas todas a partir dos `items`, que são a verdade no cliente
+   enquanto há pedidos em voo. Não pede nada ao servidor. */
+function feRecontar() {
+  const p = state.faltasEdicao;
+  if (!p) return;
+  const todos = [], nasListas = [], foils = [];
+  for (const s of p.sets) {
+    for (const g of s.blocks) {
+      Object.assign(g, feSoma(g.items));
+      g.wantlist = feWlSoma(g);
+      todos.push(...g.items);
+      if (g.in_lists) nasListas.push(...g.items);
+    }
+    Object.assign(s, feSoma(s.blocks.flatMap(g => g.items)));
+    s.lists = feSoma(s.blocks.filter(g => g.in_lists).flatMap(g => g.items));
+    if (s.foil) {
+      Object.assign(s.foil, feSoma(s.foil.items));
+      s.foil.wantlist = feWlSoma(s.foil);
+      foils.push(...s.foil.items);
+    }
+  }
+  p.totals = feSoma(todos);
+  p.totals_lists = feSoma(nasListas);
+  if (p.foil) {
+    p.foil.totals = { ...feSoma(foils),
+                      no_foil_price: p.sets.reduce(
+                        (n, s) => n + (s.foil ? s.foil.no_foil_price : 0), 0) };
+  }
+}
+
+/* A MESMA impressão pode estar nas duas metades — uma comum que lhe falte em
+   normal E em foil —, por isso a chave de uma linha é (impressão, acabamento),
+   nunca só a impressão. */
+function feItem(pid, foil) {
+  for (const s of state.faltasEdicao?.sets || []) {
+    for (const g of feBlocosTodos(s)) {
+      if ((g.id === 'foil') !== !!foil) continue;
+      const x = g.items.find(it => it.printing_id === pid);
+      if (x) return x;
+    }
+  }
+  return null;
+}
+
+/* O clique no `+`/`−`: ecrã otimista e pedidos da MESMA linha em fila, como no
+   separador «Encomendas» (é a mesma rota e a mesma tabela). Só o último em voo
+   aceita o número do servidor, senão uma resposta atrasada punha o contador
+   para trás.
+
+   A LINHA NÃO SAI DA LISTA: mexe-se no `pending` e no `missing` do item, e o
+   item fica onde estava. É o pedido dele — «fica bem mais fácil para eu
+   visualizar». */
+async function feAjustar(pid, foil, delta) {
+  if (!state.editable) return;
+  const x = feItem(pid, foil);
+  if (!x) return;
+  const antes = { pending: x.pending || 0, missing: x.missing, total: x.total };
+  if (delta < 0 && antes.pending <= 0) return;
+  feAplicar(x, Math.max(0, Math.min(antes.pending + delta, x.short)));
+  feDesenharLinha(pid, foil);
+
+  const chave = `${pid}|${foil ? 1 : 0}`;
+  state.feVoo.set(chave, (state.feVoo.get(chave) || 0) + 1);
+  const fila = state.feFila.get(chave) || Promise.resolve();
+  const tarefa = fila.then(async () => {
+    const r = await fetch('api/encomenda', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ printing_id: pid, delta, foil: !!foil }),
+    });
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `HTTP ${r.status}`);
+    return r.json();
+  });
+  state.feFila.set(chave, tarefa.catch(() => {}));
+  try {
+    const res = await tarefa;
+    const resto = (state.feVoo.get(chave) || 1) - 1;
+    state.feVoo.set(chave, resto);
+    if (resto === 0) {
+      feAplicar(x, Math.min(res.open_printing || 0, x.short));
+      feDesenharLinha(pid, foil);
+      feMarcaVelhos();
+    }
+    toast(`${res.open_printing} a caminho de ${x.name}${foil ? ' (foil)' : ''}`, { ms: 2500 });
+  } catch (err) {
+    state.feVoo.set(chave, Math.max(0, (state.feVoo.get(chave) || 1) - 1));
+    x.pending = antes.pending; x.missing = antes.missing; x.total = antes.total;
+    feDesenharLinha(pid, foil);
+    toast(`Não gravou: ${err.message}`, { error: true });
+  }
+}
+
+/* O pendente muda, o que falta COMPRAR muda com ele — e o `short` (o que falta
+   na caixa) não, que é o que mantém a linha na lista. */
+function feAplicar(x, pending) {
+  x.pending = pending;
+  x.missing = Math.max(0, x.short - pending);
+  x.total = (x.price || 0) * x.missing;
+}
+
+/* Redesenha só o tile que mexeu, e acerta os números à volta: os cabeçalhos da
+   edição e do bloco, o do separador, os separadores de edição e a caixa da
+   wantlist (de onde a linha encomendada saiu). */
+function feDesenharLinha(pid, foil) {
+  feRecontar();
+  const sel = `.dtile[data-fe-pid="${CSS.escape(pid)}"][data-fe-foil="${foil ? 1 : 0}"]`;
+  const el = document.querySelector(`#fe-body ${sel}`);
+  const x = feItem(pid, foil);
+  if (el && x) { el.outerHTML = feTile(x); ligarFeEnc(); }
+  feAcertarResumos();
+  renderFeTabs();
+}
+
+/* Os `<span>` dos cabeçalhos e as caixas do Cardmarket, sem redesenhar a
+   grelha inteira — redesenhá-la a cada clique fazia as imagens todas piscar. */
+function feAcertarResumos() {
+  const p = state.faltasEdicao;
+  const sel = state.prefs.feSet;
+  for (const s of p.sets.filter(x => sel === 'all' || x.set === sel)) {
+    const cab = document.querySelector(`#fe-body [data-fe-res="set:${CSS.escape(s.set)}"]`);
+    if (cab) cab.innerHTML = feResumo(s);
+    for (const g of feBlocosTodos(s)) {
+      const c = document.querySelector(
+        `#fe-body [data-fe-res="bloco:${CSS.escape(s.set)}:${CSS.escape(g.id)}"]`);
+      if (c) c.innerHTML = feResumo(g);
+      const cx = document.getElementById(feWlId(s, g));
+      if (!cx) continue;
+      const itens = feWantlistItens(g), w = g.wantlist || {};
+      const h = cx.querySelector('.fe-wl-head span');
+      if (h) {
+        h.innerHTML = `${plural(w.lines, 'linha', 'linhas')} ·
+          ${plural(w.copies, 'cópia', 'cópias')} · ${eur(w.cents)}`;
+      }
+      cmMostrar(feWlId(s, g) + '-cm', itens, false,
+                { foco: false, copiar: false, foilTodas: g.id === 'foil' });
+    }
+  }
+  // O cabeçalho do separador: os números grandes e o resumo das foils.
+  const t = p.totals, tl = p.totals_lists;
+  const th = $('#fe-head .deck-title .prio');
+  if (th) {
+    th.textContent = `${plural(t.cards, 'impressão', 'impressões')} · ${
+      plural(t.copies, 'cópia', 'cópias')}`;
+  }
+  const metas = document.querySelectorAll('#fe-head > .deck-card > .deck-meta span');
+  if (metas[0]) metas[0].innerHTML = `<i>Fechar os ${feQuantos()} blocos</i>${eur(t.cents)}`;
+  if (metas[1]) {
+    metas[1].innerHTML = `<i>Wantlist geral (${escapeHTML(
+      p.blocks.filter(b => b.in_lists).map(b => b.label).join(' + '))})</i>${
+      eur(tl.cents)} · ${plural(tl.copies, 'cópia', 'cópias')}`;
+  }
+  const fr = $('#fe-head .fe-foil-resumo .deck-meta span');
+  if (fr && p.foil) fr.innerHTML = `<i>Foils — complemento</i>${feResumo(p.foil.totals)}`;
+}
+
+function feQuantos() {
+  const n = state.faltasEdicao.blocks.length;
+  return { 3: 'três', 4: 'quatro', 5: 'cinco' }[n] || String(n);
+}
+
+function ligarFeEnc() {
+  for (const b of document.querySelectorAll('#fe-body .fe-enc-bot .step')) {
+    const t = b.closest('.dtile');
+    b.onclick = () => feAjustar(t.dataset.fePid, t.dataset.feFoil === '1',
+                                Number(b.dataset.feD));
+  }
+}
+
+/* Uma encomenda mudou: as outras páginas que descontam o pendente ficam
+   velhas. O gémeo do `encMarcaVelhos`, visto do outro lado — aqui é o
+   separador «Encomendas» que tem de ser relido, porque o número é o mesmo. */
+function feMarcaVelhos() {
+  state.decks = null;
+  state.compras = null;
+  state.wantlist = null;
+  state.enc.payload = null;
+  state.enc.resumo = null;
+  state.colecaoVelha = true;
+  wlDesatualizar();
 }
 
 /* A metade das FOILS de uma edição: a mesma forma de um bloco, com o rótulo
@@ -4212,7 +4448,7 @@ function feFoilMetade(s) {
   return `<p class="fe-metade foil">Foils — <b>complemento</b> · não são faltas</p>
     <h3 class="section-head sub fe-bloco foil fe-ver">${escapeHTML(g.label)}
       <small>${escapeHTML(g.target_label)} · wantlist própria</small>
-      <span>${feResumo(g)}</span></h3>
+      <span data-fe-res="bloco:${escapeAttr(s.set)}:${escapeAttr(g.id)}">${feResumo(g)}</span></h3>
     ${g.items.length
       ? `<div class="grid deck-grid fe-grid">${g.items.map(feTile).join('')}</div>`
       : `<p class="empty fe-vazio">${g.scope
@@ -4297,22 +4533,56 @@ function feWantlistHTML(s, g) {
    cortava o preço, que é o que ali interessa. A marca do piso fica, porque é
    a excepção. */
 function feTile(x) {
-  const cls = (x.missing > 0 ? 'gone' : 'a-caminho') + (x.foil ? ' fe-foil' : '');
+  const cls = (x.missing > 0 ? 'gone' : 'a-caminho') + (x.foil ? ' fe-foil' : '')
+    + (x.pending ? ' fe-enc' : '');
   const crachá = x.missing > 0 ? `faltam ${x.missing}` : 'a caminho';
   const piso = x.foil && x.price != null && !x.price_is_foil;
-  return `<div class="dtile ${cls}">
+  return `<div class="dtile ${cls}" data-fe-pid="${escapeAttr(x.printing_id)}"
+       data-fe-foil="${x.foil ? '1' : '0'}">
     ${artHTML(x, `<span class="need">${crachá}</span>
       <span class="ja-tens">tens ${x.have}/${x.target}${x.foil ? ' foil' : ''}</span>
-      ${x.price != null && x.missing > 0 ? `<span class="price">${eurShort(x.total)}</span>` : ''}`)}
+      ${x.price != null && x.missing > 0 ? `<span class="price">${eurShort(x.total)}</span>` : ''}
+      ${x.pending ? `<span class="enc-n" title="${x.pending} já encomendada${
+        x.pending === 1 ? '' : 's'}">+${x.pending}</span>` : ''}`)}
     <div class="tname" title="${escapeAttr(x.name)}">${escapeHTML(x.name)}${
       x.label && x.label !== 'Base' ? ` <i class="var">${escapeHTML(x.label)}</i>` : ''}</div>
     <div class="codigo">${escapeHTML((x.code || '').split('/')[0])}${
       x.price != null ? ` · ${eur(x.price)}${piso
         ? ' <i class="piso" title="Não há oferta foil no CardTrader: esta linha conta ao preço da NORMAL, por isso o total é um piso.">normal</i>'
         : ''}` : ' · sem preço'}</div>
-    ${x.pending ? `<div class="onde caminho">${x.pending} a caminho${
-      x.missing > 0 ? ` · ${x.missing} por comprar` : ''}</div>` : ''}
+    ${feEncHTML(x)}
   </div>`;
+}
+
+/* Os `+`/`−` de «já encomendei» (André, 2026-09-27: *"nas faltas, coloca o + e
+   - para eu indicar que ja encomendei, fica bem mais facil para eu visualizar
+   assim"*).
+
+   SÃO OS MESMOS BOTÕES DAS ENCOMENDAS, não um contador novo: a mesma rota
+   (`POST /api/encomenda`), a mesma tabela (`pending`), o mesmo número. Nas
+   foils vai `foil: true`, para a cópia entrar no contador de foil quando
+   chegar.
+
+   A LINHA NUNCA DESAPARECE. O pendente desconta do «faltam», mas o item fica
+   na lista — o tile passa a dizer as duas coisas, «faltam N» e «M já
+   encomendadas», e só quando a encomenda cobre tudo é que o crachá vira «a
+   caminho». O «Chegou» não está aqui: vive no separador «Encomendas», como
+   desde 2026-09-17. */
+function feEncHTML(x) {
+  const n = x.pending || 0;
+  const linha = n
+    ? `<b>${n}</b> já encomendada${n === 1 ? '' : 's'}${
+        x.missing > 0 ? ` · faltam ${x.missing}` : ' · nada por comprar'}`
+    : 'nada encomendado';
+  const botoes = state.editable ? `<div class="steppers fe-enc-bot">
+      <button class="step minus" data-fe-d="-1" ${n ? '' : 'disabled'}
+              aria-label="menos uma encomendada de ${escapeAttr(x.name)}"
+              title="afinal não encomendei esta">−</button>
+      <button class="step plus" data-fe-d="1"
+              aria-label="marcar mais uma encomendada de ${escapeAttr(x.name)}"
+              title="já encomendei mais uma${x.foil ? ' (foil)' : ''}">+</button>
+    </div>` : '';
+  return `${botoes}<div class="onde ${n ? 'caminho' : 'tenho'}">${linha}</div>`;
 }
 
 
