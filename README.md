@@ -110,7 +110,7 @@ nova é uma linha ali.
 |---|---|---|
 | — | **Início** | o painel de hoje: master set, o que falta comprar, valor, decks montados, o que vem a caminho, a coleção extra |
 | Coleção | **Coleção** | a grelha, edição a edição |
-| | **Faltas** | o que falta para fechar cada edição, em quatro blocos |
+| | **Faltas** | o que falta para fechar cada edição: as normais em quatro blocos, as foils à parte |
 | | **A mais** | o excedente e o que os decks libertaram — **escondida hoje** |
 | Decks | **Decks** | as listas montadas |
 | | **Staples** | as cartas que vários decks pedem |
@@ -264,10 +264,35 @@ faltam**.
   «fechar os quatro blocos» e «wantlist geral». Para meter os quatro na
   geral é **uma linha** no config: `listas_de_compra.so_master_set: false`.
 
-`api/faltas_edicao.json`; na consola, `py -m riftvault faltas [--edicao OGN]
-[--bloco B] [--cardmarket]`. A conta é a **mesma** da wantlist
-(`a_subir.masterset` + os locais + o pendente) — não há segunda
-implementação, só outra arrumação.
+### As foils são a outra metade (27/09/2026)
+
+*"quero as faltas separadas, as normais e as foils / as foils nao sao faltas,
+sao apenas complemento e indicativo / mais tarde poderao vir a ser compradas,
+entao preciso que tenham uma wantlist a parte"*. Em cada edição, a seguir aos
+quatro blocos das normais, uma metade **Foils** — com a **quinta wantlist**.
+
+- **Não são faltas.** Ficam fora da contagem de faltas, da percentagem da
+  Coleção e dos três níveis, e de todas as listas de compra que já existem. Os
+  números das normais **não mexem** (medido: o payload inteiro sai igual).
+- **O alvo é o playset do tipo** (`playset_targets_by_type`, o mesmo do playset
+  jogável): Unit/Spell/Gear 3, Battlefield 1, Legend 1 e **Rune 12**. Não há
+  alvo novo. Numa runa o alvo em foil (12) **não** é o da coleção normal (3).
+- **Só o que pode existir em foil**: comuns e incomuns, base, não
+  sobrenumeradas, fora o OGS — o mesmo âmbito do contador do tile
+  (`foil.raridades`, `foil.edicoes_fora`). **De rara para cima não se lista
+  nada**: essas raridades só existem em foil, a carta normal *é* a foil.
+- **O preço é o da foil** (`price_foil_cents`); sem oferta foil no CardTrader a
+  linha conta ao preço da normal, marcada — o total é um **piso**. Não há
+  pendente de foil: a `pending` guarda a impressão, não o acabamento.
+- Mais o **aviso** das impressões em que ele tem foil e o playset das
+  **normais** ainda está incompleto — a foil está a tapar o buraco. Só mostra.
+
+`api/faltas_edicao.json` (a metade das foils na chave `foil`); na consola,
+`py -m riftvault faltas [--edicao OGN] [--bloco B] [--cardmarket]`, com
+`--bloco foil` para a quinta wantlist. A conta das normais é a **mesma** da
+wantlist (`a_subir.masterset` + os locais + o pendente) — não há segunda
+implementação, só outra arrumação —, e a das foils vive no `faltas_foil.py`,
+que é quem junta as duas metades.
 
 **As faltas dos decks não estão aqui.** As do master set estão também na
 **wantlist do fim de cada edição** da Coleção (`api/wantlist.json`) e as dos

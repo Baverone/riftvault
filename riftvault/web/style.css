@@ -1270,10 +1270,6 @@ body.readonly .btn.chegou { display: none; }
   color: var(--dim);
 }
 .fe-metade b { color: var(--text); letter-spacing: normal; text-transform: none; }
-.fe-metade i {
-  margin-left: auto; font-style: normal; letter-spacing: normal;
-  text-transform: none; font-size: 12px;
-}
 .fe-metade.foil { margin-top: 20px; border-top-color: var(--foil); }
 .fe-metade.foil b { color: var(--foil); }
 .fe-bloco.foil { --cor: var(--foil); }
@@ -1298,9 +1294,6 @@ body.readonly .btn.chegou { display: none; }
   .fe-bloco { flex-wrap: wrap; }
   .fe-bloco span { margin-left: 0; text-align: left; flex-basis: 100%; }
   .fe-wl-head span { margin-left: 0; flex-basis: 100%; }
-  /* A conta da metade das foils passa para baixo do rótulo, em vez de ser
-     empurrada para fora do ecrã pelo `margin-left: auto`. */
-  .fe-metade i { margin-left: 0; flex-basis: 100%; }
 }
 
 /* --------------------------------------------------------------- «A mais»

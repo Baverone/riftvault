@@ -288,14 +288,20 @@ const PAGINA = {
          + ajudaListasDeCompra(),
   },
   'faltas-edicao': {
-    sub: 'O que falta para fechar cada edição, em quatro blocos — e a wantlist '
-       + 'do Cardmarket de cada um.',
-    ajuda: '<p>Quatro blocos por edição: <b>Master set</b>, <b>OverNumbered</b>, <b>Alt '
-         + 'Art</b> e <b>Promos</b>, pela mesma ordem da Coleção. Cada um tem a sua caixa '
-         + 'do Cardmarket, já preenchida.</p>'
+    sub: 'O que falta para fechar cada edição, em duas metades — as normais em '
+       + 'quatro blocos e as foils à parte, cada uma com a sua wantlist.',
+    ajuda: '<p><b>As normais</b>, em quatro blocos por edição: <b>Master set</b>, '
+         + '<b>OverNumbered</b>, <b>Alt Art</b> e <b>Promos</b>, pela mesma ordem da '
+         + 'Coleção. Cada um tem a sua caixa do Cardmarket, já preenchida.</p>'
          + '<p>Só o <b>master set</b> entra na wantlist geral da Coleção — os outros três '
          + 'compram-se pela lista própria, quando quiseres. Uma carta que já vem a caminho '
-         + 'aparece marcada e não vai para wantlist nenhuma.</p>',
+         + 'aparece marcada e não vai para wantlist nenhuma.</p>'
+         + '<p><b>As foils não são faltas</b> — são complemento e indicativo, e por isso '
+         + 'ficam numa metade própria, com a <b>quinta wantlist</b>: não entram na '
+         + 'contagem de faltas, na percentagem da Coleção nem em nenhuma das listas de '
+         + 'compra que já existem. O alvo delas é o <b>playset do tipo</b> (Unit/Spell/Gear '
+         + '3, Battlefield 1, <b>Rune 12</b>) e só se listam comuns e incomuns: de rara '
+         + 'para cima as cartas só existem em foil, e listá-las era duplicar a coleção.</p>',
   },
   'a-mais': {
     sub: 'O excedente acima do alvo e as cartas que os decks deixaram de pedir. '
@@ -4203,8 +4209,7 @@ function feFoilMetade(s) {
   const g = s.foil;
   if (!g) return `<p class="fe-metade foil">Foils — <b>esta edição não tem
     impressões com contagem de foil</b> (fora do âmbito).</p>`;
-  return `<p class="fe-metade foil">Foils — <b>complemento</b>, não são faltas
-      <i>${feResumo(g)}</i></p>
+  return `<p class="fe-metade foil">Foils — <b>complemento</b> · não são faltas</p>
     <h3 class="section-head sub fe-bloco foil fe-ver">${escapeHTML(g.label)}
       <small>${escapeHTML(g.target_label)} · wantlist própria</small>
       <span>${feResumo(g)}</span></h3>
@@ -4285,8 +4290,12 @@ function feWantlistHTML(s, g) {
    cobre tudo), o total no outro canto, «tens H/T» em baixo.
 
    Nas FOILS (2026-09-27) o mesmo tile diz «tens H/T foil» e, quando o preço
-   veio da normal por não haver oferta foil, marca-o — é o PISO. Não há segundo
-   tile: é a mesma pergunta («quantas faltam») sobre a outra contagem. */
+   veio da normal por não haver oferta foil, marca-o com «normal» — é o PISO.
+   Não há segundo tile: é a mesma pergunta («quantas faltam») sobre a outra
+   contagem. O preço NÃO leva a palavra «foil»: o bloco inteiro é de foils e o
+   crachá já o diz, e a 375 px a linha do código é elidida — a palavra a mais
+   cortava o preço, que é o que ali interessa. A marca do piso fica, porque é
+   a excepção. */
 function feTile(x) {
   const cls = (x.missing > 0 ? 'gone' : 'a-caminho') + (x.foil ? ' fe-foil' : '');
   const crachá = x.missing > 0 ? `faltam ${x.missing}` : 'a caminho';
@@ -4298,8 +4307,9 @@ function feTile(x) {
     <div class="tname" title="${escapeAttr(x.name)}">${escapeHTML(x.name)}${
       x.label && x.label !== 'Base' ? ` <i class="var">${escapeHTML(x.label)}</i>` : ''}</div>
     <div class="codigo">${escapeHTML((x.code || '').split('/')[0])}${
-      x.price != null ? ` · ${eur(x.price)}${x.foil ? (piso ? ' <i class="piso" title="Não há oferta foil no CardTrader: conta ao preço da normal, por isso o total é um piso.">normal</i>' : ' foil') : ''}`
-        : ' · sem preço'}</div>
+      x.price != null ? ` · ${eur(x.price)}${piso
+        ? ' <i class="piso" title="Não há oferta foil no CardTrader: esta linha conta ao preço da NORMAL, por isso o total é um piso.">normal</i>'
+        : ''}` : ' · sem preço'}</div>
     ${x.pending ? `<div class="onde caminho">${x.pending} a caminho${
       x.missing > 0 ? ` · ${x.missing} por comprar` : ''}</div>` : ''}
   </div>`;

@@ -725,8 +725,9 @@ class TestOEcra(unittest.TestCase):
         self.assertIn("foilTodas = false", self.js)
 
     def test_o_tile_diz_que_e_foil_e_marca_o_piso(self):
-        self.assertIn("x.foil ? ' foil' : ''", self.js)
+        self.assertIn("x.foil ? ' foil' : ''", self.js, "«tens 2/3 foil» no crachá")
         self.assertIn("price_is_foil", self.js)
+        self.assertIn('class="piso"', self.js, "e o PISO marcado no preço")
         self.assertIn(".dtile.fe-foil", self.css)
 
     def test_o_cabecalho_diz_o_ambito_o_alvo_e_o_aviso(self):
