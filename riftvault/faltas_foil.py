@@ -68,11 +68,22 @@ O PREÇO DE UMA FOIL É O PREÇO DA FOIL
     normal em toda a lista sem dizer nada era subavaliá-la muito (a `OGN-045`
     Defy vale 1,25 € em normal e 5,02 € em foil).
 
-NÃO HÁ PENDENTE DE FOIL
-    A `pending` guarda a impressão encomendada, não o acabamento: uma encomenda
-    é da carta, e o riftvault não sabe se o que vem a caminho é foil. Por isso
-    `pending` é sempre 0 nesta metade — não se inventou um pendente que a base
-    não tem. Nas normais o pendente continua a contar, como sempre.
+O PENDENTE DE FOIL EXISTE DESDE 2026-09-27 — e é outro número
+    Até esse dia não havia: a `pending` guardava a impressão e não o
+    acabamento, e esta metade escrevia `pending = 0` em todas as linhas. Com os
+    `+`/`−` a chegarem às Faltas (*"nas faltas, coloca o + e - para eu indicar
+    que ja encomendei"*) a tabela ganhou a coluna `foil`, e uma foil
+    encomendada é agora uma foil a caminho: `pending.open_qty(foil=True)`.
+
+    SÃO DOIS PENDENTES DIFERENTES DA MESMA IMPRESSÃO, e não se somam. O da
+    metade das normais é `open_qty()` (as normais) e não vê as foils; este é
+    o das foils e não vê as normais. Uma foil a caminho não abate uma falta
+    normal, nem o contrário — é a mesma separação das duas contagens do
+    `copies` (2026-09-26).
+
+    A linha continua VISÍVEL quando a encomenda cobre tudo o que falta (fica
+    com `missing` 0 e marcada «a caminho»), como nas normais; o que sai é a
+    wantlist, porque o que vem a caminho não se compra outra vez.
 
 O AVISO QUE ELE PEDIU DE VOLTA
     As impressões em que ele TEM foil mas o playset das NORMAIS ainda está
@@ -86,7 +97,7 @@ from __future__ import annotations
 
 import sqlite3
 
-from . import cardmarket, config, faltas_edicao, foil, locais, metrics
+from . import cardmarket, config, faltas_edicao, foil, locais, metrics, pending
 
 # O id e o rótulo desta metade. O id NÃO está no `faltas_edicao.BLOCO_LABEL`,
 # de propósito: se lá estivesse entrava na ordem dos blocos, nos `totals` e no
@@ -142,20 +153,26 @@ def _foils(con: sqlite3.Connection) -> dict[str, int]:
 def em_falta(con: sqlite3.Connection, esc: dict[str, dict]) -> dict[str, dict]:
     """Do âmbito, quantas foils lhe faltam para o playset de cada impressão.
 
-    O gémeo do `faltas_edicao.em_falta`, com duas diferenças: o que ele TEM são
-    as cópias foil (não a Coleção) e o `pending` é sempre 0 — a `pending` não
-    sabe de acabamentos (ver o topo do ficheiro). Uma impressão com foils acima
-    do alvo não aparece; uma com zero aparece a pedir o playset inteiro.
+    O gémeo do `faltas_edicao.em_falta`, com uma diferença: o que ele TEM são
+    as cópias foil, não a Coleção. O pendente é o das FOILS
+    (`pending.open_qty(foil=True)`, 2026-09-27) — uma foil encomendada não é
+    uma normal encomendada —, e trata-se como nas normais: fica à parte do
+    `missing`, por isso a linha não desaparece quando ele carrega no `+`.
+
+    Uma impressão com foils acima do alvo não aparece; uma com zero aparece a
+    pedir o playset inteiro.
     """
     tem = _foils(con)
+    a_caminho = pending.open_qty(con, foil=True)
     out: dict[str, dict] = {}
     for pid, info in esc.items():
         have = tem.get(pid, 0)
         curto = info["target"] - have
         if curto <= 0:
             continue
-        out[pid] = {**info, "have": have, "pending": 0,
-                    "missing": curto, "short": curto}
+        pend = min(a_caminho.get(pid, 0), curto)
+        out[pid] = {**info, "have": have, "pending": pend,
+                    "missing": curto - pend, "short": curto}
     return out
 
 
@@ -349,6 +366,10 @@ def texto(b: dict, sets: list[dict] | None = None) -> str:
         "listas de compra: têm wantlist própria (--edicao X --bloco foil "
         "--cardmarket).",
     ]
+    if t.get("pending_copies"):
+        linhas.append(f"  {t['pending_copies']} foils já encomendadas e por chegar: "
+                      f"continuam na lista, marcadas, e saem da wantlist "
+                      f"(`riftvault encomendas --mais REF --foil`).")
     if t.get("no_foil_price"):
         linhas.append(f"  {t['no_foil_price']} linhas contam ao preço da NORMAL, por não "
                       f"haver oferta foil no CardTrader — o total é um PISO.")

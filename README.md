@@ -252,10 +252,20 @@ faltam**.
   set é **exactamente** a wantlist dessa edição no fim da Coleção. Na
   consola: `py -m riftvault faltas --edicao OGN --bloco alt_art --cardmarket`
   (blocos: `master`, `alt_art`, `overnumbered`, `special`).
-- **O que vem a caminho conta.** Uma carta já encomendada aparece a azul
-  tracejado, «a caminho», **não soma** ao que há a comprar e não vai para a
-  wantlist do bloco; uma parcialmente coberta diz «1 a caminho · 2 por
-  comprar».
+- **O `+` e o `−` marcam «já encomendei»** (2026-09-27 — *"nas faltas,
+  coloca o + e - para eu indicar que ja encomendei, fica bem mais facil para
+  eu visualizar assim"*), em **todas** as linhas de **todos** os blocos,
+  incluindo as **foils**. São os **mesmos botões** do separador Encomendas —
+  a mesma tabela, a mesma rota, **um número só** nas duas vistas —, e o
+  **Chegou** continua só lá. Na metade das foils, o `+` marca uma cópia
+  **FOIL**: quando chegar soma ao contador de foil e não ao das normais
+  (`pending.foil`). Na consola: `py -m riftvault encomendas --mais OGN-045
+  [--foil]`.
+- **A linha NÃO desaparece.** Uma carta já encomendada aparece a azul
+  tracejado, «a caminho», com «+N» no canto e «N já encomendada(s) · faltam
+  M» em baixo: ele quer **ver** o que já mandou vir. O que sai é só a
+  **wantlist** do bloco — não se compra duas vezes — e a conta do que há a
+  comprar.
 - **A wantlist geral continua a ser só o master set.** A do fim de cada
   edição da Coleção e a «Wantlist — tudo» não levam Alt Art, OverNumbered nem
   Promos (*"apenas pedi para ser feito track de playset para eu saber
@@ -337,9 +347,21 @@ vier a caminho fora da grelha (uma comum pela consola, uma runa do CardTrader)
 aparece no cabeçalho com o seu «Chegou». No site publicado é só leitura.
 
 Os `+`/`−` e o «Chegou» viveram nos tiles dos **decks** de 11 a 17/09; lá
-ficou só a informação «N a caminho». Na consola: `py -m riftvault encomendas
-[--mais REF [N] | --menos REF [N] | --chegou [REF]]` (por código é só essa
-impressão, por nome é a carta) e `py -m riftvault pending --chegou [ID]`.
+ficou só a informação «N a caminho». Desde **2026-09-27** os `+`/`−` também
+estão no separador **Faltas** (a terceira casa dos mesmos botões, o mesmo
+registo e o mesmo número); o «Chegou» continua só aqui. Na consola: `py -m
+riftvault encomendas [--mais REF [N] | --menos REF [N] | --chegou [REF]]
+[--foil]` (por código é só essa impressão, por nome é a carta) e `py -m
+riftvault pending --chegou [ID]`.
+
+**Uma encomenda tem ACABAMENTO** (`pending.foil`, 2026-09-27): uma foil
+encomendada entra no `copies.qty_foil` e uma normal no `copies.qty` — são duas
+contagens independentes desde 2026-09-26, e uma foil a entrar como normal
+estragava a coleção. Como o âmbito do foil são as **comuns e incomuns** e esta
+grelha é de rara para cima, as foils a caminho aparecem sempre na lista «fora
+da grelha» do cabeçalho, marcadas **FOIL**, cada uma com o seu «Chegou». O
+desfazer de uma foil que chegou é `py -m riftvault foil REF --menos N` (fica na
+`foil_ops`), não o `undo`.
 
 A aba **A subir** (do master set, o que ainda não tens e subiu 10% ou mais
 nos últimos 30 dias) saiu do site com o separador; a conta continua na

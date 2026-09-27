@@ -375,7 +375,8 @@ def _registar(con: sqlite3.Connection, printing_id: str, delta: int,
 
 
 def ajustar(con: sqlite3.Connection, ref: str, delta: int,
-            source: str = "web", cfg: dict | None = None) -> dict:
+            source: str = "web", cfg: dict | None = None,
+            validar: bool = True) -> dict:
     """Soma `delta` às cópias FOIL de uma impressão. Não mexe nas normais.
 
     São DUAS contagens independentes (2026-09-26): o `+` acrescenta uma foil
@@ -391,6 +392,12 @@ def ajustar(con: sqlite3.Connection, ref: str, delta: int,
     Devolve `normal` (as cópias normais, que não mexeram), `foil` e `total` (a
     soma). **Não devolve `qty`**, de propósito: era o nome ambíguo que estava
     por baixo do erro do modelo antigo.
+
+    `validar=False` salta a verificação do âmbito, e há **um** chamador:
+    o `pending.arrive` (2026-09-27). Uma foil que ele já encomendou tem de
+    poder CHEGAR mesmo que o `foil.raridades` tenha encolhido entretanto —
+    recusar a entrada era perder-lhe a cópia. Quem valida é o `+`, no
+    `pending.encomendar` e na rota do contador.
     """
     from . import collection
 
@@ -398,7 +405,7 @@ def ajustar(con: sqlite3.Connection, ref: str, delta: int,
     pid = collection.resolve_printing(con, ref)
     r = con.execute("SELECT * FROM catalog.printings WHERE printing_id = ?",
                     (pid,)).fetchone()
-    if r is None or not no_ambito(r, cfg):
+    if validar and (r is None or not no_ambito(r, cfg)):
         raise ForaDoAmbito(
             f"{pid} não tem contagem de foil — só as impressões base, não "
             f"sobrenumeradas, de raridade {'/'.join(raridades(cfg))}, fora "
@@ -427,8 +434,11 @@ def ajustar(con: sqlite3.Connection, ref: str, delta: int,
         con.execute("ROLLBACK")
         raise
 
-    return {"printing_id": pid, "code": r["public_code"], "name": r["name"],
-            "set": r["set_id"], "foil": novo, "normal": normal,
+    return {"printing_id": pid,
+            # Com `validar=False` a impressão pode nem estar no catálogo (uma
+            # `market_only`): o contador funciona na mesma, só não há nome.
+            "code": r["public_code"] if r else None, "name": r["name"] if r else None,
+            "set": r["set_id"] if r else None, "foil": novo, "normal": normal,
             "total": normal + novo, "applied": applied,
             # Os dois preços (2026-09-26, à tarde), para o tile e a CLI
             # dizerem quanto vale uma foil desta impressão sem ir buscá-los

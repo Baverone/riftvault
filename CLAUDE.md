@@ -43,6 +43,16 @@ a ser calculados, o `api/a_mais.json` e o `api/compras.json` continuam a ser
 gerados e servidos, e o `riftvault a-mais` continua a responder — o que saiu
 foi o botão, no 8770 e no site publicado. Repor é tirar o nome da lista.
 
+**DESDE 2026-09-27 AS FALTAS TÊM `+` E `−` DE «JÁ ENCOMENDEI»** — *"nas
+faltas, coloca o + e - para eu indicar que ja encomendei, fica bem mais facil
+para eu visualizar assim"*. São os MESMOS botões do separador Encomendas
+(nasceram nos decks a 11/09, saíram para as Encomendas a 17/09), a mesma
+tabela `pending` e **um número só** nas duas vistas; o «Chegou» continua só
+nas Encomendas. **A linha não desaparece** quando ele marca — passa a dizer
+«faltam N · M já encomendadas» e sai só da wantlist. E a encomenda ganhou
+ACABAMENTO (`pending.foil`, com migração e backup): uma foil encomendada entra
+no `copies.qty_foil` e uma normal no `qty`. Ver a última secção deste ficheiro.
+
 Secções: **Coleção**, **Decks**, **Faltas** (de
 2026-09-15 ao fim da tarde — por edição, três blocos; **quatro desde
 2026-09-19, cada um com a sua wantlist**; e **DUAS METADES desde 2026-09-27**
@@ -2670,6 +2680,17 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   12**); âmbito = o do contador de foil (512, comuns e incomuns, sem OGS);
   preço da foil com o fallback contado; e o aviso das 47 impressões com foil
   e o playset das normais incompleto. Ver a última secção deste ficheiro.
+- **Feito também:** os `+`/`−` de «JÁ ENCOMENDEI» nas Faltas (2026-09-27) —
+  em todas as linhas de todos os blocos, as foils incluídas; são os mesmos
+  botões das Encomendas (a `pending`, a rota `/api/encomenda`), sem contador
+  novo, e **a linha não desaparece** — passa a dizer quanto falta e quantas
+  vêm a caminho, e sai só da wantlist. A encomenda passou a ter ACABAMENTO
+  (`pending.foil`, migração com backup): uma foil chega ao `copies.qty_foil`
+  e uma normal ao `qty`. O «Chegou» continua só nas Encomendas, e as foils
+  aparecem lá na lista «fora da grelha» (o corte é de rara para cima e elas
+  são todas comuns/incomuns — **10 linhas de normais e 412 de foils** ficam
+  fora dos tiles; a `encomendas.raridade_minima` NÃO se mudou). Ver a última
+  secção deste ficheiro.
 - **Por fazer:** a parte 2 do seguir — o separador no site e a tarefa diária;
   vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck,
   com as partilhadas assinaladas); e apagar decks pela interface (hoje apaga-se
@@ -7431,3 +7452,194 @@ marcas novas e fixtures novas, e ninguém o pediu ainda. Aqui só caiu a
 proibição explícita e o teste que a fixava.
 
 Suite: **52 ficheiros, 0 a falhar**.
+
+## 27/09/2026 — os `+`/`-` de «JÁ ENCOMENDEI» nas FALTAS; e a encomenda passa a ter ACABAMENTO (`pending.foil`)
+
+Palavras dele: *"nas faltas, coloca o + e - para eu indicar que ja encomendei,
+fica bem mais facil para eu visualizar assim"*. Ramo
+`ai-pc/faltas-encomendar-2026-09-27`.
+
+**NÃO HÁ MECANISMO NOVO, e é o ponto de partida.** Os `+`/`-` das encomendas
+existem desde 2026-09-11 e escrevem na tabela `pending`; a rota é a
+`POST /api/encomenda` e as funções são o `pending.encomendar`/`anular`. O
+trabalho desta ordem foi **ligar o botão numa terceira casa** e, a seguir,
+resolver o que se parte quando ele lá está.
+
+**O HISTÓRICO DOS MESMOS DOIS BOTÕES**, para não se voltar a fazer o percurso:
+
+| quando | onde | frase |
+|---|---|---|
+| 2026-09-11 | nos tiles dos **decks** | *"podes criar, nos decks, um botão de + e - que indique o que já está encomendado (comprado), mas que ainda não chegou"* |
+| 2026-09-17 | saem dos decks para o separador **Encomendas** | *"uma aba 'encomendas' […] e tiras esta funcionalidade dos decks"* |
+| **2026-09-27** | chegam ao separador **Faltas**, e às FOILS | *"nas faltas, coloca o + e - para eu indicar que ja encomendei"* |
+
+Nos decks ficou só a informação «N a caminho» (17/09) e **isso não mudou**: os
+tiles dos decks continuam sem steppers, e o `test_encomendas_separador`
+continua a exigi-lo.
+
+### 1. UM NÚMERO SÓ, duas vistas
+
+As Faltas e as Encomendas leem os dois da `pending`. Não há contador novo nem
+tabela nova — `test_faltas_encomendar.test_nao_ha_tabela_nova_nenhuma`
+fotografa a lista de tabelas antes e depois de um `+` e exige que seja a mesma,
+e o `test_uma_so_verdade_faltas_e_encomendas_dizem_o_mesmo` compara o número do
+tile das Faltas com o `open_qty`, com o `grelha().totals.ordered` e com o
+`encomendas().totals` na mesma corrida. Um segundo contador punha as duas
+vistas a divergir, e era esse o erro a evitar.
+
+**O `+` grava na IMPRESSÃO do tile.** Nas Faltas cada linha é uma impressão
+(a alt art é a alt art, a sobrenumerada é a sobrenumerada), por isso não há
+aqui a escolha «carta ou impressão» que o `impressao_para_encomendar` faz nas
+listas por carta — essa continua a ser a regra da CLI por nome e do `+` das
+linhas dos decks.
+
+### 2. A LINHA NÃO DESAPARECE — é o pedido, e já estava meio feito
+
+O pendente **já** descontava das faltas desde 2026-09-11, e uma falta que
+sumisse ao ser encomendada era o contrário do que ele pediu («fica bem mais
+fácil para eu **visualizar**»). O `faltas_edicao.em_falta` já guardava o
+`pending` À PARTE do `missing` desde 15/09 — o item fica na lista com
+`missing` 0 —, e o que faltava era o ecrã dizer as duas coisas.
+
+Agora o tile diz: «faltam N» (ou «a caminho» quando a encomenda cobre tudo),
+`+N` no canto, moldura azul tracejada, e em baixo «**N já encomendada(s)** ·
+faltam M» / «· nada por comprar». **O que sai é só a wantlist do bloco** — o
+que vem a caminho não se compra outra vez — e a conta do que há a comprar.
+Três testes fixam isto, incluindo o caso que interessa (encomendar TUDO o que
+falta) nas duas metades.
+
+**No cliente as somas refazem-se sem pedir nada** (`feSoma`, o gémeo do
+`faltas_edicao.soma`, comparado com o Python no node): o tile que mexeu é
+redesenhado no lugar e só os cabeçalhos, os separadores e a caixa da wantlist
+se acertam. Redesenhar a grelha inteira a cada clique fazia as imagens todas
+piscar.
+
+### 3. O ACABAMENTO: a coluna `pending.foil` (0/1)
+
+Metade do separador é de FOILS desde 2026-09-27 (a ordem anterior), e ele disse
+delas *"mais tarde poderao vir a ser compradas"* — por isso o `+` tem de estar
+lá também. Mas a `pending` guardava a IMPRESSÃO e não o acabamento: uma foil
+encomendada entrava na coleção como NORMAL, e o `copies.qty` e o
+`copies.qty_foil` são duas contagens independentes desde 2026-09-26. **Estragar
+a contagem dele era o erro a não cometer.**
+
+    pending.foil = 0   uma cópia normal  -> ao chegar, `collection.adjust` -> copies.qty
+    pending.foil = 1   uma cópia FOIL    -> ao chegar, `foil.ajustar`      -> copies.qty_foil
+
+Migração em `db._migrar_pending_foil`, **com backup**
+(`vault-antes-do-pendente-foil-*.db`, por `VACUUM INTO`) porque mexe numa
+tabela do vault.db, numa transação só e idempotente. **As 130 linhas que lá
+estavam ficaram a 0** — eram todas de normais, que era a única coisa que havia
+como encomendar (verificado na cópia: 130 linhas, `SUM(foil) = 0`, todas já
+chegadas).
+
+**O acabamento acompanha a encomenda de ponta a ponta:** o `+` grava-o (e
+**valida** que a impressão tem contador de foil — marcar foil numa rara era
+gravar o que nenhuma página mostra), o `-` só tira de linhas do mesmo
+acabamento, o «Chegou» soma ao contador certo, e as LEITURAS separam-se —
+`pending.open_qty()` dá as NORMAIS (é este o pendente que as faltas normais, as
+wantlists e os decks descontam) e `open_qty(foil=True)` dá as foils, que só a
+metade das foils lê. O `open_by_card` (o grão dos decks) também só conta as
+normais: a alocação serve-se do `copies.qty` e uma foil a caminho não é uma
+normal a caminho.
+
+**O `foil.ajustar` ganhou `validar=False`, com UM chamador.** O `pending.arrive`
+chama-o assim de propósito: uma foil que ele já encomendou tem de poder CHEGAR
+mesmo que o `foil.raridades` encolha entretanto — recusar a entrada era
+perder-lhe a cópia. Quem valida é o `+`.
+
+**O desfazer é diferente nas duas metades, e diz-se:** uma normal que chega
+passa pelo `collection.adjust` e desfaz-se com o `riftvault undo` (a `ops`);
+uma foil deixa rasto na `foil_ops` e desfaz-se com
+`riftvault foil REF --menos N`.
+
+### 4. A FRONTEIRA do foil mudou de sítio, não caiu
+
+O `test_foil`/`test_foil_conta` proibiam o `pending` de importar o `foil` ou de
+nomear o `qty_foil`. O `pending` **saiu dessa lista**: uma encomenda passou a
+ter acabamento, e é ele que encaminha a entrada. O que interessa continua
+fixado, agora no `test_faltas_encomendar.TestAFronteira`: o `pending` **não
+escreve** no `copies` (não há `UPDATE copies` nem `INSERT INTO copies` no
+ficheiro — quem escreve é o `foil.ajustar`, e é isso que mantém o rasto e a
+conta num sítio só), o `open_qty()` por omissão só dá as normais, o
+`open_by_card` também, e uma foil a caminho **não abate uma falta normal** nem
+o contrário (dois testes, com o payload inteiro comparado campo a campo).
+
+### 5. AVISO que ele mandou devolver e NÃO resolver: o corte de raridade
+
+`encomendas.raridade_minima` está em `"rare"` e **não se mudou**. Tudo o que ele
+marcar abaixo de rara grava na `pending` mas não cabe na GRELHA do separador
+Encomendas. Medido na cópia do `data/` de 2026-09-27:
+
+| | linhas | cópias em falta |
+|---|---|---|
+| normais comuns | 3 | 4 |
+| normais incomuns | 7 | 8 |
+| **abaixo de rara, nas normais** | **10** | **12** |
+| **foils** (todas comuns e incomuns) | **412** | **1006** |
+| **total fora da grelha** | **422** | **1018** |
+
+(Normais por raridade, para contexto: rara 74 linhas · 127 cópias, mítica 148 ·
+267, showcase 26 · 26.)
+
+**Não ficam invisíveis** — e essa parte resolveu-se sem tocar na chave: o
+`pending.grelha` já tinha a lista «a caminho nesta edição, **fora da grelha**»
+(17/09), e ela passou a dizer o acabamento. Uma foil a caminho aparece lá,
+marcada **FOIL** na cor do foil, com o seu «Chegou»; o total do cabeçalho
+(«N cópias a caminho, todas as edições») conta tudo. O que é verdade é que não
+aparecem num TILE, e que é preciso estar na edição certa para ver a lista. **A
+decisão de baixar ou não a `raridade_minima` é dele.**
+
+### 6. Dois defeitos apanhados pela fotografia, não pelo código
+
+1. **O «Chegou» daquela lista era um botão VAZIO.** Um `<button>` como item de
+   um `inline-flex` ficava com a caixa de conteúdo a ZERO (8 px de altura ao
+   todo) e o `overflow: hidden` que o Chrome lhe põe cortava a palavra. Está
+   assim desde 2026-09-17 e **nunca se viu porque a lista estava sempre
+   vazia**: as encomendas eram todas de rara para cima e cabiam na grelha. Com
+   as foils passa a ter conteúdo sempre — `min-height: 22px` e `line-height`
+   explícito no `.btn.chegou.mini`.
+2. **A palavra «foils» no meio da frase** saiu numa linha só, porque o
+   `.enc-fora b` é um BLOCO (é a linha de título daquele bloco). Passou a
+   `<i class="foil">`.
+
+### Medido a 2026-09-27 contra uma CÓPIA do `data/` real
+
+`_revisao\_copiar_dados_faltas_enc.py` (por `VACUUM INTO`, não `copy2`: as
+bases estão em WAL e ele estava a marcar foils) e
+`_revisao\_medir_faltas_enc.py`. **Os invariantes NÃO mexem, e não podiam:**
+marcar uma encomenda não toca no `copies`. Com uma normal e uma foil marcadas —
+denominador **928**, níveis iguais, valor **7 802,52 €**, `copies` igual linha a
+linha, e **desmarcar repõe tudo** (o `pending` volta às 130 linhas). O que mexe
+é só o que tem de mexer: as faltas a COMPRAR passam de **432 para 431 cópias** e
+o «a caminho» de **0 para 1**, com as duas linhas a continuarem na lista.
+
+O separador hoje: normais **432 cópias de 258 impressões · 9 069,11 €** (a
+comprar, wantlist geral: 185 · 116 · 843,43 €); foils **1006 cópias de 412
+impressões · 409,04 €** — os mesmos números da ordem de ontem.
+
+**Fotografado** a 1280 e a 375 px contra o ramo servido no 8779 (a cópia dos
+dados): `documentElement.scrollWidth == clientWidth == 375`, **241 tiles com
+`+` e 241 com `−`**, zero «Chegou» nas Faltas, e as linhas marcadas a dizer «1
+já encomendada · nada por comprar» / «1 já encomendada · faltam 2». Clicado no
+browser: dois cliques rápidos no mesmo `+` dão **2** (a fila por linha é a das
+Encomendas), o `−` dá 1, a linha nunca sai e o cabeçalho do bloco acerta
+(«faltam 494 cópias de 171 impressões · 224,38 € · 5 a caminho»). E pela rota,
+o que interessa: um «Chegou» de 3 foils levou o `ogn-001-298` de
+`(qty 3, qty_foil 0)` a **`(qty 3, qty_foil 3)`** — as normais não mexeram.
+
+`tests/test_faltas_encomendar.py` (42 testes, contra pastas temporárias e
+config temporário): o mesmo mecanismo e a tabela que já existia, sem tabela
+nova; uma só verdade nas duas vistas; **a linha não desaparece** (nas normais,
+nas foils, e com a encomenda a cobrir tudo) e o que sai é só a wantlist; a
+coluna `foil` no schema com o CHECK, a migração de uma base antiga com backup e
+idempotente; o `+` numa foil grava foil, e uma impressão sem contador de foil
+rebenta; o «Chegou» de uma foil soma ao `qty_foil` e o de uma normal ao `qty`,
+juntas cada uma no seu, e por acabamento; o `-` nunca abaixo de zero, só em
+linhas por chegar, e uma metade não desfaz a outra; a fronteira (quatro
+testes); o «fora da grelha» das Encomendas com o acabamento e o preço da foil;
+ler não escreve; a rota, a CLI, o `app.js`, o CSS e o gémeo em JavaScript.
+`test_foil`, `test_foil_conta` e `test_encomendas_separador` foram ajustados —
+a fronteira mudou de sítio e o payload ganhou dois campos.
+
+Suite: **54 ficheiros, 0 a falhar**.

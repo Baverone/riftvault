@@ -207,6 +207,19 @@ CREATE TABLE IF NOT EXISTS rune_counter (
 --
 -- Quando chegam, `pending.arrive()` passa-as para `copies` pelo caminho
 -- normal (com entrada no `ops`, portanto com undo).
+--
+-- O ACABAMENTO DA ENCOMENDA (`foil`, 2026-09-27). Até aqui a `pending` guardava
+-- a IMPRESSÃO e mais nada — e quando os `+`/`−` chegaram às Faltas, onde metade
+-- do separador é de FOILS (2026-09-27), uma foil encomendada entrava na coleção
+-- como NORMAL. Isso estragava a contagem dele, que são duas colunas
+-- independentes (`copies.qty` e `copies.qty_foil`), por isso a linha passou a
+-- dizer o que foi comprado:
+--
+--     foil = 0   uma cópia normal   -> quando chega, soma ao `copies.qty`
+--     foil = 1   uma cópia foil     -> quando chega, soma ao `copies.qty_foil`
+--
+-- As linhas que já cá estavam ficam a 0, que é o que eram: até 2026-09-27 só
+-- havia como encomendar normais. A migração está no `db._migrar_pending_foil`.
 CREATE TABLE IF NOT EXISTS pending (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     printing_id TEXT    NOT NULL,
@@ -214,7 +227,8 @@ CREATE TABLE IF NOT EXISTS pending (
     unit_cents  INTEGER,            -- o que pagou por cópia, se souber
     ordered_at  TEXT    NOT NULL,
     note        TEXT,               -- vendedor, nº de encomenda, o que for
-    arrived_at  TEXT                -- preenchido quando entra na coleção
+    arrived_at  TEXT,               -- preenchido quando entra na coleção
+    foil        INTEGER NOT NULL DEFAULT 0 CHECK (foil IN (0, 1))
 );
 CREATE INDEX IF NOT EXISTS ix_pending_aberto ON pending(arrived_at, printing_id);
 

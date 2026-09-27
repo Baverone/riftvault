@@ -479,10 +479,14 @@ def api_pending_arrive():
     ids = data.get("ids")
     con = get_con()
     alvo = [int(i) for i in ids] if isinstance(ids, list) else (int(pid) if pid else None)
+    # `foil` (2026-09-27) escolhe o acabamento: sem a chave entram os dois, e
+    # cada linha vai para o contador dela — uma foil para o `copies.qty_foil`.
+    e_foil = data.get("foil")
     try:
         feitas = pending.arrive(con, alvo, source="web",
                                 card_key=data.get("card_key") or None,
-                                printing_id=data.get("printing_id") or None)
+                                printing_id=data.get("printing_id") or None,
+                                foil=None if e_foil is None else bool(e_foil))
     except collection.UnknownPrinting as exc:
         return jsonify({"error": str(exc)}), 404
     if not feitas:
@@ -502,6 +506,14 @@ def api_encomenda():
     `delta > 0` regista mais cópias a caminho; `delta < 0` tira das linhas
     abertas mais recentes, e nunca vai abaixo de zero — sem nada a caminho é
     400, com a razão escrita. O `deck` é só a origem do clique, para o rasto.
+
+    Desde 2026-09-27 responde também aos `+`/`−` do separador «Faltas», que é a
+    terceira casa dos mesmos botões — a mesma rota e a mesma tabela, para o
+    número ser UM SÓ nas duas vistas. O `foil` diz o acabamento: com `true` a
+    encomenda é de uma cópia FOIL (o `+` da metade das foils) e quando chegar
+    soma ao `copies.qty_foil`; no `−`, `true`/`false` só tiram de linhas do
+    mesmo acabamento, e sem a chave tira-se de qualquer uma (é o que a CLI
+    antiga faz).
     """
     data = request.get_json(silent=True) or {}
     try:
@@ -517,16 +529,21 @@ def api_encomenda():
     # encomenda grava-se na versão especial mais barata, e o `−` só tira de
     # uma especial. Sem a chave, o comportamento de sempre (a normal).
     especial = data.get("especial")
+    e_foil = data.get("foil")
     con = get_con()
     try:
         if delta > 0:
             res = pending.encomendar(con, data.get("card_key"), data.get("printing_id"),
-                                     delta, source=origem, especial=bool(especial))
+                                     delta, source=origem, especial=bool(especial),
+                                     foil=bool(e_foil))
         else:
             res = pending.anular(con, data.get("card_key"), data.get("printing_id"),
                                  -delta, source=origem,
-                                 especial=None if especial is None else bool(especial))
+                                 especial=None if especial is None else bool(especial),
+                                 foil=None if e_foil is None else bool(e_foil))
     except pending.SemEncomenda as exc:
+        return jsonify({"error": str(exc)}), 400
+    except foil.ForaDoAmbito as exc:
         return jsonify({"error": str(exc)}), 400
     except collection.UnknownPrinting as exc:
         return jsonify({"error": str(exc)}), 404

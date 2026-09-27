@@ -14,7 +14,7 @@
     riftvault wantlist [--edicao OGN] --cardmarket
     riftvault faltas [--edicao OGN]
     riftvault local [REF N --para deck:azir] [--deck azir --propor|--marcar ...]
-    riftvault encomendas [--mais REF [N] | --menos REF [N] | --chegou [REF]]
+    riftvault encomendas [--mais REF [N] | --menos REF [N] | --chegou [REF]] [--foil]
     riftvault seguir [--jogador NOME] [--so-mudados] [--sem-rede] [--json]
     riftvault proprias [SLUG] [--mais REF [N] | --menos REF [N]]
     riftvault foil [REF] [--mais [N] | --menos [N]] [--edicao OGN]
@@ -1532,12 +1532,16 @@ def cmd_faltas(args) -> int:
         if g and (not args.bloco or args.bloco == faltas_foil.BLOCO):
             print(f"  {s['name']} — FOILS ({g['target_label']}) — complemento, NÃO são "
                   f"faltas: faltam {g['copies']} cópias de {g['cards']} · "
-                  f"{prices.eur(g['cents'])}   (wantlist própria)")
+                  f"{prices.eur(g['cents'])}"
+                  + (f" · {g['pending_copies']} a caminho" if g["pending_copies"] else "")
+                  + "   (wantlist própria)")
             for x in g["items"]:
                 piso = "" if x["price_is_foil"] else "  (preço da normal — piso)"
+                caminho = f"  ({x['pending']} a caminho)" if x["pending"] else ""
                 print(f"    {cardmarket.codigo(x['code']):<12} "
                       f"{x['name'][:34]:<34} tens {x['have']}/{x['target']}  "
-                      f"faltam {x['missing']}  {prices.eur(x['total']):>10}{piso}")
+                      f"faltam {x['missing']}  {prices.eur(x['total']):>10}"
+                      f"{piso}{caminho}")
         print()
     t, tl = p["totals"], p["totals_lists"]
     fora = ", ".join(f"{n} {b}" for b, n in sorted(p["scope"]["fora"].items()))
@@ -1594,6 +1598,11 @@ def cmd_encomendas(args) -> int:
     o tile do site) ou o nome da carta (aí vai para a normal mais barata).
     `--chegou [REF]` dá entrada do que está a caminho dessa impressão (por
     código, como o «Chegou» do tile), dessa carta (por nome), ou de tudo.
+
+    `--foil` (2026-09-27) marca a encomenda como sendo de uma cópia FOIL — é o
+    `+` da metade das foils do separador «Faltas» na consola. Quando chegar,
+    soma ao `copies.qty_foil` e não ao `qty`. No `--menos` e no `--chegou`,
+    `--foil` limita-se às linhas de foil; sem a chave, mexe nas duas.
     """
     con = db.connect()
     if db.catalog_is_empty(con):
@@ -1612,20 +1621,27 @@ def cmd_encomendas(args) -> int:
             raise SystemExit(f"erro: não encontrei nem impressão nem carta {ref!r}")
         return ck, None
 
+    e_foil = bool(getattr(args, "foil", False))
+    acab = " FOIL" if e_foil else ""
     if args.mais or args.menos:
         ref = args.mais or args.menos
         ck, pid = carta_ou_impressao(ref)
         n = _qty(args.qty)
         try:
             if args.mais:
-                res = pending_mod.encomendar(con, ck, pid, n, source="cli")
-                print(f"+{n}  {_describe(con, res['printing_id'])}  "
-                      f"-> {res['open_printing']} a caminho desta impressão")
+                res = pending_mod.encomendar(con, ck, pid, n, source="cli", foil=e_foil)
+                print(f"+{n}{acab}  {_describe(con, res['printing_id'])}  "
+                      f"-> {res['open_printing']} a caminho desta impressão"
+                      + (" (foil)" if e_foil else ""))
             else:
-                res = pending_mod.anular(con, ck, pid, n, source="cli")
-                print(f"-{res['removed']}  {_describe(con, res['printing_id'])}  "
+                res = pending_mod.anular(con, ck, pid, n, source="cli",
+                                         foil=e_foil or None)
+                print(f"-{res['removed']}{acab}  {_describe(con, res['printing_id'])}  "
                       f"-> {res['open_printing']} a caminho desta impressão")
         except pending_mod.SemEncomenda as exc:
+            print(f"erro: {exc}", file=sys.stderr)
+            return 1
+        except foil_mod.ForaDoAmbito as exc:
             print(f"erro: {exc}", file=sys.stderr)
             return 1
         con.close()
@@ -1636,14 +1652,21 @@ def cmd_encomendas(args) -> int:
         if args.chegou:
             ck, pid = carta_ou_impressao(args.chegou)
         # Por código é só essa impressão (o «Chegou» do tile, 2026-09-17);
-        # por nome é a carta inteira, seja de que impressão for.
-        feitas = pending_mod.arrive(con, None, source="cli", card_key=ck, printing_id=pid)
+        # por nome é a carta inteira, seja de que impressão for. Cada linha
+        # entra no contador dela: uma normal no `qty`, uma foil no `qty_foil`.
+        feitas = pending_mod.arrive(con, None, source="cli", card_key=ck,
+                                    printing_id=pid, foil=e_foil or None)
         if not feitas:
             print("não havia nada por chegar.")
             return 1
         for f in feitas:
-            print(f"+{f['qty']}  {_describe(con, f['printing_id'])}  -> {f['total']}")
+            print(f"+{f['qty']}{' foil' if f['foil'] else ''}  "
+                  f"{_describe(con, f['printing_id'])}  -> {f['total']}"
+                  f"{' foils' if f['foil'] else ''}")
         print(f"\n{len(feitas)} linhas deram entrada na coleção.")
+        if any(f["foil"] for f in feitas):
+            print("as linhas de foil somaram ao contador de FOIL (`copies.qty_foil`) "
+                  "— desfaz-se com `riftvault foil REF --menos N`, não com o `undo`.")
         con.close()
         return 0
 
@@ -2066,6 +2089,8 @@ def main(argv: list[str] | None = None) -> int:
                    help="mais N a caminho: código (OGN-045) ou nome da carta")
     p.add_argument("--menos", metavar="REF", help="menos N a caminho")
     p.add_argument("qty", nargs="?", default="1", help="com --mais/--menos: 3 ou x3")
+    p.add_argument("--foil", action="store_true",
+                   help="a encomenda é de uma cópia FOIL (soma ao qty_foil quando chegar)")
     p.add_argument("--chegou", nargs="?", const="", default=None, metavar="REF",
                    help="dá entrada na coleção: desta carta, ou de tudo sem REF")
     p.set_defaults(func=cmd_encomendas)
