@@ -120,7 +120,11 @@ class TestCorte(Base):
                                        "tst-101-100"])
         self.assertEqual(g["rarity_min"], "rare")
         self.assertEqual(g["rarities"], ["rare", "epic", "showcase"])
+        # `ordered_foil` é de 2026-09-27, com o acabamento na `pending`: aqui é
+        # sempre 0 (o corte é de rara para cima e o foil só existe em comuns e
+        # incomuns), mas o campo existe para o dia em que ele baixe a raridade.
         self.assertEqual(g["totals"], {"cards": 3, "printings": 4, "ordered": 0,
+                                       "ordered_foil": 0,
                                        "ordered_printings": 0, "printings_colecao": 6})
         con.close()
 
@@ -223,7 +227,7 @@ class TestMaisMenosChegou(Base):
         self.assertEqual(g["totals"]["ordered"], 1, "só o que está na grelha")
         self.assertEqual(g["fora"], [{"printing_id": "tst-002-100", "name": "Brutalizer",
                                       "code": "TST-002/100", "label": "base",
-                                      "market_only": False, "qty": 3}])
+                                      "market_only": False, "foil": False, "qty": 3}])
         self.pending.arrive(con, source="test")
         self.assertEqual(self.grelha(con)["fora"], [])
         self.assertEqual(locais.na_colecao(con)["tst-002-100"], 6)

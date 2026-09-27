@@ -590,8 +590,12 @@ class TestAsCautelas(Base):
 
 class TestAFronteira(Base):
     def test_nenhum_modulo_de_contas_importa_o_foil(self):
+        # O `pending` saiu da lista a 2026-09-27: uma encomenda passou a ter
+        # acabamento, e uma foil que chega tem de somar ao contador de foil.
+        # A fronteira que interessa continua fixada — ver o
+        # `test_faltas_encomendar.TestAFronteira`.
         proibidos = ["a_subir", "faltas", "faltas_edicao", "a_mais", "uso_decks",
-                     "decks", "locais", "pending", "prices", "painel", "runas_vista",
+                     "decks", "locais", "prices", "painel", "runas_vista",
                      "cardmarket", "seguir", "catalog", "venda"]
         for nome in proibidos:
             fonte = (REPO / "riftvault" / f"{nome}.py").read_text(encoding="utf-8")
@@ -603,8 +607,11 @@ class TestAFronteira(Base):
         `locais`, nunca pela coluna. É o que impede o foil de entrar numa conta
         por um caminho que ninguém vê."""
         coluna = "qty" + "_foil"
+        # O `pending` nomeia a coluna nos comentários desde 2026-09-27 — é para
+        # lá que vai uma foil que chega —, mas não lhe escreve: quem escreve é
+        # o `foil.ajustar`. Fixado no `test_faltas_encomendar.TestAFronteira`.
         for nome in ("a_mais", "decks", "a_subir", "faltas", "faltas_edicao",
-                     "uso_decks", "pending", "painel", "runas_vista", "venda"):
+                     "uso_decks", "painel", "runas_vista", "venda"):
             fonte = (REPO / "riftvault" / f"{nome}.py").read_text(encoding="utf-8")
             self.assertNotIn(coluna, fonte, nome)
         for nome, chave in (("locais", "conta_para_coleccao"),

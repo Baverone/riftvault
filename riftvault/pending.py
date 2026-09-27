@@ -41,6 +41,41 @@ e acrescentas à coleção"* / *"e tiras esta funcionalidade dos decks"*.
     entrada dessa impressão (`arrive(printing_id=...)`). O registo é o mesmo
     de sempre, a `pending`: o «a caminho» dos decks, das Faltas e das
     wantlists lê daqui.
+
+OS `+`/`-` NAS FALTAS (André, 2026-09-27): *"nas faltas, coloca o + e - para eu
+indicar que ja encomendei, fica bem mais facil para eu visualizar assim"*.
+
+    TERCEIRA CASA DOS MESMOS BOTÕES, e não um mecanismo novo: nasceram nos
+    tiles dos decks (2026-09-11), mudaram-se para o separador «Encomendas»
+    (2026-09-17, *"e tiras esta funcionalidade dos decks"*) e chegam hoje ao
+    separador «Faltas», que é onde ele olha quando decide comprar. A tabela é
+    a mesma, a rota é a mesma (`POST /api/encomenda`) e o número é UM SÓ: as
+    Faltas e as Encomendas leem-no daqui as duas. Um segundo contador punha as
+    duas vistas a divergir, e era esse o erro a evitar.
+
+    A LINHA NÃO DESAPARECE depois do `+`. O pendente já descontava das faltas
+    desde 2026-09-11, e uma falta que sumisse ao ser encomendada era o
+    contrário do que ele pediu («fica bem mais fácil para eu visualizar»): o
+    `faltas_edicao.em_falta` e o `faltas_foil.em_falta` guardam o `pending` à
+    parte do `missing`, por isso a linha fica lá, marcada, a dizer as duas
+    coisas — quanto falta e quantas vêm a caminho. O que sai é só a WANTLIST:
+    o que vem a caminho não se compra outra vez.
+
+O ACABAMENTO DA ENCOMENDA (`foil`, 2026-09-27)
+
+    Metade do separador «Faltas» é de FOILS, e uma foil encomendada tem de
+    entrar como foil: o `copies.qty` e o `copies.qty_foil` são duas contagens
+    independentes desde 2026-09-26. A `pending` guardava a impressão e não o
+    acabamento, e por isso ganhou a coluna `foil` (0/1, migração no
+    `db._migrar_pending_foil`; as linhas que lá estavam ficaram a 0 — eram
+    todas de normais, que era a única coisa que havia como encomendar).
+
+    A partir daqui o acabamento acompanha a encomenda de ponta a ponta: o `+`
+    grava-o, o `-` só tira de linhas do mesmo acabamento, o «Chegou» soma ao
+    contador certo (`collection.adjust` nas normais, `foil.ajustar` nas foils)
+    e as leituras separam-se — `open_qty()` dá as NORMAIS (é este o pendente
+    que as faltas normais, as wantlists e os decks descontam) e
+    `open_qty(foil=True)` dá as foils, que só a metade das foils lê.
 """
 
 from __future__ import annotations
@@ -69,22 +104,42 @@ def _now() -> str:
 
 def add(con: sqlite3.Connection, ref: str, qty: int,
         unit_cents: int | None = None, note: str | None = None,
-        source: str = "cli") -> dict:
+        source: str = "cli", foil: bool = False) -> dict:
     """Regista uma compra a caminho. Valida a impressão como o resto do código."""
     printing_id = collection.resolve_printing(con, ref)
     cur = con.execute(
-        "INSERT INTO pending (printing_id, qty, unit_cents, ordered_at, note) "
-        "VALUES (?,?,?,?,?)", (printing_id, qty, unit_cents, _now(), note))
+        "INSERT INTO pending (printing_id, qty, unit_cents, ordered_at, note, foil) "
+        "VALUES (?,?,?,?,?,?)", (printing_id, qty, unit_cents, _now(), note,
+                                 1 if foil else 0))
     _log(con, [{"printing_id": printing_id, "qty": qty, "accao": "encomendar",
-                "source": source, "nota": note}])
-    return {"id": cur.lastrowid, "printing_id": printing_id, "qty": qty}
+                "source": source, "nota": note, "foil": foil}])
+    return {"id": cur.lastrowid, "printing_id": printing_id, "qty": qty,
+            "foil": bool(foil)}
 
 
-def open_qty(con: sqlite3.Connection) -> dict[str, int]:
-    """printing_id -> quantas vêm a caminho e ainda não chegaram."""
+def _filtro_foil(foil: bool | None, prefixo: str = "") -> str:
+    """A cláusula do acabamento (2026-09-27), para ser escrita num sítio só.
+
+    `False` são as NORMAIS — é a omissão de toda a gente, e é o que faz as
+    faltas normais, as wantlists e os decks continuarem a ver exactamente o que
+    viam antes de haver encomendas de foil. `True` são as foils; `None` são as
+    duas (o «Chegou tudo», os totais, a lista da consola).
+    """
+    if foil is None:
+        return ""
+    return f" AND {prefixo}foil = {1 if foil else 0}"
+
+
+def open_qty(con: sqlite3.Connection, foil: bool | None = False) -> dict[str, int]:
+    """printing_id -> quantas vêm a caminho e ainda não chegaram.
+
+    Por omissão só as NORMAIS. Uma foil a caminho não abate uma falta normal —
+    são duas contagens diferentes da mesma impressão (2026-09-26) e cada metade
+    do separador «Faltas» lê a sua.
+    """
     return {r["printing_id"]: r["q"] for r in con.execute(
         "SELECT printing_id, SUM(qty) AS q FROM pending "
-        "WHERE arrived_at IS NULL GROUP BY printing_id")}
+        "WHERE arrived_at IS NULL" + _filtro_foil(foil) + " GROUP BY printing_id")}
 
 
 def open_by_card(con: sqlite3.Connection) -> dict[str, int]:
@@ -98,6 +153,12 @@ def open_by_card(con: sqlite3.Connection) -> dict[str, int]:
     nada. É informação; quem desconta o pendente lugar a lugar (a versão
     especial da Legend/Champion não abate uma falta normal, nem o contrário)
     é a alocação, por impressão (`open_qty`).
+
+    SÓ AS NORMAIS (2026-09-27): um deck joga uma foil como joga uma normal,
+    mas a alocação serve-se primeiro das normais (`decks.foils_nos_decks`,
+    2026-09-26) e o monte dela é o `copies.qty`. Uma foil a caminho não é uma
+    normal a caminho, e contá-la aqui era abater uma falta de deck com uma
+    cópia que a alocação não vai encontrar.
     """
     from . import decks
 
@@ -108,14 +169,15 @@ def open_by_card(con: sqlite3.Connection) -> dict[str, int]:
         "       SUM(pe.qty) AS q "
         "FROM pending pe "
         "JOIN catalog.printings p ON p.printing_id = pe.printing_id "
-        "WHERE pe.arrived_at IS NULL GROUP BY p.printing_id"
+        "WHERE pe.arrived_at IS NULL AND pe.foil = 0 GROUP BY p.printing_id"
     ):
         if versoes.serve(r):
             out[r["k"]] = out.get(r["k"], 0) + r["q"]
     for r in con.execute(
         "SELECT m.card_key AS k, SUM(pe.qty) AS q FROM pending pe "
         "JOIN catalog.market_only m ON m.printing_id = pe.printing_id "
-        "WHERE pe.arrived_at IS NULL AND m.card_key IS NOT NULL GROUP BY m.card_key"
+        "WHERE pe.arrived_at IS NULL AND pe.foil = 0 "
+        "AND m.card_key IS NOT NULL GROUP BY m.card_key"
     ):
         out[r["k"]] = out.get(r["k"], 0) + r["q"]
     return out
@@ -165,14 +227,24 @@ def impressao_para_encomendar(con: sqlite3.Connection, card_keys,
 def encomendar(con: sqlite3.Connection, card_key: str | None = None,
                printing_id: str | None = None, qty: int = 1,
                source: str = "web", note: str | None = None,
-               especial: bool = False) -> dict:
+               especial: bool = False, foil: bool = False,
+               cfg: dict | None = None) -> dict:
     """O `+`: mais `qty` cópias a caminho desta carta.
 
     Com `printing_id` grava nessa impressão; só com `card_key`, na normal
     mais barata — ou, com `especial`, na versão especial mais barata, que é o
     `+` da linha da Legend/Champion (`impressao_para_encomendar`). Devolve o
     que ficou aberto.
+
+    Com `foil` a linha fica marcada como FOIL (2026-09-27): é o `+` da metade
+    das foils do separador «Faltas», e quando chegar soma ao `copies.qty_foil`
+    e não ao `qty`. Valida-se AQUI que a impressão tem contagem de foil
+    (`foil.no_ambito`, o mesmo âmbito do contador do tile e da metade das
+    faltas): marcar foil numa impressão sem contador era gravar uma encomenda
+    que nenhuma página sabe mostrar.
     """
+    from . import foil as foil_mod
+
     if qty <= 0:
         raise ValueError("a quantidade tem de ser positiva")
     if printing_id:
@@ -187,19 +259,28 @@ def encomendar(con: sqlite3.Connection, card_key: str | None = None,
                 f"não há impressão de {card_key!r} em que o deck compre"
                 + (" a versão especial" if especial else ""))
         printing_id = alvo["id"]
+    if foil:
+        r = con.execute("SELECT * FROM catalog.printings WHERE printing_id = ?",
+                        (printing_id,)).fetchone()
+        if r is None or not foil_mod.no_ambito(r, cfg or config.load()):
+            raise foil_mod.ForaDoAmbito(
+                f"{printing_id} não tem contagem de foil — não se pode "
+                f"encomendar uma foil dela")
     con.execute("BEGIN IMMEDIATE")
     con.execute(
-        "INSERT INTO pending (printing_id, qty, unit_cents, ordered_at, note) "
-        "VALUES (?,?,?,?,?)", (printing_id, qty, None, _now(), note))
+        "INSERT INTO pending (printing_id, qty, unit_cents, ordered_at, note, foil) "
+        "VALUES (?,?,?,?,?,?)",
+        (printing_id, qty, None, _now(), note, 1 if foil else 0))
     con.execute("COMMIT")
     _log(con, [{"printing_id": printing_id, "qty": qty, "accao": "encomendar",
-                "source": source, "nota": note}])
-    return _estado(con, card_key, printing_id)
+                "source": source, "nota": note, "foil": foil}])
+    return _estado(con, card_key, printing_id, foil)
 
 
 def anular(con: sqlite3.Connection, card_key: str | None = None,
            printing_id: str | None = None, qty: int = 1,
-           source: str = "web", especial: bool | None = None) -> dict:
+           source: str = "web", especial: bool | None = None,
+           foil: bool | None = None) -> dict:
     """O `−`: menos `qty` a caminho. Tira das linhas abertas mais recentes.
 
     Com `printing_id` tira só dessa impressão; só com `card_key`, de qualquer
@@ -208,15 +289,26 @@ def anular(con: sqlite3.Connection, card_key: str | None = None,
     tirar a encomenda de uma cópia normal, nem o contrário; 2026-09-17).
     Nunca vai abaixo de zero: se não há nada aberto, `SemEncomenda`; se há
     menos do que `qty`, tira o que há e diz quanto.
+
+    `foil` é a mesma ideia para o ACABAMENTO (2026-09-27): `True` só tira
+    linhas de foil, `False` só de normais, `None` (a omissão, que é o que a CLI
+    antiga faz) tira de qualquer uma. O `−` de uma metade do separador «Faltas»
+    não pode desfazer a encomenda da outra.
+
+    **Só mexe em linhas por chegar** (`arrived_at IS NULL`), aqui e desde
+    sempre: o que já entrou na coleção desfaz-se pelo `riftvault undo`, não por
+    aqui.
     """
     if qty <= 0:
         raise ValueError("a quantidade tem de ser positiva")
+    ffoil = _filtro_foil(foil, "pe.")
     if printing_id:
         printing_id = collection.resolve_printing(con, printing_id)
         card_key = _card_key(con, printing_id) or card_key
         linhas = con.execute(
-            "SELECT id, printing_id, qty FROM pending WHERE arrived_at IS NULL "
-            "AND printing_id = ? ORDER BY id DESC", (printing_id,)).fetchall()
+            "SELECT pe.id, pe.printing_id, pe.qty FROM pending pe "
+            "WHERE pe.arrived_at IS NULL AND pe.printing_id = ?" + ffoil +
+            " ORDER BY pe.id DESC", (printing_id,)).fetchall()
     else:
         if not card_key:
             raise ValueError("falta a carta")
@@ -224,8 +316,8 @@ def anular(con: sqlite3.Connection, card_key: str | None = None,
             "SELECT pe.id, pe.printing_id, pe.qty, p.card_key FROM pending pe "
             "LEFT JOIN catalog.printings p ON p.printing_id = pe.printing_id "
             "LEFT JOIN catalog.market_only m ON m.printing_id = pe.printing_id "
-            "WHERE pe.arrived_at IS NULL AND COALESCE(p.card_key, m.card_key) = ? "
-            "ORDER BY pe.id DESC", (card_key,)).fetchall()
+            "WHERE pe.arrived_at IS NULL AND COALESCE(p.card_key, m.card_key) = ?"
+            + ffoil + " ORDER BY pe.id DESC", (card_key,)).fetchall()
         if especial is not None:
             from . import decks
 
@@ -249,24 +341,49 @@ def anular(con: sqlite3.Connection, card_key: str | None = None,
             con.execute("UPDATE pending SET qty = qty - ? WHERE id = ?", (tira, r["id"]))
         falta -= tira
         tiradas.append({"printing_id": r["printing_id"], "qty": tira, "accao": "anular",
-                        "source": source})
+                        "source": source, "foil": foil})
     con.execute("COMMIT")
     _log(con, tiradas)
-    res = _estado(con, card_key, tiradas[-1]["printing_id"] if tiradas else printing_id)
+    res = _estado(con, card_key, tiradas[-1]["printing_id"] if tiradas else printing_id,
+                  foil)
     res["removed"] = qty - falta
     return res
 
 
-def _estado(con: sqlite3.Connection, card_key: str | None, printing_id: str | None) -> dict:
-    """O que ficou a caminho da carta e da impressão depois de um `+`/`−`."""
+def _estado(con: sqlite3.Connection, card_key: str | None, printing_id: str | None,
+            foil: bool | None = None) -> dict:
+    """O que ficou a caminho da carta e da impressão depois de um `+`/`−`.
+
+    `open_printing` é do MESMO acabamento do botão que foi carregado — é o
+    número que o tile das Faltas escreve. `open_normal`/`open_foil` vão os dois
+    a par, para quem precise dos dois sem segundo pedido (o tile do separador
+    «Encomendas»). O `open_card` continua a ser só das normais: é o grão dos
+    decks (ver o `open_by_card`).
+    """
+    normais = open_qty(con, foil=False)
+    foils = open_qty(con, foil=True)
+    aqui = (normais if not foil else foils) if foil is not None else None
     return {
         "card_key": card_key, "printing_id": printing_id,
+        "foil": None if foil is None else bool(foil),
         "open_card": open_by_card(con).get(card_key, 0) if card_key else 0,
-        "open_printing": open_qty(con).get(printing_id, 0) if printing_id else 0,
+        "open_printing": (
+            (aqui if aqui is not None
+             else {k: normais.get(k, 0) + foils.get(k, 0)
+                   for k in set(normais) | set(foils)}).get(printing_id, 0)
+            if printing_id else 0),
+        "open_normal": normais.get(printing_id, 0) if printing_id else 0,
+        "open_foil": foils.get(printing_id, 0) if printing_id else 0,
     }
 
 
-def listar(con: sqlite3.Connection, incluir_chegadas: bool = False) -> list[dict]:
+def listar(con: sqlite3.Connection, incluir_chegadas: bool = False,
+           foil: bool | None = None) -> list[dict]:
+    """As linhas a caminho. `foil` filtra o acabamento (omissão: as duas).
+
+    O `foil` de cada linha vem no `pe.*` — quem mostra a lista tem de o dizer,
+    senão uma foil a caminho lê-se como uma normal.
+    """
     sql = (
         "SELECT pe.*, "
         "       COALESCE(p.name, m.market_name) AS name, "
@@ -284,35 +401,49 @@ def listar(con: sqlite3.Connection, incluir_chegadas: bool = False) -> list[dict
         "FROM pending pe "
         "LEFT JOIN catalog.printings p ON p.printing_id = pe.printing_id "
         "LEFT JOIN catalog.market_only m ON m.printing_id = pe.printing_id ")
-    if not incluir_chegadas:
-        sql += "WHERE pe.arrived_at IS NULL "
+    sql += "WHERE 1=1 " if incluir_chegadas else "WHERE pe.arrived_at IS NULL "
+    sql += _filtro_foil(foil, "pe.") + " "
     sql += "ORDER BY COALESCE(p.set_id, m.set_id), name"
     out = []
     for r in con.execute(sql):
         d = dict(r)
         d["landscape"] = (d.pop("orientation", None) or "").lower() == "landscape"
+        d["foil"] = bool(d.get("foil"))
         out.append(d)
     return out
 
 
 def arrive(con: sqlite3.Connection, pending_id: int | list[int] | None = None,
            source: str = "cli", card_key: str | None = None,
-           printing_id: str | None = None) -> list[dict]:
+           printing_id: str | None = None, foil: bool | None = None) -> list[dict]:
     """Marca como chegada e passa para a coleção.
 
     Sem `pending_id`, `card_key` nem `printing_id`, dá entrada em tudo o que
     está aberto (o «Chegou tudo»); com `printing_id`, em tudo o que está
     aberto dessa impressão (o «Chegou» do tile do separador «Encomendas»,
     2026-09-17); com `card_key`, em tudo o que está aberto dessa carta, seja
-    de que impressão for; com uma lista de ids, só nessas linhas. A entrada
-    passa pelo `collection.adjust`, por isso fica no log e dá para desfazer.
-    É idempotente por construção: só apanha linhas ainda sem `arrived_at`, e
-    a segunda chamada não encontra nenhuma.
+    de que impressão for; com uma lista de ids, só nessas linhas; com `foil`,
+    só do acabamento pedido. É idempotente por construção: só apanha linhas
+    ainda sem `arrived_at`, e a segunda chamada não encontra nenhuma.
+
+    CADA LINHA ENTRA NO CONTADOR DELA (2026-09-27). Uma normal passa pelo
+    `collection.adjust` — `copies.qty`, entrada no `ops`, `riftvault undo`
+    —, e uma FOIL pelo `foil.ajustar`, que soma ao `copies.qty_foil` e deixa
+    rasto na `foil_ops`. Fazer entrar uma foil como normal estragava-lhe a
+    contagem, que são duas colunas independentes desde 2026-09-26.
+
+    O desfazer é por isso diferente nas duas: uma normal desfaz-se com
+    `riftvault undo` (a `ops`), uma foil com `riftvault foil REF --menos N`. O
+    `foil.ajustar` corre aqui **sem validar o âmbito**: uma foil que ele já
+    encomendou tem de poder chegar mesmo que o `foil.raridades` entretanto
+    encolha — recusar a entrada era perder-lhe a cópia. Quem valida é o `+`.
     """
+    from . import foil as foil_mod
+
     sql = ("SELECT pe.* FROM pending pe "
            "LEFT JOIN catalog.printings p ON p.printing_id = pe.printing_id "
            "LEFT JOIN catalog.market_only m ON m.printing_id = pe.printing_id "
-           "WHERE pe.arrived_at IS NULL")
+           "WHERE pe.arrived_at IS NULL" + _filtro_foil(foil, "pe."))
     params: tuple = ()
     if isinstance(pending_id, (list, tuple)):
         if not pending_id:
@@ -332,21 +463,33 @@ def arrive(con: sqlite3.Connection, pending_id: int | list[int] | None = None,
 
     feitas = []
     for r in linhas:
-        res = collection.adjust(con, r["printing_id"], r["qty"], source=source)
+        e_foil = bool(r["foil"])
+        if e_foil:
+            res = foil_mod.ajustar(con, r["printing_id"], r["qty"], source=source,
+                                   validar=False)
+            total = res["foil"]
+        else:
+            total = collection.adjust(con, r["printing_id"], r["qty"],
+                                      source=source)["qty"]
         con.execute("UPDATE pending SET arrived_at = ? WHERE id = ?", (_now(), r["id"]))
         feitas.append({"id": r["id"], "printing_id": r["printing_id"],
-                       "qty": r["qty"], "total": res["qty"]})
+                       "qty": r["qty"], "total": total, "foil": e_foil})
     _log(con, [{"printing_id": f["printing_id"], "qty": f["qty"], "accao": "chegou",
-                "source": source} for f in feitas])
+                "source": source, "foil": f["foil"]} for f in feitas])
     return feitas
 
 
-def totals(con: sqlite3.Connection) -> dict:
+def totals(con: sqlite3.Connection, foil: bool | None = None) -> dict:
+    """O que está a caminho, ao todo. Sem `foil`, as duas contagens somadas —
+    e `copies_foil` diz quanto disso é foil (2026-09-27), para o cabeçalho não
+    ter de fazer um segundo pedido."""
     r = con.execute(
         "SELECT COALESCE(SUM(qty),0) AS copias, COUNT(*) AS linhas, "
-        "       COALESCE(SUM(qty * COALESCE(unit_cents,0)),0) AS cents "
-        "FROM pending WHERE arrived_at IS NULL").fetchone()
-    return {"copies": r["copias"], "lines": r["linhas"], "cents": r["cents"]}
+        "       COALESCE(SUM(qty * COALESCE(unit_cents,0)),0) AS cents, "
+        "       COALESCE(SUM(CASE WHEN foil = 1 THEN qty ELSE 0 END),0) AS foils "
+        "FROM pending WHERE arrived_at IS NULL" + _filtro_foil(foil)).fetchone()
+    return {"copies": r["copias"], "lines": r["linhas"], "cents": r["cents"],
+            "copies_foil": r["foils"]}
 
 
 # ---------------------------------------------------------------------------
@@ -396,14 +539,17 @@ def grelha(con: sqlite3.Connection, set_id: str, editable: bool = True,
     o que está NA COLEÇÃO, como na grelha: encomendar não é ter.
 
     O que vier a caminho desta edição FORA da grelha — uma comum encomendada
-    pela CLI, uma runa do CardTrader que a RiftScribe não tem — vai em
-    `fora`, com nome e quantidade, para não haver encomenda que não se veja.
+    pela CLI, uma runa do CardTrader que a RiftScribe não tem, **e todas as
+    foils** (o âmbito do foil é comuns e incomuns, e o corte aqui é de rara
+    para cima) — vai em `fora`, com nome, acabamento e quantidade, para não
+    haver encomenda que não se veja.
     """
     from . import metrics
 
     cfg = cfg or config.load()
     p = metrics.set_payload(con, set_id, editable=editable, image_mode=image_mode)
     abertas = open_qty(con)
+    abertas_foil = open_qty(con, foil=True)
     entram = raridades(cfg)
 
     groups: list[dict] = []
@@ -415,34 +561,46 @@ def grelha(con: sqlite3.Connection, set_id: str, editable: bool = True,
         for pr in g["printings"]:
             na_grelha.add(pr["id"])
             prints.append({**{k: pr[k] for k in _CAMPOS_IMPRESSAO},
-                           "ordered": abertas.get(pr["id"], 0)})
+                           "ordered": abertas.get(pr["id"], 0),
+                           # As foils a caminho desta impressão (2026-09-27).
+                           # Hoje é sempre 0 aqui — o corte é de rara para cima
+                           # e o foil só existe em comuns e incomuns —, mas o
+                           # número é o mesmo da metade das foils das Faltas, e
+                           # tem de aparecer se ele baixar a raridade mínima.
+                           "ordered_foil": abertas_foil.get(pr["id"], 0)})
         groups.append({**{k: g[k] for k in _CAMPOS_GRUPO}, "printings": prints})
 
     por_bloco: dict[str, list[int]] = {}
     for g in groups:
         for pr in g["printings"]:
-            slot = por_bloco.setdefault(pr["block"], [0, 0, 0])
+            slot = por_bloco.setdefault(pr["block"], [0, 0, 0, 0])
             slot[0] += 1
             slot[1] += pr["ordered"]
-            slot[2] += 1 if pr["ordered"] else 0
+            slot[2] += 1 if (pr["ordered"] or pr["ordered_foil"]) else 0
+            slot[3] += pr["ordered_foil"]
     blocks = [
         {"id": b["id"], "label": b["label"], "short": b["short"], "counts": b["counts"],
          "printings": por_bloco[b["id"]][0], "ordered": por_bloco[b["id"]][1],
-         "ordered_printings": por_bloco[b["id"]][2]}
+         "ordered_printings": por_bloco[b["id"]][2],
+         "ordered_foil": por_bloco[b["id"]][3]}
         for b in p["blocks"] if b["id"] in por_bloco
     ]
 
     fora = [{"printing_id": it["printing_id"], "name": it["name"], "code": it["code"],
              "label": it["label"], "market_only": bool(it["market_only"]),
-             "qty": it["qty"]}
+             "foil": bool(it["foil"]), "qty": it["qty"]}
             for it in listar(con)
             if it["set_id"] == set_id and it["printing_id"] not in na_grelha]
-    # A mesma impressão pode ter várias linhas abertas: uma por compra.
-    fora_por_pid: dict[str, dict] = {}
+    # A mesma impressão pode ter várias linhas abertas: uma por compra. O
+    # ACABAMENTO faz parte da chave — uma normal e uma foil da mesma impressão
+    # são duas linhas, com dois «Chegou», porque entram em contadores
+    # diferentes.
+    fora_por_pid: dict[tuple[str, bool], dict] = {}
     for f in fora:
-        e = fora_por_pid.get(f["printing_id"])
+        chave = (f["printing_id"], f["foil"])
+        e = fora_por_pid.get(chave)
         if e is None:
-            fora_por_pid[f["printing_id"]] = dict(f)
+            fora_por_pid[chave] = dict(f)
         else:
             e["qty"] += f["qty"]
 
@@ -461,12 +619,14 @@ def grelha(con: sqlite3.Connection, set_id: str, editable: bool = True,
             "cards": len(groups),
             "printings": sum(b["printings"] for b in blocks),
             "ordered": sum(b["ordered"] for b in blocks),
+            "ordered_foil": sum(b["ordered_foil"] for b in blocks),
             "ordered_printings": sum(b["ordered_printings"] for b in blocks),
             # As impressões da página da Coleção que o corte tirou — para o
             # cabeçalho dizer «174 de 334».
             "printings_colecao": sum(len(g["printings"]) for g in p["groups"]),
         },
-        "fora": sorted(fora_por_pid.values(), key=lambda x: (x["code"] or "", x["name"] or "")),
+        "fora": sorted(fora_por_pid.values(),
+                       key=lambda x: (x["code"] or "", x["name"] or "", x["foil"])),
     }
 
 
@@ -492,11 +652,16 @@ def encomendas(con: sqlite3.Connection) -> dict:
     """
     from . import decks
 
-    abertas = open_qty(con)
     itens = listar(con)
     precos = {r["printing_id"]: r["price_cents"] for r in con.execute(
         "SELECT printing_id, price_cents FROM catalog.price_latest "
         "WHERE price_cents IS NOT NULL")}
+    # Uma cópia FOIL vale o preço da foil (2026-09-26, à noite); sem oferta
+    # foil cai para o da normal, que é o fallback de sempre.
+    precos_foil = {r["printing_id"]: r["c"] for r in con.execute(
+        "SELECT printing_id, COALESCE(price_foil_cents, "
+        "       CASE WHEN from_foil = 1 THEN price_cents END) AS c "
+        "FROM catalog.price_latest") if r["c"] is not None}
     ordens = {s: config.set_order(s) for s in
               (r["set_id"] for r in con.execute(
                   "SELECT DISTINCT set_id FROM catalog.printings"))}
@@ -521,18 +686,23 @@ def encomendas(con: sqlite3.Connection) -> dict:
                 {"deck": g["rotulo"], "slug": d["name"],
                  "priority": d["priority"], "qty": n})
 
-    por_impressao: dict[str, dict] = {}
+    # Uma linha por (impressão, ACABAMENTO): a normal e a foil da mesma carta
+    # são duas compras, com dois preços e dois «Chegou» (2026-09-27).
+    por_impressao: dict[tuple[str, bool], dict] = {}
     for it in itens:
         pid = it["printing_id"]
-        e = por_impressao.get(pid)
+        e_foil = bool(it["foil"])
+        chave = (pid, e_foil)
+        e = por_impressao.get(chave)
         if e is None:
-            e = por_impressao[pid] = {
+            e = por_impressao[chave] = {
                 "printing_id": pid, "card_key": it["card_key"], "name": it["name"],
                 "code": it["code"], "set": it["set_id"], "label": it["label"],
                 "market_only": bool(it["market_only"]), "img": it["img"],
-                "cdn": it["cdn"], "landscape": it["landscape"],
-                "qty": 0, "price": precos.get(pid), "total": 0, "paid": 0,
-                "ids": [], "notes": [],
+                "cdn": it["cdn"], "landscape": it["landscape"], "foil": e_foil,
+                "qty": 0,
+                "price": (precos_foil.get(pid) if e_foil else precos.get(pid)),
+                "total": 0, "paid": 0, "ids": [], "notes": [],
             }
         e["qty"] += it["qty"]
         e["paid"] += (it["unit_cents"] or 0) * it["qty"]
@@ -543,9 +713,11 @@ def encomendas(con: sqlite3.Connection) -> dict:
     for e in por_impressao.values():
         e["total"] = (e["price"] or 0) * e["qty"]
         # Que decks levam ESTAS cópias: consome-se a lista da carta pela ordem
-        # de prioridade até esgotar a quantidade desta impressão.
+        # de prioridade até esgotar a quantidade desta impressão. Uma FOIL não
+        # entra: a alocação serve-se das normais (`open_by_card` já a saltou),
+        # e por isso uma foil a caminho é sempre «para a Coleção».
         falta, dest = e["qty"], []
-        for h in sobra.get(e["card_key"], []):
+        for h in ([] if e["foil"] else sobra.get(e["card_key"], [])):
             if falta <= 0:
                 break
             n = min(falta, h["qty"])
@@ -560,7 +732,7 @@ def encomendas(con: sqlite3.Connection) -> dict:
     por_set: dict[str, dict] = {}
     for e in sorted(por_impressao.values(),
                     key=lambda x: (ordens.get(x["set"], 999), x["set"] or "",
-                                   x["code"] or "")):
+                                   x["code"] or "", x["foil"])):
         d = por_set.setdefault(e["set"], {"set": e["set"], "name": config.set_name(e["set"]),
                                           "cards": 0, "copies": 0, "cents": 0,
                                           "paid": 0, "items": []})
@@ -596,8 +768,10 @@ def encomendas(con: sqlite3.Connection) -> dict:
     return {
         "a_caminho": a_caminho,
         "totals": {
-            "printings": len(por_impressao),
+            "printings": len({e["printing_id"] for e in por_impressao.values()}),
+            "lines": len(por_impressao),
             "copies": sum(e["qty"] for e in por_impressao.values()),
+            "copies_foil": sum(e["qty"] for e in por_impressao.values() if e["foil"]),
             "cents": sum(e["total"] for e in por_impressao.values()),
             "paid": sum(e["paid"] for e in por_impressao.values()),
             "sem_preco": sum(1 for e in por_impressao.values() if e["price"] is None),
@@ -621,8 +795,12 @@ def _log(con: sqlite3.Connection, linhas: list[dict]) -> None:
 
     É o gémeo do `locais.log`: se uma encomenda aparecer ou desaparecer sem
     linha aqui, é bug. Colunas: quando, impressão, código, nome, quantidade,
-    acção (encomendar / anular / chegou), origem (web, cli, deck de onde veio o
-    clique) e a nota.
+    acabamento (normal/foil, desde 2026-09-27), acção (encomendar / anular /
+    chegou), origem (web, cli, deck de onde veio o clique) e a nota.
+
+    A coluna do acabamento entra no FIM, e o cabeçalho só se escreve quando o
+    ficheiro nasce: um log antigo continua a ler-se, com uma coluna a menos nas
+    linhas velhas — que eram todas de normais.
     """
     if not linhas:
         return
@@ -632,12 +810,14 @@ def _log(con: sqlite3.Connection, linhas: list[dict]) -> None:
     w = csv.writer(buf, lineterminator="\n")
     if novo:
         w.writerow(["quando", "printing_id", "codigo", "nome", "quantidade",
-                    "accao", "origem", "nota"])
+                    "accao", "origem", "nota", "acabamento"])
     ts = _now()
     for x in linhas:
         d = _descrever(con, x["printing_id"])
+        acab = x.get("foil")
         w.writerow([ts, x["printing_id"], d["code"] or "", d["name"] or "",
-                    x["qty"], x["accao"], x.get("source") or "", x.get("nota") or ""])
+                    x["qty"], x["accao"], x.get("source") or "", x.get("nota") or "",
+                    "" if acab is None else ("foil" if acab else "normal")])
     try:
         config.DATA_DIR.mkdir(parents=True, exist_ok=True)
         with open(caminho, "a", encoding="utf-8", newline="") as fh:

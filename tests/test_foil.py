@@ -556,9 +556,16 @@ class TestNaoMexeEmNadaDoQueJaExiste(Base):
     def test_nenhum_modulo_de_contas_importa_o_foil(self):
         """Nenhum módulo de contas conhece o `foil`. Os dois funis dos botões
         dele (`locais`, `prices`) leem a chave do config directamente, de
-        propósito: é o que mantém esta fronteira de pé."""
+        propósito: é o que mantém esta fronteira de pé.
+
+        O `pending` SAIU desta lista a 2026-09-27, e não é a fronteira a cair:
+        uma encomenda passou a ter acabamento (`pending.foil`), e quando uma
+        foil chega tem de somar ao contador de foil e não ao das normais. O que
+        continua proibido é o foil entrar numa CONTA por aí, e isso está fixado
+        à parte (`test_faltas_encomendar.TestAFronteira`): o `open_qty()` por
+        omissão só dá as normais, e o `open_by_card` também."""
         proibidos = ["a_subir", "faltas", "faltas_edicao", "a_mais", "uso_decks",
-                     "decks", "locais", "pending", "prices", "painel", "runas_vista",
+                     "decks", "locais", "prices", "painel", "runas_vista",
                      "cardmarket", "seguir", "catalog"]
         for nome in proibidos:
             fonte = (REPO / "riftvault" / f"{nome}.py").read_text(encoding="utf-8")
@@ -570,8 +577,12 @@ class TestNaoMexeEmNadaDoQueJaExiste(Base):
         nesses, sempre atrás da chave de config. Se aparecer noutro módulo de
         contas, é sinal de que o foil entrou numa conta por acidente."""
         funis = {"locais": "conta_para_coleccao", "prices": "conta_para_valor"}
+        # O `pending` fala do `qty_foil` nos comentários desde 2026-09-27 (é
+        # onde uma foil encomendada vai dar quando chega), mas não lhe escreve:
+        # quem escreve é o `foil.ajustar`. Ver o `TestAFronteira` do
+        # `test_faltas_encomendar`, que é onde isso está fixado.
         proibidos = ["a_subir", "faltas", "faltas_edicao", "a_mais", "uso_decks",
-                     "decks", "pending", "painel", "runas_vista", "cardmarket",
+                     "decks", "painel", "runas_vista", "cardmarket",
                      "seguir", "catalog"]
         for nome in proibidos:
             fonte = (REPO / "riftvault" / f"{nome}.py").read_text(encoding="utf-8")

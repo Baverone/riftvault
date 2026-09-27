@@ -1105,12 +1105,30 @@ body.readonly .btn.chegou { display: none; }
    ou fora do catálogo): uma linha por impressão, com o «Chegou» ao lado. */
 .enc-fora { margin-top: 10px; font-size: 12px; color: var(--dim); line-height: 1.7; }
 .enc-fora b { color: var(--text); display: block; margin-bottom: 2px; }
+/* A palavra «foils» no meio da frase: o `<b>` daqui é um BLOCO (a linha de
+   cima), por isso a ênfase no meio de uma frase tem de ser outra tag. */
+.enc-fora i.foil { font-style: normal; font-weight: 700; color: var(--foil); }
 .enc-fora-item {
   display: inline-flex; align-items: center; gap: 6px; margin: 0 10px 4px 0;
   padding: 2px 8px; border: 1px solid var(--line); border-radius: 8px; color: var(--text);
 }
 .enc-fora-item i { font-style: normal; color: var(--dim); font-size: 11px; }
-.btn.chegou.mini { width: auto; padding: 3px 8px; font-size: 11px; }
+/* Uma FOIL a caminho (2026-09-27): está SEMPRE aqui, porque o âmbito do foil é
+   comuns e incomuns e esta grelha é de rara para cima. A cor diz que o «Chegou»
+   dela vai para o contador de foil, não para o das normais. */
+.enc-fora-item.foil { border-color: rgba(217, 164, 65, .55); }
+.enc-fora-item.foil i { color: var(--foil); }
+/* O `min-height` não é enfeite: sem ele o botão nascia com **8 px** e o
+   «Chegou» ficava invisível — um `<button>` como item de um `inline-flex`
+   ficava com a caixa de conteúdo a zero, e o `overflow: hidden` que o Chrome
+   lhe põe cortava o texto. Nunca se viu porque esta lista estava sempre
+   VAZIA: até 2026-09-27 as encomendas eram todas de rara para cima e cabiam
+   na grelha. Com as foils (todas comuns e incomuns) a lista passou a ter
+   conteúdo sempre, e o botão tem de se ler. */
+.btn.chegou.mini {
+  width: auto; padding: 3px 8px; font-size: 11px;
+  line-height: 1.45; min-height: 22px; align-self: center; flex: 0 0 auto;
+}
 /* Impressões que não são dele: sobem na mesma, mas sem alarme de cor. */
 .dtile.neutro .art { border-color: var(--line); }
 .dtile.neutro .art img { filter: none; }
@@ -1290,6 +1308,18 @@ body.readonly .btn.chegou { display: none; }
 .fe-aviso li { margin: 2px 0; }
 .fe-aviso li b { color: var(--text); }
 .fe-aviso .nota { margin-top: 8px; }
+
+/* Os `+`/`−` de «já encomendei» (2026-09-27). São os `.steppers` de sempre —
+   o `body.readonly` do site publicado esconde-os, sem caminho novo — e o que é
+   próprio daqui é a MARCA de uma linha já encomendada: ela não desaparece
+   (é o que ele pediu), fica com a moldura azul tracejada do «a caminho» e o
+   `+N` no canto, ao lado do «faltam N». */
+.fe-enc-bot { margin-top: 2px; }
+.dtile.fe-enc .art { border-color: rgba(124, 140, 255, .65); border-style: dashed; }
+.dtile.fe-enc .enc-n { background: rgba(124, 140, 255, .95); color: #0b0f26; }
+/* Numa foil já encomendada ganha a marca da encomenda, que é a informação
+   nova; a metade já se sabe pelo cabeçalho e pelo «tens H/T foil». */
+.dtile.fe-foil.fe-enc .art { border-color: rgba(124, 140, 255, .65); }
 @media (max-width: 560px) {
   .fe-bloco { flex-wrap: wrap; }
   .fe-bloco span { margin-left: 0; text-align: left; flex-basis: 100%; }

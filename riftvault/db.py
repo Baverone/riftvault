@@ -105,6 +105,36 @@ def _tirar_o_tecto_do_foil(con: sqlite3.Connection) -> None:
         raise
 
 
+def _migrar_pending_foil(con: sqlite3.Connection) -> None:
+    """A coluna `foil` da `pending` (2026-09-27, com os `+`/`−` nas Faltas).
+
+    Metade do separador «Faltas» é de FOILS desde 2026-09-27, e ele passou a
+    poder marcar «já encomendei» também lá. A `pending` guardava a IMPRESSÃO e
+    não o acabamento: sem esta coluna, uma foil encomendada entrava na coleção
+    como normal — e o `copies.qty` e o `copies.qty_foil` são duas contagens
+    independentes desde 2026-09-26. Estragar-lhe a contagem é o erro que esta
+    coluna existe para não cometer.
+
+    LEVA BACKUP: mexe numa tabela do vault.db, que é a coleção dele. As linhas
+    que já cá estão ficam a `0` — eram todas de cópias normais, porque até hoje
+    não havia outra maneira de encomendar. Numa transação só, para o que ele
+    encomendar entretanto ficar de um lado ou do outro. Idempotente: a segunda
+    ligação já encontra a coluna e não faz nada.
+    """
+    cols = _columns(con, "pending")
+    if not cols or "foil" in cols:
+        return
+    backup(con, "antes-do-pendente-foil")
+    con.execute("BEGIN IMMEDIATE")
+    try:
+        con.execute("ALTER TABLE pending ADD COLUMN foil INTEGER NOT NULL "
+                    "DEFAULT 0 CHECK (foil IN (0, 1))")
+        con.execute("COMMIT")
+    except Exception:
+        con.execute("ROLLBACK")
+        raise
+
+
 def _migrar_price_latest(con: sqlite3.Connection, schema: str = "catalog") -> None:
     """As colunas que a `price_latest` ganhou depois da primeira versão.
 
@@ -169,6 +199,10 @@ def _migrate(con: sqlite3.Connection) -> None:
     if "qty_foil <= qty" in _sql_da_copies(con):
         backup(con, "antes-do-foil-somar")
         _tirar_o_tecto_do_foil(con)
+
+    # O acabamento da encomenda (2026-09-27): sem ela uma foil encomendada nas
+    # Faltas entrava na coleção como normal.
+    _migrar_pending_foil(con)
 
     cols = _columns(con, "decks")
     if cols:
