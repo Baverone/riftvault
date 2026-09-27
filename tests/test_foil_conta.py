@@ -138,9 +138,18 @@ class Base(unittest.TestCase):
 
 
 class TestAsTresChaves(Base):
-    def test_o_config_real_tem_as_duas_a_true_e_a_do_a_mais_a_false(self):
+    def test_o_config_real_tem_o_valor_a_true_e_a_coleccao_a_FALSE(self):
+        """O `conta_para_coleccao` esteve a `true` UM DIA (2026-09-26) e ele
+        mandou-o abaixo a 2026-09-27, à noite: somar as foils aos alvos
+        escondia-lhe faltas de normais (47 impressões a ler «3/3» com as
+        normais a 2/3). O `conta_para_valor` fica: é outra pergunta.
+
+        Este ficheiro continua a ser o que prova o MECANISMO das chaves — os
+        testes abaixo ligam-nas num config temporário e medem o efeito. O que
+        muda é o que o config REAL diz.
+        """
         cfg = json.loads((REPO / "riftvault_config.json").read_text(encoding="utf-8"))
-        self.assertIs(cfg["foil"]["conta_para_coleccao"], True)
+        self.assertIs(cfg["foil"]["conta_para_coleccao"], False)
         self.assertIs(cfg["foil"]["conta_para_valor"], True)
         self.assertIs(cfg["foil"]["entra_no_a_mais"], False)
 
@@ -148,7 +157,7 @@ class TestAsTresChaves(Base):
         """Um riftvault sem ficheiro de config mede o que ele decidiu, não o de
         antes — a regra do `"*"` das signatures (2026-09-09)."""
         d = self.config.DEFAULTS["foil"]
-        self.assertIs(d["conta_para_coleccao"], True)
+        self.assertIs(d["conta_para_coleccao"], False)
         self.assertIs(d["conta_para_valor"], True)
         self.assertIs(d["entra_no_a_mais"], False)
 

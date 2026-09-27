@@ -341,11 +341,22 @@ class TestOAlvo(Base):
         self.assertEqual(it["tst-006-100"]["target"], 6)
 
     def test_a_fonte_do_alvo_e_o_playset_target(self):
-        """Quem lê o ficheiro tem de ver que não se escreveu alvo nenhum."""
-        fonte = (REPO / "riftvault" / "faltas_foil.py").read_text(encoding="utf-8")
-        self.assertIn("metrics.playset_target(", fonte)
-        self.assertNotIn("ALVO_FOIL", fonte)
-        self.assertNotIn("= 3", fonte.split('"""')[-1])
+        """Quem lê o ficheiro tem de ver que não se escreveu alvo nenhum.
+
+        O alvo MUDOU DE CASA a 2026-09-27, à noite — vive no `foil.alvo`, porque
+        o contador do tile passou a mostrar `foil M/T` e precisava do mesmo
+        número. O que este teste fixa continua a ser o mesmo: **há uma resposta
+        só, e é o `metrics.playset_target`**.
+        """
+        ff = (REPO / "riftvault" / "faltas_foil.py").read_text(encoding="utf-8")
+        fo = (REPO / "riftvault" / "foil.py").read_text(encoding="utf-8")
+        self.assertIn("metrics.playset_target(", fo)
+        # E o `faltas_foil` delega, em vez de ter uma segunda tabela.
+        self.assertIn("return foil.alvo(", ff)
+        self.assertNotIn("metrics.playset_target(", ff)
+        for fonte in (ff, fo):
+            self.assertNotIn("ALVO_FOIL", fonte)
+            self.assertNotIn("= 3", fonte.split('"""')[-1])
 
 
 # ---------------------------------------------------------------------------
@@ -763,10 +774,12 @@ class TestONotaDoConfig(unittest.TestCase):
         self.assertIn("raridades", cfg["foil"])
         self.assertIn("Rune", cfg["playset_targets_by_type"])
 
-    def test_a_nota_do_foil_ja_nao_diz_que_as_chaves_estao_a_false(self):
-        """Estava velha desde 2026-09-26: as duas estão a `true`."""
+    def test_a_nota_do_foil_diz_o_que_cada_chave_vale_hoje(self):
+        """O `conta_para_coleccao` voltou a `false` a 2026-09-27, à noite, e a
+        nota tem de o dizer — as foils não são faltas das normais, e também não
+        as tapam. O `conta_para_valor` fica a `true`: é outra pergunta."""
         cfg = json.loads(CONFIG_REAL.read_text(encoding="utf-8"))
-        self.assertTrue(cfg["foil"]["conta_para_coleccao"])
+        self.assertFalse(cfg["foil"]["conta_para_coleccao"])
         self.assertTrue(cfg["foil"]["conta_para_valor"])
         self.assertNotIn("as duas a false", cfg["_foil_nota"])
         self.assertNotIn("REGISTO PARALELO", cfg["_foil_nota"])

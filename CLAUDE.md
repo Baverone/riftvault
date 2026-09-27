@@ -814,14 +814,17 @@ O alvo do master set é por impressão, e qualquer cópia serve para o cumprir.
 Se um dia isto mudar: acrescentar `finish TEXT NOT NULL DEFAULT 'normal'` a
 `copies`, passar a PK a `(printing_id, finish)`, e o mesmo em `ops`.
 
-**Isto CONTINUA DE PÉ depois de 2026-09-22 e de 2026-09-26, no GRÃO.** A
-`copies.qty_foil` não é um acabamento no grão: a chave continua a ser
+**Isto CONTINUA DE PÉ depois de 2026-09-22, de 2026-09-26 e de 2026-09-27, no
+GRÃO.** A `copies.qty_foil` não é um acabamento no grão: a chave continua a ser
 `(printing_id)` e o alvo continua a ser por impressão. É uma CONTAGEM à parte —
-e desde 26/09 uma contagem que **se soma** às normais (3 normais + 3 foil = 6
-cópias), não uma fatia delas. **O que mudou é que ela CONTA**: os dois botões
-(`foil.conta_para_coleccao`, `foil.conta_para_valor`) estão a `true` desde a
-tarde de 26/09, e à noite desse dia a foil ganhou **preço próprio**
-(`price_latest.price_foil_cents`) — ver as duas últimas secções deste ficheiro.
+e desde 26/09 uma contagem que **se soma** às normais quando a pergunta é
+«quantas cartas tenho na mão» (3 normais + 3 foil = 6 cópias), não uma fatia
+delas. **NOS ALVOS NUNCA SE SOMAM**, desde a noite de 27/09: o
+`foil.conta_para_coleccao` voltou a `false` (somar escondia-lhe faltas — 47
+impressões, 48 cópias normais) e o `conta_para_valor` fica a `true`; no tile o
+crachá é as NORMAIS e a linha de baixo é o foil, contra o `foil.alvo`. A foil
+ganhou **preço próprio** (`price_latest.price_foil_cents`) na noite de 26/09 —
+ver as três últimas secções deste ficheiro.
 
 ## Artes alternativas fora do master set
 
@@ -2608,6 +2611,16 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   a 0 com foil é estado legítimo. Duas chaves novas, que nasceram a `false`
   e que ele mandou LIGAR nessa tarde: `foil.conta_para_coleccao` e
   `foil.conta_para_valor`. Ver as três secções do fim deste ficheiro.
+- **CORRIGIDO OUTRA VEZ a 2026-09-27, à noite:** o `foil.conta_para_coleccao`
+  voltou a **`false`** e o TILE passou a ter **duas contagens separadas** —
+  *"quero que haja 2 contagens separadas / a de normais e de foils / quando me
+  falta normais nao consigo perceber automaticamente que falta"*. Somar as
+  foils aos alvos escondia-lhe **48 cópias normais em 47 impressões** que se
+  liam «3/3» com as normais a 2/3. O crachá é as normais, a linha de baixo é o
+  foil contra o `foil.alvo` (o playset do tipo), e a separação **não depende de
+  chave nenhuma**. O `conta_para_valor` FICA a `true`: é outra pergunta e o
+  valor **não mudou** (7 802,52 €). Playset 87,5 % → **82,4 %**, e a descida é
+  a correcção a aparecer. Ver a última secção deste ficheiro.
 - **Feito também:** o PREÇO DA FOIL, à parte (2026-09-26, à noite) —
   *"podes meter filtro no cardtrader e tirar o preco da foil mais barata?,
   para diferenciar os precos"*: `price_latest.price_foil_cents` e
@@ -6680,6 +6693,15 @@ ficheiros); a interface; e o `sync_prices` a gravar as duas colunas. Suite:
 
 ## 26/09/2026, à tarde — o FOIL CONTA: para o valor e para o master set; e NUNCA no «A mais»
 
+**A METADE DO «MASTER SET» DESTA SECÇÃO FOI REVOGADA a 2026-09-27, à noite** —
+o `foil.conta_para_coleccao` voltou a `false` e as duas contagens passaram a
+ver-se separadas no tile; ver a última secção deste ficheiro. Tudo o que aqui
+se diz sobre os foils contarem para os níveis, o denominador, as Faltas e as
+wantlists é história (e o mecanismo continua lá, atrás da chave). **A metade do
+VALOR fica de pé**: as foils contam para o valor, ao preço da foil, e esse
+número não mexeu. As quatro cautelas — o «A mais», o `propor_deck`, a Venda e
+os decks — também ficam.
+
 Palavras dele, a responder às duas perguntas que a ordem da manhã deixou em
 config: *"contam para o valor sim, e contabilizas tambem como parte do master
 set"*. Ramo `ai-pc/foil-conta-2026-09-26`.
@@ -7643,3 +7665,152 @@ ler não escreve; a rota, a CLI, o `app.js`, o CSS e o gémeo em JavaScript.
 a fronteira mudou de sítio e o payload ganhou dois campos.
 
 Suite: **54 ficheiros, 0 a falhar**.
+
+## 27/09/2026, à noite — ERRO NOSSO, OUTRA VEZ: as duas contagens SEPARADAS no tile, e o `conta_para_coleccao` de volta a `false`
+
+Palavras dele: *"quero que haja 2 contagens separadas / a de normais e de
+foils, / verifiquei ontem que a contagem sobe com as foils e a impressao que
+fica e que eu tenho as cartas todas, e quando me falta normais nao consigo
+perceber automaticamente que falta / quero que a contagem na carta seja a de
+non-foil e a de baixo seja a foil, as coisas separadas"*. Ramo
+`ai-pc/foil-separado-2026-09-27`.
+
+### O erro, e porque é que a medição de 26/09 não o apanhou
+
+A 2026-09-26, à tarde, ele disse *"contabilizas tambem como parte do master
+set"* e ligámos o `foil.conta_para_coleccao`. Medimos nessa corrida que **zero
+impressões subiam de nível** e dissemos-lhe isso. Era verdade **naquele
+minuto**, e a razão está escrita na secção dessa tarde: *«as 48 impressões com
+foil têm todas os 3 normais, ou seja o alvo já estava cumprido — ele só marcou
+foil em cartas de que já tinha o playset»*. Escrevemos lá que «a primeira foil
+numa carta incompleta muda isto» e seguimos em frente.
+
+Ele marcou mais **193 foils** e a primeira foil numa carta incompleta chegou.
+**Medido a 2026-09-27, contra uma cópia do `data/` real: 47 impressões liam-se
+«3/3» com as normais a 2/3, e escondiam 48 cópias NORMAIS em falta.** Os
+exemplos que ele nomeou estão todos na lista: `OGN-087` Lecturing Yordle,
+`OGN-095` Stupefy, `OGN-130` Crackshot Corsair, `OGN-133` Flurry of Blades,
+`OGN-144` Spoils of War, `SFD-001` Against the Odds. São 46 a 2/3 com 1 foil
+(1 cópia cada) e a `UNL-070` Turn to Dust a **1/3 com 2 foils** (2 cópias) —
+46 + 2 = 48.
+
+**A LIÇÃO, e é a que interessa guardar: a ideia de somar depende do HÁBITO DE
+MARCAÇÃO dele, não de uma regra.** Enquanto ele só marcasse foil em cartas de
+playset feito, somar não escondia nada; a partir da primeira foil numa carta
+incompleta, esconde. **Um número que só está certo enquanto ele marcar por uma
+certa ordem não é um número** — e uma medição que dá zero diferença por causa do
+estado dos dados nesse dia não é prova de que a regra está certa. Quando uma
+medição der «não muda nada», a pergunta seguinte é *porque é que não muda, e o
+que é que tem de acontecer para passar a mudar*. Estava escrito no CLAUDE.md e
+não foi lido como aviso.
+
+### O que mudou
+
+**1. No TILE são duas contagens, e a separação é ESTRUTURAL** (não depende de
+chave nenhuma):
+
+| | o que conta | contra que alvo |
+|---|---|---|
+| o **crachá**, na arte | as cópias **NORMAIS** da Coleção (`qty`) | `metrics.alvo` — o alvo da Coleção |
+| a **linha**, por baixo | as cópias **FOIL** (`qty_foil`) | **`foil.alvo`** — o playset do tipo |
+
+A linha dizia «2 normais · 1 foil = 3» e passou a dizer **«foil 1/3»**: as
+normais saíram dela (estão no crachá, uma linha acima) e **o total somado
+desapareceu** — era ele que escondia a falta. Leva fundo próprio, a cor do foil
+e uma **risca em cima** que a separa do playset jogável; a `is-done` marca
+quando a contagem de foil chegou ao playset. **O alvo não é tecto**: 4 foils de
+um playset de 3 lêem-se «4/3», como o crachá das normais já fazia.
+
+**O ALVO DE FOIL MUDOU DE CASA, e é uma resposta só.** Era o `faltas_foil.alvo`
+(de manhã); passou para **`foil.alvo`**, porque o tile precisava do mesmo número
+e a pergunta «quantas foils quero ter» é da mesma casa que «esta impressão tem
+contador de foil» (`foil.no_ambito`). Continua a ser o `metrics.playset_target`
+(`playset_targets_by_type`): Unit/Spell/Gear 3, Battlefield 1, Legend 1, **Rune
+12**. O `faltas_foil.alvo` fica e delega. Por isso **numa runa base o crachá
+pede 3 e a linha do foil pede 12** — a divergência que já estava anotada de
+manhã, agora visível no tile.
+
+Uma avaria evitada pelo caminho: o `foil.ids_do_ambito` não trazia o `type` nem
+o `is_token` no SELECT, e o `metrics.campo` devolve `None` no que não vier — o
+alvo saía errado **em silêncio**. As duas colunas entraram na consulta, e há
+teste.
+
+**2. A linha só aparece nas 512 do âmbito** (`foil.no_ambito` — comuns e
+incomuns, base, não sobrenumeradas, fora o OGS). Numa rara não aparece: em
+Riftbound rara para cima só existe em foil, a cópia dele já está no `qty`, e um
+«0/3 foil» ali era mentira. Há teste que exige que o âmbito do tile, o do
+contador e o da metade das foils das Faltas sejam **o mesmo conjunto**.
+
+**3. As contas voltam a ser das NORMAIS.** `foil.conta_para_coleccao` a
+**`false`** (no `riftvault_config.json` e no `config.DEFAULTS`): os três níveis,
+a percentagem, o denominador, as Faltas e todas as listas de compra olham só
+para o `copies.qty`, pelo `locais.na_colecao`. **Não se apagou a chave** — é a
+cultura desta casa (esconder não é apagar) e o mecanismo continua testado nos
+dois sentidos; o que mudou é o valor e a nota, que diz porque é que a ideia de
+somar não resiste. A omissão também é `false`: um riftvault sem config **não
+pode** esconder faltas.
+
+**4. O `foil.conta_para_valor` NÃO se tocou.** É outra pergunta e ele não a
+mudou: as foils contam para o valor, ao preço da foil, com o fallback contado.
+**O valor não mudou: 7 802,52 € em 3 072 cópias dos dois lados**, medido.
+
+**5. A metade das FOILS das Faltas e a 5.ª wantlist ficam como estavam** — já
+eram a leitura certa. O `aviso_normais` (que nasceu de manhã exactamente para
+este caso) continua a apanhar as 47; a diferença é que agora o tile já o diz
+sozinho.
+
+**6. Os `+`/`−` dos dois contadores continuam a funcionar**, cada um no seu: o
+`+` do foil não mexe no `qty` e o `−` da grelha não mexe no `qty_foil`. Com o
+`conta_para_coleccao` a `false`, um `+` de foil **não mexe em nível,
+percentagem nem wantlist nenhuma**; mexe no valor e no playset jogável, que é a
+outra chave. A CLI diz o mesmo que o tile (`2 normais · foil 1/3`), e o
+`foil.ajustar` devolve `foil_target` para não haver dois números.
+
+### Medido a 2026-09-27, à noite, na MESMA cópia do `data/` real
+
+Dois processos, a mesma cópia, cada um com o seu ficheiro de config
+(`_revisao\_medir_foil_sep2.py` + `_medir_foil_sep_worker.py`). O `data/` a
+sério nunca se escreveu — ele estava a marcar foils enquanto isto corria.
+
+| | ANTES (a somar) | DEPOIS (separadas) |
+|---|---|---|
+| **1 de cada** | 910/928 = 98,1 % · faltam 18 | **910/928 = 98,1 %** · faltam 18 |
+| **2 de cada** | 873/928 = 94,1 % · faltam 71 | **872/928 = 94,0 %** · faltam 72 |
+| **playset** | 812/928 = **87,5 %** · faltam 185 | **765/928 = 82,4 %** · faltam **233** |
+| denominador | 928 | **928** |
+| Faltas, a comprar | 185 cópias de 116 impressões · 843,43 € | **233 de 163 · 848,91 €** |
+| Faltas, fechar os 4 blocos | 432 cópias de 258 · 9 069,11 € | **480 de 305 · 9 074,59 €** |
+| wantlist geral | 116 linhas · 185 cópias | **163 · 233** |
+| **VALOR** | **7 802,52 € · 3 072 cópias** | **7 802,52 € · 3 072 cópias** |
+| metade das FOILS | 1 006 cópias de 412 · 409,04 € | **igual** |
+| resumo do foil | 512 impressões · 448 foils em 218 | **igual** |
+| tiles a passar de COMPLETO a INCOMPLETO | — | **47** |
+
+**A percentagem do playset desce 5,1 pontos, e é a correcção a aparecer.** A
+aritmética fecha por dentro: 47 impressões saem do nível 3 e as 48 cópias voltam
+a ser faltas (46 × 1 + 2 da `UNL-070`); no nível 2 mexe **uma** — a `UNL-070`, a
+única a 1 normal —, e o nível 1 não mexe porque nenhuma delas estava a zero
+normais. **Os números da ordem (908/867/805) eram de mais cedo nesse dia**; a
+diferença é ele a meter cartas, não esta mudança.
+
+**O `copies` não se tocou**: nem o `qty` nem o `qty_foil`, verificado antes e
+depois. Ele esteve a marcar foils durante a ordem (448 na medição), e isso não é
+bug.
+
+`tests/test_foil_separado.py` (40 testes, contra pastas temporárias e config
+temporário): **o caso dele** — 2 normais de 3 com 1 foil aparece incompleta no
+tile, nos níveis, nas Faltas e na wantlist, com a **prova pela negativa** (com a
+chave ligada lê-se «3/3» e sai das duas listas); o tile (as três chaves no
+payload, o crachá e a linha a serem números diferentes, a separação sem depender
+de chaves, mais foils do que o alvo); o âmbito (rara e OGS sem linha, o mesmo
+conjunto nos três sítios, o config a mandar); o alvo (playset do tipo,
+Battlefield 1, **Rune 12 contra 3 na coleção**, a tabela do config, o mesmo da
+metade das foils, uma resposta só, o `type` no SELECT); o valor (igual com a
+chave ligada ou não, as foils a continuarem a contar, as três leituras de
+referência); os dois contadores (cada um no seu, o `−` a travar no zero, o
+`foil_target` no `ajustar`, a CLI); a metade das foils e a 5.ª wantlist
+inalteradas; o config (chave, default, omissão segura, a nota); e a interface.
+`test_foil`, `test_foil_conta` e `test_faltas_foil` foram ajustados — descreviam
+o valor antigo da chave, a casa antiga do alvo e o formato antigo da linha.
+
+Suite: **55 ficheiros, 0 a falhar**.

@@ -32,11 +32,12 @@ const state = {
   // O TOTAL FÍSICO por impressão (todos os locais) — é o tecto do contador de
   // foil (2026-09-22): uma carta não deixa de ser foil por estar sleevada.
   tot: new Map(),
-  // printing_id -> cópias marcadas como foil, e o conjunto das impressões que
-  // têm contador (as comuns e incomuns base, fora o OGS — `foil.no_ambito`).
-  // Desde 2026-09-26 é uma contagem À PARTE do `tot`, não uma fatia dele: o
-  // total da impressão é a soma dos dois, e nunca se guarda.
-  foil: new Map(), foilOk: new Set(),
+  // printing_id -> cópias marcadas como foil, o conjunto das impressões que
+  // têm contador (as comuns e incomuns base, fora o OGS — `foil.no_ambito`) e
+  // o ALVO de foil de cada uma (2026-09-27, à noite: o `foil.alvo`, o playset
+  // do tipo). É uma contagem À PARTE do `tot` e **nunca se soma a ele no
+  // tile**: o crachá é as normais, esta linha é o foil.
+  foil: new Map(), foilOk: new Set(), foilAlvo: new Map(),
   // Os dois preços por impressão, em cêntimos. O da FOIL (2026-09-26, à tarde)
   // só existe nas que o CardTrader tem em foil: quem não está lá conta ao preço
   // da normal — o FALLBACK, que se marca na linha e faz do valor um piso.
@@ -268,12 +269,15 @@ const PAGINA = {
          + 'runas em arte alternativa estão retiradas de tudo. O bloco <b>Runas — 12 de '
          + 'cada</b>, no fim, é o contador dele: os <b>+</b>/<b>−</b> de lá escrevem numa '
          + 'tabela à parte e não contam para número nenhum do site.</p>'
-         + '<p>Debaixo dos tiles das comuns e incomuns estão as duas contagens, '
-         + '<b>normais</b> e <b>foil</b>. São independentes e somam-se: 3 normais e 3 '
-         + 'foil são 6 cópias. Os foils <b>contam</b> para os alvos, os níveis, as '
-         + 'wantlists e o valor — no valor ao <b>preço da foil</b> do CardTrader, e só '
-         + 'ao da normal quando não há oferta foil (a linha do tile diz qual é o caso). '
-         + 'No «A mais» não entram: não são excedente.</p>',
+         + '<p>Nas comuns e incomuns há <b>duas contagens separadas</b>, e nunca se '
+         + 'somam: o <b>crachá</b> do tile são as <b>normais</b> contra o alvo da '
+         + 'Coleção, e a linha por baixo são as <b>foils</b> contra o playset do tipo em '
+         + 'foil (numa runa, 12). As foils <b>não contam</b> para os alvos, os níveis, a '
+         + 'percentagem nem as listas de compra — se contassem, 2 normais e 1 foil '
+         + 'liam-se «3/3» e uma falta de normais desaparecia do ecrã. <b>Contam para o '
+         + 'valor</b>, ao <b>preço da foil</b> do CardTrader, e só ao da normal quando '
+         + 'não há oferta foil (a linha do tile diz qual é o caso). No «A mais» não '
+         + 'entram: não são excedente.</p>',
   },
   'decks': {
     sub: 'As listas montadas, o que cada uma tem e o que lhe falta. '
@@ -653,6 +657,7 @@ async function loadSet(setId, { url = true } = {}) {
   state.qty.clear(); state.play.clear(); state.targets.clear();
   state.blocks.clear(); state.meta.clear(); state.counting.clear();
   state.locs.clear(); state.tot.clear(); state.foil.clear(); state.foilOk.clear();
+  state.foilAlvo.clear();
   state.preco.clear(); state.precoFoil.clear(); state.valNorm.clear();
   for (const b of p.blocks || []) if (b.counts) state.counting.add(b.id);
   if (!(p.blocks || []).length) state.counting.add('master');
@@ -663,6 +668,7 @@ async function loadSet(setId, { url = true } = {}) {
       state.tot.set(pr.id, pr.qty_total || 0);
       if (pr.foil) state.foil.set(pr.id, pr.foil);
       if (pr.foil_ok) state.foilOk.add(pr.id);
+      if (pr.foil_target) state.foilAlvo.set(pr.id, pr.foil_target);
       state.valNorm.set(pr.id, (pr.qty_valor || 0) - (pr.qty_valor_foil || 0));
       if (pr.price != null) state.preco.set(pr.id, pr.price);
       if (pr.price_foil != null) state.precoFoil.set(pr.id, pr.price_foil);
@@ -1024,50 +1030,61 @@ function venderLinha(pid) {
    as edicoes excepto Proving Grounds"*. Nas cartas do âmbito (as impressões
    base, não sobrenumeradas, comuns e incomuns, fora o OGS — quem decide é o
    `foil.no_ambito` do servidor, que manda `foil_ok` no payload) o tile ganha,
-   por baixo dos `+`/`−` de sempre, um contador pequeno de foil e a linha «N
-   normais · M foil».
+   por baixo dos `+`/`−` de sempre, um contador de foil com o alvo dele.
 
-   O FOIL SOMA-SE ÀS NORMAIS (André, 2026-09-26): *"as foils quando eu marco é
-   que tenho TAMBÉM foil, ou seja, normal + foil e não apenas 1, no caso daria
-   3+3"*. São DUAS contagens independentes — as normais são o `state.tot` (o
-   `copies.qty`, cópias físicas de todos os locais: uma carta não deixa de ser
-   normal por estar sleevada num deck) e as foils são o `state.foil` —, e o
-   total da impressão é a SOMA. O `+` do foil acrescenta uma foil e faz SUBIR o
-   total; não converte nada, e por isso não tem tecto natural: trava só no
-   `limite` que o servidor manda (sanidade, o mesmo do CHECK da base).
+   DUAS CONTAGENS SEPARADAS, NUNCA SOMADAS NO TILE (André, 2026-09-27, à noite):
+   *"quero que haja 2 contagens separadas / a de normais e de foils / quero que
+   a contagem na carta seja a de non-foil e a de baixo seja a foil, as coisas
+   separadas"*.
 
-   Até 2026-09-26 era ao contrário: o foil era uma fatia do total e o `+`
-   convertia uma normal. Era erro nosso.                                     */
+     o CRACHÁ, em cima     as NORMAIS da Coleção contra o `metrics.alvo`
+                           (`state.qty` / `state.targets`) — é a que manda, e é
+                           a que ele lê de relance
+     esta LINHA, em baixo  as FOILS contra o `foil.alvo` (`state.foil` /
+                           `state.foilAlvo`) — o playset do tipo, o mesmo alvo
+                           da metade das foils do separador Faltas, e por isso
+                           numa runa base o crachá pede 3 e esta linha pede 12
+
+   O ERRO QUE ISTO CORRIGE era nosso: entre 2026-09-26 e 2026-09-27 o tile
+   somava as duas contagens («2 normais · 1 foil = 3» num alvo de 3, crachá
+   «3/3» a verde), e ele deixou de ver o que lhe faltava — *"a impressao que
+   fica e que eu tenho as cartas todas, e quando me falta normais nao consigo
+   perceber automaticamente que falta"*. Eram 47 impressões e 48 cópias normais
+   escondidas. A separação aqui é ESTRUTURAL, não depende de chave nenhuma.
+
+   O `+` do foil acrescenta uma foil e não converte nada; não tem tecto natural
+   (o alvo é um alvo, não um tecto — ter 4 foils de um playset de 3 é legítimo e
+   lê-se «4/3»), e trava só no `limite` que o servidor manda.                */
 
 function foilLimite() { return state.index?.foil?.limite || 9999; }
 
 function foilLinha(pid) {
   if (!state.foilOk.has(pid)) return '';
-  const norm = state.tot.get(pid) || 0;
   const f = state.foil.get(pid) || 0;
+  const t = state.foilAlvo.get(pid) || 0;
   const lim = foilLimite();
+  const feito = t > 0 && f >= t;
   const controlos = state.editable ? `<span class="steppers foil">
       <button class="step minus" data-foil="-1" aria-label="menos uma foil"
               ${f <= 0 ? 'disabled' : ''}>−</button>
-      <b>${f}</b>
       <button class="step plus" data-foil="1" aria-label="mais uma foil"
               ${f >= lim ? 'disabled' : ''}>+</button>
     </span>` : '';
   // O que as foils contam vem do servidor (`foil.conta_para_coleccao` /
-  // `conta_para_valor`, que ele mandou ligar a 2026-09-26): a frase muda com as
-  // chaves em vez de ficar a dizer o de antes.
+  // `conta_para_valor`): a frase muda com as chaves em vez de ficar a dizer o
+  // de antes. Hoje só a segunda está ligada.
   const contam = foilContamTxt();
   const pf = foilPrecoTxt(pid);
   // O PREÇO vai numa LINHA PRÓPRIA, a seguir aos `+`/`−` e com a largura toda
   // do tile (`flex-basis: 100%`), não encostado às contagens: a 375 px o tile
   // tem ~109 px e a metade que sobrava ao lado dos botões punha «foil ao preço
   // da normal» a uma palavra por linha. Medido.
-  return `<div class="foil-linha" title="tens ${norm} normais e ${f} ${
-    f === 1 ? 'foil' : 'foils'} desta impressão — ${norm + f} cópias ao todo. As duas contagens são independentes${
-    contam ? ` e os foils contam ${contam}` : ' e não contam para os alvos nem para o valor'}.${
+  return `<div class="foil-linha${feito ? ' is-done' : ''}" title="foil: tens ${f} de ${
+    t} (o playset do tipo, em foil). É uma contagem SEPARADA da das normais, que está no crachá em cima — as duas nunca se somam.${
+    contam ? ` As foils contam ${contam}.` : ' As foils não contam para os alvos da Coleção nem para o valor.'}${
     pf ? ` ${pf.title}` : ''}">
-    <span class="foil-txt"><b>${norm}</b> normais · <b class="fo">${f}</b> foil${
-      f ? ` <i class="dim">= ${norm + f}</i>` : ''}</span>${controlos}${
+    <span class="foil-txt">foil <b class="fo">${f}</b>${
+      t > 0 ? `<i class="dim">/${t}</i>` : ''}</span>${controlos}${
     pf ? `<span class="${pf.cls}">${pf.txt}</span>` : ''}</div>`;
 }
 
@@ -1160,17 +1177,20 @@ async function foilAjustar(pid, delta) {
   }
 }
 
-/* COM OS BOTÕES DELE LIGADOS, UMA FOIL É UMA CÓPIA DA IMPRESSÃO (2026-09-26)
+/* O QUE UM `+` DE FOIL MEXE, ALÉM DA LINHA DO FOIL
 
-   `foil.conta_para_coleccao` faz do `qty` da Coleção `normais + foils`, e é
-   desse `qty` que saem o crachá, as três barras, o painel, os níveis e (no
-   cliente) o valor. Por isso um `+` de foil tem de mexer no `state.qty`, como o
-   `applyLocal` faz com as normais — senão o número do tile ficava atrasado até
-   ao próximo carregamento e ele via o contador do foil a subir sem mais nada a
-   acontecer.
+   Depende das chaves do servidor, e hoje (2026-09-27, à noite) só uma está
+   ligada:
 
-   As NORMAIS (`state.tot`) nunca mexem por aqui: são duas contagens
-   independentes, e é o que o `−` do tile continua a baixar. */
+     `conta_para_coleccao` **false** — o `state.qty` (o crachá, as três barras, o
+                           painel, os níveis) **não mexe**: a Coleção conta as
+                           normais. Era ligá-la que fazia 2 normais + 1 foil
+                           lerem-se «3/3» e escondia-lhe a falta.
+     `conta_para_valor`    **true** — o valor e o playset JOGÁVEL mexem (os dois
+                           leem o `contadas`, que é o funil dessa chave).
+
+   As NORMAIS (`state.tot`, `state.qty`) nunca mexem por aqui: são duas
+   contagens independentes, e é o `−` do tile que baixa as normais. */
 function foilAplicarLocal(pid, delta) {
   const cat = state.index?.foil || {};
   if (!cat.conta_para_coleccao && !cat.conta_para_valor) {
@@ -1329,9 +1349,14 @@ function renderFoilResumo() {
       <small>${escapeHTML(nomes.join(' e ').toLowerCase() || 'comuns e incomuns')},
       só as impressões base${(cat.sem_edicoes || []).length
         ? ` — o ${escapeHTML(cat.sem_edicoes.join(', '))} fica de fora` : ''}.
-      São duas contagens independentes e o total é a soma: 3 normais e 3 foil são 6 cópias.
+      São duas contagens <b>separadas</b> — aqui somam-se para dizer quantas cartas
+      tem na mão (3 normais e 3 foil são 6 cópias), mas nos <b>alvos nunca</b>:
+      no tile o crachá é as normais e a linha de baixo é o foil, cada um com o seu.
       ${contam.length ? `Os foils contam ${escapeHTML(contam.join(' e '))}.`
         : 'Não contam para os alvos nem para o valor.'}
+      ${cat.conta_para_coleccao ? '' : `<b>Não contam para os alvos</b>: se
+        contassem, 2 normais e 1 foil liam-se «3/3» e uma falta de normais
+        desaparecia do ecrã.`}
       ${cat.conta_para_valor ? foilNotaValor() : ''}
       ${cat.conta_para_coleccao ? `No «A mais» <b>não entram no que sobra</b>:
         o excedente conta primeiro as normais — os foils são peça de coleção,

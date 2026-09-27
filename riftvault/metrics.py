@@ -1140,12 +1140,16 @@ def set_payload(con: sqlite3.Connection, set_id: str, editable: bool = True,
     # porque não valem o mesmo que as normais.
     foil_valor = locais.foils_que_contam(con, "conta_para_valor", cfg)
     # A contagem de foil (2026-09-22): quantas cópias FOIL ele tem de cada
-    # impressão, e quais é que levam contador. Desde 2026-09-26 é uma contagem
-    # À PARTE das normais, não uma fatia delas — o total da impressão é
-    # `qty_total + foil` — e, com os dois botões dele ligados, CONTA para os
-    # alvos e para o valor.
+    # impressão, quais é que levam contador, e QUANTAS QUER TER de cada
+    # (2026-09-27, à noite). É uma contagem À PARTE das normais, **e no tile
+    # nunca se soma a elas**: o crachá é as normais, a linha de baixo é o foil
+    # contra o `foil.alvo` (o playset do tipo). Somá-las escondia-lhe 48 cópias
+    # normais em falta em 47 impressões que se liam «3/3» — ver o
+    # `foil.conta_para_coleccao`.
     foil_qty = foil.qty_foil(con)
-    foil_ambito = set(foil.ids_do_ambito(con, cfg, set_id))
+    ambito = foil.ids_do_ambito(con, cfg, set_id)
+    foil_ambito = set(ambito)
+    foil_alvo = {pid: foil.alvo(r, cfg) for pid, r in ambito.items()}
     # Onde estão as cópias que não estão no binder de coleção: nos decks.
     # E que decks USAM cada carta lógica (André, 2026-09-11: *"na coleção
     # indica onde as cartas estão a ser usadas"*) — é por carta, não por
@@ -1239,11 +1243,19 @@ def set_payload(con: sqlite3.Connection, set_id: str, editable: bool = True,
             # valem o mesmo desde 2026-09-26.
             "qty_valor": contadas.get(r["printing_id"], 0),
             "qty_valor_foil": foil_valor.get(r["printing_id"], 0),
-            # Quantas cópias FOIL, e se esta impressão tem contador
-            # (2026-09-22). As NORMAIS são o `qty_total`, e o total da
-            # impressão é a soma dos dois (2026-09-26) — aqui e no `app.js`.
+            # Quantas cópias FOIL, se esta impressão tem contador (2026-09-22)
+            # e o ALVO delas (2026-09-27, à noite).
+            #
+            # SÃO DUAS CONTAGENS SEPARADAS, E NUNCA SE SOMAM NO TILE (*"quero
+            # que a contagem na carta seja a de non-foil e a de baixo seja a
+            # foil, as coisas separadas"*): o crachá de cima é o `qty`/`target`
+            # (as NORMAIS da Coleção) e a linha de baixo é o `foil`/
+            # `foil_target`. O alvo de foil é o `foil.alvo` — o playset do tipo,
+            # o mesmo da metade das foils do separador Faltas —, e por isso numa
+            # runa é 12 onde o `target` é 3.
             "foil": foil_qty.get(r["printing_id"], 0),
             "foil_ok": r["printing_id"] in foil_ambito,
+            "foil_target": foil_alvo.get(r["printing_id"], 0),
             "locations": [
                 {"loc": loc, "label": locais.rotulo(loc, nomes_decks), "qty": n}
                 for loc, n in sorted(

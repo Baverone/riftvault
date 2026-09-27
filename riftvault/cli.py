@@ -1074,6 +1074,19 @@ def cmd_runas(args) -> int:
     return 0
 
 
+def _contagens_foil(r: dict) -> str:
+    """«2 normais · foil 1/3» — as DUAS contagens de uma impressão, separadas.
+
+    A mesma leitura do tile desde 2026-09-27, à noite (*"quero que a contagem na
+    carta seja a de non-foil e a de baixo seja a foil, as coisas separadas"*): as
+    normais primeiro, as foils contra o ALVO DE FOIL (o playset do tipo, Rune
+    12). Não se escreve o total — era a soma que lhe escondia a falta.
+    """
+    t = r.get("foil_target")
+    return (f"{r['normal']} normais · foil {r['foil']}"
+            + (f"/{t}" if t else ""))
+
+
 def _precos_foil(r: dict) -> str:
     """« · foil 1,50 € (normal 0,11 €)» — os dois preços de uma impressão.
 
@@ -1097,9 +1110,13 @@ def cmd_foil(args) -> int:
     acrescentam e tiram FOILS.
 
     O FOIL SOMA-SE (2026-09-26): `--mais 2` dá-lhe duas foils a mais das
-    normais que já tinha, e o total da impressão SOBE. Não mexe nas cópias
-    normais (`copies.qty`) e, com os dois botões dele desligados — a omissão —,
-    nenhum número do site muda com isto.
+    normais que já tinha. Não mexe nas cópias normais (`copies.qty`).
+
+    SÃO DUAS CONTAGENS SEPARADAS (2026-09-27, à noite), e a linha di-lo como o
+    tile: as normais contra o alvo da COLEÇÃO e as foils contra o alvo de FOIL
+    (o playset do tipo). Com o `foil.conta_para_coleccao` a `false`, que é o que
+    vale hoje, um `+` de foil **não mexe em nível, percentagem nem wantlist
+    nenhuma**; mexe no valor, que é a outra chave e está ligada.
     """
     con = db.connect()
     if db.catalog_is_empty(con):
@@ -1120,8 +1137,7 @@ def cmd_foil(args) -> int:
             con.close()
             return 1
         print(f"{r['name']} [{_codigo_curto(r['code'])}]: {r['applied']:+d} foil -> "
-              f"{r['normal']} normais · {r['foil']} foil = {r['total']} cópias "
-              f"(as normais não mexeram){_precos_foil(r)}")
+              f"{_contagens_foil(r)} (as normais não mexeram){_precos_foil(r)}")
         con.close()
         return 0
     if args.ref:
@@ -1131,8 +1147,8 @@ def cmd_foil(args) -> int:
             print(str(exc), file=sys.stderr)
             con.close()
             return 1
-        print(f"{r['name']} [{_codigo_curto(r['code'])}]: {r['normal']} normais · "
-              f"{r['foil']} foil = {r['total']} cópias{_precos_foil(r)}")
+        print(f"{r['name']} [{_codigo_curto(r['code'])}]: "
+              f"{_contagens_foil(r)}{_precos_foil(r)}")
         con.close()
         return 0
     sets = metrics.sets_payload(con, cfg)
