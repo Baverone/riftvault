@@ -77,6 +77,19 @@ O QUE VEM A CAMINHO CONTA
 
     Por construção, o bloco `master` de cada edição pede EXACTAMENTE as cópias
     da wantlist dessa edição (`a_subir.master_faltas`) — há teste.
+
+ESTE FICHEIRO É A METADE DAS NORMAIS (2026-09-27)
+    O separador passou a ter duas metades à vista: as NORMAIS (estes quatro
+    blocos) e as FOILS (*"quero as faltas separadas, as normais e as foils / as
+    foils nao sao faltas, sao apenas complemento e indicativo"*). A metade das
+    foils vive no `faltas_foil.py` e é ele que compõe as duas
+    (`faltas_foil.payload_completo`) — deste ficheiro nada mudou a não ser o
+    nome de duas funções, e é isso que prova que as faltas normais dão o mesmo
+    número antes e depois.
+
+    O `item()` e o `soma()` são PÚBLICOS desde então: são a forma de uma linha
+    de falta e a soma de um bloco, e as duas metades usam a mesma (era `_item`
+    e `_soma`). Um segundo par era uma segunda definição de «falta».
 """
 
 from __future__ import annotations
@@ -147,7 +160,7 @@ def em_falta(con: sqlite3.Connection, escopo: dict[str, dict]) -> dict[str, dict
     return out
 
 
-def _item(pid: str, info: dict, preco: int | None, mkt: dict) -> dict:
+def item(pid: str, info: dict, preco: int | None, mkt: dict) -> dict:
     total = (preco or 0) * info["missing"]
     return {
         "printing_id": pid, "name": info["name"],
@@ -173,7 +186,7 @@ def _item(pid: str, info: dict, preco: int | None, mkt: dict) -> dict:
     }
 
 
-def _soma(itens: list[dict]) -> dict:
+def soma(itens: list[dict]) -> dict:
     return {
         # Só o que há a comprar. Uma carta coberta pelo pendente não conta
         # aqui — está na lista para se ver que vem a caminho.
@@ -230,7 +243,7 @@ def payload(con: sqlite3.Connection, cfg: dict | None = None) -> dict:
         ambito[info["set_id"]][b] += 1
         if pid in falta:
             por_set[info["set_id"]][b].append(
-                _item(pid, falta[pid], precos.get(pid), mercado.get(pid) or {}))
+                item(pid, falta[pid], precos.get(pid), mercado.get(pid) or {}))
 
     sets = []
     for s in sets_ids:
@@ -243,7 +256,7 @@ def payload(con: sqlite3.Connection, cfg: dict | None = None) -> dict:
                 "target_label": metrics.alvo_do_bloco(b, cfg),
                 "in_lists": in_lists[b],
                 "scope": ambito[s][b],
-                **_soma(itens),
+                **soma(itens),
                 "items": itens,
                 # A wantlist DESTE bloco, desta edição (2026-09-19): o texto
                 # é o do `cardmarket.gerar`, o mesmo gerador das outras
@@ -256,8 +269,8 @@ def payload(con: sqlite3.Connection, cfg: dict | None = None) -> dict:
                      # A soma dos quatro blocos — o que ele pediu no
                      # cabeçalho da edição — e, à parte, só o que entra nas
                      # listas de compra gerais.
-                     **_soma(todos),
-                     "lists": _soma([x for g in grupos if g["in_lists"] for x in g["items"]]),
+                     **soma(todos),
+                     "lists": soma([x for g in grupos if g["in_lists"] for x in g["items"]]),
                      "blocks": grupos})
 
     todos = [x for d in sets for g in d["blocks"] for x in g["items"]]
@@ -266,10 +279,10 @@ def payload(con: sqlite3.Connection, cfg: dict | None = None) -> dict:
         "blocks": [{"id": b, "label": label, "in_lists": in_lists[b]} for b, label in ordem],
         "so_master_set": bool(o["so_master_set"]),
         "rule": str(o["regra_falta"]),
-        "totals": _soma(todos),
+        "totals": soma(todos),
         # Só os blocos que entram nas listas de compra gerais: é este que bate
         # com a wantlist «tudo» da Coleção.
-        "totals_lists": _soma(nas_listas),
+        "totals_lists": soma(nas_listas),
         "sets": sets,
         "scope": {
             "printings": sum(ambito[s][b] for s in sets_ids for b in BLOCO_IDS),

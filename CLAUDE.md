@@ -45,7 +45,11 @@ foi o botão, no 8770 e no site publicado. Repor é tirar o nome da lista.
 
 Secções: **Coleção**, **Decks**, **Faltas** (de
 2026-09-15 ao fim da tarde — por edição, três blocos; **quatro desde
-2026-09-19, cada um com a sua wantlist** — ver a última secção deste
+2026-09-19, cada um com a sua wantlist**; e **DUAS METADES desde 2026-09-27**
+— as NORMAIS nesses quatro blocos e as **FOILS** à parte, que *"nao sao
+faltas, sao apenas complemento e indicativo"*, com a QUINTA wantlist, alvo
+igual ao playset do tipo (Rune 12) e fora de tudo o que já se contava
+(`faltas_foil.py`) — ver a última secção deste
 ficheiro; id interno `faltas-edicao`, `api/faltas_edicao.json`,
 `faltas_edicao.py`) e **A mais**
 (2026-09-17 — o excedente acima do alvo e as cartas libertadas dos decks; id
@@ -2656,6 +2660,16 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   rebenta se alguém simplificar o critério para «não tem Cardmarket, sai».
   **Por decidir:** os «Nexus Night Promo Booster» do UNL e do VEN. Ver a
   última secção deste ficheiro.
+- **Feito também:** as FALTAS EM DUAS METADES (2026-09-27) — as normais nos
+  quatro blocos de sempre e as **FOILS** à parte, com a quinta wantlist;
+  *"as foils nao sao faltas, sao apenas complemento e indicativo"*, por isso
+  ficam fora da contagem de faltas, da percentagem e das listas que já
+  existem (o `faltas_edicao.py` nem conhece a coluna — quem junta as duas é
+  o `faltas_foil.payload_completo`, e a metade das normais sai BYTE A BYTE
+  igual). Alvo = o playset do tipo que já existe (Battlefield 1, **Rune
+  12**); âmbito = o do contador de foil (512, comuns e incomuns, sem OGS);
+  preço da foil com o fallback contado; e o aviso das 47 impressões com foil
+  e o playset das normais incompleto. Ver a última secção deste ficheiro.
 - **Por fazer:** a parte 2 do seguir — o separador no site e a tarefa diária;
   vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck,
   com as partilhadas assinaladas); e apagar decks pela interface (hoje apaga-se
@@ -7239,6 +7253,137 @@ de botões de 24/09): passou a exigir que o único `overflow-x` do site seja o d
 vermelho outra vez.
 
 Suite: **52 ficheiros, 0 a falhar**.
+
+## 27/09/2026 — AS FALTAS EM DUAS METADES: as normais e as FOILS (`faltas_foil.py`), com a QUINTA wantlist
+
+Palavras dele: *"quero as faltas separadas, as normais e as foils / as foils
+nao sao faltas, sao apenas complemento e indicativo / mais tarde poderao vir a
+ser compradas, entao preciso que tenham uma wantlist a parte"*. Sobre o alvo:
+*"o alvo das foils e 3 de cada"* e, a precisar-se logo a seguir, *"no caso,
+playset"*. Ramo `ai-pc/faltas-foil-2026-09-27`.
+
+### 1. O ALVO é o PLAYSET DO TIPO — e a ordem dizia duas coisas
+
+`metrics.playset_target` / `playset_targets_by_type`, a tabela que já manda no
+playset jogável: Unit/Spell/Gear 3, Battlefield 1, Legend 1, **Rune 12**, token
+1 (`token_target`). **Não se escreveu alvo novo em lado nenhum.**
+
+A ordem nomeou no texto o `metrics.alvo_do_tipo` — que é o alvo de COLEÇÃO do
+tipo e dá **Rune 3**, por causa do `master_targets_by_type` de 15/09 —, mas a
+lista de alvos dela diz «Rune 12», o `playset_targets_by_type` é a tabela do
+12, e **o total que ela mandou confirmar só fecha com o 12**. Escolheu-se pelos
+números. A consequência, dita em voz alta: **numa runa o alvo em foil (12) não
+é o alvo da coleção normal (3)** — as 6 runas base do OGN pedem 72 foils. É a
+única divergência entre as duas metades, e é pergunta para ele.
+
+### 2. AS FOILS NÃO SÃO FALTAS — e isso é arquitectura, não um comentário
+
+O bloco fica fora da contagem de faltas, da percentagem da Coleção e dos três
+níveis, das quatro wantlists por bloco e de todas as listas de compra que já
+existem. **O `faltas_edicao.py` (a metade das normais) não conhece o módulo
+novo nem a coluna `qty_foil`**; quem compõe as duas é o
+`faltas_foil.payload_completo`, e a metade das normais vem de lá tal e qual —
+`blocks` (quatro, nunca cinco), `totals`, `totals_lists` e `scope`.
+
+**Não confundir com a decisão de 2026-09-26.** Desde essa tarde o que uma
+impressão TEM, para os alvos da Coleção, é `qty + qty_foil` — uma foil tapa um
+buraco do master set (`foil.conta_para_coleccao`). O que nasce hoje é a
+pergunta SIMÉTRICA: «quantas foils me faltam para ter o playset EM FOIL». São
+duas contas diferentes sobre a mesma coluna, e nenhuma mexe na outra.
+
+### 3. O ÂMBITO é o do contador de foil; de rara para cima NÃO se lista nada
+
+`foil.no_ambito` — as impressões BASE, não sobrenumeradas, das raridades do
+`foil.raridades` (comuns e incomuns), fora as edições do `foil.edicoes_fora` (o
+OGS). **São 512**, e nelas entram os **4 tokens** que a API imprime como Unit
+(`OGN-271..274`, Recruit ×3 e Sprite): têm contador de foil na grelha desde
+22/09 e por isso têm-no aqui, com o alvo deles, 1. **A ordem media 508** por os
+ter tirado à mão; preferiu-se não abrir um segundo âmbito por quatro impressões
+que o contador já conta.
+
+Em Riftbound as raridades acima de incomum só existem em foil — a carta normal
+*é* a foil —, e listá-las era duplicar a coleção inteira numa segunda lista.
+
+### 4. A QUINTA WANTLIST, o preço da foil, e o que não há
+
+A quinta, com a mesma gramática das quatro de 19/09: só o que há a comprar, o
+texto do `cardmarket.gerar` (o gerador único), `riftvault faltas --edicao OGN
+--bloco foil --cardmarket`. **O texto não leva marca de foil** — no Cardmarket
+é um filtro por entrada (regra de 01/09) —, e por isso TODAS as linhas vêm
+marcadas, com a frase própria («estas N linhas são FOIL») em vez da das
+normais («N destas só têm oferta foil no mercado»).
+
+**O preço é o da FOIL** (`metrics.precos_de_foil_map`, o `price_foil_cents` de
+26/09 à noite); sem oferta foil a linha cai para o preço da normal, e esse
+fallback **conta-se e diz-se** (`no_foil_price`, o marcador «normal» no tile) —
+é ele que faz do total um PISO. **Não há PENDENTE de foil**: a `pending` guarda
+a impressão encomendada, não o acabamento, e não se inventou um que a base não
+tem.
+
+### 5. O AVISO que ele pediu de volta
+
+As impressões em que ele TEM foil e o playset das **NORMAIS** ainda está
+incompleto (`aviso_normais`, um `<details>` no cabeçalho): a foil está a tapar
+o buraco — o tile da Coleção diz «3/3» porque a foil conta desde 26/09, e em
+normais ele tem 2. **Não se decidiu nada sobre elas** — mostram-se e contam-se.
+
+### Medido a 2026-09-27 contra uma CÓPIA do `data/` real
+
+`_revisao\_medir_faltas_foil_lado.py` (+ `_preparar_medicao.py`,
+`_comparar_faltas_foil.py`): o `main` num worktree e o ramo, cada um com a sua
+cópia do MESMO instante dos dados — o André estava a marcar foils enquanto isto
+corria, e o `data/` a sério nunca se tocou.
+
+**A METADE DAS NORMAIS SAI BYTE A BYTE IGUAL** (mesmo sha256 do JSON inteiro,
+138 347 bytes): as faltas **432 cópias de 258 impressões · 9 069,11 €**, a
+comprar **185 cópias de 116 · 843,43 €**, as **20 wantlists por bloco** texto a
+texto, os quatro blocos de cada edição item a item, os níveis **910/873/812 de
+928**, a wantlist geral e as cinco por edição, o valor **7 802,52 €**, o painel
+e o `copies` inteiro. Por edição: OGN 123 · SFD 135 · UNL 93 · VEN 68 · OGS 13.
+
+A metade das foils, na mesma fotografia: âmbito **512 impressões**, alvo somado
+**1454**, tem **448 foils** em 218 impressões, **faltam 1006 cópias de 412
+impressões · 409,04 €** (9 linhas ao preço da normal, nenhuma sem preço). Por
+tipo: Unit 456 · Spell 296 · Gear 125 · **Rune 72** · Battlefield 57. Por
+edição: OGN 499 · SFD 305 · UNL 180 · VEN 22.
+
+**O 1195 DA ORDEM CONFIRMA-SE, e a diferença tem duas causas, as duas benignas:**
+o alvo somado das 508 (o âmbito dela, sem os 4 tokens) é **1450**, e
+`1450 − 255 = 1195` — exactamente o número dela, com as 255 foils do momento em
+que ela mediu. Hoje ele tem **448** (marcou 193 desde então, que é o que o
+próprio pedido avisou que ia acontecer), e por isso faltam **1002** sem os
+tokens e **1006** com eles. As duas linhas que não dependem das foils novas
+batem ao número: **Rune 72** e **Battlefield 57**, iguais nas duas medições.
+
+**O aviso são 47 impressões, não 11** — mesma causa: ele marcou foil em mais
+cartas de playset normal incompleto. As cinco que a ordem nomeou estão lá
+(`OGN-087` Lecturing Yordle, `OGN-095` Stupefy, `OGN-130` Crackshot Corsair,
+`OGN-133` Flurry of Blades, `OGN-144` Spoils of War), todas a «normais 2/3 ·
+foil 1»; a lista inteira sai no `riftvault faltas` e na página. A única a 1/3 é
+a `UNL-070` Turn to Dust (1 normal, 2 foils).
+
+`tests/test_faltas_foil.py` (55 testes, contra pastas temporárias e config
+temporário): a metade das normais campo a campo igual ao `faltas_edicao`; os
+quatro blocos a continuarem quatro; as foils fora dos totais e das listas;
+mexer na coluna do foil a não mexer nas normais (com o botão de 26/09
+desligado, que é o que isola o código de hoje) e o teste que diz que COM ele
+ligado mexem, e que isso é a decisão de 26/09; a fotografia a não ser de zeros;
+**Battlefield 1 e Rune 12**, o alvo a vir da tabela do config e o ficheiro a não
+ter alvo escrito; o âmbito (só comuns e incomuns, a alt art e a sobrenumerada
+fora, o OGS sem metade, o mesmo conjunto do contador do tile); a quinta
+wantlist (o gerador único, só o que falta, todas as linhas a precisarem do
+filtro, a geral a não crescer, a edição fora do âmbito a rebentar); o preço da
+foil, o fallback contado, o `from_foil`; o aviso; o pendente a ser sempre 0;
+ler não escreve; a fronteira; e a rota, o `build`, a CLI, o `app.js`, o CSS e a
+nota do config. Suite: **53 ficheiros, 0 a falhar**.
+
+**Fotografado** a 1280 e a 375 px contra o ramo servido no 8779 (a cópia dos
+dados): `documentElement.scrollWidth == clientWidth == 375`, sem scroll lateral
+na página. Dois acertos vieram das fotos, não do código: o `<b>` da linha da
+metade dava «complemento , NÃO SÃO FALTAS» por causa do `letter-spacing` (é
+agora «complemento · não são faltas», e o resumo repetido saiu), e a palavra
+«foil» a seguir ao preço no tile fazia o preço ser elidido a 375 px — ficou só
+a marca do PISO, que é a excepção que interessa.
 
 ## 26/09/2026 — A PROIBIÇÃO DO `riftdecks.com` CAIU, por decisão do André
 

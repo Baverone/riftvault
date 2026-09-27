@@ -306,6 +306,14 @@ DEFAULTS: dict = {
     #                            vender», e ele não vende os foils — são peça
     #                            de coleção. O excedente conta primeiro as
     #                            NORMAIS e os foils nunca entram no que sobra.
+    #
+    # AS FALTAS DE FOIL (2026-09-27, *"quero as faltas separadas, as normais e
+    # as foils / as foils nao sao faltas, sao apenas complemento e indicativo /
+    # mais tarde poderao vir a ser compradas, entao preciso que tenham uma
+    # wantlist a parte"*) NÃO TÊM CHAVE PRÓPRIA, de propósito: o âmbito é este
+    # (`raridades`/`edicoes_fora`) e o alvo é o `playset_targets_by_type`, a
+    # tabela que já manda no playset jogável — Rune 12, Battlefield 1. Ver o
+    # `faltas_foil.py` e a `_faltas_foil_nota` do `riftvault_config.json`.
     "foil": {"raridades": ["common", "uncommon"], "edicoes_fora": ["OGS"],
              "conta_para_coleccao": True, "conta_para_valor": True,
              "entra_no_a_mais": False},

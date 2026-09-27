@@ -37,7 +37,7 @@ from . import a_subir as a_subir_mod
 from . import build as build_mod
 from . import cardmarket, catalog, collection, config, db, decks as decks_mod
 from . import faltas as faltas_mod
-from . import faltas_edicao
+from . import faltas_edicao, faltas_foil
 from . import foil as foil_mod
 from . import locais as locais_mod
 from . import metrics, painel, pending as pending_mod, prices
@@ -46,6 +46,10 @@ from . import runas_vista as runas_vista_mod
 from . import seguir as seguir_mod
 from . import server
 from . import uso_decks
+
+# Os blocos que o `riftvault faltas --bloco` aceita: os quatro das NORMAIS mais
+# o das FOILS (2026-09-27), que vive no outro módulo e tem a quinta wantlist.
+BLOCOS_FALTAS = faltas_edicao.BLOCO_IDS + [faltas_foil.BLOCO]
 
 
 def _qty(raw: str | None) -> int:
@@ -1451,12 +1455,14 @@ def cmd_seguir(args) -> int:
 
 
 def cmd_faltas(args) -> int:
-    """O separador «Faltas» na consola: por edição, os quatro blocos — master
-    set, alt art, sobrenumeradas, promos — com o que falta de cada
-    (2026-09-15; o quarto a 2026-09-19). Só o master set entra nas listas de
-    compra gerais; cada bloco tem a sua wantlist: `--cardmarket` com
-    `--edicao` e `--bloco` escreve-a para colar (o stdout fica colável, o
-    resto vai para o stderr, como no `riftvault wantlist`)."""
+    """O separador «Faltas» na consola, nas duas metades: as NORMAIS por edição
+    nos quatro blocos — master set, alt art, sobrenumeradas, promos
+    (2026-09-15; o quarto a 2026-09-19) — e as FOILS à parte (2026-09-27, *"as
+    foils nao sao faltas, sao apenas complemento"*). Só o master set entra nas
+    listas de compra gerais; cada bloco tem a sua wantlist, e as foils a
+    quinta: `--cardmarket` com `--edicao` e `--bloco` escreve-a para colar (o
+    stdout fica colável, o resto vai para o stderr, como no `riftvault
+    wantlist`)."""
     con = db.connect()
     if db.catalog_is_empty(con):
         print("catálogo vazio — corre `riftvault sync`.", file=sys.stderr)
@@ -1465,11 +1471,16 @@ def cmd_faltas(args) -> int:
     if args.cardmarket:
         if not alvo or not args.bloco:
             print("erro: --cardmarket precisa de --edicao e --bloco "
-                  f"({', '.join(faltas_edicao.BLOCO_IDS)}).", file=sys.stderr)
+                  f"({', '.join(BLOCOS_FALTAS)}).", file=sys.stderr)
             con.close()
             return 1
         try:
-            w = faltas_edicao.wantlist(con, alvo, args.bloco, com_codigo=args.codigos)
+            # A quinta wantlist (as foils) sai do outro módulo, com a mesma
+            # forma — quem chama não tem de saber de qual das metades é.
+            if args.bloco == faltas_foil.BLOCO:
+                w = faltas_foil.wantlist(con, alvo, com_codigo=args.codigos)
+            else:
+                w = faltas_edicao.wantlist(con, alvo, args.bloco, com_codigo=args.codigos)
         except ValueError as e:
             print(f"erro: {e}", file=sys.stderr)
             con.close()
@@ -1479,23 +1490,29 @@ def cmd_faltas(args) -> int:
               f"{prices.eur(w['cents'])}"
               + ("" if w["in_lists"] else " (só deste bloco — não está na wantlist geral)"),
               file=sys.stderr)
-        if w["foil"]:
+        if w["foil"] and args.bloco == faltas_foil.BLOCO:
+            # Aqui são TODAS: a lista é de foils. O texto da wantlist não leva
+            # marca de foil — no Cardmarket é um filtro por entrada.
+            print(f"# estas {len(w['foil'])} linhas são FOIL: o texto não leva marca "
+                  f"nenhuma, liga o filtro Foil em cada entrada depois de colares.",
+                  file=sys.stderr)
+        elif w["foil"]:
             print(f"# {len(w['foil'])} destas só têm oferta foil no mercado: liga o "
                   f"filtro Foil nessas entradas depois de colares.", file=sys.stderr)
         con.close()
         return 0
-    p = faltas_edicao.payload(con)
+    p = faltas_foil.payload_completo(con)
     sets = [s for s in p["sets"] if alvo is None or s["set"] == alvo]
     if alvo and not sets:
         print(f"{alvo}: não existe no catálogo.", file=sys.stderr)
         return 1
-    if args.bloco and args.bloco not in faltas_edicao.BLOCO_IDS:
+    if args.bloco and args.bloco not in BLOCOS_FALTAS:
         print(f"erro: bloco desconhecido {args.bloco!r}. Há: "
-              f"{', '.join(faltas_edicao.BLOCO_IDS)}.", file=sys.stderr)
+              f"{', '.join(BLOCOS_FALTAS)}.", file=sys.stderr)
         return 1
     for s in sets:
-        print(f"{s['name']} — faltam {s['copies']} cópias de {s['cards']} impressões · "
-              f"{prices.eur(s['cents'])}"
+        print(f"{s['name']} — NORMAIS: faltam {s['copies']} cópias de {s['cards']} "
+              f"impressões · {prices.eur(s['cents'])}"
               + (f" · {s['pending_copies']} a caminho" if s["pending_copies"] else ""))
         for g in s["blocks"]:
             if args.bloco and g["id"] != args.bloco:
@@ -1509,6 +1526,18 @@ def cmd_faltas(args) -> int:
                 print(f"    {cardmarket.codigo(x['code']):<12} "
                       f"{x['name'][:34]:<34} tens {x['have']}/{x['target']}  "
                       f"faltam {x['missing']}  {prices.eur(x['total']):>10}{caminho}")
+        # A segunda metade da edição: as FOILS. Separada à vista, como no site —
+        # não são faltas e não somam a nada do que está em cima.
+        g = s.get("foil")
+        if g and (not args.bloco or args.bloco == faltas_foil.BLOCO):
+            print(f"  {s['name']} — FOILS ({g['target_label']}) — complemento, NÃO são "
+                  f"faltas: faltam {g['copies']} cópias de {g['cards']} · "
+                  f"{prices.eur(g['cents'])}   (wantlist própria)")
+            for x in g["items"]:
+                piso = "" if x["price_is_foil"] else "  (preço da normal — piso)"
+                print(f"    {cardmarket.codigo(x['code']):<12} "
+                      f"{x['name'][:34]:<34} tens {x['have']}/{x['target']}  "
+                      f"faltam {x['missing']}  {prices.eur(x['total']):>10}{piso}")
         print()
     t, tl = p["totals"], p["totals_lists"]
     fora = ", ".join(f"{n} {b}" for b, n in sorted(p["scope"]["fora"].items()))
@@ -1521,6 +1550,8 @@ def cmd_faltas(args) -> int:
           + (" Os outros blocos têm wantlist própria (--cardmarket --edicao X "
              "--bloco B) e não entram na geral (listas_de_compra.so_master_set)."
              if p["so_master_set"] else ""))
+    print()
+    print(faltas_foil.texto(p["foil"]))
     con.close()
     return 0
 
@@ -1941,11 +1972,13 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--out", help="com --cardmarket: escrever para ficheiro")
     p.set_defaults(func=cmd_a_subir)
 
-    p = sub.add_parser("faltas", help="o separador Faltas: por edição, o que falta "
-                                      "ao master set, às alt art, às sobrenumeradas "
-                                      "e às promos — cada bloco com a sua wantlist")
+    p = sub.add_parser("faltas", help="o separador Faltas, nas duas metades: as NORMAIS "
+                                      "por edição (master set, alt art, sobrenumeradas, "
+                                      "promos) e as FOILS à parte — cada bloco com a sua "
+                                      "wantlist")
     p.add_argument("--edicao", help="só esta edição (OGN, SFD, …)")
-    p.add_argument("--bloco", help="só este bloco (master, alt_art, overnumbered, special)")
+    p.add_argument("--bloco", help="só este bloco: " + ", ".join(BLOCOS_FALTAS)
+                                   + " (o `foil` é a metade das foils, que não são faltas)")
     p.add_argument("--cardmarket", action="store_true",
                    help="com --edicao e --bloco: a wantlist desse bloco, para colar")
     p.add_argument("--codigos", action="store_true",
