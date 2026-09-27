@@ -1191,6 +1191,41 @@ Muda-se no botão **Montar/Desmontar** da página do deck (que escreve no
 montados**; a lista **vazia** é «nenhum montado» — são coisas diferentes, e
 desmontar o último escreve `[]`.
 
+### O deck principal, e a wantlist dele (2026-09-27)
+
+Frase tua: *"Deck Principal: neste caso LeBlanc / eu coloco + e - se tenho a
+carta no Deck / a Colecao e soberana, nao e para mexer / todas as cartas do
+Deck sao Wantlist, as comuns e incomuns em Foil"*.
+
+`decks.principal` é **um** deck (hoje `"LeBlanc Hook"`). Não é a prioridade 1 —
+essa diz quem se serve primeiro da Coleção; esta diz qual é o deck que estás a
+jogar. **O principal é sempre montado**, e desmontá-lo despromove-o. Sem a
+chave não há deck principal.
+
+A **wantlist dele** é o que lhe falta para ser **auto-suficiente**: tudo o que
+o deck pede e ainda não marcaste como **cópia própria** — uma carta marcada com
+o `+` sai da lista. **Não desconta a Coleção**: enquanto não a marcares, o deck
+joga com a cópia da Coleção e o site diz-o nos dois sítios (**«em uso no deck
+X»** no tile da Coleção, **«X cartas em uso da Coleção, ainda falta Y
+específica para o deck»** na página do deck), mas ela continua na lista porque
+o que se quer é o deck ficar com as suas. As **comuns e incomuns** querem-se em
+**foil** (ao preço de foil, com o fallback para o da normal contado — o total é
+um piso); de rara para cima é a carta normal. As runas ficam de fora.
+
+**O empréstimo não mexe na Coleção**: nem nos níveis, nem no valor, nem nas
+Faltas, nem nas wantlists — está medido, zero diferenças.
+
+Quando um deck **deixa de ser principal** (ou é desfeito), as **cópias próprias
+dele** que valham pelo menos **0,50 €** (`decks.venda_minimo_cents`) ganham uma
+linha no separador **Venda**, marcada com a origem: a página diz de onde vieram
+e tem um botão para as tirar de uma vez. As de menos de 0,50 € **continuam
+cópias próprias do deck** (a página diz quantas são e quanto valem). **Entrar
+na Venda não é vender**: nada sai do deck e nada baixa — quem baixa cópias
+continua a ser o botão «marcar como vendidas».
+
+Na consola: `riftvault principal` (quem é e a wantlist),
+`riftvault principal --definir SLUG`, `--limpar`, `--cardmarket`.
+
 ### A regra de raridade: o que devia ser cópia própria (2026-09-24)
 
 Frase tua: *"vou tentar ao maximo que cartas de raridade Rara para baixo
