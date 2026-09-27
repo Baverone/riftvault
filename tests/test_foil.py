@@ -420,19 +420,22 @@ class TestOAmbito(Base):
         """O âmbito (22/09) e as TRÊS chaves de hoje.
 
         As duas primeiras nasceram a `false` a 2026-09-26 de manhã e ele
-        respondeu-as na mesma tarde — *"contam para o valor sim, e contabilizas
-        tambem como parte do master set"* —, com a terceira a impedir que os
-        foils apareçam como excedente no «A mais».
+        respondeu-as na mesma tarde (*"contam para o valor sim, e contabilizas
+        tambem como parte do master set"*). **O `conta_para_coleccao` voltou a
+        `false` a 2026-09-27, à noite**, e foi ele que o mandou: somar as foils
+        aos alvos escondia-lhe faltas de normais — 47 impressões liam-se «3/3»
+        com as normais a 2/3. O `conta_para_valor` FICA a `true`: é outra
+        pergunta e ele não a mudou.
         """
         cfg = json.loads((REPO / "riftvault_config.json").read_text(encoding="utf-8"))
         self.assertEqual(cfg["foil"]["raridades"], ["common", "uncommon"])
         self.assertEqual(cfg["foil"]["edicoes_fora"], ["OGS"])
-        self.assertIs(cfg["foil"]["conta_para_coleccao"], True)
+        self.assertIs(cfg["foil"]["conta_para_coleccao"], False)
         self.assertIs(cfg["foil"]["conta_para_valor"], True)
         self.assertIs(cfg["foil"]["entra_no_a_mais"], False)
         self.assertEqual(self.config.DEFAULTS["foil"],
                          {"raridades": ["common", "uncommon"], "edicoes_fora": ["OGS"],
-                          "conta_para_coleccao": True, "conta_para_valor": True,
+                          "conta_para_coleccao": False, "conta_para_valor": True,
                           "entra_no_a_mais": False})
 
 
@@ -920,20 +923,20 @@ class TestRotaBuildCLI(Base):
         out = io.StringIO()
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
             self.assertEqual(cli.main(["foil", "TST-001", "--mais", "2"]), 0)
-        self.assertIn("3 normais · 2 foil = 5 cópias", out.getvalue())
+        self.assertIn("3 normais · foil 2/3", out.getvalue())
         out = io.StringIO()
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
             self.assertEqual(cli.main(["foil", "TST-001"]), 0)
-        self.assertIn("3 normais · 2 foil = 5 cópias", out.getvalue())
+        self.assertIn("3 normais · foil 2/3", out.getvalue())
         out = io.StringIO()
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
             self.assertEqual(cli.main(["foil", "TST-001", "--menos", "2"]), 0)
-        self.assertIn("3 normais · 0 foil = 3 cópias", out.getvalue())
+        self.assertIn("3 normais · foil 0/3", out.getvalue())
         # O `--mais` além das normais é legítimo desde 2026-09-26.
         out = io.StringIO()
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
             self.assertEqual(cli.main(["foil", "TST-001", "--mais", "7"]), 0)
-        self.assertIn("3 normais · 7 foil = 10 cópias", out.getvalue())
+        self.assertIn("3 normais · foil 7/3", out.getvalue())
         # Fora do âmbito e sem REF: erro, com a razão.
         err = io.StringIO()
         with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(err):

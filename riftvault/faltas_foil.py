@@ -113,17 +113,17 @@ ALVO_LABEL = "playset do tipo, em foil"
 def alvo(printing, cfg: dict | None = None) -> int:
     """O alvo de foils de uma impressão: o PLAYSET DO TIPO.
 
-    `metrics.playset_target` — a função que já responde a esta pergunta para o
-    playset jogável (`playset_targets_by_type`): Unit/Spell/Gear 3,
-    Battlefield 1, Legend 1, Rune 12, e `token_target` (1) nos tokens. Não há
-    alvo novo: se ele mudar a tabela, muda aqui também.
+    **Mora no `foil.alvo` desde a noite de 2026-09-27**, quando o contador do
+    TILE passou a mostrar `foil M/T` e precisou do mesmo número: a pergunta é da
+    mesma casa que o `foil.no_ambito`, e ter duas respostas era ter duas
+    tabelas. Esta função fica como o nome por onde esta metade lhe chama.
 
-    Não é o `metrics.alvo_do_tipo` (o alvo de COLEÇÃO do tipo), e a diferença é
-    só na runa — 12 aqui, 3 na coleção normal. Ver o topo do ficheiro.
+    Continua a ser o `metrics.playset_target` (`playset_targets_by_type`):
+    Unit/Spell/Gear 3, Battlefield 1, Legend 1, Rune 12, e `token_target` (1)
+    nos tokens. Não é o `metrics.alvo_do_tipo` (o alvo de COLEÇÃO do tipo), e a
+    diferença é só na runa — 12 aqui, 3 na coleção normal. Ver o topo.
     """
-    cfg = cfg or config.load()
-    return metrics.playset_target(metrics.campo(printing, "type"),
-                                  bool(metrics.campo(printing, "is_token")), cfg)
+    return foil.alvo(printing, cfg)
 
 
 def escopo(con: sqlite3.Connection, cfg: dict | None = None) -> dict[str, dict]:

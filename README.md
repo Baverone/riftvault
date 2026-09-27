@@ -757,11 +757,11 @@ código com esta; não existe.
 
 Não se distingue foil de normal no GRÃO da coleção: uma cópia é uma cópia, e o
 alvo do master set é por impressão. Desde 2026-09-22 há, ao lado disso, uma
-**contagem** de quantas foils tens de cada — que se SOMA às normais e, desde
-2026-09-26 à tarde, **conta** para o master set e para o valor; ver a secção a
-seguir.
+**contagem** de quantas foils tens de cada — e desde 2026-09-27 à noite ela é
+uma contagem **SEPARADA**, com alvo próprio, que conta para o valor e **não**
+para os alvos da Coleção; ver a secção a seguir.
 
-## Foil e não-foil, nas comuns e incomuns (2026-09-22, corrigido a 2026-09-26)
+## Foil e não-foil, nas comuns e incomuns (2026-09-22, corrigido a 2026-09-26 e a 2026-09-27)
 
 *"Para comuns e incomuns, coloca contagem para Foil e Non-Foil, para todas as
 edicoes excepto Proving Grounds"* — «Proving Grounds» é o OGS, por isso vale
@@ -779,31 +779,58 @@ foil *convertia* uma normal. Era erro nosso: *"as foils quando eu marco é que
 tenho TAMBÉM foil, ou seja, normal + foil e não apenas 1, no caso daria 3+3"*.
 Nenhum número guardado precisou de mudar — o que saiu foi o `CHECK` da base.)
 
-Nas cartas do âmbito — as impressões **base**, não sobrenumeradas, comuns e
-incomuns, dessas quatro edições: **512 impressões** — o tile da Coleção ganha,
-por baixo dos `+`/`−` de sempre, um contador pequeno de foil e a linha «3
-normais · 3 foil = 6», mais o **preço da foil** (ou a marca de que aquela conta
-ao preço da normal). O `+` do foil **não mexe nas normais** (e o `−` da
-grelha não mexe nas foils): acrescenta uma foil, e o total sobe. Não tem tecto
-natural — trava só num limite de sanidade. Por baixo do painel do topo há o
-resumo da edição aberta (ou de «Todas»), com uma linha por raridade.
+### No TILE são duas contagens separadas (2026-09-27, à noite)
+
+*"Quero que haja 2 contagens separadas / a de normais e de foils / verifiquei
+ontem que a contagem sobe com as foils e a impressao que fica e que eu tenho as
+cartas todas, e quando me falta normais nao consigo perceber automaticamente
+que falta / quero que a contagem na carta seja a de non-foil e a de baixo seja a
+foil, as coisas separadas"*.
+
+| | o que conta | contra que alvo |
+|---|---|---|
+| o **crachá**, na arte | as cópias **NORMAIS** da Coleção | o alvo da Coleção (`metrics.alvo`) |
+| a **linha**, por baixo | as cópias **FOIL** | o **playset do tipo** (`foil.alvo`) — numa runa, 12 |
+
+**Nunca somadas, e a separação não depende de chave nenhuma.** A linha só
+aparece nas **512** impressões do âmbito — as **base**, não sobrenumeradas,
+comuns e incomuns, dessas quatro edições. De rara para cima não aparece: essas
+raridades só existem em foil, a carta normal *é* a foil, e um «0/3 foil» ali
+era mentira. A linha leva também o **preço da foil** (ou a marca de que aquela
+conta ao preço da normal). O `+` do foil **não mexe nas normais** (e o `−` da
+grelha não mexe nas foils). O alvo não é tecto: 4 foils de um playset de 3
+lêem-se «4/3». Por baixo do painel do topo há o resumo da edição aberta (ou de
+«Todas»), com uma linha por raridade — ali as duas somam-se, porque a pergunta
+é quantas cartas tens na mão.
 
 **Uma carta só em foil** (0 normais, foil > 0) é estado legítimo desde
-2026-09-26, e conta: o crachá lê `2/3`, porque as foils são cópias da impressão.
-A linha de baixo diz «0 normais · 2 foil = 2» e o `−` fica desligado — ele baixa
-as normais, e não há nenhuma.
+2026-09-26: o crachá lê `0/3` (a Coleção conta as normais) e a linha de baixo
+diz «foil 2/3», com o `−` das normais desligado.
 
-### O FOIL CONTA (2026-09-26, à tarde)
+**ISTO CORRIGE UM ERRO NOSSO, e tinha tamanho.** A 2026-09-26 ele disse
+*"contabilizas tambem como parte do master set"*, ligámos o
+`foil.conta_para_coleccao`, medimos que não mudava nível nenhum e dissemos-lho —
+era verdade nesse minuto, porque só tinha foils onde já tinha o playset. Marcou
+mais 193 foils e deixou de ser verdade: **47 impressões** liam-se «3/3» com as
+normais a 2/3, e escondiam **48 cópias normais** em falta. A ideia de somar não
+resiste porque depende do **hábito de marcação** dele, não de uma regra — um
+número que só está certo enquanto ele marcar por uma certa ordem não é um
+número.
 
-*"Contam para o valor sim, e contabilizas tambem como parte do master set"*. As
-duas chaves que nasceram desligadas de manhã estão **ligadas**, e uma cópia foil
-vale como cópia da impressão:
+### O que o foil conta, e o que não conta
 
 | chave | hoje | o que faz |
 |---|---|---|
-| `foil.conta_para_coleccao` | **true** | os foils contam para os ALVOS: os três níveis, o denominador, as Faltas e as wantlists. O que a impressão tem é `qty + qty_foil` |
+| `foil.conta_para_coleccao` | **false** (era `true` a 26/09) | ligado, os foils contariam para os ALVOS: os três níveis, o denominador, as Faltas e as wantlists, e o que a impressão tem passaria a ser `qty + qty_foil`. É o que escondia as 47 |
 | `foil.conta_para_valor` | **true** | os foils contam para o VALOR, **ao preço da foil** |
 | `foil.entra_no_a_mais` | **false** | os foils **não** entram no que sobra no «A mais» |
+
+**Medido a 2026-09-27, na mesma corrida e na mesma cópia do `data/` real:**
+playset **812/928 = 87,5 % → 765/928 = 82,4 %** (−47 impressões, +48 cópias),
+nível 2 **873 → 872**, nível 1 **910/928** igual, denominador **928** igual;
+faltas a comprar **185 cópias de 116 impressões → 233 de 163**. **O valor não
+mudou: 7 802,52 € em 3 072 cópias dos dois lados** — é a outra chave, e ela não
+se tocou. A percentagem **desce**, e é a correcção a aparecer.
 
 **E o preço da foil é o da FOIL** (2026-09-26, à noite: *"podes meter filtro no
 cardtrader e tirar o preco da foil mais barata?, para diferenciar os precos"*). O

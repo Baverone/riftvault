@@ -281,14 +281,22 @@ DEFAULTS: dict = {
     # normal. Erro nosso, corrigido; ver `foil.py`.
     #
     # As TRÊS PERGUNTAS que são dele, e que por isso se mudam aqui sem código.
-    # As duas primeiras nasceram a `false` (o foil como registo paralelo) e
-    # ele RESPONDEU a 2026-09-26: *"contam para o valor sim, e contabilizas
-    # tambem como parte do master set"* — estão as duas a `true`.
     #   `conta_para_coleccao`  — os foils contam para os ALVOS da Coleção (os
     #                            três níveis, o denominador, as Faltas, as
-    #                            wantlists)? Ligado, entram pelo
-    #                            `locais.na_colecao`: o que a impressão TEM
-    #                            passa a ser `qty + qty_foil`.
+    #                            wantlists)? **FALSE desde 2026-09-27, à
+    #                            noite**, e é uma correcção nossa: esteve a
+    #                            `true` um dia e escondia-lhe faltas. Ligado,
+    #                            entram pelo `locais.na_colecao` e o que a
+    #                            impressão TEM passa a ser `qty + qty_foil` —
+    #                            o que faz 2 normais + 1 foil ler-se «3/3» num
+    #                            alvo de 3. *"verifiquei ontem que a contagem
+    #                            sobe com as foils e a impressao que fica e que
+    #                            eu tenho as cartas todas, e quando me falta
+    #                            normais nao consigo perceber automaticamente
+    #                            que falta"*. Medido a 2026-09-27: **47
+    #                            impressões** completas na página com as
+    #                            normais a 2/3, a esconder **48 cópias
+    #                            normais** em falta. Ver o `foil.py`.
     #   `conta_para_valor`     — os foils contam para o VALOR? Ligado, entram
     #                            pelo `locais.contadas` e pelo
     #                            `prices.copias_sql`, **ao PREÇO DA FOIL** (o
@@ -300,12 +308,18 @@ DEFAULTS: dict = {
     #                            FALLBACK é contado e dito — é ele que faz do
     #                            total um PISO (`prices.valor_dos_foils`).
     #   `entra_no_a_mais`      — os foils entram no que SOBRA no «A mais»?
-    #                            **NÃO** (2026-09-26, decisão dele): com os
-    #                            foils a contar para a Coleção, 3 normais + 3
-    #                            foil contra um alvo de 3 diriam «3 a mais para
-    #                            vender», e ele não vende os foils — são peça
-    #                            de coleção. O excedente conta primeiro as
-    #                            NORMAIS e os foils nunca entram no que sobra.
+    #                            **NÃO** (2026-09-26, decisão dele): ele não
+    #                            vende os foils, são peça de coleção. Com o
+    #                            `conta_para_coleccao` a `false` o excedente já
+    #                            só via as normais; a chave fica porque a
+    #                            decisão é dele e volta a valer no dia em que
+    #                            alguém ligue a primeira.
+    #
+    # O CONTADOR DO TILE, desde 2026-09-27 à noite, NÃO DEPENDE DE CHAVE
+    # NENHUMA: o crachá é as NORMAIS contra o `metrics.alvo` e a linha de baixo
+    # é o foil contra o `foil.alvo` (o playset do tipo — Rune 12). As duas
+    # contagens vêem-se separadas, nunca somadas: *"quero que a contagem na
+    # carta seja a de non-foil e a de baixo seja a foil, as coisas separadas"*.
     #
     # AS FALTAS DE FOIL (2026-09-27, *"quero as faltas separadas, as normais e
     # as foils / as foils nao sao faltas, sao apenas complemento e indicativo /
@@ -315,7 +329,7 @@ DEFAULTS: dict = {
     # tabela que já manda no playset jogável — Rune 12, Battlefield 1. Ver o
     # `faltas_foil.py` e a `_faltas_foil_nota` do `riftvault_config.json`.
     "foil": {"raridades": ["common", "uncommon"], "edicoes_fora": ["OGS"],
-             "conta_para_coleccao": True, "conta_para_valor": True,
+             "conta_para_coleccao": False, "conta_para_valor": True,
              "entra_no_a_mais": False},
     # O separador «Venda» (André, 2026-09-25: *"permite-me marcar as cartas
     # que estou a vender no momento para apresentar a conta a pessoa. todos os

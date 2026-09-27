@@ -237,10 +237,14 @@ def na_colecao(con: sqlite3.Connection, cfg: dict | None = None, *,
     isso que ele pediu.
 
     As cópias FOIL entram aqui com `foil.conta_para_coleccao` ligado — e desde
-    2026-09-26 está: *"contabilizas tambem como parte do master set"*. O que a
-    impressão TEM passa a ser `qty + qty_foil`. Entram por cima dos locais e
-    não debaixo deles de propósito: os `copy_locations` contam as normais, por
-    isso uma foil nunca está «num deck» e está sempre na Coleção.
+    2026-09-27, à noite, **está DESLIGADO**: a Coleção conta as NORMAIS. Esteve
+    ligado um dia (2026-09-26, *"contabilizas tambem como parte do master set"*)
+    e escondia-lhe faltas — 2 normais + 1 foil liam-se «3/3» num alvo de 3, em
+    47 impressões, a esconder 48 cópias normais. *"quando me falta normais nao
+    consigo perceber automaticamente que falta"*. Ligado, o que a impressão TEM
+    passa a ser `qty + qty_foil`, e entram por cima dos locais e não debaixo
+    deles de propósito: os `copy_locations` contam as normais, por isso uma foil
+    nunca está «num deck» e está sempre na Coleção.
 
     `com_foil=False` devolve **só as normais**, e é para quem conta cópias
     FÍSICAS de acabamento normal, não alvos:

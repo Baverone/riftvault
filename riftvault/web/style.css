@@ -685,19 +685,30 @@ h1.pgt { margin: 0; font-size: clamp(21px, 2.6vw, 27px); font-weight: 700; lette
 .fo-sub { font-size: 11px; color: var(--h-dim-2); font-variant-numeric: tabular-nums; }
 b.fo, .fo-num b.fo { color: var(--foil); }
 
-/* A linha no tile: «2 normais · 1 foil», com o contador pequeno à direita. */
+/* A SEGUNDA CONTAGEM DO TILE: «foil 1/3» (2026-09-27, à noite).
+   *"quero que a contagem na carta seja a de non-foil e a de baixo seja a foil,
+   as coisas separadas"*. O crachá da arte é as NORMAIS; esta linha é o foil, com
+   o alvo dele — e tem de se ler como OUTRA contagem, não como a continuação da
+   de cima: por isso leva fundo próprio, a cor do foil e uma RISCA em cima que a
+   separa do playset jogável. Até 2026-09-27 dizia «2 normais · 1 foil = 3», e
+   era essa soma que lhe escondia a falta. */
 .foil-linha {
   display: flex; align-items: center; justify-content: space-between; gap: 6px;
   flex-wrap: wrap;
   font-size: 11px; color: var(--muted); background: var(--foil-bg);
   border-radius: 6px; padding: 2px 6px; font-variant-numeric: tabular-nums;
+  border-top: 2px solid rgba(217, 164, 65, .4);
 }
+.foil-txt { letter-spacing: .02em; }
 .foil-txt b { color: var(--text); font-weight: 600; }
-/* O total (2026-09-26, quando o foil passou a somar-se) escreve-se «= 6» e
-   não «· 6 ao todo»: é a aritmética dele («3+3»), lê-se de relance, e a
-   375 px qualquer frase mais longa punha a grelha fora do ecrã — medido, a
-   versão comprida dava `scrollWidth` 377 em 375. */
-.foil-txt i.dim { white-space: nowrap; font-style: normal; opacity: .8; }
+/* O ALVO escreve-se «/3», apagado: o número que conta é o que ele TEM, e o alvo
+   é a referência ao lado — a mesma leitura do crachá «2/3». Não é tecto: ter 4
+   foils de um playset de 3 é legítimo e lê-se «4/3». */
+.foil-txt i.dim { white-space: nowrap; font-style: normal; opacity: .7; }
+/* Cheio: a contagem de foil chegou ao playset. Marca-se na linha e não no
+   crachá — o crachá é das normais. */
+.foil-linha.is-done { border-top-color: var(--foil); }
+.foil-linha.is-done .foil-txt b.fo { text-shadow: 0 0 6px rgba(217, 164, 65, .5); }
 /* O PREÇO DA FOIL no tile (2026-09-26, à tarde): «foil 1,50 €», ou «foil ao
    preço da normal» quando o CardTrader não a tem em foil.
 
@@ -711,8 +722,9 @@ b.fo, .fo-num b.fo { color: var(--foil); }
 /* O fallback leva também o `.fo-piso` e fica da cor do foil: é a marca de que
    aquele preço não é de foil, e distingue-se de um preço a sério de relance. */
 .foil-linha .fo-piso { color: var(--foil); opacity: 1; }
+/* Os `+`/`−` do foil, sem número entre eles: desde 2026-09-27 a contagem está à
+   esquerda, em «foil 1/3», como o crachá das normais está na arte. */
 .steppers.foil { gap: 4px; align-items: center; }
-.steppers.foil b { font-size: 11px; color: var(--foil); min-width: 10px; text-align: center; }
 .steppers.foil .step {
   min-width: 20px; height: 20px; padding: 0; font-size: 12px; line-height: 1;
   color: var(--foil); border-color: rgba(217, 164, 65, .45);

@@ -30,27 +30,48 @@ O FOIL SOMA-SE AO NORMAL — SÃO DUAS CONTAGENS, NÃO UMA REPARTIÇÃO
     carta que ele só tenha em foil. A grelha mostra-a como carta que ele não
     tem (a Coleção conta o `qty`) com a linha «0 normais · 2 foil» ao lado.
 
-O QUE O FOIL CONTA, DESDE 2026-09-26
+DUAS CONTAGENS SEPARADAS NO TILE, E NUNCA SOMADAS (2026-09-27, à noite)
+    Palavras dele: *"quero que haja 2 contagens separadas / a de normais e de
+    foils / verifiquei ontem que a contagem sobe com as foils e a impressao que
+    fica e que eu tenho as cartas todas, e quando me falta normais nao consigo
+    perceber automaticamente que falta / quero que a contagem na carta seja a de
+    non-foil e a de baixo seja a foil, as coisas separadas"*.
+
+        o CRACHÁ, em cima     as NORMAIS da Coleção contra o `metrics.alvo`
+        a LINHA, em baixo     as FOILS contra o `foil.alvo` (o playset do tipo)
+
+    A separação no tile é ESTRUTURAL — não depende de chave nenhuma. O alvo de
+    foil é o `alvo()` deste módulo, o MESMO da metade das foils do separador
+    Faltas (`faltas_foil`), e por isso numa runa base o crachá pede 3 e a linha
+    do foil pede 12.
+
+    O ERRO QUE ISTO CORRIGE ERA NOSSO, e tinha tamanho. A 2026-09-26 ele disse
+    *"contabilizas tambem como parte do master set"* e ligámos o
+    `conta_para_coleccao`; medimos nesse minuto que não mudava nível nenhum e
+    dissemos-lhe isso — era verdade, porque só tinha foils onde já tinha o
+    playset. Marcou mais 193 foils e deixou de ser verdade. **Medido a
+    2026-09-27: 47 impressões liam-se «3/3» com as normais a 2/3, e escondiam 48
+    cópias NORMAIS em falta.** A ideia de somar não resiste porque depende do
+    HÁBITO DE MARCAÇÃO dele, não de uma regra: um número que só está certo
+    enquanto ele marcar por uma certa ordem não é um número.
+
+O QUE O FOIL CONTA
     A decisão de 2026-08-31 continua de pé no GRÃO: *"foil e normal contam como
     a mesma coisa"*, a chave do `copies` é só `(printing_id)` e o alvo do master
     set é por impressão — o foil não é um acabamento no grão, é uma contagem à
-    parte. O que mudou é que essa contagem **entra nas contas**: os dois botões
-    dele estão ligados, e uma cópia foil vale como cópia da impressão para os
-    níveis, o denominador, as Faltas, as wantlists e o valor.
+    parte. Ele respondeu às duas perguntas a 2026-09-26 (*"contam para o valor
+    sim, e contabilizas tambem como parte do master set"*), e a segunda metade
+    dessa resposta foi desfeita por ele mesmo no dia seguinte, pela razão acima:
 
-    Os três sítios onde NÃO entra (e cada um pela sua razão, abaixo): o «A
-    mais», o `propor_deck` e a Venda.
-
-    AS DUAS PERGUNTAS ERAM DELE E ELE RESPONDEU-AS (2026-09-26): *"contam para
-    o valor sim, e contabilizas tambem como parte do master set"*. As duas
-    chaves estão a `true`, e a terceira nasceu com elas:
-
-      `foil.conta_para_coleccao`  **true**. Os foils contam para os ALVOS da
-                                  Coleção (os três níveis, o denominador, as
-                                  Faltas, as wantlists): o que a impressão TEM
-                                  é `qty + qty_foil`. Entram pelo
-                                  `locais.na_colecao`, o funil único de
-                                  «quantas cópias tem a Coleção».
+      `foil.conta_para_coleccao`  **false desde 2026-09-27, à noite** (esteve
+                                  `true` um dia). Os foils NÃO contam para os
+                                  ALVOS da Coleção: os três níveis, a
+                                  percentagem, o denominador, as Faltas e todas
+                                  as listas de compra olham só para o
+                                  `copies.qty`, pelo `locais.na_colecao` — o
+                                  funil único de «quantas cópias tem a Coleção».
+                                  Ligá-la faz o que a impressão TEM passar a ser
+                                  `qty + qty_foil`, e traz as 47 de volta.
       `foil.conta_para_valor`     **true**. Os foils contam para o VALOR, pelo
                                   `locais.contadas` e pelo `prices.copias_sql`,
                                   **AO PREÇO DA FOIL** — o `price_foil_cents`,
@@ -70,9 +91,11 @@ O QUE O FOIL CONTA, DESDE 2026-09-26
                                   foil contra um alvo de 3 diriam «3 a mais para
                                   vender», e ele não vende os foils — são peça
                                   de coleção. O excedente conta primeiro as
-                                  NORMAIS (`na_colecao(..., com_foil=False)`) e
-                                  por isso o separador dá exactamente os mesmos
-                                  números que dava antes. Ver o
+                                  NORMAIS (`na_colecao(..., com_foil=False)`).
+                                  Com o `conta_para_coleccao` a `false` o
+                                  excedente já só vê as normais; a chave fica
+                                  porque a decisão é dele e volta a valer no dia
+                                  em que alguém ligue a primeira. Ver o
                                   `a_mais.foil_no_excedente`.
 
     A MESMA CAUTELA em três sítios mais, pela mesma razão — contam cópias
@@ -222,6 +245,28 @@ def conta_para_valor(cfg: dict | None = None) -> bool:
     return bool(((cfg or config.load()).get("foil") or {}).get("conta_para_valor", False))
 
 
+def alvo(printing, cfg: dict | None = None) -> int:
+    """Quantas foils desta impressão ele quer ter — o PLAYSET DO TIPO.
+
+    `metrics.playset_target` (`playset_targets_by_type`): Unit/Spell/Gear 3,
+    Battlefield 1, Legend 1, **Rune 12**, e `token_target` (1) nos tokens. Não
+    há alvo novo escrito em lado nenhum — é a tabela que já manda no playset
+    jogável, e se ele a mudar muda aqui também.
+
+    Nasceu no `faltas_foil.alvo` (2026-09-27, de manhã) e mudou-se para cá à
+    noite, quando o CONTADOR DO TILE passou a mostrar `foil M/T`: a pergunta
+    «quantas foils quero ter» é da mesma casa que «esta impressão tem contador
+    de foil» (o `no_ambito`), e ter duas respostas era ter duas tabelas. O
+    `faltas_foil.alvo` continua a existir e chama esta.
+
+    Não é o `metrics.alvo` (o alvo de COLEÇÃO da impressão, que é o que o
+    crachá de cima compara): a diferença é só na runa — 12 aqui, 3 lá.
+    """
+    cfg = cfg or config.load()
+    return metrics.playset_target(metrics.campo(printing, "type"),
+                                  bool(metrics.campo(printing, "is_token")), cfg)
+
+
 def no_ambito(printing, cfg: dict | None = None) -> bool:
     """Esta impressão tem contagem de foil?
 
@@ -243,12 +288,17 @@ def no_ambito(printing, cfg: dict | None = None) -> bool:
 
 def ids_do_ambito(con: sqlite3.Connection, cfg: dict | None = None,
                   set_id: str | None = None) -> dict[str, sqlite3.Row]:
-    """printing_id -> linha do catálogo, das impressões com contagem de foil."""
+    """printing_id -> linha do catálogo, das impressões com contagem de foil.
+
+    O `type` e o `is_token` vêm porque o `alvo` os precisa (2026-09-27, à
+    noite): o `metrics.campo` devolve `None` no que não vier no SELECT, e aí o
+    alvo saía errado **em silêncio**, que é o que esta casa não faz.
+    """
     cfg = cfg or config.load()
     where, args = ("WHERE set_id = ?", (set_id,)) if set_id else ("", ())
     return {r["printing_id"]: r for r in con.execute(
         "SELECT printing_id, set_id, collector_number, public_code, name, "
-        "       variant_kind, rarity, base_rarity, api_sort "
+        "       variant_kind, rarity, base_rarity, api_sort, type, is_token "
         f"FROM catalog.printings {where} ORDER BY set_id, api_sort", args)
         if no_ambito(r, cfg)}
 
@@ -440,6 +490,10 @@ def ajustar(con: sqlite3.Connection, ref: str, delta: int,
             "code": r["public_code"] if r else None, "name": r["name"] if r else None,
             "set": r["set_id"] if r else None, "foil": novo, "normal": normal,
             "total": normal + novo, "applied": applied,
+            # O ALVO de foils (2026-09-27, à noite): o playset do tipo. A CLI e
+            # o tile dizem o mesmo «foil M/T» a partir daqui. `None` numa
+            # impressão fora do catálogo (`validar=False`), que não tem tipo.
+            "foil_target": alvo(r, cfg) if r is not None else None,
             # Os dois preços (2026-09-26, à tarde), para o tile e a CLI
             # dizerem quanto vale uma foil desta impressão sem ir buscá-los
             # a outro lado. `price_foil` a `None` é o FALLBACK: a cópia foil
@@ -530,14 +584,21 @@ def texto(r: dict, sets: list[dict], valor: dict | None = None) -> str:
                           f"{x['foil_printings']:>8}")
     if r["sem_edicoes"]:
         linhas.append(f"\n(fora do âmbito: {', '.join(r['sem_edicoes'])})")
-    # O total é a SOMA (2026-09-26), e as duas perguntas dele dizem-se sempre,
-    # para nunca haver dúvida sobre o que é que este número está a mexer.
-    linhas.append("\no total é normais + foil: as duas contagens são "
-                  "independentes.")
-    linhas.append(f"os foils {'CONTAM' if r.get('conta_para_coleccao') else 'não contam'}"
+    # O total é a SOMA (2026-09-26) — aqui, que é a repartição do que ele TEM.
+    # Nos ALVOS as duas contagens nunca se somam (2026-09-27, à noite), e as
+    # duas perguntas dele dizem-se sempre, para nunca haver dúvida sobre o que é
+    # que este número está a mexer.
+    linhas.append("\no total é normais + foil: são duas contagens independentes. "
+                  "Nos ALVOS nunca se somam — no tile o crachá é as normais e a "
+                  "linha de baixo é o foil, contra o playset do tipo.")
+    linhas.append(f"os foils {'CONTAM' if r.get('conta_para_coleccao') else 'NÃO contam'}"
                   f" para os alvos da Coleção (foil.conta_para_coleccao) e "
                   f"{'CONTAM' if r.get('conta_para_valor') else 'não contam'}"
                   f" para o valor (foil.conta_para_valor).")
+    if not r.get("conta_para_coleccao"):
+        linhas.append("se contassem para os alvos, 2 normais + 1 foil liam-se "
+                      "«3/3» e uma falta de normais desaparecia do ecrã — foi o "
+                      "que aconteceu a 2026-09-26/27, em 47 impressões.")
     if r.get("conta_para_valor"):
         linhas.append(_linha_do_valor(valor))
     if r.get("conta_para_coleccao") and not r.get("entra_no_a_mais"):
