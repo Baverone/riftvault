@@ -355,22 +355,40 @@ class TestOConfigReal(unittest.TestCase):
         cls.cfg = json.loads((REPO / "riftvault_config.json").read_text(encoding="utf-8"))
         cls.excl = cls.cfg["selado"]["excluidos"]
 
-    def test_a_chave_existe_e_tem_50(self):
+    def arquivados(self) -> list[dict]:
+        """Os produtos escritos à mão: o `selado.extra` mais o arquivo.
+
+        O `extra` ficou VAZIO a 2026-09-28 (*"Tira os que nao tem pagina
+        propria"*) e os 17 objectos passaram para o
+        `_selado_extra_arquivado` — **esvaziar não é apagar**. Este ficheiro
+        pergunta o que se SABE sobre eles, não onde a aba os mostra, e por
+        isso lê os dois sítios."""
+        return (self.cfg["selado"]["extra"]
+                + (self.cfg.get("_selado_extra_arquivado") or {}).get("produtos", []))
+
+    def test_a_chave_existe_e_tem_49(self):
         """22 da primeira ordem de 25/09 + 10 da segunda (os 2 «Complete Sets»
         e os 8 Trial Deck) + 11 de 26/09 (os Champion Deck) + 7 da mesma noite
-        (os que não se compram em lado nenhum). Os 22 continuam lá, um a um,
+        (os que não se compram em lado nenhum) − 2 que VOLTARAM a 28/09 + 1
+        chinês do mesmo dia. Os 22 continuam lá, menos o que voltou, e um a um
         nos testes a seguir."""
-        self.assertEqual(len(self.excl), 50)
-        self.assertEqual(len(set(self.excl)), 50, "sem repetidos")
+        self.assertEqual(len(self.excl), 49)
+        self.assertEqual(len(set(self.excl)), 49, "sem repetidos")
 
     def test_os_13_boosters_soltos(self):
+        """Doze deles. O «Unleashed Sleeved Booster» era o décimo terceiro e
+        **voltou** a 2026-09-28: o Cardmarket revelou-lhe oferta a 13,00 € e
+        ele é inglês — «sleeved» é embalagem, não língua
+        (`test_selado_ingles`)."""
         for n in ("Origins Booster", "Origins Sleeved Booster", "Origins Slim Booster",
                   "Spiritforged Booster", "Spiritforged Slim Booster",
-                  "Unleashed Booster", "Unleashed Sleeved Booster",
+                  "Unleashed Booster",
                   "Unleashed Slim Booster", "Vendetta Booster", "Radiance Booster",
                   "Radiance Sleeved Booster", "Legacy Booster",
                   "The Reckoning Booster"):
             self.assertIn(n, self.excl)
+        self.assertIn("Unleashed Sleeved Booster", OS_22, "era um dos 22")
+        self.assertNotIn("Unleashed Sleeved Booster", self.excl, "voltou a 28/09")
 
     def test_as_3_slim_booster_box_o_deck_set_e_as_bulk_runes(self):
         for n in ("Origins Slim Booster Box", "Spiritforged Slim Booster Box",
@@ -382,18 +400,23 @@ class TestOConfigReal(unittest.TestCase):
         for e in ("Spiritforged", "Unleashed", "Vendetta", "Radiance"):
             self.assertIn(f"{e} Pre-Rift Kit", self.excl)
 
-    def test_os_4_pre_rift_event_kit_ficam(self):
-        """O de 16 kits + 1 display, que ele acabou de acrescentar. Só sai o de
-        um jogador."""
+    def test_os_4_pre_rift_event_kit_nao_sairam_por_esta_ordem(self):
+        """O de 16 kits + 1 display. Só sai o de um jogador — e é a diferença
+        que o nome exacto guarda.
+
+        Os quatro saíram da aba a 2026-09-28, por não terem página própria em
+        mercado nenhum, e estão no `_selado_extra_arquivado`: nunca chegaram
+        ao `selado.excluidos`, e é isso que este teste continua a exigir."""
         for e in ("Spiritforged", "Unleashed", "Vendetta", "Radiance"):
             self.assertNotIn(f"{e} Pre-Rift EVENT Kit", self.excl)
-        nomes = [x["nome"] for x in self.cfg["selado"]["extra"]]
+        nomes = [x["nome"] for x in self.arquivados()]
         self.assertEqual(sum(1 for n in nomes if "Pre-Rift EVENT Kit" in n), 4)
 
-    def test_os_displays_de_decks_ficam(self):
-        """Os 7 de champion e os 2 de showdown. O que saiu foi o «Champion Deck
-        Set» da Origins, que é outro produto."""
-        nomes = [x["nome"] for x in self.cfg["selado"]["extra"]]
+    def test_os_displays_de_decks_nao_sairam_por_esta_ordem(self):
+        """Os 7 de champion e os 2 de showdown. O que saiu por ESTA ordem foi o
+        «Champion Deck Set» da Origins, que é outro produto. (Os 9 displays
+        saíram da aba a 28/09, para o arquivo — nunca por esta lista.)"""
+        nomes = [x["nome"] for x in self.arquivados()]
         displays = [n for n in nomes if "Deck Display" in n or "Decks Display" in n]
         self.assertEqual(len(displays), 9)
         for n in displays:
@@ -419,7 +442,11 @@ class TestOConfigReal(unittest.TestCase):
         for n in ("Arcane Promo Pack", "Immersive Arcane Promo Pack", "Promo Pack",
                   "Replacement Card Booster"):
             self.assertNotIn(n, OS_22, n)
+        for n in ("Arcane Promo Pack", "Immersive Arcane Promo Pack", "Promo Pack"):
             self.assertIn(n, self.excl, n)
+        # O «Replacement Card Booster» VOLTOU a 2026-09-28: o Cardmarket
+        # revelou-lhe oferta a 35,00 EUR. Continua a nao ser um dos 22.
+        self.assertNotIn("Replacement Card Booster", self.excl)
 
     def test_nem_as_booster_box_normais_os_cases_os_vaults_ou_o_proving_grounds(self):
         for n in self.excl:
@@ -462,16 +489,17 @@ class TestOs22ContraOCatalogoReal(unittest.TestCase):
         importlib.reload(cls.config)
         cls.config.load.cache_clear()
 
-    def test_saem_exactamente_50_e_cada_nome_casa_com_um(self):
+    def test_saem_exactamente_49_e_cada_nome_casa_com_um(self):
         ex = self.selado.excluidos(self.cfg)
-        self.assertEqual(len(ex), 50)
-        self.assertEqual(len({x["id"] for x in ex}), 50)
+        self.assertEqual(len(ex), 49)
+        self.assertEqual(len({x["id"] for x in ex}), 49)
 
-    def test_a_aba_fica_com_48_selados(self):
+    def test_a_aba_fica_com_32_selados(self):
         """Estes 22 levaram-na de 98 a 76; os 10 da segunda ordem a 66, os 11
-        Champion Deck a 55 e os 7 sem mercado a 48."""
+        Champion Deck a 55, os 7 sem mercado a 48 — e a 2026-09-28 os 17 do
+        `selado.extra` (menos os 2 que voltaram e o chines que saiu) a 32."""
         lista = [x for x in self.selado.itens(None, self.cfg) if not x["acessorio"]]
-        self.assertEqual(len(lista), 48, "98 − 22 − 10 − 11 − 7")
+        self.assertEqual(len(lista), 32, "98 − 22 − 10 − 11 − 7 − 17 − 1 + 2")
 
     def test_os_acessorios_estao_desligados(self):
         """`selado.acessorios` ficou VAZIA a 2026-09-25 (ele mandou tirar os
@@ -482,13 +510,10 @@ class TestOs22ContraOCatalogoReal(unittest.TestCase):
         self.assertEqual(self.op["acessorios"], [])
 
     def test_os_que_tem_de_ficar_ficam(self):
+        """Nenhum destes foi tirado por ESTA lista — e os que a aba já não
+        mostra saíram do `selado.extra` a 2026-09-28, por outra porta."""
         nomes = {x["nome"] for x in self.selado.itens(None, self.cfg)}
-        for n in ("Spiritforged Pre-Rift EVENT Kit", "Unleashed Pre-Rift EVENT Kit",
-                  "Vendetta Pre-Rift EVENT Kit", "Radiance Pre-Rift EVENT Kit",
-                  'Origins: "Jinx" Champion Deck Display',
-                  'Vendetta: "Zed vs Shen" Showdown Decks Display',
-                  'Radiance: "Evelynn vs Seraphine" Showdown Decks Display',
-                  "Origins | Nexus Night Promo Booster",
+        for n in ("Origins | Nexus Night Promo Booster",
                   "Spiritforged | Nexus Night Promo Booster",
                   "Unleashed | Nexus Night Promo Booster",
                   "Vendetta | Nexus Night Promo Booster",
@@ -496,17 +521,31 @@ class TestOs22ContraOCatalogoReal(unittest.TestCase):
                   "Unleashed Booster Box", "Vendetta Booster Box",
                   "Radiance Booster Box", "Legacy Booster Box",
                   "The Reckoning Booster Box",
-                  "Origins Booster Box Case", "Unleashed Vault Bundle Case",
+                  "Origins Booster Box Case",
                   "Unleashed Vault", "Vendetta Vault", "Radiance Vault",
                   "Legacy Vault", "Origins: Proving Grounds",
-                  "Legacy: Proving Grounds",
-                  "Origins: Proving Grounds Box Set Case"):
+                  "Legacy: Proving Grounds"):
             self.assertIn(n, nomes, f"{n} tinha de ficar")
+        # Estes saíram da ABA a 28/09 (eram do `selado.extra`) e continuam a
+        # nunca ter chegado ao `selado.excluidos`, que é o que aqui se mede.
+        for n in ("Spiritforged Pre-Rift EVENT Kit", "Unleashed Pre-Rift EVENT Kit",
+                  "Vendetta Pre-Rift EVENT Kit", "Radiance Pre-Rift EVENT Kit",
+                  'Origins: "Jinx" Champion Deck Display',
+                  'Vendetta: "Zed vs Shen" Showdown Decks Display',
+                  'Radiance: "Evelynn vs Seraphine" Showdown Decks Display',
+                  "Unleashed Vault Bundle Case",
+                  "Origins: Proving Grounds Box Set Case"):
+            self.assertNotIn(n, self.cfg["selado"]["excluidos"], n)
 
-    def test_os_9_displays_de_decks_continuam_na_lista(self):
-        nomes = [x["nome"] for x in self.selado.itens(None, self.cfg)]
-        self.assertEqual(
-            sum(1 for n in nomes if "Deck Display" in n or "Decks Display" in n), 9)
+    def test_os_9_displays_de_decks_nao_estao_na_lista(self):
+        """Estavam na aba até 28/09 e estão hoje no `_selado_extra_arquivado`;
+        o que ESTA ordem tinha de garantir é que nenhum saiu por ela."""
+        arq = json.loads((REPO / "riftvault_config.json").read_text(encoding="utf-8"))
+        nomes = [x["nome"] for x in arq["_selado_extra_arquivado"]["produtos"]]
+        displays = [n for n in nomes if "Deck Display" in n or "Decks Display" in n]
+        self.assertEqual(len(displays), 9)
+        for n in displays:
+            self.assertNotIn(n, arq["selado"]["excluidos"])
 
     def test_o_nome_dobrado_do_catalogo_real_mexe_em_dois(self):
         """Os dois «Trial Deck Set Set» do CardTrader, e mais nenhum dos 117."""
@@ -530,15 +569,15 @@ class TestOs22ContraOCatalogoReal(unittest.TestCase):
         self.assertIn("ct-383046", ids)
 
     def test_por_edicao_depois_de_tirar(self):
-        """Os números que ele vai ver, edição a edição."""
+        """Os números que ele vai ver, edição a edição (a 2026-09-28)."""
         lista = [x for x in self.selado.itens(None, self.cfg) if not x["acessorio"]]
         por = {}
         for x in lista:
             por[x["edicao"]] = por.get(x["edicao"], 0) + 1
-        self.assertEqual(por, {"OGN": 5, "OGS": 2, "SFD": 6, "UNL": 8, "VEN": 8,
-                               "RAD": 7, "LGC": 2, "PG2": 1, "REC": 1, "ARC": 2,
-                               "PROMO-RIFT": 5, "T1S": 1})
-        self.assertEqual(sum(por.values()), 48)
+        self.assertEqual(por, {"OGN": 2, "OGS": 1, "SFD": 3, "UNL": 5, "VEN": 5,
+                               "RAD": 4, "LGC": 2, "PG2": 1, "REC": 1, "ARC": 1,
+                               "PROMO-RIFT": 6, "T1S": 1})
+        self.assertEqual(sum(por.values()), 32)
 
 
 # ---------------------------------------------------------------------------
@@ -684,8 +723,10 @@ class TestAPagina(unittest.TestCase):
         self.assertIn(".sl-tirados-lista", self.css)
 
     def test_a_ajuda_explica_a_chave(self):
+        # A janela cresceu a 2026-09-28: a ajuda passou a explicar também a
+        # regra da língua e o `selado.extra` vazio.
         i = self.js.index("'selado': {")
-        troco = self.js[i:i + 4200]
+        troco = self.js[i:i + 5600]
         self.assertIn("selado.excluidos", troco)
         self.assertIn("Esconder não é apagar", troco)
 

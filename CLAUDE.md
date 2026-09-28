@@ -2698,6 +2698,17 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   rebenta se alguém simplificar o critério para «não tem Cardmarket, sai».
   **Por decidir:** os «Nexus Night Promo Booster» do UNL e do VEN. Ver a
   última secção deste ficheiro.
+- **Feito também:** só impressão INGLESA no selado, e sai da aba quem não tem
+  PÁGINA PRÓPRIA (2026-09-28) — fecha o varrimento dos dois mercados (o
+  Cardmarket lido pelo **Chrome dele**: 73 produtos, 68 com oferta). Três
+  ordens, ZERO mecanismo novo: voltam **2** dos 5 que o Cardmarket revelou
+  (*Unleashed Sleeved Booster*, *Replacement Card Booster*), sai o **Arcane
+  Chinese Promo Set** pela regra da língua (`_selado_so_ingles`), e os **17 do
+  `selado.extra`** saem da aba para o `_selado_extra_arquivado` — esvaziar não
+  é apagar. A aba 48 → **32**; o valor e o `copies` não mexem. **Duas
+  descobertas:** o Cardmarket não dá página a displays nem a cases (vendem-se
+  dentro do produto simples, na nota do vendedor) e o **«From» deles não é o
+  preço**. Ver a última secção deste ficheiro.
 - **Feito também:** as FALTAS EM DUAS METADES (2026-09-27) — as normais nos
   quatro blocos de sempre e as **FOILS** à parte, com a quinta wantlist;
   *"as foils nao sao faltas, sao apenas complemento e indicativo"*, por isso
@@ -8008,3 +8019,174 @@ base antiga); e as rotas, o `build`, a CLI, o `app.js` e o CSS.
 novo.
 
 Suite: **56 ficheiros, 0 a falhar**.
+
+## 28/09/2026 — SÓ IMPRESSÃO INGLESA; e sai da aba quem não tem PÁGINA PRÓPRIA (a aba fica em 32)
+
+O varrimento dos dois mercados fechou, e com ele três decisões dele no mesmo
+dia. Ramo `ai-pc/selado-ingles-2026-09-28`; o registo dos dois mercados está em
+`docs/selado-dois-mercados-20260928.md` (substitui o
+`selado-falta-cardmarket-20260927.md`, que era a lista do que faltava).
+
+**NÃO HÁ MECANISMO NOVO, pela quinta vez.** As três ordens fazem-se com as duas
+chaves que já existiam — `selado.excluidos` e `selado.extra` — e zero linhas de
+lógica nova. O trabalho foi medir.
+
+### O varrimento, fechado
+
+| | como se leu | o que deu |
+|---|---|---|
+| **CardTrader** | API v2, com o token (27/09) | 13 categorias do jogo 22, 17 expansões, **210 produtos não-single**, 85 nas 6 categorias de selado. **Nenhum produto selado do CardTrader é desconhecido da app.** |
+| **Cardmarket** | **o Chrome dele** (28/09) — a extensão passa o Cloudflare; a API deles está fechada a novos pedidos | Boosters (26), Booster Boxes (18), Champion Decks (9), Box Sets (20) = **73 produtos, 68 com oferta** |
+
+**DUAS DESCOBERTAS sobre o Cardmarket, que valem para qualquer leitura futura:**
+
+1. **Não há página própria para DISPLAYS nem para CASES.** Vendem-se DENTRO da
+   entrada do produto simples, com o vendedor a escrever o que é na nota. No
+   `Box-Sets/Spiritforged-Pre-Rift-Event-Kit` há «SEALED CASE (16 kits + box)» a
+   **1350 €** e «Sealed Case for 16 players» a **1800 €** ao lado do kit de um
+   jogador a ~49 €; no `Champion-Decks/Vi-Champion-Deck` há «FRENCH 4 = display
+   sceellee» a 12,49 €. É por isto que os 17 do `selado.extra` não têm página em
+   lado nenhum: **não é falha do catálogo, é o modelo deles.**
+2. **O «From» NÃO é o preço do produto.** No `Unleashed-Pre-Rift-Event-Kit` o
+   «From 2,50 €» são vendedores a vender UM deck solto de dentro do kit («ONLY
+   Vi deck (sealed) - nothing else»); o kit inteiro está a ~22-26 €. Não usar o
+   «From» deles como preço sem ler a nota do vendedor.
+
+**O URL:** ficou confirmado o CAMINHO `/en/Riftbound/Products/<Categoria>/<Slug>`
+(com `Boosters`, `Booster-Boxes`, `Champion-Decks`, `Box-Sets` e `Sets`). **O
+template da app é outro** — `?idProduct={id}` — e **continua por confirmar**:
+nunca se abriu um. Para o trocar faltavam o slug deles (que não é o nosso nome:
+«Origins Booster Box Case» é lá «Origins Case (6x Booster Box)») e a categoria
+deles, e inventar qualquer dos dois era escrever no URL o que ninguém mediu. O
+`mercados.py` diz isto, e o link de **pesquisa** continua a ser a rede de
+segurança de cada linha.
+
+### a) Voltam os que o Cardmarket revelou ter oferta — **dois**, não três
+
+*"Repor so os 5 novos"*. Dos 15 que saíram a 26/09 por não terem oferta em lado
+nenhum, o Cardmarket revelou-a em 5. Voltaram o **Unleashed Sleeved Booster**
+(13,00 €) e o **Replacement Card Booster** (35,00 €). Os outros três ficam fora
+pela regra da língua: o *Unleashed Slim Booster* e o *Unleashed Slim Booster
+Box* (o Cardmarket chama-lhes «Unleashed Booster (Chinese, Slim)» e «Unleashed
+Booster Box (Chinese, Slim)»; o CardTrader só lhes chama «Slim») — e o
+**Immersive Arcane Promo Pack**.
+
+**O terceiro é decisão minha e é a única coisa desta ordem que não se fez como
+estava escrita.** Medido antes de mexer: o blueprint 408687 tem `versao:
+"Chinese Exclusive"` no catálogo do CardTrader — a mesma string dos outros dois
+«Promo Pack», que estão fora. O Cardmarket tem-no a 80,00 € com outro nome
+(«Arcane: Immersive Music Experience Booster», casado pelo `cardmarket_id`
+904521 do próprio blueprint) e não lhe põe rótulo de língua. As duas ordens do
+dia colidem neste produto: pela (a) volta, pela (b) não pode entrar. **Ficou
+fora** — é o que a regra nova diz, e foi ela que cortou os outros dois da mesma
+lista. Repor é tirar o nome do `selado.excluidos`, e é decisão dele. Há teste
+que dá vermelho se um `--sync` mudar essa versão.
+
+Os **23 que tinham oferta no CardTrader** ficam fora (*"deixa como está"*,
+26/09) e os Champion Deck também — os **11** de 26/09 mais o «Origins: Champion
+Deck Set» de 25/09.
+
+### b) A REGRA NOVA: só impressão inglesa (`_selado_so_ingles`)
+
+Palavras dele: *"nao quero nada que nao seja impressao Inglesa"*. Uma caixa da
+impressão chinesa (ou de outra língua) **não entra na aba, tenha oferta ou
+não**.
+
+É a mesma escolha que os PREÇOS já faziam pelo outro lado desde 2026-08-31 — o
+`precos.linguas` (`["en"]`) só aceita ofertas `riftbound_language: "en"`, e no
+*Origins Booster Box* eram 51 `en`, 6 `zh-CN` e 3 `fr`. A diferença é que até
+aqui a língua filtrava o **preço** de um produto que ficava na lista; agora
+**tira o produto**.
+
+**Aplica-se À MÃO, pelo `selado.excluidos`, e não por código** — não há campo de
+língua nos blueprints. O marcador lê-se no `nome` («Arcane Chinese Promo Set»),
+na `versao` («Chinese Exclusive») ou no rótulo do Cardmarket («(Chinese,
+Slim)»). **Cuidado a cada `riftvault selado --sync`**: um produto novo com esse
+marcador entra na aba sozinho.
+
+**Varridos os 48 da aba, só UM tinha marcador: o «Arcane Chinese Promo Set»**
+(ARC), e saiu. **Formato não é língua** — «Slim», «Jumbo» e «Sleeved» são
+embalagens, e é por isso que o *Unleashed Sleeved Booster* voltou no mesmo dia;
+e a impressão inglesa de um produto com irmão chinês fica (o *Arcane Box Set*
+fica). Há teste com a armadilha nos dois sentidos.
+
+### c) Os 17 do `selado.extra` saem da aba — e ficam ARQUIVADOS no config
+
+Palavras dele: *"Tira os que nao tem pagina propria"*. Só fica na aba o que é
+produto **listado** num dos dois mercados, e nenhum dos 17 o é: os 7 Champion
+Deck Display, os 2 Showdown Decks Display, os 3 Vault Bundle Case, o Proving
+Grounds Box Set Case e os 4 Pre-Rift EVENT Kit. Eles EXISTEM (levantamento dele
+de 25/09); o que não existe é uma página onde comprá-los — e a descoberta 1
+explica porquê.
+
+**O que saiu foi a PRESENÇA na aba, não o conhecimento.** O `selado.extra` ficou
+`[]` e os 17 objectos estão inteiros no **`_selado_extra_arquivado`** do config
+(nome, edição, tipo, data, `conteudo` e `nota` — incluindo a dúvida dos 4 ou 12
+vaults do case da Unleashed), com a data, a frase dele e a razão. **Repor é
+copiá-los de volta** para o `selado.extra`, e há teste que o faz e compara campo
+a campo. É a mesma ideia do `abas.escondidas`, do `selado.excluidos` e dos
+acessórios de 25/09. As unidades dele nos ids `cfg-…` ficam na `sealed_copies` e
+voltam a contar — estavam todas a ZERO a 28/09.
+
+### Medido a 2026-09-28 contra uma CÓPIA do `data/` real
+
+`_revisao\_medir_selado_ingles.py`, o MESMO código e o MESMO catálogo, mudando
+só o config, com o site gerado dos dois lados. **Os 30 ficheiros saem IGUAIS
+ficheiro a ficheiro** (a menos do relógio) — o único que difere é o
+`api/selado.json`, de 98 088 para **67 757 bytes**. Nada fora do selado mexe, e
+não é asserção: é o site inteiro comparado byte a byte. O **`copies` não mexeu um
+número** (1041 linhas, 2632 normais, 448 foil, o mesmo sha256).
+
+| | antes | depois |
+|---|---|---|
+| produtos na aba | 48 | **32** |
+| dos quais «por sair» | 11 | 8 |
+| tenho · cópias | 5 · 5 | **5 · 5** |
+| não tenho | 32 | **19** |
+| percentagem | 13,5 % | **20,8 %** |
+| **valor do selado** | **552,56 €** | **552,56 €** |
+| sem preço | 23 | **7** |
+| vindos do config (`extra`) | 17 | **0** |
+| `selado.excluidos` | 50 | **49** |
+
+**O valor não mexeu, e tinha de ser:** as 5 unidades que ele tem são todas de
+produtos do CardTrader que ficaram na aba (as quatro Booster Box e o Origins:
+Proving Grounds), e os 17 arquivados não tinham preço nem unidades. As 18 linhas
+que saíram são os 17 do `extra` mais o «Arcane Chinese Promo Set»; entraram 2.
+Por edição: OGN 5 → 2, OGS 2 → 1, SFD 6 → 3, UNL 8 → 5, VEN 8 → 5, RAD 7 → 4,
+ARC 2 → 1, PROMO-RIFT 5 → **6**; LGC 2, PG2 1, REC 1 e T1S 1 não mexem.
+
+**Os dois que voltaram aparecem sem preço** («—»), e é honesto: o CardTrader tem
+zero ofertas dos dois — foi por isso que saíram a 26/09 — e a app não guarda
+preços do Cardmarket.
+
+### O BURACO QUE FICA (proposto, NÃO feito)
+
+**A app só vê o catálogo do CardTrader.** Um produto que só o Cardmarket lista é
+invisível: não está na aba, não está no `scope.fora`, não está sequer no
+`excluidos` — não existe. **Medido produto a produto**
+(`_revisao\_so_no_cardmarket.py`): dos 73 do Cardmarket a app conhece **57** e
+desconhece **16**, dos quais **13 com oferta viva**. (A ordem dizia 14 e 12; a
+diferença são os dois «Vendetta Booster (Chinese, Slim)» e «Vendetta Booster Box
+(Chinese, Slim)», que a app não tem — o Slim dela é só OGN/SFD/UNL — e que não
+têm oferta.) Dez são impressão chinesa e ele não a quer; os outros seis são o
+*Spiritforged* e o *Vendetta Sleeved Booster*, o *Worlds 25 Commemorative
+Booster*, o *Project K Promos Booster*, o *Arcane Box Set (Chinese)* e o
+*Unleashed: Prize Wall Rune Bundle*. As propostas (nenhuma feita) estão no `docs/`: um preço do Cardmarket
+metido à mão como o Trend da Venda; um aviso de língua no `--sync`; e a pergunta
+do *Arcane Box Set*, que tem a mesma `versao` («6 Card Set») do *Arcane Complete
+Set*, que saiu a 25/09 por ser um conjunto de cartas.
+
+`tests/test_selado_ingles.py` (49 testes, contra cópias e config temporário): a
+regra da língua (a app **não adivinha**, o nomeado sai, **formato não é língua**,
+o irmão inglês fica, a língua na versão, os contadores e o valor, repor, o
+catálogo intacto); o `extra` vazio (aparecem, somem, os do CardTrader não mexem,
+**repor é copiar de volta** campo a campo, a unidade gravada não se perde, o
+conteúdo e a nota sobrevivem); o **config real** (o `extra` vazio, os 17
+arquivados inteiros com todos os campos, a data/frase/razão, os dois que
+voltaram, o chinês que saiu, os três da língua que ficam fora, as duas notas,
+sem repetidos, as ordens anteriores inteiras, o default que não esconde nada); o
+**catálogo real** (32 na aba, nenhum do config, **nenhum produto com marcador de
+língua**, o Sleeved que fica, as 49 entradas a casarem com um produto cada, uma
+inventada a rebentar, e a versão «Chinese Exclusive» do 408687); e **a
+fotografia** — a MESMA do `test_selado`, por referência.

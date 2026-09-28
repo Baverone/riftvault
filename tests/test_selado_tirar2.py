@@ -67,13 +67,21 @@ OS_OITO_TRIAL_DECK = [
 ]
 OS_DEZ = OS_DOIS_CARD_SET + OS_OITO_TRIAL_DECK
 
-# O QUE FICA, um a um — os nomes que se parecem com os de cima.
+# O QUE FICA, um a um — os nomes que se parecem com os de cima. O que interessa
+# aqui é que ESTA ordem não lhes tocou.
 TEM_DE_FICAR = [
     "Arcane Box Set",
-    "Arcane Chinese Promo Set",
     "The T1 Worlds Champion | Signature Edition Box Set",
-    "Origins: Proving Grounds Box Set Case",
     "Secret Garden Bundle Box",
+]
+# Ficaram por esta ordem e saíram por OUTRAS, depois — continuam a não ser dos
+# 10, que é o que este ficheiro fixa. O «Arcane Chinese Promo Set» saiu a
+# 2026-09-28, pela regra da língua (*"nao quero nada que nao seja impressao
+# Inglesa"*); o «Origins: Proving Grounds Box Set Case» era um dos 17 do
+# `selado.extra`, que saíram da aba no mesmo dia por não terem página própria.
+FICARAM_AQUI_SAIRAM_DEPOIS = [
+    "Arcane Chinese Promo Set",
+    "Origins: Proving Grounds Box Set Case",
 ]
 
 # O «Origins: Instant Match Box 2025» estava nesta lista — ele não o nomeou
@@ -216,10 +224,16 @@ class TestOsDezContraOCatalogoReal(unittest.TestCase):
         maus = [n for n in self.nomes if "trial deck" in n.lower()]
         self.assertEqual(maus, [])
 
-    def test_os_seis_parecidos_ficam(self):
+    def test_os_parecidos_ficam(self):
         """A parte da ordem em que é fácil enganar-se — um a um."""
         for n in TEM_DE_FICAR:
             self.assertIn(n, self.nomes, f"{n} tinha de ficar")
+
+    def test_os_que_sairam_depois_nao_sairam_por_esta_ordem(self):
+        """Já não estão na aba, mas não é esta a ordem que os tirou — e é isso
+        que este ficheiro guarda."""
+        for n in FICARAM_AQUI_SAIRAM_DEPOIS:
+            self.assertNotIn(n, OS_DEZ)
 
     def test_nao_saiu_nada_de_box_sets_por_ser_dessa_categoria(self):
         """Destes 10, da 263 saem exactamente os dois «Trial Deck Case» — que
@@ -232,8 +246,10 @@ class TestOsDezContraOCatalogoReal(unittest.TestCase):
         meus_da_263 = sorted(n for n in OS_DEZ if self.categoria(n) == 263)
         self.assertEqual(meus_da_263,
                          ["2024 Trial Deck Case", "2025 Trial Deck Case"])
-        # E os que ele nomeou para ficar, todos da 263, continuam lá.
-        for n in ("Arcane Box Set", "Arcane Chinese Promo Set",
+        # E os que ele nomeou para ficar, todos da 263, continuam lá. (O
+        # «Arcane Chinese Promo Set», que também é da 263, saiu a 28/09 pela
+        # regra da língua — não por ser desta categoria.)
+        for n in ("Arcane Box Set",
                   "The T1 Worlds Champion | Signature Edition Box Set",
                   "Secret Garden Bundle Box"):
             self.assertIn(n, self.nomes, n)
@@ -241,37 +257,41 @@ class TestOsDezContraOCatalogoReal(unittest.TestCase):
         # na ordem seguinte, por não ter mercado em lado nenhum.
         self.assertNotIn(SAIU_DEPOIS, OS_DEZ)
 
-    def test_a_aba_fica_com_48_selados(self):
-        """Estes 10 levaram-na de 76 a 66; os 11 Champion Deck a 55 e os 7 sem
-        mercado a 48 (ver `test_selado_champion`, `test_selado_sem_mercado`)."""
+    def test_a_aba_fica_com_32_selados(self):
+        """Estes 10 levaram-na de 76 a 66; os 11 Champion Deck a 55, os 7 sem
+        mercado a 48, e a 28/09 os 17 do `selado.extra` (menos os 2 que
+        voltaram e o chinês que saiu) a **32**. Ver `test_selado_champion`,
+        `test_selado_sem_mercado` e `test_selado_ingles`."""
         selados = [x for x in self.lista if not x["acessorio"]]
-        self.assertEqual(len(selados), 48, "98 − 22 − 10 − 11 − 7")
+        self.assertEqual(len(selados), 32, "98 − 22 − 10 − 11 − 7 − 17 − 1 + 2")
 
     def test_por_edicao_depois_dos_dez(self):
-        """Os números que ele vai ver, edição a edição."""
+        """Os números que ele vai ver, edição a edição (a 2026-09-28)."""
         por = {}
         for x in self.lista:
             if not x["acessorio"]:
                 por[x["edicao"]] = por.get(x["edicao"], 0) + 1
-        self.assertEqual(por, {"OGN": 5, "OGS": 2, "SFD": 6, "UNL": 8, "VEN": 8,
-                               "RAD": 7, "LGC": 2, "PG2": 1, "REC": 1, "ARC": 2,
-                               "PROMO-RIFT": 5, "T1S": 1})
-        self.assertEqual(sum(por.values()), 48)
+        self.assertEqual(por, {"OGN": 2, "OGS": 1, "SFD": 3, "UNL": 5, "VEN": 5,
+                               "RAD": 4, "LGC": 2, "PG2": 1, "REC": 1, "ARC": 1,
+                               "PROMO-RIFT": 6, "T1S": 1})
+        self.assertEqual(sum(por.values()), 32)
 
-    def test_a_promo_rift_fica_com_cinco(self):
+    def test_a_promo_rift_fica_com_seis(self):
         """Eram 18: saíram os 8 Trial Deck desta ordem, e depois os 5 sem
         mercado (o Promo Pack, o Arcane Promo Pack, o Immersive, o Replacement
-        Card Booster e o Instant Match Box)."""
+        Card Booster e o Instant Match Box). O **Replacement Card Booster
+        voltou** a 28/09, quando o Cardmarket lhe revelou oferta a 35,00 €."""
         pr = [x["nome"] for x in self.lista if x["edicao"] == "PROMO-RIFT"]
         self.assertEqual(sorted(pr), [
             "Gift of the Rift Bundle", "Lunar Revel 2026 Bundle",
-            "Origins | Nexus Night Promo Booster", "Riftbound Worlds Bundle 2025",
-            "Secret Garden Bundle Box"])
+            "Origins | Nexus Night Promo Booster", "Replacement Card Booster",
+            "Riftbound Worlds Bundle 2025", "Secret Garden Bundle Box"])
 
-    def test_a_arc_fica_com_duas(self):
-        """Eram 3: saiu o «Arcane Complete Set» e ficam a caixa e o promo set."""
+    def test_a_arc_fica_com_uma(self):
+        """Eram 3: saiu o «Arcane Complete Set» por esta ordem e ficavam a
+        caixa e o promo set; o promo set saiu a 28/09, por ser chinês."""
         arc = sorted(x["nome"] for x in self.lista if x["edicao"] == "ARC")
-        self.assertEqual(arc, ["Arcane Box Set", "Arcane Chinese Promo Set"])
+        self.assertEqual(arc, ["Arcane Box Set"])
 
     def test_os_acessorios_nao_dao_linha_nenhuma(self):
         self.assertEqual([x for x in self.lista if x["acessorio"]], [])
@@ -301,11 +321,11 @@ class TestOConfigReal(unittest.TestCase):
         cls.sel = json.loads(
             (REPO / "riftvault_config.json").read_text(encoding="utf-8"))["selado"]
 
-    def test_a_lista_tem_50_sem_repetidos(self):
+    def test_a_lista_tem_49_sem_repetidos(self):
         """22 (25/09, manhã) + 10 (25/09, noite) + 11 Champion Deck (26/09)
-        + 7 sem mercado (26/09)."""
-        self.assertEqual(len(self.sel["excluidos"]), 50)
-        self.assertEqual(len(set(self.sel["excluidos"])), 50)
+        + 7 sem mercado (26/09) − 2 que voltaram + 1 chinês (28/09)."""
+        self.assertEqual(len(self.sel["excluidos"]), 49)
+        self.assertEqual(len(set(self.sel["excluidos"])), 49)
 
     def test_os_dez_estao_la(self):
         for n in OS_DEZ:
@@ -313,9 +333,12 @@ class TestOConfigReal(unittest.TestCase):
 
     def test_os_22_da_ordem_anterior_continuam_la(self):
         """Acrescentar não é reescrever: a lista dele de manhã fica inteira."""
+        # O «Unleashed Sleeved Booster» era um dos 22 e **VOLTOU** a 2026-09-28,
+        # quando o Cardmarket lhe revelou oferta a 13,00 € — é inglês, e
+        # «sleeved» é embalagem, não língua. Saiu desta lista por isso.
         for n in ("Origins Booster", "Origins Sleeved Booster", "Origins Slim Booster",
                   "Spiritforged Booster", "Spiritforged Slim Booster",
-                  "Unleashed Booster", "Unleashed Sleeved Booster",
+                  "Unleashed Booster",
                   "Unleashed Slim Booster", "Vendetta Booster", "Radiance Booster",
                   "Radiance Sleeved Booster", "Legacy Booster",
                   "The Reckoning Booster", "Origins Slim Booster Box",

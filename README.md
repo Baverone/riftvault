@@ -931,7 +931,7 @@ Singles»** — as cartas. Entram seis:
 | 283 Complete Sets | sets de cartas vendidos juntos | 2 |
 | | da API, juntando os repetidos | 81 |
 | | mais os 17 do `selado.extra` | 98 |
-| | menos os 50 do `selado.excluidos` | **48** |
+| | menos os 49 do `selado.excluidos` e os 17 do `extra`, que saíram a 28/09 | **32** |
 
 **O que ele mandou tirar** (25/09/2026), em duas ordens da mesma noite e na
 mesma lista: primeiro os **13 boosters soltos**, as **3 slim booster box**, o
@@ -963,7 +963,8 @@ cinco sem id e sem uma oferta) e o «Immersive Arcane Promo Pack» e o
 «Replacement Card Booster», que têm página no Cardmarket mas zero ofertas — e
 o segundo **nem produto é**: é o serviço da Riot de substituição de cartas
 danificadas. Medido ao vivo: dos 38 visíveis com `blueprint_id`, estes 7 são
-exactamente os que estão a zero.
+exactamente os que estão a zero. (**Dois deles voltaram a 28/09**, quando o
+Cardmarket foi finalmente lido — ver a secção a seguir.)
 
 **As edições POR SAIR não saem, e é o ponto que este critério protege.** A
 LGC, a PG2, a REC e a RAD não têm `cardmarket_id` nenhum — é normal, ainda não
@@ -985,14 +986,15 @@ Booster» sair sem levar o «Origins | Nexus Night Promo Booster». Um nome que
 não case rebenta, com os parecidos.
 
 **Tira-se por nome, nunca por categoria.** Os dois «Trial Deck Case» são de «Box
-Sets & Displays» e saem porque ele os nomeou; da mesma categoria **ficam** o
-«Arcane Box Set» (a caixa de coleccionador — não confundir com o «Arcane
-Complete Set», que saiu), o «Arcane Chinese Promo Set», o «Signature Edition Box
-Set», o «Origins: Proving Grounds Box Set Case», o «Instant Match Box 2025» e a
-«Secret Garden Bundle Box». A 283 também fica em `selado.categorias`: o que saiu
-foram os dois produtos, não a categoria. Ficam ainda, porque ele não os nomeou:
-os 4 EVENT Kit, os 9 displays de decks, os 4 Nexus Night Promo Booster, os Promo
-Pack, e todas as booster box normais, cases, vaults, decks e Proving Grounds.
+Sets & Displays» e saem porque ele os nomeou; da mesma categoria **não saíram
+por essa ordem** o «Arcane Box Set» (a caixa de coleccionador — não confundir
+com o «Arcane Complete Set», que saiu), o «Arcane Chinese Promo Set», o
+«Signature Edition Box Set», o «Origins: Proving Grounds Box Set Case», o
+«Instant Match Box 2025» e a «Secret Garden Bundle Box». A 283 também fica em
+`selado.categorias`: o que saiu foram os dois produtos, não a categoria. (Dos
+seis, o «Arcane Chinese Promo Set» saiu a 28/09 pela regra da língua e o
+«Proving Grounds Box Set Case» era um dos 17 do `extra`, que saíram no mesmo
+dia; ver a secção a seguir.)
 
 O CardTrader escreve «2024 Trial Deck Set **Set**» e «2025 Trial Deck Set
 **Set**»: `selado.nome_limpo` junta a palavra repetida. É apresentação — o `id`
@@ -1023,6 +1025,52 @@ Sondadas as ofertas dos oito a 25/09/2026: os antigos (330845–330848) têm
 ofertas todas e um id cada. É duplicação do catálogo deles — juntam-se num só e
 a linha diz que blueprint juntou. **Não às cegas**: a chave leva a versão, por
 isso os «2024 Trial Deck Set» e «2025 Trial Deck Set» continuam a ser dois.
+
+### Só impressão inglesa, e só o que tem página própria (28/09/2026)
+
+O varrimento dos dois mercados fechou — o CardTrader pela API e o **Cardmarket
+pelo Chrome dele** (a extensão passa o Cloudflare; a API deles está fechada a
+novos pedidos): 4 categorias de selado, **73 produtos, 68 com oferta**. Daí
+saíram três decisões, todas feitas com as chaves que já existiam.
+
+**a) Voltam à aba dois dos que tinham saído por «ninguém vende»:** o
+«Unleashed Sleeved Booster» (13,00 € no Cardmarket) e o «Replacement Card
+Booster» (35,00 €). É a prova de que **repor é tirar o nome da lista**.
+
+**b) SÓ IMPRESSÃO INGLESA** (*"nao quero nada que nao seja impressao
+Inglesa"*). Uma caixa da impressão chinesa não entra na aba, tenha oferta ou
+não — é a mesma escolha que os preços já faziam pelo outro lado
+(`precos.linguas: ["en"]`), mas agora tira o produto, não só o preço.
+Aplica-se **à mão**, pelo `selado.excluidos`: não há campo de língua nos
+blueprints, e o marcador lê-se no nome («Arcane Chinese Promo Set»), na versão
+(«Chinese Exclusive») ou no rótulo do Cardmarket («(Chinese, Slim)»).
+**Cuidado a cada `--sync`:** um produto novo com esse marcador entra sozinho.
+Varridos os 48 da aba, só um tinha marcador — o **Arcane Chinese Promo Set** —,
+e é ele que sai. **Formato não é língua:** «Slim», «Jumbo» e «Sleeved» são
+embalagens, e por isso o Sleeved Booster voltou no mesmo dia.
+
+**c) Sai da aba quem não tem página própria** (*"Tira os que nao tem pagina
+propria"*): os **17 do `selado.extra`** — os 7 Champion Deck Display, os 2 de
+showdown, os 3 Vault Bundle Case, o Proving Grounds Box Set Case e os 4
+Pre-Rift EVENT Kit. E percebeu-se porquê: **o Cardmarket não dá página própria
+a displays nem a cases** — vendem-se dentro da entrada do produto simples, com
+o vendedor a escrever na nota (no `Spiritforged-Pre-Rift-Event-Kit` há um
+«SEALED CASE (16 kits + box)» a 1350 € ao lado do kit de um jogador a ~49 €).
+**O que saiu foi a presença na aba, não o conhecimento:** o `selado.extra`
+ficou vazio e os 17 objectos estão inteiros em `_selado_extra_arquivado`, com
+a data, a frase dele e a razão — **repor é copiá-los de volta**.
+
+**Aviso para quem ler o Cardmarket:** o «From» deles **não é o preço do
+produto**. No `Unleashed-Pre-Rift-Event-Kit` o «From 2,50 €» são vendedores a
+vender um deck solto de dentro do kit; o kit inteiro está a ~22-26 €.
+
+A aba passa de **48 a 32** produtos; o valor do selado (552,56 €) e a Coleção
+**não mexem** — medido com o site gerado dos dois lados, 30 ficheiros, 29
+iguais.
+
+**O buraco que fica:** a app só vê o catálogo do CardTrader, por isso os **16
+produtos que só o Cardmarket lista** são invisíveis (13 com oferta viva, dez
+deles impressão chinesa). Ver `docs/selado-dois-mercados-20260928.md`.
 
 **Três estados, que é o que ele pediu:** o que **há** (a lista toda), o que
 **tens** e o que **não tens**, com os contadores no topo e um filtro por baixo.

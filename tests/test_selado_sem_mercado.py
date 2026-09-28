@@ -65,6 +65,16 @@ OS_SETE = [
     "The T1 Worlds Champion | Player Bundle",
 ]
 
+# DOIS DELES VOLTARAM À ABA a 2026-09-28. O critério desta ordem cruzava as
+# duas coisas que se MEDIAM — sem `cardmarket_id` e zero ofertas no CardTrader
+# —, e o Cardmarket, lido nesse dia pelo Chrome dele, mostrou que o
+# «Replacement Card Booster» tem lá oferta a 35,00 €. (O «Immersive Arcane
+# Promo Pack» também tem, a 80,00 €, e ficou fora por outra razão: a `versao`
+# do CardTrader diz «Chinese Exclusive» e ele não quer impressão não-inglesa.)
+# Ver `test_selado_ingles.py`.
+VOLTARAM_A_28_09 = ["Replacement Card Booster"]
+OS_CINCO_QUE_FICAM = [n for n in OS_SETE if n not in VOLTARAM_A_28_09]
+
 # Medido ao vivo a 2026-09-26 (`_revisao\_medir_selado_cm.py`): o id do
 # Cardmarket que o catálogo tem, e as ofertas que a API do CardTrader devolveu.
 OS_SETE_MEDIDOS = {
@@ -273,20 +283,28 @@ class TestOConfigReal(unittest.TestCase):
             (REPO / "riftvault_config.json").read_text(encoding="utf-8"))
         cls.sel = cls.cfg["selado"]
 
-    def test_a_lista_tem_50_sem_repetidos(self):
+    def test_a_lista_tem_49_sem_repetidos(self):
         """22 (25/09, manhã) + 10 (25/09, noite) + 11 Champion Deck (26/09)
-        + 7 sem mercado (26/09)."""
-        self.assertEqual(len(self.sel["excluidos"]), 50)
-        self.assertEqual(len(set(self.sel["excluidos"])), 50)
+        + 7 sem mercado (26/09) − 2 que voltaram + 1 chinês (28/09)."""
+        self.assertEqual(len(self.sel["excluidos"]), 49)
+        self.assertEqual(len(set(self.sel["excluidos"])), 49)
 
-    def test_os_sete_estao_la(self):
-        for n in OS_SETE:
+    def test_os_cinco_que_ficam_estao_la(self):
+        for n in OS_CINCO_QUE_FICAM:
             self.assertIn(n, self.sel["excluidos"], n)
+
+    def test_o_que_voltou_saiu_da_lista(self):
+        """A prova de que **repor é tirar o nome** — e de que a decisão de
+        26/09 se desfaz sem apagar nada."""
+        for n in VOLTARAM_A_28_09:
+            self.assertNotIn(n, self.sel["excluidos"], n)
 
     def test_as_43_das_ordens_anteriores_continuam_la(self):
         """Acrescentar não é reescrever."""
-        anteriores = [n for n in self.sel["excluidos"] if n not in OS_SETE]
-        self.assertEqual(len(anteriores), 43)
+        anteriores = [n for n in self.sel["excluidos"]
+                      if n not in OS_SETE and n != "Arcane Chinese Promo Set"]
+        # Eram 43; o «Unleashed Sleeved Booster» voltou a 28/09 e são 42.
+        self.assertEqual(len(anteriores), 42)
         for n in ("Origins Booster", "Origins: Champion Deck Set",
                   "Spiritforged Bulk Runes", "Spiritforged Pre-Rift Kit",
                   "Unleashed: Poro Scene Set", "Arcane Complete Set",
@@ -304,10 +322,15 @@ class TestOConfigReal(unittest.TestCase):
             self.assertNotIn(n, self.sel["excluidos"], n)
 
     def test_os_dezassete_da_extra_NAO_foram_parar_a_lista(self):
-        """Não se medem por este critério: foram escritos à mão porque um
-        catálogo de mercado não os lista."""
-        self.assertEqual(len(self.sel["extra"]), 17)
-        for x in self.sel["extra"]:
+        """Não se mediam por este critério: foram escritos à mão porque um
+        catálogo de mercado não os lista.
+
+        Saíram da aba a 2026-09-28, por outra porta — o `selado.extra` ficou
+        vazio e os objectos passaram para o `_selado_extra_arquivado`. Nunca
+        chegaram ao `selado.excluidos`, e é isso que aqui se guarda."""
+        arquivados = (self.cfg.get("_selado_extra_arquivado") or {}).get("produtos", [])
+        self.assertEqual(len(self.sel["extra"]) + len(arquivados), 17)
+        for x in self.sel["extra"] + arquivados:
             self.assertNotIn(x["nome"], self.sel["excluidos"], x["nome"])
 
     def test_a_nota_explica_o_criterio(self):
@@ -347,25 +370,32 @@ class RealBase(unittest.TestCase):
 
 
 class TestOsSeteContraOCatalogoReal(RealBase):
-    def test_cada_um_dos_sete_casa_com_um_produto(self):
-        for n in OS_SETE:
+    def test_cada_um_dos_cinco_casa_com_um_produto(self):
+        for n in OS_CINCO_QUE_FICAM:
             self.assertIn(n, self.tirados, f"{n} não casou com nenhum produto")
 
-    def test_os_sete_sairam_da_aba(self):
-        for n in OS_SETE:
+    def test_os_cinco_sairam_da_aba(self):
+        for n in OS_CINCO_QUE_FICAM:
             self.assertNotIn(n, self.nomes, f"{n} tinha de ter saído")
+
+    def test_o_que_voltou_esta_na_aba(self):
+        for n in VOLTARAM_A_28_09:
+            self.assertIn(n, self.nomes, f"{n} voltou a 28/09")
 
     def test_o_id_do_cardmarket_e_as_ofertas_batem_com_o_medido(self):
         """Os números que justificaram a saída, produto a produto. Se o
         `--sync` os mudar, este teste diz qual — e a decisão volta a ser
         dele."""
+        por_nome = {p["nome"]: p for p in self.crus.values()}
         for n, (cm, _) in OS_SETE_MEDIDOS.items():
-            cru = self.crus[self.tirados[n]["id"]]
-            self.assertEqual(cru["cardmarket_id"], cm, n)
+            self.assertEqual(por_nome[n]["cardmarket_id"], cm, n)
 
-    def test_a_aba_fica_com_48_selados(self):
+    def test_a_aba_fica_com_32_selados(self):
+        """Estes 7 levaram-na de 55 a 48; a 28/09 os 17 do `selado.extra`,
+        menos os 2 que voltaram e o chinês que saiu, levaram-na a 32."""
         selados = [x for x in self.lista if not x["acessorio"]]
-        self.assertEqual(len(selados), 48, "98 − 22 − 10 − 11 − 7")
+        self.assertEqual(len(selados), 32,
+                         "98 − 22 − 10 − 11 − 7 − 17 − 1 + 2")
 
     def test_por_edicao_depois_dos_sete(self):
         """Os números que ele vai ver, edição a edição. Mexem três: a OP
@@ -374,18 +404,18 @@ class TestOsSeteContraOCatalogoReal(RealBase):
         for x in self.lista:
             if not x["acessorio"]:
                 por[x["edicao"]] = por.get(x["edicao"], 0) + 1
-        self.assertEqual(por, {"OGN": 5, "OGS": 2, "SFD": 6, "UNL": 8, "VEN": 8,
-                               "RAD": 7, "LGC": 2, "PG2": 1, "REC": 1, "ARC": 2,
-                               "PROMO-RIFT": 5, "T1S": 1})
-        self.assertEqual(sum(por.values()), 48)
+        self.assertEqual(por, {"OGN": 2, "OGS": 1, "SFD": 3, "UNL": 5, "VEN": 5,
+                               "RAD": 4, "LGC": 2, "PG2": 1, "REC": 1, "ARC": 1,
+                               "PROMO-RIFT": 6, "T1S": 1})
+        self.assertEqual(sum(por.values()), 32)
 
     def test_a_op_desapareceu_por_ter_um_produto_so(self):
         self.assertEqual([x["nome"] for x in self.lista if x["edicao"] == "OP"], [])
 
-    def test_saem_exactamente_50_e_cada_nome_casa_com_um(self):
+    def test_saem_exactamente_49_e_cada_nome_casa_com_um(self):
         ex = self.selado.excluidos(self.cfg)
-        self.assertEqual(len(ex), 50)
-        self.assertEqual(len({x["id"] for x in ex}), 50)
+        self.assertEqual(len(ex), 49)
+        self.assertEqual(len({x["id"] for x in ex}), 49)
 
     def test_ler_nao_escreve(self):
         antes = (REPO / "data" / "selado_catalogo.json").read_bytes()
@@ -411,7 +441,9 @@ class TestOQueFicaNoCatalogoReal(RealBase):
         for x in self.lista:
             if not x["acessorio"]:
                 por[x["edicao"]] = por.get(x["edicao"], 0) + 1
-        for ed, n in (("LGC", 2), ("PG2", 1), ("REC", 1), ("RAD", 7)):
+        # A RAD tinha 7 e tem 4: os 3 que saíram eram do `selado.extra`
+        # (o display de showdown, o vault bundle case e o EVENT Kit).
+        for ed, n in (("LGC", 2), ("PG2", 1), ("REC", 1), ("RAD", 4)):
             self.assertEqual(por.get(ed), n, ed)
 
     def test_o_arcane_box_set_continua_visivel(self):
@@ -437,12 +469,19 @@ class TestOQueFicaNoCatalogoReal(RealBase):
             self.por_nome["Origins | Nexus Night Promo Booster"]["cardmarket_id"],
             856097)
 
-    def test_os_dezassete_da_extra_continuam_visiveis(self):
-        do_config = [x for x in self.lista if x["fonte"] == "config"]
-        self.assertEqual(len(do_config), 17)
-        for x in do_config:
-            self.assertIsNone(x["blueprint_id"])
-            self.assertIsNone(x["cardmarket_id"])
+    def test_os_dezassete_da_extra_nao_sairam_por_esta_ordem(self):
+        """Estavam visíveis quando esta ordem correu e saíram da aba a 28/09,
+        por não terem página própria em mercado nenhum — nunca por esta lista.
+        O que se sabe deles está no `_selado_extra_arquivado` — e lê-se do
+        FICHEIRO, porque o `config.load()` deita fora as chaves `_…`: são notas
+        para humanos, não configuração. É isso que faz do arquivo uma coisa
+        **inerte** para a app: guarda o conhecimento sem mexer em número
+        nenhum."""
+        bruto = json.loads((REPO / "riftvault_config.json").read_text(encoding="utf-8"))
+        arq = (bruto.get("_selado_extra_arquivado") or {}).get("produtos", [])
+        self.assertEqual(len(bruto["selado"]["extra"]) + len(arq), 17)
+        for x in arq:
+            self.assertNotIn(x["nome"], bruto["selado"]["excluidos"], x["nome"])
 
     def test_o_immersive_saiu_e_o_arcane_promo_pack_tambem(self):
         """Os dois nomes em que um está dentro do outro: saem os dois, cada um
@@ -453,19 +492,22 @@ class TestOQueFicaNoCatalogoReal(RealBase):
                               ("Arcane Promo Pack", "Immersive Arcane Promo Pack",
                                "Promo Pack")}), 3)
 
-    def test_nenhum_produto_visivel_tem_nome_de_servico(self):
-        """O «Replacement Card Booster» nem produto é: é o serviço da Riot de
-        substituição de cartas danificadas."""
-        self.assertNotIn("Replacement Card Booster", self.nomes)
+    def test_o_replacement_card_booster_voltou_por_ordem_dele(self):
+        """Esta ordem tirou-o com a ressalva de que *nem produto é* — é o
+        serviço da Riot de substituição de cartas danificadas. **Voltou** a
+        2026-09-28: o Cardmarket tem-no a 35,00 €, o critério era «ninguém
+        vende, em lado nenhum», e essa premissa caiu. A ressalva fica escrita;
+        a decisão é dele."""
+        self.assertIn("Replacement Card Booster", self.nomes)
 
 
 # ---------------------------------------------------------------------------
-# 5. Nenhuma exclusão morta — o guarda da lista INTEIRA, com 50 entradas
+# 5. Nenhuma exclusão morta — o guarda da lista INTEIRA, com 49 entradas
 # ---------------------------------------------------------------------------
 
 
 class TestNenhumaExclusaoMorta(RealBase):
-    """O mesmo guarda do `test_selado_champion`, agora com as 50: uma entrada
+    """O mesmo guarda do `test_selado_champion`, agora com as 49: uma entrada
     que não casa não esconde produto nenhum — é erro de escrita, ou um produto
     que o CardTrader tirou do catálogo."""
 
