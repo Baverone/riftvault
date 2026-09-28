@@ -2457,8 +2457,21 @@ async function loadDecks(sub = '') {
       ? state.prefs.deck : (state.decks[0] && state.decks[0].id));
   if (ids.includes(first)) await loadDeckFaltas(first);
   else if (first) await loadDeck(first);
-  else $('#deck-body').innerHTML = '<p class="empty">Não há decks. Mete um .txt em <code>decks/</code>.</p>';
+  else {
+    $('#deck-head').innerHTML = '';
+    $('#deck-body').innerHTML = `<p class="empty">${SEM_DECKS} ${SEM_DECKS_COMO}
+      <br>A Coleção dá exactamente os mesmos números que daria se nunca tivesse
+      havido decks: nada em uso, nada a comprar aos decks.</p>`;
+  }
 }
+
+/* ZERO DECKS (2026-09-28): a frase é a MESMA da consola — o `decks.SEM_DECKS`
+   e o `SEM_DECKS_COMO` do `decks.py`, e o `tests/test_sem_decks.py` compara as
+   duas escritas para não poderem divergir. Não nomeia a razão de HOJE de a
+   lista estar vazia — isso é verdade num dia e falso no seguinte; o que não
+   muda é o estado e como sair dele. */
+const SEM_DECKS = 'Não há decks.';
+const SEM_DECKS_COMO = 'Mete um .txt em decks/ para entrar um.';
 
 /* O índice dos decks. Era uma FILA de nove botões que, num telemóvel de
    390 px, acabava aos 1042 px — vêem-se três, os outros seis estavam fora do
@@ -2490,6 +2503,15 @@ function itensDoIndice() {
       accao: () => loadDeck(d.id),
     };
   });
+  // Sem decks o grupo «Os decks» desaparecia do índice e lia-se como se se
+  // tivesse perdido (2026-09-28). A nota entra AQUI, na lista partilhada, e
+  // não em cada um dos dois renderizadores — senão o `<select>` do telemóvel
+  // ficava sem ela, que é a divergência que esta lista existe para evitar.
+  // `vazio: true` diz «isto é uma frase, não um sítio para onde ir».
+  if (state.decks && !state.decks.length) {
+    decks.push({ grupo: 'Os decks', chave: '', vazio: true,
+                 rot: SEM_DECKS, nota: SEM_DECKS_COMO });
+  }
   // A lista «Encomendas» que era o último separador daqui (2026-09-11) passou
   // a separador de topo a 2026-09-17 («tiras esta funcionalidade dos decks»).
   // As abas por deck que viviam no antigo separador «Faltas» até 2026-09-15
@@ -2518,6 +2540,14 @@ function renderDeckTabs() {
       h.textContent = grupo;
       nav.appendChild(h);
     }
+    // Um item `vazio` é uma FRASE, não um botão: não há para onde ir.
+    if (it.vazio) {
+      const p = document.createElement('p');
+      p.className = 'vidx-vazio';
+      p.textContent = `${it.rot} ${it.nota}`;
+      nav.appendChild(p);
+      continue;
+    }
     const b = document.createElement('button');
     b.type = 'button';
     b.className = (it.on ? 'is-on' : '') + (it.off ? ' is-off' : '');
@@ -2543,11 +2573,13 @@ function renderDeckTabs() {
     o.value = it.chave;
     o.textContent = `${it.rot} — ${it.nota}`;
     o.selected = it.on;
+    // A frase do «sem decks» aparece, mas não se escolhe.
+    if (it.vazio) o.disabled = true;
     og.appendChild(o);
   }
   sel.onchange = () => {
     const it = itensDoIndice().find(x => x.chave === sel.value);
-    if (it) it.accao();
+    if (it && it.accao) it.accao();
   };
 }
 
@@ -4072,7 +4104,14 @@ function renderInicio() {
       v.copias_sem_preco ? ` · ${plural(v.copias_sem_preco, 'cópia sem preço', 'cópias sem preço')}` : ''}.
      As cópias próprias dos decks não contam. ${foilNotaValor()}`);
 
-  if (decks) {
+  // ZERO DECKS (2026-09-28) é um estado normal — entre apagar as listas velhas
+  // e escrever as novas. Precisa de caso PRÓPRIO: com `decks = []` o cartão
+  // dizia «0 de 0 · estão todos completos», que é uma mentira das duas metades.
+  if (decks && !decks.length) {
+    cartoes += iniCartao('', 'montado', 'Decks montados', '<span class="n">—</span>',
+      `${SEM_DECKS} ${SEM_DECKS_COMO} A Coleção dá os mesmos números que daria
+       se nunca tivesse havido decks.`);
+  } else if (decks) {
     const cheios = decks.filter(d => !d.missing).length;
     const faltam = decks.reduce((n, d) => n + (d.missing || 0), 0);
     cartoes += iniCartao(cheios === decks.length ? 'ok' : '', 'montado', 'Decks montados',
@@ -4136,6 +4175,11 @@ function renderInicio() {
     for (const b of document.querySelectorAll('#inicio-decks .ini-linha')) {
       b.onclick = () => showSection('decks', b.dataset.deck);
     }
+  } else if (decks) {
+    // Sem decks a lista ficava a vazio MUDO. Diz-se, e diz-se que a Coleção
+    // não perdeu nada com isso — é a pergunta que ele faria a seguir.
+    $('#inicio-decks').innerHTML = '<p class="ini-h">Os decks</p>'
+      + `<p class="empty">${SEM_DECKS} ${SEM_DECKS_COMO}</p>`;
   } else {
     $('#inicio-decks').innerHTML = '';
   }

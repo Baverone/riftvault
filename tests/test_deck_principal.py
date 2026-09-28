@@ -238,11 +238,19 @@ class TestAChave(Base):
         self.assertEqual(self.principal.estado(con)["slug"], "azir")
 
     def test_o_config_real_tem_a_chave_e_o_minimo(self):
+        """A 2026-09-28 os decks foram apagados todos e a chave ficou a `null`
+        — não há deck principal. O que este teste fixa é a INVARIANTE, que
+        vale nos dois estados: o mínimo é 50, e **o principal, quando existe,
+        está montado** (as duas chaves não podem dizer coisas diferentes)."""
         raw = json.loads((REPO / "riftvault_config.json").read_text(encoding="utf-8"))
-        self.assertEqual(raw["decks"]["principal"], "LeBlanc Hook")
         self.assertEqual(raw["decks"]["venda_minimo_cents"], 50)
-        # O principal tem de estar montado — as duas chaves a dizerem o mesmo.
-        self.assertIn("LeBlanc Hook", raw["decks"]["montados"])
+        self.assertIn("principal", raw["decks"])
+        p = raw["decks"]["principal"]
+        if p is None:
+            self.assertEqual(raw["decks"]["montados"], [],
+                             "sem principal e com decks montados, alguém se esqueceu de um")
+        else:
+            self.assertIn(p, raw["decks"]["montados"])
 
     def test_a_nota_do_config_diz_a_frase_a_data_e_as_tres_decisoes(self):
         raw = (REPO / "riftvault_config.json").read_text(encoding="utf-8")
