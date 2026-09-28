@@ -8190,3 +8190,124 @@ sem repetidos, as ordens anteriores inteiras, o default que não esconde nada); 
 língua**, o Sleeved que fica, as 49 entradas a casarem com um produto cada, uma
 inventada a rebentar, e a versão «Chinese Exclusive» do 408687); e **a
 fotografia** — a MESMA do `test_selado`, por referência.
+
+## 28/09/2026 — OS DECKS FORAM APAGADOS TODOS (ficam ZERO); e `decks.apagar_todos`
+
+Palavras dele: *"apaga os decks todos, vamos atualizar com as listas novas
+posteriormente"*. Houve um torneio grande (RQ Los Angeles) e a ideia é
+substituir as seis listas pelas melhores de cada Legend que saírem de lá. Ramo
+`ai-pc/sem-decks-2026-09-28`.
+
+**HOJE NÃO HÁ DECKS NENHUNS.** Todas as secções acima que falam de decks —
+a partilha da Coleção (11/09), montado/desmontado (24/09), o deck principal e
+a wantlist dele (27/09), as cópias próprias (21/09), a regra de raridade
+(24/09), as versões (17/09) — descrevem REGRAS que continuam inteiras no
+código e no config, mas **não têm hoje nenhum caso**: `decks.montados` é `[]`,
+`decks.principal` é `null` e `decks.ordem` é `[]`. Voltam a valer assim que
+entrar o primeiro `.txt`.
+
+### A PRECONDIÇÃO, verificada antes de tocar em nada
+
+`locais.proprias(con)` devolvia **`{}`**, a `copy_locations` estava **vazia** e
+a `sale_lines` também: **ele não tinha nenhuma cópia própria marcada em deck
+nenhum**. Por isso apagar **não desencadeou a regra da Venda** (as próprias de
+0,50 € para cima do deck principal) e **não perdeu nenhuma marcação feita à
+mão**. Era a condição que fazia a ordem ser segura, e mediu-se pela função da
+app, não por SQL.
+
+### `decks.apagar_todos` — porque é uma função e não SQL à mão
+
+Já se tinham apagado decks três vezes (17/09 o Kennen e um LeBlanc, 20/09 o
+Kennen outra vez, 21/09 a troca das seis listas) e todas as vezes foi o mesmo
+percurso feito à mão, **com uma parte esquecida de cada vez** — a 21/09 foi
+preciso descobrir o `uso_decks.recomecar` para o histórico não ficar a dizer
+que ele tinha deixado de jogar 132 cartas. Isto repete-se a cada torneio.
+
+Seis passos, **cada um pela porta que já existia** — não há SQL novo:
+
+1. **conta as cópias próprias** (`locais.proprias`) e di-las; nunca as apaga —
+   uma cópia própria é dele e fica gravada no `proprio:<slug>`, fora da
+   Coleção e do valor, como já acontecia a um deck cujo `.txt` desaparecia;
+2. **despromove o principal** (`principal.definir(con, None)`), que é quem
+   trata da regra dos 0,50 € — com zero próprias é um no-op, e é o caso de
+   hoje; a regra fica honrada para a próxima vez;
+3. **manda ao binder** o que estivesse sleevado (`locais.desfazer_deck`);
+   nunca à Coleção — *"quem as tirou de lá foi ele"*;
+4. **arquiva e apaga os `.txt`**;
+5. **tira as linhas da base pelo `import_all`** — «decks cujo ficheiro
+   desapareceu saem, é assim que se apaga um deck» já lá estava escrito;
+6. **recomeça o registo** (`uso_decks.recomecar`) e **limpa o config**.
+
+**AS REGRAS DO CONFIG NÃO SE TOCAM** (`so_base`, `venda_minimo_cents`,
+`coleccao_so_a_partir_de`, `modo`, `versoes_especiais`, `contar_runas`): são
+decisões dele e as listas novas vão querer as mesmas. Só saem as três chaves
+que NOMEIAM decks que deixaram de existir, e há teste que exige que sejam
+exactamente essas três.
+
+**O arquivo a sério é o GIT.** Os `decks/*.txt` são versionados desde sempre
+(recupera-se com `git checkout <sha>~1 -- decks/`, o caminho de 17/09 e de
+20/09); a pasta `data/backups/decks-<data>/` é a cópia de conveniência, para
+ele abrir uma lista sem git à mão — e está no `.gitignore`, como todos os
+backups. Na CLI: `riftvault decks --apagar-todos` diz o que ia fazer e **pede
+confirmação**; `--sim` faz, com backup do `vault.db` primeiro (`db.backup`).
+
+### ZERO DECKS É UM ESTADO NORMAL — e foi preciso arranjá-lo
+
+Exercitados contra uma cópia do `data/` real com os decks apagados: os 17
+payloads, as duas metades das Faltas, a wantlist, o painel, o `build`
+(20 ficheiros, `api/decks.json` com `decks: []` e zero payloads de deck
+órfãos), as 12 rotas e a CLI — **nada rebentou**. O que estava mal era o que
+se LIA:
+
+| onde | dizia | diz |
+|---|---|---|
+| cartão «Decks montados» do Início | **«0 de 0 · estão todos completos»** | «—» e a frase |
+| lista «Os decks» do Início | nada (vazio mudo) | a frase |
+| índice dos decks | o grupo «Os decks» desaparecia | o grupo, com a frase |
+| `riftvault decks` | só a fila dos títulos da tabela | a frase |
+| `riftvault wantlist` | **uma linha em branco** | nada no stdout (fica colável), a frase no stderr |
+| `riftvault principal` | «`--definir leblanc-hook` escolhe um» | um deck que EXISTA, ou a frase |
+
+O primeiro era o pior: **uma mentira das duas metades** — `decks = []` é
+truthy, `cheios === decks.length` é `0 === 0`, e o cartão dava por completos
+decks que não existem.
+
+**A frase é UMA** e vive no `decks.py` (`SEM_DECKS`, `SEM_DECKS_COMO`), com o
+`app.js` a repeti-la e o teste a comparar as duas escritas. **Não nomeia o
+torneio**: hoje é verdade e no mês que vem não — o que não muda é o estado e
+como sair dele. Há teste que recusa a palavra no `app.js` e no `cli.py`.
+
+### Medido a 2026-09-28, antes e depois, no `data/` real
+
+**Zero diferenças em tudo o que é número da Coleção:**
+
+| | antes (6 decks) | depois (0 decks) |
+|---|---|---|
+| denominador | **928** | **928** |
+| 1 de cada · 2 de cada · playset | **910 / 872 / 775** de 928 | **iguais** |
+| valor | **7 775,37 € · 3 173 cópias** | **iguais** |
+| `copies` (sha256) | `10b9f143…` | **o mesmo** |
+| cópias normais · foil | 2 642 · 539 | **iguais** |
+| wantlist «tudo» | 153 linhas · 223 cópias · 833,66 € | **iguais** |
+| Faltas normais · foils | 470 · 9 045,64 € · 915 · 375,33 € | **iguais** |
+| `sale_lines` | 0 linhas | **0 linhas** |
+| `decks` · `deck_cards` · `deck_need_log` | 6 · 182 · 170 | **0 · 0 · 0** |
+| `decks.montados` · `principal` · `ordem` | `["LeBlanc Hook"]` · `"LeBlanc Hook"` · 6 nomes | `[]` · `null` · `[]` |
+| cartas com uso de decks na grelha | 27 | **0** |
+| «libertadas» do A mais | 0 | **0** (o `recomecar` é que o garante) |
+
+As «libertadas» a zero são o ponto do passo 6: sem ele seriam **170 linhas** de
+descida a zero, e o «A mais» mostrava-as como cartas que ele deixou de jogar.
+
+`tests/test_sem_decks.py` (38 testes, contra pastas temporárias e config
+temporário): apaga as quatro coisas e arquiva primeiro; as regras ficam e só
+as três chaves de estado saem; **a fotografia** da Coleção (níveis,
+denominador, wantlist, valor, totais, grelha com o foil, master, painel, as
+duas metades das Faltas, Encomendas e o sha da `copies`) igual antes e depois,
+mais o teste que exige que ela não seja de zeros; a `copies` byte a byte e a
+`ops` sem linhas novas; a regra dos 0,50 € (a de 1,50 € vai, a de 0,20 € fica,
+a origem `deck:<slug>`, e **nada sai do `proprio:`**); as próprias não se
+apagam e continuam fora do valor; o sleevado vai ao binder e não à Coleção;
+zero decks nos 17 payloads, no `build`, nas rotas e na CLI; e a frase — a
+mesma nos dois sítios, sem nomear o torneio, e em cada um dos seis sítios onde
+a lista fica vazia.

@@ -1199,8 +1199,44 @@ sobreavaliadas — o `riftvault value` diz-te que percentagem do total vem daí.
 
 ## Decks
 
+> **HOJE NÃO HÁ DECKS** (28/09/2026). Apagaste os seis para entrarem as listas
+> novas: *"apaga os decks todos, vamos atualizar com as listas novas
+> posteriormente"*. A Coleção **não mudou um número** — dá exactamente os
+> mesmos números que daria se nunca tivesse havido decks. Para voltar a haver
+> decks é meter os `.txt` em `decks/`; o que se segue volta a valer nesse
+> momento. As seis listas antigas ficam no git (o commit que as apagou) e em
+> `data/backups/decks-<data>/`.
+
 As listas ficam em `decks/*.txt`. Cada uma dá um separador, com o nome
 **Legend · Champion**.
+
+### Trocar as listas todas (`--apagar-todos`)
+
+`riftvault decks --apagar-todos --sim` é o caminho limpo para substituir os
+decks de uma vez, que é o que acontece a cada torneio. Faz seis coisas, cada
+uma pela porta que já existia:
+
+1. **conta as cópias próprias** de cada deck e di-las — nunca as apaga;
+2. **despromove o deck principal**, o que manda as cópias próprias dele de
+   **0,50 €** para cima para a Venda (a regra de 27/09; entrar na Venda não é
+   vender, e nada sai do `proprio:<slug>`);
+3. **manda ao binder** o que estivesse sleevado nos decks — nunca à Coleção;
+4. **arquiva e apaga** os `decks/*.txt` (o arquivo a sério é o **git**, que os
+   versiona; a cópia em `data/backups/decks-<data>/` é a de conveniência);
+5. **tira as linhas** da `decks` e da `deck_cards`;
+6. **recomeça o `deck_need_log`** e **limpa o estado no config** — `montados`
+   vazia, `principal` sem valor, `ordem` vazia.
+
+O passo 6 é o que a experiência de 21/09 ensinou: sem ele o registo ficava com
+uma descida a zero por cada carta das listas velhas, e o «A mais» lia isso como
+cartas que deixaste de jogar. **As REGRAS do config não se tocam** (`so_base`,
+`venda_minimo_cents`, `coleccao_so_a_partir_de`, `modo`, `versoes_especiais`,
+`contar_runas`): são decisões tuas e as listas novas vão querer as mesmas.
+Sem o `--sim` só diz o que ia fazer. Faz backup do `vault.db` antes.
+
+**Zero decks é um estado normal**, e a app diz porquê em vez de mostrar uma
+lista vazia muda: o índice, a página, o cartão «Decks montados» do Início e o
+`riftvault decks` escrevem todos a mesma frase.
 
 Os decks têm uma **ordem**, e é ela que manda: o deck 1 fica com as cartas de
 que precisa, o deck 2 só recebe o que sobrou. **Os decks usam a Coleção**

@@ -407,6 +407,32 @@ def cmd_value(args) -> int:
 def cmd_decks(args) -> int:
     con = db.connect()
     imp = decks_mod.import_all(con)
+    # APAGAR TODOS OS DECKS (2026-09-28): *"apaga os decks todos, vamos
+    # atualizar com as listas novas posteriormente"*. Vem antes de tudo o resto
+    # — as outras opções falam de decks que a seguir já não existem.
+    if getattr(args, "apagar_todos", False):
+        n = len(decks_mod.deck_rows(con))
+        if not n:
+            print(f"{decks_mod.SEM_DECKS} Não há nada para apagar.")
+            con.close()
+            return 0
+        if not getattr(args, "sim", False):
+            print(f"Isto apaga os {n} decks: as listas em {config.DECKS_DIR} "
+                  f"(arquivadas primeiro), as linhas da base, o registo do que "
+                  f"pediam e o estado no config.\nAs REGRAS do config ficam, e a "
+                  f"COLEÇÃO não muda um número.\nEscreve `riftvault decks "
+                  f"--apagar-todos --sim` para o fazer.", file=sys.stderr)
+            con.close()
+            return 1
+        # O backup do vault.db ANTES de mexer: é a rede de segurança da coleção,
+        # a mesma porta das migrações (`db.backup`).
+        bk = db.backup(con, "antes-de-apagar-os-decks")
+        print(f"backup: {bk}" if bk else "AVISO: o backup do vault.db não deu.")
+        res = decks_mod.apagar_todos(con, source="cli")
+        print(f"\n{len(res['decks'])} decks apagados: "
+              f"{', '.join(res['rotulos'][s] for s in res['decks'])}.")
+        con.close()
+        return 0
     # MONTAR/DESMONTAR (2026-09-24): escreve `decks.montados` no config — o
     # estado é de lá, não da base, *"para não se perder"*.
     for slug, montar in ((getattr(args, "montar", None), True),
@@ -466,11 +492,29 @@ def cmd_decks(args) -> int:
     # As runas não se contam (2026-09-17, à noite: *"indica me so quantas
     # sao"*): o «tenho» é só do resto, e a coluna «runas» diz quantas a lista
     # pede — à mão.
-    print(f"{'#':<3} {'deck':<40} {'estado':<11} {'tenho':>12} {'próprias':>8} "
-          f"{'deck':>5} {'binder':>7} "
-          f"{'coleção':>8} {'a caminho':>9} {'falta':>6} {'disputadas':>10} "
-          f"{'runas':>6} {'aviso':>6}")
     idx = decks_mod.decks_index(con)
+    # ZERO DECKS (2026-09-28): a tabela sozinha imprimia só a fila dos títulos,
+    # que se lê como avaria. A frase é a do `decks.py`, a mesma do site. O
+    # resto da função continua a correr — os avisos que sobram (um nome do
+    # config sem deck, cópias próprias órfãs) são exactamente os que interessam
+    # neste estado, e não podem desaparecer em silêncio.
+    if not idx:
+        print(f"{decks_mod.SEM_DECKS} {decks_mod.SEM_DECKS_COMO}")
+        print("A Coleção dá exactamente os mesmos números que daria se nunca "
+              "tivesse havido decks: nada em uso, nada a comprar aos decks.")
+        orfas = locais_mod.proprias(con)
+        n = sum(sum(q.values()) for q in orfas.values())
+        if n:
+            print(f"\n{n} cópias próprias continuam guardadas em "
+                  f"{len(orfas)} deck{'s' if len(orfas) > 1 else ''} que já não "
+                  f"existe{'m' if len(orfas) > 1 else ''} "
+                  f"({', '.join(sorted(orfas))}) — ficam fora da Coleção e do "
+                  f"valor, como estavam; `riftvault local` diz quais.")
+    else:
+        print(f"{'#':<3} {'deck':<40} {'estado':<11} {'tenho':>12} {'próprias':>8} "
+              f"{'deck':>5} {'binder':>7} "
+              f"{'coleção':>8} {'a caminho':>9} {'falta':>6} {'disputadas':>10} "
+              f"{'runas':>6} {'aviso':>6}")
     for d in idx:
         # Os membros de um grupo de Legend (2026-09-11, noite) levam «··» à
         # frente: partilham as cartas e o total conta-os uma vez.
@@ -887,6 +931,15 @@ def cmd_wantlist(args) -> int:
         print(f"{res['lines']} linhas escritas em {args.out}  ({rotulo})")
     else:
         print(res["text"])
+
+    # ZERO DECKS (2026-09-28): a lista dos decks sai vazia e o `print` acima
+    # dava UMA LINHA EM BRANCO, que se lê como avaria. A explicação vai para o
+    # STDERR, como o resto das notas desta função: o stdout tem de ficar
+    # colável no Cardmarket, e uma frase lá dentro era importada como carta.
+    if not res["lines"] and not decks_mod.deck_rows(con):
+        print(f"# {decks_mod.SEM_DECKS} {decks_mod.SEM_DECKS_COMO}", file=sys.stderr)
+        print("# (a wantlist da COLEÇÃO é outra pergunta e continua a responder:"
+              " `riftvault wantlist --cardmarket`)", file=sys.stderr)
 
     if res["foil"]:
         print(f"\n# {len(res['foil'])} destas só têm oferta foil no mercado.",
@@ -1396,8 +1449,16 @@ def cmd_principal(args) -> int:
         print(f"não há deck principal"
               + (f" — `decks.principal` diz {alvo!r} e não há deck com esse nome"
                  if alvo else "") + ".")
-        print("`riftvault principal --definir leblanc-hook` escolhe um.",
-              file=sys.stderr)
+        # A dica nomeava o `leblanc-hook` cravado no código — e com os decks
+        # apagados (2026-09-28) ficou a apontar um deck que já não existe.
+        # Nomeia-se um que HAJA, e sem nenhum diz-se isso.
+        rows = decks_mod.deck_rows(con)
+        if rows:
+            print(f"`riftvault principal --definir {rows[0]['name']}` escolhe um.",
+                  file=sys.stderr)
+        else:
+            print(f"{decks_mod.SEM_DECKS} {decks_mod.SEM_DECKS_COMO}",
+                  file=sys.stderr)
         con.close()
         return 0
 
@@ -2071,6 +2132,13 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--desmontar", metavar="SLUG",
                    help="marca o deck como DESMONTADO: deixa de consumir o que quer "
                         "que seja da Coleção — a lista continua a ver-se")
+    p.add_argument("--apagar-todos", action="store_true",
+                   help="APAGA TODOS OS DECKS: arquiva e apaga os decks/*.txt, tira "
+                        "as linhas da base, recomeça o registo e limpa o estado no "
+                        "config (montados, principal, ordem). As REGRAS ficam. Pede "
+                        "confirmação; --sim salta-a")
+    p.add_argument("--sim", action="store_true",
+                   help="não pergunta (para o --apagar-todos)")
     p.set_defaults(func=cmd_decks)
 
     p = sub.add_parser("deck", help="detalhe de um deck: o que tenho e o que falta")
