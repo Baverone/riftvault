@@ -294,6 +294,13 @@ DEFAULTS: dict = {
     # cabeçalho: os playmats, as sleeves, a memorabilia e as cartas oversized
     # ficam de fora, contadas em `scope.fora`. Meter uma é acrescentar o
     # número aqui.
+    #
+    # A 262 «Riftbound Starter Decks» está AQUI e NÃO no config dele: a 262 É
+    # uma categoria de selado no CardTrader — isso é um facto deles —, e o que
+    # ele decidiu a 2026-09-28 (*"nao quero 'decks' para colecionar"*) é uma
+    # escolha DELE, que vive no `riftvault_config.json`, como o
+    # `selado.excluidos` e o `abas.escondidas`. Um riftvault sem config vê o
+    # catálogo inteiro; o dele não tem decks. Ver `_selado_sem_decks`.
     "categorias": [259, 260, 261, 262, 263, 283],
     # Os ACESSÓRIOS — binders (Albums, 265) e deck boxes (267) —, que entram
     # numa SECÇÃO PRÓPRIA e **não contam para o produto selado** (nem no «o
@@ -605,6 +612,81 @@ def ajustar(con: sqlite3.Connection, product_id: str, delta: int = 1,
 
 
 # ---------------------------------------------------------------------------
+# O preço do CARDMARKET, metido à mão (2026-09-28)
+# ---------------------------------------------------------------------------
+#
+# O preço da aba é o do CardTrader, e há produtos sem oferta nenhuma lá — a
+# linha lia «—», e ele leu isso como «não está disponível». Dois deles têm
+# oferta no Cardmarket, medida a 2026-09-28, e a app **não a pode ir buscar**:
+# o site deles responde 403 a pedidos automáticos e a API está fechada. Por
+# isso o número é DELE, escrito à mão, como o Trend da Venda desde 25/09.
+#
+# QUAL DOS DOIS CONTA: o do CardTrader quando existe (é medido, e é o que a aba
+# sempre mostrou — não se mexe num número que já lá estava), o do Cardmarket
+# quando não existe. A linha diz sempre de que mercado veio o número que está a
+# ser mostrado. Se um dia ele quiser o contrário, é a ordem do `or` em
+# `_preco_final`.
+
+
+def precos_a_mao(con: sqlite3.Connection | None) -> dict[str, dict]:
+    """O que ele escreveu à mão, por produto. Vazio sem ligação."""
+    if con is None:
+        return {}
+    return {r["product_id"]: {"cents": r["cents"], "dia": r["updated_at"][:10],
+                              "source": r["source"]}
+            for r in con.execute("SELECT * FROM sealed_price")}
+
+
+def definir_preco(con: sqlite3.Connection, product_id: str, eur: float | None,
+                  cfg: dict | None = None, source: str = "web") -> dict:
+    """Grava (ou apaga, com `None`) o preço do Cardmarket de um produto.
+
+    **Não toca no `copies` nem em conta nenhuma da Coleção** — escreve só na
+    `sealed_price`. Valida o produto contra a MESMA lista do `ajustar`, para
+    não se poder escrever um preço num id que não está na aba.
+    """
+    todos = _crus(cfg, com_excluidos=True)
+    validos = {p["id"] for p in todos if not p["excluido"]}
+    if product_id not in validos:
+        fora_do_ecra = {p["id"]: p for p in todos if p["excluido"]}
+        if product_id in fora_do_ecra:
+            raise ProdutoExcluido(
+                f"{fora_do_ecra[product_id]['nome']} está em selado.excluidos — "
+                f"tira o nome da lista para o repor")
+        raise ProdutoDesconhecido(f"{product_id} não está na lista do produto selado")
+    if eur in (None, ""):
+        con.execute("DELETE FROM sealed_price WHERE product_id = ?", (product_id,))
+        return {"product_id": product_id, "cents": None, "source": source}
+    try:
+        cents = round(float(str(eur).replace(",", ".")) * 100)
+    except (TypeError, ValueError):
+        raise ValueError(f"{eur!r} não é um preço em euros") from None
+    if cents < 0:
+        raise ValueError("o preço não pode ser negativo")
+    con.execute(
+        "INSERT INTO sealed_price (product_id, cents, updated_at, source) "
+        "VALUES (?,?,?,?) ON CONFLICT(product_id) DO UPDATE SET "
+        "cents = excluded.cents, updated_at = excluded.updated_at, "
+        "source = excluded.source", (product_id, cents, _now(), source))
+    return {"product_id": product_id, "cents": cents, "source": source}
+
+
+def _preco_final(ct_cents: int | None, cm_cents: int | None) -> tuple[int | None, str | None]:
+    """O preço que conta, e de que mercado veio.
+
+    O do CardTrader ganha porque é MEDIDO; o do Cardmarket é o que tapa o
+    buraco. Sem nenhum dos dois, `(None, None)` — e aí a linha tem de DIZER que
+    não há oferta no CardTrader e que a app não lê o Cardmarket, em vez de um
+    traço seco que se lê como «este produto não existe».
+    """
+    if ct_cents is not None:
+        return ct_cents, "cardtrader"
+    if cm_cents is not None:
+        return cm_cents, "cardmarket"
+    return None, None
+
+
+# ---------------------------------------------------------------------------
 # A lista
 # ---------------------------------------------------------------------------
 
@@ -838,6 +920,7 @@ def itens(con: sqlite3.Connection | None, cfg: dict | None = None,
     op_links = mercados.opcoes(cfg)
     hoje = hoje or date.today()
     quantidades = tenho(con) if con is not None else {}
+    a_mao = precos_a_mao(con)
     saida: list[dict] = []
     for p in _crus(cfg):
         tipo = p.get("tipo_forcado") or tipo_de(p["nome"], p["versao"], p["categoria_id"])
@@ -851,7 +934,11 @@ def itens(con: sqlite3.Connection | None, cfg: dict | None = None,
         # CardTrader não pode apagar unidades dele.
         qty = quantidades.get(p["id"], 0) + sum(
             quantidades.get(d["id"], 0) for d in p.get("duplicados") or [])
-        preco = p["preco_cents"]
+        # O preço do CardTrader é o que a app MEDE; o do Cardmarket é o que ele
+        # escreveu à mão (a app não o pode ler — 403). O que conta é o primeiro
+        # quando existe, e a linha diz sempre de onde veio.
+        cm = a_mao.get(p["id"]) or {}
+        preco, fonte = _preco_final(p["preco_cents"], cm.get("cents"))
         saida.append({
             **{k: v for k, v in p.items() if not k.endswith("_forcado")
                and k != "data_forcada"},
@@ -861,6 +948,10 @@ def itens(con: sqlite3.Connection | None, cfg: dict | None = None,
             "por_sair": por_sair,
             "qty": qty,
             "tenho": qty > 0,
+            "preco_cm_cents": cm.get("cents"),
+            "preco_cm_dia": cm.get("dia"),
+            "preco_mostrado_cents": preco,
+            "preco_fonte": fonte,
             "valor_cents": (preco or 0) * qty,
             "categoria": _nome_da_categoria(p["categoria_id"]),
             "edicao_label": p["edicao_nome"] or p["edicao"] or "—",
@@ -920,7 +1011,13 @@ def contar(lista: list[dict]) -> dict:
         # O VALOR DO SELADO. É um total PRÓPRIO — nunca se soma ao valor da
         # Coleção, que conta cartas. Ver o cabeçalho.
         "valor_cents": sum(x["valor_cents"] for x in tem),
-        "sem_preco": sum(1 for x in lista if x["preco_cents"] is None),
+        # SEM PREÇO é agora sem preço NENHUM — nem o do CardTrader nem o que
+        # ele escreveu à mão. Um produto que o CardTrader não tem mas cujo
+        # preço do Cardmarket ele já escreveu deixou de ser «sem preço», e
+        # conta-se à parte (`preco_a_mao`) para o número não desaparecer.
+        "sem_preco": sum(1 for x in lista if x["preco_mostrado_cents"] is None),
+        "sem_cardtrader": sum(1 for x in lista if x["preco_cents"] is None),
+        "preco_a_mao": sum(1 for x in lista if x["preco_fonte"] == "cardmarket"),
         "do_config": sum(1 for x in lista if x["fonte"] == "config"),
     }
 
@@ -969,9 +1066,18 @@ def fora(cfg: dict | None = None) -> list[dict]:
     própria, `selado.acessorios`) e VOLTARAM à noite, quando ele mandou tirar
     os acessórios todos e a lista ficou vazia. É por isso que esta função lê a
     lista em vez de ter as categorias escritas: quem manda é o config.
+
+    **`tirada` separa dois casos que se liam como um** (2026-09-28): uma
+    categoria que NUNCA foi produto selado (playmats, sleeves) e uma que ele
+    TIROU da lista — a 262 «Starter Decks», desde *"não quero decks para
+    colecionar"*. Sem esta marca a página dizia que os 24 Starter Decks «não
+    são produto selado nem acessório de coleção», o que é falso: são produto
+    selado, e foi ele que os tirou. O critério é a comparação com o
+    `DEFAULTS["categorias"]` — o que a app conta por omissão.
     """
     op = opcoes(cfg)
     dentro = set(op["categorias"]) | set(op["acessorios"])
+    tiradas = set(DEFAULTS["categorias"]) - dentro
     from .prices import SINGLES_CATEGORY
     contagem: dict[int, int] = {}
     for p in carregar()["produtos"]:
@@ -979,7 +1085,8 @@ def fora(cfg: dict | None = None) -> list[dict]:
         if cid in dentro or cid == SINGLES_CATEGORY:
             continue
         contagem[cid] = contagem.get(cid, 0) + 1
-    return [{"categoria_id": cid, "categoria": _nome_da_categoria(cid), "n": n}
+    return [{"categoria_id": cid, "categoria": _nome_da_categoria(cid), "n": n,
+             "tirada": cid in tiradas}
             for cid, n in sorted(contagem.items())]
 
 
@@ -1041,6 +1148,17 @@ def payload(con: sqlite3.Connection, cfg: dict | None = None,
             "fora": fora(cfg),
             "por_sair": op["por_sair"],
             "datas": op["datas_por_edicao"],
+            # O preço vem do CARDTRADER e só de lá. O Cardmarket responde 403 a
+            # pedidos automáticos e a API deles está fechada: o que se souber
+            # do outro lado é ELE que o escreve. A página diz isto uma vez, em
+            # vez de deixar cada «—» ser lido como «não existe».
+            "precos": {
+                "fonte": "CardTrader",
+                "cardmarket_a_mao": True,
+                "porque": "O Cardmarket responde 403 a pedidos automáticos e a "
+                          "API deles está fechada a novas candidaturas — o preço "
+                          "de lá escreve-se à mão, como o Trend da Venda.",
+            },
         },
     }
 
@@ -1184,6 +1302,20 @@ def eur(cents: int | None) -> str:
     return "—" if cents is None else f"{cents / 100:.2f} €"
 
 
+def _marca_do_preco(x: dict) -> str:
+    """De onde veio o número — e, quando não há número, o que se passa.
+
+    Um traço seco lia-se «este produto não existe», que é o contrário da
+    verdade: o que a app sabe é que o CARDTRADER não tem oferta, e ela não lê
+    o Cardmarket. A linha diz as duas coisas.
+    """
+    if x["preco_fonte"] == "cardmarket":
+        return f" (Cardmarket, à mão{', ' + x['preco_cm_dia'] if x.get('preco_cm_dia') else ''})"
+    if x["preco_fonte"] == "cardtrader":
+        return ""
+    return "  sem oferta no CardTrader (a app não lê o Cardmarket)"
+
+
 def _linhas_dos_grupos(sets: list[dict]) -> list[str]:
     linhas: list[str] = []
     for g in sets:
@@ -1196,7 +1328,8 @@ def _linhas_dos_grupos(sets: list[dict]) -> list[str]:
             linhas.append(
                 f"  [{marca}] {x['qty']:>2}  {x['tipo_label']:<16} "
                 f"{x['nome']}{(' · ' + x['versao']) if x['versao'] else ''}"
-                f"  {eur(x['preco_cents'])}"
+                f"  {eur(x['preco_mostrado_cents'])}"
+                f"{_marca_do_preco(x)}"
                 f"{'  (por sair' + (' ' + x['data'] if x['data'] else '') + ')' if x['por_sair'] else ''}")
             if x.get("conteudo"):
                 linhas.append(f"         dentro: {x['conteudo']}")
@@ -1217,8 +1350,13 @@ def texto(p: dict) -> str:
         f"  {t['copias']} unidades · valor do selado {eur(t['valor_cents'])} "
         f"(à parte do valor da Coleção)",
     ]
+    if t.get("preco_a_mao"):
+        linhas.append(f"  {t['preco_a_mao']} com o preço do Cardmarket metido à mão "
+                      f"(`riftvault selado --preco ID EUROS`)")
     if t["sem_preco"]:
-        linhas.append(f"  {t['sem_preco']} sem preço no CardTrader")
+        linhas.append(f"  {t['sem_preco']} sem oferta no CardTrader e sem preço do "
+                      f"Cardmarket — a app não lê o Cardmarket (403), o preço de lá "
+                      f"escreve-se à mão")
     linhas += _linhas_dos_grupos(p["sets"])
     ac = p.get("acessorios") or {}
     at = ac.get("totals") or {}
@@ -1237,8 +1375,16 @@ def texto(p: dict) -> str:
             linhas.append(f"  - {x['edicao'] or '—':<11} {x['tipo_label']:<16} "
                           f"{x['nome']}")
     f = p["scope"]["fora"]
-    if f:
+    nunca = [x for x in f if not x.get("tirada")]
+    tiradas = [x for x in f if x.get("tirada")]
+    if nunca:
         linhas.append("")
         linhas.append("Fora deste separador (não são produto selado nem acessório "
-                      "de coleção): " + ", ".join(f"{x['n']} {x['categoria']}" for x in f))
+                      "de coleção): "
+                      + ", ".join(f"{x['n']} {x['categoria']}" for x in nunca))
+    if tiradas:
+        linhas.append("")
+        linhas.append("Produto selado que TIRASTE, por categoria (repor é escrevê-la "
+                      "outra vez em selado.categorias): "
+                      + ", ".join(f"{x['n']} {x['categoria']}" for x in tiradas))
     return "\n".join(linhas)

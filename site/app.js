@@ -5385,8 +5385,8 @@ async function loadSelado() {
   renderSelado();
 }
 
-async function slPost(corpo) {
-  const r = await fetch('api/selado/ajustar', {
+async function slPost(corpo, rota = 'api/selado/ajustar') {
+  const r = await fetch(rota, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(corpo),
   });
@@ -5446,10 +5446,12 @@ function renderSelado() {
       ${p.scope.juntos ? ` ${plural(p.scope.juntos, 'blueprint repetido', 'blueprints repetidos')}
         do CardTrader ${p.scope.juntos === 1 ? 'foi juntado' : 'foram juntados'} ao produto
         a que ${p.scope.juntos === 1 ? 'pertencia' : 'pertenciam'} — a linha di-lo.` : ''}
-      ${fora ? ` <b>${fora}</b> ficam de fora (${escapeHTML((p.scope.fora || [])
-        .map(x => `${x.n} ${x.categoria.replace(/^Riftbound /, '')}`).join(', '))}):
-        não são produto selado nem acessório de coleção.` : ''}
-      ${t.sem_preco ? ` ${plural(t.sem_preco, 'produto', 'produtos')} sem oferta no CardTrader.` : ''}
+      ${slForaTexto(p.scope.fora)}
+      ${t.preco_a_mao ? ` ${plural(t.preco_a_mao, 'produto tem', 'produtos têm')} o
+        preço do <b>Cardmarket</b> metido por ti.` : ''}
+      ${t.sem_preco ? ` <b>${t.sem_preco}</b> sem oferta no <b>CardTrader</b> — o preço
+        da app vem só de lá, e o <b>Cardmarket responde 403</b> a pedidos automáticos:
+        o preço de lá escreve-se à mão, na linha.` : ''}
       ${slLinksNota(p.links)}
       O selado <b>não entra</b> na Coleção — nem nos níveis, nem nas Faltas, nem no valor.</small>
     ${tirados.length ? `<details class="sl-tirados"><summary><b>${
@@ -5539,6 +5541,58 @@ function renderSeladoCorpo(casa) {
   slLigar();
 }
 
+/* As categorias que não entram na aba, contadas — e em DOIS grupos, porque
+   são duas razões diferentes (2026-09-28): as que nunca foram produto selado
+   (playmats, sleeves, memorabilia, oversized) e as que ELE tirou. Dizer que
+   os 24 «Starter Decks» «não são produto selado» era falso: são, e foi ele
+   que os tirou por não querer decks para colecionar. */
+function slForaTexto(fora) {
+  if (!fora || !fora.length) return '';
+  const nome = x => `${x.n} ${escapeHTML(x.categoria.replace(/^Riftbound /, ''))}`;
+  const nunca = fora.filter(x => !x.tirada);
+  const tiradas = fora.filter(x => x.tirada);
+  const p = [];
+  if (nunca.length) {
+    p.push(` <b>${nunca.reduce((s, x) => s + x.n, 0)}</b> ficam de fora
+      (${nunca.map(nome).join(', ')}): não são produto selado nem acessório de
+      coleção.`);
+  }
+  if (tiradas.length) {
+    p.push(` <b>${tiradas.reduce((s, x) => s + x.n, 0)}</b> são produto selado
+      que <b>tiraste</b> (${tiradas.map(nome).join(', ')}) — a categoria saiu do
+      <code>selado.categorias</code>, e repor é escrevê-la outra vez.`);
+  }
+  return p.join('');
+}
+
+/* O PREÇO de uma linha do selado, e de onde ele veio.
+   Um «—» seco lia-se «este produto não existe» — foi a queixa dele a 28/09.
+   O que a app sabe é que o CARDTRADER não tem oferta, e que ela NÃO LÊ o
+   Cardmarket (403); as duas coisas dizem-se, e o preço de lá tem um campo
+   para ele o escrever, como o Trend da Venda. */
+function slPreco(x) {
+  const cm = x.preco_cm_cents != null;
+  const linha = x.preco_fonte === 'cardmarket'
+    ? `<div class="sl-preco cm">${eur(x.preco_cm_cents)}
+         <i title="Escrito por ti — a app não lê o Cardmarket.">Cardmarket, à mão${
+           x.preco_cm_dia ? ` · ${escapeHTML(x.preco_cm_dia)}` : ''}</i></div>`
+    : x.preco_fonte === 'cardtrader'
+      ? `<div class="sl-preco">${eur(x.preco_cents)}<i>CardTrader</i>
+           ${cm ? `<i class="cm2" title="Escrito por ti. O preço que conta é o do
+             CardTrader, que é medido.">Cardmarket ${eur(x.preco_cm_cents)}</i>` : ''}</div>`
+      : `<div class="sl-preco vazio"><b>sem oferta</b>
+           <i>no CardTrader · a app não lê o Cardmarket</i></div>`;
+  if (!state.editable) return linha;
+  return `${linha}
+    <div class="sl-cm" title="O preço do Cardmarket, em euros. A app não o pode ir
+      buscar (403): escreve-o tu, como o Trend da Venda. Em branco, apaga.">
+      <label>Cardmarket <input type="text" inputmode="decimal" class="sl-cm-in"
+        value="${cm ? escapeAttr((x.preco_cm_cents / 100).toFixed(2)) : ''}"
+        placeholder="€" size="5" aria-label="preço do Cardmarket de ${
+          escapeAttr(x.nome)}, em euros"></label>
+    </div>`;
+}
+
 function slLinha(x) {
   const cls = [x.qty > 0 ? 'tem' : '', x.por_sair ? 'porsair' : '',
     x.acessorio ? 'acess' : ''].join(' ');
@@ -5579,8 +5633,7 @@ function slLinha(x) {
       ${marcas.length ? `<div class="sl-marcas">${marcas.join('')}</div>` : ''}
     </div>
     <div class="sl-dir">
-      <div class="sl-preco">${x.preco_cents != null ? eur(x.preco_cents) : '—'}
-        <i>${x.preco_cents != null ? 'CardTrader' : 'sem oferta'}</i></div>
+      ${slPreco(x)}
       ${state.editable ? `<div class="steppers">
         <button class="step minus" data-sl="-1" aria-label="menos um ${escapeAttr(x.nome)}"
           ${x.qty ? '' : 'disabled'}>−</button>
@@ -5639,6 +5692,21 @@ function slLigar() {
       try { await slPost({ product_id: pid, delta: Number(b.dataset.sl) }); }
       catch (err) { toast(err.message, { error: true }); }
     };
+  }
+  // O preço do Cardmarket, escrito por ele. Grava-se ao SAIR do campo (ou no
+  // Enter) e não a cada tecla — senão cada dígito era um pedido e um redesenho.
+  for (const inp of document.querySelectorAll('#sl-body .sl-cm-in')) {
+    const antes = inp.value;
+    const gravar = async () => {
+      if (inp.value.trim() === antes.trim()) return;
+      const pid = inp.closest('.sl-linha').dataset.pid;
+      try {
+        await slPost({ product_id: pid, eur: inp.value.trim() || null },
+                     'api/selado/preco');
+      } catch (err) { toast(err.message, { error: true }); inp.value = antes; }
+    };
+    inp.onchange = gravar;
+    inp.onkeydown = (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); inp.blur(); } };
   }
 }
 

@@ -209,6 +209,31 @@ def api_selado_ajustar():
     return jsonify(selado.payload(con, editable=True))
 
 
+@app.post("/api/selado/preco")
+def api_selado_preco():
+    """O preço do CARDMARKET de um produto selado, à mão: `{product_id, eur}`.
+
+    O preço da aba vem do CardTrader, e há produtos sem oferta nenhuma lá — a
+    linha lia «—», que se lê como «não existe». O Cardmarket responde 403 a
+    pedidos automáticos, por isso o número é dele, como o Trend da Venda.
+
+    Escreve SÓ na `sealed_price`: o `copies`, a `ops`, os locais e o valor da
+    Coleção não mexem. `eur` vazio APAGA. Um produto fora da lista é 404.
+    """
+    data = request.get_json(silent=True) or {}
+    if not data.get("product_id"):
+        return jsonify({"error": "falta product_id"}), 400
+    con = get_con()
+    try:
+        selado.definir_preco(con, data["product_id"], data.get("eur"),
+                             source="web")
+    except selado.ProdutoDesconhecido as exc:
+        return jsonify({"error": str(exc)}), 404
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    return jsonify(selado.payload(con, editable=True))
+
+
 # --------------------------------------------------------------------------
 # «Venda» (2026-09-25): a conta de uma venda em curso, com o Trend do
 # Cardmarket metido à mão. Ver `venda.py`.

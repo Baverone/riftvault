@@ -366,14 +366,17 @@ class TestOConfigReal(unittest.TestCase):
         return (self.cfg["selado"]["extra"]
                 + (self.cfg.get("_selado_extra_arquivado") or {}).get("produtos", []))
 
-    def test_a_chave_existe_e_tem_49(self):
+    def test_a_chave_existe_e_tem_31(self):
         """22 da primeira ordem de 25/09 + 10 da segunda (os 2 «Complete Sets»
         e os 8 Trial Deck) + 11 de 26/09 (os Champion Deck) + 7 da mesma noite
         (os que não se compram em lado nenhum) − 2 que VOLTARAM a 28/09 + 1
-        chinês do mesmo dia. Os 22 continuam lá, menos o que voltou, e um a um
-        nos testes a seguir."""
-        self.assertEqual(len(self.excl), 49)
-        self.assertEqual(len(set(self.excl)), 49, "sem repetidos")
+        chinês do mesmo dia = 49; **menos os 18 que ficaram redundantes** na
+        noite de 28/09, quando a categoria 262 saiu das `selado.categorias` e
+        passou a tirar os decks sozinha (`test_selado_sem_decks`). Os 22
+        continuam honrados — os que não são decks, na lista; os que são, no
+        `_selado_decks_arquivado` e fora da aba pela regra."""
+        self.assertEqual(len(self.excl), 31)
+        self.assertEqual(len(set(self.excl)), 31, "sem repetidos")
 
     def test_os_13_boosters_soltos(self):
         """Doze deles. O «Unleashed Sleeved Booster» era o décimo terceiro e
@@ -390,11 +393,20 @@ class TestOConfigReal(unittest.TestCase):
         self.assertIn("Unleashed Sleeved Booster", OS_22, "era um dos 22")
         self.assertNotIn("Unleashed Sleeved Booster", self.excl, "voltou a 28/09")
 
-    def test_as_3_slim_booster_box_o_deck_set_e_as_bulk_runes(self):
+    def test_as_3_slim_booster_box_e_as_bulk_runes(self):
         for n in ("Origins Slim Booster Box", "Spiritforged Slim Booster Box",
-                  "Unleashed Slim Booster Box", "Origins: Champion Deck Set",
-                  "Spiritforged Bulk Runes"):
+                  "Unleashed Slim Booster Box", "Spiritforged Bulk Runes"):
             self.assertIn(n, self.excl)
+
+    def test_o_deck_set_saiu_da_lista_e_a_decisao_ficou(self):
+        """*"compram-se à unidade"* (25/09) continua a valer — o «Origins:
+        Champion Deck Set» é da categoria 262 e desde 28/09 sai por ela. O nome
+        saiu da lista por ser redundante, e a decisão está arquivada."""
+        arq = json.loads(
+            (REPO / "riftvault_config.json").read_text(encoding="utf-8"))
+        self.assertNotIn("Origins: Champion Deck Set", self.excl)
+        self.assertIn("Origins: Champion Deck Set",
+                      arq["_selado_decks_arquivado"]["de_2026_09_25"])
 
     def test_os_4_pre_rift_kit_de_um_jogador(self):
         for e in ("Spiritforged", "Unleashed", "Vendetta", "Radiance"):
@@ -489,17 +501,18 @@ class TestOs22ContraOCatalogoReal(unittest.TestCase):
         importlib.reload(cls.config)
         cls.config.load.cache_clear()
 
-    def test_saem_exactamente_49_e_cada_nome_casa_com_um(self):
+    def test_saem_exactamente_31_e_cada_nome_casa_com_um(self):
         ex = self.selado.excluidos(self.cfg)
-        self.assertEqual(len(ex), 49)
-        self.assertEqual(len({x["id"] for x in ex}), 49)
+        self.assertEqual(len(ex), 31)
+        self.assertEqual(len({x["id"] for x in ex}), 31)
 
-    def test_a_aba_fica_com_32_selados(self):
+    def test_a_aba_fica_com_30_selados(self):
         """Estes 22 levaram-na de 98 a 76; os 10 da segunda ordem a 66, os 11
-        Champion Deck a 55, os 7 sem mercado a 48 — e a 2026-09-28 os 17 do
-        `selado.extra` (menos os 2 que voltaram e o chines que saiu) a 32."""
+        Champion Deck a 55, os 7 sem mercado a 48; a 2026-09-28 os 17 do
+        `selado.extra` (menos os 2 que voltaram e o chinês que saiu) a 32; e
+        nessa noite os 2 Showdown Deck, com a categoria 262, a **30**."""
         lista = [x for x in self.selado.itens(None, self.cfg) if not x["acessorio"]]
-        self.assertEqual(len(lista), 32, "98 − 22 − 10 − 11 − 7 − 17 − 1 + 2")
+        self.assertEqual(len(lista), 30, "98 − 22 − 10 − 11 − 7 − 17 − 1 + 2 − 2")
 
     def test_os_acessorios_estao_desligados(self):
         """`selado.acessorios` ficou VAZIA a 2026-09-25 (ele mandou tirar os
@@ -548,23 +561,33 @@ class TestOs22ContraOCatalogoReal(unittest.TestCase):
             self.assertNotIn(n, arq["selado"]["excluidos"])
 
     def test_o_nome_dobrado_do_catalogo_real_mexe_em_dois(self):
-        """Os dois «Trial Deck Set Set» do CardTrader, e mais nenhum dos 117."""
-        mexidos = [p for p in self.selado._crus(self.cfg, com_excluidos=True)
-                   if p.get("nome_bruto") and p["nome_bruto"] != p["nome"]]
-        self.assertEqual(sorted(p["id"] for p in mexidos),
-                         ["ct-383045", "ct-383046"])
-        self.assertEqual(sorted(p["nome"] for p in mexidos),
+        """Os dois «Trial Deck Set Set» do CardTrader, e mais nenhum.
+
+        Desde 2026-09-28 os dois são da categoria 262 e o `_crus` já não os
+        traz, por isso a pergunta faz-se ao CATÁLOGO EM DISCO: o que aqui se
+        mede é o `nome_limpo`, que não mudou.
+        """
+        cat = json.loads(
+            (REPO / "data" / "selado_catalogo.json").read_text(encoding="utf-8"))
+        mexidos = [p for p in cat["produtos"]
+                   if self.selado.nome_limpo(p["nome"]) != p["nome"]]
+        self.assertEqual(sorted(p["blueprint_id"] for p in mexidos),
+                         [383045, 383046])
+        self.assertEqual(sorted(self.selado.nome_limpo(p["nome"]) for p in mexidos),
                          ["2024 Trial Deck Set", "2025 Trial Deck Set"])
 
     def test_os_dois_trial_deck_set_continuam_a_ser_dois(self):
         """A junção de duplicados leva a VERSÃO na chave, e os nomes limpos são
         iguais — sem a versão juntavam-se e um deles desaparecia.
 
-        Os dois saíram da ABA a 2026-09-25 (segunda ordem), por isso olha-se
-        para a lista COM os excluídos: o que se mede aqui é a junção, não a
-        exclusão, e continuam a ser duas linhas do catálogo.
+        Os dois saíram da ABA a 2026-09-25 (segunda ordem) e desde 2026-09-28
+        saem antes disso, pela categoria 262 — por isso nem com
+        `com_excluidos=True` chegam à lista. O que se mede aqui é a JUNÇÃO, e
+        essa faz-se com a categoria dentro: continuam a ser duas linhas.
         """
-        ids = [p["id"] for p in self.selado._crus(self.cfg, com_excluidos=True)]
+        cfg = json.loads(json.dumps(self.cfg))
+        cfg["selado"]["categorias"] = sorted(set(cfg["selado"]["categorias"]) | {262})
+        ids = [p["id"] for p in self.selado._crus(cfg, com_excluidos=True)]
         self.assertIn("ct-383045", ids)
         self.assertIn("ct-383046", ids)
 
@@ -574,10 +597,10 @@ class TestOs22ContraOCatalogoReal(unittest.TestCase):
         por = {}
         for x in lista:
             por[x["edicao"]] = por.get(x["edicao"], 0) + 1
-        self.assertEqual(por, {"OGN": 2, "OGS": 1, "SFD": 3, "UNL": 5, "VEN": 5,
-                               "RAD": 4, "LGC": 2, "PG2": 1, "REC": 1, "ARC": 1,
+        self.assertEqual(por, {"OGN": 2, "OGS": 1, "SFD": 3, "UNL": 5, "VEN": 4,
+                               "RAD": 3, "LGC": 2, "PG2": 1, "REC": 1, "ARC": 1,
                                "PROMO-RIFT": 6, "T1S": 1})
-        self.assertEqual(sum(por.values()), 32)
+        self.assertEqual(sum(por.values()), 30)
 
 
 # ---------------------------------------------------------------------------

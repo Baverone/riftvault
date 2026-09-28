@@ -926,12 +926,23 @@ Singles»** — as cartas. Entram seis:
 | 259 Booster Boxes | os displays | 10 |
 | 260 Boosters | pacotes soltos | 21 |
 | 261 Bundles | vaults, pre-rift kits, bundles | 13 |
-| 262 Starter Decks | champion, trial e showdown («duel») decks | 24 |
+| ~~262 Starter Decks~~ | ~~champion, trial e showdown («duel») decks~~ — **SAIU a 28/09** | 24 |
 | 263 Box Sets & Displays | os **cases**, as box sets e os **Proving Grounds** | 15 |
 | 283 Complete Sets | sets de cartas vendidos juntos | 2 |
 | | da API, juntando os repetidos | 81 |
 | | mais os 17 do `selado.extra` | 98 |
-| | menos os 49 do `selado.excluidos` e os 17 do `extra`, que saíram a 28/09 | **32** |
+| | menos os 31 do `selado.excluidos` e os 17 do `extra`, que saíram a 28/09 | 32 |
+| | menos a **categoria 262 inteira**, na noite de 28/09 | **30** |
+
+**A 262 saiu das `selado.categorias` a 28/09/2026**: *"não quero «decks» para
+colecionar"*. É uma REGRA e não uma lista de nomes — apanha tudo o que o
+CardTrader classifique como deck, hoje e no lançamento que vier, e por isso os
+**18 nomes de decks** que estavam no `selado.excluidos` (49 → **31**) passaram a
+ser redundantes e foram para `_selado_decks_arquivado` no config, com a data e a
+razão. **Repor é escrever 262 outra vez** — e aí os 18 nomes têm de voltar à
+lista. O que a regra NÃO apanha, e fica dito: um produto em forma de deck que o
+CardTrader arrume noutra categoria, como os dois «Trial Deck Case» (da 263), que
+continuam a sair pelo nome.
 
 **O que ele mandou tirar** (25/09/2026), em duas ordens da mesma noite e na
 mesma lista: primeiro os **13 boosters soltos**, as **3 slim booster box**, o
@@ -1066,11 +1077,21 @@ vender um deck solto de dentro do kit; o kit inteiro está a ~22-26 €.
 
 A aba passa de **48 a 32** produtos; o valor do selado (552,56 €) e a Coleção
 **não mexem** — medido com o site gerado dos dois lados, 30 ficheiros, 29
-iguais.
+iguais. (**Nessa mesma noite os 2 Showdown Deck saíram com a categoria 262** e
+a aba ficou em **30** — ver a secção do Produto Selado, acima.)
 
 **O buraco que fica:** a app só vê o catálogo do CardTrader, por isso os **16
 produtos que só o Cardmarket lista** são invisíveis (13 com oferta viva, dez
 deles impressão chinesa). Ver `docs/selado-dois-mercados-20260928.md`.
+
+**O preço de um produto que o CardTrader não tem** escreve-se à mão, desde
+28/09/2026: a tabela `sealed_price` é o gémeo do Trend da Venda —
+`riftvault selado --preco ct-363132 13,00`, ou o campo «Cardmarket» de cada
+linha no 8770. **Conta o do CardTrader quando existe** (é medido) e o do
+Cardmarket quando não existe, e a linha diz sempre de onde veio o número. Onde
+não há nenhum dos dois, escreve-se **«sem oferta no CardTrader · a app não lê o
+Cardmarket»** em vez de um traço mudo, que se lia como «este produto não
+existe».
 
 **Três estados, que é o que ele pediu:** o que **há** (a lista toda), o que
 **tens** e o que **não tens**, com os contadores no topo e um filtro por baixo.

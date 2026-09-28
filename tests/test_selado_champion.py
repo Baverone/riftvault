@@ -50,6 +50,26 @@ from tests.test_selado import TestNaoEntraNaColecao as _Foto  # noqa: E402
 
 REPO = Path(__file__).resolve().parent.parent
 
+# O catálogo EM DISCO, em cru. Desde 2026-09-28 os produtos da categoria 262
+# não chegam ao `selado._crus` — ele filtra a categoria antes de tudo —, por
+# isso as perguntas sobre eles («ainda existem?», «que categoria têm?»)
+# fazem-se aqui, ao ficheiro, e não à lista da app.
+_CAT_PATH = REPO / "data" / "selado_catalogo.json"
+CATALOGO_EM_DISCO = (json.loads(_CAT_PATH.read_text(encoding="utf-8"))
+                     if _CAT_PATH.exists() else {"produtos": []})
+
+
+def _nomes_em_disco() -> dict:
+    from riftvault import selado
+    out = {}
+    for p in CATALOGO_EM_DISCO["produtos"]:
+        # o nome LIMPO é o que ele vê e o que se escreve nas listas do config
+        out.setdefault(selado.nome_limpo(p["nome"]), p)
+    return out
+
+
+NOMES_EM_DISCO = _nomes_em_disco()
+
 # OS ONZE, tal como ficam escritos no `riftvault_config.json`.
 OS_ONZE = [
     'Origins: "Jinx" Champion Deck',
@@ -201,21 +221,33 @@ class TestOConfigReal(unittest.TestCase):
                 + (self.cfg_todo.get("_selado_extra_arquivado") or {}).get(
                     "produtos", []))
 
-    def test_a_lista_tem_49_sem_repetidos(self):
+    def test_a_lista_tem_31_sem_repetidos(self):
         """22 (25/09, manhã) + 10 (25/09, noite) + 11 Champion Deck (26/09)
         + 7 sem mercado (26/09, ver `test_selado_sem_mercado`) − 2 que
-        voltaram + 1 chinês (28/09, `test_selado_ingles`)."""
-        self.assertEqual(len(self.sel["excluidos"]), 49)
-        self.assertEqual(len(set(self.sel["excluidos"])), 49)
+        voltaram + 1 chinês (28/09, `test_selado_ingles`) = 49; **menos os 18
+        que ficaram redundantes a 2026-09-28**, quando a categoria 262 saiu das
+        `selado.categorias` e passou a tirar os decks sozinha (ver
+        `test_selado_sem_decks`). Os 11 desta ordem são 11 desses 18."""
+        self.assertEqual(len(self.sel["excluidos"]), 31)
+        self.assertEqual(len(set(self.sel["excluidos"])), 31)
 
-    def test_os_onze_estao_la(self):
+    def test_os_onze_sairam_da_lista_mas_a_decisao_ficou(self):
+        """A DECISÃO DELE DE 26/09 MANTÉM-SE — o que mudou foi quem a executa.
+
+        Os 11 saíram do `selado.excluidos` por serem redundantes: a 262 tira-os
+        sozinha desde 28/09. Deixá-los lá fazia a lista mentir sobre o que está
+        a fazer; apagá-los sem mais perdia a memória de quem os mandou tirar.
+        Estão em `_selado_decks_arquivado`, com a data e a razão."""
+        arq = self.cfg_todo["_selado_decks_arquivado"]["de_2026_09_26"]
         for n in OS_ONZE:
-            self.assertIn(n, self.sel["excluidos"], n)
+            self.assertNotIn(n, self.sel["excluidos"], n)
+            self.assertIn(n, arq, f"{n} perdeu-se — não está no arquivo")
 
-    def test_as_32_das_ordens_anteriores_continuam_la(self):
+    def test_as_ordens_anteriores_continuam_la(self):
         """Acrescentar não é reescrever. (Menos o «Unleashed Sleeved Booster»,
         que **voltou** a 2026-09-28 — o Cardmarket revelou-lhe oferta a 13,00 €
-        e ele é inglês; ver `test_selado_ingles`.)"""
+        e ele é inglês; ver `test_selado_ingles` — e menos os que são DECKS,
+        que saíram da lista nesse mesmo dia e estão no arquivo.)"""
         for n in ("Origins Booster", "Origins Sleeved Booster", "Origins Slim Booster",
                   "Spiritforged Booster", "Spiritforged Slim Booster",
                   "Unleashed Booster",
@@ -223,15 +255,24 @@ class TestOConfigReal(unittest.TestCase):
                   "Radiance Sleeved Booster", "Legacy Booster",
                   "The Reckoning Booster", "Origins Slim Booster Box",
                   "Spiritforged Slim Booster Box", "Unleashed Slim Booster Box",
-                  "Origins: Champion Deck Set", "Spiritforged Bulk Runes",
+                  "Spiritforged Bulk Runes",
                   "Spiritforged Pre-Rift Kit", "Unleashed Pre-Rift Kit",
                   "Vendetta Pre-Rift Kit", "Radiance Pre-Rift Kit",
                   "Unleashed: Poro Scene Set", "Arcane Complete Set",
-                  "Origins: Jinx Trial Deck", "Origins: Viktor Trial Deck",
-                  "Origins: Volibear Trial Deck", "Origins: Yasuo Trial Deck",
-                  "2024 Trial Deck Set", "2025 Trial Deck Set",
+                  # os dois Case são da 263: a regra não os apanha e continuam
+                  # a sair pelo nome
                   "2024 Trial Deck Case", "2025 Trial Deck Case"):
             self.assertIn(n, self.sel["excluidos"], n)
+
+    def test_e_os_que_eram_DECKS_passaram_para_o_arquivo(self):
+        arq = self.cfg_todo["_selado_decks_arquivado"]
+        todos = arq["de_2026_09_25"] + arq["de_2026_09_26"]
+        for n in ("Origins: Champion Deck Set",
+                  "Origins: Jinx Trial Deck", "Origins: Viktor Trial Deck",
+                  "Origins: Volibear Trial Deck", "Origins: Yasuo Trial Deck",
+                  "2024 Trial Deck Set", "2025 Trial Deck Set"):
+            self.assertNotIn(n, self.sel["excluidos"], n)
+            self.assertIn(n, todos, n)
 
     def test_os_sete_displays_nao_foram_parar_a_lista(self):
         for n in OS_SETE_DISPLAYS:
@@ -295,20 +336,27 @@ class RealBase(unittest.TestCase):
 
 
 class TestOsOnzeContraOCatalogoReal(RealBase):
-    def test_cada_um_dos_onze_casa_com_um_produto(self):
+    def test_os_onze_continuam_a_existir_no_catalogo(self):
+        """Nada se apagou — o `data/selado_catalogo.json` tem-nos todos.
+
+        Pergunta-se ao catálogo EM DISCO e não ao `_crus`: desde 28/09 eles não
+        chegam lá, porque o `_crus` filtra a categoria antes de tudo."""
         for n in OS_ONZE:
-            self.assertIn(n, self.tirados, f"{n} não casou com nenhum produto")
+            self.assertIn(n, NOMES_EM_DISCO, f"{n} desapareceu do catálogo")
 
     def test_os_onze_sairam_da_aba(self):
         for n in OS_ONZE:
             self.assertNotIn(n, self.nomes, f"{n} tinha de ter saído")
 
     def test_os_onze_sao_todos_da_categoria_262(self):
+        """É por isto que a regra de 28/09 os apanha sozinha, e por isso é que
+        os nomes deles puderam sair do `selado.excluidos`."""
         for n in OS_ONZE:
-            self.assertEqual(self.crus[self.tirados[n]["id"]]["categoria_id"], 262, n)
+            self.assertEqual(NOMES_EM_DISCO[n]["categoria_id"], 262, n)
 
     def test_nao_ficou_nenhum_champion_deck_do_cardtrader(self):
-        """Na aba só podem sobrar os 7 displays, que vêm do config."""
+        """Na aba só podiam sobrar os 7 displays, que vinham do config — e
+        esses saíram a 28/09 (`test_selado_ingles`). Hoje é zero."""
         maus = sorted(x["nome"] for x in self.lista
                       if "champion deck" in x["nome"].lower()
                       and x["fonte"] != "config")
@@ -326,11 +374,23 @@ class TestOsOnzeContraOCatalogoReal(RealBase):
             self.assertNotIn(n, arq["selado"]["excluidos"], n)
         self.assertEqual(len(OS_SETE_DISPLAYS), 7)
 
-    def test_ficam_os_dois_showdown_deck(self):
-        ficam = sorted(x["nome"] for x in self.lista
-                       if "showdown deck" in x["nome"].lower()
-                       and "display" not in x["nome"].lower())
-        self.assertEqual(ficam, sorted(OS_DOIS_SHOWDOWN))
+    def test_os_dois_showdown_deck_ficaram_POR_ESTA_ordem(self):
+        """A 26/09 ficaram, e é o ponto desta ordem: ele nomeou o Champion
+        Deck e eles são outra linha de produto — o nome é EXACTO.
+
+        **Saíram a 2026-09-28**, por outra ordem e por outra porta: *"não quero
+        decks para colecionar"* tirou a categoria 262 inteira, e eles são da
+        262. Continuam **fora do `selado.excluidos`** — nunca lá entraram —, e
+        é isso que este teste fixa. Ver `test_selado_sem_decks`."""
+        arq = json.loads(
+            (REPO / "riftvault_config.json").read_text(encoding="utf-8"))
+        for n in OS_DOIS_SHOWDOWN:
+            self.assertNotIn(n, arq["selado"]["excluidos"], n)
+        # e hoje já não estão na aba — pela categoria, não pelo nome
+        ficam = [x["nome"] for x in self.lista
+                 if "showdown deck" in x["nome"].lower()
+                 and "display" not in x["nome"].lower()]
+        self.assertEqual(ficam, [])
 
     def test_os_dois_showdown_display_nao_sairam_por_esta_ordem(self):
         arq = json.loads(
@@ -341,27 +401,29 @@ class TestOsOnzeContraOCatalogoReal(RealBase):
         for n in showdown:
             self.assertNotIn(n, arq["selado"]["excluidos"])
 
-    def test_a_aba_fica_com_32_selados(self):
+    def test_a_aba_fica_com_30_selados(self):
         """Os 11 desta ordem levaram-na de 66 a 55; os 7 sem mercado, na mesma
-        noite, a 48 (ver `test_selado_sem_mercado`); e a 28/09 os 17 do
+        noite, a 48 (ver `test_selado_sem_mercado`); a 28/09 os 17 do
         `selado.extra`, menos os 2 que voltaram e o chinês que saiu, a 32
-        (`test_selado_ingles`)."""
+        (`test_selado_ingles`); e nessa noite os 2 Showdown Deck, com a
+        categoria 262, a **30** (`test_selado_sem_decks`)."""
         selados = [x for x in self.lista if not x["acessorio"]]
-        self.assertEqual(len(selados), 32,
-                         "98 − 22 − 10 − 11 − 7 − 17 − 1 + 2")
+        self.assertEqual(len(selados), 30,
+                         "98 − 22 − 10 − 11 − 7 − 17 − 1 + 2 − 2")
 
     def test_por_edicao_depois_dos_onze(self):
         """Os números que ele vai ver, edição a edição. Desta ordem mexem
         quatro: OGN 8→5, SFD 8→6, UNL 10→8, LGC 6→2; a OP, a PROMO-RIFT e a
-        T1S mexeram com os 7 sem mercado, a seguir."""
+        T1S mexeram com os 7 sem mercado, a seguir; e a VEN e a RAD perderam
+        um Showdown Deck cada a 28/09, à noite."""
         por = {}
         for x in self.lista:
             if not x["acessorio"]:
                 por[x["edicao"]] = por.get(x["edicao"], 0) + 1
-        self.assertEqual(por, {"OGN": 2, "OGS": 1, "SFD": 3, "UNL": 5, "VEN": 5,
-                               "RAD": 4, "LGC": 2, "PG2": 1, "REC": 1, "ARC": 1,
+        self.assertEqual(por, {"OGN": 2, "OGS": 1, "SFD": 3, "UNL": 5, "VEN": 4,
+                               "RAD": 3, "LGC": 2, "PG2": 1, "REC": 1, "ARC": 1,
                                "PROMO-RIFT": 6, "T1S": 1})
-        self.assertEqual(sum(por.values()), 32)
+        self.assertEqual(sum(por.values()), 30)
 
     def test_a_legacy_fica_so_com_os_por_sair_que_nao_sao_champion(self):
         """Eram 6: saem os 4 Champion Deck."""
@@ -370,10 +432,10 @@ class TestOsOnzeContraOCatalogoReal(RealBase):
         for n in lgc:
             self.assertNotIn("champion deck", n.lower())
 
-    def test_saem_exactamente_49_e_cada_nome_casa_com_um(self):
+    def test_saem_exactamente_31_e_cada_nome_casa_com_um(self):
         ex = self.selado.excluidos(self.cfg)
-        self.assertEqual(len(ex), 49)
-        self.assertEqual(len({x["id"] for x in ex}), 49)
+        self.assertEqual(len(ex), 31)
+        self.assertEqual(len({x["id"] for x in ex}), 31)
 
     def test_ler_nao_escreve(self):
         antes = (REPO / "data" / "selado_catalogo.json").read_bytes()
@@ -432,22 +494,34 @@ class TestNenhumaExclusaoMorta(RealBase):
 class TestOsTrialDeckSetJaEstavamFora(RealBase):
     """O bug reportado a 26/09 («dois Trial Deck Set visíveis por o nome não
     bater») NÃO EXISTE: o catálogo escreve-os com a palavra dobrada e a lista
-    escreve o nome limpo, mas o `_resolver_excluidos` casa pelas DUAS. Estão
-    fora desde 25/09. Fica aqui a prova, pela forma exacta em que ele o
-    perguntou."""
+    escreve o nome limpo, mas o `_resolver_excluidos` casava pelas DUAS. Estavam
+    fora desde 25/09.
+
+    **Desde 2026-09-28 saem antes disso**, pela categoria 262, e por isso os
+    nomes deles já não estão no `selado.excluidos` — estão em
+    `_selado_decks_arquivado`. O que se prova aqui continua a ser o mesmo: o
+    nome dobrado do catálogo nunca os deixou visíveis.
+    """
 
     def test_o_catalogo_escreve_os_nomes_dobrados(self):
-        for pid, bruto in (("ct-383046", "2024 Trial Deck Set Set"),
-                           ("ct-383045", "2025 Trial Deck Set Set")):
-            self.assertEqual(self.crus[pid]["nome_bruto"], bruto)
+        bruto = {p["blueprint_id"]: p["nome"] for p in CATALOGO_EM_DISCO["produtos"]}
+        self.assertEqual(bruto[383046], "2024 Trial Deck Set Set")
+        self.assertEqual(bruto[383045], "2025 Trial Deck Set Set")
 
-    def test_a_lista_escreve_o_nome_limpo(self):
+    def test_o_nome_limpo_e_o_que_ficou_arquivado(self):
+        arq = json.loads(
+            (REPO / "riftvault_config.json").read_text(encoding="utf-8"))
+        guardados = arq["_selado_decks_arquivado"]["de_2026_09_25"]
         for n in ("2024 Trial Deck Set", "2025 Trial Deck Set"):
-            self.assertIn(n, self.cfg["selado"]["excluidos"])
+            self.assertIn(n, guardados)
+            self.assertNotIn(n, arq["selado"]["excluidos"],
+                             "redundante desde que a 262 saiu")
 
-    def test_e_mesmo_assim_casam_e_estao_fora(self):
-        self.assertEqual(self.tirados["2024 Trial Deck Set"]["id"], "ct-383046")
-        self.assertEqual(self.tirados["2025 Trial Deck Set"]["id"], "ct-383045")
+    def test_e_a_categoria_deles_e_a_262(self):
+        cats = {p["blueprint_id"]: p["categoria_id"]
+                for p in CATALOGO_EM_DISCO["produtos"]}
+        self.assertEqual(cats[383046], 262)
+        self.assertEqual(cats[383045], 262)
 
     def test_nao_estao_visiveis_na_aba(self):
         maus = sorted(n for n in self.nomes if "trial deck" in n.lower())

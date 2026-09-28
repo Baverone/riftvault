@@ -131,6 +131,13 @@ número (1041 linhas, 2632 normais, 448 foil, o mesmo sha256).
 
 | | antes | depois |
 |---|---|---|
+> **Na mesma noite a aba passou de 32 para 30**, por outra ordem: *"não quero
+> «decks» para colecionar"* tirou a categoria **262 «Riftbound Starter Decks»**
+> das `selado.categorias`, e com ela os 2 Showdown Deck (os únicos da 262 que
+> ainda estavam visíveis — os Champion Deck já tinham saído a 26/09). Os 18
+> nomes de decks do `selado.excluidos` ficaram redundantes e foram para
+> `_selado_decks_arquivado`: a lista passou de **49 para 31**. Ver o CLAUDE.md.
+
 | produtos na aba | 48 | **32** |
 | dos quais «por sair» | 11 | 8 |
 | tenho · cópias | 5 · 5 | **5 · 5** |
@@ -187,11 +194,26 @@ Dez dos 16 são impressão chinesa, e por isso ele **não os quer** (a regra da
 alínea b). Os outros seis são os únicos que a decisão de hoje deixaria entrar —
 se a app soubesse que existem.
 
-### 2. Um preço do Cardmarket metido à mão, como o Trend da Venda
+### 2. ~~Um preço do Cardmarket metido à mão~~ — **FEITO na noite de 28/09**
 
-Os dois que voltaram hoje valem 13,00 € e 35,00 € no Cardmarket e a app mostra
-«—». A Venda já tem exactamente este mecanismo desde 25/09 (o Trend por
-impressão, com a data, e a marca de «velho» ao fim de N dias).
+Os dois que voltaram valem 13,00 € e 35,00 € no Cardmarket e a app mostrava
+«—». Ele leu isso como «não tem disponível» (*"ainda estao la champions decks
+que nao tem disponiveis"*), e foi essa queixa que a fez nascer.
+
+**A tabela `sealed_price`** (`product_id`, `cents`, `updated_at`, `source`) é o
+gémeo do Trend da Venda, com a chave certa — ali é `printing_id`, uma carta;
+aqui é `product_id`. `riftvault selado --preco ID [EUROS]`,
+`POST /api/selado/preco`, e um campo «CM» em cada linha do 8770. **Conta o do
+CardTrader quando existe** (é medido) e o do Cardmarket quando não existe; a
+linha diz sempre de onde veio o número, e onde não há nenhum diz **«sem oferta
+no CardTrader · a app não lê o Cardmarket»** em vez de um traço mudo.
+
+**Os dois preços não foram semeados** — são medições de ontem e envelhecem; o
+número do Cardmarket é dele: `--preco ct-363132 13,00` e
+`--preco ct-379338 35,00`.
+
+**Fica por fazer:** a marca de «velho» ao fim de N dias, que a Venda tem
+(`venda.trend_valido_dias`). Aqui mostra-se a data e mais nada.
 
 ### 3. Um aviso de língua no `--sync`
 

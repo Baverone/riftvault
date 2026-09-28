@@ -322,14 +322,23 @@ class TestOConfigReal(unittest.TestCase):
         self.assertEqual(len(self.excl), len(set(self.excl)))
 
     def test_as_ordens_anteriores_ficam_inteiras(self):
-        """Os 12 Champion Deck (25/09) e os que ele mandou tirar nas ordens
-        anteriores não podem sair por engano nesta."""
-        for n in ("Origins: \"Jinx\" Champion Deck", "Legacy: \"Garen\" Champion Deck",
-                  "Origins: Champion Deck Set", "Spiritforged Bulk Runes",
+        """O que ele mandou tirar nas ordens anteriores não pode sair por engano
+        nesta.
+
+        Os que são DECKS saíram desta lista horas depois, na noite de 28/09,
+        quando a categoria 262 passou a tirá-los sozinha — e a decisão ficou no
+        `_selado_decks_arquivado`. Ver `test_selado_sem_decks`."""
+        for n in ("Spiritforged Bulk Runes",
                   "Spiritforged Pre-Rift Kit", "Unleashed: Poro Scene Set",
-                  "2024 Trial Deck Set", "Tournament Gift Box",
+                  "Tournament Gift Box",
                   "The T1 Worlds Champion | Player Bundle"):
             self.assertIn(n, self.excl)
+        arq = CONFIG_REAL["_selado_decks_arquivado"]
+        guardados = arq["de_2026_09_25"] + arq["de_2026_09_26"]
+        for n in ('Origins: "Jinx" Champion Deck', 'Legacy: "Garen" Champion Deck',
+                  "Origins: Champion Deck Set", "2024 Trial Deck Set"):
+            self.assertNotIn(n, self.excl, n)
+            self.assertIn(n, guardados, n)
 
     def test_o_default_nao_esconde_nem_inventa(self):
         """Um riftvault sem config não tem lista de exclusões nem extras: a
@@ -359,8 +368,11 @@ class TestOCatalogoReal(unittest.TestCase):
         cls.lista = selado.itens(None, CONFIG_REAL)
         cls.crus = selado._crus(CONFIG_REAL, com_excluidos=True)
 
-    def test_a_aba_tem_32_produtos(self):
-        self.assertEqual(len([x for x in self.lista if not x["acessorio"]]), 32)
+    def test_a_aba_tem_30_produtos(self):
+        """Eram 32 depois destas três ordens; ficaram **30** nessa mesma noite,
+        quando os 2 Showdown Deck saíram com a categoria 262
+        (`test_selado_sem_decks`)."""
+        self.assertEqual(len([x for x in self.lista if not x["acessorio"]]), 30)
 
     def test_nenhum_vem_do_config(self):
         self.assertEqual([x["nome"] for x in self.lista if x["fonte"] == "config"], [])
