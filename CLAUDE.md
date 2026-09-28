@@ -2709,6 +2709,17 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   descobertas:** o Cardmarket não dá página a displays nem a cases (vendem-se
   dentro do produto simples, na nota do vendedor) e o **«From» deles não é o
   preço**. Ver a última secção deste ficheiro.
+- **Feito também:** NADA EM FORMA DE DECK no selado, e o «—» a dizer o que se
+  passa (2026-09-28, à noite) — *"nao quero «decks» para colecionar"*: a
+  categoria **262** saiu das `selado.categorias` (a regra é a CATEGORIA, não
+  uma lista de nomes — um Champion Deck novo não precisa de ser escrito), a
+  aba 32 → **30**, e os 18 nomes redundantes foram do `excluidos` (49 → **31**)
+  para o `_selado_decks_arquivado`. **Não havia Champion Deck nenhum na aba** —
+  o que lá estava eram os 2 Showdown Deck, e TINHAM oferta. O `--sync` correu
+  e os **7 sem preço continuam os mesmos 7**: não era catálogo velho. O traço
+  seco passou a dizer «sem oferta no CardTrader · a app não lê o Cardmarket», e
+  o preço de lá ganhou a tabela **`sealed_price`** (o gémeo do Trend da Venda,
+  `riftvault selado --preco ID EUROS`). Ver a última secção deste ficheiro.
 - **Feito também:** as FALTAS EM DUAS METADES (2026-09-27) — as normais nos
   quatro blocos de sempre e as **FOILS** à parte, com a quinta wantlist;
   *"as foils nao sao faltas, sao apenas complemento e indicativo"*, por isso
