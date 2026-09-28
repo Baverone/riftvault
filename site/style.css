@@ -337,6 +337,12 @@ h1.pgt { margin: 0; font-size: clamp(21px, 2.6vw, 27px); font-weight: 700; lette
   padding: 9px 10px 5px; font-size: 10px; font-weight: 700; letter-spacing: .11em;
   text-transform: uppercase; color: var(--muted);
 }
+/* Sem decks (2026-09-28): o grupo «Os decks» diz porque está vazio, em vez de
+   desaparecer do índice. Não é um botão — não há para onde ir. */
+.vidx .vidx-vazio {
+  margin: 0; padding: 2px 10px 8px; font-size: 12px; line-height: 1.4;
+  color: var(--muted);
+}
 .vidx button {
   display: flex; width: 100%; text-align: left; gap: 8px; align-items: center;
   appearance: none; border: 0; background: transparent; color: var(--ink2); font: inherit;

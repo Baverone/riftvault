@@ -37,9 +37,9 @@
     "so_normais_excepto": [],
     "versoes_especiais": ["a", "overnumbered", "promo"],
     "contar_runas": false,
-    "ordem": ["LeBlanc Hook", "Jayce", "Kennen", "Akali", "Ornn", "Azir"],
-    "montados": ["LeBlanc Hook"],
-    "principal": "LeBlanc Hook",
+    "ordem": [],
+    "montados": [],
+    "principal": null,
     "venda_minimo_cents": 50,
     "coleccao_so_a_partir_de": "epic",
     "modo": "coleccao"

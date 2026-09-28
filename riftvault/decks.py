@@ -413,6 +413,158 @@ def import_all(con: sqlite3.Connection, log=print) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# TROCAR AS LISTAS TODAS: apagar os decks de uma vez (2026-09-28)
+# ---------------------------------------------------------------------------
+#
+# André, 2026-09-28: *"apaga os decks todos, vamos atualizar com as listas
+# novas posteriormente"* — houve um torneio grande e as listas dele vão ser
+# substituídas pelas melhores de cada Legend que saírem de lá.
+#
+# ISTO REPETE-SE a cada torneio, e por isso é uma função e não SQL à mão.
+# Já se apagaram decks três vezes (17/09 o Kennen e um LeBlanc, 20/09 o
+# Kennen outra vez, 21/09 a troca das seis listas) e todas as vezes foi o
+# mesmo percurso feito à mão, com uma parte esquecida de cada vez — a 21/09
+# foi preciso o `uso_decks.recomecar` para o histórico não ficar a dizer que
+# ele deixou de jogar 132 cartas.
+#
+# NÃO HÁ SQL NOVO AQUI, de propósito: cada passo é a porta que já existia.
+
+ARQUIVO_DECKS = "decks"
+
+# ZERO DECKS É UM ESTADO NORMAL, e tem de se ler como tal (2026-09-28). Entre
+# apagar as listas velhas e escrever as novas a app fica sem deck nenhum, e uma
+# lista vazia sem explicação lê-se como avaria — ou, pior, como a mentira que
+# o cartão do Início dizia: «Decks montados 0 de 0 · estão todos completos».
+#
+# A frase é UMA e vive aqui, para a consola e o site não poderem divergir (o
+# `app.js` tem a cópia dele e o `tests/test_sem_decks.py` compara as duas).
+# NÃO diz «depois do torneio»: hoje é verdade e no mês que vem não é — o que
+# não muda é o estado e o caminho para sair dele.
+SEM_DECKS = "Não há decks."
+SEM_DECKS_COMO = "Mete um .txt em decks/ para entrar um."
+
+
+def apagar_todos(con: sqlite3.Connection, cfg: dict | None = None,
+                 arquivar: bool = True, source: str = "cli",
+                 log=print) -> dict:
+    """Apaga TODOS os decks — as listas, as linhas e o estado no config.
+
+    Os seis passos, cada um pela porta que já existia:
+
+      1. **Conta as cópias próprias** (`locais.proprias`) e di-las. Não as
+         apaga: uma cópia própria é dele e fica gravada no `proprio:<slug>`,
+         fora da Coleção e do valor, como já acontecia a um deck cujo `.txt`
+         desaparecia. Quem chama vê o número no relatório.
+      2. **Despromove o principal** (`principal.definir(con, None)`), que é o
+         que manda as cópias próprias dele de 0,50 € para cima para a Venda —
+         *"se eu 'desfazer' o deck ou deixar de ser o principal, essas cartas
+         passam a venda"* (2026-09-27). Com zero cópias próprias é um no-op, e
+         é o caso de hoje; a regra fica honrada para a próxima vez.
+      3. **Manda ao binder o que estivesse sleevado** em cada deck
+         (`locais.desfazer_deck`): *"caso um deck seja desfeito, as cartas
+         ficam para outro deck ou nesse binder"* (2026-09-10). **Nunca voltam
+         à Coleção** — quem as tirou de lá foi ele.
+      4. **Arquiva e apaga os `.txt`.** O arquivo a sério é o GIT (os
+         `decks/*.txt` são versionados: recupera-se com `git checkout <sha>~1
+         -- decks/`); a cópia em `data/backups/decks-<data>/` é a de
+         conveniência, para ele abrir a lista sem git à mão.
+      5. **Tira as linhas da base pelo `import_all`** — «decks cujo ficheiro
+         desapareceu saem, é assim que se apaga um deck» já estava escrito
+         lá, e é ele que trata da `decks` e da `deck_cards`.
+      6. **Recomeça o registo** (`uso_decks.recomecar`) e **limpa o config**
+         (`montados` vazia, `ordem` vazia; o `principal` saiu no passo 2).
+
+    O passo 6 é o que a experiência de 2026-09-21 ensinou: sem ele o
+    `deck_need_log` ficava com uma descida a 0 por cada carta das listas
+    velhas, e o «A mais» lia isso como cartas que ele deixou de jogar. Com
+    zero decks o `recomecar` esvazia e não escreve nada — é a resposta certa,
+    porque não há lista nenhuma de que uma carta se possa ter libertado.
+
+    **AS REGRAS NÃO SE TOCAM** (`so_base`, `venda_minimo_cents`,
+    `coleccao_so_a_partir_de`, `modo`, `versoes_especiais`, `contar_runas`):
+    são decisões dele e as listas novas vão querer as mesmas. O que se limpa
+    é só o que nomeia decks que deixaram de existir.
+
+    **A COLEÇÃO NÃO MUDA UM NÚMERO**: nenhum destes passos escreve no
+    `copies` (`tests/test_sem_decks.py` fotografa-a).
+    """
+    from . import locais as locais_mod, principal as principal_mod, uso_decks
+
+    cfg = cfg or config.load()
+    rows = deck_rows(con)
+    slugs = [r["name"] for r in rows]
+    rotulos_ = {r["name"]: (r["display_name"] or r["name"]) for r in rows}
+
+    # 1. As cópias próprias — contam-se e dizem-se, nunca se apagam.
+    pr = locais_mod.proprias(con)
+    proprias = {s: sum(q.values()) for s, q in pr.items() if sum(q.values())}
+    if proprias:
+        log("  cópias próprias que FICAM gravadas (fora da Coleção, como já estavam):")
+        for s, n in sorted(proprias.items()):
+            log(f"    {rotulos_.get(s, s)}: {n}")
+
+    # 2. O principal sai pela porta dele, que é quem trata da Venda.
+    antigo = principal_slug(con, cfg)
+    despromocao = None
+    if antigo is not None:
+        res = principal_mod.definir(con, None, cfg, source=source)
+        despromocao = res.get("movimento")
+        n = (despromocao or {}).get("para_a_venda") or {}
+        log(f"  deck principal: {rotulos_.get(antigo, antigo)} despromovido"
+            + (f" — {n.get('copies', 0)} cópias próprias para a Venda"
+               if n.get("copies") else " — nada para a Venda"))
+        cfg = config.load()
+
+    # 3. O que estivesse sleevado vai para o binder Decks/Venda.
+    desfeitos = []
+    for s in slugs:
+        d = locais_mod.desfazer_deck(con, s, source=source)
+        if d["copies"]:
+            log(f"  {rotulos_.get(s, s)}: {d['copies']} cópias sleevadas → binder")
+        desfeitos.append(d)
+
+    # 4. Arquivar e apagar os `.txt`.
+    arquivo, apagados = None, []
+    if arquivar and slugs:
+        arquivo = (config.DATA_DIR / "backups"
+                   / f"{ARQUIVO_DECKS}-{datetime.now().strftime('%Y%m%d-%H%M%S')}")
+        arquivo.mkdir(parents=True, exist_ok=True)
+    for path in sorted(config.DECKS_DIR.glob("*.txt")):
+        if arquivo is not None:
+            (arquivo / path.name).write_bytes(path.read_bytes())
+        path.unlink()
+        apagados.append(path.name)
+    if apagados:
+        log(f"  {len(apagados)} listas apagadas de {config.DECKS_DIR}"
+            + (f" (arquivadas em {arquivo})" if arquivo else ""))
+
+    # 5. A base, pela porta do `import_all`.
+    imp = import_all(con, log=lambda *_: None)
+
+    # 6. O registo e o config. O `principal` já saiu no passo 2.
+    linhas = uso_decks.recomecar(con)
+    limpou = []
+    if montados_lista(config.load()):
+        config.escrever_lista("decks", MONTADOS, [])
+        limpou.append(MONTADOS)
+    if ordem_dos_decks(config.load()):
+        config.escrever_lista("decks", ORDEM, [])
+        limpou.append(ORDEM)
+    if antigo is not None:
+        limpou.append(PRINCIPAL)
+    log(f"  registo dos decks recomeçado ({linhas} linhas de partida)")
+    log(f"  config: {', '.join(f'decks.{k}' for k in limpou) or 'nada'} limpo"
+        " — as regras ficam")
+
+    return {"decks": slugs, "rotulos": rotulos_, "apagados": apagados,
+            "arquivo": str(arquivo) if arquivo else None,
+            "proprias": proprias, "despromovido": antigo,
+            "despromocao": despromocao, "desfeitos": desfeitos,
+            "removidos": imp["removed"], "registo": linhas,
+            "config_limpo": limpou}
+
+
+# ---------------------------------------------------------------------------
 # Alocação por prioridade
 # ---------------------------------------------------------------------------
 
