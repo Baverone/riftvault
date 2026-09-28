@@ -223,12 +223,21 @@ class TestAListaEAFonte(Base):
 
     def test_os_acessorios_ficam_de_fora_e_sao_contados(self):
         """Playmats e sleeves não são produto selado — mas a página diz quantos
-        são, em vez de os apagar em silêncio."""
+        são, em vez de os apagar em silêncio.
+
+        Desde 2026-09-28 cada linha leva `tirada`, que separa uma categoria que
+        NUNCA foi selado (estas) de uma que ELE tirou das `selado.categorias` —
+        dizer que os Starter Decks «não são produto selado» era falso. Aqui a
+        marca tem de ser `False` nas duas.
+        """
         lista = self.selado.itens(self.con())
         self.assertFalse([x for x in lista if "Playmat" in x["nome"]])
-        self.assertEqual(self.selado.fora(),
-                         [{"categoria_id": 264, "categoria": "Riftbound Playmats", "n": 1},
-                          {"categoria_id": 266, "categoria": "Riftbound Sleeves", "n": 2}])
+        self.assertEqual(
+            self.selado.fora(),
+            [{"categoria_id": 264, "categoria": "Riftbound Playmats", "n": 1,
+              "tirada": False},
+             {"categoria_id": 266, "categoria": "Riftbound Sleeves", "n": 2,
+              "tirada": False}])
 
     def test_meter_os_playmats_e_uma_linha_de_config(self):
         self.cfg_selado({"categorias": [259, 264]})
