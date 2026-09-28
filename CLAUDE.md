@@ -8311,3 +8311,165 @@ apagam e continuam fora do valor; o sleevado vai ao binder e não à Coleção;
 zero decks nos 17 payloads, no `build`, nas rotas e na CLI; e a frase — a
 mesma nos dois sítios, sem nomear o torneio, e em cada um dos seis sítios onde
 a lista fica vazia.
+
+## 28/09/2026, à noite — NADA EM FORMA DE DECK no Produto Selado (a aba fica em 30); e o «—» passa a DIZER o que se passa
+
+Palavras dele: *"verifica novamente os produtos selados, ainda estao la
+champions decks que nao tem disponiveis / e nao quero «decks» para
+colecionar"*. Ramo `ai-pc/selado-sem-decks-2026-09-28`.
+
+### A PRIMEIRA METADE DA QUEIXA NÃO BATIA CERTO, e diz-se
+
+Medido antes de tocar em nada, com o catálogo fresco: **não havia Champion
+Deck nenhum na aba** — saíram a 25 e 26/09 e continuavam em `selado.excluidos`.
+O que lá estava com «Deck» no nome eram os **dois SHOWDOWN DECK**, e esses
+**tinham oferta**:
+
+| | preço | anúncios | Cardmarket |
+|---|---|---|---|
+| VEN «Zed vs Shen» Showdown Deck | 14,20 € | 58 | 888360 |
+| RAD «Evelynn vs Seraphine» Showdown Deck | 35,41 € | 9 | 897517 |
+
+Ele juntou duas queixas numa: «champions decks que não têm disponíveis» não
+existia, «não quero decks para colecionar» é a que tem efeito — e é essa que
+tira os dois Showdown Deck.
+
+### 1. A REGRA É A CATEGORIA, NÃO UMA LISTA DE NOMES
+
+A **262 «Riftbound Starter Decks»** saiu das `selado.categorias`, que ficam
+`[259, 260, 261, 263, 283]`. **Zero mecanismo novo**: é o `selado._crus` a
+filtrar por `categoria_id`, como sempre fez — uma linha de config.
+
+**Porquê a categoria e não mais nomes:** uma lista de `excluidos` só apanha o
+que JÁ existe e voltava a falhar no próximo lançamento. Há teste que mete um
+Champion Deck NOVO no catálogo e exige que ele não apareça sem ninguém
+escrever o nome.
+
+**Medido no catálogo real:** a 262 tem **24 blueprints** (20 produtos depois
+de juntar os 4 pares repetidos de Trial Deck) — os 11 Champion Deck, o
+«Origins: Champion Deck Set», os 4 «Origins: X Trial Deck», os 2 «Trial Deck
+Set» e os 2 Showdown Deck. **Nenhum tinha unidades gravadas** na
+`sealed_copies` (as 5 dele são as quatro Booster Box e o Origins: Proving
+Grounds), por isso nada dele ficou em risco.
+
+**O QUE A REGRA NÃO APANHA, e fica dito em vez de escondido:** um produto em
+forma de deck que o CardTrader arrume noutra categoria. É o caso dos dois
+«Trial Deck Case», que são da **263** e continuam a sair pelo NOME. O
+`tests/test_selado_sem_decks.py` varre a aba inteira por nome e por tipo e
+rebenta se alguma coisa em forma de deck aparecer por qualquer via.
+
+**O `DEFAULTS` não mexeu, de propósito.** A 262 **é** uma categoria de selado
+no CardTrader — isso é um facto deles — e o que ele decidiu é uma escolha
+DELE, que vive no `riftvault_config.json`, como o `selado.excluidos` e o
+`abas.escondidas`. Um riftvault sem config vê o catálogo inteiro.
+
+### 2. Os 18 nomes redundantes saíram da lista, e a decisão NÃO se perdeu
+
+Com a 262 fora, **18 das 49 entradas** de `selado.excluidos` deixaram de
+fazer trabalho nenhum. Ficaram em **31**. Deixá-las lá fazia a lista mentir
+sobre o que está a fazer; apagá-las sem mais perdia a memória de quem as
+mandou tirar — por isso foram para **`_selado_decks_arquivado`** no config,
+com a data, a frase e a razão, como os 17 do `_selado_extra_arquivado` de
+horas antes:
+
+- **de 25/09** (7): o «Origins: Champion Deck Set» (*"compram-se à unidade"*),
+  os 4 «Origins: X Trial Deck» e os 2 «Trial Deck Set»;
+- **de 26/09** (11): os Champion Deck todos (3 OGN, 2 SFD, 2 UNL, 4 LGC).
+
+**Ficaram no `excluidos`** os 2 «Trial Deck Case» — são da 263 e a regra não
+os apanha. **Repor é escrever 262 outra vez** em `selado.categorias`, e aí os
+18 nomes têm de voltar à lista, senão os Champion Deck voltam com eles.
+
+### 3. O CATÁLOGO ESTAVA VELHO — e não era essa a causa dos «—»
+
+O `api/selado.json` dizia `catalog: 2026-09-25T16:53`. Corrido o
+`riftvault selado --sync` (104 pedidos, 1/s), o catálogo passou a
+**2026-09-28T17:35** e o valor do selado de 552,56 € para **555,91 €** (o
+mercado a mexer nos que têm oferta).
+
+**Os 7 sem preço continuam os MESMOS 7 depois da leitura fresca**: nenhum era
+catálogo desactualizado, todos têm mesmo zero ofertas em inglês no CardTrader
+hoje — Origins: Proving Grounds, Unleashed Sleeved Booster, Legacy: Proving
+Grounds, Secret Garden Bundle Box, Lunar Revel 2026 Bundle, Replacement Card
+Booster e The T1 Worlds Champion | Signature Edition Box Set.
+
+### 4. O «—» ERA UM BUG DE LEITURA, e é a queixa real dele
+
+Um traço seco lia-se «este produto não existe». O que a app sabe é outra
+coisa: **o CARDTRADER não tem oferta**, e ela **não lê o Cardmarket** (403 a
+pedidos automáticos, API fechada a novas candidaturas). Dois desses 7 voltaram
+à aba ONTEM precisamente porque o Cardmarket os tem (13,00 € e 35,00 €,
+medidos pelo Chrome dele).
+
+**A linha passou a dizer as duas coisas**, no site e no CLI, e o preço de lá
+ganhou um sítio para ele o escrever — **a tabela `sealed_price`**
+(`product_id`, `cents`, `updated_at`, `source`), que é o mesmo mecanismo do
+Trend da Venda de 25/09 e pela mesma razão: *o que não se pode medir,
+escreve-se à mão, com a data.* Tabela à parte porque a chave é outra — ali é
+`printing_id` (uma carta), aqui é `product_id`; meter ids de produto numa
+coluna chamada `printing_id` era mentir no nome e sujar as leituras da Venda.
+
+**QUAL DOS DOIS CONTA** (`selado._preco_final`): o do **CardTrader quando
+existe** — é medido, e é o que a aba sempre mostrou, por isso esta ordem não
+mexe num número que ele já conhece —, o do **Cardmarket quando não existe**. A
+linha diz sempre de que mercado veio o número; quando ele escreve um por cima
+de um preço do CardTrader, os dois mostram-se e continua a contar o medido.
+Trocar a ordem é o `or` do `_preco_final`.
+
+Onde vive: `selado.precos_a_mao` / `definir_preco` / `_preco_final`,
+`POST /api/selado/preco`, `riftvault selado --preco ID [EUROS]` (só o ID
+apaga), o campo «CM» em cada linha (só no 8770; grava ao SAIR do campo, não a
+cada tecla) e os contadores `sem_preco` (sem preço NENHUM), `sem_cardtrader`
+e `preco_a_mao`. **Não toca no `copies`, na `ops`, nos locais nem na
+`sealed_copies`** — há teste, e nenhum módulo de contas pode importar a
+tabela, como a `sealed_copies`.
+
+**Os dois preços NÃO foram semeados.** São medições de ontem e envelhecem; a
+regra desta casa é que o número do Cardmarket é dele. São dois comandos:
+`riftvault selado --preco ct-363132 13,00` e
+`riftvault selado --preco ct-379338 35,00`.
+
+### Medido a 2026-09-28, à noite, com o MESMO código e o MESMO catálogo
+
+O «antes» é o config de ontem, reconstruído a partir do próprio arquivo — não
+escrito à mão (`_revisao\_medir_sem_decks_selado.py`).
+
+| | antes | depois |
+|---|---|---|
+| produtos na aba | 32 | **30** |
+| dos quais «por sair» | 8 | 7 |
+| tenho · unidades | 5 · 5 | **5 · 5** |
+| não tenho | 19 | 18 |
+| percentagem | 20,8 % | **21,7 %** |
+| **valor do selado** | **555,91 €** | **555,91 €** |
+| sem preço nenhum | 7 | 7 |
+| categorias no config | 6 | **5** |
+| nomes em `selado.excluidos` | 49 | **31** |
+| **decks na aba** (por tipo · por nome) | **2 · 2** | **0 · 0** |
+
+**Saíram exactamente 2** (os dois Showdown Deck) e entrou zero; por edição só
+mexem a VEN (5→4) e a RAD (4→3). **O valor não mexeu, e tinha de ser:** as 5
+unidades dele são todas de produtos que ficaram. **O `copies` tem o mesmo
+sha256** (`44f6424d…`, 1044 linhas, 2659 normais + 539 foil) antes e depois.
+
+`tests/test_selado_sem_decks.py` (73 testes): a regra pela categoria e a prova
+pela negativa; **um Champion Deck novo que ninguém nomeou não aparece**; o
+tipo `deck` fora da aba e dos `tipos` do payload; a 262 contada no `fora`;
+uma unidade gravada num deck não se apaga e volta; repor é escrever 262; o
+`selado.extra` pode na mesma ter um deck à mão, e diz-se; o config e o
+catálogo REAIS (os 18 arquivados com a data e a razão, os 2 «Trial Deck Case»
+que ficam, **nenhuma entrada do `excluidos` a tirar um produto da 262**, e
+**nada em forma de deck na aba por via nenhuma**); o preço do Cardmarket (as
+duas ordens do `_preco_final`, a vírgula e o ponto, apagar, o valor, os
+contadores, as recusas, a data e a origem, e **escreve só na `sealed_price`**);
+a interface (o traço seco desapareceu, o 403 no cabeçalho, o campo só em modo
+edição, grava ao sair, e a frase sem `nowrap` — a lição de 22/09); a rota e a
+CLI; e a **fotografia do `test_selado`, por referência**.
+
+Cinco ficheiros de teste foram ajustados nos NÚMEROS e no MECANISMO — o teste
+é que descrevia o de ontem, não o código: `test_selado_tirar`,
+`test_selado_tirar2`, `test_selado_champion`, `test_selado_sem_mercado` e
+`test_selado_ingles` (49 → 31 nomes, 32 → 30 produtos, e as asserções de «está
+no `excluidos`» passaram a «está fora da aba **e** a decisão está arquivada»).
+Os que perguntavam a categoria de um deck passaram a perguntá-la ao
+**catálogo em disco**: desde hoje os produtos da 262 não chegam ao `_crus`.

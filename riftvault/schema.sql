@@ -314,3 +314,26 @@ CREATE TABLE IF NOT EXISTS sealed_copies (
     qty        INTEGER NOT NULL CHECK (qty >= 0),
     updated_at TEXT    NOT NULL
 );
+
+-- O PREÇO DO CARDMARKET, METIDO À MÃO, por produto selado (2026-09-28).
+--
+-- Porque é que existe: o preço da aba vem do CardTrader, e 7 dos 30 produtos
+-- não têm lá oferta nenhuma — liam-se «—», que ele leu como «não está
+-- disponível». Dois deles TÊM oferta no Cardmarket (medida a 2026-09-28 pelo
+-- Chrome dele: o *Unleashed Sleeved Booster* a 13,00 € e o *Replacement Card
+-- Booster* a 35,00 €), e a app não a pode ir buscar: o Cardmarket responde 403
+-- a pedidos automáticos e a API deles está fechada a novas candidaturas.
+--
+-- É o mesmo mecanismo do Trend da Venda (`cardmarket_trend`, 2026-09-25) e
+-- pela mesma razão — o que não se pode medir, escreve-se à mão, com a data.
+-- Tabela à parte porque a chave é outra: ali é `printing_id` (uma carta), aqui
+-- é `product_id` (`ct-<blueprint>` ou `cfg-<slug>`). Meter ids de produto numa
+-- coluna chamada `printing_id` era mentir no nome e sujar as leituras da Venda.
+--
+-- NÃO ENTRA NA COLEÇÃO, como a `sealed_copies`: só o valor do selado a lê.
+CREATE TABLE IF NOT EXISTS sealed_price (
+    product_id TEXT    PRIMARY KEY,
+    cents      INTEGER NOT NULL CHECK (cents >= 0),
+    updated_at TEXT    NOT NULL,
+    source     TEXT    NOT NULL   -- 'web' | 'cli' — sempre à mão
+);

@@ -283,11 +283,13 @@ class TestOConfigReal(unittest.TestCase):
             (REPO / "riftvault_config.json").read_text(encoding="utf-8"))
         cls.sel = cls.cfg["selado"]
 
-    def test_a_lista_tem_49_sem_repetidos(self):
+    def test_a_lista_tem_31_sem_repetidos(self):
         """22 (25/09, manhã) + 10 (25/09, noite) + 11 Champion Deck (26/09)
-        + 7 sem mercado (26/09) − 2 que voltaram + 1 chinês (28/09)."""
-        self.assertEqual(len(self.sel["excluidos"]), 49)
-        self.assertEqual(len(set(self.sel["excluidos"])), 49)
+        + 7 sem mercado (26/09) − 2 que voltaram + 1 chinês (28/09) = 49;
+        **menos os 18 decks** que ficaram redundantes na noite de 28/09, quando
+        a categoria 262 saiu (`test_selado_sem_decks`)."""
+        self.assertEqual(len(self.sel["excluidos"]), 31)
+        self.assertEqual(len(set(self.sel["excluidos"])), 31)
 
     def test_os_cinco_que_ficam_estao_la(self):
         for n in OS_CINCO_QUE_FICAM:
@@ -299,18 +301,28 @@ class TestOConfigReal(unittest.TestCase):
         for n in VOLTARAM_A_28_09:
             self.assertNotIn(n, self.sel["excluidos"], n)
 
-    def test_as_43_das_ordens_anteriores_continuam_la(self):
-        """Acrescentar não é reescrever."""
+    def test_as_das_ordens_anteriores_continuam_la(self):
+        """Acrescentar não é reescrever.
+
+        Eram 43; o «Unleashed Sleeved Booster» voltou a 28/09 (42) e nessa
+        noite saíram os 18 decks, que a categoria 262 passou a tirar sozinha —
+        ficam **24**. As decisões deles estão no `_selado_decks_arquivado`."""
         anteriores = [n for n in self.sel["excluidos"]
                       if n not in OS_SETE and n != "Arcane Chinese Promo Set"]
-        # Eram 43; o «Unleashed Sleeved Booster» voltou a 28/09 e são 42.
-        self.assertEqual(len(anteriores), 42)
-        for n in ("Origins Booster", "Origins: Champion Deck Set",
+        self.assertEqual(len(anteriores), 24)
+        for n in ("Origins Booster",
                   "Spiritforged Bulk Runes", "Spiritforged Pre-Rift Kit",
                   "Unleashed: Poro Scene Set", "Arcane Complete Set",
-                  "2024 Trial Deck Set", "2025 Trial Deck Case",
-                  'Origins: "Jinx" Champion Deck', 'Legacy: "Garen" Champion Deck'):
+                  "2025 Trial Deck Case"):
             self.assertIn(n, anteriores, n)
+        arq = json.loads(
+            (REPO / "riftvault_config.json").read_text(encoding="utf-8"))
+        guardados = (arq["_selado_decks_arquivado"]["de_2026_09_25"]
+                     + arq["_selado_decks_arquivado"]["de_2026_09_26"])
+        for n in ("Origins: Champion Deck Set", "2024 Trial Deck Set",
+                  'Origins: "Jinx" Champion Deck', 'Legacy: "Garen" Champion Deck'):
+            self.assertNotIn(n, self.sel["excluidos"], n)
+            self.assertIn(n, guardados, n)
 
     def test_a_pre_venda_NAO_foi_parar_a_lista(self):
         for n in PRE_VENDA:
@@ -390,32 +402,34 @@ class TestOsSeteContraOCatalogoReal(RealBase):
         for n, (cm, _) in OS_SETE_MEDIDOS.items():
             self.assertEqual(por_nome[n]["cardmarket_id"], cm, n)
 
-    def test_a_aba_fica_com_32_selados(self):
+    def test_a_aba_fica_com_30_selados(self):
         """Estes 7 levaram-na de 55 a 48; a 28/09 os 17 do `selado.extra`,
-        menos os 2 que voltaram e o chinês que saiu, levaram-na a 32."""
+        menos os 2 que voltaram e o chinês que saiu, a 32; e nessa noite os 2
+        Showdown Deck, com a categoria 262, a **30**."""
         selados = [x for x in self.lista if not x["acessorio"]]
-        self.assertEqual(len(selados), 32,
-                         "98 − 22 − 10 − 11 − 7 − 17 − 1 + 2")
+        self.assertEqual(len(selados), 30,
+                         "98 − 22 − 10 − 11 − 7 − 17 − 1 + 2 − 2")
 
     def test_por_edicao_depois_dos_sete(self):
         """Os números que ele vai ver, edição a edição. Mexem três: a OP
-        desaparece (1→0), a PROMO-RIFT 10→5 e a T1S 2→1."""
+        desaparece (1→0), a PROMO-RIFT 10→5 e a T1S 2→1. (A VEN e a RAD
+        perderam um Showdown Deck cada na noite de 28/09.)"""
         por = {}
         for x in self.lista:
             if not x["acessorio"]:
                 por[x["edicao"]] = por.get(x["edicao"], 0) + 1
-        self.assertEqual(por, {"OGN": 2, "OGS": 1, "SFD": 3, "UNL": 5, "VEN": 5,
-                               "RAD": 4, "LGC": 2, "PG2": 1, "REC": 1, "ARC": 1,
+        self.assertEqual(por, {"OGN": 2, "OGS": 1, "SFD": 3, "UNL": 5, "VEN": 4,
+                               "RAD": 3, "LGC": 2, "PG2": 1, "REC": 1, "ARC": 1,
                                "PROMO-RIFT": 6, "T1S": 1})
-        self.assertEqual(sum(por.values()), 32)
+        self.assertEqual(sum(por.values()), 30)
 
     def test_a_op_desapareceu_por_ter_um_produto_so(self):
         self.assertEqual([x["nome"] for x in self.lista if x["edicao"] == "OP"], [])
 
-    def test_saem_exactamente_49_e_cada_nome_casa_com_um(self):
+    def test_saem_exactamente_31_e_cada_nome_casa_com_um(self):
         ex = self.selado.excluidos(self.cfg)
-        self.assertEqual(len(ex), 49)
-        self.assertEqual(len({x["id"] for x in ex}), 49)
+        self.assertEqual(len(ex), 31)
+        self.assertEqual(len({x["id"] for x in ex}), 31)
 
     def test_ler_nao_escreve(self):
         antes = (REPO / "data" / "selado_catalogo.json").read_bytes()
@@ -441,9 +455,12 @@ class TestOQueFicaNoCatalogoReal(RealBase):
         for x in self.lista:
             if not x["acessorio"]:
                 por[x["edicao"]] = por.get(x["edicao"], 0) + 1
-        # A RAD tinha 7 e tem 4: os 3 que saíram eram do `selado.extra`
-        # (o display de showdown, o vault bundle case e o EVENT Kit).
-        for ed, n in (("LGC", 2), ("PG2", 1), ("REC", 1), ("RAD", 4)):
+        # A RAD tinha 7 e tem 3: três saíram a 28/09 por serem do `selado.extra`
+        # (o display de showdown, o vault bundle case e o EVENT Kit) e o quarto
+        # nessa noite, com a categoria 262 — o «Evelynn vs Seraphine» Showdown
+        # Deck. O que este teste guarda é que NENHUMA edição por sair ficou
+        # vazia por causa do critério dos 7.
+        for ed, n in (("LGC", 2), ("PG2", 1), ("REC", 1), ("RAD", 3)):
             self.assertEqual(por.get(ed), n, ed)
 
     def test_o_arcane_box_set_continua_visivel(self):

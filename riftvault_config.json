@@ -89,7 +89,7 @@
   "abas": { "escondidas": ["a-mais", "pordeck", "pimp"] },
   "_abas_nota": "As abas que NÃO se mostram (André, 2026-09-25: 'Tira a aba \"A mais\", \"Por Deck\" e \"Pimp Deck\"'). ESCONDER NÃO É APAGAR: o `a_mais.py` e o `faltas.py` ficam como estavam, o «A mais» continua a ser calculado, o `api/a_mais.json` e o `api/compras.json` continuam a ser gerados e o `riftvault a-mais` continua a responder — o que sai é o BOTÃO: a entrada na barra lateral, a vista no índice dos decks, o atalho do Início e a rota que lá levava. Vale nos dois modos (a lista vai no `api/index.json`, que o site publicado também traz). REPOR UMA ABA É TIRAR O NOME DESTA LISTA, MAIS NADA. Os nomes são os ids: `inicio`, `colecao`, `faltas-edicao`, `a-mais`, `decks`, `staples`, `pordeck`, `pimp`, `encomendas`, `venda` — e aceitam-se também como se lêem no ecrã ('A mais', 'Por deck', 'Pimp deck'); um nome desconhecido rebenta. Não mexe em número nenhum de aba nenhuma, e há teste que o fotografa (`tests/test_abas.py`). Ver `abas.py`.",
   "selado": {
-    "categorias": [259, 260, 261, 262, 263, 283],
+    "categorias": [259, 260, 261, 263, 283],
     "acessorios": [],
     "juntar_duplicados": true,
     "datas_por_edicao": { "OGN": "2025-10-31", "OGS": "2025-10-31", "SFD": "2026-02-13", "UNL": "2026-05-08", "VEN": "2026-07-31", "RAD": "2026-10-23" },
@@ -104,21 +104,29 @@
       "Radiance Booster", "Radiance Sleeved Booster",
       "Legacy Booster", "The Reckoning Booster",
       "Origins Slim Booster Box", "Spiritforged Slim Booster Box", "Unleashed Slim Booster Box",
-      "Origins: Champion Deck Set",
       "Spiritforged Bulk Runes",
       "Spiritforged Pre-Rift Kit", "Unleashed Pre-Rift Kit", "Vendetta Pre-Rift Kit", "Radiance Pre-Rift Kit",
       "Unleashed: Poro Scene Set", "Arcane Complete Set", "Arcane Chinese Promo Set",
-      "Origins: Jinx Trial Deck", "Origins: Viktor Trial Deck", "Origins: Volibear Trial Deck", "Origins: Yasuo Trial Deck",
-      "2024 Trial Deck Set", "2025 Trial Deck Set",
       "2024 Trial Deck Case", "2025 Trial Deck Case",
-      "Origins: \"Jinx\" Champion Deck", "Origins: \"Viktor\" Champion Deck", "Origins: \"Lee Sin\" Champion Deck",
-      "Spiritforged: \"Rumble\" Champion Deck", "Spiritforged: \"Fiora\" Champion Deck",
-      "Unleashed: \"Vi\" Champion Deck", "Unleashed: \"Vex\" Champion Deck",
-      "Legacy: \"Ashe\" Champion Deck", "Legacy: \"Tryndamere\" Champion Deck", "Legacy: \"Lux\" Champion Deck", "Legacy: \"Garen\" Champion Deck",
       "Tournament Gift Box",
       "Arcane Promo Pack", "Immersive Arcane Promo Pack", "Promo Pack",
       "Origins: Instant Match Box 2025",
       "The T1 Worlds Champion | Player Bundle"
+    ]
+  },
+  "_selado_sem_decks": "NADA EM FORMA DE DECK ENTRA NO PRODUTO SELADO (André, 2026-09-28: 'ainda estao la champions decks que nao tem disponiveis / e nao quero \"decks\" para colecionar'). A REGRA É A CATEGORIA, NÃO UMA LISTA DE NOMES: a 262 «Riftbound Starter Decks» saiu das `selado.categorias`, e com ela sai tudo o que o CardTrader classifica como deck — hoje e no lançamento que vier. Uma lista de `excluidos` só apanha o que JÁ existe e voltava a falhar no próximo Champion Deck; a categoria apanha-o sozinha. Não houve mecanismo novo: é o `_crus` a filtrar por `categoria_id`, como sempre fez. MEDIDO a 2026-09-28, contra o catálogo fresco: a 262 tem 24 blueprints (20 produtos depois de juntar os 4 pares repetidos de Trial Deck) — os 11 Champion Deck, o «Origins: Champion Deck Set», os 4 «Origins: X Trial Deck», os 2 «Trial Deck Set» e os 2 SHOWDOWN DECK; nenhum tinha unidades gravadas na `sealed_copies`. A PRIMEIRA METADE DA QUEIXA DELE NÃO BATIA CERTO, e diz-se: não havia Champion Deck nenhum na aba (saíram a 25 e 26/09) — o que lá estava com «Deck» no nome eram os DOIS SHOWDOWN DECK, e esses TÊM oferta (Vendetta «Zed vs Shen» 14,20 € com 58 anúncios, Radiance «Evelynn vs Seraphine» 35,41 € com 9). Ele juntou duas queixas numa: a segunda («não quero decks») é a que tem efeito, e são esses dois que saem. O QUE A REGRA NÃO APANHA, e fica dito em vez de escondido: um produto em forma de deck que o CardTrader arrume noutra categoria — é o caso dos dois «Trial Deck Case», que são da 263 e continuam a sair pelo NOME, no `excluidos`. O `tests/test_selado_sem_decks.py` varre a aba inteira à procura de qualquer coisa em forma de deck, por nome e por tipo, e rebenta se alguma aparecer por qualquer via (categoria nova, `selado.extra`, `--sync`). REPOR É ESCREVER 262 OUTRA VEZ em `selado.categorias` — e aí os 18 nomes de `_selado_decks_arquivado` têm de voltar ao `excluidos`, senão os Champion Deck voltam com eles.",
+  "_selado_decks_arquivado": {
+    "_porque": "OS 18 NOMES QUE ESTIVERAM NO `selado.excluidos` E SAÍRAM A 2026-09-28, por terem ficado REDUNDANTES quando a categoria 262 saiu das `selado.categorias` (ver `_selado_sem_decks`). Não é um recuo nas decisões dele: todos estes continuam fora da aba, agora pela regra em vez de pelo nome. Guardam-se aqui para não se perder a MEMÓRIA de quem os mandou tirar e quando — o `selado.excluidos` é a lista do que ELE nomeou, e deixar lá nomes que a regra já tira fazia a lista mentir sobre o que está a fazer. AS DUAS DECISÕES ORIGINAIS: a 2026-09-25 ('Tira estes') saiu o «Origins: Champion Deck Set», porque 'compram-se a unidade', e na mesma noite os 4 «Origins: X Trial Deck» e os 2 «Trial Deck Set»; a 2026-09-26 ('retira os Champion Deck todos') saíram os 11 Champion Deck (3 da Origins, 2 da Spiritforged, 2 da Unleashed, 4 da Legacy). FICARAM NO `excluidos`, e é de propósito: os 2 «Trial Deck Case», que são da categoria 263 e a regra não apanha. Escreve-se o nome LIMPO, que é o que estava no ecrã; o bruto do catálogo («… Set Set», nos dois Trial Deck Set) casava na mesma.",
+    "de_2026_09_25": [
+      "Origins: Champion Deck Set",
+      "Origins: Jinx Trial Deck", "Origins: Viktor Trial Deck", "Origins: Volibear Trial Deck", "Origins: Yasuo Trial Deck",
+      "2024 Trial Deck Set", "2025 Trial Deck Set"
+    ],
+    "de_2026_09_26": [
+      "Origins: \"Jinx\" Champion Deck", "Origins: \"Viktor\" Champion Deck", "Origins: \"Lee Sin\" Champion Deck",
+      "Spiritforged: \"Rumble\" Champion Deck", "Spiritforged: \"Fiora\" Champion Deck",
+      "Unleashed: \"Vi\" Champion Deck", "Unleashed: \"Vex\" Champion Deck",
+      "Legacy: \"Ashe\" Champion Deck", "Legacy: \"Tryndamere\" Champion Deck", "Legacy: \"Lux\" Champion Deck", "Legacy: \"Garen\" Champion Deck"
     ]
   },
   "_selado_extra_arquivado": {

@@ -22,7 +22,7 @@
     riftvault venda [--juntar REF [N] | --tirar REF [N]] [--trend REF EUR]
                     [--limpar] [--vender --sim]
     riftvault selado [--sync] [--mais ID [N] | --menos ID [N]] [--edicao OGN]
-                     [--so-faltas | --so-tenho]
+                     [--so-faltas | --so-tenho] [--preco ID [EUROS]]
 """
 
 from __future__ import annotations
@@ -1265,6 +1265,14 @@ def cmd_selado(args) -> int:
         elif args.menos:
             res = selado_mod.ajustar(con, args.menos, -n, cfg, source="cli")
             print(f"{res['product_id']}: {res['applied']:+d} -> {res['qty']}")
+        if args.preco:
+            # `--preco ID` sozinho apaga; `--preco ID 13,00` grava.
+            pid = args.preco[0]
+            valor = args.preco[1] if len(args.preco) > 1 else None
+            res = selado_mod.definir_preco(con, pid, valor, cfg, source="cli")
+            print(f"{res['product_id']}: preço do Cardmarket "
+                  + ("apagado" if res["cents"] is None
+                     else f"-> {selado_mod.eur(res['cents'])}"))
     except (selado_mod.ProdutoDesconhecido, ValueError) as exc:
         print(str(exc), file=sys.stderr)
         con.close()
@@ -2252,6 +2260,11 @@ def main(argv: list[str] | None = None) -> int:
                    help="vai ao CardTrader buscar a lista e os preços (1 pedido/s)")
     p.add_argument("--mais", metavar="ID", help="mais unidades deste produto (ct-330791)")
     p.add_argument("--menos", metavar="ID", help="menos unidades deste produto")
+    # O preço do Cardmarket é DELE: a app não o pode ler (403). Sem o valor,
+    # apaga — como o `--limpar` de outros comandos.
+    p.add_argument("--preco", nargs="+", metavar=("ID", "EUROS"),
+                   help="o preço do CARDMARKET deste produto, à mão "
+                        "(ct-363132 13,00); só o ID apaga-o")
     p.add_argument("n", nargs="?", help="quantas (3 ou x3; omissão 1)")
     p.add_argument("--edicao", help="só esta edição (OGN, VEN, RAD, …)")
     p.add_argument("--so-faltas", action="store_true",
