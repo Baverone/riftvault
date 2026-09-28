@@ -365,6 +365,13 @@ class TestOConfigReal(unittest.TestCase):
     def setUp(self):
         self.cfg = json.loads((REPO / "riftvault_config.json").read_text(encoding="utf-8"))
         self.sel = self.cfg["selado"]
+        # OS 17 SAÍRAM DA ABA a 2026-09-28 (*"Tira os que nao tem pagina
+        # propria"*): o `selado.extra` ficou vazio e os objectos passaram,
+        # inteiros, para o `_selado_extra_arquivado`. **Esvaziar não é
+        # apagar** — e o que este ficheiro guarda é o CONHECIMENTO sobre eles,
+        # que não mudou. Ver `test_selado_ingles.py`.
+        self.arquivo = (self.cfg.get("_selado_extra_arquivado") or {})
+        self.extra = self.sel["extra"] + self.arquivo.get("produtos", [])
 
     def test_o_proving_grounds_tem_data(self):
         """Ficou sem data porque ele não a deu; é da era da Origins."""
@@ -378,28 +385,37 @@ class TestOConfigReal(unittest.TestCase):
         self.assertEqual(self.sel["acessorios"], [])
 
     def test_os_dezassete_produtos(self):
-        self.assertEqual(len(self.sel["extra"]), 17)
+        self.assertEqual(len(self.extra), 17)
+
+    def test_a_lista_da_aba_ficou_vazia_e_o_arquivo_tem_os_17(self):
+        """A 2026-09-28 saíram da aba, e é aqui que se vê que o conhecimento
+        ficou: `selado.extra` vazio, 17 no arquivo, com a data, a frase dele e
+        a razão. **Repor é copiá-los de volta.**"""
+        self.assertEqual(self.sel["extra"], [])
+        self.assertEqual(len(self.arquivo["produtos"]), 17)
+        self.assertIn("2026-09-28", self.arquivo["_porque"])
+        self.assertIn("Tira os que nao tem pagina propria", self.arquivo["_porque"])
 
     def test_os_sete_displays_de_champion_decks(self):
-        nomes = [x["nome"] for x in self.sel["extra"]
+        nomes = [x["nome"] for x in self.extra
                  if "Champion Deck Display" in x["nome"]]
         self.assertEqual(len(nomes), 7)
         for quem in ("Jinx", "Viktor", "Lee Sin", "Rumble", "Fiora", "Vi", "Vex"):
             self.assertTrue(any(f'"{quem}"' in n for n in nomes), quem)
-        for x in self.sel["extra"]:
+        for x in self.extra:
             if "Champion Deck Display" in x["nome"]:
                 self.assertEqual(x["tipo"], "display")
                 self.assertIn("4 decks iguais", x["conteudo"])
 
     def test_os_dois_displays_de_showdown(self):
-        showdown = [x for x in self.sel["extra"] if "Showdown" in x["nome"]]
+        showdown = [x for x in self.extra if "Showdown" in x["nome"]]
         self.assertEqual([x["edicao"] for x in showdown], ["VEN", "RAD"])
         for x in showdown:
             self.assertEqual(x["tipo"], "display")
             self.assertIn("4 conjuntos", x["conteudo"])
 
     def test_os_quatro_cases(self):
-        cases = [x for x in self.sel["extra"] if x["tipo"] == "case"]
+        cases = [x for x in self.extra if x["tipo"] == "case"]
         self.assertEqual(sorted(x["edicao"] for x in cases),
                          ["OGS", "RAD", "UNL", "VEN"])
         for x in cases:
@@ -411,14 +427,14 @@ class TestOConfigReal(unittest.TestCase):
     def test_a_duvida_do_case_da_unleashed_esta_escrita(self):
         """Uma fonte diz 4 vaults, outra 12. Fica 12 e a dúvida ao lado — não
         se inventa."""
-        unl = next(x for x in self.sel["extra"]
+        unl = next(x for x in self.extra
                    if x["nome"] == "Unleashed Vault Bundle Case")
         self.assertIn("12 vaults", unl["conteudo"])
         self.assertIn("4", unl["nota"])
         self.assertIn("confirmar", unl["nota"].lower())
 
     def test_os_quatro_pre_rift_event_kits(self):
-        kits = [x for x in self.sel["extra"] if "EVENT Kit" in x["nome"]]
+        kits = [x for x in self.extra if "EVENT Kit" in x["nome"]]
         self.assertEqual(sorted(x["edicao"] for x in kits),
                          ["RAD", "SFD", "UNL", "VEN"])
         for x in kits:
@@ -430,15 +446,26 @@ class TestOConfigReal(unittest.TestCase):
 
     def test_nenhum_extra_leva_preco_em_euros(self):
         """Os MSRP dele são em dólares e ficam no conteúdo."""
-        for x in self.sel["extra"]:
+        for x in self.extra:
             self.assertIsNone(x.get("preco_eur"), x["nome"])
 
     def test_o_config_real_le_se(self):
         from riftvault import selado
         op = selado.opcoes(self.cfg)
-        self.assertEqual(len(op["extra"]), 17)
+        self.assertEqual(len(op["extra"]), 0, "saíram da aba a 2026-09-28")
         self.assertEqual(op["acessorios"], [])
         self.assertTrue(op["juntar_duplicados"])
+
+    def test_o_arquivo_volta_a_ler_se_como_extra(self):
+        """A prova de que arquivar chega: os 17 objectos do arquivo passam
+        pelo mesmo `opcoes` e dão os mesmos 17 produtos — repor é copiar."""
+        from riftvault import selado
+        cfg = dict(self.cfg)
+        cfg["selado"] = {**self.sel, "extra": self.arquivo["produtos"]}
+        op = selado.opcoes(cfg)
+        self.assertEqual(len(op["extra"]), 17)
+        self.assertEqual(sorted(x["nome"] for x in op["extra"]),
+                         sorted(x["nome"] for x in self.extra))
 
 
 # ---------------------------------------------------------------------------
@@ -545,11 +572,28 @@ class TestAPagina(unittest.TestCase):
         self.assertIn("sl-marca dup", self.js)
 
     def test_a_ajuda_explica_as_duas_decisoes(self):
+        # A janela cresceu a 2026-09-28: a ajuda passou a explicar também a
+        # regra da língua e o `extra` vazio.
         i = self.js.index("'selado': {")
-        troco = self.js[i:i + 3200]
+        troco = self.js[i:i + 5200]
         self.assertIn("binders e os deck boxes", troco)
         self.assertIn("dois blueprints para o mesmo produto", troco)
         self.assertIn("MSRP são em dólares", troco)
+
+    def test_a_ajuda_diz_que_o_extra_esta_vazio_e_arquivado(self):
+        """O ecrã é onde ele lê: se a lista está vazia, a página tem de dizer
+        porquê e onde ficou o que se sabia."""
+        i = self.js.index("'selado': {")
+        troco = self.js[i:i + 5200]
+        self.assertIn("_selado_extra_arquivado", troco)
+        self.assertIn("Esvaziar não é apagar", troco)
+        self.assertIn("página própria", troco)
+
+    def test_a_ajuda_diz_a_regra_da_lingua(self):
+        i = self.js.index("'selado': {")
+        troco = self.js[i:i + 5200]
+        self.assertIn("Só impressão inglesa", troco)
+        self.assertIn("embalagens, não línguas", troco)
 
 
 if __name__ == "__main__":

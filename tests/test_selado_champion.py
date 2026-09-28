@@ -189,22 +189,36 @@ class TestOConfigReal(unittest.TestCase):
     def setUpClass(cls):
         cls.sel = json.loads(
             (REPO / "riftvault_config.json").read_text(encoding="utf-8"))["selado"]
+        cls.cfg_todo = json.loads(
+            (REPO / "riftvault_config.json").read_text(encoding="utf-8"))
 
-    def test_a_lista_tem_50_sem_repetidos(self):
+    def arquivados(self) -> list[dict]:
+        """O `selado.extra` mais o `_selado_extra_arquivado`: o `extra` ficou
+        vazio a 2026-09-28 e os 17 objectos passaram para o arquivo —
+        **esvaziar não é apagar**, e o que aqui se pergunta é o que se SABE
+        sobre eles, não onde a aba os mostra."""
+        return (self.sel["extra"]
+                + (self.cfg_todo.get("_selado_extra_arquivado") or {}).get(
+                    "produtos", []))
+
+    def test_a_lista_tem_49_sem_repetidos(self):
         """22 (25/09, manhã) + 10 (25/09, noite) + 11 Champion Deck (26/09)
-        + 7 sem mercado (26/09, ver `test_selado_sem_mercado`)."""
-        self.assertEqual(len(self.sel["excluidos"]), 50)
-        self.assertEqual(len(set(self.sel["excluidos"])), 50)
+        + 7 sem mercado (26/09, ver `test_selado_sem_mercado`) − 2 que
+        voltaram + 1 chinês (28/09, `test_selado_ingles`)."""
+        self.assertEqual(len(self.sel["excluidos"]), 49)
+        self.assertEqual(len(set(self.sel["excluidos"])), 49)
 
     def test_os_onze_estao_la(self):
         for n in OS_ONZE:
             self.assertIn(n, self.sel["excluidos"], n)
 
     def test_as_32_das_ordens_anteriores_continuam_la(self):
-        """Acrescentar não é reescrever."""
+        """Acrescentar não é reescrever. (Menos o «Unleashed Sleeved Booster»,
+        que **voltou** a 2026-09-28 — o Cardmarket revelou-lhe oferta a 13,00 €
+        e ele é inglês; ver `test_selado_ingles`.)"""
         for n in ("Origins Booster", "Origins Sleeved Booster", "Origins Slim Booster",
                   "Spiritforged Booster", "Spiritforged Slim Booster",
-                  "Unleashed Booster", "Unleashed Sleeved Booster",
+                  "Unleashed Booster",
                   "Unleashed Slim Booster", "Vendetta Booster", "Radiance Booster",
                   "Radiance Sleeved Booster", "Legacy Booster",
                   "The Reckoning Booster", "Origins Slim Booster Box",
@@ -227,16 +241,19 @@ class TestOConfigReal(unittest.TestCase):
         for n in OS_DOIS_SHOWDOWN:
             self.assertNotIn(n, self.sel["excluidos"], n)
 
-    def test_os_sete_displays_continuam_na_extra(self):
-        """Ficam até ele dizer — são uma linha de produto à parte da unidade."""
-        nomes = [x["nome"] for x in self.sel["extra"]]
+    def test_os_sete_displays_continuam_conhecidos(self):
+        """Ficaram por ESTA ordem — o deck sai, o display dele não. Saíram da
+        aba a 2026-09-28, por não terem página própria em mercado nenhum, e o
+        que se sabe deles está no `_selado_extra_arquivado`: o que saiu foi a
+        presença, não o conhecimento."""
+        nomes = [x["nome"] for x in self.arquivados()]
         for n in OS_SETE_DISPLAYS:
             self.assertIn(n, nomes, n)
         champion = [n for n in nomes if "Champion Deck Display" in n]
         self.assertEqual(len(champion), 7)
 
-    def test_os_dois_showdown_display_continuam_na_extra(self):
-        nomes = [x["nome"] for x in self.sel["extra"]]
+    def test_os_dois_showdown_display_continuam_conhecidos(self):
+        nomes = [x["nome"] for x in self.arquivados()]
         showdown = [n for n in nomes if "Showdown Decks Display" in n]
         self.assertEqual(len(showdown), 2)
 
@@ -297,11 +314,17 @@ class TestOsOnzeContraOCatalogoReal(RealBase):
                       and x["fonte"] != "config")
         self.assertEqual(maus, [])
 
-    def test_ficam_os_sete_displays_e_sao_sete(self):
-        ficam = sorted(x["nome"] for x in self.lista
-                       if "champion deck display" in x["nome"].lower())
-        self.assertEqual(ficam, sorted(OS_SETE_DISPLAYS))
-        self.assertEqual(len(ficam), 7)
+    def test_os_sete_displays_nao_sairam_por_esta_ordem(self):
+        """A prova de «o nome é EXACTO»: o nome de cada um dos 11 está
+        literalmente DENTRO do nome do display dele, e os displays não foram
+        atrás. Saíram da aba a 28/09, por outra porta — nunca pela lista.
+
+        (A aba já não os mostra, por isso a pergunta faz-se ao config.)"""
+        arq = json.loads(
+            (REPO / "riftvault_config.json").read_text(encoding="utf-8"))
+        for n in OS_SETE_DISPLAYS:
+            self.assertNotIn(n, arq["selado"]["excluidos"], n)
+        self.assertEqual(len(OS_SETE_DISPLAYS), 7)
 
     def test_ficam_os_dois_showdown_deck(self):
         ficam = sorted(x["nome"] for x in self.lista
@@ -309,16 +332,23 @@ class TestOsOnzeContraOCatalogoReal(RealBase):
                        and "display" not in x["nome"].lower())
         self.assertEqual(ficam, sorted(OS_DOIS_SHOWDOWN))
 
-    def test_ficam_os_dois_showdown_display(self):
-        ficam = [x["nome"] for x in self.lista
-                 if "showdown decks display" in x["nome"].lower()]
-        self.assertEqual(len(ficam), 2)
+    def test_os_dois_showdown_display_nao_sairam_por_esta_ordem(self):
+        arq = json.loads(
+            (REPO / "riftvault_config.json").read_text(encoding="utf-8"))
+        nomes = [x["nome"] for x in arq["_selado_extra_arquivado"]["produtos"]]
+        showdown = [n for n in nomes if "Showdown Decks Display" in n]
+        self.assertEqual(len(showdown), 2)
+        for n in showdown:
+            self.assertNotIn(n, arq["selado"]["excluidos"])
 
-    def test_a_aba_fica_com_48_selados(self):
+    def test_a_aba_fica_com_32_selados(self):
         """Os 11 desta ordem levaram-na de 66 a 55; os 7 sem mercado, na mesma
-        noite, a 48 (ver `test_selado_sem_mercado`)."""
+        noite, a 48 (ver `test_selado_sem_mercado`); e a 28/09 os 17 do
+        `selado.extra`, menos os 2 que voltaram e o chinês que saiu, a 32
+        (`test_selado_ingles`)."""
         selados = [x for x in self.lista if not x["acessorio"]]
-        self.assertEqual(len(selados), 48, "98 − 22 − 10 − 11 − 7")
+        self.assertEqual(len(selados), 32,
+                         "98 − 22 − 10 − 11 − 7 − 17 − 1 + 2")
 
     def test_por_edicao_depois_dos_onze(self):
         """Os números que ele vai ver, edição a edição. Desta ordem mexem
@@ -328,10 +358,10 @@ class TestOsOnzeContraOCatalogoReal(RealBase):
         for x in self.lista:
             if not x["acessorio"]:
                 por[x["edicao"]] = por.get(x["edicao"], 0) + 1
-        self.assertEqual(por, {"OGN": 5, "OGS": 2, "SFD": 6, "UNL": 8, "VEN": 8,
-                               "RAD": 7, "LGC": 2, "PG2": 1, "REC": 1, "ARC": 2,
-                               "PROMO-RIFT": 5, "T1S": 1})
-        self.assertEqual(sum(por.values()), 48)
+        self.assertEqual(por, {"OGN": 2, "OGS": 1, "SFD": 3, "UNL": 5, "VEN": 5,
+                               "RAD": 4, "LGC": 2, "PG2": 1, "REC": 1, "ARC": 1,
+                               "PROMO-RIFT": 6, "T1S": 1})
+        self.assertEqual(sum(por.values()), 32)
 
     def test_a_legacy_fica_so_com_os_por_sair_que_nao_sao_champion(self):
         """Eram 6: saem os 4 Champion Deck."""
@@ -340,10 +370,10 @@ class TestOsOnzeContraOCatalogoReal(RealBase):
         for n in lgc:
             self.assertNotIn("champion deck", n.lower())
 
-    def test_saem_exactamente_50_e_cada_nome_casa_com_um(self):
+    def test_saem_exactamente_49_e_cada_nome_casa_com_um(self):
         ex = self.selado.excluidos(self.cfg)
-        self.assertEqual(len(ex), 50)
-        self.assertEqual(len({x["id"] for x in ex}), 50)
+        self.assertEqual(len(ex), 49)
+        self.assertEqual(len({x["id"] for x in ex}), 49)
 
     def test_ler_nao_escreve(self):
         antes = (REPO / "data" / "selado_catalogo.json").read_bytes()

@@ -12,7 +12,36 @@ responder a uma pergunta que agora é de duas. Mudaram-se para aqui, no bloco
     elas que mandam (`opcoes`). Com as duas escritas ganha a nova, que é a
     regra das outras migrações do config (ver `config._migrar_master_set`).
 
-O CARDTRADER ESTÁ VALIDADO; O CARDMARKET NÃO — e é a diferença que interessa
+O CARDMARKET PASSOU A LER-SE (2026-09-28) — mas não por programa
+    Até 2026-09-27 o Cardmarket era um 403 e mais nada: respondia com o
+    desafio do Cloudflare a qualquer pedido automático (nem o `robots.txt`
+    respondia) e a API deles está fechada a novos pedidos de acesso. **A
+    2026-09-28 foi lido pelo CHROME dele**, que passa o desafio, e daí saíram
+    as 4 categorias de selado (Boosters, Booster Boxes, Champion Decks, Box
+    Sets — 73 produtos, 68 com oferta) que fecharam o varrimento dos dois
+    mercados.
+
+    **O que ficou confirmado é o CAMINHO**, na forma
+    `/en/Riftbound/Products/<Categoria>/<Slug>`, com estes cinco valores de
+    categoria vistos a responder: `Boosters`, `Booster-Boxes`,
+    `Champion-Decks`, `Box-Sets` e `Sets`.
+
+    **O que NÃO ficou confirmado é o template que a app usa.** O
+    `cardmarket_url`/`cardmarket_url_selado` monta `…/Products/Singles?
+    idProduct={id}` e `…/Products?idProduct={id}`, e **nenhum desses foi
+    aberto** — o que se leu foi o caminho por slug. Para passar a app ao
+    caminho confirmado faltam duas coisas que ela não tem: o **slug do
+    Cardmarket** (que não é o nosso nome — «Origins Booster Box Case» é lá
+    «Origins Case (6x Booster Box)») e a **categoria deles** (as nossas são as
+    do CardTrader, 259–263 e 283, que não mapeiam uma a uma). Inventar
+    qualquer das duas era escrever no URL uma coisa que ninguém mediu, e por
+    isso o template fica como está e o link de **pesquisa** continua a ser a
+    rede de segurança de cada linha.
+
+    Continua a não haver leitura automática do Cardmarket: o 403 é o mesmo.
+    O que mudou é que o site está lido, e sabe-se o que lá há.
+
+O CARDTRADER ESTÁ VALIDADO — e é a diferença que interessa
     Medido a 2026-09-25, da máquina dele:
 
     | pedido | resposta |
@@ -29,11 +58,11 @@ O CARDTRADER ESTÁ VALIDADO; O CARDMARKET NÃO — e é a diferença que interes
     (`cardtrader.com/cards/<id>`, que era o que o `a_subir` escrevia desde
     2026-09-08) a página abre em **italiano**.
 
-    O do Cardmarket continua **NÃO VALIDADO** — o site responde 403 a
-    qualquer pedido automático, nem sequer o `robots.txt` responde, e não há
-    conta para experimentar. Não se contorna: é dado e segue. Por isso cada
-    linha leva DOIS links, como na Venda — o directo por id e um de
-    **pesquisa** pelo nome, que funciona mesmo que o primeiro abra em 404.
+    O **link** do Cardmarket continua **NÃO VALIDADO**, mesmo depois de
+    2026-09-28: o que se leu foi o caminho por slug, não o `?idProduct=` que
+    a app monta (ver a secção acima). Por isso cada linha continua a levar
+    DOIS links, como na Venda — o directo por id e um de **pesquisa** pelo
+    nome, que funciona mesmo que o primeiro abra em 404.
 
     O produto selado tem template próprio (`cardmarket_url_selado`): um
     display **não é um Single**, e escrever-lhe o caminho `Products/Singles`
@@ -43,10 +72,12 @@ O CARDTRADER ESTÁ VALIDADO; O CARDMARKET NÃO — e é a diferença que interes
     ela.
 
 SEM ID NÃO SE INVENTA UM: PESQUISA-SE
-    Um produto sem `cardmarket_id` (hoje 46 dos 98 do selado) ou sem
-    `blueprint_id` (os 17 do `selado.extra`, que a API não tem) leva o link de
-    **pesquisa pelo nome** nesse mercado, marcado como tal. Nunca se mostra um
-    link directo montado com um id que não existe.
+    Um produto sem `cardmarket_id` (46 dos 98 do selado, medido a 2026-09-25)
+    ou sem `blueprint_id` leva o link de **pesquisa pelo nome** nesse
+    mercado, marcado como tal. Nunca se mostra um link directo montado com um
+    id que não existe. (Os 17 do `selado.extra`, que não tinham nem um nem
+    outro e levavam pesquisa nos dois, saíram da aba a 2026-09-28 — ver
+    `selado.py`.)
 """
 
 from __future__ import annotations
@@ -59,7 +90,10 @@ DEFAULTS: dict = {
     # CARDMARKET — os dois primeiros vieram do `venda` (2026-09-25). `{id}` é
     # o `cardmarket_id`: no caso das cartas, o do `cardtrader_map` (1178 das
     # 1179 impressões têm um); no do selado, o `card_market_ids` do blueprint.
-    # NÃO VALIDADOS (403 a pedidos automáticos) — ver o cabeçalho.
+    # NÃO VALIDADOS: o site leu-se a 2026-09-28 pelo Chrome dele e o caminho
+    # que responde é `/en/Riftbound/Products/<Categoria>/<Slug>` — estes dois
+    # templates, por `?idProduct=`, nunca chegaram a ser abertos. Ver o
+    # cabeçalho, que diz o que faltaria para os trocar.
     "cardmarket_url": "https://www.cardmarket.com/en/Riftbound/Products/Singles?idProduct={id}",
     # O mesmo para PRODUTO SELADO, que não é um «Single» — ver o cabeçalho.
     "cardmarket_url_selado": "https://www.cardmarket.com/en/Riftbound/Products?idProduct={id}",

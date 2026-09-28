@@ -58,7 +58,29 @@ OS ACESSÓRIOS TÊM SECÇÃO PRÓPRIA — HOJE DESLIGADA (2026-09-25)
     contar o mesmo produto duas vezes) e as oversized (284 — são CARTAS
     grandes, não produto selado).
 
-O QUE ELE MANDOU TIRAR (`selado.excluidos`, 2026-09-25) — SÃO 32
+SÓ IMPRESSÃO INGLESA (2026-09-28) — REGRA GERAL
+    Palavras dele: *"nao quero nada que nao seja impressao Inglesa"*. Uma
+    caixa da impressão chinesa (ou de outra língua) **não entra na aba**,
+    tenha ela oferta ou não.
+
+    É a mesma escolha que os PREÇOS já faziam pelo outro lado desde
+    2026-08-31 — o `precos.linguas` (`["en"]`) só aceita ofertas com
+    `riftbound_language: "en"`, e no *Origins Booster Box* eram 51 ofertas
+    `en`, 6 `zh-CN` e 3 `fr`. Até aqui a língua filtrava o **preço** de um
+    produto que ficava na lista; agora tira o produto.
+
+    **Aplica-se À MÃO, pelo `selado.excluidos`, e não por código**, porque
+    não há campo de língua nos blueprints: o marcador está no `nome`
+    («Arcane Chinese Promo Set»), na `versao` («Chinese Exclusive», nos três
+    Promo Pack) ou no rótulo do Cardmarket («(Chinese, Slim)», «(Chinese,
+    Jumbo)», «(Chinese)»). **Cuidado a cada `riftvault selado --sync`**: um
+    produto novo com esse marcador entra na aba sozinho.
+
+    **Formato não é língua.** «Slim», «Jumbo» e «Sleeved» são embalagens — o
+    *Unleashed Sleeved Booster* é inglês e está na aba. E a impressão inglesa
+    de um produto com irmão chinês fica na mesma: o *Arcane Box Set* fica.
+
+O QUE ELE MANDOU TIRAR (`selado.excluidos`, 2026-09-25) — SÃO 49
     Ele viu a lista dos 98 e mandou fora 22 produtos: os **boosters soltos**
     (13), as **slim booster box** (3), o **Origins: Champion Deck Set** (*"compram
     -se à unidade"*), as **Spiritforged Bulk Runes** e os quatro **Pre-Rift
@@ -70,6 +92,14 @@ O QUE ELE MANDOU TIRAR (`selado.excluidos`, 2026-09-25) — SÃO 32
     Complete Set», que são conjuntos de CARTAS —, com que a categoria fica
     vazia na aba, e os **8 TRIAL DECK** da PROMO-RIFT (os 4 «Origins: X Trial
     Deck», os 2 «Trial Deck Set» e os 2 «Trial Deck Case»). Ficam **66**.
+
+    A 26/09 juntaram-se os **11 Champion Deck** (66 → 55) e os **7 que não se
+    compram em lado nenhum** (55 → 48). A 28/09 a lista mexeu nos dois
+    sentidos e ficou em **49**, com a aba a **32**: saíram dela dois nomes
+    (o *Unleashed Sleeved Booster* e o *Replacement Card Booster*, que o
+    Cardmarket revelou ter oferta) e entrou um (*Arcane Chinese Promo Set*,
+    pela regra da língua). Os `selado.extra` saíram da aba no mesmo dia, por
+    outra porta — ver a secção deles.
 
     **Tira-se por NOME, nunca por categoria**, e é isso que deixa sair os dois
     «Trial Deck Case» (que são da 263) sem levar o «Arcane Box Set», o «Arcane
@@ -120,21 +150,56 @@ O QUE FICA EM DISCO
 
     `selado.extra` (config) — os produtos que a API não tem, escritos à mão:
     `nome`, `edicao`, `tipo`, `data`, `preco_eur`, `conteudo` e `nota`. A
-    lista da app é a da API MAIS estes.
+    lista da app é a da API MAIS estes. **Está VAZIA desde 2026-09-28** — ver
+    a secção a seguir.
 
-    **São precisamente o que um catálogo de mercado não lista, porque quase
-    não circula solto** (levantamento dele de 2026-09-25, em
-    `ai-pc/work/riftbound-produto-selado.md`): os 7 displays de champion decks
-    (4 decks iguais), os 2 displays de showdown (4 conjuntos), os cases de
-    vaults e o do Proving Grounds, e os **Pre-Rift EVENT Kit** — 16 kits de
-    jogador + 1 display, ~480 USD —, que são outro produto que o «Pre-Rift
-    Kit» do CardTrader (o kit de UM jogador, ~40 USD) e por isso aparecem os
-    dois, cada um com o seu `conteudo`.
+OS 17 DO `selado.extra` SAÍRAM DA ABA (2026-09-28)
+    Palavras dele: *"Tira os que nao tem pagina propria"*. Só fica na aba o
+    que é produto **listado** num dos dois mercados, e nenhum dos 17 o é: os
+    7 displays de champion decks, os 2 de showdown, os 3 cases de vaults, o
+    do Proving Grounds e os 4 **Pre-Rift EVENT Kit**. Eles EXISTEM
+    (levantamento dele de 2026-09-25, em
+    `ai-pc/work/riftbound-produto-selado.md`) — o que não existe é uma
+    página onde comprá-los.
 
-    **Os MSRP dele são em DÓLARES e ficam no `conteudo`, não no preço.** O
-    `preco_eur` fica vazio (a linha diz «—») porque não há taxa de câmbio
-    validada em lado nenhum do riftvault, e inventar uma era escrever um
-    número que ninguém mediu. Ficam contados no `sem_preco`.
+    **O que saiu foi a PRESENÇA na aba, não o conhecimento.** Os 17 objectos
+    estão inteiros no `_selado_extra_arquivado` do config (nome, edição,
+    tipo, data, conteúdo, notas — incluindo a dúvida dos 4 ou 12 vaults do
+    case da Unleashed), e **repor é copiá-los de volta** para o
+    `selado.extra`. É a mesma ideia do `abas.escondidas` e do
+    `selado.excluidos`. As unidades dele nos ids `cfg-…` continuam na
+    `sealed_copies` e voltam a contar se eles voltarem; estavam todas a ZERO
+    a 2026-09-28.
+
+    **Os MSRP dele eram em DÓLARES e ficavam no `conteudo`, não no preço**:
+    não há taxa de câmbio validada em lado nenhum do riftvault, e inventar
+    uma era escrever um número que ninguém mediu. Eram por isso 17 das 23
+    linhas sem preço da aba; hoje são 7.
+
+O QUE O CARDMARKET É, MEDIDO (2026-09-28) — DUAS DESCOBERTAS
+    O Cardmarket não se lê por programa (403 do Cloudflare a qualquer pedido
+    automático, e a API deles está fechada a novos pedidos de acesso), mas em
+    2026-09-28 foi lido **pelo Chrome dele**, que passa o desafio. São 4
+    categorias de selado — Boosters (26), Booster Boxes (18), Champion Decks
+    (9) e Box Sets (20) —, **73 produtos, 68 com oferta**. Duas coisas que
+    mudam a forma de o ler, e que valem para qualquer leitura futura:
+
+    1. **Não há página própria para DISPLAYS nem para CASES.** Vendem-se
+       DENTRO da entrada do produto simples, com o vendedor a escrever o que
+       é na nota. Medido: no `Box-Sets/Spiritforged-Pre-Rift-Event-Kit` há
+       ofertas de «SEALED CASE (16 kits + box)» a 1350 € e «Sealed Case for
+       16 players» a 1800 € ao lado do kit de um jogador a ~49 €; no
+       `Champion-Decks/Vi-Champion-Deck` há «FRENCH 4 = display sceellee» a
+       12,49 €. É por isto que os 17 do `extra` não têm página própria em
+       lado nenhum — não é falha do catálogo, é o modelo deles.
+
+    2. **O «From» do Cardmarket NÃO é o preço do produto.** No
+       `Unleashed-Pre-Rift-Event-Kit` o «From 2,50 €» são vendedores a vender
+       UM deck solto de dentro do kit («ONLY Vi deck (sealed) - nothing
+       else»); o kit inteiro está a ~22-26 €. Não usar o «From» deles como
+       preço sem ler a nota do vendedor. O preço da app continua a ser o do
+       **CardTrader** (`preco_do_selado`), que é a oferta mais barata com
+       `sealed: true` na língua do `precos.linguas`.
 
 O SELADO NÃO ENTRA NA COLEÇÃO
     Nem nos níveis, nem no denominador, nem no A mais, nem nas Faltas, nem nas
@@ -153,16 +218,36 @@ OS LINKS DE COMPRA (2026-09-25)
     validado e o que não está.
 
     O do **CardTrader está validado**: o `blueprint_id` sozinho responde 200 e
-    o site acrescenta-lhe o slug. O do **Cardmarket não pôde ser** (403 a
-    pedidos automáticos, nem o `robots.txt` responde), e por isso quem não tem
-    `cardmarket_id` leva **pesquisa pelo nome**, marcada como tal.
+    o site acrescenta-lhe o slug. Do **Cardmarket** sabe-se, desde 2026-09-28,
+    que o site existe e se lê (pelo Chrome dele) e que o caminho
+    `/en/Riftbound/Products/<Categoria>/<Slug>` funciona — mas o template da
+    app é o `?idProduct={id}`, que **continua por confirmar**: nunca se abriu
+    um. Por isso quem não tem `cardmarket_id` leva **pesquisa pelo nome**,
+    marcada como tal, e ela fica como rede de segurança mesmo para quem tem.
+    Ver `riftvault/mercados.py`.
 
-    Medido a 2026-09-25 no catálogo real, nos 98 produtos selados: **81 têm
-    `blueprint_id`** e **52 têm `cardmarket_id`** — 29 ficam com pesquisa só
-    no Cardmarket, e os 17 do `selado.extra` (que a API não tem) levam
-    pesquisa nos dois. Nos 19 acessórios: 19 com `blueprint_id`, **nenhum**
-    com `cardmarket_id` (o `--sync` ainda não passou por eles). O
-    `payload.links` conta isto para a página o poder dizer.
+    Medido a 2026-09-25 no catálogo real, nos 98 produtos selados de então:
+    **81 tinham `blueprint_id`** e **52 `cardmarket_id`**. O `payload.links`
+    conta isto a cada leitura, para a página o poder dizer.
+
+O BURACO QUE FICA: A APP SÓ VÊ O CATÁLOGO DO CARDTRADER
+    O `--sync` lê a API do CardTrader, e mais nada. Um produto que **só o
+    Cardmarket lista** é invisível para a app — não está na aba, não está no
+    `scope.fora`, não está sequer no `selado.excluidos`: não existe.
+
+    Medido a 2026-09-28, ao cruzar os dois varrimentos produto a produto
+    (`_revisao\\_so_no_cardmarket.py`, com a tabela de correspondência à mão —
+    os nomes divergem: «Origins Case (6x Booster Box)» lá é «Origins Booster
+    Box Case» cá): dos 73 do Cardmarket a app conhece **57** e desconhece
+    **16**, dos quais **13 com oferta viva**. Dez são impressão chinesa (os
+    Jumbo de OGN/SFD/UNL/VEN em booster e em booster box, e os dois Slim da
+    VEN, que a app só tem para OGN/SFD/UNL), e por isso ele **não os quer**
+    (ver a regra da língua); os outros seis são o *Spiritforged* e o *Vendetta
+    Sleeved Booster*, o *Worlds 25 Commemorative Booster*, o *Project K Promos
+    Booster*, o *Arcane Box Set (Chinese)* e o *Unleashed: Prize Wall Rune
+    Bundle*. Fica escrito porque a decisão de hoje foi sobre estes 16 em
+    concreto, não sobre o mecanismo: a app continua sem saber o que só existe
+    no Cardmarket.
 
 POR SAIR
     Um produto de uma edição ainda por lançar (a Radiance sai a 2026-10-23)
