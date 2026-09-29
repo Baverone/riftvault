@@ -118,7 +118,25 @@ def cmd_images(args) -> int:
 
 
 def cmd_serve(args) -> int:
-    server.serve(host=args.host, port=args.port)
+    """O modo edição.
+
+    EM ENSAIO (`RIFTVAULT_ENSAIO=1`) escuta em **127.0.0.1:8779** e recusa-se
+    a escutar na 8770 — é essa a garantia de que o túnel, que serve a 8770,
+    nunca aponta para uma experiência. Nem a LAN: uma base de ensaio não tem
+    nada que estar ao alcance do telemóvel dele. Ver `riftvault/multi.py`.
+    """
+    from . import multi
+    try:
+        porta = multi.porta(args.port if args.port != 8770 else None)
+    except multi.PortaDeProducao as e:
+        print(e, file=sys.stderr)
+        return 2
+    anfitriao = multi.anfitriao(args.host if args.host != "0.0.0.0" else None)
+    if multi.ensaio():
+        print(f"ENSAIO — dados em {config.DATA_DIR}, config "
+              f"{config.CONFIG_PATH.name}, a escutar só em {anfitriao}:{porta}",
+              file=sys.stderr)
+    server.serve(host=anfitriao, port=porta)
     return 0
 
 
