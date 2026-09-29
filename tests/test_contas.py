@@ -303,6 +303,41 @@ class TestAsRotasDeEscrita(Base):
         self.assertEqual(r.status_code, 200, r.get_data(as_text=True)[:400])
         self.assertEqual(r.get_json()["qty"], 2)
 
+    def test_as_rotas_DA_CONTA_tambem_exigem_sessao(self):
+        """As minhas rotas não são `@app.post` no `server.py` — são do blueprint.
+
+        O varrimento de cima lê o `server.py` e não as vê, por isso podiam
+        passar sem protecção sem ninguém notar. Estas escrevem na conta de
+        alguém e todas exigem sessão; o `/api/conta/registar` é a excepção
+        deliberada (é ele que CRIA o dono) e tem a verificação por dentro.
+        """
+        c = self.cliente(aberto=True)
+        for rota in ("/api/conta/privacidade", "/api/conta/exportar",
+                     "/api/conta/apagar"):
+            r = c.post(rota, json={})
+            self.assertEqual(r.status_code, 401, f"{rota} deixou passar")
+        # O registo responde 401 por outra razão (não há identidade), não por
+        # o guarda genérico o ter travado — e é isso que o deixa funcionar.
+        r = c.post("/api/conta/registar", json={"slug": "miguel"})
+        self.assertEqual(r.status_code, 401)
+        self.assertIn("entra com", r.get_json()["erro"])
+
+    def test_nenhuma_rota_do_blueprint_escreve_sem_passar_pelo_guarda(self):
+        """Uma rota nova minha que escreva tem de estar numa das duas listas."""
+        from riftvault import rotas_conta
+        escrevem = [r for r in rotas_conta.bp.deferred_functions] and None
+        # O blueprint não expõe as regras antes de registado; lê-se a app.
+        from riftvault import server
+        importlib.reload(server)
+        posts = {str(r.rule) for r in server.app.url_map.iter_rules()
+                 if "POST" in (r.methods or set())}
+        minhas = {p for p in posts if p.startswith(("/api/conta", "/sair"))}
+        self.assertEqual(
+            minhas,
+            {"/api/conta/registar", "/api/conta/privacidade",
+             "/api/conta/exportar", "/api/conta/apagar", "/sair"},
+            "há uma rota de conta nova — confirma que passa pelo guarda")
+
     def test_as_rotas_que_escrevem_no_CONFIG_sao_so_do_dono(self):
         """O furo que a separação por ficheiro NÃO tapa.
 
