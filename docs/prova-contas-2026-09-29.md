@@ -6,24 +6,24 @@ utilizadores de mentira. Não escreve no `data/` real — a coleção do
 André é lida por uma cópia tirada com `VACUUM INTO`, e o `sha256` dela
 no princípio e no fim é a prova de que não lhe mexeu.
 
-Árvore: `C:\Users\Catarina\_revisao\scratch-contas`
+Árvore: `C:\Users\Catarina\_revisao\wt-contas`
 
 ```
 ==========================================================================
 PROVA DE PONTA A PONTA — contas, isolamento e privacidade
-worktree: C:\Users\Catarina\_revisao\scratch-contas
+worktree: C:\Users\Catarina\_revisao\wt-contas
 ==========================================================================
 
 0. A COLEÇÃO DO ANDRÉ, ANTES (base real, lida por cópia)
    sha256 1f6c9cae5e6d6145a2b6f9dc9e6371021742b2ac1de69090c4173b655e444e56
    1046 linhas · 2663 normais · 540 foil
 
-1. ENSAIO em C:\Users\Catarina\_revisao\scratch-contas\data-ensaio
-  [OK  ] o ensaio não é o data/ real — C:\Users\Catarina\_revisao\scratch-contas\data-ensaio
+1. ENSAIO em C:\Users\Catarina\_revisao\wt-contas\data-ensaio
+  [OK  ] o ensaio não é o data/ real — C:\Users\Catarina\_revisao\wt-contas\data-ensaio
 
 2. O A REGISTA-SE
   [OK  ] entrou mas ainda não tem conta — {"nome": "amigo-a-sub", "provedor": "local", "slug_sugerido": "amigo-a-sub"}
-  [OK  ] a conta nasceu — {"csrf": "Ud2w266db793gUD5TGVct6PNuPR79GddobgEOIgDc7M", "nome": "amigo-a-sub", "ok": true, "slug": "miguel"}
+  [OK  ] a conta nasceu — {"csrf": "ElCerPsJyKK799mRS6cfMbsELuTpkmSUolLq2_MMsQA", "nome": "amigo-a-sub", "ok": true, "slug": "miguel"}
   [OK  ] agora está dentro e pode editar — slug=miguel
   [OK  ] a coleção dele nasce PRIVADA — nada
 
