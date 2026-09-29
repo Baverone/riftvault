@@ -170,6 +170,16 @@ estrangeira num `ADD COLUMN`, e refazer dezasseis tabelas da coleção dele para
 a ganhar não se pagava. É por isso que o guarda do `utilizador.guardar` existe:
 ele vale nos dois casos. Há teste para os dois.
 
+**E o carimbo é PREGUIÇOSO.** O `utilizador.guardar` corre no `db.connect`, ou
+seja antes das escritas dessa sessão: uma linha escrita durante a sessão fica a
+`NULL` e só é carimbada na abertura seguinte — e uma base criada e nunca mais
+reaberta tem as linhas **todas** a `NULL`. Nesse estado as linhas sozinhas não
+distinguem ninguém. Por isso o guarda pergunta por **dois** sítios, e o
+primeiro é o que manda: a tabela `users` de DENTRO da base, que é a identidade
+do ficheiro e que o `db._carimbar_dono` escreve em toda a ligação. Foi apanhado
+pela sessão `riftbound-2b` com um teste que forjava um manifesto e via a recusa
+não acontecer; há agora teste para o ficheiro fresco.
+
 ### O que uma consolidação num ficheiro só ainda precisaria
 
 Não sai de graça, e fica escrito para ninguém contar com isso:
@@ -311,7 +321,28 @@ prices` quando forem 20 pessoas (é partilhado: não cresce).
 ## 6. O config: o que é regra do produto e o que é preferência de cada um
 
 Hoje é um ficheiro global e **um amigo herda as regras do André**. Isso é
-limitação conhecida desta fatia, não uma decisão. A linha que proponho:
+limitação conhecida desta fatia, não uma decisão.
+
+### O config é o furo que a separação por ficheiro NÃO tapa
+
+Vale a pena ser explícito, porque é o ponto fraco desta arquitectura e foi
+encontrado enquanto ela se construía (pelas sessões `riftbound-f3` e
+`riftbound-2b`). A separação é por ficheiro **de base de dados** — e o
+`riftvault_config.json` não é uma base de dados. Há rotas que lhe **escrevem**:
+
+* `POST /api/decks/montar` → `decks.montados`
+* `POST /api/decks/principal` → `decks.principal`
+
+Um amigo autenticado a carregar em «Montar» escrevia o slug do deck dele na
+lista do André. **Não passa pelo SQLite**, por isso nenhum guarda ao nível da
+ligação o vê.
+
+Consequência, enquanto o config for global: **o estado dos decks (montados,
+principal, ordem) fica fora das contas.** A tapagem imediata é recusar a
+escrita a quem não é o utilizador 1 (`config.escrever_valor`), e é o que as
+fatias seguintes fazem; a tapagem a sério é a separação abaixo.
+
+### A linha que proponho
 
 | | exemplos | de quem |
 |---|---|---|

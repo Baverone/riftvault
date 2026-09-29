@@ -8589,6 +8589,19 @@ seguinte.
 `ADD COLUMN`, e refazer dezasseis tabelas da coleção dele não se pagava. É por
 isso que o guarda existe: vale nos dois casos. Há teste para cada.
 
+**E o carimbo é PREGUIÇOSO**: corre no `connect`, antes das escritas da sessão,
+por isso uma base criada e nunca mais reaberta tem as linhas todas a `NULL` e
+as linhas sozinhas não distinguem ninguém. O guarda pergunta por isso a DOIS
+sítios, e o que manda é a `users` de dentro da base — a identidade do ficheiro,
+escrita em toda a ligação. Apanhado pela sessão `riftbound-2b`.
+
+**O FURO QUE A SEPARAÇÃO POR FICHEIRO NÃO TAPA: o config.** O
+`riftvault_config.json` é UM ficheiro para todos e não é uma base de dados —
+o `POST /api/decks/montar` e o `/api/decks/principal` escrevem lá, e um amigo
+escrevia na lista do André sem passar pelo SQLite. Enquanto o config for
+global, **o estado dos decks fica fora das contas**. Apanhado pela sessão
+`riftbound-f3`; está na secção 6 do documento.
+
 **As PK não mudaram**, de propósito: com um ficheiro por pessoa o
 `printing_id` continua único. O que uma consolidação num ficheiro só ainda
 precisaria está escrito no `docs/multi-utilizador.md`, para ninguém contar que
