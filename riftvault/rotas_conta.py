@@ -110,6 +110,39 @@ def ligar(app) -> None:
     app.register_blueprint(bp)
     app.before_request(_antes)
     app.after_request(_depois)
+    _apanhar_config_partilhado(app)
+    _apanhar_corpo_grande(app)
+
+
+def _apanhar_config_partilhado(app) -> None:
+    """A rede da `1-multi-guardas`, traduzida para uma resposta legível.
+
+    Ela pôs um guarda dentro do `config.escrever_valor`: escrever no
+    `riftvault_config.json` como outro utilizador rebenta, venha de onde vier
+    (rota, CLI, teste). As duas rotas que o fazem já estão travadas antes, no
+    `SO_DO_DONO`; isto é para uma rota FUTURA que alguém ligue ao config e se
+    esqueça de a pôr lá — em vez de um 500 sem explicação, dá 403 com a razão.
+    """
+    from . import config as _config
+
+    excepcao = getattr(_config, "ConfigPartilhado", None)
+    if excepcao is None:
+        return  # versão do config sem o guarda; nada a traduzir
+
+    @app.errorhandler(excepcao)
+    def _traduzir(e):  # pragma: no cover - rede de segurança
+        return _resposta(
+            "isto mexe numa configuração partilhada do site e por isso é só do "
+            f"dono ({e}).", 403)
+
+
+def _apanhar_corpo_grande(app) -> None:
+    """Um corpo acima do tecto dá 413 com a razão, e não uma página de erro."""
+    @app.errorhandler(413)
+    def _grande(_e):
+        return _resposta(
+            f"o pedido é demasiado grande (o máximo é "
+            f"{CORPO_MAXIMO // 1024} KB).", 413)
 
 
 def _cfg() -> dict:
@@ -177,6 +210,7 @@ def _antes():
     g.sessao = None
     g.riftvault_user = None
     g.somente_leitura = False
+    g.alvo_slug = None
 
     if not _porta_aberta():
         # O de hoje: um dono só, sem autenticação. O `None` faz o
@@ -196,11 +230,20 @@ def _antes():
             # dezenas de pedidos e não vale um `UPDATE` cada.
             auth.tocar(con, sid, _cfg(), sess.get("visto_em"))
 
-    # Um pedido pode nomear OUTRA pessoa — o site de leitura de um amigo. Aí os
-    # dados são dele e a resposta é sempre só de leitura.
+    # Um pedido pode NOMEAR outra pessoa (`/u/<slug>/…`). Se nomear, marca-se —
+    # mas **o `g.riftvault_user` NÃO muda**, e isso é a invariante que interessa:
+    #
+    #     este servidor nunca abre uma base que não seja a do dono da sessão.
+    #
+    # Não é «nunca escreve na de outro»: é nunca a ABRIR, nem para ler. Deixar o
+    # alvo mandar no `g.riftvault_user` fazia o `get_con()` abrir a base de outra
+    # pessoa num GET, e a única coisa que hoje o impedia de a devolver era não
+    # haver rota que casasse — segurança por acidente. As leituras da coleção de
+    # outro fazem-se no site ESTÁTICO (`rift.baverone.com/u/<slug>/`), que já sai
+    # filtrado pela privacidade dele; ver `_u_explica`.
     alvo = _dono_pedido()
     if alvo is not None:
-        g.riftvault_user = alvo["user_id"]
+        g.alvo_slug = alvo.get("slug")
         g.somente_leitura = alvo["user_id"] != (
             g.sessao.get("user_id") if g.sessao else None)
 
@@ -518,6 +561,27 @@ def _destino_seguro(destino: str) -> str:
     if partido.scheme or partido.netloc or not d.startswith("/"):
         return "/"
     return d
+
+
+@bp.get("/u/<slug>/")
+@bp.get("/u/<slug>/<path:resto>")
+def _u_explica(slug: str, resto: str = ""):
+    """`/u/<slug>/` NESTE servidor não serve a coleção de ninguém — e diz porquê.
+
+    A coleção de outra pessoa lê-se no site ESTÁTICO, que o `build.py` gera já
+    filtrado pela privacidade dela (`nada` não gera nada; `sem-valores` gera sem
+    um euro). Servi-la daqui obrigava a repetir essa filtragem em dezassete
+    rotas de leitura, e uma esquecida era uma fuga — a mesma lição dos dezassete
+    `fetch` que passaram a ter uma função só.
+
+    Sem esta rota o pedido caía no `/<path:name>` e dava um 404 seco, que se lê
+    como «está partido». Assim o comportamento é escolhido e explicado.
+    """
+    return _resposta(
+        f"a coleção de «{slug}» não se vê aqui: este endereço é a aplicação de "
+        f"edição, e cada um só vê a sua. As coleções públicas estão no site "
+        f"publicado, em /u/{slug}/ — e só aparecem lá se essa pessoa as tiver "
+        f"tornado públicas.", 404)
 
 
 @bp.post("/sair")

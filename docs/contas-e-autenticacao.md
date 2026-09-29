@@ -181,6 +181,36 @@ outra pessoa para escrever:
 As 20 rotas de escrita herdam isto sem uma linha cada. Mesmo assim testam-se
 todas, uma por uma, porque «não devia ser possível» não é uma medição.
 
+### O FURO QUE ISTO NÃO TAPA — e que a medição encontrou
+
+A separação por ficheiro cobre tudo o que está numa **base de dados**. Duas
+rotas não estão:
+
+```
+POST /api/decks/montar     -> decks.alternar_montado()   -> decks.montados
+POST /api/decks/principal  -> decks.escrever_principal() -> decks.principal
+```
+
+Estas escrevem no **`riftvault_config.json`**, que é **um ficheiro para todos**.
+Um amigo autenticado a carregar em «Montar» escrevia o slug do deck dele na
+lista do André. Não é uma leitura indevida — é uma **escrita cruzada**, e escapa
+a um `authorizer` do `sqlite3` por não passar pelo SQLite.
+
+Medido: varrido o `decks.py`, há **três** funções a escrever no config
+(`alternar_montado`, `escrever_principal`, `apagar_todos`) e só as duas
+primeiras têm rota; a terceira é da CLI.
+
+Ficam em `rotas_conta.SO_DO_DONO`, com 403 e uma frase que explica, para quem
+não é o utilizador 1. Três testes: as rotas recusam; **o ficheiro de config não
+mexeu** depois da tentativa (não é só o código de resposta); e um que varre o
+`decks.py` e **dá vermelho se aparecer outra função a escrever no config
+partilhado** — para isto não voltar a passar por descuido.
+
+**A lição, para a fatia seguinte:** num sistema multi-inquilino, «onde é que
+isto se guarda?» tem de ser perguntado a cada escrita, não só às tabelas. Um
+ficheiro de configuração é estado partilhado tanto quanto uma tabela sem
+`user_id`.
+
 ---
 
 ## 6. Os endereços — e o `Miguel.riftvault` que ele pediu

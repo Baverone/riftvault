@@ -555,7 +555,59 @@ class TestVerificar(Base):
 
 
 # --------------------------------------------------------------------------
-# 8. «NÃO INDEXES ISTO»
+# 8. A INVARIANTE: NUNCA SE ABRE A BASE DE OUTRO
+# --------------------------------------------------------------------------
+
+
+class TestNuncaAbreABaseDeOutro(Base):
+    """Mais forte do que «não escreve na de outro»: nunca a ABRE, nem para ler."""
+
+    def test_o_dono_do_pedido_vem_de_UM_sitio_so(self):
+        """O `g.riftvault_user` é escrito num sítio: a sessão.
+
+        Se alguém lhe voltar a atribuir a partir do caminho ou de um cabeçalho,
+        este teste dá vermelho — e era assim que a base de outra pessoa se abria
+        num GET.
+        """
+        import re
+        fonte = (REPO / "riftvault" / "rotas_conta.py").read_text(encoding="utf-8")
+        atribuicoes = re.findall(r"^\s*g\.riftvault_user\s*=\s*(.+)$", fonte,
+                                 re.MULTILINE)
+        self.assertEqual(len(atribuicoes), 2, atribuicoes)
+        self.assertEqual(atribuicoes[0].strip(), "None")
+        self.assertIn("sess[", atribuicoes[1], "só a sessão manda no dono")
+
+    def test_ler_a_pasta_de_outro_nao_serve_dados_e_explica(self):
+        self.ensaio(True)
+        c = self.cliente(aberto=True)
+        r = c.get("/u/miguel/api/set/OGN.json")
+        self.assertEqual(r.status_code, 404)
+        self.assertIn("só vê a sua", r.get_json()["erro"])
+        self.assertNotIn("groups", r.get_data(as_text=True))
+
+    def test_escrever_na_pasta_de_outro_da_403_do_GUARDA(self):
+        """403 e não 404: prova que o guarda recusou, não que a rota falta."""
+        self.ensaio(True)
+        c = self.cliente(aberto=True)
+        csrf = self._entrar(c, "amigo-a", "miguel")
+        c.get("/sair")
+        csrf2 = self._entrar(c, "amigo-b", "joao")
+        r = c.post("/u/miguel/api/adjust",
+                   json={"printing_id": "tst-001-100", "delta": 1},
+                   headers={"X-CSRF-Token": csrf2})
+        self.assertEqual(r.status_code, 403)
+        self.assertIn("não é tua", r.get_json()["erro"])
+
+    def _entrar(self, c, sub: str, slug: str) -> str:
+        c.get(f"/entrar/local?sub={sub}")
+        csrf = c.get("/api/conta.json").get_json()["csrf"]
+        c.post("/api/conta/registar", json={"slug": slug},
+               headers={"X-CSRF-Token": csrf})
+        return c.get("/api/conta.json").get_json()["csrf"]
+
+
+# --------------------------------------------------------------------------
+# 9. «NÃO INDEXES ISTO»
 # --------------------------------------------------------------------------
 
 
