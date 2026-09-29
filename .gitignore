@@ -1,3 +1,17 @@
+# OS DADOS DOS OUTROS UTILIZADORES (2026-09-29) — a coleção de cada amigo e o
+# REGISTO de quem existe (`data/users/registo.db`).
+#
+# ISTO NÃO É UMA OPÇÃO, É A RAZÃO DE SER DO DESENHO. Este repositório é
+# PÚBLICO e o `data/vault.db` é commitado e empurrado de 30 em 30 minutos pela
+# `riftvault-publicar` (95 commits até hoje). A coleção do André é dele e ele
+# escolheu publicá-la; a de um amigo não é nossa para publicar, e o histórico
+# do Git não se apaga. Por isso cada um tem o seu ficheiro, e todos menos o
+# dele ficam aqui — incluindo o registo, que de outro modo publicava o NOME e o
+# SLUG de cada amigo mesmo com a coleção dele privada.
+#
+# Ver `docs/multi-utilizador.md` e `riftvault/users_schema.sql`.
+data/users/
+
 # Catálogo: cache reconstruível com `riftvault sync`. Nunca vai para o Git.
 data/catalog.db
 data/catalog.db-journal

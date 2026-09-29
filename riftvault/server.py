@@ -727,7 +727,7 @@ def api_decks_order():
 
 def _reimport_if_changed(con) -> None:
     """Relê os .txt quando algum mexeu — não obriga a reiniciar o servidor."""
-    files = {str(p): p.stat().st_mtime for p in config.DECKS_DIR.glob("*.txt")}
+    files = {str(p): p.stat().st_mtime for p in config.decks_dir(con).glob("*.txt")}
     known = {r["path"]: r["imported_at"] for r in con.execute("SELECT path, imported_at FROM decks")}
     if set(files) != set(known):
         decks.import_all(con, log=lambda *_: None)
