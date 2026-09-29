@@ -8663,3 +8663,173 @@ dele tem 95 pontos de restauro no Git; a pasta `data/users/` está no
 `.gitignore` de propósito, e por isso precisa de uma cópia para fora do PC
 ANTES do primeiro amigo. Também lá: apagar a conta a pedido, o PC desligado, e
 quem entrar na máquina tem as coleções todas.
+
+## 29/09/2026, à noite — CONTAS: entrar sem password, e a porta ainda FECHADA (`auth.py`, `rotas_conta.py`, `abrir.py`)
+
+Palavras dele, antes de ir dormir: *"Quero que deixas a parte do riftbound
+pronta para amigos meus criarem conta e poderem comecar a usar a registar a
+coleccao deles!!! Nao estarei aqui para aprovar pois estou a dormir, faz tudo o
+que puderes sem precisar de mim, quero isso a funcionar!"* — e, uma hora antes,
+*"Quero apenas apresentar quando tiver tudo"*. As duas encaixam: **tudo a
+funcionar e pronto a abrir, com a porta ainda fechada.** Ele abre quando quiser.
+
+Terceira fatia da cadeia, a seguir à `0-multi-utilizador-1` (o modelo de dados)
+e à `1-multi-guardas` (o isolamento, a privacidade e o `multi.aberto`). O
+desenho está em `docs/contas-e-autenticacao.md` e o guia dos passos DELE em
+`docs/abrir-a-porta.md`.
+
+### NENHUMA PASSWORD, EM SÍTIO NENHUM
+
+Não há campo, não há hash, não há «esqueci-me da minha». Entra-se com uma conta
+que já existe — **Discord** (recomendado: a malta de TCG já o tem e a aplicação
+faz-se em cinco minutos) ou **Google** (que obriga a ecrã de consentimento e
+verificação, e pode levar dias). Guarda-se `provedor` + `sub` + `user_id`, e
+**nenhum token do fornecedor**: o `access_token` serve uma pergunta («quem és
+tu?») e morre no mesmo pedido. Não se pede o email — o `sub` identifica, e é
+menos um dado de terceiros num PC de casa.
+
+**Não se verifica o `id_token` à mão, de propósito.** Validar a assinatura de um
+JWT exige JWKS, rotação de chaves e RSA, e é um dos sítios clássicos de falhas
+(`alg: none`, o `kid` não verificado, a expiração esquecida). Pergunta-se ao
+fornecedor por TLS (`userinfo` no Google, `users/@me` no Discord): quem autentica
+a resposta é o TLS, e não há criptografia nossa para correr mal.
+
+### ONDE VIVEM AS CREDENCIAIS — e a armadilha que quase se repetiu
+
+**`data/auth.db`, à parte e no `.gitignore`.** A `1-multi-guardas` propôs
+pô-las na «base do sistema», que é o `data/vault.db`. Mediu-se antes de aceitar:
+`git ls-files data/` devolve `data/vault.db`, o `origin` é
+`github.com/Baverone/riftvault` (**PÚBLICO**) e a `riftvault-publicar` faz push
+**de 30 em 30 minutos**. O `sub` do Google é um identificador estável e único de
+uma pessoa: ali ficava publicado para sempre, com histórico.
+
+**É a mesma armadilha que levou a `0-multi-utilizador-1` a pôr cada coleção num
+ficheiro seu — e ela tinha ficado a dois metros.** A tabela `users` estava do
+lado público: registar um amigo publicava-lhe o nome e o slug, mesmo com a
+coleção privada. Corrigido na mesma corrida (o registo passou a
+`data/users/registo.db`). Por isso **`users.auth_ref` fica VAZIA** — nem um
+ponteiro opaco.
+
+**E o mesmo vale para o CLIENT SECRET, contra o que esta ordem escreveu
+primeiro.** O `riftvault_config.json` **está commitado** (`git ls-files`
+confirma). O segredo passou a vir do AMBIENTE (`RIFTVAULT_DISCORD_SECRET` /
+`RIFTVAULT_GOOGLE_SECRET`), que é a regra que o `.gitignore` já escreve para o
+`CARDTRADER_TOKEN`; o `client_id` **não é segredo** (viaja no endereço de
+autorização) e fica no config. O `multi --verificar` avisa se o segredo estiver
+no ficheiro versionado, com o comando para o tirar de lá.
+
+### O QUE DECIDIU A REGRA DA LAN: O TÚNEL FAZ A INTERNET PARECER LOOPBACK
+
+O CLAUDE.md diz desde o início que *«o modo edição não tem autenticação nenhuma
+[…] é aceitável na LAN»*. Com coleções de amigos lá dentro deixa de ser.
+
+Pensou-se em confiar no endereço («se vem de casa, é ele»). **Não se pode:**
+`cloudflared tunnel run --url http://localhost:8770` faz **todo** o tráfego da
+internet chegar ao Flask como `127.0.0.1`. Uma regra que confiasse no loopback
+dava a identidade do André a qualquer visitante. Por isso **não há atalho por
+endereço em sítio nenhum** — o `remote_addr` só se lê para contar tentativas.
+
+| | |
+|---|---|
+| porta FECHADA (`multi.aberto: false`, o de hoje) | um dono só, sem autenticação, **tudo exactamente como ontem** |
+| porta ABERTA | toda a escrita exige sessão e CSRF, **ele incluído** — entra uma vez e a sessão dura 30 dias |
+
+### O CAMINHO DO PRIMEIRO UTILIZADOR (`multi --ligar`) — um buraco que partia tudo
+
+**Ele JÁ EXISTE**: é o utilizador 1, com o slug `baverone`. Na primeira entrada
+com o Discord o `por_identidade` devolvia `None` e a app oferecia-lhe o
+**REGISTO** — que lhe pedia um slug que ele não podia escolher, porque o dele já
+é dele (`utilizador.criar` recusa um slug tomado). Formulário sem saída, com a
+coleção de um mês do outro lado. E o próprio `--verificar` mandava-o fazer isso.
+
+A saída é `riftvault multi --ligar`: um código de uso único criado na **consola**
+(`auth_convites`, o SHA-256 do código; `auth_pedidos.liga_a`), que autoriza a
+próxima entrada a **ligar-se** a uma conta que já existe. Duas decisões:
+**funciona com a porta FECHADA** (ele liga antes de abrir, e por isso nunca se
+abre a porta com ele do lado de fora) e **o código vem da consola** — quem tem a
+consola do PC é o dono do PC, e isso prova mais do que qualquer verificação de
+IP. O convite gasta-se na IDA, para não ficar um código válido à espera.
+
+### O QUE É SEGURO POR CONSTRUÇÃO, E O FURO QUE NÃO ERA
+
+Cada coleção é um FICHEIRO, e o servidor só abre a do dono da sessão: **não é um
+`WHERE user_id` que se pode esquecer, é um ficheiro que não se chega a abrir.** O
+`g.riftvault_user` é escrito **num sítio só** (a sessão), e há teste que varre o
+próprio ficheiro e rebenta se alguém lho voltar a atribuir a partir do caminho —
+era assim que a base de outra pessoa se abria num GET, e só não vazava porque
+nenhuma rota casava com o prefixo `/u/<slug>/`: segurança por acidente.
+
+**O furo a sério estava fora das bases de dados.** Duas rotas não escrevem em
+tabela nenhuma — escrevem no `riftvault_config.json`, que é UM ficheiro para
+todos:
+
+    POST /api/decks/montar     -> decks.alternar_montado()    -> decks.montados
+    POST /api/decks/principal  -> decks.escrever_principal()   -> decks.principal
+
+Um amigo autenticado a carregar em «Montar» escrevia o slug do deck DELE na
+lista do André. Não passa pelo SQLite, por isso um `authorizer` não o vê.
+Ficam em `rotas_conta.SO_DO_DONO` (403 com a razão), e a `1-multi-guardas`
+acrescentou um guarda dentro do `config.escrever_valor` para cobrir a CLI.
+**Consequência escrita: o ESTADO dos decks (montados/principal/ordem) fica fora
+das contas** até o config ser por utilizador.
+
+**A lição, para a fatia seguinte:** num sistema multi-inquilino, «onde é que
+isto se guarda?» tem de ser perguntado a cada ESCRITA, não só às tabelas. Um
+ficheiro de configuração é estado partilhado tanto quanto uma tabela sem dono.
+
+### Sessões, CSRF e o resto
+
+Cookie `HttpOnly`, `SameSite=Lax` (**não `Strict`**: a volta do fornecedor é uma
+navegação que vem de outro site, e com `Strict` o cookie não seguia e a entrada
+nunca se concluía), `Secure` só em HTTPS (no 8770 é `http://` e um `Secure` ali
+fazia o browser descartá-lo). Na base fica o **SHA-256** do que está no cookie.
+**Rotação no login**: uma sessão nasce sem dono enquanto se escolhe o nome, e ao
+criar a conta o identificador é substituído. Uma sessão pré-registo dura **uma
+hora**, não trinta dias.
+
+**CSRF num cabeçalho, não num cookie** (num cookie era enviado junto com o
+pedido falso, que é o que isto trava). No cliente havia **17** `fetch` de POST,
+cada um com o seu literal de cabeçalhos: passaram todos por **uma** função
+(`cabecalhos()`), e há teste que lê o `app.js` e rebenta se aparecer um POST que
+não passe por ela — acrescentar a marca a 17 sítios à mão era garantir que um dia
+se esquecia num, e um esquecido é uma rota sem protecção, não um erro visível.
+
+**Login CSRF fechado**: o `state` não estava atado ao browser, e sem isso quem
+começasse uma entrada podia levar OUTRA pessoa a concluí-la — o browser dela
+ficava com uma sessão da conta dele. Há um `nonce` num cookie curto e o SHA-256
+dele na `auth_pedidos`. O **prazo verifica-se ANTES do nonce**, por causa da
+mensagem: quem demorou vinte minutos também perdeu o cookie, e dizer-lhe «não
+começou neste browser» mandava-o procurar um problema que não tem.
+
+Tecto de **20 tentativas por hora e por endereço** — a chave do balde é
+falsificável e não faz mal: falsificá-la dá mais baldes, não dá acesso. Corpo do
+pedido até **256 KB** (o `/api/local/marcar` manda uma lista de centenas de
+linhas). `RIFTVAULT_USER` definido com a porta aberta **recusa arrancar**: fixa o
+dono para o processo inteiro e faria todos os pedidos escrever na mesma coleção.
+
+### O `Miguel.riftvault` que ele pediu é com BARRA, e a razão é medida
+
+`rift.baverone.com/u/miguel/`. Os sites públicos estão no **GitHub Pages**, que
+aceita **um** endereço personalizado por repositório e **não** aceita
+`*.rift.baverone.com`. Para ser `miguel.rift.baverone.com` era preciso ou um
+repositório por amigo, ou a Cloudflare a reescrever endereços à frente do GitHub
+— mais uma peça, e uma peça cuja falha tira os sites do ar. O nome que ele
+escolhe é o mesmo nas duas formas, por isso a escolha não fica presa.
+
+**Dois endereços com papéis diferentes, de propósito:** o público é estático
+(GitHub Pages) e **abre com o PC desligado**; o de edição
+(`editar.baverone.com`) é o PC dele pelo túnel. O PC fica fora do caminho de
+quem só espreita, que é a maior parte do tráfego e do risco.
+
+### O que ficou de fora, e porquê
+
+- **Config por utilizador.** As regras (`foil.raridades`, `master_set.*`, alvos,
+  `decks.*`, `selado.*`) continuam **globais**: um amigo herda as dele. É
+  limitação conhecida da `0-multi-utilizador-1`, está no documento dela, e não
+  se inventou aqui um config por utilizador de véspera.
+- **O estado dos decks** — ver o furo do config, acima.
+- **Convites.** Com a porta aberta, quem chegar ao endereço registra-se. Uma
+  lista de `sub` permitidos obrigava-o a recolher o `sub` de cada amigo, o que é
+  pior do que parece. Fica como pergunta.
+- **Mudar de slug.** O endereço É o slug, e mudá-lo parte os links que o amigo
+  já deu. Não se faz sem ele decidir o que acontece ao antigo.
