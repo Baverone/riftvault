@@ -261,7 +261,43 @@ sai tudo com `noindex` até ele dizer o contrário.
 
 ---
 
-## 8. O que ficou de fora desta fatia, e porquê
+## 8. Limites, e dois dispositivos a escrever ao mesmo tempo
+
+**Tamanho do pedido: 256 KB** (`rotas_conta.CORPO_MAXIMO`, com um `413` que
+explica). Quase tudo o que a app manda é um `printing_id` e um delta (~80
+bytes); o `/api/local/marcar` é a excepção, porque manda uma LISTA de linhas e
+marcar uma coleção à mão são centenas. Sem tecto nenhum, um corpo de 2 GB é um
+ataque de uma linha.
+
+**Por sessão:** não há tecto de pedidos por sessão, e é uma escolha. O que uma
+sessão consegue fazer é escrever na coleção DELA, e o `request_id` já impede que
+um clique conte duas vezes; um tecto ali só atrapalharia quem está a marcar uma
+caixa de cartas ao domingo. O tecto que existe é no que ainda **não** tem
+sessão — a entrada, 20 por hora e por endereço —, que é onde um estranho pode
+bater.
+
+**Dois dispositivos do mesmo utilizador, ao mesmo tempo: já estava resolvido, e
+continua.** É a decisão de 2026-09-01 («cliques rápidos: deltas idempotentes,
+não debounce»), e ela sobrevive intacta ao multi-utilizador:
+
+- o cliente manda `{printing_id, delta, request_id}` e o servidor faz
+  `qty = qty + delta` dentro de um `BEGIN IMMEDIATE`. Dois dispositivos a somar
+  +1 dão **+2**, não +1: os deltas não se perdem porque nenhum deles lê-e-escreve
+  um valor absoluto;
+- `ops.request_id` é `UNIQUE`, por isso um retry do telemóvel com sinal fraco
+  devolve o resultado guardado em vez de contar outra vez;
+- e agora **cada um escreve no SEU ficheiro**, o que torna a disputa ainda mais
+  rara: dois utilizadores diferentes nunca disputam o mesmo `vault.db`. A
+  serialização do SQLite só tem de resolver o caso de uma pessoa em dois
+  dispositivos.
+
+O que a sessão acrescenta a isto é pouco e de propósito: a escrita do
+`visto_em`/`expira_em` (o «a sessão dura enquanto se usa») está limitada a **uma
+vez por hora** por sessão. Sem isso, uma página da Coleção — que puxa o payload,
+o índice e dezenas de imagens — fazia dezenas de `UPDATE` no `auth.db` por
+visita, e o custo não comprava nada.
+
+## 9. O que ficou de fora desta fatia, e porquê
 
 - **Config por utilizador.** As regras do `riftvault_config.json` (`foil.raridades`,
   `master_set.*`, alvos, `decks.*`, `selado.*`) continuam **globais**: um amigo
