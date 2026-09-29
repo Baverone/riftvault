@@ -171,12 +171,19 @@ CREATE INDEX IF NOT EXISTS ix_sessions_expira ON sessions(expira_em);
 --
 -- O `verifier` é o PKCE: o código que volta pelo browser só serve a quem tiver
 -- este segredo, que nunca sai daqui.
+-- O `nonce_hash` ata o pedido AO BROWSER que o começou, e é o que impede o
+-- «login CSRF»: sem ele, alguém podia começar uma entrada, ficar com um `state`
+-- válido, e depois levar outra pessoa a abrir o endereço de volta — o browser
+-- dela acabava com uma sessão da conta DELE, e o que ela escrevesse a seguir ia
+-- para a coleção dele. Guarda-se o SHA-256; o valor em claro vive num cookie
+-- curto que só aquele browser tem.
 CREATE TABLE IF NOT EXISTS auth_pedidos (
-    state     TEXT    PRIMARY KEY,
-    provedor  TEXT    NOT NULL,
-    verifier  TEXT    NOT NULL,
-    destino   TEXT,
-    criado_em TEXT    NOT NULL
+    state      TEXT    PRIMARY KEY,
+    provedor   TEXT    NOT NULL,
+    verifier   TEXT    NOT NULL,
+    destino    TEXT,
+    nonce_hash TEXT,
+    criado_em  TEXT    NOT NULL
 );
 
 -- As tentativas, para o tecto por hora. Guarda-se a chave (o IP) e não o que
@@ -543,26 +550,38 @@ def exigir_folga(con: sqlite3.Connection, chave: str,
 # --------------------------------------------------------------------------
 
 
+#: O cookie curto que ata a entrada ao browser que a começou.
+COOKIE_NONCE = "riftvault_entrada"
+
+
 def comecar(con: sqlite3.Connection, nome: str, *, redirect_uri: str,
             destino: str | None = None, cfg: dict | None = None) -> dict:
-    """Prepara uma entrada: devolve o endereço para onde mandar o browser."""
+    """Prepara uma entrada: devolve o endereço e o `nonce` para o cookie."""
     p = provedor(nome)
     p.exigir_configurado(cfg)
     verifier, desafio = par_pkce()
     state = secrets.token_urlsafe(BYTES)
+    nonce = secrets.token_urlsafe(BYTES)
     con.execute("INSERT INTO auth_pedidos (state, provedor, verifier, destino, "
-                "criado_em) VALUES (?, ?, ?, ?, ?)",
-                (state, p.nome, verifier, destino, _agora()))
+                "nonce_hash, criado_em) VALUES (?, ?, ?, ?, ?, ?)",
+                (state, p.nome, verifier, destino, _hash(nonce), _agora()))
     con.commit()
     b = p._bloco(cfg)
-    return {"state": state,
+    return {"state": state, "nonce": nonce,
             "url": p.url_de_entrada(client_id=b.get("client_id", ""),
                                     redirect_uri=redirect_uri, state=state,
                                     desafio=desafio)}
 
 
-def consumir_pedido(con: sqlite3.Connection, state: str) -> dict:
-    """Levanta o pedido e APAGA-O. Um `state` serve uma vez e só uma."""
+def consumir_pedido(con: sqlite3.Connection, state: str,
+                    nonce: str | None = None) -> dict:
+    """Levanta o pedido e APAGA-O. Um `state` serve uma vez e só uma.
+
+    O `nonce` é o do cookie e tem de bater com o que se guardou. É o que impede
+    o «login CSRF»: sem ele, quem começasse uma entrada podia levar outra pessoa
+    a concluí-la, e o browser dela ficava com uma sessão da conta de quem
+    começou — e o que ela escrevesse a seguir ia para a coleção dele.
+    """
     row = con.execute("SELECT * FROM auth_pedidos WHERE state = ?",
                       (state or "",)).fetchone()
     if row is None:
@@ -570,11 +589,20 @@ def consumir_pedido(con: sqlite3.Connection, state: str) -> dict:
             "esta entrada não é válida (ou já foi usada). Tenta outra vez.")
     con.execute("DELETE FROM auth_pedidos WHERE state = ?", (state,))
     con.commit()
+    # O PRAZO primeiro, e a ordem é por causa da MENSAGEM: quem demorou
+    # vinte minutos a entrar também já perdeu o cookie, e dizer-lhe «não
+    # começou neste browser» mandava-o procurar um problema que não tem. Os dois
+    # recusam; o que muda é o que ele lê.
     if _passou((datetime.fromisoformat(row["criado_em"])
                 + timedelta(minutes=PEDIDO_MINUTOS)).isoformat()):
         raise PedidoInvalido(
             f"esta entrada demorou mais de {PEDIDO_MINUTOS} minutos. "
             f"Tenta outra vez.")
+    esperado = row["nonce_hash"]
+    if esperado and not hmac.compare_digest(esperado, _hash(nonce or "")):
+        raise PedidoInvalido(
+            "esta entrada não começou neste browser. Volta ao início e entra "
+            "outra vez.")
     return dict(row)
 
 
@@ -649,11 +677,34 @@ def sessao(con: sqlite3.Connection, sid: str | None) -> dict | None:
     return dict(row)
 
 
-def tocar(con: sqlite3.Connection, sid: str, cfg: dict | None = None) -> None:
-    """Mexeu-se: adia a expiração. É o que faz a sessão dele durar enquanto usa."""
+#: Só se adia a expiração se a última vez foi há mais do que isto.
+TOCAR_CADA_S = 3600
+
+
+def tocar(con: sqlite3.Connection, sid: str, cfg: dict | None = None,
+          visto_em: str | None = None) -> bool:
+    """Mexeu-se: adia a expiração. É o que faz a sessão durar enquanto se usa.
+
+    **Só escreve uma vez por hora**, e isso é o ponto. Uma página da Coleção
+    puxa o payload, o índice e dezenas de imagens; escrever na base a cada
+    pedido punha o `auth.db` a levar centenas de `UPDATE` por minuto só para
+    adiar uma data que faltam 30 dias para chegar. Com a folga de uma hora a
+    sessão continua a durar enquanto se usa e o custo desaparece.
+
+    Devolve `True` se escreveu, para dar para testar.
+    """
+    if visto_em:
+        try:
+            desde = (datetime.now(timezone.utc)
+                     - datetime.fromisoformat(visto_em)).total_seconds()
+        except ValueError:
+            desde = TOCAR_CADA_S + 1  # data ilegível: reescreve-se
+        if desde < TOCAR_CADA_S:
+            return False
     con.execute("UPDATE sessions SET visto_em = ?, expira_em = ? WHERE sid_hash = ?",
                 (_agora(), _mais(sessao_dias(cfg) * 86400), _hash(sid)))
     con.commit()
+    return True
 
 
 def ligar_conta(con: sqlite3.Connection, sid_antigo: str, user_id: int,

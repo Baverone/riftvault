@@ -60,12 +60,19 @@ bp = Blueprint("conta", __name__)
 #: Os métodos que mudam alguma coisa. Um `GET` nunca escreve nesta app.
 ESCREVE = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 
-#: Caminhos que têm de funcionar sem sessão, senão não há por onde entrar.
-ABERTOS = ("/entrar", "/sair", "/api/conta.json", "/api/entrar")
+#: Caminhos que têm de funcionar sem sessão de DONO, senão não há por onde
+#: entrar. O `/api/conta/registar` está aqui porque é ele que CRIA o dono: no
+#: momento em que corre, a sessão existe mas ainda não tem `user_id`, e o guarda
+#: genérico recusava-a. Tem a protecção dele por dentro (exige a sessão
+#: pré-registo e exige o CSRF) — ver `registar()`.
+ABERTOS = ("/entrar", "/sair", "/api/conta.json", "/api/conta/registar")
 
-#: Tecto do corpo de um pedido. A app manda JSON pequeno (um `printing_id` e um
-#: delta); 64 KB é folgado. Sem tecto, um corpo de 2 GB é um ataque de uma linha.
-CORPO_MAXIMO = 64 * 1024
+#: Tecto do corpo de um pedido. Quase tudo o que a app manda é um `printing_id`
+#: e um delta (~80 bytes), mas o `/api/local/marcar` manda uma LISTA de linhas —
+#: marcar uma coleção inteira à mão são centenas de entradas, e 64 KB ficava
+#: apertado. 256 KB é folgado para isso e continua a ser nada. Sem tecto nenhum,
+#: um corpo de 2 GB é um ataque de uma linha.
+CORPO_MAXIMO = 256 * 1024
 
 
 # --------------------------------------------------------------------------
@@ -131,7 +138,14 @@ def _dono_do_fio(uid: int | None) -> None:
 
 
 def _resposta(mensagem: str, codigo: int):
-    return jsonify({"erro": mensagem}), codigo
+    """Um erro com a mensagem nas DUAS chaves, e é de propósito.
+
+    O resto da app responde `{"error": …}` e os dezassete `fetch` do `app.js`
+    lêem `res.error`. Se aqui só viesse `erro`, uma sessão que expirasse a meio
+    de uma edição mostrava «HTTP 401» em vez da frase em português — o utilizador
+    via um código e não o que fazer. Manda-se as duas até o cliente falar só uma.
+    """
+    return jsonify({"erro": mensagem, "error": mensagem}), codigo
 
 
 def _antes():
@@ -153,8 +167,10 @@ def _antes():
         g.sessao = sess
         if sess.get("user_id"):
             g.riftvault_user = int(sess["user_id"])
-            # Mexeu-se: a sessão dura enquanto se usa.
-            auth.tocar(con, sid, _cfg())
+            # Mexeu-se: a sessão dura enquanto se usa. O `visto_em` faz isto
+            # escrever no máximo uma vez por hora — uma página da Coleção são
+            # dezenas de pedidos e não vale um `UPDATE` cada.
+            auth.tocar(con, sid, _cfg(), sess.get("visto_em"))
 
     # Um pedido pode nomear OUTRA pessoa — o site de leitura de um amigo. Aí os
     # dados são dele e a resposta é sempre só de leitura.
@@ -248,6 +264,13 @@ def _depois(resp):
     return resp
 
 
+def _por_https() -> bool:
+    """Isto está a ser servido por HTTPS? (Contando com o túnel à frente.)"""
+    return (request.scheme == "https"
+            or request.headers.get("X-Forwarded-Proto", "").split(",")[0]
+            .strip() == "https")
+
+
 def por_cookie(resp, sid: str, cfg: dict | None = None):
     """Mete o cookie da sessão com as propriedades todas.
 
@@ -260,12 +283,12 @@ def por_cookie(resp, sid: str, cfg: dict | None = None):
         `http://`, e um `Secure` ali fazia o browser descartar o cookie e a
         sessão nunca pegava.
     """
-    seguro = request.scheme == "https" or request.headers.get(
-        "X-Forwarded-Proto", "").split(",")[0].strip() == "https"
     resp.set_cookie(
         auth.COOKIE, sid,
         max_age=auth.sessao_dias(cfg) * 86400,
-        httponly=True, samesite="Lax", secure=seguro, path="/")
+        httponly=True, samesite="Lax", secure=_por_https(), path="/")
+    # O `nonce` da entrada já serviu: apaga-se, para não ficar a valer.
+    resp.delete_cookie(auth.COOKIE_NONCE, path="/")
     return resp
 
 
@@ -370,7 +393,17 @@ def entrar(nome: str):
         return _resposta(str(e), 429)
     except (auth.ProvedorDesconhecido, auth.ProvedorPorConfigurar) as e:
         return _resposta(str(e), 400)
-    return redirect(r["url"], code=302)
+    resp = redirect(r["url"], code=302)
+    # O `nonce` ata esta entrada A ESTE browser (ver `auth.consumir_pedido`).
+    # Dura o que o fluxo dura, e não mais.
+    # O cookie dura MAIS do que o pedido de propósito: com o mesmo prazo, quem
+    # demorasse 16 minutos perdia as duas coisas ao mesmo tempo e lia a
+    # mensagem errada («não começou neste browser») em vez da certa («demorou
+    # demasiado»). O que manda na validade é o registo no servidor.
+    resp.set_cookie(auth.COOKIE_NONCE, r["nonce"],
+                    max_age=auth.PEDIDO_MINUTOS * 60 * 4, httponly=True,
+                    samesite="Lax", secure=_por_https(), path="/")
+    return resp
 
 
 def _entrar_local(p, con, chave: str):
@@ -414,7 +447,8 @@ def _concluir(nome: str, con, chave: str):
 
     try:
         auth.exigir_folga(con, chave, _cfg())
-        pedido = auth.consumir_pedido(con, request.args.get("state", ""))
+        pedido = auth.consumir_pedido(con, request.args.get("state", ""),
+                                      request.cookies.get(auth.COOKIE_NONCE))
         if pedido["provedor"] != nome:
             raise auth.PedidoInvalido("esta entrada não corresponde ao fornecedor.")
         p = auth.provedor(nome)

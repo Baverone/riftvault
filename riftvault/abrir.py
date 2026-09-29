@@ -274,6 +274,54 @@ def _dobrar(texto_: str, largura: int) -> list[str]:
 
 
 # --------------------------------------------------------------------------
+# «NÃO INDEXES ISTO» — nas páginas geradas de outros utilizadores
+# --------------------------------------------------------------------------
+#
+# Uma página da coleção de um amigo indexada no Google antes de ele saber que
+# existe é um erro que NÃO SE DESFAZ: pede-se a remoção, fica em cache, fica no
+# Bing, fica no archive.org. Por isso enquanto o André não disser o contrário
+# tudo o que não é a página DELE sai marcado, nas duas formas que os motores
+# respeitam — a etiqueta na página e o ficheiro na raiz.
+#
+# O `noindex` na própria página é o que conta: um `robots.txt` só pede que não
+# se RASTREIE, e uma página já conhecida por um link pode ser indexada sem ser
+# rastreada. Os dois juntos fecham as duas portas.
+
+META = ('<meta name="robots" content="noindex, nofollow, noarchive">\n'
+        '  <meta name="googlebot" content="noindex, nofollow">')
+
+ROBOTS = """# Enquanto as contas do riftvault não estiverem abertas ao público,
+# nada daqui se indexa. Ver docs/abrir-a-porta.md.
+User-agent: *
+Disallow: /
+"""
+
+
+def marcar_html(html: str) -> str:
+    """Põe a etiqueta de «não indexes» no `<head>`. Idempotente."""
+    if 'name="robots"' in html:
+        return html
+    if "</head>" in html:
+        return html.replace("</head>", f"  {META}\n</head>", 1)
+    # Sem `<head>` (não acontece no nosso index.html, mas não se devolve uma
+    # página sem a marca em silêncio).
+    return f"{META}\n{html}"
+
+
+def robots_txt() -> str:
+    return ROBOTS
+
+
+def publico_indexavel(modo: str, dono: bool, aberto: bool) -> bool:
+    """Esta página pode ser indexada?
+
+    Só a do DONO, só com a coleção mesmo pública, e só com a porta aberta. É a
+    única combinação em que ele já decidiu tudo o que havia para decidir.
+    """
+    return bool(dono and aberto and modo == "tudo")
+
+
+# --------------------------------------------------------------------------
 # Abrir e fechar
 # --------------------------------------------------------------------------
 

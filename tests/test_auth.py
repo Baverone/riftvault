@@ -196,22 +196,65 @@ class TestUrlDeEntrada(Base):
 
 
 class TestPedidos(Base):
-    def _novo(self) -> str:
+    def _comecar(self) -> dict:
         cfg = {"auth": {"google": {"client_id": "c", "client_secret": "s"}}}
         return auth.comecar(self.con, "google",
-                            redirect_uri="https://x/c", cfg=cfg)["state"]
+                            redirect_uri="https://x/c", cfg=cfg)
+
+    def _novo(self) -> str:
+        return self._comecar()["state"]
 
     def test_consumir_devolve_o_pedido(self):
-        state = self._novo()
-        p = auth.consumir_pedido(self.con, state)
+        r = self._comecar()
+        p = auth.consumir_pedido(self.con, r["state"], r["nonce"])
         self.assertEqual(p["provedor"], "google")
         self.assertTrue(p["verifier"])
 
     def test_o_mesmo_state_nao_serve_duas_vezes(self):
-        state = self._novo()
-        auth.consumir_pedido(self.con, state)
+        r = self._comecar()
+        auth.consumir_pedido(self.con, r["state"], r["nonce"])
         with self.assertRaises(auth.PedidoInvalido):
-            auth.consumir_pedido(self.con, state)
+            auth.consumir_pedido(self.con, r["state"], r["nonce"])
+
+    # -- o `nonce` ata a entrada AO BROWSER (login CSRF) ------------------
+
+    def test_sem_o_nonce_do_browser_a_entrada_nao_se_conclui(self):
+        """É o «login CSRF»: quem começa não pode fazer outro concluir.
+
+        Sem isto, alguém começava uma entrada, ficava com um `state` válido, e
+        levava a vítima a abrir o endereço de volta — o browser dela acabava com
+        uma sessão da conta DELE, e o que ela escrevesse ia para a coleção dele.
+        """
+        r = self._comecar()
+        with self.assertRaises(auth.PedidoInvalido) as e:
+            auth.consumir_pedido(self.con, r["state"], None)
+        self.assertIn("browser", str(e.exception))
+
+    def test_com_o_nonce_de_outra_entrada_nao_serve(self):
+        a = self._comecar()
+        b = self._comecar()
+        with self.assertRaises(auth.PedidoInvalido):
+            auth.consumir_pedido(self.con, a["state"], b["nonce"])
+
+    def test_o_nonce_nao_esta_em_claro_na_base(self):
+        r = self._comecar()
+        bruto = Path(os.environ["RIFTVAULT_AUTH"]).read_bytes()
+        self.assertNotIn(r["nonce"].encode(), bruto)
+
+    def test_o_nonce_nao_viaja_no_endereco(self):
+        r = self._comecar()
+        self.assertNotIn(r["nonce"], r["url"])
+
+    def test_dois_nonces_nunca_saem_iguais(self):
+        self.assertNotEqual(self._comecar()["nonce"], self._comecar()["nonce"])
+
+    def test_o_state_gasto_e_apagado_mesmo_com_o_nonce_errado(self):
+        """Não se deixa um `state` a valer para quem tentar outra vez."""
+        r = self._comecar()
+        with self.assertRaises(auth.PedidoInvalido):
+            auth.consumir_pedido(self.con, r["state"], "errado")
+        n = self.con.execute("SELECT COUNT(*) AS n FROM auth_pedidos").fetchone()["n"]
+        self.assertEqual(n, 0)
 
     def test_um_state_inventado_rebenta(self):
         with self.assertRaises(auth.PedidoInvalido):
@@ -222,25 +265,27 @@ class TestPedidos(Base):
             auth.consumir_pedido(self.con, "")
 
     def test_um_pedido_velho_rebenta_e_diz_o_prazo(self):
-        state = self._novo()
+        """E diz o PRAZO, não «outro browser»: quem demorou já perdeu o cookie."""
+        r = self._comecar()
         velho = (datetime.now(timezone.utc)
                  - timedelta(minutes=auth.PEDIDO_MINUTOS + 1)).isoformat()
         self.con.execute("UPDATE auth_pedidos SET criado_em = ? WHERE state = ?",
-                         (velho, state))
+                         (velho, r["state"]))
         self.con.commit()
         with self.assertRaises(auth.PedidoInvalido) as e:
-            auth.consumir_pedido(self.con, state)
+            auth.consumir_pedido(self.con, r["state"], None)
         self.assertIn(str(auth.PEDIDO_MINUTOS), str(e.exception))
+        self.assertNotIn("browser", str(e.exception))
 
     def test_um_pedido_velho_e_apagado_mesmo_rebentando(self):
         """Não fica lixo: quem rebenta também limpa."""
-        state = self._novo()
+        r = self._comecar()
         velho = (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat()
         self.con.execute("UPDATE auth_pedidos SET criado_em = ? WHERE state = ?",
-                         (velho, state))
+                         (velho, r["state"]))
         self.con.commit()
         with self.assertRaises(auth.PedidoInvalido):
-            auth.consumir_pedido(self.con, state)
+            auth.consumir_pedido(self.con, r["state"], r["nonce"])
         n = self.con.execute("SELECT COUNT(*) AS n FROM auth_pedidos").fetchone()["n"]
         self.assertEqual(n, 0)
 
@@ -310,16 +355,31 @@ class TestSessoes(Base):
 
     def test_tocar_adia_a_expiracao(self):
         s = auth.criar_sessao(self.con, user_id=1)
-        antes = auth.sessao(self.con, s["sid"])["expira_em"]
+        # Uma sessão a um dia de expirar: tocar-lhe põe-na outra vez nos 30.
         self.con.execute("UPDATE sessions SET expira_em = ?",
                          ((datetime.now(timezone.utc)
                            + timedelta(days=1)).isoformat(),))
         self.con.commit()
-        auth.tocar(self.con, s["sid"])
-        depois = auth.sessao(self.con, s["sid"])["expira_em"]
-        self.assertGreater(depois, antes[:0] + depois[:0] or "")
-        self.assertGreater(datetime.fromisoformat(depois),
-                           datetime.now(timezone.utc) + timedelta(days=2))
+        self.assertTrue(auth.tocar(self.con, s["sid"]))
+        depois = datetime.fromisoformat(
+            auth.sessao(self.con, s["sid"])["expira_em"])
+        self.assertGreater(depois, datetime.now(timezone.utc) + timedelta(days=2))
+
+    def test_tocar_nao_escreve_mais_do_que_uma_vez_por_hora(self):
+        """Uma página da Coleção são dezenas de pedidos; não vale um UPDATE cada."""
+        s = auth.criar_sessao(self.con, user_id=1)
+        agora = auth.sessao(self.con, s["sid"])["visto_em"]
+        self.assertFalse(auth.tocar(self.con, s["sid"], None, agora),
+                         "acabou de ser vista: não tinha de escrever")
+
+    def test_passada_a_hora_volta_a_escrever(self):
+        s = auth.criar_sessao(self.con, user_id=1)
+        velho = (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat()
+        self.assertTrue(auth.tocar(self.con, s["sid"], None, velho))
+
+    def test_um_visto_em_ilegivel_escreve_em_vez_de_rebentar(self):
+        s = auth.criar_sessao(self.con, user_id=1)
+        self.assertTrue(auth.tocar(self.con, s["sid"], None, "nao-e-uma-data"))
 
     def test_terminar_apaga_so_aquela(self):
         a = auth.criar_sessao(self.con, user_id=1)

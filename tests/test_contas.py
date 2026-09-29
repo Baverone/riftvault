@@ -501,7 +501,97 @@ class TestVerificar(Base):
 
 
 # --------------------------------------------------------------------------
-# 8. O GUARDA DO `RIFTVAULT_USER`
+# 8. «NÃO INDEXES ISTO»
+# --------------------------------------------------------------------------
+
+
+class TestNoIndex(Base):
+    """Uma página da coleção de um amigo indexada não se desfaz."""
+
+    def test_a_app_de_edicao_sai_sempre_com_noindex(self):
+        c = self.cliente(aberto=False)
+        r = c.get("/api/conta.json")
+        self.assertIn("noindex", r.headers.get("X-Robots-Tag", ""))
+
+    def test_a_etiqueta_entra_no_head(self):
+        html = "<html><head><title>x</title></head><body></body></html>"
+        saida = self.abrir.marcar_html(html)
+        self.assertIn('name="robots"', saida)
+        self.assertIn("noindex", saida)
+        self.assertLess(saida.index("robots"), saida.index("<body>"))
+
+    def test_marcar_duas_vezes_nao_duplica(self):
+        html = "<html><head></head><body></body></html>"
+        uma = self.abrir.marcar_html(html)
+        self.assertEqual(uma, self.abrir.marcar_html(uma))
+
+    def test_sem_head_nao_devolve_a_pagina_sem_marca(self):
+        saida = self.abrir.marcar_html("<p>nada</p>")
+        self.assertIn("noindex", saida)
+
+    def test_o_robots_txt_fecha_tudo(self):
+        t = self.abrir.robots_txt()
+        self.assertIn("User-agent: *", t)
+        self.assertIn("Disallow: /", t)
+
+    def test_so_a_pagina_dele_e_publica_e_so_com_a_porta_aberta(self):
+        f = self.abrir.publico_indexavel
+        self.assertTrue(f("tudo", dono=True, aberto=True))
+        self.assertFalse(f("tudo", dono=False, aberto=True), "de outro, nunca")
+        self.assertFalse(f("tudo", dono=True, aberto=False), "porta fechada")
+        self.assertFalse(f("sem-valores", dono=True, aberto=True))
+        self.assertFalse(f("nada", dono=True, aberto=True))
+
+    def test_os_tres_valores_da_privacidade_sao_os_do_2b(self):
+        """Uma verdade só: os valores vêm do módulo dela, não de uma cópia."""
+        self.assertEqual(set(self.privacidade.VALORES),
+                         {"nada", "sem-valores", "tudo"})
+        self.assertEqual(self.privacidade.OMISSAO, "nada")
+
+
+# --------------------------------------------------------------------------
+# 9. O `nonce` DA ENTRADA (login CSRF)
+# --------------------------------------------------------------------------
+
+
+class TestNonceDaEntrada(Base):
+    def test_comecar_uma_entrada_poe_o_cookie(self):
+        c = self.cliente(aberto=True, auth={
+            "discord": {"client_id": "a", "client_secret": "b"}})
+        r = c.get("/entrar/discord")
+        self.assertEqual(r.status_code, 302)
+        self.assertIn(self.auth.COOKIE_NONCE, r.headers.get("Set-Cookie", ""))
+        self.assertIn("HttpOnly", r.headers.get("Set-Cookie", ""))
+
+    def test_o_nonce_nao_vai_no_endereco_do_fornecedor(self):
+        c = self.cliente(aberto=True, auth={
+            "discord": {"client_id": "a", "client_secret": "b"}})
+        r = c.get("/entrar/discord")
+        bruto = r.headers["Set-Cookie"]
+        valor = bruto.split("=", 1)[1].split(";")[0]
+        self.assertNotIn(valor, r.headers.get("Location", ""))
+
+    def test_uma_volta_sem_o_cookie_recusa(self):
+        """O ataque: outro começa a entrada e leva a vítima a concluí-la."""
+        self.ensaio(True)
+        c = self.cliente(aberto=True, auth={
+            "discord": {"client_id": "a", "client_secret": "b"}})
+        con = self.auth.abrir()
+        try:
+            r = self.auth.comecar(con, "discord",
+                                  redirect_uri="http://x/entrar/discord",
+                                  cfg=self.config.load())
+        finally:
+            con.close()
+        # A vítima abre o endereço de volta sem nunca ter começado nada.
+        resp = c.get(f"/entrar/discord?code=abc&state={r['state']}")
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("browser", resp.get_json()["erro"])
+        self.assertNotIn(self.auth.COOKIE, resp.headers.get("Set-Cookie", ""))
+
+
+# --------------------------------------------------------------------------
+# 10. O GUARDA DO `RIFTVAULT_USER`
 # --------------------------------------------------------------------------
 
 

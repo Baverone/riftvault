@@ -59,6 +59,24 @@ __pycache__/
 .env
 *token*.txt
 
+# IDENTIDADES E SESSÕES (2026-09-29). NUNCA vai para o Git, e a razão é medida:
+# o `data/vault.db` está commitado num repositório PÚBLICO
+# (github.com/Baverone/riftvault) e é empurrado de 30 em 30 minutos pela
+# `riftvault-publicar`. O `sub` que o Google ou o Discord dão é um identificador
+# estável e único de uma PESSOA — ali dentro ficava publicado para sempre, com
+# histórico, e um repositório com 95 commits não se despublica. Por isso as
+# credenciais moram num ficheiro à parte, e este. Ver
+# docs/contas-e-autenticacao.md.
+data/auth.db
+data/auth.db-wal
+data/auth.db-shm
+data/auth.db-journal
+
+# A base de ENSAIO (`RIFTVAULT_ENSAIO=1`): dados de brincar, e um config de
+# brincar que nunca pode chegar a produção por via de um merge.
+data-ensaio/
+riftvault_config-ensaio.json
+
 data/backups/
 _lixo/
 

@@ -23,7 +23,13 @@ const state = {
   index: null,
   setId: null,
   payload: null,
+  // «Estou dentro, e isto é meu?» (2026-09-29). Com as contas FECHADAS o
+  // `editable` é o de sempre — um dono só. Com elas abertas passa a ser
+  // `index.editable && é meu`: a coleção de outro é leitura, mesmo autenticado.
   editable: false,
+  // O que o `api/conta.json` respondeu: a porta, a sessão, o token de CSRF e os
+  // fornecedores prontos. `null` no site publicado, que nem tem essa rota.
+  conta: null,
   imageMode: 'local',
   // printing_id -> cópias nos binders de COLEÇÃO (verdade local, otimista).
   // Desde 2026-09-10 não é o total físico: as que estão num deck ou no binder
