@@ -8484,3 +8484,63 @@ Cinco ficheiros de teste foram ajustados nos NÚMEROS e no MECANISMO — o teste
 no `excluidos`» passaram a «está fora da aba **e** a decisão está arquivada»).
 Os que perguntavam a categoria de um deck passaram a perguntá-la ao
 **catálogo em disco**: desde hoje os produtos da 262 não chegam ao `_crus`.
+
+## 29/09/2026 — O PORTÃO DO MERGE LÊ O PLACAR, e um placar ausente é VERMELHO
+
+**O que aconteceu.** A 2026-09-29 o harness que corre estas sessões disse
+**«exit code 0»** numa corrida cuja suite tinha acabado de imprimir **«1 a
+falhar»**. Quem lesse o código de saída dava o ramo por verde e fazia o merge.
+
+A regra «lê o PLACAR, não acredites no harness» já estava escrita nas regras da
+casa desde que isto começou — e era uma regra FALADA. Uma regra falada é uma
+regra que um dia se esquece, às duas da manhã, no fim de uma ordem longa.
+Passou a ser mecânica.
+
+**`tools/placar.py` + `tools/portao.py`.**
+
+    py -X utf8 tools/portao.py suite        corre a suite e grava o placar
+    py -X utf8 tools/portao.py verificar    lê o placar; sai 1 se vermelho
+    py -X utf8 tools/portao.py merge <ramo> -m "<mensagem>" [--push]
+
+O `merge` **verifica primeiro e recusa-se a chamar o `git`** se o placar não
+for verde. **Não há bandeira para forçar**, e é de propósito: uma bandeira de
+forçar é a que se usa exactamente na noite em que não se devia. Quem quiser
+mesmo integrar com a suite vermelha escreve o `git merge` à mão — e aí é uma
+decisão, não um descuido.
+
+**AS CINCO MANEIRAS DE ESTAR VERMELHO** (`placar.verde`), e nenhuma é
+«a suite falhou»:
+
+| | |
+|---|---|
+| 1 | **não há placar** — ninguém correu a suite |
+| 2 | **o placar não se lê** — JSON partido, campos a menos, corrida morta a meio |
+| 3 | **o código mudou depois de a suite ter corrido** |
+| 4 | **o placar mediu menos ficheiros do que os que estão em disco** |
+| 5 | **há ficheiros a falhar** |
+
+A 3 é a que apanha o caso a sério, e é a razão de o placar guardar uma
+**impressão digital**: o sha256 de tudo o que pode mudar a resposta da suite —
+o `riftvault/` (`.py`, `.sql` e o `web/`, que os testes leem como texto), os
+`tests/`, e o `riftvault_config.json`, que não é enfeite (é lá que vivem as
+regras que os testes medem). Se um byte de qualquer um deles mudou desde a
+corrida, **o placar é de outro código** e não autoriza este merge. «Corri a
+suite, depois emendei uma linha» deixou de passar.
+
+O `data/` **não** entra na impressão digital: os testes correm contra cópias e
+pastas temporárias, e pô-lo lá fazia um `+` num tile invalidar um placar verde.
+
+**Um ficheiro que nem chega a correr conta como vermelho.** Se a saída não
+tiver o `Ran N tests` do `unittest` — um import partido, por exemplo —, o
+placar não o conta como zero testes: marca-o a falhar, com a razão («não
+correu»). Um ficheiro que desaparece da contagem é a outra maneira de um
+vermelho passar despercebido.
+
+**O `.placar.json` está no `.gitignore`**, e isso é decisão e não descuido: é o
+resultado de uma corrida NESTA máquina, não conteúdo do projecto. Um placar
+commitado era a pior versão deste problema — o verde de outra pessoa a
+autorizar o meu merge.
+
+O `tools/portao.py merge` recusa também com a **árvore de trabalho suja**: o
+placar mediu o que está em disco, e o merge integra o que está commitado. Se as
+duas coisas diferem, o placar não fala do que vai ser integrado.
