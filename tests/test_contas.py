@@ -103,11 +103,31 @@ class Base(unittest.TestCase):
         return server.app.test_client()
 
     def ensaio(self, ligado: bool = True):
+        """Liga/desliga a base de ensaio para este teste.
+
+        O `config.ENSAIO` é uma CONSTANTE de módulo, lida na importação — pôr a
+        variável de ambiente não chega, é preciso reimportar o `config`. É a
+        mesma armadilha que o `tests.fixture.Vault` já documenta para os
+        caminhos.
+
+        Reimportar o `config` aqui é seguro: o `RIFTVAULT_DATA` do `Vault`
+        ganha ao `data-ensaio/` por omissão, por isso a base continua a ser a
+        pasta temporária deste teste e nunca o `data/` a sério (que o próprio
+        `config` recusa em ensaio, à importação).
+        """
         if ligado:
             os.environ["RIFTVAULT_ENSAIO"] = "1"
         else:
             os.environ.pop("RIFTVAULT_ENSAIO", None)
-        self.addCleanup(lambda: os.environ.pop("RIFTVAULT_ENSAIO", None))
+
+        def repor():
+            os.environ.pop("RIFTVAULT_ENSAIO", None)
+            importlib.reload(self.config)
+            self.config.load.cache_clear()
+
+        self.addCleanup(repor)
+        importlib.reload(self.config)
+        self.config.load.cache_clear()
         importlib.reload(self.multi)
         importlib.reload(self.auth)
 
@@ -203,13 +223,19 @@ class TestPortaFechada(Base):
 
     def test_o_html_nao_mostra_login_nenhum(self):
         """*"nada de «em breve», nada de link de login a espreitar"*."""
+        import re
         html = INDEX_HTML.read_text(encoding="utf-8")
         # O elemento existe, mas nasce `hidden` e só o JS o abre.
         self.assertIn('id="conta-zona"', html)
         self.assertIn("hidden", html.split('id="conta-zona"')[1][:60])
-        for palavra in ("Entrar com", "em breve", "Criar conta", "login"):
-            self.assertNotIn(palavra, html,
-                             f"«{palavra}» não pode estar escrito no HTML")
+        # Os COMENTÁRIOS não contam: o comentário que explica esta decisão
+        # escreve a palavra «login», e a primeira versão deste teste apanhava-se
+        # a si própria. O que se mede é o que o browser MOSTRA.
+        visivel = re.sub(r"<!--.*?-->", "", html, flags=re.S)
+        for palavra in ("Entrar com", "em breve", "Criar conta", "login",
+                        "Iniciar sessão"):
+            self.assertNotIn(palavra, visivel,
+                             f"«{palavra}» não pode aparecer no HTML visível")
 
     def test_o_js_nao_desenha_a_zona_com_a_porta_fechada(self):
         js = APP_JS.read_text(encoding="utf-8")
