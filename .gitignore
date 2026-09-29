@@ -86,13 +86,20 @@ data/auth.db-wal
 data/auth.db-shm
 data/auth.db-journal
 
-# A base de ENSAIO (`RIFTVAULT_ENSAIO=1`): dados de brincar, e um config de
-# brincar que nunca pode chegar a produção por via de um merge.
-data-ensaio/
-riftvault_config-ensaio.json
-
 data/backups/
 _lixo/
+
+# O PLACAR da suite (2026-09-29, `tools/portao.py`). NÃO vai para o Git, e é
+# decisão: é o resultado de uma corrida NESTA máquina, não conteúdo do
+# projecto. Um placar commitado era a pior versão do problema que ele resolve
+# — o verde de outra pessoa a autorizar o meu merge.
+.placar.json
+
+# A base de ENSAIO (2026-09-29, `RIFTVAULT_ENSAIO=1`): o sítio para partir
+# coisas. Nunca se commita — são dados de mentira, e o config dela podia
+# ligar em produção o que só era para ensaiar.
+data-ensaio/
+riftvault_config-ensaio.json
 
 
 # artefactos do FUSE (acesso a pasta montada a partir do Claude); nunca sao trabalho
