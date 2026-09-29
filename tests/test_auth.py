@@ -126,6 +126,42 @@ class TestProvedoresSemCredenciais(unittest.TestCase):
         self.assertTrue(auth.GOOGLE.configurado(cfg))
         self.assertEqual(auth.GOOGLE.em_falta(cfg), [])
 
+    # -- o SEGREDO vem do AMBIENTE ---------------------------------------
+
+    def test_o_segredo_do_ambiente_chega_sem_estar_no_config(self):
+        """O `riftvault_config.json` está commitado num repositório PÚBLICO."""
+        cfg = {"auth": {"google": {"client_id": "a"}}}
+        self.assertEqual(auth.GOOGLE.em_falta(cfg), ["client_secret"])
+        os.environ["RIFTVAULT_GOOGLE_SECRET"] = "do-ambiente"
+        self.addCleanup(lambda: os.environ.pop("RIFTVAULT_GOOGLE_SECRET", None))
+        self.assertEqual(auth.GOOGLE.em_falta(cfg), [])
+        self.assertEqual(auth.GOOGLE.segredo(cfg), "do-ambiente")
+
+    def test_o_ambiente_ganha_ao_config(self):
+        cfg = {"auth": {"google": {"client_id": "a", "client_secret": "do-ficheiro"}}}
+        os.environ["RIFTVAULT_GOOGLE_SECRET"] = "do-ambiente"
+        self.addCleanup(lambda: os.environ.pop("RIFTVAULT_GOOGLE_SECRET", None))
+        self.assertEqual(auth.GOOGLE.segredo(cfg), "do-ambiente")
+
+    def test_diz_se_o_segredo_esta_no_ficheiro(self):
+        cfg = {"auth": {"google": {"client_id": "a", "client_secret": "x"}}}
+        self.assertTrue(auth.GOOGLE.segredo_no_config(cfg))
+        os.environ["RIFTVAULT_GOOGLE_SECRET"] = "do-ambiente"
+        self.addCleanup(lambda: os.environ.pop("RIFTVAULT_GOOGLE_SECRET", None))
+        self.assertFalse(auth.GOOGLE.segredo_no_config(cfg),
+                         "com o ambiente posto, o ficheiro já não manda")
+
+    def test_cada_fornecedor_tem_a_sua_variavel(self):
+        self.assertEqual(auth.GOOGLE.var_segredo(), "RIFTVAULT_GOOGLE_SECRET")
+        self.assertEqual(auth.DISCORD.var_segredo(), "RIFTVAULT_DISCORD_SECRET")
+
+    def test_o_troco_usa_o_segredo_do_ambiente(self):
+        """Se o `trocar` lesse só o config, o do ambiente não servia para nada."""
+        import inspect
+        fonte = inspect.getsource(auth.Provedor.trocar)
+        self.assertIn("self.segredo(", fonte)
+        self.assertNotIn('b.get("client_secret"', fonte)
+
     def test_usar_um_provedor_por_configurar_levanta_e_diz_onde_se_mete(self):
         with self.assertRaises(auth.ProvedorPorConfigurar) as e:
             auth.GOOGLE.exigir_configurado({})

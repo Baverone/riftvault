@@ -25,6 +25,10 @@ from pathlib import Path
 
 from . import auth, config
 
+#: Os dois fornecedores a sério (o `local` é de ensaio e não tem segredos).
+GOOGLE_D = auth.GOOGLE
+DISCORD_D = auth.DISCORD
+
 
 class NaoEstaPronto(Exception):
     """O `--abrir` recusou. A mensagem diz o que falta."""
@@ -63,9 +67,15 @@ def _versionado(caminho: Path) -> bool:
         rel = caminho.resolve().relative_to(config.ROOT.resolve()).as_posix()
     except ValueError:
         return False  # fora do repositório: não vai para o Git
-    return not any(rel == l or rel.startswith(l.rstrip("/") + "/")
-                   or l == rel.split("/")[0] + "/"
-                   for l in linhas if l and not l.startswith("#"))
+    for linha in linhas:
+        if not linha or linha.startswith("#"):
+            continue
+        # `data/users/` e `data/users` são a mesma regra; e uma pasta ignorada
+        # ignora o que está lá dentro.
+        padrao = linha.rstrip("/")
+        if rel == padrao or rel.startswith(padrao + "/"):
+            return False
+    return True
 
 
 def verificar(cfg: dict | None = None) -> dict:
@@ -114,27 +124,35 @@ def verificar(cfg: dict | None = None) -> dict:
             "Mete `auth.base_url` a «https://editar.baverone.com» — o mesmo "
             "endereço que escreveste no Discord."))
 
-    # 3. O segredo não pode estar num ficheiro que vá para o Git.
-    bruto = _texto_do_config()
-    segredos = [
-        s for s in (
-            str(((cfg.get("auth") or {}).get(n) or {}).get("client_secret") or "")
-            for n in ("google", "discord"))
-        if len(s.strip()) > 8]
-    no_git = (_versionado(config.CONFIG_PATH)
-              and any(s in bruto for s in segredos))
-    if segredos and no_git:
+    # 3. O SEGREDO NÃO PODE ESTAR NUM FICHEIRO QUE VÁ PARA O GIT.
+    #
+    # Medido: `git ls-files riftvault_config.json` devolve-o — está COMMITADO, e
+    # o repositório é público e empurrado de 30 em 30 minutos. Um `client_secret`
+    # colado lá ia para o GitHub no push seguinte e não se despublica; teria de
+    # ser revogado no Discord. Por isso o segredo vive no AMBIENTE, que é a regra
+    # que o `.gitignore` já escreve para o CARDTRADER_TOKEN.
+    no_ficheiro = [p for p in (GOOGLE_D, DISCORD_D)
+                   if p.segredo_no_config(cfg)]
+    if no_ficheiro and _versionado(config.CONFIG_PATH):
+        quais = " e ".join(p.etiqueta for p in no_ficheiro)
+        vars_ = " e ".join(p.var_segredo() for p in no_ficheiro)
         passos.append(_essencial(
             "O segredo não está no Git", False,
-            f"o {config.CONFIG_PATH.name} tem um client_secret E vai para o Git.",
-            "Acrescenta uma linha `riftvault_config.json` ao .gitignore, ou põe "
-            "o segredo numa variável de ambiente. Um segredo empurrado para um "
-            "repositório público não se despublica — faz Reset Secret no Discord "
-            "se isto já aconteceu."))
+            f"o client_secret do {quais} está no {config.CONFIG_PATH.name}, "
+            f"que VAI PARA O GITHUB (repositório público, push a cada 30 min).",
+            f"Tira-o de lá e põe-no no ambiente: `setx {vars_} \"o-segredo\"` "
+            f"numa consola nova. Se já fizeste push com ele lá dentro, faz "
+            f"Reset Secret no Discord — um segredo publicado não se despublica."))
+    elif no_ficheiro:
+        passos.append(_essencial(
+            "O segredo não está no Git", True,
+            f"está no {config.CONFIG_PATH.name}, mas esse ficheiro não vai "
+            f"para o Git."))
     else:
         passos.append(_essencial(
             "O segredo não está no Git", True,
-            "nenhum client_secret em ficheiro versionado." if segredos
+            "o segredo vem do ambiente, como o CARDTRADER_TOKEN."
+            if any(p.segredo(cfg) for p in (GOOGLE_D, DISCORD_D))
             else "ainda não há segredos para proteger."))
 
     # 4. As credenciais e as coleções dos amigos ficam fora do Git.

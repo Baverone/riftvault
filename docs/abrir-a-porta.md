@@ -76,22 +76,39 @@ cinco minutos. (Se preferires Google, ou os dois, está escrito no fim.)
 >
 > Ainda não existe nada nesse endereço. Passa a existir no passo 3.
 
-### Onde se escreve no riftvault
+### Onde se escreve no riftvault — e ATENÇÃO onde NÃO se escreve
 
-Abre `riftvault_config.json` (na pasta do projeto) e mete os dois valores no
-bloco `auth`:
+São dois valores e vão para sítios **diferentes**, de propósito.
+
+**O Client ID vai para o config.** Não é secreto (viaja no endereço quando
+alguém entra, à vista de todos). Abre `riftvault_config.json` e mete:
 
 ```json
 "auth": {
   "base_url": "https://editar.baverone.com",
-  "discord": { "client_id": "AQUI-O-CLIENT-ID", "client_secret": "AQUI-O-SECRET" },
-  "google":  { "client_id": "", "client_secret": "" }
+  "discord": { "client_id": "AQUI-O-CLIENT-ID" },
+  "google":  { "client_id": "" }
 }
 ```
 
-> O `client_secret` é uma password de aplicação. O `riftvault_config.json` **não
-> vai para o Git** com segredos — confirma com o comando de verificação do fim,
-> que te avisa se isto ficou num ficheiro versionado.
+**O Client Secret NÃO vai para o config.** Vai para o ambiente. Numa consola:
+
+```
+setx RIFTVAULT_DISCORD_SECRET "aqui-o-secret"
+```
+
+e **fecha essa consola e abre outra** (o `setx` só vale nas consolas novas).
+Depois arranca o `riftvault serve` na consola nova.
+
+> **Porque é que isto importa, e não é preciosismo:** o `riftvault_config.json`
+> **está commitado** no repositório, e o repositório é **público** e é empurrado
+> para o GitHub **de 30 em 30 minutos** pela tarefa `riftvault-publicar`. Um
+> secret colado lá dentro ia para o GitHub no push seguinte, ficava no
+> histórico, e **não se despublica** — a única saída seria fazer Reset Secret no
+> Discord. É a mesma regra que o teu `CARDTRADER_TOKEN` já segue.
+>
+> O `riftvault multi --verificar` avisa-te se o secret estiver no ficheiro, e
+> diz-te o comando para o tirar de lá.
 
 ### Verificação do passo 1
 
@@ -354,8 +371,9 @@ deles, que pode levar dias. Se quiseres mesmo:
 3. **Credentials → Create Credentials → OAuth client ID** → tipo **Web
    application**.
 4. **Authorized redirect URIs** → `https://editar.baverone.com/entrar/google`
-5. Copia o **Client ID** e o **Client secret** para o bloco `auth.google` do
-   config.
+5. O **Client ID** vai para `auth.google.client_id` no config; o **Client
+   secret** vai para o ambiente, como o do Discord:
+   `setx RIFTVAULT_GOOGLE_SECRET "aqui-o-secret"`.
 
 Os dois podem estar ligados ao mesmo tempo; a página de entrada mostra um
 botão por cada um que esteja configurado. A mesma pessoa pode ligar os dois à

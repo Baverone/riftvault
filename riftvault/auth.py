@@ -415,7 +415,9 @@ class Provedor:
             "code": code,
             "redirect_uri": redirect_uri,
             "client_id": b.get("client_id", ""),
-            "client_secret": b.get("client_secret", ""),
+            # Pelo `segredo()`, que prefere o AMBIENTE — se isto lesse o config
+            # direto, pôr o segredo na variável não servia de nada.
+            "client_secret": self.segredo(cfg),
             "code_verifier": verifier,
         })
         token = resp.get("access_token")
