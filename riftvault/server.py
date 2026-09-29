@@ -19,16 +19,28 @@ from datetime import datetime, timezone
 from flask import Flask, g, jsonify, redirect, request, send_from_directory
 
 from . import (a_mais, a_subir, collection, config, db, decks, faltas, faltas_foil,
-               foil, locais, metrics, pending, principal, proprias, runas_vista,
-               selado, venda)
+               foil, locais, metrics, pending, principal, proprias, rotas_conta,
+               runas_vista, selado, venda)
 
 app = Flask(__name__, static_folder=None)
 
 
 def get_con():
-    # Uma ligação por pedido: os objetos do sqlite3 não atravessam threads.
+    """A base DESTE pedido — a do dono da sessão, e só a dele.
+
+    Uma ligação por pedido: os objetos do sqlite3 não atravessam threads.
+
+    O `user_id` vem do `g.riftvault_user`, que o `rotas_conta._antes` põe a
+    partir do cookie. É EXPLÍCITO de propósito: com a porta das contas aberta,
+    cada coleção é um ficheiro seu (`data/users/<slug>/vault.db`), e por isso não
+    existe caminho de código que abra a base de outra pessoa — não é um `WHERE
+    user_id` que se possa esquecer, é um ficheiro que não se chega a abrir.
+
+    Com a porta fechada o `g.riftvault_user` é `None` e isto é o `db.connect()`
+    de sempre: um dono só, o André, tudo como ontem.
+    """
     if "con" not in g:
-        g.con = db.connect()
+        g.con = db.connect(user_id=g.get("riftvault_user"))
     return g.con
 
 
@@ -37,6 +49,13 @@ def _close(_exc):
     con = g.pop("con", None)
     if con is not None:
         con.close()
+    rotas_conta.fechar_auth()
+
+
+# As rotas de entrada/registo/conta e o guarda que protege todas as outras. Uma
+# linha, num ficheiro à parte: são 40 rotas escritas ao longo de um mês e
+# enfiar-lhes autenticação por dentro era mexer em todas.
+rotas_conta.ligar(app)
 
 
 # --------------------------------------------------------------------------
@@ -905,7 +924,48 @@ def ascii_qr(url: str) -> str:
         return "  (a consola não mostra o QR; usa o URL acima)"
 
 
+def _recusar_user_fixo() -> None:
+    """Com as contas abertas, o `RIFTVAULT_USER` no ambiente é uma armadilha.
+
+    Essa variável é do CLI e das medições: fixa o `utilizador.atual()` para o
+    PROCESSO inteiro. Num servidor `threaded` com contas abertas, isso punha
+    TODOS os pedidos a escrever na coleção de uma pessoa só — a do valor da
+    variável — por muito que cada um tenha entrado com a sua. Recusa-se a
+    arrancar em vez de servir assim.
+    """
+    import os
+
+    from . import multi
+
+    if not os.environ.get("RIFTVAULT_USER"):
+        return
+    if not multi.aberto(config.load()):
+        return
+    raise SystemExit(
+        "NÃO ARRANQUEI: as contas estão abertas e o RIFTVAULT_USER está "
+        f"definido (={os.environ['RIFTVAULT_USER']}). Essa variável fixa o dono "
+        "para o processo inteiro e faria todos os pedidos escrever na mesma "
+        "coleção. Tira-a do ambiente e arranca outra vez.")
+
+
+def _aviso_das_contas() -> list[str]:
+    """As duas linhas do banner que dependem de a porta estar aberta."""
+    from . import multi
+
+    if not multi.aberto(config.load()):
+        return ["  Sem palavra-passe: quem chegar ao URL pode escrever na coleção.",
+                "  Não abras este porto no router."]
+    # Com contas, a rede de casa já não é fronteira: há coleções de outras
+    # pessoas aqui dentro e a escrita exige entrar. Ver docs/contas-e-autenticacao.md.
+    return ["  CONTAS ABERTAS: escrever exige entrar, e cada um só mexe na sua.",
+            "  Quem só espreita não precisa deste PC — os sites públicos estão",
+            "  no GitHub. Não abras este porto no router: o acesso de fora é",
+            "  pelo túnel da Cloudflare."]
+
+
 def serve(host: str = "0.0.0.0", port: int = 8770) -> None:
+    _recusar_user_fixo()
+
     con = db.connect()
     empty = db.catalog_is_empty(con)
     con.close()
@@ -929,8 +989,8 @@ def serve(host: str = "0.0.0.0", port: int = 8770) -> None:
         print("     (redes diferentes — usa a que o telemóvel alcança)")
     print()
     print(ascii_qr(lan))
-    print("  Sem palavra-passe: quem chegar ao URL pode escrever na coleção.")
-    print("  Não abras este porto no router.")
+    for linha in _aviso_das_contas():
+        print(linha)
     print("  Ctrl+C para parar.")
     print("=" * 60)
 

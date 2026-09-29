@@ -203,6 +203,28 @@ main { flex: 1 0 auto; padding: 0; }
   color: var(--accent-2); background: #2a2210; border: 1px solid #5a4a1c;
   border-radius: 99px; padding: 2px 9px;
 }
+/* A zona da conta na barra lateral (2026-09-29). Só aparece com as contas
+   abertas — com elas fechadas o elemento fica `hidden` e o site dele é o de
+   sempre. */
+.conta-zona { margin-top: 12px; }
+.conta-cx {
+  display: flex; flex-direction: column; gap: 7px;
+  background: var(--h-card); border: 1px solid var(--h-line);
+  border-radius: 12px; padding: 10px;
+}
+.conta-cx b { font-size: 13px; }
+.conta-cx small { color: var(--muted); font-size: 11.5px; line-height: 1.45; }
+.conta-cx .btn { justify-content: center; text-align: center; }
+.conta-lbl { color: var(--muted); font-size: 11px; }
+/* `min-width: 0` para o campo não empurrar a barra lateral no telemóvel. */
+.conta-inp, .conta-sel {
+  min-width: 0; width: 100%; box-sizing: border-box;
+  background: var(--bg); color: var(--text);
+  border: 1px solid var(--h-line); border-radius: 8px;
+  padding: 6px 8px; font: inherit; font-size: 13px;
+}
+.conta-erro { color: var(--bad); font-size: 11.5px; margin: 0; line-height: 1.45; }
+
 .sidenav { padding: 10px 10px 22px; flex: 1 0 auto; }
 .sgrp { margin-top: 14px; }
 .sgrp:first-child { margin-top: 2px; }

@@ -2067,6 +2067,39 @@ def cmd_find(args) -> int:
     return 0
 
 
+def cmd_multi(args) -> int:
+    """`riftvault multi` — a porta das contas: ver, abrir, fechar.
+
+    O `--verificar` é o que ele corre para saber se isto está pronto, e é ele
+    que trava o `--abrir`. Ver `riftvault/abrir.py` e `docs/abrir-a-porta.md`.
+    """
+    from . import abrir as porta
+
+    if args.abrir:
+        try:
+            r = porta.abrir(forcar=args.forcar)
+        except porta.NaoEstaPronto as e:
+            print(f"\n{e}\n", file=sys.stderr)
+            return 1
+        if r["mudou"]:
+            print("Aberto. Os teus amigos já se podem registar.")
+            print("Para fechar outra vez:  riftvault multi --fechar")
+        else:
+            print("Já estava aberto.")
+        return 0
+
+    if args.fechar:
+        r = porta.fechar()
+        print("Fechado." if r["mudou"] else "Já estava fechado.")
+        if r["mudou"]:
+            print("Ninguém perde nada: as contas e as coleções ficam, só "
+                  "deixa de se entrar.")
+        return 0
+
+    print(porta.texto())
+    return 0
+
+
 # --------------------------------------------------------------------------
 
 
@@ -2074,6 +2107,18 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="riftvault", description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
+
+    # A porta das contas (2026-09-29). Sem opção nenhuma, VERIFICA — é o que se
+    # quer quando se escreve o comando sem saber o que ele faz.
+    p = sub.add_parser("multi", help="a porta das contas: ver, abrir, fechar")
+    p.add_argument("--verificar", action="store_true",
+                   help="diz o que está pronto e o que falta (é o que faz por omissão)")
+    p.add_argument("--abrir", action="store_true",
+                   help="abre as contas (recusa se faltar alguma coisa)")
+    p.add_argument("--fechar", action="store_true", help="volta a fechar")
+    p.add_argument("--forcar", action="store_true",
+                   help="abre mesmo com coisas em falta (não uses sem ler o que falta)")
+    p.set_defaults(func=cmd_multi)
 
     p = sub.add_parser("sync", help="descarrega o catálogo da RiftScribe")
     p.add_argument("--set", action="append", help="só esta edição (repetível)")

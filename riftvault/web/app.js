@@ -580,6 +580,119 @@ async function getJSON(url) {
   return r.json();
 }
 
+/* Os cabeçalhos de TODO o pedido que escreve (2026-09-29).
+ *
+ * Havia dezassete `fetch` de POST neste ficheiro, cada um com o seu literal de
+ * cabeçalhos. Acrescentar a marca de CSRF a cada um à mão era garantir que um
+ * dia se esquecia num — e um esquecido é uma rota sem protecção, não um erro
+ * visível. Por isso há UMA função, e o `test_contas.py` lê este ficheiro e
+ * rebenta se aparecer um POST que não passe por ela.
+ *
+ * O token vem do `api/conta.json` e vai num CABEÇALHO, não num cookie: um
+ * cookie era enviado pelo browser junto com o pedido falso de outro site, que é
+ * exactamente o que isto tenta travar. Com a porta fechada não há sessão nem
+ * token, e o cabeçalho sai vazio — o servidor também não o exige. */
+function cabecalhos() {
+  const h = { 'Content-Type': 'application/json' };
+  if (state.conta && state.conta.csrf) h['X-CSRF-Token'] = state.conta.csrf;
+  return h;
+}
+
+/* ------------------------------------------------------------------ conta */
+
+/* A zona da conta na barra lateral.
+ *
+ * COM AS CONTAS FECHADAS NÃO DESENHA NADA, e é uma decisão dele de 2026-09-29
+ * (*"Quero apenas apresentar quando tiver tudo"*): o site dele fica exactamente
+ * como estava, sem um «em breve» nem um link de login à espreita. O elemento
+ * existe no HTML mas fica `hidden`. */
+function renderConta() {
+  const zona = $('#conta-zona');
+  if (!zona) return;
+  const c = state.conta;
+  if (!c || !c.aberto) { zona.hidden = true; zona.innerHTML = ''; return; }
+  zona.hidden = false;
+
+  if (c.registo_pendente) {
+    const p = c.registo_pendente;
+    zona.innerHTML = `<div class="conta-cx">
+      <b>Falta escolher o teu endereço</b>
+      <small>Entraste com ${escapeHTML(p.provedor || '')}. O nome que
+      escolheres fica no endereço da tua coleção.</small>
+      <label class="conta-lbl" for="rg-slug">rift.baverone.com/u/</label>
+      <input id="rg-slug" class="conta-inp" value="${escapeAttr(p.slug_sugerido || '')}"
+             maxlength="32" autocomplete="off" spellcheck="false">
+      <button class="btn primary" id="rg-criar" type="button">Criar a conta</button>
+      <p class="conta-erro" id="rg-erro" hidden></p>
+    </div>`;
+    $('#rg-criar').addEventListener('click', criarConta);
+    $('#rg-slug').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') criarConta();
+    });
+    return;
+  }
+
+  if (!c.entrado) {
+    const bts = (c.provedores || []).filter((p) => p.pronto).map((p) =>
+      `<a class="btn primary" href="entrar/${encodeURIComponent(p.nome)}">Entrar com ${escapeHTML(p.etiqueta)}</a>`).join('');
+    // Sem nenhum fornecedor configurado não se mostra um botão que não
+    // funciona: diz-se o que falta, que é o que o `--verificar` também diz.
+    zona.innerHTML = `<div class="conta-cx">${bts || `<small>As contas estão
+      abertas mas nenhuma forma de entrar está configurada — falta o passo 1 do
+      <code>docs/abrir-a-porta.md</code>.</small>`}</div>`;
+    return;
+  }
+
+  const u = c.utilizador || {};
+  const priv = { nada: 'privada', 'sem-valores': 'pública, sem valores', tudo: 'pública' };
+  zona.innerHTML = `<div class="conta-cx">
+    <b>${escapeHTML(u.nome || u.slug || '')}</b>
+    <small>a tua coleção · <span id="ct-priv">${escapeHTML(priv[u.publico] || u.publico || '')}</span></small>
+    <select class="conta-sel" id="ct-publico" aria-label="Quem vê a minha coleção">
+      <option value="nada"${u.publico === 'nada' ? ' selected' : ''}>Só eu</option>
+      <option value="sem-valores"${u.publico === 'sem-valores' ? ' selected' : ''}>Pública, sem os valores em €</option>
+      <option value="tudo"${u.publico === 'tudo' ? ' selected' : ''}>Pública, com tudo</option>
+    </select>
+    <a class="btn ghost" href="sair">Sair</a>
+  </div>`;
+  $('#ct-publico').addEventListener('change', async (e) => {
+    try {
+      const r = await fetch('api/conta/privacidade', {
+        method: 'POST', headers: cabecalhos(),
+        body: JSON.stringify({ publico: e.target.value }),
+      });
+      const res = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(res.erro || res.error || `HTTP ${r.status}`);
+      state.conta.utilizador.publico = res.publico;
+      $('#ct-priv').textContent = priv[res.publico] || res.publico;
+      toast(res.publico === 'nada'
+        ? 'A tua coleção deixou de ser publicada.'
+        : 'A tua coleção passa a ser publicada na próxima geração do site.');
+    } catch (err) { toast(`Não deu: ${err.message}`); }
+  });
+}
+
+async function criarConta() {
+  const erro = $('#rg-erro');
+  const bt = $('#rg-criar');
+  erro.hidden = true;
+  bt.disabled = true;
+  try {
+    const r = await fetch('api/conta/registar', {
+      method: 'POST', headers: cabecalhos(),
+      body: JSON.stringify({ slug: ($('#rg-slug').value || '').trim() }),
+    });
+    const res = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(res.erro || res.error || `HTTP ${r.status}`);
+    // A conta nasceu: relê tudo, porque agora há uma coleção (vazia) dele.
+    location.reload();
+  } catch (err) {
+    erro.textContent = err.message;
+    erro.hidden = false;
+    bt.disabled = false;
+  }
+}
+
 async function boot() {
   loadPrefs();
   wireCasca();
@@ -593,7 +706,16 @@ async function boot() {
   // desenha-a na mesma — sem navegação não se chega a lado nenhum.
   state.escondidas = new Set((state.index.abas || {}).escondidas || []);
   renderNav();
-  state.editable = !!state.index.editable;
+
+  // QUEM SOU EU (2026-09-29). Com a porta das contas fechada isto responde
+  // `{aberto: false, editavel: true}` e o `editable` é o de sempre — o
+  // ficheiro estático publicado nem tem esta rota, e por isso o `catch`
+  // devolve o mesmo. Com a porta aberta, EDITAR É «estou dentro E isto é
+  // meu»: sem sessão a página é de leitura, como a de um amigo é para mim.
+  state.conta = await getJSON('api/conta.json').catch(() => null);
+  const meu = !state.conta || state.conta.editavel !== false;
+  state.editable = !!state.index.editable && meu;
+  renderConta();
   state.imageMode = state.index.image_mode || 'local';
   document.body.classList.toggle('readonly', !state.editable);
   $('#mode-badge').hidden = state.editable;
@@ -885,7 +1007,7 @@ async function runaAjustar(ck, delta) {
   const fila = state.runas.fila.get(ck) || Promise.resolve();
   const tarefa = fila.then(async () => {
     const r = await fetch('api/runas/ajustar', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: cabecalhos(),
       body: JSON.stringify({ card_key: ck, delta }),
     });
     if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `HTTP ${r.status}`);
@@ -1164,7 +1286,7 @@ async function foilAjustar(pid, delta) {
   try {
     const r = await fetch('api/foil/ajustar', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: cabecalhos(),
       body: JSON.stringify({ printing_id: pid, delta }),
     });
     if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `HTTP ${r.status}`);
@@ -2210,7 +2332,7 @@ async function adjust(pid, delta) {
   try {
     const r = await fetch('api/adjust', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: cabecalhos(),
       body: JSON.stringify({ printing_id: pid, delta, request_id: requestId }),
     });
     if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `HTTP ${r.status}`);
@@ -2245,7 +2367,7 @@ async function undo(opId, pid, delta) {
   try {
     const r = await fetch('api/undo', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: cabecalhos(),
       body: JSON.stringify({ op_id: opId }),
     });
     if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `HTTP ${r.status}`);
@@ -3048,7 +3170,7 @@ async function gravarMarcadas(p, caixas) {
     + `As outras ${porMarcar} ficam na Coleção, como estão.\n\nGravar?`)) return;
   try {
     const r = await fetch('api/local/marcar', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: cabecalhos(),
       body: JSON.stringify({ para: p.para, de: p.de, linhas }),
     });
     if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `HTTP ${r.status}`);
@@ -3067,7 +3189,7 @@ async function desfazerDeck() {
     + 'ficam disponíveis para outro deck. Nada volta à Coleção.')) return;
   try {
     const r = await fetch('api/local/desfazer-deck', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: cabecalhos(),
       body: JSON.stringify({ slug: state.deck.slug }),
     });
     if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `HTTP ${r.status}`);
@@ -3246,7 +3368,7 @@ async function propriasAjustar(pid, delta) {
   const fila = state.propFila.get(chave) || Promise.resolve();
   const tarefa = fila.then(async () => {
     const r = await fetch('api/proprias/ajustar', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: cabecalhos(),
       body: JSON.stringify({ slug, printing_id: pid, delta,
                              request_id: (crypto.randomUUID ? crypto.randomUUID()
                                : `${Date.now()}-${Math.random().toString(16).slice(2)}`) }),
@@ -3351,7 +3473,7 @@ async function deckAction(act) {
   if (act === 'descer' && i < ids.length - 1) { [novo[i + 1], novo[i]] = [novo[i], novo[i + 1]]; }
   try {
     const r = await fetch('api/decks/order', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: cabecalhos(),
       body: JSON.stringify({ ids: novo }),
     });
     // O servidor diz porquê (409 com a ordem no config) — mostra-se a razão,
@@ -3377,7 +3499,7 @@ async function deckAction(act) {
 async function definirPrincipal(slug) {
   try {
     const r = await fetch('api/decks/principal', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: cabecalhos(),
       body: JSON.stringify({ slug }),
     });
     const body = await r.json().catch(() => ({}));
@@ -3414,7 +3536,7 @@ async function montarDeck(montado) {
   const p = state.deck;
   try {
     const r = await fetch('api/decks/montar', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: cabecalhos(),
       body: JSON.stringify({ slug: p.slug, montado }),
     });
     const body = await r.json().catch(() => ({}));
@@ -3740,7 +3862,7 @@ async function encAjustar(pid, delta) {
   const fila = state.enc.fila.get(pid) || Promise.resolve();
   const tarefa = fila.then(async () => {
     const r = await fetch('api/encomenda', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: cabecalhos(),
       body: JSON.stringify({ printing_id: pid, delta }),
     });
     if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `HTTP ${r.status}`);
@@ -3807,7 +3929,7 @@ async function encChegou(pid, botao, foil) {
   if (botao) { botao.disabled = true; botao.textContent = 'a dar entrada…'; }
   try {
     const r = await fetch('api/pending/arrive', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: cabecalhos(),
       // Com `foil` entram só as linhas desse acabamento, e cada uma no
       // contador dela: uma foil soma ao `qty_foil` (2026-09-27).
       body: JSON.stringify(foil === undefined
@@ -3843,7 +3965,7 @@ async function encChegouTudo(botao) {
   if (botao) { botao.disabled = true; botao.textContent = 'a dar entrada…'; }
   try {
     const r = await fetch('api/pending/arrive', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+      method: 'POST', headers: cabecalhos(), body: '{}',
     });
     if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `HTTP ${r.status}`);
     const res = await r.json();
@@ -4560,7 +4682,7 @@ async function feAjustar(pid, foil, delta) {
   const fila = state.feFila.get(chave) || Promise.resolve();
   const tarefa = fila.then(async () => {
     const r = await fetch('api/encomenda', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: cabecalhos(),
       body: JSON.stringify({ printing_id: pid, delta, foil: !!foil }),
     });
     if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `HTTP ${r.status}`);
@@ -5021,7 +5143,7 @@ async function loadVenda() {
 /* Qualquer escrita devolve o payload novo — uma resposta, um desenho. */
 async function vdPost(url, corpo) {
   const r = await fetch(url, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    method: 'POST', headers: cabecalhos(),
     body: JSON.stringify(corpo || {}),
   });
   const res = await r.json().catch(() => ({}));
@@ -5193,7 +5315,7 @@ function vdLigarLinhas() {
 async function venderDaGrelha(pid, nome) {
   try {
     const r = await fetch('api/venda/linha', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: cabecalhos(),
       body: JSON.stringify({ printing_id: pid, delta: 1 }),
     });
     const res = await r.json().catch(() => ({}));
@@ -5387,7 +5509,7 @@ async function loadSelado() {
 
 async function slPost(corpo, rota = 'api/selado/ajustar') {
   const r = await fetch(rota, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    method: 'POST', headers: cabecalhos(),
     body: JSON.stringify(corpo),
   });
   const res = await r.json().catch(() => ({}));
