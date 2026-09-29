@@ -623,7 +623,102 @@ class TestIdentidades(Base):
 
 
 # --------------------------------------------------------------------------
-# 11. O SLUG DO SUBDOMÍNIO
+# 11. OS CONVITES DE LIGAÇÃO — o caminho do PRIMEIRO utilizador
+# --------------------------------------------------------------------------
+
+
+class TestConvites(Base):
+    """O André JÁ EXISTE (utilizador 1, slug `baverone`) e não se pode registar.
+
+    Sem isto, a primeira entrada dele oferecia-lhe um formulário de registo que
+    lhe pedia um slug que ele não podia escolher — porque o dele já é dele. Uma
+    porta sem saída, com a coleção de um mês do outro lado.
+    """
+
+    def test_um_convite_liga_a_uma_conta_que_ja_existe(self):
+        t = auth.criar_convite(self.con, 1)
+        self.assertEqual(auth.usar_convite(self.con, t), 1)
+
+    def test_o_codigo_serve_uma_vez_e_so_uma(self):
+        t = auth.criar_convite(self.con, 1)
+        auth.usar_convite(self.con, t)
+        with self.assertRaises(auth.PedidoInvalido) as e:
+            auth.usar_convite(self.con, t)
+        self.assertIn("já foi usado", str(e.exception))
+
+    def test_um_codigo_inventado_rebenta_e_diz_o_comando(self):
+        with self.assertRaises(auth.PedidoInvalido) as e:
+            auth.usar_convite(self.con, "nao-existe")
+        self.assertIn("multi --ligar", str(e.exception))
+
+    def test_um_codigo_vazio_rebenta(self):
+        for vazio in ("", None):
+            with self.assertRaises(auth.PedidoInvalido):
+                auth.usar_convite(self.con, vazio)
+
+    def test_um_codigo_velho_rebenta_e_diz_o_prazo(self):
+        t = auth.criar_convite(self.con, 1)
+        velho = (datetime.now(timezone.utc)
+                 - timedelta(minutes=auth.CONVITE_MINUTOS + 1)).isoformat()
+        self.con.execute("UPDATE auth_convites SET criado_em = ?", (velho,))
+        self.con.commit()
+        with self.assertRaises(auth.PedidoInvalido) as e:
+            auth.usar_convite(self.con, t)
+        self.assertIn(str(auth.CONVITE_MINUTOS), str(e.exception))
+
+    def test_o_codigo_nao_esta_em_claro_na_base(self):
+        t = auth.criar_convite(self.con, 1)
+        bruto = Path(os.environ["RIFTVAULT_AUTH"]).read_bytes()
+        self.assertNotIn(t.encode(), bruto)
+
+    def test_dois_convites_nunca_saem_iguais(self):
+        self.assertNotEqual(auth.criar_convite(self.con, 1),
+                            auth.criar_convite(self.con, 1))
+
+    def test_o_pedido_guarda_a_conta_a_ligar(self):
+        cfg = {"auth": {"google": {"client_id": "c", "client_secret": "s"}}}
+        r = auth.comecar(self.con, "google", redirect_uri="https://x/c",
+                         liga_a=1, cfg=cfg)
+        p = auth.consumir_pedido(self.con, r["state"], r["nonce"])
+        self.assertEqual(p["liga_a"], 1)
+
+    def test_sem_convite_o_pedido_nao_liga_a_ninguem(self):
+        cfg = {"auth": {"google": {"client_id": "c", "client_secret": "s"}}}
+        r = auth.comecar(self.con, "google", redirect_uri="https://x/c", cfg=cfg)
+        p = auth.consumir_pedido(self.con, r["state"], r["nonce"])
+        self.assertIsNone(p["liga_a"])
+
+    def test_o_convite_nao_viaja_no_endereco_do_fornecedor(self):
+        cfg = {"auth": {"google": {"client_id": "c", "client_secret": "s"}}}
+        t = auth.criar_convite(self.con, 1)
+        r = auth.comecar(self.con, "google", redirect_uri="https://x/c",
+                         liga_a=auth.usar_convite(self.con, t), cfg=cfg)
+        self.assertNotIn(t, r["url"])
+
+    def test_um_auth_db_antigo_ganha_a_coluna_sem_perder_nada(self):
+        """O `CREATE TABLE IF NOT EXISTS` não acrescenta colunas."""
+        velho = self.dir / "velho.db"
+        c = sqlite3.connect(velho)
+        c.execute("CREATE TABLE auth_pedidos (state TEXT PRIMARY KEY, "
+                  "provedor TEXT NOT NULL, verifier TEXT NOT NULL, destino TEXT, "
+                  "nonce_hash TEXT, criado_em TEXT NOT NULL)")
+        c.execute("INSERT INTO auth_pedidos VALUES ('s','google','v',NULL,NULL,'x')")
+        c.commit()
+        c.close()
+        os.environ["RIFTVAULT_AUTH"] = str(velho)
+        con = auth.abrir()
+        try:
+            colunas = {r["name"] for r in
+                       con.execute("PRAGMA table_info(auth_pedidos)")}
+            self.assertIn("liga_a", colunas)
+            n = con.execute("SELECT COUNT(*) AS n FROM auth_pedidos").fetchone()["n"]
+            self.assertEqual(n, 1, "a linha que lá estava não se podia perder")
+        finally:
+            con.close()
+
+
+# --------------------------------------------------------------------------
+# 12. O SLUG DO SUBDOMÍNIO
 # --------------------------------------------------------------------------
 
 

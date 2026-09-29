@@ -251,6 +251,44 @@ riftvault e um botão **Entrar com Discord**.
 
 ---
 
+## Antes de abrir: liga a TUA conta (dois minutos, e é importante)
+
+**Tens de fazer isto antes de abrir a porta.** Depois de abrires, escrever passa
+a exigir entrar — e se a tua conta não estiver ligada ao Discord ficas do lado de
+fora da tua própria coleção. O `--verificar` não te deixa abrir sem isto, de
+propósito.
+
+A razão de ser um passo à parte: **tu já existes.** És o utilizador 1, com o nome
+`baverone`, e tens a coleção toda. «Registar-te» não faz sentido — o registo
+pedia-te um nome de endereço, e o teu já é teu. O que falta é **ligar** a tua
+conta do Discord à conta que já tens.
+
+Com o `riftvault serve` a correr, noutro terminal:
+
+```
+riftvault multi --ligar
+```
+
+Ele dá-te um endereço. Abre-o no browser **deste PC**, entra com o Discord, e
+está feito. O código serve **uma vez** e expira em 30 minutos.
+
+> **Porque é que o código vem da consola e não é um botão na página?** Porque
+> ter acesso à consola deste PC prova que és tu — e um botão na página não
+> provava nada. Não há nenhum atalho baseado no endereço de quem pede, e isso é
+> deliberado: o túnel da Cloudflare faz **todo** o tráfego da internet chegar ao
+> riftvault como se viesse de dentro do teu PC (`127.0.0.1`), por isso uma regra
+> do tipo «se vem de casa, é o André» dava a tua conta a qualquer visitante.
+
+Confirma:
+
+```
+riftvault multi --verificar
+```
+
+Tem de dizer **`Tu consegues entrar: a tua conta está ligada ao discord`**.
+
+---
+
 ## E agora, abrir
 
 ```

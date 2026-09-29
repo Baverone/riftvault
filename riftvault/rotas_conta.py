@@ -437,14 +437,24 @@ def _redirect_uri(nome: str) -> str:
 
 @bp.get("/entrar/<nome>")
 def entrar(nome: str):
-    """Manda o browser ao fornecedor, ou conclui a volta dele."""
-    try:
-        auth.exigir_porta_aberta(_cfg())
-    except auth.PortaFechada as e:
-        return _resposta(str(e), 403)
+    """Manda o browser ao fornecedor, ou conclui a volta dele.
 
+    O `?ligar=<código>` é o caminho do PRIMEIRO utilizador e **funciona com a
+    porta fechada**, de propósito: o André tem de poder ligar a conta dele antes
+    de abrir, senão abria a porta e ficava do lado de fora da própria coleção. O
+    código vem da consola (`riftvault multi --ligar`), é de uso único e expira —
+    quem tem a consola do PC é o dono do PC, e isso prova mais do que qualquer
+    verificação de endereço.
+    """
     con = _auth_con()
     chave = _chave_do_pedido()
+    convite = request.args.get("ligar")
+
+    if not convite:
+        try:
+            auth.exigir_porta_aberta(_cfg())
+        except auth.PortaFechada as e:
+            return _resposta(str(e), 403)
 
     # O fornecedor LOCAL não anda pelo browser: entra-se de uma vez, com o
     # `sub` no endereço. Só existe em ensaio, e é o `multi.exigir_ensaio` de
@@ -462,10 +472,17 @@ def entrar(nome: str):
 
     try:
         auth.exigir_folga(con, chave, _cfg())
+        # O convite gasta-se AQUI, na ida: se ele desistir a meio, gasta-se um
+        # código e corre-se o comando outra vez. O contrário — gastá-lo na volta
+        # — deixava um código válido à espera no `auth.db`.
+        liga_a = auth.usar_convite(con, convite) if convite else None
         r = auth.comecar(con, nome, redirect_uri=_redirect_uri(nome),
-                         destino=request.args.get("destino"), cfg=_cfg())
+                         destino=request.args.get("destino"),
+                         liga_a=liga_a, cfg=_cfg())
     except auth.DemasiadasTentativas as e:
         return _resposta(str(e), 429)
+    except auth.PedidoInvalido as e:
+        return _resposta(str(e), 400)
     except (auth.ProvedorDesconhecido, auth.ProvedorPorConfigurar) as e:
         return _resposta(str(e), 400)
     resp = redirect(r["url"], code=302)
@@ -538,6 +555,11 @@ def _concluir(nome: str, con, chave: str):
 
     auth.registar_tentativa(con, chave, nome, True)
     user_id = auth.por_identidade(con, ident)
+    # Uma entrada com CONVITE liga-se a uma conta que já existe em vez de
+    # oferecer o registo. É o caminho do André: ele é o utilizador 1 e o slug
+    # dele já é dele, por isso «registar-se» não fazia sentido nenhum.
+    if user_id is None and pedido.get("liga_a"):
+        user_id = int(pedido["liga_a"])
     nova = auth.criar_sessao(con, user_id=user_id, identidade=ident,
                             agente=request.headers.get("User-Agent"),
                             cfg=_cfg())

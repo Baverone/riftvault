@@ -177,13 +177,37 @@ CREATE INDEX IF NOT EXISTS ix_sessions_expira ON sessions(expira_em);
 -- dela acabava com uma sessão da conta DELE, e o que ela escrevesse a seguir ia
 -- para a coleção dele. Guarda-se o SHA-256; o valor em claro vive num cookie
 -- curto que só aquele browser tem.
+-- O `liga_a` é o que resolve o problema do PRIMEIRO utilizador: o André já
+-- existe (é o 1, com o slug `baverone`) e não se pode «registar», porque o slug
+-- dele já é dele. Um pedido com `liga_a` preenchido não cria conta nenhuma —
+-- LIGA a identidade a uma conta que já existe. Ver `criar_convite`.
 CREATE TABLE IF NOT EXISTS auth_pedidos (
     state      TEXT    PRIMARY KEY,
     provedor   TEXT    NOT NULL,
     verifier   TEXT    NOT NULL,
     destino    TEXT,
     nonce_hash TEXT,
+    liga_a     INTEGER,
     criado_em  TEXT    NOT NULL
+);
+
+-- CONVITES DE LIGAÇÃO. Um código de uso único, criado na CONSOLA
+-- (`riftvault multi --ligar`), que autoriza a próxima entrada a ligar-se a uma
+-- conta que já existe em vez de criar outra.
+--
+-- Quem tem a consola do PC é o dono do PC — e isso é uma prova de posse mais
+-- forte do que qualquer verificação de endereço. É de propósito que não há
+-- atalho por IP em lado nenhum deste módulo: o túnel da Cloudflare faz a
+-- internet inteira chegar ao Flask como `127.0.0.1`, e uma regra que confiasse
+-- no loopback dava a conta do André a qualquer visitante.
+--
+-- É também o que faz isto funcionar com a PORTA FECHADA: ele liga a conta
+-- ANTES de abrir, e por isso nunca se abre a porta com ele do lado de fora.
+CREATE TABLE IF NOT EXISTS auth_convites (
+    token_hash TEXT    PRIMARY KEY,
+    user_id    INTEGER NOT NULL,
+    criado_em  TEXT    NOT NULL,
+    usado_em   TEXT
 );
 
 -- As tentativas, para o tecto por hora. Guarda-se a chave (o IP) e não o que
@@ -214,8 +238,22 @@ def abrir() -> sqlite3.Connection:
     con.execute("PRAGMA journal_mode=WAL")
     con.execute("PRAGMA foreign_keys=ON")
     con.executescript(ESQUEMA)
+    _migrar(con)
     con.commit()
     return con
+
+
+def _migrar(con: sqlite3.Connection) -> None:
+    """Colunas que nasceram depois do ficheiro.
+
+    O `CREATE TABLE IF NOT EXISTS` não acrescenta colunas a uma tabela que já
+    exista — é a mesma armadilha do `db._migrar_price_latest`. Aqui não há dados
+    de ninguém em risco (o `auth.db` é sessões e ponteiros), mas apagá-lo
+    obrigava todos a entrar outra vez.
+    """
+    tem = {r["name"] for r in con.execute("PRAGMA table_info(auth_pedidos)")}
+    if "liga_a" not in tem:
+        con.execute("ALTER TABLE auth_pedidos ADD COLUMN liga_a INTEGER")
 
 
 def _agora() -> str:
@@ -555,16 +593,21 @@ COOKIE_NONCE = "riftvault_entrada"
 
 
 def comecar(con: sqlite3.Connection, nome: str, *, redirect_uri: str,
-            destino: str | None = None, cfg: dict | None = None) -> dict:
-    """Prepara uma entrada: devolve o endereço e o `nonce` para o cookie."""
+            destino: str | None = None, liga_a: int | None = None,
+            cfg: dict | None = None) -> dict:
+    """Prepara uma entrada: devolve o endereço e o `nonce` para o cookie.
+
+    Com `liga_a`, esta entrada LIGA-SE a uma conta que já existe em vez de
+    oferecer o registo — é o caminho do primeiro utilizador (ver `criar_convite`).
+    """
     p = provedor(nome)
     p.exigir_configurado(cfg)
     verifier, desafio = par_pkce()
     state = secrets.token_urlsafe(BYTES)
     nonce = secrets.token_urlsafe(BYTES)
     con.execute("INSERT INTO auth_pedidos (state, provedor, verifier, destino, "
-                "nonce_hash, criado_em) VALUES (?, ?, ?, ?, ?, ?)",
-                (state, p.nome, verifier, destino, _hash(nonce), _agora()))
+                "nonce_hash, liga_a, criado_em) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (state, p.nome, verifier, destino, _hash(nonce), liga_a, _agora()))
     con.commit()
     b = p._bloco(cfg)
     return {"state": state, "nonce": nonce,
@@ -611,6 +654,59 @@ def limpar_pedidos(con: sqlite3.Connection) -> int:
     cur = con.execute("DELETE FROM auth_pedidos WHERE criado_em < ?", (limite,))
     con.commit()
     return cur.rowcount
+
+
+# --------------------------------------------------------------------------
+# Convites de ligação — o caminho do PRIMEIRO utilizador
+# --------------------------------------------------------------------------
+#
+# O André já existe: é o utilizador 1, com o slug `baverone`. Na primeira vez
+# que entrasse com o Discord, o riftvault não o reconhecia (não há identidade
+# ligada) e oferecia-lhe o REGISTO — e o registo pedia um slug que ele não podia
+# escolher, porque o dele já é dele. Ficava a olhar para um formulário sem saída,
+# e a coleção de um mês do outro lado.
+#
+# A saída é um código de uso único, criado na consola do PC dele.
+
+CONVITE_MINUTOS = 30
+
+
+def criar_convite(con: sqlite3.Connection, user_id: int) -> str:
+    """Um código de uso único que liga a próxima entrada a esta conta.
+
+    Devolve-o EM CLARO — é a única vez que existe; na base fica o SHA-256.
+    """
+    token = secrets.token_urlsafe(BYTES)
+    con.execute("INSERT INTO auth_convites (token_hash, user_id, criado_em) "
+                "VALUES (?, ?, ?)", (_hash(token), int(user_id), _agora()))
+    con.commit()
+    return token
+
+
+def usar_convite(con: sqlite3.Connection, token: str) -> int:
+    """Gasta o convite e devolve o `user_id`. Uma vez e só uma."""
+    row = con.execute("SELECT * FROM auth_convites WHERE token_hash = ?",
+                      (_hash(token or ""),)).fetchone()
+    if row is None:
+        raise PedidoInvalido(
+            "este código de ligação não existe. Corre `riftvault multi --ligar` "
+            "outra vez.")
+    if row["usado_em"]:
+        raise PedidoInvalido(
+            "este código de ligação já foi usado. Corre `riftvault multi "
+            "--ligar` outra vez.")
+    if _passou((datetime.fromisoformat(row["criado_em"])
+                + timedelta(minutes=CONVITE_MINUTOS)).isoformat()):
+        con.execute("DELETE FROM auth_convites WHERE token_hash = ?",
+                    (row["token_hash"],))
+        con.commit()
+        raise PedidoInvalido(
+            f"este código de ligação passou dos {CONVITE_MINUTOS} minutos. "
+            f"Corre `riftvault multi --ligar` outra vez.")
+    con.execute("UPDATE auth_convites SET usado_em = ? WHERE token_hash = ?",
+                (_agora(), row["token_hash"]))
+    con.commit()
+    return int(row["user_id"])
 
 
 # --------------------------------------------------------------------------

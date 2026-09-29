@@ -2075,6 +2075,21 @@ def cmd_multi(args) -> int:
     """
     from . import abrir as porta
 
+    if args.ligar:
+        try:
+            r = porta.ligar(provedor=args.provedor, porta=args.porta)
+        except Exception as e:
+            print(f"\n{e}\n", file=sys.stderr)
+            return 1
+        print(f"Abre isto no browser e entra com o {r['etiqueta']}:\n")
+        print(f"    {r['url']}\n")
+        if r.get("url_publico"):
+            print(f"  (de fora de casa: {r['url_publico']})\n")
+        print(f"Liga a tua conta («{r['slug']}») ao {r['etiqueta']}. O código "
+              f"serve UMA vez e expira em {r['minutos']} minutos.")
+        print("Precisa do `riftvault serve` a correr noutro terminal.")
+        return 0
+
     if args.abrir:
         try:
             r = porta.abrir(forcar=args.forcar)
@@ -2118,6 +2133,15 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--fechar", action="store_true", help="volta a fechar")
     p.add_argument("--forcar", action="store_true",
                    help="abre mesmo com coisas em falta (não uses sem ler o que falta)")
+    # O caminho do PRIMEIRO utilizador: ele já existe e por isso não se pode
+    # «registar». Ver `abrir.ligar`.
+    p.add_argument("--ligar", action="store_true",
+                   help="dá um endereço de uso único para ligares a TUA conta "
+                        "a um fornecedor (funciona com a porta fechada)")
+    p.add_argument("--provedor", default="discord",
+                   help="o fornecedor do --ligar (discord por omissão)")
+    p.add_argument("--porta", type=int, default=8770,
+                   help="a porta onde o `serve` está a correr (8770 por omissão)")
     p.set_defaults(func=cmd_multi)
 
     p = sub.add_parser("sync", help="descarrega o catálogo da RiftScribe")

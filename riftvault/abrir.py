@@ -226,10 +226,54 @@ def _ele_entra(cfg: dict) -> dict:
         "Tu consegues entrar", False,
         f"a tua conta ({dono.get('slug')}) ainda não está ligada a nenhum "
         f"fornecedor.",
-        "Com a porta ainda fechada isto não te incomoda — mas depois de abrires, "
+        "Com a porta fechada isto não te incomoda — mas depois de abrires, "
         "escrever passa a exigir entrar, e ficavas de fora da tua própria "
-        "coleção. Arranca o `riftvault serve`, abre a app, entra com o Discord "
-        "uma vez, e volta a correr este comando.")
+        "coleção. Com o `riftvault serve` a correr, corre `riftvault multi "
+        "--ligar` noutro terminal: ele dá-te um endereço para abrires no "
+        "browser, entras com o Discord uma vez, e fica ligado. Depois volta a "
+        "correr este comando.")
+
+
+def ligar(provedor: str = "discord", porta: int = 8770,
+          cfg: dict | None = None) -> dict:
+    """Um endereço de uso único que liga a conta DELE a um fornecedor.
+
+    É o caminho do primeiro utilizador, e existe porque o André **já existe**:
+    é o utilizador 1, com o slug `baverone`. Na primeira entrada o riftvault não
+    o reconhecia (não há identidade ligada) e oferecia-lhe o REGISTO — que lhe
+    pedia um slug que ele não podia escolher, porque o dele já é dele. Ficava a
+    olhar para um formulário sem saída.
+
+    O código vem da CONSOLA de propósito: quem tem a consola do PC é o dono do
+    PC, e isso prova mais do que qualquer verificação de endereço — o túnel da
+    Cloudflare faz a internet inteira chegar ao Flask como `127.0.0.1`.
+
+    E funciona com a porta FECHADA, que é o ponto: ele liga a conta antes de
+    abrir, e por isso nunca se abre a porta com ele do lado de fora.
+    """
+    from . import utilizador
+
+    cfg = cfg if cfg is not None else config.load()
+    p = auth.provedor(provedor)
+    p.exigir_configurado(cfg)
+    dono = utilizador.registo(1)
+    con = auth.abrir()
+    try:
+        token = auth.criar_convite(con, 1)
+    finally:
+        con.close()
+    base = str((cfg.get("auth") or {}).get("base_url") or "").rstrip("/")
+    local = f"http://localhost:{porta}"
+    return {
+        "provedor": p.nome,
+        "etiqueta": p.etiqueta,
+        "slug": dono.get("slug"),
+        "minutos": auth.CONVITE_MINUTOS,
+        # O de casa primeiro: é onde ele está quando corre isto.
+        "url": f"{local}/entrar/{p.nome}?ligar={token}",
+        "url_publico": (f"{base}/entrar/{p.nome}?ligar={token}"
+                        if base else None),
+    }
 
 
 # --------------------------------------------------------------------------
