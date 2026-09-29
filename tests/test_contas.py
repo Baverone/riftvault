@@ -486,6 +486,12 @@ class TestHigieneDoCliente(Base):
         js = APP_JS.read_text(encoding="utf-8")
         self.assertIn("state.editable = !!state.index.editable && meu", js)
 
+    def test_o_site_publicado_nao_pede_a_conta(self):
+        """Lá não há rota: sem isto, cada visita deixava um 404 na consola."""
+        js = APP_JS.read_text(encoding="utf-8")
+        self.assertIn("state.index.editable\n    ? await getJSON('api/conta.json')",
+                      js.replace("\r\n", "\n"))
+
 
 # --------------------------------------------------------------------------
 # 7. O `multi --verificar`

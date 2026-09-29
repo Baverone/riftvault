@@ -714,11 +714,16 @@ async function boot() {
   renderNav();
 
   // QUEM SOU EU (2026-09-29). Com a porta das contas fechada isto responde
-  // `{aberto: false, editavel: true}` e o `editable` é o de sempre — o
-  // ficheiro estático publicado nem tem esta rota, e por isso o `catch`
-  // devolve o mesmo. Com a porta aberta, EDITAR É «estou dentro E isto é
-  // meu»: sem sessão a página é de leitura, como a de um amigo é para mim.
-  state.conta = await getJSON('api/conta.json').catch(() => null);
+  // `{aberto: false, editavel: true}` e o `editable` é o de sempre. Com a porta
+  // aberta, EDITAR É «estou dentro E isto é meu»: sem sessão a página é de
+  // leitura, como a de um amigo é para mim.
+  //
+  // No SITE PUBLICADO não se pergunta: aquilo são ficheiros e não há rota
+  // nenhuma. Sem esta condição cada visita à cópia publicada deixava um 404 de
+  // `api/conta.json` na consola — a página funcionava (o `catch` devolvia
+  // `null`), mas um 404 no site dele lê-se como avaria.
+  state.conta = state.index.editable
+    ? await getJSON('api/conta.json').catch(() => null) : null;
   const meu = !state.conta || state.conta.editavel !== false;
   state.editable = !!state.index.editable && meu;
   renderConta();
