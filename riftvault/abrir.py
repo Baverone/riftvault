@@ -104,8 +104,10 @@ def verificar(cfg: dict | None = None) -> dict:
             "Entrar sem password", False,
             f"nenhum fornecedor configurado — {falta}.",
             "É o PASSO 1 do docs/abrir-a-porta.md: cria a aplicação no Discord "
-            "(cinco minutos) e cola o client_id e o client_secret em `auth.discord` "
-            "do riftvault_config.json."))
+            "(cinco minutos). O client_id vai para `auth.discord.client_id` do "
+            "riftvault_config.json; o client_secret vai para o AMBIENTE, com "
+            "`setx RIFTVAULT_DISCORD_SECRET \"o-segredo\"` numa consola nova — "
+            "esse ficheiro está commitado num repositório público."))
 
     # 2. O endereço de volta.
     base = str((cfg.get("auth") or {}).get("base_url") or "").strip()
