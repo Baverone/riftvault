@@ -30,6 +30,20 @@ CREATE TABLE IF NOT EXISTS users (
     -- que impede um slug de fugir da pasta.
     slug       TEXT NOT NULL UNIQUE,
     criado_em  TEXT NOT NULL,
+    -- O QUE O PÚBLICO VÊ (2026-09-29): `nada` | `sem-valores` | `tudo`. Ver
+    -- `riftvault/privacidade.py`.
+    --
+    -- A OMISSÃO É `nada`, A MAIS FECHADA, e é decisão: publicar a coleção de
+    -- outra pessoa tem de ser um acto ESCOLHIDO e não uma coisa que se herda
+    -- de um valor por omissão. Uma página pública indexa-se e fica em cache em
+    -- sítios que não controlamos — na prática não se despublica. O André fica
+    -- em `tudo`, que é o que ele já escolheu e tem hoje.
+    --
+    -- Quem MANDA é a cópia do REGISTO; a que viaja dentro de cada `vault.db` é
+    -- descritiva (`db._carimbar_dono`), para o ficheiro se explicar a quem o
+    -- restaura.
+    publico    TEXT NOT NULL DEFAULT 'nada'
+               CHECK (publico IN ('nada', 'sem-valores', 'tudo')),
     -- ONDE A IDENTIDADE VAI ENCAIXAR — e continua VAZIO de propósito. Esta
     -- corrida é a fundação do modelo de dados, não a autenticação.
     --

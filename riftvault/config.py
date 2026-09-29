@@ -17,13 +17,44 @@ PKG = ROOT / "riftvault"
 WEB_DIR = PKG / "web"
 
 # Dá para apontar as bases para outro sítio sem mexer no código (à mtgvault).
-DATA_DIR = Path(os.environ.get("RIFTVAULT_DATA", ROOT / "data"))
+# ---------------------------------------------------------------------------
+# O SÍTIO PARA PARTIR COISAS (2026-09-29). Ver `riftvault/multi.py`.
+#
+# Até aqui tudo se mede contra CÓPIAS do `data/` mas corre contra o `main` e o
+# 8770 — a máquina dele, com a coleção dele. Com dados de terceiros lá dentro
+# isso deixa de chegar.
+#
+# É uma variável do AMBIENTE e não uma chave do config, de propósito: uma
+# chave de ensaio dentro de um ficheiro que vai para o Git está a um merge de
+# distância de ir para produção ligada. Uma variável de ambiente não se
+# commita.
+# ---------------------------------------------------------------------------
+ENSAIO = os.environ.get("RIFTVAULT_ENSAIO", "").strip().lower() in (
+    "1", "true", "sim", "yes", "on")
+
+_DADOS_OMISSAO = ROOT / ("data-ensaio" if ENSAIO else "data")
+_CONFIG_OMISSAO = ROOT / ("riftvault_config-ensaio.json" if ENSAIO
+                          else "riftvault_config.json")
+
+DATA_DIR = Path(os.environ.get("RIFTVAULT_DATA", _DADOS_OMISSAO))
 VAULT_DB = Path(os.environ.get("RIFTVAULT_DB", DATA_DIR / "vault.db"))
 CATALOG_DB = Path(os.environ.get("RIFTVAULT_CATALOG", DATA_DIR / "catalog.db"))
 PRICES_DB = Path(os.environ.get("RIFTVAULT_PRICES", DATA_DIR / "prices.db"))
 IMAGES_DIR = Path(os.environ.get("RIFTVAULT_IMAGES", DATA_DIR / "images"))
 DECKS_DIR = Path(os.environ.get("RIFTVAULT_DECKS", ROOT / "decks"))
-CONFIG_PATH = Path(os.environ.get("RIFTVAULT_CONFIG", ROOT / "riftvault_config.json"))
+CONFIG_PATH = Path(os.environ.get("RIFTVAULT_CONFIG", _CONFIG_OMISSAO))
+
+# O ENSAIO NÃO USA O `data/` A SÉRIO, e isto rebenta à importação em vez de
+# deixar acontecer. É o erro que o ensaio existe para não deixar cometer:
+# correr uma experiência com a coleção verdadeira por baixo. Um
+# `RIFTVAULT_DATA` apontado ao `data/` com o ensaio ligado é engano, não
+# escolha.
+if ENSAIO and DATA_DIR.resolve() == (ROOT / "data").resolve():
+    raise RuntimeError(
+        "RIFTVAULT_ENSAIO está ligado mas o RIFTVAULT_DATA aponta para o "
+        f"`{ROOT / 'data'}` — a coleção a sério. O ensaio usa o "
+        f"`{ROOT / 'data-ensaio'}`; tira o RIFTVAULT_DATA ou aponta-o para "
+        "outro sítio.")
 # O «seguir jogadores» (2026-09-17): o estado (`estado.json`, vai para o Git)
 # e a última página lida de cada endereço (`paginas/`, não vai). Ver `seguir.py`.
 SEGUIR_DIR = Path(os.environ.get("RIFTVAULT_SEGUIR", DATA_DIR / "seguir"))
@@ -540,6 +571,41 @@ def escrever_lista(seccao: str, chave: str, valores: list[str]) -> list[str]:
 _VALOR = r'(\[[^\]]*\]|"(?:[^"\\]|\\.)*"|null|true|false|-?\d+(?:\.\d+)?)'
 
 
+class ConfigPartilhado(RuntimeError):
+    """Escrever no `riftvault_config.json` como outro utilizador.
+
+    Ver `_so_o_dono_do_config`. Não é uma leitura indevida — é uma ESCRITA
+    CRUZADA, e por isso rebenta em vez de avisar.
+    """
+
+
+def _so_o_dono_do_config() -> None:
+    """O config é UM ficheiro para todos, e por isso só o dono dele escreve.
+
+    O FURO QUE ISTO TAPA (2026-09-29, apanhado pela sessão da autenticação): a
+    separação do multi-utilizador é POR FICHEIRO de base de dados, e esta
+    escrita **não passa pelo SQLite** — escapa ao guarda do `guarda.py`, que
+    só vê SQL. São dois botões: «montar/desmontar» um deck
+    (`decks.alternar_montado` → `decks.montados`) e o «Deck Principal»
+    (`decks.escrever_principal` → `decks.principal`). Sem isto, um amigo
+    autenticado a carregar em «Montar» escrevia o slug do deck DELE na lista
+    do André.
+
+    Enquanto o config não for por utilizador (é a fatia seguinte — ver
+    `docs/multi-utilizador.md`, secção 6), a resposta certa é recusar: o
+    estado dos decks fica de fora para quem não é o dono do ficheiro, o que é
+    limitação, mas é menos mau do que escrever na casa de outro.
+    """
+    from . import utilizador
+    uid = utilizador.atual()
+    if uid != utilizador.ANDRE:
+        raise ConfigPartilhado(
+            f"o `{CONFIG_PATH.name}` é um ficheiro só, partilhado por toda a "
+            f"gente, e o utilizador desta sessão é o {uid}. Escrever aqui "
+            f"mudava a configuração do dono — é escrita cruzada. O config por "
+            f"utilizador é a fatia seguinte (ver `docs/multi-utilizador.md`).")
+
+
 def escrever_valor(seccao: str, chave: str, valor):
     """Escreve `<seccao>.<chave>` no `riftvault_config.json`, **sem reformatar
     o resto do ficheiro**, e relê o config.
@@ -557,6 +623,7 @@ def escrever_valor(seccao: str, chave: str, valor):
     Devolve o valor escrito. Sem ficheiro nenhum (os testes que apontam o
     `RIFTVAULT_CONFIG` para um caminho que não existe) cria um com a secção.
     """
+    _so_o_dono_do_config()
     texto = json.dumps(valor, ensure_ascii=False)
     if not CONFIG_PATH.exists():
         CONFIG_PATH.write_text(
@@ -641,6 +708,15 @@ def decks_dir(con=None) -> Path:
     """
     from . import utilizador
     uid = getattr(con, "riftvault_user", None)
+    # UMA LIGAÇÃO SEM DONO NÃO É «O ANDRÉ» (2026-09-29, a ordem das guardas):
+    # devolver-lhe a pasta dele era servir as listas de uma pessoa a quem não
+    # se sabe se elas pertencem. Sem ligação nenhuma (`con=None`) continua a
+    # ser o André, que é o uso legítimo da CLI e o comportamento de sempre.
+    from . import guarda
+    if isinstance(con, guarda.Ligacao) and uid is None:
+        raise guarda.SemDono(
+            "as listas de deck são de dono e esta ligação não sabe de quem: "
+            "abre a base pelo `db.connect()`.")
     if uid is None or uid == utilizador.ANDRE:
         return DECKS_DIR
     d = utilizador.pasta(utilizador.registo(uid)["slug"]) / "decks"
