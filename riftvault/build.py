@@ -31,7 +31,8 @@ import shutil
 from pathlib import Path
 
 from . import (a_mais, a_subir, config, db, decks, faltas, faltas_foil, metrics,
-               pending, principal, runas_vista, selado, venda)
+               multi, pending, principal, privacidade, runas_vista, selado,
+               utilizador, venda)
 
 # A pasta das imagens fica de fora da comparação: em `static_images: "local"`
 # são ~88 MB e não dependem da colecção — o que muda nelas é o `riftvault
@@ -78,28 +79,115 @@ def mesmo_conteudo(a: Path, b: Path) -> bool:
     return True
 
 
+def mesmo_conteudo_raiz(a: Path, b: Path) -> bool:
+    """Como o `mesmo_conteudo`, mas SÓ o site da raiz — ignora o `u/<slug>/`.
+
+    Serve uma pergunta só, e é a da checklist 17: **abrir as portas muda o
+    site DELE?** Comparar as pastas inteiras respondia outra coisa (com as
+    portas abertas há pastas a mais, e é suposto).
+    """
+    def so_raiz(raiz: Path) -> dict[str, Path]:
+        return {n: p for n, p in _ficheiros(raiz).items()
+                if not n.startswith("u/")}
+    fa, fb = so_raiz(a), so_raiz(b)
+    if fa.keys() != fb.keys():
+        return False
+    for nome, pa in fa.items():
+        pb = fb[nome]
+        if nome.endswith(".json"):
+            try:
+                ja = _sem_relogio(json.loads(pa.read_text(encoding="utf-8")))
+                jb = _sem_relogio(json.loads(pb.read_text(encoding="utf-8")))
+            except (OSError, ValueError):
+                return False
+            if ja != jb:
+                return False
+        elif pa.read_bytes() != pb.read_bytes():
+            return False
+    return True
+
+
 def build(out_dir: Path | str | None = None, log=print,
-          so_se_mudou: bool = False) -> dict:
+          so_se_mudou: bool = False, user_id: int | None = None) -> dict:
+    """O site de UM utilizador, com a privacidade dele respeitada.
+
+    `publico = "nada"` não gera nada — nem a pasta. É a omissão de quem entra
+    de novo, e é a leitura certa de «o que o público vê»: quem não escolheu
+    publicar não publicou.
+    """
     out = Path(out_dir or config.ROOT / "site")
+    uid = utilizador.atual() if user_id is None else int(user_id)
+    modo = privacidade.de(None, uid)
+    if not privacidade.publica(modo):
+        log(f"«{utilizador.registo(uid)['slug']}» tem a privacidade em "
+            f"«{modo}» — não se gera site nenhum.")
+        return {"out": str(out), "sets": 0, "images": 0, "mudou": False,
+                "publico": modo, "gerado": False}
     if so_se_mudou and (out / "api" / "index.json").exists():
         prova = out.parent / (out.name + "-prova")
         shutil.rmtree(prova, ignore_errors=True)
         try:
-            _gerar(prova, log=lambda *_: None, imagens=False)
+            _gerar(prova, log=lambda *_: None, imagens=False, user_id=uid,
+                   modo=modo)
             igual = mesmo_conteudo(out, prova)
         finally:
             shutil.rmtree(prova, ignore_errors=True)
         if igual:
             log("O site já está em dia — nada mudou desde a última geração.")
             return {"out": str(out), "sets": 0, "images": 0, "mudou": False,
+                    "publico": modo, "gerado": True,
                     "image_mode": ("local" if config.load().get("static_images")
                                    == "local" else "remote")}
-    res = _gerar(out, log=log, imagens=True)
+    res = _gerar(out, log=log, imagens=True, user_id=uid, modo=modo)
     res["mudou"] = True
+    res["publico"] = modo
+    res["gerado"] = True
     return res
 
 
-def _gerar(out_dir: Path | str, log=print, imagens: bool = True) -> dict:
+def build_todos(out_dir: Path | str | None = None, log=print,
+                cfg: dict | None = None, so_se_mudou: bool = False) -> dict:
+    """O site DELE na raiz, e o de cada utilizador em `u/<slug>/`.
+
+    **COM AS PORTAS FECHADAS (`multi.aberto: false`, que é a omissão) SÓ SAI O
+    DELE**, e sai exactamente como sai hoje — mesmo que haja utilizadores no
+    registo e mesmo que algum deles tenha escolhido `publico: "tudo"`. É o
+    ponto 9 da ordem de 2026-09-29: *"Quero apenas apresentar quando tiver
+    tudo"*. Quando ele quiser abrir, muda-se **um valor** no config.
+
+    O mecanismo de gerar os outros EXISTE e é exercitado em teste
+    (`test_privacidade.TestPortasFechadas`) — «não publica» tem de ser uma
+    escolha, não uma incapacidade; senão no dia de abrir descobria-se que não
+    estava feito.
+    """
+    cfg = config.load() if cfg is None else cfg
+    out = Path(out_dir or config.ROOT / "site")
+    res = build(out, log=log, so_se_mudou=so_se_mudou,
+                user_id=utilizador.ANDRE)
+    outros, saltados = [], []
+    for u in utilizador.todos():
+        if u["user_id"] == utilizador.ANDRE:
+            continue
+        modo = privacidade.de(None, u["user_id"])
+        if not multi.aberto(cfg):
+            saltados.append((u["slug"], "portas fechadas"))
+            continue
+        if not privacidade.publica(modo):
+            saltados.append((u["slug"], f"privacidade «{modo}»"))
+            continue
+        r = build(out / "u" / u["slug"], log=lambda *_: None,
+                  user_id=u["user_id"])
+        outros.append({"slug": u["slug"], "publico": modo, **r})
+    if saltados:
+        log("  não publicados: " + " · ".join(f"{s} ({p})" for s, p in saltados))
+    res["outros"] = outros
+    res["saltados"] = saltados
+    res["aberto"] = multi.aberto(cfg)
+    return res
+
+
+def _gerar(out_dir: Path | str, log=print, imagens: bool = True,
+           user_id: int | None = None, modo: str = "tudo") -> dict:
     cfg = config.load()
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -117,7 +205,21 @@ def _gerar(out_dir: Path | str, log=print, imagens: bool = True) -> dict:
 
     image_mode = "local" if cfg.get("static_images") == "local" else "remote"
 
-    con = db.connect()  # não readonly: garante o schema num clone fresco
+    def escrever(caminho: Path, payload) -> None:
+        """A ÚNICA porta por onde um payload sai para o disco.
+
+        É aqui que a privacidade se aplica (2026-09-29): com `publico:
+        "sem-valores"` o `privacidade.limpar` tira todas as quantias antes de
+        o JSON ser escrito. Uma porta só, e não quinze `json.dumps` espalhados,
+        porque um payload novo que não passe por aqui é uma fuga silenciosa —
+        e há teste que recusa um `json.dumps` neste ficheiro fora daqui.
+        """
+        caminho.parent.mkdir(parents=True, exist_ok=True)
+        caminho.write_text(
+            json.dumps(privacidade.limpar(payload, modo), ensure_ascii=False,
+                       separators=(",", ":")), encoding="utf-8")
+
+    con = db.connect(user_id=user_id)  # não readonly: garante o schema num clone fresco
     # As listas TÊM de ser relidas antes dos payloads da Coleção: o nome do deck
     # que aparece em cada tile ("2× Ornn · 1 na Coleção") sai da tabela `decks`
     # do vault.db, e a alocação por prioridade da secção Decks sai das listas. O
@@ -131,73 +233,55 @@ def _gerar(out_dir: Path | str, log=print, imagens: bool = True) -> dict:
     api_dir.mkdir(parents=True, exist_ok=True)
 
     index = metrics.index_payload(con, editable=False, image_mode=image_mode, cfg=cfg)
-    (out / "api" / "index.json").write_text(
-        json.dumps(index, ensure_ascii=False, separators=(",", ":")), encoding="utf-8"
-    )
+    escrever(out / "api" / "index.json", index)
 
     n_sets = 0
     for s in index["sets"]:
         payload = metrics.set_payload(con, s["id"], editable=False, image_mode=image_mode)
-        (api_dir / f"{s['id']}.json").write_text(
-            json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8"
-        )
+        escrever(api_dir / f"{s['id']}.json", payload)
         n_sets += 1
         log(f"  api/set/{s['id']}.json  ({len(payload['groups'])} grupos)")
     # O bloco «Runas — 12 de cada» do fim da grelha (2026-09-19): o contador
     # dele, um ficheiro para as cinco edições. Não conta para nada — e no
     # site publicado é só de leitura (`editable: False`, sem `+`/`−`).
     runas = runas_vista.payload(con, cfg, image_mode=image_mode, editable=False)
-    (out / "api" / "runas.json").write_text(
-        json.dumps(runas, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    escrever(out / "api" / "runas.json", runas)
     log(f"  api/runas.json  ({runas['totals']['cards']} runas, contador "
         f"{runas['totals']['contador']} · na coleção {runas['totals']['total']} — só para ver)")
     con.close()
 
     # Decks: os mesmos URLs que o servidor serve em modo edição.
-    con = db.connect()
+    con = db.connect(user_id=user_id)
     deck_dir = out / "api" / "deck"
     deck_dir.mkdir(parents=True, exist_ok=True)
     index_decks = decks.decks_index(con)
-    (out / "api" / "decks.json").write_text(
-        json.dumps({"editable": False, "decks": index_decks, "rules": decks.rules(),
-                    "ordem_fixa": decks.ordem_fixa(), "so_base": decks.so_base(),
-                    "raridade_colecao": decks.raridade_da_colecao(),
-                    # O DECK PRINCIPAL (2026-09-27): quem é. A wantlist dele
-                    # vai no payload de cada deck, como tudo o resto.
-                    "principal": principal.estado(con)},
-                   ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    escrever(out / "api" / "decks.json",
+             {"editable": False, "decks": index_decks, "rules": decks.rules(),
+              "ordem_fixa": decks.ordem_fixa(), "so_base": decks.so_base(),
+              "raridade_colecao": decks.raridade_da_colecao(),
+              # O DECK PRINCIPAL (2026-09-27): quem é. A wantlist dele
+              # vai no payload de cada deck, como tudo o resto.
+              "principal": principal.estado(con)})
     for d in index_decks:
-        (deck_dir / f"{d['id']}.json").write_text(
-            json.dumps(decks.deck_payload(con, d["id"]), ensure_ascii=False,
-                       separators=(",", ":")), encoding="utf-8")
+        escrever(deck_dir / f"{d['id']}.json", decks.deck_payload(con, d["id"]))
     # O `api/faltas.json` (o antigo separador «Faltas», até 2026-09-15)
     # partiu-se na wantlist da Coleção e nas listas de compra dos decks. (A
     # terceira parte, a tabela de preços, saiu com o separador dela a
     # 2026-09-19 — ver o CLAUDE.md.)
-    (out / "api" / "wantlist.json").write_text(
-        json.dumps(a_subir.master_faltas(con), ensure_ascii=False, separators=(",", ":")),
-        encoding="utf-8")
-    (out / "api" / "compras.json").write_text(
-        json.dumps(faltas.compras(con), ensure_ascii=False, separators=(",", ":")),
-        encoding="utf-8")
+    escrever(out / "api" / "wantlist.json", a_subir.master_faltas(con))
+    escrever(out / "api" / "compras.json", faltas.compras(con))
     # O separador «Faltas» (2026-09-15, fim da tarde): por edição, as DUAS
     # metades — os quatro blocos de NORMAIS e, desde 2026-09-27, as FOILS à
     # parte, com a quinta wantlist.
     fe = faltas_foil.payload_completo(con)
-    (out / "api" / "faltas_edicao.json").write_text(
-        json.dumps(fe, ensure_ascii=False, separators=(",", ":")),
-        encoding="utf-8")
+    escrever(out / "api" / "faltas_edicao.json", fe)
     # O separador «A mais» (2026-09-17): o excedente e as libertadas dos decks.
     am = a_mais.payload(con)
-    (out / "api" / "a_mais.json").write_text(
-        json.dumps(am, ensure_ascii=False, separators=(",", ":")),
-        encoding="utf-8")
+    escrever(out / "api" / "a_mais.json", am)
     # As encomendas (2026-09-11): a lista do que está a caminho, só de leitura
     # no site publicado — os `+`/`−` são do modo edição.
     encomendas = {"editable": False, **pending.encomendas(con)}
-    (out / "api" / "encomendas.json").write_text(
-        json.dumps(encomendas, ensure_ascii=False, separators=(",", ":")),
-        encoding="utf-8")
+    escrever(out / "api" / "encomendas.json", encomendas)
     # O separador «Encomendas» (2026-09-17): a grelha da Coleção de Rara para
     # cima, uma por edição, com o que vem a caminho. Sem controlos no site
     # publicado — o `editable: False` é o mesmo flag da Coleção.
@@ -205,21 +289,18 @@ def _gerar(out_dir: Path | str, log=print, imagens: bool = True) -> dict:
     # publicado — juntar, tirar, escrever o Trend e «marcar como vendidas» são
     # do modo edição (o `editable: False` é o mesmo flag da Coleção).
     vd = venda.payload(con, cfg, editable=False)
-    (out / "api" / "venda.json").write_text(
-        json.dumps(vd, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    escrever(out / "api" / "venda.json", vd)
     # O «Produto Selado» (2026-09-25): a lista do que há, do que ele tem e do
     # que não tem. Só de leitura no site publicado — os `+`/`−` são do modo
     # edição (o mesmo `editable: False` da Coleção).
     sl = selado.payload(con, cfg, editable=False)
-    (out / "api" / "selado.json").write_text(
-        json.dumps(sl, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    escrever(out / "api" / "selado.json", sl)
     enc_dir = out / "api" / "encomendas"
     enc_dir.mkdir(parents=True, exist_ok=True)
     n_enc = 0
     for s in index["sets"]:
         g = pending.grelha(con, s["id"], editable=False, image_mode=image_mode, cfg=cfg)
-        (enc_dir / f"{s['id']}.json").write_text(
-            json.dumps(g, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+        escrever(enc_dir / f"{s['id']}.json", g)
         n_enc += g["totals"]["printings"]
     con.close()
     log(f"  api/decks.json  ({len(index_decks)} decks, "

@@ -14,7 +14,7 @@ import sqlite3
 from datetime import datetime
 from pathlib import Path
 
-from . import config, utilizador
+from . import config, guarda, utilizador
 
 # AS TABELAS DE DONO (2026-09-29). São as que guardam o que é de UMA pessoa, e
 # são as que levaram a coluna `user_id`. Fica aqui, numa lista só, porque três
@@ -37,7 +37,7 @@ TABELAS_DE_DONO = (
 )
 
 
-class Ligacao(sqlite3.Connection):
+class Ligacao(guarda.Ligacao):
     """Uma ligação que sabe DE QUEM são os dados que tem abertos.
 
     O `sqlite3.Connection` não deixa pôr-lhe atributos (não tem `__dict__`), e
@@ -45,11 +45,12 @@ class Ligacao(sqlite3.Connection):
     nenhuma recebe um `user_id`. Uma subclasse é a maneira de o fazer sem
     mudar 134 assinaturas.
 
-    `None` é uma ligação aberta por fora do `db.connect` (um teste, uma
-    migração): quem o lê trata-a como sendo do André, que é o comportamento de
-    sempre.
+    **`riftvault_user = None` NÃO quer dizer «o André»** (2026-09-29, a ordem
+    das guardas): quer dizer «não se sabe», e nesse estado **tocar numa das
+    `TABELAS_DE_DONO` rebenta** (`guarda.SemDono`), com a tabela nomeada. É a
+    diferença entre um esquecimento que se vê e um que serve a coleção de
+    alguém a quem não é dono dela — ver `riftvault/guarda.py`.
     """
-    riftvault_user: int | None = None
 
 
 def _apply_schema(con: sqlite3.Connection, sql_file: str, schema: str = "main") -> None:
@@ -90,7 +91,13 @@ def backup(con: sqlite3.Connection, motivo: str, schema: str = "main",
         f"{nome}-{motivo}-{datetime.now().strftime('%Y%m%d-%H%M%S')}.db")
     try:
         alvo.parent.mkdir(parents=True, exist_ok=True)
-        con.execute(f"VACUUM {schema} INTO ?", (str(alvo),))
+        # O `guarda.a_copiar` é preciso e não é enfeite: o `VACUUM INTO`
+        # **anexa o ficheiro de destino por dentro**, e o guarda recusa
+        # `ATTACH` numa ligação já ligada a um utilizador. Medido a
+        # 2026-09-29 — sem esta porta, armar o guarda partia todas as
+        # migrações com backup.
+        with guarda.a_copiar(con):
+            con.execute(f"VACUUM {schema} INTO ?", (str(alvo),))
         return alvo
     except (sqlite3.Error, OSError):
         return None
@@ -314,6 +321,11 @@ def _migrate(con: sqlite3.Connection) -> None:
     # deixou de ser principal.
     _migrar_sale_lines_origem(con)
 
+    # O que o público vê (2026-09-29): a coluna `users.publico`, numa base que
+    # já tenha a tabela sem ela. Ver `privacidade.migrar`.
+    from . import privacidade
+    privacidade.migrar(con)
+
     # De quem é cada linha (2026-09-29, multi-utilizador). Vem depois das
     # outras de propósito: as que refazem tabelas (o tecto do foil) têm de
     # correr antes de haver uma coluna a mais para copiar.
@@ -410,6 +422,37 @@ def connect(readonly: bool = False, user_id: int | None = None) -> sqlite3.Conne
         # Git (`utilizador.registo_db`).
         _carimbar_dono(con, uid)
     con.riftvault_user = uid
+    # O GUARDA arma-se no fim, e a ordem importa: o catálogo e os preços já
+    # estão anexados (depois disto a ligação não anexa mais nada) e o dono já
+    # está posto (senão a própria migração rebentava). Ver `guarda.py`.
+    guarda.armar(con, TABELAS_DE_DONO)
+    return con
+
+
+def abrir_vault(caminho: Path, user_id: int, readonly: bool = True) -> Ligacao:
+    """Um `vault.db` À PARTE, pelo caminho, para trabalho de FICHEIRO.
+
+    Não é a porta de quem lê a coleção — essa é o `connect()`, e é a única que
+    anexa o catálogo, corre as migrações e carimba o dono. Isto é para quem
+    precisa de abrir um ficheiro que ainda não está em serviço: o
+    `conta.exportar` (contar as linhas e copiar), o `conta.importar` (ver de
+    quem são as linhas ANTES de o pôr na pasta de alguém) e as medições.
+
+    Vive aqui e não no `conta.py` para o `tests/test_isolamento.py` poder
+    continuar a exigir que **ninguém abra uma base fora do `db.py`** — é essa
+    regra que impede alguém chegar ao ficheiro errado sem passar por nenhuma
+    das outras guardas.
+
+    Leva o dono e o guarda armado, como qualquer ligação desta casa.
+    """
+    con = sqlite3.connect(caminho, timeout=15.0, isolation_level=None,
+                          factory=Ligacao)
+    con.row_factory = sqlite3.Row
+    if not readonly:
+        _apply_schema(con, "users_schema.sql")
+        _apply_schema(con, "schema.sql")
+    con.riftvault_user = int(user_id)
+    guarda.armar(con, TABELAS_DE_DONO)
     return con
 
 
@@ -419,12 +462,19 @@ def _carimbar_dono(con: sqlite3.Connection, user_id: int) -> None:
     Copia-se do registo em vez de se escrever à mão para o nome e o slug não
     poderem divergir dos do registo — que é quem manda. Corre em toda a ligação
     porque é barato e porque assim uma mudança de nome no registo chega cá.
+
+    O `publico` viaja com eles (2026-09-29): a escolha de privacidade decide-se
+    no REGISTO (ver `privacidade.py`), e esta cópia é descritiva — para o
+    ficheiro se explicar a quem o restaura de um backup.
     """
     reg = utilizador.registo(user_id)
-    con.execute("INSERT INTO users (user_id, nome, slug, criado_em, auth_ref) "
-                "VALUES (?,?,?,?,NULL) ON CONFLICT(user_id) DO UPDATE SET "
-                "nome = excluded.nome, slug = excluded.slug",
-                (reg["user_id"], reg["nome"], reg["slug"], reg["criado_em"]))
+    con.execute("INSERT INTO users (user_id, nome, slug, criado_em, publico, "
+                "auth_ref) VALUES (?,?,?,?,?,NULL) "
+                "ON CONFLICT(user_id) DO UPDATE SET "
+                "nome = excluded.nome, slug = excluded.slug, "
+                "publico = excluded.publico",
+                (reg["user_id"], reg["nome"], reg["slug"], reg["criado_em"],
+                 reg.get("publico") or "nada"))
 
 
 def catalog_only() -> sqlite3.Connection:

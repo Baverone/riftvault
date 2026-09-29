@@ -421,3 +421,182 @@ base por fora do `db.connect`, e nenhum lê a variável do utilizador fora do
 `RIFTVAULT_USER` deixa correr o CLI e as medições como outro utilizador. É uma
 variável do ambiente dele, na máquina dele, do mesmo tipo do `RIFTVAULT_DATA`
 que já existia — **o servidor nunca a lê de um pedido**.
+
+---------------------------------------------------------------------------
+# AS GUARDAS (2026-09-29, a seguir à fundação)
+
+O pedido dele: *"O que achas que deve ser já feito para evitar erros futuros,
+e o quê? / Posso concordar e começamos também já a tratar disso?"* — concordou
+de antemão com o que fosse proposto. O que se segue é curto de propósito: são
+as coisas **baratas agora e caras depois de haver gente lá dentro**.
+
+## 1. PORTAS FECHADAS ATÉ ELE MANDAR ABRIR
+
+*"Quero apenas apresentar quando tiver tudo"* (André, 2026-09-29).
+
+Um interruptor só, no config, **e nasce fechado**:
+
+    "multi": { "aberto": false }
+
+Lê-se por uma função (`multi.aberto(cfg)`) e por mais nenhuma. Enquanto for
+`false`:
+
+| | |
+|---|---|
+| registo / convites / contas de amigos | **não existem**. Há um utilizador: ele. As contas de teste vivem nos testes e na base de ensaio, nunca no `data/vault.db` real. |
+| o túnel | **não se liga**. Não há cloudflared instalado nem configurado. O que falta fazer quando for altura está na secção «O que só ele pode fazer». |
+| páginas públicas de outros | **não se publicam**. O `build.py` sabe gerá-las e há teste que o prova, mas para o `site/` vai só a dele. |
+| o site público dele | **exactamente como está hoje** — nem «em breve», nem um link de login a espreitar. Há teste (`test_portas_fechadas`) que compara o site gerado com o de hoje, ficheiro a ficheiro. |
+
+Quando ele quiser abrir, muda-se **um valor**, não dez condições espalhadas.
+
+## 2. O QUE O PÚBLICO VÊ: `users.publico`
+
+Três valores, e **a omissão é a mais fechada**:
+
+| valor | o que o público vê |
+|---|---|
+| **`nada`** (omissão) | **nada** — não se gera site nenhum para essa pessoa |
+| `sem-valores` | a coleção, e **nenhum euro em lado nenhum** |
+| `tudo` | como o site dele hoje |
+
+**Porquê `nada` por omissão.** Publicar a coleção de outra pessoa tem de ser um
+acto ESCOLHIDO. Uma página pública indexa-se no Google e fica em cache em
+sítios que não controlamos: na prática **não se despublica**. E o valor em
+euros de uma coleção, ao lado de um nome e de um subdomínio, é informação com
+consequências fora do ecrã.
+
+**O André fica em `tudo`**, e não é excepção: é o que ele já escolheu e tem. A
+migração escreve-lho, e por isso o site dele não muda um byte.
+
+**Como é que o `sem-valores` tira os euros.** Uma regra só, aplicada ao payload
+antes de ser escrito: *uma chave cujo NOME fala de dinheiro e cujo VALOR é um
+número perde o valor; uma string com `€` também*. Não é uma lista de chaves
+escrita à mão — uma lista fica velha na primeira vez que um payload ganha um
+campo, e fica velha em silêncio. Medido no site real a 2026-09-29: **272 chaves
+distintas, 31 falam de dinheiro, ~7 000 ocorrências, e um único `€` em texto**
+(o recibo da Venda).
+
+Há **duas redes**, e apanham coisas diferentes: o teste exige que nenhuma chave
+de quantia sobreviva, *e* pega em números que **são** preços conhecidos desta
+coleção (o valor total, o preço de cartas concretas) e exige que não apareçam
+em lado nenhum. A segunda apanha uma quantia com um nome que não fale de
+dinheiro, que é o que a regra sozinha deixaria passar.
+
+## 3. ISOLAMENTO IMPOSTO PELO CÓDIGO
+
+A ordem foi escrita a contar com uma base só, filtrada por `WHERE user_id = ?`,
+e nesse modelo o erro clássico é um `WHERE` esquecido. **Não é esse o modelo
+que ficou** (ver a secção da fundação): é **um ficheiro por pessoa**, e um
+`WHERE` esquecido já não mostra nada de ninguém — os dados do outro não estão
+na ligação.
+
+Mas o modelo novo tem o SEU esquecimento, e são **quatro** as guardas:
+
+1. **Tocar numa tabela de dono sem dono REBENTA** (`guarda.py`, `SemDono`), com
+   a tabela nomeada na mensagem. É um autorizador do `sqlite3` — não um wrapper
+   à volta do `execute`, que se contorna com um `cursor()`. Medido: **50 000
+   consultas em 48 ms armado contra 49 ms desarmado**, custo nenhum (o SQLite
+   chama-o na PREPARAÇÃO e o Python guarda os statements em cache).
+   **Onde isto vai valer**: hoje `utilizador.atual()` devolve sempre o André,
+   por isso nunca dispara. No dia em que houver sessões, `atual()` vai poder
+   não saber quem é — e sem guarda esse dia serve a coleção do André a um
+   visitante anónimo, em silêncio.
+2. **Uma ligação ligada a um utilizador não pode anexar outra base**
+   (`SoUmaBase`). É a única maneira de dois donos aparecerem no mesmo `SELECT`.
+   O catálogo e os preços anexam-se antes de o guarda armar.
+3. **Uma base com linhas de outro dono recusa-se a abrir** (`utilizador.guardar`,
+   `DonoErrado`) — é o que apanha um ficheiro trocado ou um backup restaurado
+   por cima do outro.
+4. **Ninguém abre um `vault.db` fora do `db.py`.** `tests/test_isolamento.py`
+   lê o código-fonte e recusa um `sqlite3.connect` ou um `config.VAULT_DB` em
+   qualquer outro módulo — é por aí que se chegaria ao ficheiro errado sem
+   passar por nenhuma das outras três.
+
+## 4. BACKUP, RESTAURO E APAGAR — POR PESSOA (`conta.py`)
+
+*"Com cinco pessoas lá dentro, restaurar um erro dele desfaz o mês dos
+outros."*
+
+    conta.exportar(slug, destino=None)        -> um .zip
+    conta.importar(ficheiro, confirmar=True)
+    conta.apagar(slug, confirmar=True)
+
+O que torna isto barato é o ficheiro por pessoa: exportar é empacotar o
+ficheiro dela, importar é pô-lo de volta, apagar é apagar a pasta e a linha do
+registo. Nenhuma das três toca num byte de outra pessoa.
+
+O pacote leva o `vault.db` (por `VACUUM INTO` — as bases estão em WAL), o
+config dela e as listas dela. **Não leva credenciais**: a `user_auth` e as
+sessões vivem no `data/auth.db`, fora do Git e fora daqui, e quem as limpa ao
+apagar uma conta é o código da autenticação, no mesmo passo. **Não leva o
+catálogo nem os preços**: são partilhados e não são de ninguém.
+
+**O utilizador 1 não se apaga por aqui** — é na base dele que vive a tabela
+`users`. Apagá-lo não apagava uma conta, apagava o serviço.
+
+## 5. A IDENTIDADE É EMPRESTADA — decisão, não implementação
+
+*"Não quero que ele guarde passwords, nunca."*
+
+**A autenticação será por um fornecedor que já existe** — OAuth / OpenID
+Connect —, e o riftvault guarda apenas o identificador que o fornecedor
+devolve. Nunca uma palavra-passe, nunca um hash de palavra-passe.
+
+**Porquê, em três razões e por esta ordem:**
+
+1. **O que não se guarda não se perde.** Uma base de palavras-passe é um alvo,
+   e este projecto corre no PC de casa dele, sem equipa de segurança, sem
+   rotação de chaves e sem ninguém de vigia. O risco de guardar credenciais é
+   assimétrico: o ganho é zero e a perda é a conta de um amigo noutros sítios,
+   porque as pessoas repetem palavras-passe.
+2. **Não há «esqueci-me da palavra-passe» para construir.** Recuperação de
+   conta por email é um sistema inteiro — envio, tokens com prazo, limites de
+   tentativa — e é onde as contas se perdem de verdade.
+3. **É menos um passo para quem entra.** São amigos a organizar cartas, não
+   clientes: um botão «entrar com…» e está feito.
+
+**Qual fornecedor: o Discord primeiro, o Google a seguir.** É onde a malta de
+TCG já está — as comunidades de Riftbound, as ligas e os torneios organizam-se
+lá — e é a conta que um amigo dele já tem aberta no telemóvel. O Google fica
+como segundo por ser o denominador comum de quem não usa Discord. **Não se
+implementou nada** e a decisão de quantos fornecedores ligar é dele.
+
+**O encaixe já está preparado e está VAZIO**: `users.auth_ref` é o sítio onde o
+identificador do fornecedor vai casar com o utilizador. As credenciais e as
+sessões **não vão para o `vault.db`**: vão para um `data/auth.db` próprio, fora
+do Git — porque o `data/vault.db` está commitado num repositório público e
+empurrado de 30 em 30 minutos, e o `sub` do Google ou do Discord de um amigo é
+identidade, não se despublica de um histórico com 95 commits, e não tem nada
+que estar lá.
+
+## 6. UM SÍTIO PARA PARTIR COISAS (`RIFTVAULT_ENSAIO=1`)
+
+Até aqui tudo se mede contra CÓPIAS do `data/` mas corre contra o `main` e o
+8770 — que é a máquina dele, com a coleção dele. Com dados de terceiros lá
+dentro isso deixa de chegar.
+
+O ensaio é uma variável do **AMBIENTE e não uma chave do config**: uma chave de
+ensaio dentro de um ficheiro que vai para o Git está a um merge de distância de
+ir para produção ligada. Uma variável de ambiente não se commita.
+
+Com `RIFTVAULT_ENSAIO=1`:
+
+| | a sério | ensaio |
+|---|---|---|
+| dados | `data/` | **`data-ensaio/`** |
+| config | `riftvault_config.json` | **`riftvault_config-ensaio.json`** |
+| o `serve` escuta em | `0.0.0.0:8770` | **`127.0.0.1:8779`** |
+
+**A garantia de que o túnel nunca aponta para o ensaio é a última linha, e é
+por construção:** o túnel serve a **8770**, o ensaio **recusa-se a escutar
+nessa porta** (`multi.PortaDeProducao`) e só aceita a interface de loopback —
+nada do ensaio está sequer na rede local, quanto mais fora de casa. A 8779 já
+era a porta da casa para servir uma cópia.
+
+**E o ensaio recusa-se a usar o `data/` a sério**: o `config` rebenta ao ser
+importado se as duas coisas coincidirem. É o erro que isto existe para não
+deixar acontecer — correr uma experiência com a coleção verdadeira por baixo.
+
+`multi.exigir_ensaio("<o quê>")` é para o que só pode existir lá: um fornecedor
+de autenticação de mentira, dados semeados, uma conta de teste.
