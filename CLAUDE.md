@@ -182,6 +182,16 @@ não inverter a ordem.
 
 ## Três bases de dados
 
+**DESDE 2026-09-29 O `vault.db` É DE UM UTILIZADOR, e há mais do que um
+possível** — *"Amigos meus querem usar o site para organizar a coleccao
+deles"*. O do André é o `data/vault.db` de sempre (utilizador **1**, slug
+**`baverone`**, no Git); os outros vivem em `data/users/<slug>/vault.db`, que
+está no **`.gitignore`** — este repositório é PÚBLICO e o `vault.db` é
+commitado de 30 em 30 minutos, e a coleção de um amigo não é nossa para
+publicar. O `catalog.db` e o `prices.db` **não têm dono**: são partilhados. A
+porta única é o `utilizador.atual()` + `db.connect(user_id=…)`; hoje devolve
+sempre o André. Ver a última secção deste ficheiro e `docs/multi-utilizador.md`.
+
 - `data/vault.db` — a coleção e os decks. **Commitado. Só o André escreve.**
   (Desde 2026-09-22 a `copies` tem a coluna `qty_foil` — a contagem de foil
   das comuns e incomuns; a migração fez backup em `data/backups/`, que está
@@ -8484,3 +8494,185 @@ Cinco ficheiros de teste foram ajustados nos NÚMEROS e no MECANISMO — o teste
 no `excluidos`» passaram a «está fora da aba **e** a decisão está arquivada»).
 Os que perguntavam a categoria de um deck passaram a perguntá-la ao
 **catálogo em disco**: desde hoje os produtos da 262 não chegam ao `_crus`.
+
+## 29/09/2026 — MAIS DO QUE UMA PESSOA: a fundação (`utilizador.py`, `users`, `user_id`)
+
+Palavras dele: *"Amigos meus querem usar o site para organizar a coleccao
+deles. Podes fazer com que mais pessoas possam organizar a coleccao deles
+tambem usando o site?"* — com contas a sério e backend, a prazo tudo o que ele
+tem, um site público só de leitura por pessoa num subdomínio com o nome dela
+(*"ao inves de Baverone.riftvault seria Miguel.riftvault"*), o servidor a
+começar no PC dele por túnel Cloudflare, e **a começar por uma fatia fina**.
+Ramo `ai-pc/multi-utilizador-2026-09-29`; o desenho inteiro está em
+**`docs/multi-utilizador.md`**.
+
+**ESTA CORRIDA É SÓ A FUNDAÇÃO DO MODELO DE DADOS.** Não há autenticação, não
+há túnel, não há subdomínios, não há site por utilizador: dependem de passos
+que só ele pode dar (a conta Cloudflare, os nameservers, o `cloudflared`).
+**Para ele não muda nada** — medido, zero diferenças em 26 superfícies.
+
+### A decisão de fundo: UM FICHEIRO POR PESSOA, não `WHERE user_id = ?`
+
+Duas medições decidiram-no, e a primeira sozinha chegava:
+
+1. **O `data/vault.db` está commitado num repositório PÚBLICO e é empurrado
+   sozinho.** `gh repo view` diz `PUBLIC`, `git ls-files data/` diz
+   `data/vault.db`, e são **95 commits** dele, de 30 em 30 minutos, pela
+   `riftvault-publicar`. Pôr a coleção de um amigo nesse ficheiro
+   **publicava-a**, para sempre — o histórico do Git não se apaga. A coleção do
+   André é dele e ele escolheu publicá-la; a do Miguel não é nossa para
+   publicar.
+2. **São 134 statements de SQL em 19 módulos** a tocar nas tabelas de dono. Uma
+   separação que dependa de 134 `WHERE` bem lembrados falha em silêncio e do
+   lado pior: um esquecido numa LEITURA mostra a coleção de um a outro.
+
+Com um ficheiro por pessoa a separação é **física** e **nenhum dos 134
+statements mudou**.
+
+```
+data/vault.db                o ANDRÉ (utilizador 1, slug `baverone`) — no Git
+data/catalog.db  prices.db   PARTILHADOS, sem dono
+data/users/                  <<< NO .gitignore
+  registo.db                 o REGISTO: quem existe
+  miguel/vault.db            a coleção do Miguel
+  miguel/decks/*.txt         as listas dele
+```
+
+Medido: a base de um utilizador novo são **242 KB**, contra 1,4 MB de catálogo
+e 745 KB de preços que ele não volta a pagar.
+
+### O REGISTO não pode viver do lado público — apanhado a meio da corrida
+
+A `users` estava no `data/vault.db`. Com ela lá, **registar um amigo publicava
+o nome e o slug dele no GitHub**, de 30 em 30 minutos e com histórico — mesmo
+que a coleção dele ficasse privada. Era a mesma armadilha que fez cada coleção
+ir para um ficheiro próprio, a dois metros de distância. Foi apanhada pelas
+duas sessões que trabalhavam nas fatias seguintes (a `riftbound-2b` e a
+`riftbound-f3`) e corrigida antes do merge.
+
+Agora a `users` vive em **dois** sítios, com a definição uma vez só
+(`riftvault/users_schema.sql`): o **registo** em `data/users/registo.db`, fora
+do Git, com toda a gente; e **dentro de cada `vault.db`** a linha do DONO
+daquele ficheiro e só essa, para o ficheiro se explicar a quem o restaura. A
+base pública do André conhece **só o André** — há teste.
+
+### O `user_id` nas 16 tabelas: o que faz e o que NÃO faz
+
+`ALTER TABLE … ADD COLUMN user_id INTEGER` + índice, nas 16 (a lista é o
+`db.TABELAS_DE_DONO`). **Não refaz tabela nenhuma e não toca num número.**
+Migradas **4 778 linhas**, todas para o utilizador 1, zero por carimbar.
+
+**NÃO é o `user_id` que separa — é o ficheiro.** Ele faz três coisas: cada
+linha diz de quem é, e por isso uma base aberta como o utilizador errado é
+DETECTÁVEL (`utilizador.guardar` levanta `DonoErrado` — é a rede que apanha um
+backup restaurado por cima de outro); a migração faz-se hoje, com um
+utilizador e zero risco; e uma consolidação futura passa a ser um `INSERT …
+SELECT`. **`NULL` quer dizer «do dono deste ficheiro»** e é adoptado na ligação
+seguinte.
+
+**Uma assimetria a conhecer:** numa base criada de raiz a coluna leva
+`REFERENCES users(user_id)` e a FK recusa um dono inventado; numa base
+**migrada não há FK** — o SQLite não sabe acrescentar uma chave estrangeira num
+`ADD COLUMN`, e refazer dezasseis tabelas da coleção dele não se pagava. É por
+isso que o guarda existe: vale nos dois casos. Há teste para cada.
+
+**E o carimbo é PREGUIÇOSO**: corre no `connect`, antes das escritas da sessão,
+por isso uma base criada e nunca mais reaberta tem as linhas todas a `NULL` e
+as linhas sozinhas não distinguem ninguém. O guarda pergunta por isso a DOIS
+sítios, e o que manda é a `users` de dentro da base — a identidade do ficheiro,
+escrita em toda a ligação. Apanhado pela sessão `riftbound-2b`.
+
+**O FURO QUE A SEPARAÇÃO POR FICHEIRO NÃO TAPA: o config.** O
+`riftvault_config.json` é UM ficheiro para todos e não é uma base de dados —
+o `POST /api/decks/montar` e o `/api/decks/principal` escrevem lá, e um amigo
+escrevia na lista do André sem passar pelo SQLite. Enquanto o config for
+global, **o estado dos decks fica fora das contas**. Apanhado pela sessão
+`riftbound-f3`; está na secção 6 do documento.
+
+**As PK não mudaram**, de propósito: com um ficheiro por pessoa o
+`printing_id` continua único. O que uma consolidação num ficheiro só ainda
+precisaria está escrito no `docs/multi-utilizador.md`, para ninguém contar que
+sai de graça.
+
+### A PORTA ÚNICA
+
+```python
+utilizador.atual()                 # o utilizador desta sessão — HOJE sempre 1
+utilizador.como(uid)               # gestor de contexto, por FIO
+db.connect(readonly=False, user_id=None)
+con.riftvault_user                 # o dono viaja com a ligação
+config.decks_dir(con)              # a pasta de `.txt` daquele utilizador
+db.TABELAS_DE_DONO                 # as 16
+```
+
+Todo o código que lê dados de dono recebe um `con`, e **todo o `con` sai do
+`db.connect`** — por isso é aí, e só aí, que se responde a «de quem são estes
+dados», e a autenticação vai ser uma mudança no `atual()` e mais nada. Dois
+testes guardam-no: nenhum módulo abre uma base por fora do `db.connect`, e
+nenhum lê a variável do utilizador fora do `utilizador.py`.
+
+**O `atual()` lê um `contextvars.ContextVar`, não uma global** — o `serve`
+corre `threaded=True`, e uma global punha dois pedidos simultâneos a ver o dono
+um do outro. Foi um defeito real apanhado pela sessão `riftbound-f3` antes de o
+servidor chegar a usar a porta. O `RIFTVAULT_USER` continua a valer para o CLI
+e para as medições, e **não serve para o servidor**.
+
+**A pasta de decks passou a ser por utilizador** (`config.decks_dir(con)`, três
+chamadas): sem isso um segundo utilizador importava as listas do André.
+
+### Medido a 2026-09-29, `main` e ramo, contra cópias do `data/` real
+
+**ZERO DIFERENÇAS em 26 superfícies** — denominador **928**, níveis
+**910/875/786 de 928**, valor **8 144,89 € · 3 195 cópias**, wantlist «tudo»
+**142 linhas · 209 cópias · 755,85 €** (e o TEXTO, por sha256), as cinco por
+edição, Faltas **449 cópias · 8 693,28 €** e as foils **914 · 376,67 €**, os 20
+blocos por edição, A mais, Encomendas, Venda, Selado, painel, foil, e a grelha
+impressão a impressão nas cinco edições. **A `copies` tem o mesmo sha256 do
+conteúdo** (`a85095b4…`, 1 046 linhas, 2 663 normais + 540 foil).
+
+Exercitado com um segundo utilizador contra uma cópia dos dados reais: o
+Miguel vê **3 impressões · 11 cópias · 242,77 €**, o André continua nos
+**8 144,89 €** ao cêntimo, os ficheiros são dois, e **o catálogo e os preços
+são o MESMO ficheiro** para os dois (1 180 impressões, 1 227 preços).
+
+`tests/test_multi_utilizador.py` (**41 testes**): dois utilizadores não se veem
+(pela app inteira — métricas, valor, wantlist, faltas, foil — e não por um
+`SELECT`); apagar um não toca no outro e o André não se apaga por aqui; o
+catálogo é partilhado e não tem dono; **a migração de uma base de um dono não
+perde nem inventa uma linha** (contagem tabela a tabela + sha256 da `copies`),
+faz backup e é idempotente; o registo não está no lado público; o guarda do
+ficheiro trocado; o slug que não foge da pasta; e a porta única, com o
+`como()` a valer só no seu fio (dois fios com uma `Barrier`).
+
+**Um teste que é uma rede para o futuro:** o
+`test_a_lista_das_tabelas_de_dono_e_a_das_que_existem` rebenta se alguém
+acrescentar uma tabela ao `vault.db` sem a classificar — ou é de dono (vai para
+o `db.TABELAS_DE_DONO`, ganha `user_id` e entra no apagar de uma conta) ou é do
+serviço, e diz-se porquê.
+
+Dois testes do `test_foil.py` foram ajustados — descreviam a tabela antiga: um
+fazia `INSERT INTO copies VALUES (…)` posicional com 4 valores (a `copies` tem
+5 colunas desde hoje) e dois contavam `glob("*.db")` esperando exactamente 1
+backup, quando uma base antiga passa agora por duas migrações. Passaram a
+contar o que há antes e depois, que é o que queriam dizer.
+
+### O que fica por fazer, e o que só ele pode fazer
+
+**Fases 2 a 5** no `docs/multi-utilizador.md`: identidade (as credenciais numa
+base à parte, fora do Git — **nunca na `users`**, que viaja em `SELECT *`), um
+site por utilizador (`build.py` por `user_id`, para `site/u/<slug>/`), o túnel,
+e a separação do config. **Hoje as regras do `riftvault_config.json` são
+GLOBAIS e um amigo herda as dele** — é limitação conhecida, com a linha
+proposta (regra do produto vs preferência de utilizador) escrita no documento.
+
+**A forma recomendada, e concordo com ela:** as leituras públicas continuam
+ESTÁTICAS (Pages) e o túnel serve só a edição autenticada. É a arquitectura de
+2026-09-10, agora a responder ao risco em vez de à disponibilidade: o PC dele
+fica fora do caminho de quem só espreita.
+
+**Os riscos de guardar dados de terceiros** estão na secção 7 do documento, e o
+mais urgente é este: **os amigos não têm backup nenhum**. O `data/vault.db`
+dele tem 95 pontos de restauro no Git; a pasta `data/users/` está no
+`.gitignore` de propósito, e por isso precisa de uma cópia para fora do PC
+ANTES do primeiro amigo. Também lá: apagar a conta a pedido, o PC desligado, e
+quem entrar na máquina tem as coleções todas.
