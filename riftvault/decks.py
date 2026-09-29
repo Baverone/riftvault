@@ -268,7 +268,9 @@ def resolve(con: sqlite3.Connection, name: str, role: str) -> str | None:
 
 def import_all(con: sqlite3.Connection, log=print) -> dict:
     """Lê decks/*.txt para as tabelas. Mantém a prioridade já definida."""
-    files = sorted(config.DECKS_DIR.glob("*.txt"))
+    # A pasta é a DE QUEM abriu a ligação (2026-09-29): sem isto um segundo
+    # utilizador importava as listas do André.
+    files = sorted(config.decks_dir(con).glob("*.txt"))
     seen, results = [], []
 
     # Prioridade já atribuída antes, por slug; decks novos vão para o fim.
@@ -529,13 +531,14 @@ def apagar_todos(con: sqlite3.Connection, cfg: dict | None = None,
         arquivo = (config.DATA_DIR / "backups"
                    / f"{ARQUIVO_DECKS}-{datetime.now().strftime('%Y%m%d-%H%M%S')}")
         arquivo.mkdir(parents=True, exist_ok=True)
-    for path in sorted(config.DECKS_DIR.glob("*.txt")):
+    pasta_decks = config.decks_dir(con)
+    for path in sorted(pasta_decks.glob("*.txt")):
         if arquivo is not None:
             (arquivo / path.name).write_bytes(path.read_bytes())
         path.unlink()
         apagados.append(path.name)
     if apagados:
-        log(f"  {len(apagados)} listas apagadas de {config.DECKS_DIR}"
+        log(f"  {len(apagados)} listas apagadas de {pasta_decks}"
             + (f" (arquivadas em {arquivo})" if arquivo else ""))
 
     # 5. A base, pela porta do `import_all`.

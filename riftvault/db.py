@@ -14,7 +14,42 @@ import sqlite3
 from datetime import datetime
 from pathlib import Path
 
-from . import config
+from . import config, utilizador
+
+# AS TABELAS DE DONO (2026-09-29). São as que guardam o que é de UMA pessoa, e
+# são as que levaram a coluna `user_id`. Fica aqui, numa lista só, porque três
+# coisas a leem e têm de ler a mesma: a migração, o carimbo/guarda do
+# `utilizador.guardar` e o apagar de uma conta (`utilizador.apagar`).
+#
+# UMA TABELA NOVA NO `vault.db` TEM DE SER CLASSIFICADA: ou é de dono e vem
+# para aqui (ganha `user_id`, índice, e entra no apagar de uma conta), ou é do
+# serviço e diz-se porquê. O `test_multi_utilizador` rebenta se aparecer uma
+# que ninguém classificou — é a rede para quem vier a seguir.
+#
+# A `users` NÃO está cá: é o registo de quem existe, não é dado de ninguém.
+# O `catalog.db` e o `prices.db` também não — são partilhados por toda a gente
+# (ver `riftvault/utilizador.py`).
+TABELAS_DE_DONO = (
+    "copies", "copy_locations", "foil_ops", "location_ops", "ops", "pending",
+    "sale_lines", "sale_log", "cardmarket_trend", "sealed_copies",
+    "sealed_price", "rune_counter", "settings",
+    "decks", "deck_cards", "deck_need_log",
+)
+
+
+class Ligacao(sqlite3.Connection):
+    """Uma ligação que sabe DE QUEM são os dados que tem abertos.
+
+    O `sqlite3.Connection` não deixa pôr-lhe atributos (não tem `__dict__`), e
+    o dono tem de viajar com a ligação: todas as camadas recebem um `con` e
+    nenhuma recebe um `user_id`. Uma subclasse é a maneira de o fazer sem
+    mudar 134 assinaturas.
+
+    `None` é uma ligação aberta por fora do `db.connect` (um teste, uma
+    migração): quem o lê trata-a como sendo do André, que é o comportamento de
+    sempre.
+    """
+    riftvault_user: int | None = None
 
 
 def _apply_schema(con: sqlite3.Connection, sql_file: str, schema: str = "main") -> None:
@@ -198,6 +233,53 @@ def _migrar_price_latest(con: sqlite3.Connection, schema: str = "catalog") -> No
                         f"INTEGER NOT NULL DEFAULT 0")
 
 
+def _migrar_user_id(con: sqlite3.Connection) -> list[str]:
+    """A coluna `user_id` nas tabelas de dono (2026-09-29, multi-utilizador).
+
+    LEVA BACKUP: mexe em todas as tabelas do vault.db, que é a coleção dele. É
+    um `ALTER TABLE ADD COLUMN` por tabela — não refaz tabela nenhuma, por isso
+    **não toca num número**: nem o `qty`, nem o `qty_foil`, nem o `updated_at`.
+    A coluna nasce a NULL em todas as linhas e é o `utilizador.guardar` que a
+    carimba a seguir, com o dono desta base.
+
+    As PK NÃO mudam, e é decisão consciente: com um ficheiro por pessoa o
+    `printing_id` continua a ser único dentro da base, e passá-las a
+    `(user_id, ...)` obrigava a refazer dez tabelas na coleção dele para um
+    ganho que só existe se um dia tudo se juntar num ficheiro só. O que isso
+    precisaria está escrito no `docs/multi-utilizador.md`.
+
+    Idempotente: a segunda ligação já encontra as colunas e não faz nada —
+    inclusive não faz backup, senão cada arranque do `serve` deixava um.
+    Devolve as tabelas que migrou, para quem quiser dizê-lo.
+
+    OS ÍNDICES vivem aqui e não no `schema.sql`, e é por obrigação: o schema
+    corre ANTES desta migração, e numa base que já existe o `CREATE TABLE IF
+    NOT EXISTS` é um no-op — um `CREATE INDEX ... (user_id)` no schema
+    rebentava com «no such column: user_id» antes de a coluna nascer. Correm
+    sempre, também numa base criada de raiz, onde as colunas já vêm do schema.
+    """
+    faltam = [t for t in TABELAS_DE_DONO
+              if (cols := _columns(con, t)) and "user_id" not in cols]
+    if faltam:
+        backup(con, "antes-do-multi-utilizador")
+        con.execute("BEGIN IMMEDIATE")
+        try:
+            for t in faltam:
+                # Sem `REFERENCES` no ALTER: o SQLite não o aceita a apontar
+                # para uma tabela que a base pode ainda não ter semeado. Numa
+                # base criada de raiz a referência vem do `schema.sql`, onde a
+                # ordem das tabelas é garantida.
+                con.execute(f"ALTER TABLE {t} ADD COLUMN user_id INTEGER")  # noqa: S608
+            con.execute("COMMIT")
+        except Exception:
+            con.execute("ROLLBACK")
+            raise
+    for t in TABELAS_DE_DONO:
+        if "user_id" in _columns(con, t):
+            con.execute(f"CREATE INDEX IF NOT EXISTS ix_{t}_user ON {t}(user_id)")
+    return faltam
+
+
 def _migrate(con: sqlite3.Connection) -> None:
     """Colunas acrescentadas depois da primeira versão do schema.
 
@@ -232,6 +314,11 @@ def _migrate(con: sqlite3.Connection) -> None:
     # deixou de ser principal.
     _migrar_sale_lines_origem(con)
 
+    # De quem é cada linha (2026-09-29, multi-utilizador). Vem depois das
+    # outras de propósito: as que refazem tabelas (o tecto do foil) têm de
+    # correr antes de haver uma coluna a mais para copiar.
+    _migrar_user_id(con)
+
     cols = _columns(con, "decks")
     if cols:
         for name, decl in (
@@ -261,14 +348,51 @@ def _migrate(con: sqlite3.Connection) -> None:
         con.execute("DROP TABLE main.price_history")
 
 
-def connect(readonly: bool = False) -> sqlite3.Connection:
-    """Abre o vault.db com o catalog.db anexado como `catalog`."""
+def vault_de(user_id: int | None = None) -> Path:
+    """O ficheiro `vault.db` de um utilizador.
+
+    O ANDRÉ FICA ONDE SEMPRE ESTEVE, e por isso o `RIFTVAULT_DB` continua a
+    mandar nele — é a variável com que se aponta a coleção dele para outro
+    sítio (é o que as medições e os testes usam). Os outros vivem em
+    `data/users/<slug>/vault.db`.
+
+    Para saber o slug é preciso ler o REGISTO (`data/users/registo.db`), que
+    vive fora do Git — ver `utilizador.registo_db`.
+    """
+    uid = utilizador.atual() if user_id is None else int(user_id)
+    if uid == utilizador.ANDRE:
+        return config.VAULT_DB
+    return utilizador.pasta(utilizador.registo(uid)["slug"]) / "vault.db"
+
+
+def connect(readonly: bool = False, user_id: int | None = None) -> sqlite3.Connection:
+    """Abre o vault.db DE UM UTILIZADOR, com o catálogo e os preços anexados.
+
+    É A PORTA ÚNICA (2026-09-29). Todo o código que lê ou escreve dados de dono
+    recebe um `con`, e todo o `con` sai daqui — por isso é aqui, e só aqui, que
+    se responde a «de quem são estes dados». Quem não diz nada fica com o
+    utilizador da sessão (`utilizador.atual()`, hoje sempre o André).
+
+    A ligação leva o dono em `con.riftvault_user`, para quem precisar dele não
+    ter de voltar a perguntar ao ambiente a meio de um pedido.
+
+    O `catalog.db` e o `prices.db` são os MESMOS para toda a gente: o catálogo é
+    o jogo e os preços são o mercado — não são a coleção de ninguém. Medido a
+    2026-09-29: a base de um utilizador novo são 242 KB, contra 1,4 MB de
+    catálogo e 745 KB de preços que ele não volta a pagar.
+    """
+    uid = utilizador.atual() if user_id is None else int(user_id)
+    caminho = vault_de(uid)
     config.ensure_dirs()
-    con = sqlite3.connect(config.VAULT_DB, timeout=15.0, isolation_level=None)
+    caminho.parent.mkdir(parents=True, exist_ok=True)
+
+    con = sqlite3.connect(caminho, timeout=15.0, isolation_level=None,
+                          factory=Ligacao)
     con.row_factory = sqlite3.Row
     con.execute("PRAGMA journal_mode=WAL")
     con.execute("PRAGMA foreign_keys=ON")
     if not readonly:
+        _apply_schema(con, "users_schema.sql")
         _apply_schema(con, "schema.sql")
 
     con.execute("ATTACH DATABASE ? AS catalog", (str(config.CATALOG_DB),))
@@ -277,7 +401,30 @@ def connect(readonly: bool = False) -> sqlite3.Connection:
         _apply_schema(con, "catalog_schema.sql", schema="catalog")
         _apply_schema(con, "prices_schema.sql", schema="prices")
         _migrate(con)
+        # A ORDEM IMPORTA. O guarda pergunta à `users` de dentro de quem é o
+        # ficheiro, e tem de a ver ANTES de lhe escrevermos a linha desta
+        # sessão — senão via duas e não sabia qual era a do ficheiro.
+        utilizador.guardar(con, uid, TABELAS_DE_DONO)
+        # E só depois a linha do DONO, para a base se explicar a quem a abrir
+        # ou a restaurar. O registo de quem existe é outro ficheiro, fora do
+        # Git (`utilizador.registo_db`).
+        _carimbar_dono(con, uid)
+    con.riftvault_user = uid
     return con
+
+
+def _carimbar_dono(con: sqlite3.Connection, user_id: int) -> None:
+    """Põe (e mantém) a linha do dono dentro da base dele.
+
+    Copia-se do registo em vez de se escrever à mão para o nome e o slug não
+    poderem divergir dos do registo — que é quem manda. Corre em toda a ligação
+    porque é barato e porque assim uma mudança de nome no registo chega cá.
+    """
+    reg = utilizador.registo(user_id)
+    con.execute("INSERT INTO users (user_id, nome, slug, criado_em, auth_ref) "
+                "VALUES (?,?,?,?,NULL) ON CONFLICT(user_id) DO UPDATE SET "
+                "nome = excluded.nome, slug = excluded.slug",
+                (reg["user_id"], reg["nome"], reg["slug"], reg["criado_em"]))
 
 
 def catalog_only() -> sqlite3.Connection:

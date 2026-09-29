@@ -1543,13 +1543,19 @@ riftvault/
   server.py       modo edição (Flask)
   build.py        modo publicado (estático)
   cli.py          linha de comandos
+  utilizador.py   DE QUEM são os dados desta sessão (2026-09-29) — a porta
+                  única; hoje devolve sempre o André
   web/            index.html + app.js + style.css — o MESMO nos dois modos
                   (a casca — barra lateral, cabeçalho, rotas — sai da tabela
                    NAV do app.js; os tokens da marca do topo do style.css)
 data/
-  vault.db        a coleção e os decks. VAI para o Git. Só tu escreves.
+  vault.db        A TUA coleção e os teus decks. VAI para o Git. Só tu escreves.
   prices.db       histórico de preços. VAI para o Git. Só o robô escreve.
   catalog.db      cache do catálogo. NÃO vai (está no .gitignore).
+  users/          desde 2026-09-29, a coleção de OUTRAS pessoas e o registo de
+                  quem existe. NÃO vai — este repositório é público e o
+                  vault.db é commitado sozinho; a coleção de um amigo não é
+                  nossa para publicar. Ver docs/multi-utilizador.md.
   selado_catalogo.json  o produto selado que EXISTE, do CardTrader. VAI para o
                   Git (é catálogo, não coleção); `riftvault selado --sync`.
   images/         cache das imagens. NÃO vai.

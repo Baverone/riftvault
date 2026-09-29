@@ -221,8 +221,13 @@ class TestOsDados(Base):
         self.assertNotIn("qty_foil <= qty", sql)
         con.close()
         # Idempotente: a segunda ligação não volta a migrar nem a fazer backup.
+        # Conta-se o que HÁ antes e depois, em vez de um número fixo: uma base
+        # antiga passa por mais do que uma migração (a 2026-09-29 juntou-se-lhe
+        # a do `user_id`), e o que este teste quer dizer é «não faz MAIS».
+        quantos = len(sorted((self.v.data / "backups").glob("*.db")))
         con = self.db.connect()
-        self.assertEqual(len(sorted((self.v.data / "backups").glob("*.db"))), 1)
+        self.assertEqual(len(sorted((self.v.data / "backups").glob("*.db"))),
+                         quantos)
         con.close()
 
     def test_a_migracao_de_2026_09_26_tira_o_tecto_e_nao_mexe_nos_numeros(self):
@@ -263,8 +268,11 @@ class TestOsDados(Base):
                    con.execute("SELECT printing_id, qty, qty_foil FROM copies")),
             [("tst-001-100", 3, 3), ("tst-002-100", 2, 1)])
         # A PK sobreviveu ao RENAME (era o risco de refazer a tabela).
+        # As colunas escrevem-se pelo nome: a `copies` ganhou o `user_id` a
+        # 2026-09-29 e um INSERT posicional passou a contar mal as colunas.
         with self.assertRaises(sqlite3.IntegrityError):
-            con.execute("INSERT INTO copies VALUES ('tst-001-100', 1, 'z', 0)")
+            con.execute("INSERT INTO copies (printing_id, qty, updated_at, "
+                        "qty_foil) VALUES ('tst-001-100', 1, 'z', 0)")
         # E agora o foil pode passar as normais.
         con.execute("UPDATE copies SET qty_foil = 9 WHERE printing_id='tst-002-100'")
         backups = sorted((self.v.data / "backups").glob("vault-antes-do-foil-somar-*.db"))
@@ -277,9 +285,10 @@ class TestOsDados(Base):
         b.close()
         con.close()
         # Idempotente: a segunda ligação já não encontra o CHECK antigo.
+        quantos = len(sorted((self.v.data / "backups").glob("*.db")))
         con = self.db.connect()
-        self.assertEqual(len(sorted((self.v.data / "backups").glob("*.db"))), 1,
-                         "não volta a migrar nem a fazer backup")
+        self.assertEqual(len(sorted((self.v.data / "backups").glob("*.db"))),
+                         quantos, "não volta a migrar nem a fazer backup")
         con.close()
 
 

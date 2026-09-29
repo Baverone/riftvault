@@ -624,3 +624,25 @@ def ensure_dirs() -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     IMAGES_DIR.mkdir(parents=True, exist_ok=True)
     DECKS_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def decks_dir(con=None) -> Path:
+    """A pasta das listas de deck DE QUEM abriu esta ligação (2026-09-29).
+
+    Os decks são de dono como as cópias — a diferença é que vivem em ficheiros
+    `.txt` e não numa tabela. Sem isto, um segundo utilizador importava as
+    listas do André: o `import_all` lê uma pasta fixa.
+
+    O André fica na pasta de sempre (`decks/`, na raiz do repositório, no Git);
+    os outros em `data/users/<slug>/decks/`. Pergunta-se à LIGAÇÃO porque é ela
+    que sabe de quem é a sessão (`db.connect` põe lá o `riftvault_user`) — sem
+    ligação, ou com uma aberta antes desta mudança, é o André, que é o
+    comportamento de sempre.
+    """
+    from . import utilizador
+    uid = getattr(con, "riftvault_user", None)
+    if uid is None or uid == utilizador.ANDRE:
+        return DECKS_DIR
+    d = utilizador.pasta(utilizador.registo(uid)["slug"]) / "decks"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
