@@ -337,11 +337,45 @@ class Provedor:
         cfg = cfg if cfg is not None else config.load()
         return ((cfg.get("auth") or {}).get(self.nome) or {})
 
+    def var_segredo(self) -> str:
+        return f"RIFTVAULT_{self.nome.upper()}_SECRET"
+
+    def segredo(self, cfg: dict | None = None) -> str:
+        """O `client_secret`, DO AMBIENTE de preferência.
+
+        É a regra desta casa e está escrita no `.gitignore`: *«Segredos: o
+        CARDTRADER_TOKEN vive no ambiente, nunca em ficheiro»*. E aqui não é
+        preciosismo — o `riftvault_config.json` **está commitado** (confirmado:
+        `git ls-files riftvault_config.json`) num repositório PÚBLICO que é
+        empurrado de 30 em 30 minutos. Um `client_secret` colado lá dentro ia
+        para o GitHub no push seguinte e não se despublica: teria de ser
+        revogado no Discord.
+
+        Aceita-se o config como último recurso porque um segredo que funciona é
+        melhor do que um utilizador trancado de fora — mas o `multi --verificar`
+        avisa, com o comando para o tirar de lá.
+
+        O `client_id` NÃO é segredo (viaja no endereço de autorização, à vista
+        de quem entra) e vive no config sem problema.
+        """
+        do_ambiente = os.environ.get(self.var_segredo(), "").strip()
+        if do_ambiente:
+            return do_ambiente
+        return str(self._bloco(cfg).get("client_secret") or "").strip()
+
+    def segredo_no_config(self, cfg: dict | None = None) -> bool:
+        """O segredo está no ficheiro (e não no ambiente)? — para o aviso."""
+        return (not os.environ.get(self.var_segredo(), "").strip()
+                and bool(str(self._bloco(cfg).get("client_secret") or "").strip()))
+
     def em_falta(self, cfg: dict | None = None) -> list[str]:
-        """O que falta no config para este fornecedor servir. Lista vazia = pronto."""
-        b = self._bloco(cfg)
-        return [c for c in ("client_id", "client_secret")
-                if not str(b.get(c) or "").strip()]
+        """O que falta para este fornecedor servir. Lista vazia = pronto."""
+        falta = []
+        if not str(self._bloco(cfg).get("client_id") or "").strip():
+            falta.append("client_id")
+        if not self.segredo(cfg):
+            falta.append("client_secret")
+        return falta
 
     def configurado(self, cfg: dict | None = None) -> bool:
         return not self.em_falta(cfg)
