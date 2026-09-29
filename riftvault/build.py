@@ -30,9 +30,9 @@ import json
 import shutil
 from pathlib import Path
 
-from . import (a_mais, a_subir, config, db, decks, faltas, faltas_foil, metrics,
-               multi, pending, principal, privacidade, runas_vista, selado,
-               utilizador, venda)
+from . import (a_mais, a_subir, abrir, config, db, decks, faltas, faltas_foil,
+               metrics, multi, pending, principal, privacidade, runas_vista,
+               selado, utilizador, venda)
 
 # A pasta das imagens fica de fora da comparação: em `static_images: "local"`
 # são ~88 MB e não dependem da colecção — o que muda nelas é o `riftvault
@@ -202,6 +202,24 @@ def _gerar(out_dir: Path | str, log=print, imagens: bool = True,
 
     for name in ("index.html", "app.js", "style.css"):
         shutil.copy2(config.WEB_DIR / name, out / name)
+
+    # «NÃO INDEXES ISTO» (2026-09-29, fatia `2-multi-contas`). A página DELE fica
+    # exactamente como está — publicada e indexada, como sempre foi. A de um
+    # amigo sai marcada, nas duas formas que os motores respeitam: a etiqueta na
+    # página e o `robots.txt` na raiz dela.
+    #
+    # Os dois juntos, e não só o `robots.txt`: esse pede que não se RASTREIE, e
+    # uma página já conhecida por um link pode ser indexada sem ser rastreada. O
+    # `noindex` na própria página é o que fecha essa porta.
+    #
+    # Porque é que isto é do lado seguro do erro: uma página da coleção de um
+    # amigo indexada antes de ele saber que existe **não se desfaz** — pede-se a
+    # remoção, fica em cache, fica no Bing, fica no archive.org.
+    if not abrir.publico_indexavel(dono=(user_id is None or user_id == 1)):
+        pagina = out / "index.html"
+        pagina.write_text(abrir.marcar_html(pagina.read_text(encoding="utf-8")),
+                          encoding="utf-8")
+        (out / "robots.txt").write_text(abrir.robots_txt(), encoding="utf-8")
 
     image_mode = "local" if cfg.get("static_images") == "local" else "remote"
 

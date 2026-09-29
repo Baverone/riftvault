@@ -376,13 +376,24 @@ def robots_txt() -> str:
     return ROBOTS
 
 
-def publico_indexavel(modo: str, dono: bool, aberto: bool) -> bool:
-    """Esta página pode ser indexada?
+def publico_indexavel(dono: bool) -> bool:
+    """Esta página pode ser indexada? **Só a DELE.**
 
-    Só a do DONO, só com a coleção mesmo pública, e só com a porta aberta. É a
-    única combinação em que ele já decidiu tudo o que havia para decidir.
+    A regra é uma linha, e a primeira versão estava errada de uma maneira que
+    vale a pena registar: exigia também `aberto=True`, e com a porta fechada
+    (que é o estado de hoje) isso metia `noindex` no **site dele** — que está
+    publicado e indexado desde o início. Uma correcção de segurança que
+    despublicava o site do próprio dono.
+
+    O que ele pediu é o contrário disso: o site DELE fica *exactamente* como
+    está, e é o de um amigo que não se indexa *"até ele dizer o contrário"*.
+    Por isso a única coisa que conta é de quem é a página.
+
+    Quando ele quiser deixar indexar a de um amigo, é aqui — uma função, uma
+    linha. Não se inventou uma chave de config para uma decisão que ele ainda
+    não tomou.
     """
-    return bool(dono and aberto and modo == "tudo")
+    return bool(dono)
 
 
 # --------------------------------------------------------------------------

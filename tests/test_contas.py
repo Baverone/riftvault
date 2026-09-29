@@ -672,13 +672,48 @@ class TestNoIndex(Base):
         self.assertIn("User-agent: *", t)
         self.assertIn("Disallow: /", t)
 
-    def test_so_a_pagina_dele_e_publica_e_so_com_a_porta_aberta(self):
+    def test_so_a_pagina_DELE_e_indexavel(self):
+        """E a dele é-o SEMPRE — está publicada e indexada desde o início.
+
+        A primeira versão desta regra exigia também a porta aberta, e com ela
+        fechada (o estado de hoje) metia `noindex` no site DELE: uma correcção
+        de segurança que despublicava o site do próprio dono.
+        """
         f = self.abrir.publico_indexavel
-        self.assertTrue(f("tudo", dono=True, aberto=True))
-        self.assertFalse(f("tudo", dono=False, aberto=True), "de outro, nunca")
-        self.assertFalse(f("tudo", dono=True, aberto=False), "porta fechada")
-        self.assertFalse(f("sem-valores", dono=True, aberto=True))
-        self.assertFalse(f("nada", dono=True, aberto=True))
+        self.assertTrue(f(dono=True))
+        self.assertFalse(f(dono=False), "a de um amigo, nunca — até ele dizer")
+
+    def test_o_build_marca_a_pagina_de_um_amigo_e_nao_a_dele(self):
+        """Prova com os TRÊS valores da privacidade, no disco."""
+        from riftvault import build
+        con = self.catalogo()
+        con.close()
+        self.utilizador.criar("Miguel", "miguel")
+        mig = self.utilizador.por_slug("miguel")["user_id"]
+
+        # A DELE: sem marca nenhuma, com qualquer modo.
+        dele = self.v.root / "site-dele"
+        build.build(dele, log=lambda *_: None)
+        html = (dele / "index.html").read_text(encoding="utf-8")
+        self.assertNotIn("noindex", html, "o site dele não se marca")
+        self.assertFalse((dele / "robots.txt").exists())
+
+        # A DE UM AMIGO: marcada nos dois sítios, nos dois modos que geram.
+        for modo in ("tudo", "sem-valores"):
+            self.privacidade.definir(None, mig, modo)
+            fora = self.v.root / f"site-{modo}"
+            build.build(fora, log=lambda *_: None, user_id=mig)
+            h = (fora / "index.html").read_text(encoding="utf-8")
+            self.assertIn("noindex", h, f"«{modo}» tinha de sair com noindex")
+            self.assertIn("Disallow: /",
+                          (fora / "robots.txt").read_text(encoding="utf-8"))
+
+        # `nada`: não se gera página nenhuma (é a regra da 1-multi-guardas).
+        self.privacidade.definir(None, mig, "nada")
+        nada = self.v.root / "site-nada"
+        build.build(nada, log=lambda *_: None, user_id=mig)
+        self.assertFalse((nada / "index.html").exists(),
+                         "com «nada» não se publica nada dele")
 
     def test_os_tres_valores_da_privacidade_sao_os_do_2b(self):
         """Uma verdade só: os valores vêm do módulo dela, não de uma cópia."""
