@@ -1,4 +1,25 @@
--- vault.db — a coleção do André. Vai para o Git.
+-- vault.db — a coleção de UM utilizador. O do André vai para o Git.
+
+-- ---------------------------------------------------------------------------
+-- QUEM É O DONO (2026-09-29): *"Amigos meus querem usar o site para organizar
+-- a coleccao deles"*. Ver `riftvault/utilizador.py` e `docs/multi-utilizador.md`.
+--
+-- CADA UTILIZADOR TEM A SUA BASE — esta. A tabela `users` também está cá
+-- dentro, com a linha do DONO deste ficheiro e só essa, e vem do
+-- `users_schema.sql`, que é a definição única (o REGISTO do serviço, com toda
+-- a gente, vive em `data/users/registo.db`, fora do Git — o porquê está lá).
+--
+-- O `user_id` das tabelas de dono não é o que SEPARA — quem separa é o
+-- ficheiro. É o que faz cada linha dizer de quem é, e é o que o `db.connect`
+-- verifica para recusar uma base aberta como o utilizador errado
+-- (`utilizador.guardar`). O porquê de não ser um `WHERE user_id = ?` está no
+-- `utilizador.py`, com os dois números que o decidiram.
+--
+-- O `catalog.db` (o jogo) e o `prices.db` (o mercado) NÃO levam dono: são
+-- partilhados por toda a gente. Medido a 2026-09-29: a base de um utilizador
+-- novo são 242 KB, contra 1,4 MB de catálogo e 745 KB de preços que ele não
+-- volta a pagar.
+-- ---------------------------------------------------------------------------
 
 -- O GRÃO DA COLEÇÃO: quantidade por impressão.
 -- O acabamento NÃO é parte do grão: decisão do André (2026-08-31) de tratar
@@ -35,11 +56,17 @@
 -- Sem FK para catalog.printings: são bases de dados diferentes e o SQLite não
 -- suporta FK entre bases anexadas. A integridade é garantida no código
 -- (collection.resolve_printing valida contra o catálogo antes de escrever).
+--
+-- O `user_id` aqui e nas outras tabelas de dono (2026-09-29): de quem é a
+-- linha. É NULL enquanto ninguém a carimbou — e NULL quer dizer «do dono deste
+-- ficheiro», porque é um ficheiro por pessoa. O `db.connect` carimba as NULL
+-- na ligação seguinte e RECUSA as que tenham outro dono. Ver `utilizador.py`.
 CREATE TABLE IF NOT EXISTS copies (
     printing_id TEXT    PRIMARY KEY,
     qty         INTEGER NOT NULL CHECK (qty >= 0),
     updated_at  TEXT    NOT NULL,
-    qty_foil    INTEGER NOT NULL DEFAULT 0 CHECK (qty_foil >= 0 AND qty_foil <= 9999)
+    qty_foil    INTEGER NOT NULL DEFAULT 0 CHECK (qty_foil >= 0 AND qty_foil <= 9999),
+    user_id     INTEGER REFERENCES users(user_id)
 );
 
 -- O rasto da contagem de foil (2026-09-22). É o gémeo da `location_ops`, para
@@ -56,7 +83,8 @@ CREATE TABLE IF NOT EXISTS foil_ops (
     printing_id TEXT    NOT NULL,
     delta       INTEGER NOT NULL,
     qty_after   INTEGER NOT NULL,
-    source      TEXT    NOT NULL   -- 'web' | 'cli' | '<origem>:ajuste ao total'
+    source      TEXT    NOT NULL,  -- 'web' | 'cli' | '<origem>:ajuste ao total'
+    user_id     INTEGER REFERENCES users(user_id)
 );
 CREATE INDEX IF NOT EXISTS ix_foil_ops_ts ON foil_ops(ts DESC);
 
@@ -79,6 +107,7 @@ CREATE TABLE IF NOT EXISTS copy_locations (
     location    TEXT    NOT NULL,   -- 'binder' | 'deck:<slug>'
     qty         INTEGER NOT NULL CHECK (qty > 0),
     updated_at  TEXT    NOT NULL,
+    user_id     INTEGER REFERENCES users(user_id),
     PRIMARY KEY (printing_id, location)
 );
 
@@ -96,7 +125,8 @@ CREATE TABLE IF NOT EXISTS location_ops (
     source      TEXT    NOT NULL,   -- 'web' | 'cli' | 'desfazer'
     request_id  TEXT    UNIQUE,     -- idempotência, como na `ops`
     undone_at   TEXT,
-    undo_of     INTEGER
+    undo_of     INTEGER,
+    user_id     INTEGER REFERENCES users(user_id)
 );
 
 CREATE INDEX IF NOT EXISTS ix_location_ops_ts ON location_ops(ts DESC);
@@ -115,7 +145,8 @@ CREATE TABLE IF NOT EXISTS ops (
     -- único, e um retry de rede com o mesmo id não volta a aplicar.
     request_id  TEXT    UNIQUE,
     undone_at   TEXT,               -- preenchido quando esta op é revertida
-    undo_of     INTEGER             -- id da op que esta op reverte
+    undo_of     INTEGER,            -- id da op que esta op reverte
+    user_id     INTEGER REFERENCES users(user_id)
 );
 
 CREATE INDEX IF NOT EXISTS ix_ops_ts       ON ops(ts DESC);
@@ -123,8 +154,9 @@ CREATE INDEX IF NOT EXISTS ix_ops_printing ON ops(printing_id, id DESC);
 
 -- Preferências da UI (toggle "todas as impressões", filtros, ...).
 CREATE TABLE IF NOT EXISTS settings (
-    key   TEXT PRIMARY KEY,
-    value TEXT
+    key     TEXT PRIMARY KEY,
+    value   TEXT,
+    user_id INTEGER REFERENCES users(user_id)
 );
 
 -- ---------------------------------------------------------------------------
@@ -136,7 +168,8 @@ CREATE TABLE IF NOT EXISTS decks (
     path         TEXT,
     content_hash TEXT,               -- dedup por conteúdo
     format       TEXT,
-    imported_at  TEXT
+    imported_at  TEXT,
+    user_id      INTEGER REFERENCES users(user_id)
 );
 
 CREATE TABLE IF NOT EXISTS deck_cards (
@@ -145,6 +178,7 @@ CREATE TABLE IF NOT EXISTS deck_cards (
     role     TEXT    NOT NULL DEFAULT 'main',   -- main | runes | battlefields | legend | champion
     qty      INTEGER NOT NULL,
     raw_line TEXT,
+    user_id  INTEGER REFERENCES users(user_id),
     PRIMARY KEY (deck_id, card_key, role)
 );
 
@@ -169,7 +203,8 @@ CREATE TABLE IF NOT EXISTS deck_need_log (
     deck        TEXT    NOT NULL,   -- rótulo na altura (o deck pode já não existir)
     card_key    TEXT    NOT NULL,
     qty_before  INTEGER NOT NULL,
-    qty_after   INTEGER NOT NULL
+    qty_after   INTEGER NOT NULL,
+    user_id     INTEGER REFERENCES users(user_id)
 );
 CREATE INDEX IF NOT EXISTS ix_deck_need_log_carta ON deck_need_log(slug, card_key, id DESC);
 
@@ -192,7 +227,8 @@ CREATE TABLE IF NOT EXISTS rune_counter (
     card_key    TEXT    PRIMARY KEY,
     qty         INTEGER NOT NULL CHECK (qty >= 0),
     seeded_from INTEGER NOT NULL,   -- o que a coleção dizia na sementeira
-    updated_at  TEXT    NOT NULL
+    updated_at  TEXT    NOT NULL,
+    user_id     INTEGER REFERENCES users(user_id)
 );
 
 -- O histórico de preços vive no `prices.db` (ver riftvault/prices_schema.sql):
@@ -228,7 +264,8 @@ CREATE TABLE IF NOT EXISTS pending (
     ordered_at  TEXT    NOT NULL,
     note        TEXT,               -- vendedor, nº de encomenda, o que for
     arrived_at  TEXT,               -- preenchido quando entra na coleção
-    foil        INTEGER NOT NULL DEFAULT 0 CHECK (foil IN (0, 1))
+    foil        INTEGER NOT NULL DEFAULT 0 CHECK (foil IN (0, 1)),
+    user_id     INTEGER REFERENCES users(user_id)
 );
 CREATE INDEX IF NOT EXISTS ix_pending_aberto ON pending(arrived_at, printing_id);
 
@@ -258,7 +295,8 @@ CREATE TABLE IF NOT EXISTS sale_lines (
     printing_id TEXT    PRIMARY KEY,
     qty         INTEGER NOT NULL CHECK (qty > 0),
     added_at    TEXT    NOT NULL,
-    origem      TEXT
+    origem      TEXT,
+    user_id     INTEGER REFERENCES users(user_id)
 );
 
 -- O TREND DO CARDMARKET, metido À MÃO por ele, por impressão.
@@ -274,7 +312,8 @@ CREATE TABLE IF NOT EXISTS cardmarket_trend (
     printing_id TEXT    PRIMARY KEY,
     cents       INTEGER NOT NULL CHECK (cents >= 0),
     updated_at  TEXT    NOT NULL,
-    source      TEXT    NOT NULL   -- 'web' | 'cli' — sempre à mão
+    source      TEXT    NOT NULL,  -- 'web' | 'cli' — sempre à mão
+    user_id     INTEGER REFERENCES users(user_id)
 );
 
 -- O registo das vendas FECHADAS. Uma linha por carta, agrupadas pelo
@@ -289,7 +328,8 @@ CREATE TABLE IF NOT EXISTS sale_log (
     printing_id TEXT    NOT NULL,
     qty         INTEGER NOT NULL,
     unit_cents  INTEGER,            -- o Trend na altura; NULL = linha sem Trend
-    source      TEXT    NOT NULL
+    source      TEXT    NOT NULL,
+    user_id     INTEGER REFERENCES users(user_id)
 );
 CREATE INDEX IF NOT EXISTS ix_sale_log_venda ON sale_log(sale_id, id);
 
@@ -312,7 +352,8 @@ CREATE INDEX IF NOT EXISTS ix_sale_log_venda ON sale_log(sale_id, id);
 CREATE TABLE IF NOT EXISTS sealed_copies (
     product_id TEXT    PRIMARY KEY,
     qty        INTEGER NOT NULL CHECK (qty >= 0),
-    updated_at TEXT    NOT NULL
+    updated_at TEXT    NOT NULL,
+    user_id    INTEGER REFERENCES users(user_id)
 );
 
 -- O PREÇO DO CARDMARKET, METIDO À MÃO, por produto selado (2026-09-28).
@@ -335,5 +376,6 @@ CREATE TABLE IF NOT EXISTS sealed_price (
     product_id TEXT    PRIMARY KEY,
     cents      INTEGER NOT NULL CHECK (cents >= 0),
     updated_at TEXT    NOT NULL,
-    source     TEXT    NOT NULL   -- 'web' | 'cli' — sempre à mão
+    source     TEXT    NOT NULL,  -- 'web' | 'cli' — sempre à mão
+    user_id    INTEGER REFERENCES users(user_id)
 );
