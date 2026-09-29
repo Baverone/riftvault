@@ -418,6 +418,20 @@ class TestSessoes(Base):
             auth.sessao(self.con, s["sid"])["expira_em"])
         self.assertLess(expira, datetime.now(timezone.utc) + timedelta(days=2))
 
+    def test_uma_sessao_pre_registo_dura_uma_hora_e_nao_um_mes(self):
+        """Quem entrou e desistiu não fica com um cookie válido trinta dias."""
+        s = auth.criar_sessao(
+            self.con, identidade=auth.Identidade("local", "s", "s"))
+        expira = datetime.fromisoformat(
+            auth.sessao(self.con, s["sid"])["expira_em"])
+        self.assertLess(expira, datetime.now(timezone.utc) + timedelta(hours=2))
+
+    def test_a_sessao_de_um_dono_dura_o_mes(self):
+        s = auth.criar_sessao(self.con, user_id=1)
+        expira = datetime.fromisoformat(
+            auth.sessao(self.con, s["sid"])["expira_em"])
+        self.assertGreater(expira, datetime.now(timezone.utc) + timedelta(days=20))
+
     def test_sessao_dias_absurdo_rebenta(self):
         for mau in (0, -5, "muitos"):
             with self.assertRaises(ValueError):

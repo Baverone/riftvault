@@ -60,12 +60,36 @@ bp = Blueprint("conta", __name__)
 #: Os métodos que mudam alguma coisa. Um `GET` nunca escreve nesta app.
 ESCREVE = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 
+#: O dono do site — o André. É o `utilizador.ANDRE`, repetido aqui como
+#: constante para este módulo não ter de importar nada só por causa de um 1.
+DONO = 1
+
 #: Caminhos que têm de funcionar sem sessão de DONO, senão não há por onde
 #: entrar. O `/api/conta/registar` está aqui porque é ele que CRIA o dono: no
 #: momento em que corre, a sessão existe mas ainda não tem `user_id`, e o guarda
 #: genérico recusava-a. Tem a protecção dele por dentro (exige a sessão
 #: pré-registo e exige o CSRF) — ver `registar()`.
 ABERTOS = ("/entrar", "/sair", "/api/conta.json", "/api/conta/registar")
+
+#: ROTAS QUE ESCREVEM NO CONFIG PARTILHADO — e por isso são SÓ DO DONO.
+#:
+#: Isto é o furo que a separação por ficheiro não tapa, e vale a pena dizer
+#: porquê. A `0-multi-utilizador-1` pôs cada coleção num `vault.db` seu, e por
+#: isso nenhuma rota consegue escrever na BASE de outra pessoa. Mas duas rotas
+#: não escrevem numa base: escrevem no `riftvault_config.json`, que é UM
+#: ficheiro para todos —
+#:
+#:     POST /api/decks/montar     -> decks.alternar_montado  -> decks.montados
+#:     POST /api/decks/principal  -> decks.escrever_principal -> decks.principal
+#:
+#: Um amigo autenticado a carregar em «Montar» escrevia o slug do deck DELE na
+#: lista do André. Não é uma leitura indevida — é uma escrita cruzada, e escapa
+#: por o config não ser uma base de dados.
+#:
+#: Ficam do dono até o config ser por utilizador (fase seguinte, ver
+#: `docs/multi-utilizador.md`). É também a razão de o ESTADO dos decks ficar
+#: fora desta fatia — ver `docs/contas-e-autenticacao.md`, «o que ficou de fora».
+SO_DO_DONO = ("/api/decks/montar", "/api/decks/principal")
 
 #: Tecto do corpo de um pedido. Quase tudo o que a app manda é um `printing_id`
 #: e um delta (~80 bytes), mas o `/api/local/marcar` manda uma LISTA de linhas —
@@ -206,6 +230,14 @@ def _guardar_escrita():
     if g.somente_leitura:
         return _resposta(
             "esta coleção não é tua — aqui é só de leitura.", 403)
+
+    if request.path in SO_DO_DONO and g.riftvault_user != DONO:
+        # Escreve no config, que é um ficheiro para todos. Ver `SO_DO_DONO`.
+        return _resposta(
+            "montar e escolher o deck principal ainda são do dono do site: "
+            "essa escolha vive num ficheiro de configuração partilhado e não "
+            "na tua coleção. Os teus decks aparecem na mesma, e as cartas "
+            "deles contam — o que não dá é marcá-los como montados.", 403)
 
     return None
 

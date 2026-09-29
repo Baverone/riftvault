@@ -277,6 +277,60 @@ class TestAsRotasDeEscrita(Base):
         self.assertEqual(r.status_code, 200, r.get_data(as_text=True)[:400])
         self.assertEqual(r.get_json()["qty"], 2)
 
+    def test_as_rotas_que_escrevem_no_CONFIG_sao_so_do_dono(self):
+        """O furo que a separação por ficheiro NÃO tapa.
+
+        Cada coleção é um `vault.db` seu, por isso nenhuma rota escreve na BASE
+        de outro. Mas duas rotas não escrevem numa base — escrevem no
+        `riftvault_config.json`, que é UM ficheiro para todos. Um amigo a
+        carregar em «Montar» escrevia o slug do deck dele na lista do André.
+        """
+        from riftvault import rotas_conta
+        self.ensaio(True)
+        c = self.cliente(aberto=True)
+        csrf = self._entrar(c, "amigo-a", "miguel")  # o amigo é o utilizador 2
+        for rota in rotas_conta.SO_DO_DONO:
+            r = c.post(rota, json={"slug": "x", "montado": True},
+                       headers={"X-CSRF-Token": csrf})
+            self.assertEqual(r.status_code, 403, f"{rota} deixou o amigo escrever")
+            self.assertIn("dono do site", r.get_json()["erro"])
+
+    def test_o_config_nao_mexeu_depois_da_tentativa(self):
+        """A prova: não é só o código de resposta, é o ficheiro."""
+        from riftvault import rotas_conta
+        self.ensaio(True)
+        c = self.cliente(aberto=True)
+        caminho = Path(os.environ["RIFTVAULT_CONFIG"])
+        antes = caminho.read_bytes()
+        csrf = self._entrar(c, "amigo-a", "miguel")
+        for rota in rotas_conta.SO_DO_DONO:
+            c.post(rota, json={"slug": "x", "montado": True},
+                   headers={"X-CSRF-Token": csrf})
+        self.assertEqual(caminho.read_bytes(), antes,
+                         "o config partilhado foi escrito por um amigo")
+
+    def test_a_lista_do_dono_cobre_tudo_o_que_escreve_no_config(self):
+        """Se alguém ligar outra rota ao `escrever_valor`, isto dá vermelho."""
+        import re
+        from riftvault import rotas_conta
+        decks_py = (REPO / "riftvault" / "decks.py").read_text(encoding="utf-8")
+        # As funções do `decks.py` que escrevem no config partilhado.
+        escrevem = set()
+        atual = None
+        for linha in decks_py.splitlines():
+            m = re.match(r"def (\w+)", linha)
+            if m:
+                atual = m.group(1)
+            if "escrever_lista" in linha or "escrever_valor" in linha:
+                escrevem.add(atual)
+        # `apagar_todos` é só da CLI — não tem rota. As outras têm, e as rotas
+        # delas têm de estar na lista.
+        self.assertEqual(escrevem - {"apagar_todos"},
+                         {"alternar_montado", "escrever_principal"},
+                         "há uma função nova a escrever no config partilhado; "
+                         "se ela tiver rota, põe-na no SO_DO_DONO")
+        self.assertEqual(len(rotas_conta.SO_DO_DONO), 2)
+
     def _entrar(self, c, sub: str, slug: str) -> str:
         r = c.get(f"/entrar/local?sub={sub}")
         self.assertEqual(r.status_code, 302, r.get_data(as_text=True)[:300])

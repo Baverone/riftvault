@@ -648,6 +648,11 @@ def criar_sessao(con: sqlite3.Connection, *, user_id: int | None = None,
     sid = secrets.token_urlsafe(BYTES)
     csrf = secrets.token_urlsafe(BYTES)
     agora = _agora()
+    # Uma sessão PRÉ-REGISTO (sem dono) vale uma hora, não trinta dias: é só o
+    # tempo de escolher um nome. Quem entrou e desistiu não fica com um cookie
+    # válido um mês, e as linhas de registos que nunca aconteceram desaparecem
+    # sozinhas na primeira limpeza.
+    prazo = (sessao_dias(cfg) * 86400) if user_id is not None else 3600
     con.execute(
         "INSERT INTO sessions (sid_hash, user_id, provedor, sub, nome, csrf, "
         "criado_em, visto_em, expira_em, agente) "
@@ -656,8 +661,7 @@ def criar_sessao(con: sqlite3.Connection, *, user_id: int | None = None,
          identidade.provedor if identidade else None,
          identidade.sub if identidade else None,
          identidade.nome if identidade else None,
-         csrf, agora, agora, _mais(sessao_dias(cfg) * 86400),
-         (agente or "")[:200]))
+         csrf, agora, agora, _mais(prazo), (agente or "")[:200]))
     con.commit()
     return {"sid": sid, "csrf": csrf, "user_id": user_id}
 
