@@ -23,7 +23,7 @@ worktree: C:\Users\Catarina\_revisao\wt-contas
 
 2. O A REGISTA-SE
   [OK  ] entrou mas ainda não tem conta — {"nome": "amigo-a-sub", "provedor": "local", "slug_sugerido": "amigo-a-sub"}
-  [OK  ] a conta nasceu — {"csrf": "ElCerPsJyKK799mRS6cfMbsELuTpkmSUolLq2_MMsQA", "nome": "amigo-a-sub", "ok": true, "slug": "miguel"}
+  [OK  ] a conta nasceu — {"csrf": "gsbLU-s_lMnqLm45uH93IkSvaCIJwNBXQuIeUx1Or_0", "nome": "amigo-a-sub", "ok": true, "slug": "miguel"}
   [OK  ] agora está dentro e pode editar — slug=miguel
   [OK  ] a coleção dele nasce PRIVADA — nada
 
@@ -58,6 +58,13 @@ worktree: C:\Users\Catarina\_revisao\wt-contas
   [OK  ] «nada» ficou guardado — {"ok":true,"publico":"nada"}
 
   [OK  ] um valor inventado recusa
+
+8b. O A EXPORTA OS DADOS DELE (pelo caminho da app, sem SQL à mão)
+  [OK  ] exportou — {"ficheiro":"C:\\Users\\Catarina\\_revisao\\wt-contas\\data-ensaio\\backups\\conta-miguel-20260930-004030.zip","linhas":{"cardmarket_trend":0,"copies":1,"copy_locations":0,"deck_cards":0,"deck_need_log":0,"decks":0,"foil_ops":0,"location_op
+  [OK  ] o ficheiro existe e não está vazio — conta-miguel-20260930-004030.zip · 7378 bytes
+   linhas: {"cardmarket_trend": 0, "copies": 1, "copy_locations": 0, "deck_cards": 0, "deck_need_log": 0, "decks": 0, "foil_ops": 0, "location_ops": 0, "ops": 3, "pending": 0, "rune_counter": 0, "sale_lines": 0, "sale_log": 0, "sealed_copies": 0, "sealed_price": 0, "settings": 0}
+  [OK  ] o export não leva credenciais — sem a tabela user_auth lá dentro
+  [OK  ] sem entrar, exportar recusa
 
 9. APAGAR O A NÃO MEXE UMA LINHA DO B
   [OK  ] sem escrever o nome certo, recusa — para apagar, escreve «miguel» no campo de confirmação.
