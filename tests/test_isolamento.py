@@ -424,6 +424,66 @@ class TestOGuardaRebenta(unittest.TestCase):
             con.execute("ATTACH DATABASE ? AS outra", (str(outra),))
         con.close()
 
+    def test_o_backup_de_uma_MIGRACAO_continua_a_funcionar(self):
+        """A armadilha que o guarda quase criou, e é a maior desta ordem.
+
+        O `db.backup` faz `VACUUM <schema> INTO`, que **anexa o ficheiro de
+        destino por dentro** — e o guarda recusa `ATTACH`. São **sete** os
+        sítios que lhe chamam, e cinco são migrações que correm de DENTRO do
+        `db.connect` numa base antiga: se isto se partisse, o arranque de uma
+        base antiga partia-se com ele. (Alcance apontado pela sessão
+        `riftbound-da`, que sugeriu testar a migração e não só a base nova.)
+        """
+        con = db.connect()
+        alvo = db.backup(con, "teste-do-guarda")
+        con.close()
+        self.assertIsNotNone(alvo, "o `db.backup` devolveu None — o VACUUM "
+                                   "foi recusado pelo guarda")
+        self.assertTrue(alvo.exists() and alvo.stat().st_size > 0)
+        # e a cópia abre e tem a coleção lá dentro
+        copia = db.abrir_vault(alvo, utilizador.ANDRE, readonly=True)
+        try:
+            self.assertEqual(
+                copia.execute("SELECT COUNT(*) FROM copies").fetchone()[0], 3)
+        finally:
+            copia.close()
+
+    def test_uma_base_ANTIGA_migra_com_o_guarda_armado(self):
+        """Uma base sem a coluna `user_id` e sem a `users` — o estado real do
+        `data/vault.db` antes desta semana. A migração faz backup e corre
+        ANTES de o guarda armar; se a ordem estivesse trocada, o primeiro
+        arranque depois do merge rebentava na coleção dele."""
+        v = fixture.Vault()
+        self.addCleanup(v.close)
+        fixture.catalogo_simples(v)
+        con = db.connect()
+        con.execute("PRAGMA foreign_keys=OFF")
+        # desfaz a migração: tira a `users` e a coluna de uma tabela de dono
+        con.execute("DROP TABLE users")
+        con.execute("CREATE TABLE copies_velha (printing_id TEXT PRIMARY KEY, "
+                    "qty INTEGER NOT NULL, updated_at TEXT NOT NULL, "
+                    "qty_foil INTEGER NOT NULL DEFAULT 0)")
+        con.execute("INSERT INTO copies_velha SELECT printing_id, qty, "
+                    "updated_at, qty_foil FROM copies")
+        con.execute("DROP TABLE copies")
+        con.execute("ALTER TABLE copies_velha RENAME TO copies")
+        antes = con.execute("SELECT printing_id, qty FROM copies "
+                            "ORDER BY printing_id").fetchall()
+        con.close()
+
+        con = db.connect()          # é aqui que a migração corre
+        self.addCleanup(con.close)
+        cols = {r[1] for r in con.execute("PRAGMA table_info(copies)")}
+        self.assertIn("user_id", cols, "a migração não correu")
+        self.assertEqual(
+            con.execute("SELECT printing_id, qty FROM copies "
+                        "ORDER BY printing_id").fetchall(), antes,
+            "a migração mexeu num número")
+        # e o guarda ficou armado no fim
+        con.riftvault_user = None
+        with self.assertRaises(guarda.SemDono):
+            con.execute("SELECT qty FROM copies").fetchone()
+
     def test_o_guarda_nao_custa_nada(self):
         """Medido a 2026-09-29: 50 000 consultas em 48 ms armado contra 49 ms
         desarmado. Aqui só se exige que não seja uma ordem de grandeza."""
@@ -473,18 +533,37 @@ class TestNinguemAbreUmVaultForaDoDb(unittest.TestCase):
     passar por nenhuma das outras três."""
 
     PACOTE = Path(__file__).resolve().parent.parent / "riftvault"
-    #: quem pode abrir uma base: o `db.py` (a porta única) e o `utilizador.py`
-    #: (o registo, que não é uma base de dono).
+    #: quem pode abrir uma base de DONO: o `db.py`, que é a porta única. O
+    #: `utilizador.py` abre o REGISTO, que não é a coleção de ninguém.
     PODEM = {"db.py", "utilizador.py"}
 
     def test_so_o_db_e_o_registo_abrem_ligacoes(self):
+        """Um módulo que abra um `sqlite3.connect` tem de PROVAR que não chega
+        à coleção de ninguém — e a prova são DUAS propriedades do código, não
+        o nome dele numa lista de excepções:
+
+          * **não importa o `db`** — é de lá que sai o caminho de um `vault.db`
+            (o `db.vault_de`);
+          * **não nomeia o ficheiro do André** (`VAULT_DB`) — é o outro
+            caminho, e o teste a seguir fecha-o.
+
+        Juntas não deixam por onde: sem o `db` e sem o `VAULT_DB`, um módulo
+        não consegue nomear a base de um utilizador. É o que deixa uma base do
+        SERVIÇO — o registo, e a `data/auth.db` da autenticação — ser aberta
+        onde faz sentido, sem abrir a porta a uma coleção.
+        """
         maus = []
         for p in sorted(self.PACOTE.glob("*.py")):
             if p.name in self.PODEM:
                 continue
-            if "sqlite3.connect(" in p.read_text(encoding="utf-8"):
+            texto = p.read_text(encoding="utf-8")
+            if "sqlite3.connect(" not in texto:
+                continue
+            if "import db" in texto or "VAULT_DB" in texto:
                 maus.append(p.name)
-        self.assertEqual(maus, [], f"abrem uma base por fora do `db.py`: {maus}")
+        self.assertEqual(
+            maus, [],
+            f"abrem uma base e conseguem chegar a uma coleção: {maus}")
 
     def test_so_o_db_e_o_config_falam_do_ficheiro_do_andre(self):
         """`config.VAULT_DB` é o ficheiro DELE. Quem o usar directamente está

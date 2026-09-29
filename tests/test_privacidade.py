@@ -16,6 +16,7 @@ A parte pura — a regra sobre um payload — está no `test_privacidade_filtro.
 from __future__ import annotations
 
 import json
+import sys
 import unittest
 from pathlib import Path
 
@@ -223,6 +224,15 @@ class TestPortasFechadas(Base):
                 maus.append(p.name)
         self.assertEqual(maus, [], f"há configuração de túnel: {maus}")
 
+    def test_nao_ha_utilizadores_criados_no_config_real(self):
+        """*"SEM registo, SEM convites, SEM contas de amigos criadas"* — e o
+        interruptor do config real tem de estar mesmo fechado."""
+        raiz = Path(__file__).resolve().parent.parent
+        bruto = json.loads((raiz / "riftvault_config.json").read_text(
+            encoding="utf-8"))
+        self.assertIs((bruto.get("multi") or {}).get("aberto", False), False,
+                      "o `multi.aberto` do config REAL não está fechado")
+
     def test_so_ha_um_utilizador_no_registo_real(self):
         """*"SEM registo, SEM convites, SEM contas de amigos criadas"*. As
         contas de teste vivem nos testes e na base de ensaio — nunca na real."""
@@ -239,6 +249,102 @@ class TestPortasFechadas(Base):
             con.close()
         self.assertEqual(n, 1, f"há contas a mais no registo real: {slugs}")
         self.assertEqual(slugs, [utilizador.SLUG_ANDRE])
+
+
+class TestOSitioParaPartirCoisas(unittest.TestCase):
+    """O ENSAIO (`RIFTVAULT_ENSAIO=1`) — ponto 8 da ordem.
+
+    Corre em SUBPROCESSOS porque o `config` lê o ambiente na IMPORTAÇÃO: é
+    isso que faz o ensaio ser impossível de ligar a meio de uma corrida, e é
+    isso que se está a testar.
+    """
+
+    CODIGO = "\n".join((
+        "import sys, json",
+        "sys.path.insert(0, r'{raiz}')",
+        "from riftvault import multi, config",
+        "print(json.dumps({{'ensaio': multi.ensaio(),",
+        "  'dados': config.DATA_DIR.name, 'config': config.CONFIG_PATH.name,",
+        "  'porta': multi.porta(), 'anfitriao': multi.anfitriao(),",
+        "  'aberto': multi.aberto()}}))",
+    ))
+
+    def correr(self, **ambiente):
+        import json as _json
+        import os
+        import subprocess
+        raiz = Path(__file__).resolve().parent.parent
+        amb = {k: v for k, v in os.environ.items()
+               if not k.startswith("RIFTVAULT_")}
+        amb.update(ambiente)
+        r = subprocess.run(
+            [sys.executable, "-X", "utf8", "-c",
+             self.CODIGO.format(raiz=raiz)],
+            capture_output=True, text=True, encoding="utf-8", env=amb)
+        return r, (_json.loads(r.stdout) if r.returncode == 0 else None)
+
+    def test_sem_a_variavel_e_tudo_como_sempre(self):
+        _, d = self.correr()
+        self.assertFalse(d["ensaio"])
+        self.assertEqual(d["dados"], "data")
+        self.assertEqual(d["config"], "riftvault_config.json")
+        self.assertEqual(d["porta"], 8770)
+        self.assertEqual(d["anfitriao"], "0.0.0.0")
+
+    def test_com_a_variavel_muda_os_tres(self):
+        _, d = self.correr(RIFTVAULT_ENSAIO="1")
+        self.assertTrue(d["ensaio"])
+        self.assertEqual(d["dados"], "data-ensaio")
+        self.assertEqual(d["config"], "riftvault_config-ensaio.json")
+
+    def test_O_ENSAIO_NAO_ESCUTA_NA_PORTA_DO_TUNEL(self):
+        """A garantia de que o túnel nunca aponta para uma experiência, e é
+        por construção: o túnel serve a 8770 e o ensaio recusa-a."""
+        _, d = self.correr(RIFTVAULT_ENSAIO="1")
+        self.assertEqual(d["porta"], multi.PORTA_ENSAIO)
+        self.assertNotEqual(d["porta"], multi.PORTA_PRODUCAO)
+        self.assertEqual(d["anfitriao"], "127.0.0.1",
+                         "o ensaio saiu do loopback — fica ao alcance da LAN")
+
+    def test_pedir_a_8770_em_ensaio_rebenta(self):
+        raiz = Path(__file__).resolve().parent.parent
+        import os
+        import subprocess
+        amb = {k: v for k, v in os.environ.items()
+               if not k.startswith("RIFTVAULT_")}
+        amb["RIFTVAULT_ENSAIO"] = "1"
+        r = subprocess.run(
+            [sys.executable, "-X", "utf8", "-c", "\n".join((
+                f"import sys; sys.path.insert(0, r'{raiz}')",
+                "from riftvault import multi",
+                "multi.porta(8770)"))],
+            capture_output=True, text=True, encoding="utf-8", env=amb)
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("PortaDeProducao", r.stderr)
+
+    def test_o_ensaio_recusa_o_data_a_serio(self):
+        """O erro que isto existe para não deixar cometer: correr uma
+        experiência com a coleção verdadeira por baixo."""
+        raiz = Path(__file__).resolve().parent.parent
+        r, _ = self.correr(RIFTVAULT_ENSAIO="1",
+                           RIFTVAULT_DATA=str(raiz / "data"))
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("RIFTVAULT_ENSAIO", r.stderr)
+        self.assertIn("a coleção a sério", r.stderr)
+
+    def test_exigir_ensaio_so_passa_em_ensaio(self):
+        with self.assertRaises(multi.SoEmEnsaio) as e:
+            multi.exigir_ensaio("fornecedor de mentira")
+        self.assertIn("RIFTVAULT_ENSAIO", str(e.exception))
+
+    def test_o_ensaio_nao_e_uma_chave_do_config(self):
+        """De propósito: uma chave de ensaio dentro de um ficheiro que vai
+        para o Git está a um merge de distância de ir para produção ligada."""
+        raiz = Path(__file__).resolve().parent.parent
+        bruto = (raiz / "riftvault_config.json").read_text(encoding="utf-8")
+        self.assertNotIn("ensaio", bruto.lower())
+        fonte = (raiz / "riftvault" / "multi.py").read_text(encoding="utf-8")
+        self.assertIn("RIFTVAULT_ENSAIO", fonte)
 
 
 if __name__ == "__main__":
