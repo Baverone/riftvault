@@ -11,8 +11,13 @@ vermelha escreve o `git merge` à mão — e aí é uma decisão, não um descui
 
 Corre o `git` no diretório da RAIZ (`git -C`), nunca com um `cd` à frente.
 
-Ver `tools/placar.py` para o que o placar guarda e para as cinco maneiras de
-estar vermelho.
+A SUITE CORRE EM PARALELO desde 2026-09-30, e cada vermelho repete-se sozinho
+antes de contar como vermelho. Para depurar um de cada vez:
+
+    RIFTVAULT_SUITE_SERIE=1 py -X utf8 tools/portao.py suite
+
+Ver `tools/placar.py` para o que o placar guarda, para as cinco maneiras de
+estar vermelho e para a razão de não haver lista de ficheiros «maus».
 """
 
 from __future__ import annotations

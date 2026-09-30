@@ -95,6 +95,11 @@ _lixo/
 # — o verde de outra pessoa a autorizar o meu merge.
 .placar.json
 
+# O registo dos ficheiros de teste que só passam SOZINHOS (2026-09-30, a suite
+# em paralelo). Também é desta máquina e não vai para o Git; serve para, ao fim
+# de umas semanas, dizer quais é que colidem mesmo e valia a pena arranjar.
+data/colisoes.log
+
 # A base de ENSAIO (2026-09-29, `RIFTVAULT_ENSAIO=1`): o sítio para partir
 # coisas. Nunca se commita — são dados de mentira, e o config dela podia
 # ligar em produção o que só era para ensaiar.

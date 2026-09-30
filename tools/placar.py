@@ -14,6 +14,11 @@ AS TRÊS COISAS QUE UM PLACAR TEM DE DIZER, e nenhuma se pode presumir:
      autoriza um merge de código que nunca correu;
   3. QUANDO. Só para o humano ler; quem decide é a impressão digital.
 
+DESDE 2026-09-30 A SUITE CORRE EM PARALELO, e o placar diz TRÊS números em vez
+de um: quantos ficheiros passaram à primeira, quantos só passaram SOZINHOS (e
+quais — são colisões entre processos, não defeitos) e quantos são vermelhos a
+sério (e quais). Ver `correr` para a regra e a razão.
+
 A IMPRESSÃO DIGITAL é o sha256 de tudo o que pode mudar a resposta da suite: o
 pacote (`.py`, `.sql`, e o `web/`, que os testes leem como texto), os testes, e
 o `riftvault_config.json` — que não é enfeite, é onde vivem regras que os
@@ -28,9 +33,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -84,50 +92,197 @@ def ficheiros_de_teste(raiz: Path) -> list[Path]:
 # Correr
 # ---------------------------------------------------------------------------
 
-def correr(raiz: Path, log=print) -> dict:
-    """A suite, UM PROCESSO POR FICHEIRO, e o placar do que aconteceu.
+# O tecto de trabalhadores não é o número de núcleos. Cada ficheiro é um
+# processo que copia bases de dados para pastas temporárias e as abre: a partir
+# de certo ponto o que limita é o disco, e apertar mais só faz subir as
+# colisões — que é justamente o que se paga a repetir. Muda-se pelo ambiente
+# (`RIFTVAULT_SUITE_TRABALHADORES`).
+TECTO_TRABALHADORES = 8
 
-    Um processo por ficheiro é a regra da casa e não é superstição: a bateria
+# Para depurar: corre um de cada vez, como até 2026-09-30.
+ENV_SERIE = "RIFTVAULT_SUITE_SERIE"
+ENV_TRABALHADORES = "RIFTVAULT_SUITE_TRABALHADORES"
+
+# O registo das colisões. Não vai para o Git (é desta máquina, como o placar) e
+# não se trata de maneira especial: ao fim de umas semanas diz quais é que
+# valia a pena arranjar.
+COLISOES = "data/colisoes.log"
+
+
+def trabalhadores() -> int:
+    """Quantos ficheiros ao mesmo tempo. `1` é o modo série, para depurar."""
+    if os.environ.get(ENV_SERIE, "").strip() not in ("", "0"):
+        return 1
+    escrito = os.environ.get(ENV_TRABALHADORES, "").strip()
+    if escrito:
+        try:
+            return max(1, int(escrito))
+        except ValueError:
+            pass
+    return max(1, min(os.cpu_count() or 1, TECTO_TRABALHADORES))
+
+
+def _correr_um(raiz: Path, f: Path) -> dict:
+    """Um ficheiro, um processo. Devolve o que aconteceu, sem julgar."""
+    t0 = time.monotonic()
+    r = subprocess.run([sys.executable, "-X", "utf8", "-m", "unittest",
+                        f"tests.{f.stem}"],
+                       cwd=str(raiz), capture_output=True, text=True,
+                       encoding="utf-8", errors="replace")
+    saida = (r.stderr or "") + (r.stdout or "")
+    m = re.search(r"^Ran (\d+) test", saida, re.M)
+    return {
+        "ficheiro": f.name,
+        # Quanto demorou. Em paralelo o chão da corrida é o ficheiro MAIS LENTO
+        # — 68 ficheiros rápidos não compensam um que leve dez minutos —, por
+        # isso o placar diz quais são os cinco maiores: é onde vale a pena
+        # mexer se isto voltar a incomodar.
+        "segundos": round(time.monotonic() - t0, 1),
+        "testes": int(m.group(1)) if m else 0,
+        # `Ran` em falta é um ficheiro que nem chegou a correr (um import
+        # partido) — conta como vermelho na mesma, e a razão di-lo.
+        "ok": r.returncode == 0 and m is not None,
+        "razao": "não correu (sem «Ran N tests»)" if not m else "falhou",
+        "cauda": saida[-3000:],
+    }
+
+
+def correr(raiz: Path, log=print) -> dict:
+    """A suite, UM PROCESSO POR FICHEIRO, em PARALELO e com REPETIÇÃO SOZINHO.
+
+    UM PROCESSO POR FICHEIRO é a regra da casa e não é superstição: a bateria
     toda num processo só tem falhas de estado partilhado que passam sozinhas
     (`test_mesma_legend`, `test_nome_do_deck`), e um teste que só falha
-    acompanhado esconde-se atrás de um verde.
-    """
-    todos = ficheiros_de_teste(raiz)
-    maus: list[dict] = []
-    testes = 0
-    for f in todos:
-        r = subprocess.run([sys.executable, "-X", "utf8", "-m", "unittest",
-                            f"tests.{f.stem}"],
-                           cwd=str(raiz), capture_output=True, text=True,
-                           encoding="utf-8", errors="replace")
-        saida = (r.stderr or "") + (r.stdout or "")
-        m = re.search(r"^Ran (\d+) test", saida, re.M)
-        n = int(m.group(1)) if m else 0
-        testes += n
-        ok = r.returncode == 0 and m is not None
-        log(f"{'ok' if ok else 'FALHOU':7} {f.name:36} {n:4} testes", flush=True)
-        if not ok:
-            maus.append({"ficheiro": f.name,
-                         # `Ran` em falta é um ficheiro que nem chegou a correr
-                         # (um import partido) — conta como vermelho na mesma.
-                         "razao": "não correu (sem «Ran N tests»)" if not m else "falhou",
-                         "cauda": saida[-3000:]})
+    acompanhado esconde-se atrás de um verde. Isso não mudou.
 
+    O QUE MUDOU A 2026-09-30 é a ORDEM. Correr os 69 ficheiros um a seguir ao
+    outro demorava **681 segundos** medidos, e uma ordem corre a suite várias
+    vezes: era o maior pedaço de tempo morto do ciclo. Agora:
+
+      1. corre-se TUDO em paralelo;
+      2. cada ficheiro que fique vermelho REPETE-SE SOZINHO, um de cada vez,
+         sem mais nada a correr;
+      3. quem passa à segunda era COLISÃO — conta verde, e fica registado;
+         quem falha as duas é vermelho a sério.
+
+    POR QUE É QUE ISTO NÃO PERDE RIGOR. A repetição sozinha é EXACTAMENTE a
+    condição que a suite antiga media — um ficheiro, um processo, nada ao lado
+    —, ficheiro a ficheiro. Um vermelho a sério falha nas duas e dá vermelho
+    como antes; um que só falhe acompanhado passa a APARECER (a suite antiga
+    nunca os corria juntos e por isso nunca o via). Ganha-se informação; não se
+    troca uma pergunta por outra mais fraca.
+
+    E POR QUE É QUE NÃO HÁ UMA LISTA DOS «MAUS». Uma lista escrita à mão
+    envelhece: o ficheiro que se arranja continua lá a ser desculpado, e o que
+    passa a colidir amanhã não está. Pior — uma lista errada dá VERMELHOS
+    FALSOS, e um vermelho falso é a pior coisa que uma suite faz, porque ensina
+    a ignorá-la. Aqui quem decide é a própria corrida, e só os vermelhos pagam
+    o preço da lentidão.
+    """
+    inicio = time.monotonic()
+    todos = ficheiros_de_teste(raiz)
+    n_trab = trabalhadores()
+    log(f"suite: {len(todos)} ficheiros, {n_trab} ao mesmo tempo"
+        f"{' (MODO SÉRIE)' if n_trab == 1 else ''}", flush=True)
+
+    # 1ª volta, em paralelo. As threads só esperam por subprocessos, por isso o
+    # GIL não estorva. Escreve-se cada linha À MEDIDA que ela acaba (e não a
+    # lista no fim): quem está a olhar para o ecrã tem de ver que aquilo anda.
+    por_ficheiro: dict[str, dict] = {}
+
+    def _anotar(r: dict) -> None:
+        por_ficheiro[r["ficheiro"]] = r
+        log(f"{'ok' if r['ok'] else 'FALHOU':7} {r['ficheiro']:36} "
+            f"{r['testes']:4} testes {r.get('segundos', 0):7.1f}s", flush=True)
+
+    if n_trab == 1:
+        for f in todos:
+            _anotar(_correr_um(raiz, f))
+    else:
+        with ThreadPoolExecutor(max_workers=n_trab) as pool:
+            for fut in as_completed([pool.submit(_correr_um, raiz, f)
+                                     for f in todos]):
+                _anotar(fut.result())
+
+    # 2ª volta: cada vermelho SOZINHO, um de cada vez. É a condição da suite
+    # antiga, e é ela que distingue colisão de defeito.
+    a_repetir = [f for f in todos if not por_ficheiro[f.name]["ok"]]
+    colidiram: list[dict] = []
+    maus: list[dict] = []
+    if a_repetir:
+        log(f"\n{len(a_repetir)} a repetir SOZINHO (um de cada vez)...", flush=True)
+    for f in a_repetir:
+        r = _correr_um(raiz, f)
+        # A palavra final é a da corrida sozinha, incluindo a contagem: é a
+        # que vale, porque é a que mede o ficheiro sem ninguém ao lado.
+        por_ficheiro[f.name] = r
+        if r["ok"]:
+            log(f"{'colidiu':7} {f.name:36} {r['testes']:4} testes "
+                f"(passa sozinho)", flush=True)
+            colidiram.append({"ficheiro": f.name, "testes": r["testes"]})
+        else:
+            log(f"{'VERMELHO':7} {f.name:36} ({r['razao']})", flush=True)
+            maus.append({"ficheiro": f.name, "razao": r["razao"],
+                         "cauda": r["cauda"]})
+
+    testes = sum(r["testes"] for r in por_ficheiro.values())
+    mais_lentos = [{"ficheiro": r["ficheiro"], "segundos": r.get("segundos", 0)}
+                   for r in sorted(por_ficheiro.values(),
+                                   key=lambda r: -r.get("segundos", 0))[:5]]
     placar = {
         "quando": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "segundos": round(time.monotonic() - inicio, 1),
+        # O chão de uma corrida em paralelo é o ficheiro mais lento, não a média.
+        "mais_lentos": mais_lentos,
         "raiz": str(raiz),
         "head": _head(raiz),
         "impressao_digital": impressao_digital(raiz),
         "ficheiros": len(todos),
         "testes": testes,
+        # `a_falhar` são só os VERMELHOS A SÉRIO — é o campo que o portão lê, e
+        # o significado não mudou: «isto não se pode integrar».
         "a_falhar": len(maus),
         "maus": maus,
+        # Os três números, para quem lê.
+        "verdes_a_primeira": len(todos) - len(a_repetir),
+        "colidiram": colidiram,
+        "modo": "série" if n_trab == 1 else "paralelo",
+        "trabalhadores": n_trab,
     }
+    if colidiram:
+        _registar_colisoes(raiz, placar)
     log(f"\nPLACAR: {placar['ficheiros']} ficheiros, {placar['testes']} testes, "
-        f"{placar['a_falhar']} a falhar", flush=True)
+        f"{placar['segundos']:.0f}s ({placar['modo']}, {n_trab} ao mesmo tempo)"
+        f"\n  mais lentos: "
+        + " · ".join(f"{r['ficheiro']} {r['segundos']:.0f}s" for r in mais_lentos)
+        + f"\n  {placar['verdes_a_primeira']} verdes à primeira"
+        f"\n  {len(colidiram)} só passaram sozinhos"
+        + (f" ({', '.join(c['ficheiro'] for c in colidiram)})" if colidiram else "")
+        + f"\n  {placar['a_falhar']} vermelhos a sério"
+        + (f" ({', '.join(m['ficheiro'] for m in maus)})" if maus else ""),
+        flush=True)
     for m in maus:
         log(f"\n===== {m['ficheiro']} ({m['razao']})\n{m['cauda']}")
     return placar
+
+
+def _registar_colisoes(raiz: Path, placar: dict) -> None:
+    """Uma linha por ficheiro que só passou sozinho, com a data.
+
+    Sem tratamento especial nenhum — é só memória. Ao fim de umas semanas isto
+    diz quais é que colidem mesmo e valia a pena arranjar, em vez de se
+    adivinhar.
+    """
+    alvo = raiz / COLISOES
+    try:
+        alvo.parent.mkdir(parents=True, exist_ok=True)
+        with alvo.open("a", encoding="utf-8") as fh:
+            for c in placar["colidiram"]:
+                fh.write(f"{placar['quando']}\t{c['ficheiro']}\t"
+                         f"{c['testes']}\t{placar['trabalhadores']}\t"
+                         f"{placar['head'][:8]}\n")
+    except OSError:
+        pass  # o registo é conveniência; nunca é motivo para a suite falhar
 
 
 def gravar(raiz: Path, placar: dict) -> Path:
@@ -179,7 +334,11 @@ def verde(raiz: Path) -> tuple[bool, str]:
       4. faltam ficheiros          — o placar mediu menos ficheiros do que os
                                      que estão em disco (um teste novo por
                                      correr, ou uma corrida interrompida);
-      5. há testes a falhar        — o placar diz.
+      5. há testes a falhar        — o placar diz, e desde 2026-09-30 «a
+                                     falhar» são os VERMELHOS A SÉRIO: os que
+                                     falharam em paralelo E sozinhos. Um que
+                                     passe sozinho era colisão, conta verde e
+                                     fica dito (e no `data/colisoes.log`).
     """
     p = ler(raiz)
     if p is None:
@@ -199,5 +358,13 @@ def verde(raiz: Path) -> tuple[bool, str]:
         nomes = ", ".join(m.get("ficheiro", "?") for m in p.get("maus", []))
         return False, (f"VERMELHO: {p['a_falhar']} ficheiro(s) a falhar"
                        + (f" ({nomes})" if nomes else "") + ".")
+    colidiram = p.get("colidiram") or []
+    extra = ""
+    if colidiram:
+        # Dizer QUAIS, e não só quantos: um verde que esconde «três passaram à
+        # segunda» é um verde em que se confia de menos.
+        extra = (f", {len(colidiram)} só passaram sozinhos ("
+                 + ", ".join(c.get("ficheiro", "?") for c in colidiram) + ")")
     return True, (f"VERDE: {p['ficheiros']} ficheiros, {p['testes']} testes, "
-                  f"0 a falhar (corrida de {p['quando']}, HEAD {p['head'][:8]}).")
+                  f"0 vermelhos{extra} (corrida de {p['quando']}, "
+                  f"modo {p.get('modo', '?')}, HEAD {p['head'][:8]}).")
