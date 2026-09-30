@@ -619,6 +619,36 @@ function renderConta() {
   if (!c || !c.aberto) { zona.hidden = true; zona.innerHTML = ''; return; }
   zona.hidden = false;
 
+  /* 1. ENTROU COM A TEMPORÁRIA (2026-09-30). O site está trancado até trocar
+   *    (`rotas_conta._trava_temporaria`), por isso esta zona é a ÚNICA coisa
+   *    com que ela pode mexer — e não se mostra mais nada para não parecer que
+   *    o resto está avariado. */
+  if (c.entrado && c.senha_temporaria) {
+    zona.innerHTML = `<div class="conta-cx">
+      <b>Escolhe a tua password</b>
+      <small>Estás a usar a password temporária que o André te deu. Escolhe
+      uma tua para poderes usar o site — pelo menos 10 caracteres; uma frase
+      curta serve.</small>
+      ${trocaHTML(true)}
+      <a class="btn ghost" href="sair">Sair</a>
+    </div>`;
+    ligarTroca(true);
+    return;
+  }
+
+  /* 2. ENTROU POR UM FORNECEDOR E NÃO TEM CONTA AQUI. Não há registo aberto
+   *    (2026-09-30): as contas nascem de um comando dele. */
+  if (c.sem_conta) {
+    zona.innerHTML = `<div class="conta-cx">
+      <b>Ainda não tens conta</b>
+      <small>As contas aqui não se criam sozinhas — é o André que as cria.
+      Pede-lhe uma e ele dá-te um nome de utilizador e uma password.</small>
+      <a class="btn ghost" href="sair">Sair</a>
+    </div>`;
+    return;
+  }
+
+  /* 3. O registo por fornecedor, se um dia for ligado (`REGISTO_ABERTO`). */
   if (c.registo_pendente) {
     const p = c.registo_pendente;
     zona.innerHTML = `<div class="conta-cx">
@@ -638,17 +668,35 @@ function renderConta() {
     return;
   }
 
+  /* 4. NÃO ENTROU: o nome e a password. Os botões dos fornecedores só
+   *    aparecem se ele os tiver configurado — o OAuth ficou parado a
+   *    2026-09-30, e sem segredo o `pronto` vem a `false`. */
   if (!c.entrado) {
     const bts = (c.provedores || []).filter((p) => p.pronto).map((p) =>
-      `<a class="btn primary" href="entrar/${encodeURIComponent(p.nome)}">Entrar com ${escapeHTML(p.etiqueta)}</a>`).join('');
-    // Sem nenhum fornecedor configurado não se mostra um botão que não
-    // funciona: diz-se o que falta, que é o que o `--verificar` também diz.
-    zona.innerHTML = `<div class="conta-cx">${bts || `<small>As contas estão
-      abertas mas nenhuma forma de entrar está configurada — falta o passo 1 do
-      <code>docs/abrir-a-porta.md</code>.</small>`}</div>`;
+      `<a class="btn ghost" href="entrar/${encodeURIComponent(p.nome)}">ou entrar com ${escapeHTML(p.etiqueta)}</a>`).join('');
+    zona.innerHTML = `<div class="conta-cx">
+      <b>Entrar</b>
+      <label class="conta-lbl" for="en-nome">Utilizador</label>
+      <input id="en-nome" class="conta-inp" maxlength="32" autocomplete="username"
+             spellcheck="false" autocapitalize="off">
+      <label class="conta-lbl" for="en-senha">Password</label>
+      <input id="en-senha" class="conta-inp" type="password" maxlength="256"
+             autocomplete="current-password">
+      <button class="btn primary" id="en-ok" type="button">Entrar</button>
+      <p class="conta-erro" id="en-erro" hidden></p>
+      <small>Não tens conta? Pede uma ao André — é ele que as cria.</small>
+      ${bts}
+    </div>`;
+    $('#en-ok').addEventListener('click', entrarComSenha);
+    for (const id of ['#en-nome', '#en-senha']) {
+      $(id).addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') entrarComSenha();
+      });
+    }
     return;
   }
 
+  /* 5. Entrou, tudo normal. */
   const u = c.utilizador || {};
   const priv = { nada: 'privada', 'sem-valores': 'pública, sem valores', tudo: 'pública' };
   zona.innerHTML = `<div class="conta-cx">
@@ -659,8 +707,12 @@ function renderConta() {
       <option value="sem-valores"${u.publico === 'sem-valores' ? ' selected' : ''}>Pública, sem os valores em €</option>
       <option value="tudo"${u.publico === 'tudo' ? ' selected' : ''}>Pública, com tudo</option>
     </select>
+    <details class="conta-det"><summary>Trocar a password</summary>
+      ${trocaHTML(false)}
+    </details>
     <a class="btn ghost" href="sair">Sair</a>
   </div>`;
+  ligarTroca(false);
   $('#ct-publico').addEventListener('change', async (e) => {
     try {
       const r = await fetch('api/conta/privacidade', {
@@ -676,6 +728,95 @@ function renderConta() {
         : 'A tua coleção passa a ser publicada na próxima geração do site.');
     } catch (err) { toast(`Não deu: ${err.message}`); }
   });
+}
+
+/* O formulário da troca. O MESMO nos dois sítios — quem entrou com a
+ * temporária e quem quer trocar por gosto —, para não haver duas versões da
+ * mesma coisa a divergir. A actual pede-se sempre: um computador deixado
+ * aberto no café não pode dar a conta a quem passar. */
+function trocaHTML(temporaria) {
+  return `<label class="conta-lbl" for="sn-atual">${temporaria
+    ? 'A password temporária' : 'A password de agora'}</label>
+    <input id="sn-atual" class="conta-inp" type="password" maxlength="256"
+           autocomplete="current-password">
+    <label class="conta-lbl" for="sn-nova">A password nova</label>
+    <input id="sn-nova" class="conta-inp" type="password" maxlength="256"
+           autocomplete="new-password">
+    <label class="conta-lbl" for="sn-rep">Outra vez, para confirmar</label>
+    <input id="sn-rep" class="conta-inp" type="password" maxlength="256"
+           autocomplete="new-password">
+    <button class="btn primary" id="sn-ok" type="button">Guardar a password</button>
+    <p class="conta-erro" id="sn-erro" hidden></p>`;
+}
+
+function ligarTroca(temporaria) {
+  const bt = $('#sn-ok');
+  if (!bt) return;
+  bt.addEventListener('click', () => trocarSenha(temporaria));
+  for (const id of ['#sn-atual', '#sn-nova', '#sn-rep']) {
+    $(id).addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') trocarSenha(temporaria);
+    });
+  }
+}
+
+async function entrarComSenha() {
+  const erro = $('#en-erro');
+  const bt = $('#en-ok');
+  erro.hidden = true;
+  bt.disabled = true;
+  try {
+    const r = await fetch('api/conta/entrar', {
+      method: 'POST', headers: cabecalhos(),
+      body: JSON.stringify({
+        nome: ($('#en-nome').value || '').trim(),
+        senha: $('#en-senha').value || '',
+      }),
+    });
+    const res = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(res.erro || res.error || `HTTP ${r.status}`);
+    // A coleção passa a ser a dela: relê tudo em vez de remendar o ecrã.
+    location.reload();
+  } catch (err) {
+    erro.textContent = err.message;
+    erro.hidden = false;
+    bt.disabled = false;
+  }
+}
+
+async function trocarSenha(temporaria) {
+  const erro = $('#sn-erro');
+  const bt = $('#sn-ok');
+  erro.hidden = true;
+  const nova = $('#sn-nova').value || '';
+  // A confirmação verifica-se AQUI e não no servidor: é um erro de escrita,
+  // não uma questão de segurança, e assim ela vê-o sem esperar por um pedido.
+  if (nova !== ($('#sn-rep').value || '')) {
+    erro.textContent = 'As duas passwords novas não são iguais.';
+    erro.hidden = false;
+    return;
+  }
+  bt.disabled = true;
+  try {
+    const r = await fetch('api/conta/senha', {
+      method: 'POST', headers: cabecalhos(),
+      body: JSON.stringify({ atual: $('#sn-atual').value || '', nova }),
+    });
+    const res = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(res.erro || res.error || `HTTP ${r.status}`);
+    if (temporaria) {
+      location.reload();   // o site estava trancado: agora abre
+    } else {
+      state.conta.csrf = res.csrf;
+      toast('Password trocada. As outras sessões foram fechadas.');
+      $('#sn-atual').value = ''; $('#sn-nova').value = ''; $('#sn-rep').value = '';
+      bt.disabled = false;
+    }
+  } catch (err) {
+    erro.textContent = err.message;
+    erro.hidden = false;
+    bt.disabled = false;
+  }
 }
 
 async function criarConta() {
