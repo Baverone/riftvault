@@ -17,10 +17,15 @@ A VERIFICAÇÃO QUE INTERESSA MAIS, E PORQUÊ
     «ELE tem password definida?» Se a porta abrir sem isso, a escrita passa a
     exigir sessão (é a regra da LAN, no `rotas_conta.py`) e ele fica do lado de
     fora da sua própria coleção. É a única que o obriga a fazer uma coisa ANTES
-    de abrir — e agora essa coisa é um comando na consola, sem browser e sem
-    contas em sítios de terceiros:
+    de abrir — e desde 2026-09-30, à tarde, essa coisa é UM comando na consola,
+    que resolve tudo de uma vez e sem browser:
 
-        riftvault conta baverone --nova-password
+        riftvault conta baverone --definir-password
+
+    Era o `--nova-password`, que dá uma TEMPORÁRIA — e a temporária não conta
+    como pronto. Havia aí um beco: a temporária trocava-se só no site, e o site
+    escondia a entrada enquanto a porta estivesse fechada. Ver `cmd_conta` e o
+    topo do `rotas_conta.py`.
 """
 
 from __future__ import annotations
@@ -263,10 +268,11 @@ def _ele_entra(cfg: dict) -> dict:
             "Tu consegues entrar", False,
             "a tua password é a temporária e ainda não a trocaste — com ela "
             "entras, mas não podes fazer mais nada.",
-            f"Com o `riftvault serve` a correr, abre o site, entra como "
-            f"«{dono.get('slug')}» com a temporária, e escolhe uma password "
-            f"tua. Se a perdeste: `riftvault conta {dono.get('slug')} "
-            f"--nova-password`.")
+            f"Escolhe-a na consola, aqui e agora:  riftvault conta "
+            f"{dono.get('slug')} --definir-password  — pergunta-a duas vezes e "
+            f"não a mostra. (Pelo site também dá: com o `riftvault serve` a "
+            f"correr, a caixa «Entrar» está na barra do lado, com a porta "
+            f"fechada e tudo.)")
     if quais:
         return _essencial(
             "Tu consegues entrar", True,
@@ -278,8 +284,8 @@ def _ele_entra(cfg: dict) -> dict:
         f"Com a porta fechada isto não te incomoda — mas depois de abrires, "
         f"escrever passa a exigir entrar, e ficavas de fora da tua própria "
         f"coleção. Corre agora:  riftvault conta {dono.get('slug')} "
-        f"--nova-password  — ele dá-te uma password temporária; entras com ela "
-        f"uma vez e escolhes a tua.")
+        f"--definir-password  — escolhes a password na consola, num passo só, "
+        f"sem browser.")
 
 
 def ligar(provedor: str = "discord", porta: int = 8770,

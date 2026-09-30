@@ -29,6 +29,16 @@ aceitou:
 alguém se esquece, ele DÁ UMA NOVA (`riftvault conta <nome> --nova-password`),
 temporária, que a pessoa é obrigada a trocar ao entrar.
 
+> **Acrescentado a 2026-09-30, à tarde:** há um segundo comando,
+> `riftvault conta <nome> --definir-password`, que pergunta a password **duas
+> vezes e não a mostra** (`getpass`) e a deixa escolhida de vez — sem browser e
+> sem passar por uma temporária. Nasceu de um beco: a troca da temporária só se
+> fazia no site, e o site escondia a caixa de «Entrar» enquanto a porta das
+> contas estivesse fechada. Está resolvido nos dois lados (ver o CLAUDE.md,
+> «O BECO DA PORTA FECHADA»), e este comando fica como rede de segurança:
+> **uma recuperação nunca mais depende do browser.** As regras de força são as
+> mesmas — é o `senha.validar` nos dois caminhos.
+
 ### Porque é que recusei ler a password
 
 Não é por «boas práticas». É por **uma coisa concreta que acontece a toda a

@@ -891,22 +891,39 @@ class TestAEntrada(Base):
                    data={"nome": "miguel", "senha": SENTINELA})
         self.assertEqual(r.status_code, 415)
 
-    def test_a_porta_fechada_nao_se_entra(self):
+    def test_com_a_porta_fechada_ENTRA_SE(self):
+        """Mudou a 2026-09-30, à tarde: este teste FIXAVA O BECO.
+
+        Recusar aqui era o ciclo — o `multi --verificar` exige trocar a
+        temporária antes de abrir, e a troca faz-se entrando. E não afrouxa
+        nada: com a porta fechada a app não tem autenticação nenhuma, por isso
+        entrar não dá acesso a nada que não estivesse dado.
+        """
         c = self.cliente(aberto=False)
         self.com_senha("miguel", SENTINELA)
         r = c.post("/api/conta/entrar",
                    json={"nome": "miguel", "senha": SENTINELA})
-        self.assertEqual(r.status_code, 403)
+        self.assertEqual(r.status_code, 200, r.get_data(as_text=True)[:300])
+        d = c.get("/api/conta.json").get_json()
+        self.assertTrue(d["entrado"])
+        self.assertFalse(d["aberto"], "a porta continua fechada")
+
+    def test_com_a_porta_fechada_a_password_errada_continua_a_recusar(self):
+        c = self.cliente(aberto=False)
+        self.com_senha("miguel", SENTINELA)
+        r = c.post("/api/conta/entrar",
+                   json={"nome": "miguel", "senha": "isto-nao-e-a-dela"})
+        self.assertEqual(r.status_code, 401)
 
     def test_com_a_porta_fechada_tudo_como_ontem(self):
-        """A regra da casa: fechada, um dono só e sem autenticação nenhuma."""
+        """A regra da casa: fechada e SEM SESSÃO, um dono só e sem autenticação."""
         c = self.cliente(aberto=False)
         r = c.post("/api/adjust", json={"printing_id": "tst-001-100", "delta": 1})
         self.assertEqual(r.status_code, 200, r.get_data(as_text=True)[:300])
         d = c.get("/api/conta.json").get_json()
         self.assertFalse(d["aberto"])
         self.assertTrue(d["editavel"])
-        self.assertFalse(d["senha"], "fechada não se anuncia a entrada")
+        self.assertTrue(d["senha"], "a entrada por password existe nas duas portas")
 
     def test_uma_conta_sem_password_nao_entra_com_nada(self):
         self.utilizador.criar("Sem", "semsenha")
@@ -1069,7 +1086,10 @@ class TestVerificar(Base):
         est = self.abrir.verificar(self.config.load())
         passo = self._nomes(est)["Tu consegues entrar"]
         self.assertFalse(passo["ok"])
-        self.assertIn("--nova-password", passo["como"])
+        # O comando aconselhado passou a ser o `--definir-password`
+        # (2026-09-30, à tarde): o `--nova-password` dá uma TEMPORÁRIA, e a
+        # temporária não conta como pronto — mandava-o dar duas voltas.
+        self.assertIn("--definir-password", passo["como"])
         self.assertFalse(est["pode_abrir"])
 
     def test_a_temporaria_dele_nao_conta_como_pronto(self):
@@ -1111,7 +1131,7 @@ class TestVerificar(Base):
 
     def test_o_texto_diz_o_comando_da_password(self):
         texto = self.abrir.texto(cfg=self.config.load())
-        self.assertIn("nova-password", texto)
+        self.assertIn("definir-password", texto)
 
 
 # --------------------------------------------------------------------------
@@ -1154,9 +1174,14 @@ class TestOCliente(Base):
         self.assertIn(".conta-det", CSS.read_text(encoding="utf-8"))
 
     def test_o_site_publicado_nao_mostra_nada_disto(self):
-        """O `build` não tem rotas: a zona da conta fica escondida."""
+        """O `build` não tem rotas: sem resposta, a zona fica escondida.
+
+        A condição mudou a 2026-09-30, à tarde — era `!c || !c.aberto`, e o
+        `!c.aberto` escondia a entrada a quem tinha de trocar a password ANTES
+        de abrir a porta. Ver `tests/test_conta_fechada.py`.
+        """
         js = APP_JS.read_text(encoding="utf-8")
-        self.assertIn("if (!c || !c.aberto) { zona.hidden = true", js)
+        self.assertIn("if (!c) { zona.hidden = true", js)
 
 
 if __name__ == "__main__":

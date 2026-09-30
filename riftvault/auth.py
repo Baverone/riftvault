@@ -133,7 +133,14 @@ class DemasiadasTentativas(ErroDeAutenticacao):
 
 
 class PortaFechada(ErroDeAutenticacao):
-    """O `multi.aberto` está em `false`: não se entra nem se registra."""
+    """O `multi.aberto` está em `false`.
+
+    Trava o OAuth e o registo. **NÃO trava a entrada por password** desde
+    2026-09-30, à tarde: ele tem de poder entrar para trocar a temporária antes
+    de abrir, e com a porta fechada a app não tem autenticação nenhuma — deixar
+    entrar não dá acesso a nada que não estivesse dado. Ver o topo do
+    `rotas_conta.py`.
+    """
 
 
 # --------------------------------------------------------------------------

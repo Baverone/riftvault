@@ -37,11 +37,12 @@
       </a>
       <span id="mode-badge" class="badge-mode" hidden>só leitura</span>
       <!-- A conta (2026-09-29; a entrada por PASSWORD é de 2026-09-30). Fica
-           ESCONDIDO enquanto as contas estiverem fechadas — decisão dele:
-           «Quero apenas apresentar quando tiver tudo», e por isso o site dele
-           não tem nem um link de login à espreita. Quem o preenche é o
-           `renderConta()`, e só quando o `api/conta.json` disser
-           `aberto: true`. -->
+           ESCONDIDO no SITE PUBLICADO — decisão dele: «Quero apenas apresentar
+           quando tiver tudo», e por isso a cópia publicada não tem nem um link
+           de login à espreita. Quem o preenche é o `renderConta()`, e só
+           quando houver resposta do `api/conta.json` — que no estático não
+           existe. NO SERVIDOR aparece sempre, porta fechada ou aberta: é lá
+           que ele trata da password dele (ver o `renderConta`). -->
       <div id="conta-zona" class="conta-zona" hidden></div>
     </div>
     <nav class="sidenav" id="sidenav"></nav>
