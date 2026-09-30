@@ -58,8 +58,11 @@ data/seguir/paginas/
 # fora (`static_images: "remote"`, o browser vai ao CDN).
 
 # A pasta de prova do `riftvault build --se-mudou` (gera para aqui, compara com
-# o site publicado, apaga).
+# o site publicado, apaga). Desde 2026-09-30 o site dele pode viver em
+# `site/u/baverone/`, e a prova dele sai para `baverone-prova/` — a prova nunca
+# pode ficar DENTRO do que se publica.
 site-prova/
+*-prova/
 
 # ... mas as imagens copiadas para dentro do site continuam fora do Git: são
 # ~88 MB e o `static_images` está em "remote".

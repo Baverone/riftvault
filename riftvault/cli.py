@@ -47,6 +47,7 @@ from . import runas_vista as runas_vista_mod
 from . import seguir as seguir_mod
 from . import server
 from . import uso_decks
+from . import utilizador
 
 # Os blocos que o `riftvault faltas --bloco` aceita: os quatro das NORMAIS mais
 # o das FOILS (2026-09-27), que vive no outro módulo e tem a quinta wantlist.
@@ -141,12 +142,21 @@ def cmd_serve(args) -> int:
 
 
 def cmd_build(args) -> int:
-    res = build_mod.build(args.out, so_se_mudou=getattr(args, "se_mudou", False))
+    # `build_todos` e não `build`: é ele que respeita as portas
+    # (`multi.aberto`), a privacidade de cada um e, desde 2026-09-30, escreve a
+    # LISTA na raiz quando há mais do que uma coleção pública. Com as portas
+    # fechadas faz exactamente o que o `build` fazia — há teste que compara os
+    # dois byte a byte.
+    res = build_mod.build_todos(args.out,
+                                so_se_mudou=getattr(args, "se_mudou", False))
     if not res["mudou"]:
         print(f"\nSite em dia em {res['out']} — nada para regenerar.")
         return 0
     print(f"\nSite gerado em {res['out']} ({res['sets']} edições, "
           f"imagens: {res['image_mode']}).")
+    if res.get("na_raiz"):
+        print(f"A raiz é a lista das {len(res['publicas'])} coleções públicas; "
+              f"a dele está em u/{utilizador.SLUG_ANDRE}/.")
     return 0
 
 
