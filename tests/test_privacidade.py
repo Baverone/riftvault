@@ -207,12 +207,26 @@ class TestPortasFechadas(Base):
                         "abrir as portas mudou o site DELE")
 
     def test_nao_ha_sinal_de_login_no_html(self):
-        """*"nada de «em breve», nada de link de login a espreitar"*."""
+        """*"nada de «em breve», nada de link de login a espreitar"*.
+
+        Os COMENTÁRIOS do HTML não contam, e é preciso dizê-lo: o comentário que
+        explica esta própria decisão (a `#conta-zona` da fatia `2-multi-contas`)
+        escreve a palavra «login», e a primeira versão deste teste — e a do
+        `test_contas.py`, que tinha o mesmo defeito — apanhava-se a si própria. O
+        que se mede é o que o browser MOSTRA, não o que os comentários dizem.
+        """
+        import re
         out = self.gerar("tudo")
-        html = (out / "index.html").read_text(encoding="utf-8").lower()
+        bruto = (out / "index.html").read_text(encoding="utf-8")
+        html = re.sub(r"<!--.*?-->", "", bruto, flags=re.S).lower()
         for palavra in ("em breve", "login", "iniciar sessão", "entrar com",
                         "criar conta", "registar"):
             self.assertNotIn(palavra, html, f"o site dele fala de «{palavra}»")
+        # E o elemento da conta existe mas nasce escondido — é o JS que o abre,
+        # e só quando o `api/conta.json` disser que as contas estão abertas.
+        self.assertIn('id="conta-zona"', bruto)
+        zona = bruto.split('id="conta-zona"')[1][:80]
+        self.assertIn("hidden", zona, "a zona da conta tem de nascer escondida")
 
     def test_nao_ha_cloudflared_no_repositorio(self):
         """Checklist 18: o túnel não se liga nesta fase."""
