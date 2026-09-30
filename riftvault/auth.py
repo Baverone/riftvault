@@ -1,23 +1,43 @@
-"""Identidade emprestada: entra-se com uma conta que já existe.
+"""Quem entra, e como: password própria (2026-09-30) ou conta emprestada.
 
-NUNCA SE GUARDA UMA PASSWORD. Não há campo, não há hash, não há «esqueci-me da
-minha». Quem entra prova quem é a um fornecedor que já tem essa
-responsabilidade (Google, Discord) e o riftvault fica só com um ponteiro
-opaco. A decisão é de 2026-09-29 e está no `docs/contas-e-autenticacao.md`; a
-razão curta é que guardar credenciais de amigos num PC de casa, num projeto
-pessoal, é assumir um risco que não é preciso assumir.
+**MUDOU A 2026-09-30, por ordem dele.** Este ficheiro nasceu a 29/09 a dizer
+«NUNCA SE GUARDA UMA PASSWORD»; no dia seguinte o André pediu o contrário —
+*"em vez de discord, nao era melhor a pessoa criar uma conta com usuario e
+password e ficar guardado em base de dados??"* — e é o que está.
+
+O QUE FICA DA FRASE ANTIGA, E É O QUE INTERESSA: **a password continua a não
+se poder LER.** O que vai para a base é um hash de `scrypt` com sal por
+pessoa, que não se inverte, e quem se esquecer não recebe a que tinha — recebe
+uma NOVA, temporária, que é obrigado a trocar. Toda a criptografia disto vive
+no `riftvault/senha.py`, com os parâmetros medidos e a razão escrita.
+
+    riftvault conta --criar <nome>            cria e diz uma temporária
+    riftvault conta <nome> --nova-password    diz outra (o «esqueci-me»)
+
+**AS CONTAS NASCEM DE UM COMANDO DELE E DE MAIS NADA.** Não há registo aberto:
+ver `rotas_conta.REGISTO_ABERTO`. É o que ele quer — *"isto e uma coisa
+caseira, para usar entre amigos"*.
+
+O OAUTH (Google e Discord) FICA, PARADO
+    O código de 29/09 está inteiro e testado, e um dia pode servir. **Sem
+    segredo configurado o botão não aparece** (`disponiveis`/`prontos`), e o
+    `auth.discord.client_id` fica onde está. Não se apagou nada: ver o pedido
+    de 2026-09-30, ponto 6.
 
 ONDE VIVEM AS CREDENCIAIS, E PORQUE É QUE NÃO É NO `vault.db`
     `data/auth.db`, um ficheiro à parte e **no `.gitignore`**.
 
-    O `data/vault.db` está commitado num repositório PÚBLICO
+    Com passwords lá dentro isto passou de cuidado a essencial. O
+    `data/vault.db` está commitado num repositório PÚBLICO
     (github.com/Baverone/riftvault) e é empurrado de 30 em 30 minutos pela
-    `riftvault-publicar`. O `sub` que o Google ou o Discord dão é um
-    identificador estável e único de uma PESSOA: não é uma password, mas posto
-    ali ficava publicado para sempre, com histórico, e não se despublica um
-    repositório com 95 commits. Por isso a `user_auth` e as `sessions` moram
-    fora do Git, e a `users.auth_ref` fica VAZIA — nem um ponteiro opaco lá
-    dentro (ver a nota da `utilizador.py`).
+    `riftvault-publicar`: um hash de password ali ficava publicado para
+    sempre, com histórico, à disposição de quem quisesse atacá-lo com todo o
+    tempo do mundo. É a diferença entre «um atacante tem de me roubar o PC» e
+    «qualquer pessoa faz `git clone`».
+
+    Por isso a `user_senha`, a `user_auth` e as `sessions` moram fora do Git, e
+    a `users.auth_ref` fica VAZIA — nem um ponteiro opaco lá dentro (ver a nota
+    da `utilizador.py`).
 
     Efeito lateral que também interessa: um `git clone` do repositório público
     não traz sessões de ninguém, e um `git checkout` de um commit antigo não
@@ -121,6 +141,25 @@ class PortaFechada(ErroDeAutenticacao):
 # --------------------------------------------------------------------------
 
 ESQUEMA = """
+-- A PASSWORD DE CADA UM (2026-09-30). Uma linha por utilizador com password.
+--
+-- A coluna `hash` é o que o `senha.cifrar` devolve — `scrypt$n$r$p$sal$hash`,
+-- que NÃO SE INVERTE. Não há nem pode haver uma coluna com a password: é a
+-- única parte da ordem de 30/09 que não se fez à letra, e ele concordou
+-- (*"pode ficar a tua sugestao de nova password, e melhor"*).
+--
+-- `temporaria = 1` é a password que ELE gerou e ditou: serve para entrar uma
+-- vez e o guarda não deixa fazer mais nada até ser trocada
+-- (`rotas_conta._trava_temporaria`). É o que faz uma password que andou pelo
+-- WhatsApp ter o tempo de vida de um WhatsApp.
+CREATE TABLE IF NOT EXISTS user_senha (
+    user_id    INTEGER PRIMARY KEY,
+    hash       TEXT    NOT NULL,
+    temporaria INTEGER NOT NULL DEFAULT 0,
+    criado_em  TEXT    NOT NULL,
+    mudado_em  TEXT
+);
+
 -- O mapa identidade -> utilizador. Uma linha por conta LIGADA: a mesma pessoa
 -- pode entrar pelo Google e pelo Discord e cair no mesmo `user_id`.
 --
@@ -210,17 +249,28 @@ CREATE TABLE IF NOT EXISTS auth_convites (
     usado_em   TEXT
 );
 
--- As tentativas, para o tecto por hora. Guarda-se a chave (o IP) e não o que
--- se tentou.
+-- As tentativas, para o travão. Guarda-se a chave (o IP), de quem se tentou
+-- entrar, e se acertou — **nunca o que se escreveu**. Uma tabela de tentativas
+-- com a password tentada é uma tabela de passwords com outro nome: quem se
+-- engana escreve a password de outro sítio, e ficava ali.
+--
+-- O `user_id` é de 2026-09-30 e é o que deixa contar POR CONTA e não só por
+-- endereço: com um travão só por endereço, quem tivesse muitos endereços
+-- (qualquer pessoa com dados móveis) batia à vontade na conta de um amigo.
 CREATE TABLE IF NOT EXISTS auth_tentativas (
     id       INTEGER PRIMARY KEY AUTOINCREMENT,
     ts       TEXT    NOT NULL,
     chave    TEXT    NOT NULL,
     provedor TEXT,
-    ok       INTEGER NOT NULL
+    ok       INTEGER NOT NULL,
+    user_id  INTEGER
 );
 
 CREATE INDEX IF NOT EXISTS ix_tentativas_chave ON auth_tentativas(chave, ts);
+-- O índice do `user_id` NÃO PODE ESTAR AQUI, e foi medido: num `auth.db` de
+-- ontem a tabela existe sem a coluna, o `CREATE TABLE IF NOT EXISTS` não a
+-- acrescenta, e o `CREATE INDEX` por cima de uma coluna que não existe rebenta
+-- ANTES de o `_migrar` ter a chance de a criar. Vive lá, que corre depois.
 """
 
 
@@ -254,6 +304,15 @@ def _migrar(con: sqlite3.Connection) -> None:
     tem = {r["name"] for r in con.execute("PRAGMA table_info(auth_pedidos)")}
     if "liga_a" not in tem:
         con.execute("ALTER TABLE auth_pedidos ADD COLUMN liga_a INTEGER")
+    # O travão por CONTA (2026-09-30). Um `auth.db` de ontem tem a tabela sem
+    # esta coluna, e o `CREATE TABLE IF NOT EXISTS` não a acrescenta.
+    tem = {r["name"] for r in con.execute("PRAGMA table_info(auth_tentativas)")}
+    if "user_id" not in tem:
+        con.execute("ALTER TABLE auth_tentativas ADD COLUMN user_id INTEGER")
+    # O índice fica aqui e não no ESQUEMA, para os dois casos (base nova e base
+    # de ontem) passarem pelo mesmo sítio — ver o comentário no ESQUEMA.
+    con.execute("CREATE INDEX IF NOT EXISTS ix_tentativas_user "
+                "ON auth_tentativas(user_id, ts)")
 
 
 def _agora() -> str:
@@ -595,10 +654,13 @@ def tentativas_por_hora(cfg: dict | None = None) -> int:
 
 
 def registar_tentativa(con: sqlite3.Connection, chave: str,
-                       provedor_nome: str | None, ok: bool) -> None:
-    con.execute("INSERT INTO auth_tentativas (ts, chave, provedor, ok) "
-                "VALUES (?, ?, ?, ?)",
-                (_agora(), chave or "?", provedor_nome, 1 if ok else 0))
+                       provedor_nome: str | None, ok: bool,
+                       user_id: int | None = None) -> None:
+    """Fica o QUE aconteceu, nunca o que se escreveu. Ver o comentário da tabela."""
+    con.execute("INSERT INTO auth_tentativas (ts, chave, provedor, ok, user_id) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (_agora(), chave or "?", provedor_nome, 1 if ok else 0,
+                 int(user_id) if user_id else None))
     con.commit()
 
 
@@ -617,6 +679,271 @@ def exigir_folga(con: sqlite3.Connection, chave: str,
         raise DemasiadasTentativas(
             f"demasiadas tentativas de entrada ({tecto} na última hora). "
             f"Espera um pouco e tenta outra vez.")
+
+
+# --------------------------------------------------------------------------
+# O TRAVÃO DA PASSWORD — duas dimensões, escada a subir
+# --------------------------------------------------------------------------
+#
+# Uma password adivinha-se, um `sub` do Discord não. Por isso o tecto de cima
+# (20 por hora, para não usar isto como amplificador de pedidos ao Google) não
+# chega, e este travão é outro: conta FALHAS na última hora e faz esperar cada
+# vez mais.
+#
+# OS NÚMEROS, E PORQUE ESTES
+#   * **5 falhas de graça por CONTA.** Uma password ditada pelo WhatsApp
+#     escreve-se mal duas ou três vezes — quem se engana tem de poder tentar
+#     outra vez sem ir pedir ajuda. À sexta começa a escada.
+#   * **10 por ENDEREÇO.** É o dobro, porque um endereço pode ser uma casa
+#     inteira: dois amigos atrapalhados no mesmo wi-fi não se trancam um ao
+#     outro. Um atacante com muitos endereços continua travado pela conta, que
+#     é a dimensão que ele não consegue mudar.
+#   * **A escada 1 → 5 → 15 → 60 minutos**, a contar da ÚLTIMA falha. Ao fim
+#     de quatro patamares está numa hora, e a janela de contagem é uma hora:
+#     na prática são ~9 tentativas por hora no pior caso, contra as 4×10^11
+#     combinações de uma temporária. Um ataque de dicionário desiste.
+#
+# O que isto NÃO faz, de propósito: **não tranca a conta para sempre.** Um
+# bloqueio permanente é uma maneira de um estranho tirar o riftvault a um
+# amigo só por lhe saber o nome — o remédio seria pior, e com a escada o custo
+# de quem ataca já é absurdo.
+
+#: Falhas que não custam nada, por conta e por endereço.
+FALHAS_LIVRES_CONTA = 5
+FALHAS_LIVRES_CHAVE = 10
+
+#: Quanto se espera depois de gastar as de graça, em segundos.
+ESCADA = (60, 300, 900, 3600)
+
+#: A janela em que as falhas contam.
+JANELA_S = 3600
+
+
+class TemDeEsperar(DemasiadasTentativas):
+    """Falhou demasiadas vezes: tem de esperar. Diz quanto, em segundos."""
+
+    def __init__(self, segundos: int, porque: str):
+        self.segundos = int(segundos)
+        super().__init__(
+            f"password errada demasiadas vezes ({porque}). Espera "
+            f"{_em_palavras(self.segundos)} e tenta outra vez.")
+
+
+def _em_palavras(segundos: int) -> str:
+    if segundos < 60:
+        return f"{segundos} segundos"
+    minutos = (segundos + 59) // 60
+    if minutos < 60:
+        return f"{minutos} minuto" + ("s" if minutos != 1 else "")
+    return "uma hora"
+
+
+def _falhas(con: sqlite3.Connection, *, user_id: int | None = None,
+            chave: str | None = None) -> tuple[int, str | None]:
+    """Quantas falhas na última hora, e quando foi a última."""
+    desde = _mais(-JANELA_S)
+    if user_id is not None:
+        onde, valor = "user_id = ?", int(user_id)
+    else:
+        onde, valor = "chave = ?", (chave or "?")
+    row = con.execute(
+        f"SELECT COUNT(*) AS n, MAX(ts) AS ultima FROM auth_tentativas "  # noqa: S608
+        f"WHERE {onde} AND ok = 0 AND ts >= ?", (valor, desde)).fetchone()
+    return int(row["n"]), row["ultima"]
+
+
+def _espera(falhas: int, livres: int) -> int:
+    """A escada: quanto tempo esperar quem já falhou `falhas` vezes.
+
+    O `+ 1` é a diferença entre «5 falhas de graça» e «6», e foi um defeito
+    apanhado em teste: isto corre ANTES da tentativa, por isso com 5 falhas no
+    registo a tentativa a seguir é a SEXTA — e tem de ser travada. Sem o `+ 1`
+    dava uma tentativa de graça a mais do que o que está escrito.
+    """
+    passos = falhas - livres + 1
+    if passos <= 0:
+        return 0
+    return ESCADA[min(passos, len(ESCADA)) - 1]
+
+
+def travao(con: sqlite3.Connection, user_id: int | None,
+           chave: str | None) -> None:
+    """Tem de esperar? Rebenta com `TemDeEsperar` e diz quanto.
+
+    Olha para as duas dimensões e fica-se pela mais exigente. Lê e não
+    escreve: quem registra a tentativa é o `registar_tentativa`.
+    """
+    agora = datetime.now(timezone.utc)
+    pior = 0
+    porque = ""
+    dimensoes = []
+    if user_id is not None:
+        dimensoes.append(({"user_id": int(user_id)},
+                          FALHAS_LIVRES_CONTA, "nesta conta"))
+    if chave:
+        dimensoes.append(({"chave": chave}, FALHAS_LIVRES_CHAVE, "deste sítio"))
+    for filtro, livres, texto in dimensoes:
+        n, ultima = _falhas(con, **filtro)
+        espera = _espera(n, livres)
+        if not espera or not ultima:
+            continue
+        try:
+            passou = (agora - datetime.fromisoformat(ultima)).total_seconds()
+        except (ValueError, TypeError):
+            # Data ilegível (ou sem fuso, de uma linha escrita à mão): conta
+            # como acabada de acontecer. Na dúvida, espera-se — o lado seguro.
+            passou = 0
+        falta = int(espera - passou)
+        if falta > pior:
+            pior, porque = falta, f"{n} vezes {texto}"
+    if pior > 0:
+        raise TemDeEsperar(pior, porque)
+
+
+# --------------------------------------------------------------------------
+# A PASSWORD DE CADA UM
+# --------------------------------------------------------------------------
+#
+# A criptografia vive toda no `senha.py`; aqui é só onde se guarda e quem
+# pergunta. Nenhuma função deste bloco devolve, grava ou escreve uma password
+# em claro — a única que a VÊ é a `entrar`, durante o pedido, e não a guarda em
+# lado nenhum.
+
+
+def definir_senha(con: sqlite3.Connection, user_id: int, nova: str, *,
+                  temporaria: bool = False, validar: bool = True,
+                  slug: str = "", nome: str = "") -> None:
+    """Grava o hash da password daquele utilizador. Substitui a que houver.
+
+    `validar=False` é só para a TEMPORÁRIA, que este código gera e que não tem
+    de passar pelas regras de quem escolhe à mão (tem 38,6 bits, e a regra de
+    «não conter o teu nome» não faz sentido numa password aleatória).
+    """
+    from . import senha as _senha
+    if validar:
+        nova = _senha.validar(nova, slug=slug, nome=nome)
+    agora = _agora()
+    con.execute(
+        "INSERT INTO user_senha (user_id, hash, temporaria, criado_em, mudado_em) "
+        "VALUES (?, ?, ?, ?, ?) "
+        "ON CONFLICT(user_id) DO UPDATE SET hash = excluded.hash, "
+        "temporaria = excluded.temporaria, mudado_em = excluded.mudado_em",
+        (int(user_id), _senha.cifrar(nova), 1 if temporaria else 0, agora, agora))
+    con.commit()
+
+
+def nova_temporaria(con: sqlite3.Connection, user_id: int) -> str:
+    """Gera uma temporária, grava-a cifrada e DEVOLVE-A EM CLARO.
+
+    É a única função do riftvault que devolve uma password, e é o «esqueci-me»
+    dele: a password existe neste valor de retorno, aparece uma vez na consola,
+    e em lado nenhum mais. Quem a receber tem de a trocar para poder usar o
+    site.
+    """
+    from . import senha as _senha
+    nova = _senha.temporaria()
+    definir_senha(con, user_id, nova, temporaria=True, validar=False)
+    return nova
+
+
+def estado_senha(con: sqlite3.Connection, user_id: int) -> dict:
+    """Tem password? É temporária? — sem devolver o hash.
+
+    O hash não sai daqui de propósito: quem precisa de o comparar chama a
+    `entrar`. Uma função que devolvesse o hash acabava um dia num payload.
+    """
+    row = con.execute(
+        "SELECT temporaria, criado_em, mudado_em FROM user_senha "
+        "WHERE user_id = ?", (int(user_id),)).fetchone()
+    if row is None:
+        return {"tem": False, "temporaria": False,
+                "criado_em": None, "mudado_em": None}
+    return {"tem": True, "temporaria": bool(row["temporaria"]),
+            "criado_em": row["criado_em"], "mudado_em": row["mudado_em"]}
+
+
+def esquecer_senha(con: sqlite3.Connection, user_id: int) -> int:
+    n = con.execute("DELETE FROM user_senha WHERE user_id = ?",
+                    (int(user_id),)).rowcount
+    con.commit()
+    return n
+
+
+class SemConta(ErroDeAutenticacao):
+    """Não há utilizador com aquele nome, ou não tem password definida."""
+
+
+class SenhaErrada(ErroDeAutenticacao):
+    """A password não é aquela."""
+
+
+def entrar(con: sqlite3.Connection, slug: str, senha_escrita: str, *,
+           chave: str | None = None) -> dict:
+    """O nome e a password -> o utilizador. É aqui que a entrada se decide.
+
+    A MESMA MENSAGEM PARA «não existe» E PARA «errada», e é de propósito:
+    mensagens diferentes dizem a um estranho quais os nomes que existem, e o
+    nome de um utilizador é metade do que ele precisa. Rebenta com
+    `SenhaErrada` nos dois casos; o `SemConta` fica para a CLI, que já sabe
+    quem existe.
+
+    A ORDEM É TRAVÃO -> PROCURAR -> VERIFICAR, e importa: verificar primeiro
+    fazia cada tentativa custar 130 ms de scrypt, e era isso que um atacante
+    usava para pôr o PC dele de joelhos.
+    """
+    from . import senha as _senha, utilizador
+
+    alvo = None
+    try:
+        alvo = utilizador.por_slug(str(slug or "").strip().lower(),
+                                   obrigatorio=False)
+    except Exception:
+        alvo = None
+    uid = int(alvo["user_id"]) if alvo else None
+
+    travao(con, uid, chave)
+
+    row = (con.execute("SELECT * FROM user_senha WHERE user_id = ?",
+                       (uid,)).fetchone() if uid else None)
+    if row is None or not _senha.confere(row["hash"], str(senha_escrita or "")):
+        registar_tentativa(con, chave or "?", "senha", False, uid)
+        # Uma conta sem nome e uma password errada respondem igual — e o travão
+        # também conta as duas, senão dava para descobrir quais os nomes que
+        # existem só pelo tempo até ser travado.
+        raise SenhaErrada(
+            "o nome ou a password não estão certos. Se te esqueceste, pede ao "
+            "André uma password nova.")
+
+    registar_tentativa(con, chave or "?", "senha", True, uid)
+    # Cifrada com parâmetros de ontem? Recifra-se AGORA, que é a única altura
+    # em que a password existe em claro. A pessoa não sabe de nada.
+    if _senha.precisa_recifrar(row["hash"]):
+        definir_senha(con, uid, str(senha_escrita),
+                      temporaria=bool(row["temporaria"]), validar=False)
+    return {"user_id": uid, "slug": alvo["slug"], "nome": alvo["nome"],
+            "temporaria": bool(row["temporaria"])}
+
+
+def mudar_senha(con: sqlite3.Connection, user_id: int, atual: str,
+                nova: str, *, slug: str = "", nome: str = "") -> None:
+    """Troca a password, exigindo a que está. Levanta `SenhaErrada`/`SenhaFraca`.
+
+    EXIGE A ACTUAL mesmo tendo sessão, e não é burocracia: um computador
+    deixado aberto no café não pode dar a conta a quem passar. É a mesma razão
+    por que todos os sites o pedem.
+    """
+    from . import senha as _senha
+    row = con.execute("SELECT hash FROM user_senha WHERE user_id = ?",
+                      (int(user_id),)).fetchone()
+    if row is None:
+        raise SemConta("esta conta ainda não tem password definida.")
+    if not _senha.confere(row["hash"], str(atual or "")):
+        raise SenhaErrada("a password actual não está certa.")
+    if str(nova or "") == str(atual or ""):
+        raise _senha.SenhaFraca(
+            "a password nova é igual à actual — escolhe outra.")
+    definir_senha(con, user_id, nova, temporaria=False, validar=True,
+                  slug=slug, nome=nome)
 
 
 # --------------------------------------------------------------------------
@@ -951,8 +1278,15 @@ def esquecer_identidades(con: sqlite3.Connection, user_id: int) -> dict:
                           (user_id,)).rowcount
     n_sess = con.execute("DELETE FROM sessions WHERE user_id = ?",
                          (user_id,)).rowcount
+    # E A PASSWORD (2026-09-30). O `users.user_id` é `AUTOINCREMENT`, por isso
+    # um id apagado não se reutiliza e ninguém herda a password de ninguém — o
+    # que fica sem isto é um HASH ÓRFÃO a envelhecer num ficheiro que não vai
+    # para o Git mas está no PC dele. Apagar a conta tem de apagar tudo o que é
+    # da pessoa: é isso que se responde a quem pede para ser apagado.
+    n_senha = con.execute("DELETE FROM user_senha WHERE user_id = ?",
+                          (user_id,)).rowcount
     con.commit()
-    return {"identidades": n_ident, "sessoes": n_sess}
+    return {"identidades": n_ident, "sessoes": n_sess, "senhas": n_senha}
 
 
 # --------------------------------------------------------------------------

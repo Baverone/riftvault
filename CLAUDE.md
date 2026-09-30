@@ -2774,6 +2774,22 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   ENSAIO (`RIFTVAULT_ENSAIO=1`, que se recusa a usar o `data/` a sério); e o
   PORTÃO do merge, que lê o placar. A identidade fica DECIDIDA e não
   implementada. Ver as duas secções no fim deste ficheiro.
+- **Feito também:** as CONTAS (2026-09-29, à noite) — sessões com cookie
+  `HttpOnly`/`SameSite=Lax`, CSRF num cabeçalho e uma só função no cliente, o
+  guarda que protege as 20 rotas de escrita, o furo do config partilhado
+  (`SO_DO_DONO`), e o `multi --verificar` que recusa abrir com coisas em falta.
+  **A forma de entrar mudou no dia seguinte** — ver a seguir.
+- **Feito também:** ENTRAR COM UTILIZADOR E PASSWORD (2026-09-30) — *"em vez de
+  discord, nao era melhor a pessoa criar uma conta com usuario e password"*,
+  com a contraproposta que ele aceitou: **nenhuma password se pode LER**.
+  `scrypt` da stdlib (n=2^16, **130 ms medidos na máquina dele**, sal por
+  pessoa, hash auto-descritivo), a temporária de 4 palavras que ele dita e que
+  **tranca o site até ser trocada**, o travão de tentativas em duas dimensões
+  (5 por conta · 10 por endereço · 1→5→15→60 min), **sem registo aberto** (as
+  contas nascem de `riftvault conta --criar`), e o OAuth intacto e sem botão.
+  O `multi --verificar` deixou de exigir Discord e os passos DELE passaram de
+  três a dois. `senha.py`, `tests/test_senhas.py`. Ver a última secção deste
+  ficheiro.
 - **Por fazer:** a parte 2 do seguir — o separador no site e a tarefa diária;
   vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck,
   com as partilhadas assinaladas); e apagar decks pela interface (hoje apaga-se
@@ -8692,6 +8708,14 @@ quem entrar na máquina tem as coleções todas.
 
 ## 29/09/2026, à noite — CONTAS: entrar sem password, e a porta ainda FECHADA (`auth.py`, `rotas_conta.py`, `abrir.py`)
 
+**A METADE DA IDENTIDADE FOI REVOGADA NO DIA SEGUINTE.** A 2026-09-30 ele pediu
+**utilizador e password** e isso é o que vale — ver a última secção deste
+ficheiro. Tudo o que aqui se diz sobre «nunca se guarda uma password» e sobre o
+Discord/Google ser a forma de entrar é história: o OAuth **fica no código,
+parado e sem botão**, e as contas nascem de `riftvault conta --criar`. O resto
+desta secção — as sessões, o CSRF, o cookie, a decisão da LAN, o furo do config
+partilhado, os endereços — continua a valer inteiro.
+
 Palavras dele, antes de ir dormir: *"Quero que deixas a parte do riftbound
 pronta para amigos meus criarem conta e poderem comecar a usar a registar a
 coleccao deles!!! Nao estarei aqui para aprovar pois estou a dormir, faz tudo o
@@ -9104,3 +9128,170 @@ autorizar o meu merge.
 O `tools/portao.py merge` recusa também com a **árvore de trabalho suja**: o
 placar mediu o que está em disco, e o merge integra o que está commitado. Se as
 duas coisas diferem, o placar não fala do que vai ser integrado.
+
+## 2026-09-30 — ENTRA-SE COM UTILIZADOR E PASSWORD; e NENHUMA se pode LER (`senha.py`)
+
+Palavras dele: *"em vez de discord, nao era melhor a pessoa criar uma conta com
+usuario e password e ficar guardado em base de dados?? / **o esqueci-me da
+password fica manual, eu acedo o ficheiro e digo A pessoa a password dela** /
+isto e uma coisa caseira, para usar entre amigos, entao nao ha problema"*. Ramo
+`ai-pc/senhas-2026-09-30`; o desenho e a razão em
+`docs/contas-e-autenticacao.md` (secção 0) e o guia dele em
+`docs/abrir-a-porta.md`.
+
+**A PRIMEIRA METADE FEZ-SE, A SEGUNDA NÃO — e ele aceitou a contraproposta:**
+*"pode ficar a tua sugestao de nova password, e melhor / faz e da-me o proximo
+passo que precisas entao"*. Ou seja: entra-se com utilizador e password, mas
+**ele nunca lê a password de ninguém**. Quem se esquece não recebe a que tinha
+— recebe uma NOVA, temporária, que é obrigado a trocar ao entrar.
+
+**A RAZÃO, para ficar escrita: as pessoas reutilizam passwords.** A que o amigo
+escolher é provavelmente a do email dele. Guardá-la legível num PC de casa, ao
+lado de um repositório PÚBLICO empurrado de 30 em 30 minutos, transforma
+«alguém leu o meu ficheiro» em «alguém entrou no email de três amigos meus» — e
+o estrago já não é sobre cartas. **O fluxo dele fica IGUAL**: continua a ser
+ele a resolver, na consola, sem emails nem sistemas; o que muda é que em vez de
+LER dá uma nova.
+
+### O KDF, medido na máquina dele
+
+`hashlib.scrypt` — **da biblioteca padrão**, sem dependência nova para
+instalar nem para explicar quando ele reinstalar o Python. Medido a 2026-09-30
+(Python 3.14, média de 3 corridas): n=2^14 **32 ms** · n=2^15 **64 ms** ·
+**n=2^16 130 ms (67 MB)** · n=2^17 **262 ms**. Escolheu-se o de **130 ms**:
+imperceptível para quem entra uma vez por mês, e é o custo que um atacante paga
+por CADA tentativa se um dia levar o ficheiro.
+
+**ARMADILHA MEDIDA: o `maxmem` tem de ir explícito.** O `hashlib.scrypt` passa
+`maxmem=0` ao OpenSSL, que são **32 MB**, e o n=2^16 quer 67 — sem o argumento
+isto rebentava na primeira password. Há teste com a prova pela negativa.
+
+O hash guardado **diz como foi feito** (`scrypt$65536$8$1$sal$hash`): subir o
+`N` um dia não tranca ninguém de fora, porque cada password se verifica com os
+parâmetros dela e é recifrada na primeira entrada (`precisa_recifrar`). Sal de
+16 bytes **por pessoa**.
+
+### A temporária: quatro palavras e dois dígitos
+
+`varanda-tigre-bolo-chave-47` — 4 palavras de uma lista de **256** (8 bits
+cada) e 2 dígitos: **38,6 bits**, 4×10^11 combinações. Offline, a 130 ms cada,
+são ~1 600 anos de um núcleo; online, com o travão, é inalcançável. As palavras
+são ASCII, 3 a 6 letras, **sem acentos nem cedilha** (há que as ditar), e os
+hifens dizem onde cada uma acaba. A lista é fixa e tem um `assert` a fixar as
+256 — nove saíram por serem confundíveis com outra (cedo/cego, jacto/jato,
+grito/grifo, …).
+
+**A PASSWORD QUE A PESSOA ESCOLHE: dez caracteres e mais nada.** Sem exigência
+de maiúscula, dígito e símbolo — essa regra produz `Password1!` e um post-it.
+Recusam-se as da lista das mais usadas (com os dígitos do fim ignorados:
+`password12345` continua a ser `password`), o próprio nome, um caractere
+repetido, e espaços nas pontas (perdem-se ao copiar e colar).
+
+### A TEMPORÁRIA TRANCA O SITE até ser trocada
+
+*"Quem entra com uma temporaria e OBRIGADO a trocar antes de fazer seja o que
+for"*. Com uma temporária **tudo o que é `/api/` responde 403** menos o
+`api/conta.json` e o `api/conta/senha`; o resto (o `index.html`, o `app.js`, o
+CSS, o `/sair`) passa, senão não havia página onde mostrar o formulário.
+**Bloqueia as LEITURAS e não só as escritas**, e é a parte que interessa: a
+temporária andou pelo WhatsApp, e quem a apanhasse podia não escrever nada e
+ler a coleção toda. O estado lê-se a cada pedido (um `SELECT` por chave
+primária) para a troca libertar o site no pedido seguinte. **Trocar fecha TODAS
+as sessões dela** e abre uma nova.
+
+### O TRAVÃO: duas dimensões, escada a subir
+
+Uma password ADIVINHA-SE (um `sub` do Discord não), por isso o tecto de 20/hora
+do OAuth não chega. Conta FALHAS na última hora: **5 de graça por CONTA** (uma
+password ditada escreve-se mal duas ou três vezes) e **10 por ENDEREÇO** (o
+dobro, porque um endereço pode ser uma casa inteira). A escada, a contar da
+última falha: **1 → 5 → 15 → 60 minutos**. As duas dimensões fazem falta as
+duas — só por endereço, quem tivesse dados móveis batia à vontade numa conta;
+só por conta, dava para varrer nomes. **Não há bloqueio permanente**, de
+propósito: era a maneira de um estranho tirar o riftvault a um amigo só por lhe
+saber o nome. E **o travão corre ANTES do scrypt** (há teste que lê a ordem no
+código): verificar primeiro fazia cada tentativa custar 130 ms, que era o que
+punha o PC dele de joelhos.
+
+**Um defeito apanhado em teste:** o `_espera` dava **seis** tentativas de graça
+e não cinco — isto corre antes da tentativa, por isso com 5 falhas no registo a
+seguinte é a SEXTA e tem de ser travada. Faltava um `+ 1`.
+
+### NÃO HÁ REGISTO ABERTO
+
+As contas nascem de `riftvault conta --criar <nome>` e de mais lado nenhum; a
+rota `/api/conta/registar` responde **403** com o que fazer, e quem entre por um
+fornecedor sem ter conta vê uma frase em vez de um formulário. **Não é uma
+chave de config**, de propósito: uma chave num ficheiro commitado está a um
+merge de distância de abrir o registo sem ninguém ter decidido nada
+(`rotas_conta.REGISTO_ABERTO`).
+
+### O QUE ELE CORRE
+
+    riftvault conta --criar miguel            cria e diz uma temporária (uma vez)
+    riftvault conta miguel --nova-password    o «esqueci-me»
+    riftvault conta                           quem existe e em que estado está
+    riftvault conta baverone --nova-password  A DELE, antes de abrir a porta
+
+Os dois primeiros funcionam com a **porta fechada** (ele prepara e só depois
+abre) e o `--nova-password` **fecha as sessões** dela — se foi o telemóvel que
+ela perdeu, o telemóvel sai.
+
+### O `multi --verificar` deixou de exigir Discord; os passos dele são DOIS
+
+O passo «Entrar sem password» saiu: a entrada por password não precisa de
+configurar nada. No lugar ficam **«Há por onde entrar»** (sempre verde, diz o
+que está ligado) e **«Tu consegues entrar»**, que agora exige **password
+definida** — e a temporária **não conta**, porque com ela ele entra e não faz
+mais nada. Os passos DELE passaram de três a **dois**: a conta na Cloudflare e
+os nameservers + o túnel. O `docs/abrir-a-porta.md` perdeu o passo 1 e ganhou a
+secção **«Criar a conta de um amigo»**, com o que lhe mandar e o que fazer
+quando ele se esquecer.
+
+### O OAUTH FICA, PARADO
+
+Ordem dele: *"Nao apagues o codigo do Discord e do Google […] Sem segredo
+configurado, o botao simplesmente nao aparece"*. Não se apagou uma linha: os
+dois fornecedores, o PKCE, o `nonce`, os convites de ligação e os testes deles
+estão inteiros, e o `auth.discord.client_id` continua no config. **Sem segredo
+no ambiente o `pronto` vem a `false` e o botão não se desenha** — há teste nos
+dois sentidos. A diferença: entrar por um fornecedor **não cria conta**.
+
+### Dois defeitos apanhados a escrever isto
+
+1. **O índice do `user_id` não podia estar no `ESQUEMA`.** Num `auth.db` de
+   ontem a `auth_tentativas` existe sem a coluna, o `CREATE TABLE IF NOT
+   EXISTS` não a acrescenta, e o `CREATE INDEX` por cima de uma coluna que não
+   existe rebenta **antes** de o `_migrar` a poder criar. Vive no `_migrar`, que
+   corre depois. Provado nos dois sentidos: base de ontem e base de raiz.
+2. **A CLI deixava um hash órfão.** O `conta.apagar` não toca no `auth.db` de
+   propósito (é outra casa); quem limpa é quem sabe dela, no mesmo passo — a
+   rota do site já o fazia e o `riftvault conta --apagar` não. Apanhado a
+   escrever a prova de ponta a ponta.
+
+### Medido
+
+**A `copies` DELE não mexeu**: 1046 linhas · 2663 normais · 540 foil, sha256 do
+conteúdo **`1f6c9cae…`**, igual no princípio e no fim — e igual ao da prova de
+29/09, o que quer dizer que nenhuma das duas ordens lhe tocou. Nada desta ordem
+escreve na coleção: a prova de ponta a ponta corre toda na base de ENSAIO
+(`docs/prova-senhas-2026-09-30.md`), contra o `riftvault serve` a sério na 8779,
+e o `data/` só se lê — por cópia com `VACUUM INTO`, que é a forma segura com as
+bases em WAL.
+
+**Dois defeitos do PRÓPRIO GUIÃO da prova, e os dois valem a pena:** a primeira
+versão escolheu `a-frase-do-joao-2026` para password do João — **a regra
+recusou-a**, por conter o nome dele, e ele ficou preso na temporária a ler 403
+em tudo (a regra estava certa; a prova é que escolhia mal). E o travão passou
+para o FIM: no meio, deixava as contas a esperar e os passos seguintes liam
+429 em vez do que queriam medir.
+
+`tests/test_senhas.py` é a bateria nova, e a parte dela que interessa mais é **a
+procura da password em claro**: escreve-se uma password conhecida, faz-se o
+percurso todo (criar, entrar, trocar, errar, exportar, backup) e **varrem-se os
+bytes** do `auth.db`, do `vault.db`, do `ops`, do `.zip` do export e dos
+backups, em UTF-8 e UTF-16. Com a **prova pela negativa**: um teste escreve a
+password à mão numa tabela e exige que o varrimento a encontre — um varrimento
+que nunca acha nada vale zero. O `test_contas.py` e o `test_auth.py` foram
+ajustados: descreviam o registo aberto e o «não há password nenhuma» de 29/09,
+que era o regime de ontem.
