@@ -313,14 +313,18 @@ class TestAsRotasDeEscrita(Base):
         """
         c = self.cliente(aberto=True)
         for rota in ("/api/conta/privacidade", "/api/conta/exportar",
-                     "/api/conta/apagar"):
+                     "/api/conta/apagar", "/api/conta/senha"):
             r = c.post(rota, json={})
             self.assertEqual(r.status_code, 401, f"{rota} deixou passar")
-        # O registo responde 401 por outra razão (não há identidade), não por
-        # o guarda genérico o ter travado — e é isso que o deixa funcionar.
+        # As duas excepções, cada uma com a protecção dela por dentro: o
+        # registo está FECHADO (403 com a razão) e a entrada é a porta (401
+        # porque a password não está certa, não porque o guarda a travou).
         r = c.post("/api/conta/registar", json={"slug": "miguel"})
+        self.assertEqual(r.status_code, 403)
+        self.assertIn("André", r.get_json()["erro"])
+        r = c.post("/api/conta/entrar", json={"nome": "miguel", "senha": "x"})
         self.assertEqual(r.status_code, 401)
-        self.assertIn("entra com", r.get_json()["erro"])
+        self.assertIn("não estão certos", r.get_json()["erro"])
 
     def test_nenhuma_rota_do_blueprint_escreve_sem_passar_pelo_guarda(self):
         """Uma rota nova minha que escreva tem de estar numa das duas listas."""
@@ -335,7 +339,9 @@ class TestAsRotasDeEscrita(Base):
         self.assertEqual(
             minhas,
             {"/api/conta/registar", "/api/conta/privacidade",
-             "/api/conta/exportar", "/api/conta/apagar", "/sair"},
+             "/api/conta/exportar", "/api/conta/apagar", "/sair",
+             # 2026-09-30, as duas da password.
+             "/api/conta/entrar", "/api/conta/senha"},
             "há uma rota de conta nova — confirma que passa pelo guarda")
 
     def test_as_rotas_que_escrevem_no_CONFIG_sao_so_do_dono(self):
@@ -393,12 +399,22 @@ class TestAsRotasDeEscrita(Base):
         self.assertEqual(len(rotas_conta.SO_DO_DONO), 2)
 
     def _entrar(self, c, sub: str, slug: str) -> str:
-        r = c.get(f"/entrar/local?sub={sub}")
-        self.assertEqual(r.status_code, 302, r.get_data(as_text=True)[:300])
-        d = c.get("/api/conta.json").get_json()
-        csrf = d["csrf"]
-        r = c.post("/api/conta/registar", json={"slug": slug},
-                   headers={"X-CSRF-Token": csrf})
+        """Uma conta e uma sessão, como ELE as faz desde 2026-09-30.
+
+        Era pelo `/api/conta/registar` (o registo aberto de 29/09), que hoje
+        recusa. Passou a ser o caminho a sério: a conta nasce de um comando
+        dele, com uma password, e entra-se com ela. O `sub` fica só para os
+        testes não terem de mudar de assinatura.
+        """
+        password = f"a-frase-de-{slug}-2026"
+        u = self.utilizador.criar(slug, slug)
+        con = self.auth.abrir()
+        try:
+            self.auth.definir_senha(con, int(u["user_id"]), password,
+                                    temporaria=False)
+        finally:
+            con.close()
+        r = c.post("/api/conta/entrar", json={"nome": slug, "senha": password})
         self.assertEqual(r.status_code, 200, r.get_data(as_text=True)[:400])
         return c.get("/api/conta.json").get_json()["csrf"]
 
@@ -458,66 +474,90 @@ class TestOCookie(Base):
 
 
 class TestRegisto(Base):
-    def test_entrar_sem_conta_pede_o_slug(self):
+    """AS CONTAS NASCEM DE UM COMANDO DELE (2026-09-30).
+
+    Esta classe descrevia o registo aberto de 29/09 — entrar pelo Discord e
+    escolher um slug. Ele fechou-o no dia seguinte (*"isto e uma coisa caseira,
+    para usar entre amigos"*) e o que aqui se fixa agora é o contrário: a rota
+    recusa, e o caminho que resta é o `riftvault conta --criar`. O regime novo
+    está todo em `tests/test_senhas.py`; o que fica aqui são as invariantes que
+    NÃO mudaram de dono — os nomes reservados, os nomes repetidos, e a coleção
+    a nascer privada.
+    """
+
+    def test_entrar_sem_conta_NAO_oferece_o_registo(self):
         self.ensaio(True)
         c = self.cliente(aberto=True)
         c.get("/entrar/local?sub=amigo-a")
         d = c.get("/api/conta.json").get_json()
         self.assertFalse(d["entrado"])
-        self.assertTrue(d["registo_pendente"])
+        self.assertNotIn("registo_pendente", d)
+        self.assertIn("sem_conta", d, "tem de lhe dizer o que fazer")
+        self.assertFalse(d["registo_aberto"])
+
+    def test_a_rota_de_registo_recusa(self):
+        self.ensaio(True)
+        c = self.cliente(aberto=True)
+        c.get("/entrar/local?sub=amigo-a")
+        csrf = c.get("/api/conta.json").get_json()["csrf"]
+        r = c.post("/api/conta/registar", json={"slug": "miguel"},
+                   headers={"X-CSRF-Token": csrf})
+        self.assertEqual(r.status_code, 403)
+        self.assertIn("André", r.get_json()["erro"])
 
     def test_o_slug_reservado_recusa_com_a_razao(self):
-        self.ensaio(True)
-        c = self.cliente(aberto=True)
-        c.get("/entrar/local?sub=amigo-a")
-        csrf = c.get("/api/conta.json").get_json()["csrf"]
-        r = c.post("/api/conta/registar", json={"slug": "www"},
-                   headers={"X-CSRF-Token": csrf})
-        self.assertEqual(r.status_code, 400)
-        self.assertIn("reservado", r.get_json()["erro"])
+        """Agora é o `--criar` que valida, e com as mesmas regras."""
+        with self.assertRaises(ValueError) as e:
+            self.auth.validar_slug("www")
+        self.assertIn("reservado", str(e.exception))
 
     def test_dois_nao_podem_ter_o_mesmo_slug(self):
-        self.ensaio(True)
-        c = self.cliente(aberto=True)
-        c.get("/entrar/local?sub=amigo-a")
-        csrf = c.get("/api/conta.json").get_json()["csrf"]
-        c.post("/api/conta/registar", json={"slug": "miguel"},
-               headers={"X-CSRF-Token": csrf})
-        c.get("/sair")
-        c.get("/entrar/local?sub=amigo-b")
-        csrf2 = c.get("/api/conta.json").get_json()["csrf"]
-        r = c.post("/api/conta/registar", json={"slug": "miguel"},
-                   headers={"X-CSRF-Token": csrf2})
-        self.assertEqual(r.status_code, 400)
-        self.assertIn("já está a ser usado", r.get_json()["erro"])
-
-    def test_o_registo_roda_o_cookie(self):
-        """O valor que andou pelo browser antes de haver conta não dá acesso a ela."""
-        self.ensaio(True)
-        c = self.cliente(aberto=True)
-        r1 = c.get("/entrar/local?sub=amigo-a")
-        antes = r1.headers["Set-Cookie"].split("=", 1)[1].split(";")[0]
-        csrf = c.get("/api/conta.json").get_json()["csrf"]
-        r2 = c.post("/api/conta/registar", json={"slug": "miguel"},
-                    headers={"X-CSRF-Token": csrf})
-        depois = r2.headers["Set-Cookie"].split("=", 1)[1].split(";")[0]
-        self.assertNotEqual(antes, depois)
+        self.utilizador.criar("Miguel", "miguel")
+        self.assertFalse(self.auth.slug_livre("miguel"))
+        with self.assertRaises(ValueError) as e:
+            self.auth.exigir_slug("miguel")
+        self.assertIn("já está a ser usado", str(e.exception))
 
     def test_a_colecao_nasce_privada(self):
-        self.ensaio(True)
         c = self.cliente(aberto=True)
-        c.get("/entrar/local?sub=amigo-a")
-        csrf = c.get("/api/conta.json").get_json()["csrf"]
-        c.post("/api/conta/registar", json={"slug": "miguel"},
-               headers={"X-CSRF-Token": csrf})
+        u = self.utilizador.criar("Miguel", "miguel")
+        con = self.auth.abrir()
+        try:
+            self.auth.definir_senha(con, int(u["user_id"]),
+                                    "a-frase-do-miguel", temporaria=False)
+        finally:
+            con.close()
+        r = c.post("/api/conta/entrar",
+                   json={"nome": "miguel", "senha": "a-frase-do-miguel"})
+        self.assertEqual(r.status_code, 200, r.get_data(as_text=True)[:300])
         d = c.get("/api/conta.json").get_json()
         self.assertEqual(d["utilizador"]["publico"], "nada")
 
+    def test_a_entrada_roda_o_cookie_a_cada_troca_de_password(self):
+        """O valor antigo do cookie não sobrevive a uma troca de password."""
+        c = self.cliente(aberto=True)
+        u = self.utilizador.criar("Miguel", "miguel")
+        con = self.auth.abrir()
+        try:
+            self.auth.definir_senha(con, int(u["user_id"]), "a-frase-antiga",
+                                    temporaria=False)
+        finally:
+            con.close()
+        r1 = c.post("/api/conta/entrar",
+                    json={"nome": "miguel", "senha": "a-frase-antiga"})
+        antes = r1.headers["Set-Cookie"].split("=", 1)[1].split(";")[0]
+        csrf = c.get("/api/conta.json").get_json()["csrf"]
+        r2 = c.post("/api/conta/senha",
+                    json={"atual": "a-frase-antiga", "nova": "a-frase-nova-dela"},
+                    headers={"X-CSRF-Token": csrf})
+        self.assertEqual(r2.status_code, 200, r2.get_data(as_text=True)[:300])
+        depois = r2.headers["Set-Cookie"].split("=", 1)[1].split(";")[0]
+        self.assertNotEqual(antes, depois)
+
     def test_o_registo_sem_ter_entrado_recusa(self):
-        self.ensaio(True)
         c = self.cliente(aberto=True)
         r = c.post("/api/conta/registar", json={"slug": "miguel"})
-        self.assertEqual(r.status_code, 401)
+        self.assertEqual(r.status_code, 403)
 
 
 # --------------------------------------------------------------------------
@@ -560,18 +600,25 @@ class TestHigieneDoCliente(Base):
 
 
 class TestVerificar(Base):
-    def test_sem_fornecedor_nao_deixa_abrir(self):
+    def test_sem_a_password_DELE_nao_deixa_abrir(self):
+        """Era «sem fornecedor de OAuth» até 2026-09-30; agora é a password.
+
+        O que não mudou é o que isto protege: abrir a porta com ele do lado de
+        fora da própria coleção.
+        """
         self.cfg({"multi": {"aberto": False}})
         est = self.abrir.verificar()
         self.assertFalse(est["pode_abrir"])
         nomes = [p["nome"] for p in est["faltam"]]
-        self.assertIn("Entrar sem password", nomes)
+        self.assertIn("Tu consegues entrar", nomes)
+        self.assertNotIn("Entrar sem password", nomes,
+                         "já não se exige um fornecedor de OAuth")
 
     def test_o_abrir_recusa_e_diz_o_que_falta(self):
         self.cfg({"multi": {"aberto": False}})
         with self.assertRaises(self.abrir.NaoEstaPronto) as e:
             self.abrir.abrir()
-        self.assertIn("Entrar sem password", str(e.exception))
+        self.assertIn("Tu consegues entrar", str(e.exception))
 
     def test_o_texto_e_em_portugues_e_diz_o_estado(self):
         self.cfg({"multi": {"aberto": False}})
@@ -582,13 +629,27 @@ class TestVerificar(Base):
     def test_exige_que_ELE_consiga_entrar(self):
         """Abrir com ele de fora era trancá-lo fora da própria coleção."""
         self.cfg({"multi": {"aberto": False}, "auth": {
-            "base_url": "https://editar.baverone.com",
-            "discord": {"client_id": "a", "client_secret": "b"}}})
+            "base_url": "https://editar.baverone.com"}})
         est = self.abrir.verificar()
         nomes = [p["nome"] for p in est["faltam"]]
         self.assertIn("Tu consegues entrar", nomes)
 
     def test_com_tudo_no_sitio_deixa_abrir(self):
+        """Basta ele ter password — não é preciso fornecedor nenhum."""
+        self.cfg({"multi": {"aberto": False}, "auth": {
+            "base_url": "https://editar.baverone.com"}})
+        con = self.auth.abrir()
+        try:
+            self.auth.definir_senha(con, 1, "a-password-do-andre",
+                                    temporaria=False)
+        finally:
+            con.close()
+        est = self.abrir.verificar()
+        self.assertTrue(est["pode_abrir"],
+                        [p["nome"] for p in est["faltam"]])
+
+    def test_uma_identidade_de_oauth_tambem_serve(self):
+        """O OAuth ficou parado, não apagado: quem o tiver ligado entra."""
         self.cfg({"multi": {"aberto": False}, "auth": {
             "base_url": "https://editar.baverone.com",
             "discord": {"client_id": "a", "client_secret": "b"}}})
@@ -666,10 +727,17 @@ class TestNuncaAbreABaseDeOutro(Base):
         self.assertIn("não é tua", r.get_json()["erro"])
 
     def _entrar(self, c, sub: str, slug: str) -> str:
-        c.get(f"/entrar/local?sub={sub}")
-        csrf = c.get("/api/conta.json").get_json()["csrf"]
-        c.post("/api/conta/registar", json={"slug": slug},
-               headers={"X-CSRF-Token": csrf})
+        """Igual ao da `TestAsRotasDeEscrita` — ver lá o porquê da mudança."""
+        password = f"a-frase-de-{slug}-2026"
+        u = self.utilizador.criar(slug, slug)
+        con = self.auth.abrir()
+        try:
+            self.auth.definir_senha(con, int(u["user_id"]), password,
+                                    temporaria=False)
+        finally:
+            con.close()
+        r = c.post("/api/conta/entrar", json={"nome": slug, "senha": password})
+        self.assertEqual(r.status_code, 200, r.get_data(as_text=True)[:400])
         return c.get("/api/conta.json").get_json()["csrf"]
 
 

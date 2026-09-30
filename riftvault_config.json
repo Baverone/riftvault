@@ -200,4 +200,12 @@
 
   "static_images": "remote",
   "_static_images_nota": "No build estático: 'remote' aponta para o CDN da RiftScribe (Pages fica leve); 'local' copia o cache para o site (~70 MB)."
+,
+
+  "auth": {
+    "base_url": "https://editar.baverone.com",
+    "discord": { "client_id": "1554768945133789184" },
+    "google":  { "client_id": "646573206239-56jnja7ihpb04mk5pgch9774ade7srqn.apps.googleusercontent.com" }
+  },
+  "_auth_nota": "ENTRA-SE COM UTILIZADOR E PASSWORD (2026-09-30, ordem dele). A password vive cifrada no data/auth.db, fora do Git, e NAO SE LE — quem se esquece recebe uma nova, temporaria, por `riftvault conta <nome> --nova-password`. Ver riftvault/senha.py e docs/contas-e-autenticacao.md. AQUI nao ha nem pode haver password nenhuma: este ficheiro esta commitado num repositorio PUBLICO, empurrado de 30 em 30 minutos pela tarefa riftvault-publicar. A base_url e o endereco que aparece no que ele manda a um amigo ao criar-lhe a conta. O bloco discord/google e o OAUTH DE 29/09, que FICA PARADO: sem segredo no ambiente (RIFTVAULT_DISCORD_SECRET) o botao nao aparece, e o client_id nao e segredo — viaja no endereco de autorizacao, a vista de todos."
 }

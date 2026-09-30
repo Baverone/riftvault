@@ -65,11 +65,43 @@ ESCREVE = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 DONO = 1
 
 #: Caminhos que têm de funcionar sem sessão de DONO, senão não há por onde
-#: entrar. O `/api/conta/registar` está aqui porque é ele que CRIA o dono: no
-#: momento em que corre, a sessão existe mas ainda não tem `user_id`, e o guarda
-#: genérico recusava-a. Tem a protecção dele por dentro (exige a sessão
-#: pré-registo e exige o CSRF) — ver `registar()`.
-ABERTOS = ("/entrar", "/sair", "/api/conta.json", "/api/conta/registar")
+#: entrar. O `/api/conta/entrar` é a entrada por password e tem a protecção
+#: dele por dentro (o travão de tentativas e a exigência de JSON — ver
+#: `entrar_com_senha`). O `/api/conta/registar` está aqui por história: hoje
+#: recusa sempre (`REGISTO_ABERTO`), e continua na lista para responder o 403
+#: com a razão em vez de um 401 que não explica nada.
+ABERTOS = ("/entrar", "/sair", "/api/conta.json", "/api/conta/entrar",
+           "/api/conta/registar")
+
+#: NÃO HÁ REGISTO ABERTO (2026-09-30). *"isto e uma coisa caseira, para usar
+#: entre amigos"* — as contas nascem de um comando dele:
+#:
+#:     riftvault conta --criar <nome>
+#:
+#: A rota fica no código, a recusar, por duas razões: o 403 diz a quem chegar
+#: lá o que fazer (pedir ao André), e a fatia que um dia quiser convites tem
+#: onde encaixar. Mudar isto para `True` **não** é uma decisão de código — é
+#: uma decisão dele, e por isso não é uma chave de config: uma chave num
+#: ficheiro commitado está a um merge de distância de abrir o registo sem
+#: ninguém ter decidido nada.
+REGISTO_ABERTO = False
+
+#: COM UMA PASSWORD TEMPORÁRIA NÃO SE FAZ NADA até ser trocada — *"Quem entra
+#: com uma temporaria e OBRIGADO a trocar antes de fazer seja o que for"*.
+#:
+#: Bloqueia-se tudo o que é `/api/`, menos estes dois. O resto (o `index.html`,
+#: o `app.js`, o CSS, as imagens) passa, senão não havia página onde mostrar o
+#: formulário da troca; e o `/sair` também não é `/api/`, por isso quem desistir
+#: pode sair.
+#:
+#: **Bloqueia as LEITURAS e não só as escritas**, de propósito: a temporária
+#: andou pelo WhatsApp, e quem a apanhasse no caminho podia não escrever nada e
+#: ler a coleção toda. Uma password que passou por uma aplicação de mensagens
+#: vale para trocar a password, e mais nada.
+#: O `/api/conta/entrar` está cá para não haver beco sem saída: quem tenha uma
+#: sessão com temporária e queira entrar como outra pessoa tem de conseguir,
+#: sem ter de descobrir o `/sair` primeiro.
+COM_TEMPORARIA = ("/api/conta.json", "/api/conta/senha", "/api/conta/entrar")
 
 #: ROTAS QUE ESCREVEM NO CONFIG PARTILHADO — e por isso são SÓ DO DONO.
 #:
@@ -211,6 +243,7 @@ def _antes():
     g.riftvault_user = None
     g.somente_leitura = False
     g.alvo_slug = None
+    g.senha_temporaria = False
 
     if not _porta_aberta():
         # O de hoje: um dono só, sem autenticação. O `None` faz o
@@ -229,6 +262,12 @@ def _antes():
             # escrever no máximo uma vez por hora — uma página da Coleção são
             # dezenas de pedidos e não vale um `UPDATE` cada.
             auth.tocar(con, sid, _cfg(), sess.get("visto_em"))
+            # Pergunta-se a CADA pedido, e não se guarda na sessão: assim a
+            # troca da password liberta o site no pedido seguinte, sem ter de
+            # entrar outra vez. É um SELECT por chave primária numa tabela com
+            # tantas linhas quantos os amigos dele.
+            g.senha_temporaria = auth.estado_senha(
+                con, g.riftvault_user)["temporaria"]
 
     # Um pedido pode NOMEAR outra pessoa (`/u/<slug>/…`). Se nomear, marca-se —
     # mas **o `g.riftvault_user` NÃO muda**, e isso é a invariante que interessa:
@@ -249,9 +288,25 @@ def _antes():
 
     _dono_do_fio(g.riftvault_user)
 
+    travado = _trava_temporaria()
+    if travado is not None:
+        return travado
+
     if request.method in ESCREVE:
         return _guardar_escrita()
     return None
+
+
+def _trava_temporaria():
+    """Com a password temporária só se pode trocar a password. Ver `COM_TEMPORARIA`."""
+    if not g.get("senha_temporaria"):
+        return None
+    caminho = request.path
+    if not caminho.startswith("/api/") or caminho in COM_TEMPORARIA:
+        return None
+    return _resposta(
+        "entraste com a password temporária que o André te deu. Escolhe uma "
+        "password tua para poderes usar o site.", 403)
 
 
 def _guardar_escrita():
@@ -383,7 +438,13 @@ def api_conta():
         "aberto": aberto,
         "entrado": False,
         "editavel": False,
+        # A entrada por PASSWORD está sempre disponível quando a porta está
+        # aberta: não precisa de configurar nada (2026-09-30). Os `provedores`
+        # são o OAuth, que fica parado e só aparece se ele o configurar.
+        "senha": aberto,
         "provedores": [],
+        "registo_aberto": REGISTO_ABERTO,
+        "senha_temporaria": False,
         "csrf": None,
         "utilizador": None,
     }
@@ -401,7 +462,14 @@ def api_conta():
 
     out["csrf"] = sess.get("csrf")
     if not sess.get("user_id"):
-        # Identificada, sem conta: é o registo que falta.
+        # Identificada por um fornecedor, sem conta aqui. Com o registo fechado
+        # (o de hoje) não há formulário para lhe mostrar: diz-se o que fazer.
+        if not REGISTO_ABERTO:
+            out["sem_conta"] = {
+                "provedor": sess.get("provedor"),
+                "nome": sess.get("nome"),
+            }
+            return jsonify(out)
         out["registo_pendente"] = {
             "provedor": sess.get("provedor"),
             "nome": sess.get("nome"),
@@ -411,7 +479,11 @@ def api_conta():
 
     u = utilizador.registo(int(sess["user_id"]))
     out["entrado"] = True
-    out["editavel"] = not g.get("somente_leitura", False)
+    out["senha_temporaria"] = bool(g.get("senha_temporaria"))
+    # Com a temporária o site está trancado (ver `_trava_temporaria`): dizer
+    # `editavel: true` punha os `+`/`−` à vista a dar 403 a cada clique.
+    out["editavel"] = (not g.get("somente_leitura", False)
+                       and not out["senha_temporaria"])
     out["utilizador"] = {
         "nome": u.get("nome"),
         "slug": u.get("slug"),
@@ -622,10 +694,113 @@ def sair():
 # --------------------------------------------------------------------------
 
 
+@bp.post("/api/conta/entrar")
+def entrar_com_senha():
+    """Entrar com o nome e a password (2026-09-30).
+
+    PROTECÇÕES, e cada uma tem uma razão:
+
+    * **o travão de tentativas** (`auth.travao`), antes de gastar 130 ms de
+      scrypt — ver o comentário dele no `auth.py`;
+    * **exige JSON**. Um `<form>` de outro site não consegue mandar
+      `Content-Type: application/json`: o browser obriga a um pedido prévio de
+      permissão (CORS preflight) que nós não respondemos. É o que impede o
+      «login CSRF» — alguém levar o browser dele a entrar na conta de outra
+      pessoa e a escrever a coleção dele para lá. Não se pode usar aqui a marca
+      de CSRF de sempre: quem entra ainda não tem sessão e por isso não tem
+      marca nenhuma;
+    * **a mesma mensagem** para nome que não existe e password errada (ver
+      `auth.entrar`).
+    """
+    if not request.is_json:
+        return _resposta(
+            "este pedido tem de vir em JSON (é uma protecção: impede outro "
+            "site de te fazer entrar aqui sem saberes).", 415)
+    try:
+        auth.exigir_porta_aberta(_cfg())
+    except auth.PortaFechada as e:
+        return _resposta(str(e), 403)
+
+    dados = request.get_json(silent=True) or {}
+    con = _auth_con()
+    try:
+        quem = auth.entrar(con, dados.get("nome") or dados.get("slug") or "",
+                           dados.get("senha") or "",
+                           chave=_chave_do_pedido())
+    except auth.TemDeEsperar as e:
+        return _resposta(str(e), 429)
+    except auth.ErroDeAutenticacao as e:
+        return _resposta(str(e), 401)
+
+    nova = auth.criar_sessao(con, user_id=quem["user_id"],
+                             agente=request.headers.get("User-Agent"),
+                             cfg=_cfg())
+    resp = jsonify({"ok": True, "slug": quem["slug"], "nome": quem["nome"],
+                    "senha_temporaria": quem["temporaria"],
+                    "csrf": nova["csrf"]})
+    return por_cookie(resp, nova["sid"], _cfg())
+
+
+@bp.post("/api/conta/senha")
+def mudar_senha():
+    """Trocar a password. É a ÚNICA coisa que se pode fazer com uma temporária."""
+    from . import senha as senha_mod, utilizador
+
+    sess = g.get("sessao")
+    if sess is None or not sess.get("user_id"):
+        return _resposta("precisas de entrar para trocar a password.", 401)
+    if not auth.csrf_valido(sess, _csrf_enviado()):
+        return _resposta(
+            "o pedido não trazia a marca de segurança (CSRF). Recarrega a "
+            "página e tenta outra vez.", 403)
+
+    uid = int(sess["user_id"])
+    u = utilizador.registo(uid)
+    dados = request.get_json(silent=True) or {}
+    con = _auth_con()
+    try:
+        auth.mudar_senha(con, uid, dados.get("atual") or "",
+                         dados.get("nova") or "",
+                         slug=u.get("slug") or "", nome=u.get("nome") or "")
+    except auth.SenhaErrada as e:
+        # Conta como falha, senão o travão não valia para quem entrasse num
+        # computador alheio e ficasse a tentar a password actual à sorte.
+        auth.registar_tentativa(con, _chave_do_pedido(), "senha", False, uid)
+        return _resposta(str(e), 403)
+    except senha_mod.SenhaFraca as e:
+        return _resposta(str(e), 400)
+    except auth.ErroDeAutenticacao as e:
+        return _resposta(str(e), 400)
+
+    # SESSÃO NOVA a seguir a trocar a password, e a antiga apagada: se alguém
+    # tinha o cookie dela (é a razão de estar a trocar), deixa de valer aqui.
+    # As outras sessões dela vão-se todas — entrar outra vez no telemóvel é o
+    # preço, e é o que se espera de uma troca de password.
+    auth.terminar_todas(con, uid)
+    nova = auth.criar_sessao(con, user_id=uid,
+                             agente=request.headers.get("User-Agent"),
+                             cfg=_cfg())
+    resp = jsonify({"ok": True, "csrf": nova["csrf"]})
+    return por_cookie(resp, nova["sid"], _cfg())
+
+
 @bp.post("/api/conta/registar")
 def registar():
-    """Cria a conta de quem já provou quem é e escolheu um nome de endereço."""
+    """NÃO HÁ REGISTO ABERTO (2026-09-30) — ver `REGISTO_ABERTO`.
+
+    Fica a responder 403 com o que fazer. O corpo antigo (criar a conta a
+    quem entrou por OAuth e escolheu um slug) está abaixo e continua a
+    funcionar se alguém ligar o interruptor — não se apagou porque o OAuth
+    também não se apagou, e sem isto uma pessoa que entre pelo Discord sem
+    conta não tem caminho nenhum.
+    """
     from . import utilizador
+
+    if not REGISTO_ABERTO:
+        return _resposta(
+            "as contas não se criam aqui: é o André que as cria, uma a uma. "
+            "Pede-lhe uma conta e ele dá-te o nome e uma password temporária.",
+            403)
 
     try:
         auth.exigir_porta_aberta(_cfg())

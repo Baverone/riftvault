@@ -1,4 +1,12 @@
-"""A autenticação: sem passwords, com PKCE, e o fornecedor local preso ao ensaio.
+"""A autenticação POR FORNECEDOR: PKCE, sessões, e o local preso ao ensaio.
+
+Este ficheiro é o OAuth de 2026-09-29, que ficou parado quando ele pediu
+passwords no dia seguinte — e por isso continua a ser testado inteiro: o que
+está parado tem de continuar a funcionar no dia em que for ligado. A entrada
+por password vive em `tests/test_senhas.py`.
+
+O que ficou daqui da decisão antiga é a fronteira: **nada legível** (ver a
+`TestNenhumaPassword`), e a criptografia da password no `senha.py` e não aqui.
 
 Estes testes correm contra um `auth.db` temporário — nunca contra o `data/` a
 sério. A pergunta que o ficheiro todo responde é: quem entra é quem diz que é,
@@ -38,25 +46,41 @@ class Base(unittest.TestCase):
 
 
 class TestNenhumaPassword(Base):
-    def test_o_esquema_nao_tem_campo_de_password(self):
-        """A resposta à primeira pergunta da checklist tem de ser NÃO."""
+    """A PASSWORD NÃO SE LÊ — era «não existe» até 2026-09-30.
+
+    A 29/09 esta classe exigia que não houvesse password nenhuma. No dia
+    seguinte ele pediu passwords (*"em vez de discord, nao era melhor a pessoa
+    criar uma conta com usuario e password"*) e o que se guardou da decisão
+    antiga foi a metade que interessa: **não há nada legível em lado nenhum**.
+    O regime novo está em `tests/test_senhas.py`; aqui fica a fronteira deste
+    ficheiro.
+    """
+
+    def test_nenhuma_tabela_tem_a_password_LEGIVEL(self):
         colunas = []
-        for t in ("user_auth", "sessions", "auth_pedidos", "auth_tentativas"):
+        for t in ("user_auth", "sessions", "auth_pedidos", "auth_tentativas",
+                  "auth_convites"):
             colunas += [r["name"].lower()
                         for r in self.con.execute(f"PRAGMA table_info({t})")]
         self.assertTrue(colunas, "o esquema não foi criado")
-        for proibida in ("password", "passwd", "pass", "senha", "hash_pw",
-                         "password_hash", "segredo", "secret"):
+        for proibida in ("password", "passwd", "pass", "senha", "segredo",
+                         "secret", "clara", "claro"):
             self.assertNotIn(proibida, colunas,
                              f"a coluna «{proibida}» não pode existir")
 
-    def test_o_codigo_nao_fala_de_passwords(self):
-        fonte = (Path(auth.__file__)).read_text(encoding="utf-8").lower()
-        # `password` aparece só na frase que explica que não se guardam.
-        self.assertNotIn("password_hash", fonte)
-        self.assertNotIn("bcrypt", fonte)
-        self.assertNotIn("scrypt", fonte)
-        self.assertNotIn("pbkdf2", fonte)
+    def test_a_tabela_da_password_guarda_um_HASH_e_mais_nada(self):
+        colunas = {r["name"].lower()
+                   for r in self.con.execute("PRAGMA table_info(user_senha)")}
+        self.assertEqual(
+            colunas, {"user_id", "hash", "temporaria", "criado_em", "mudado_em"},
+            "há uma coluna nova na `user_senha` — confirma que não é legível")
+
+    def test_a_criptografia_vive_no_senha_py_e_nao_aqui(self):
+        """Uma pergunta, um sítio: o `auth.py` guarda, o `senha.py` cifra."""
+        fonte = Path(auth.__file__).read_text(encoding="utf-8").lower()
+        for digesto in ("bcrypt", "pbkdf2", "hashlib.scrypt", "md5", "sha1"):
+            self.assertNotIn(digesto, fonte,
+                             f"«{digesto}» tem de viver no senha.py")
 
     def test_o_token_do_fornecedor_nao_se_guarda(self):
         """O `access_token` serve uma pergunta e morre. Não há onde o pôr."""
@@ -651,7 +675,9 @@ class TestIdentidades(Base):
 
         r = auth.esquecer_identidades(self.con, 4)
 
-        self.assertEqual(r, {"identidades": 2, "sessoes": 2})
+        # A `senhas` é de 2026-09-30: apagar a conta apaga a password também,
+        # senão ficava um hash órfão a envelhecer no PC dele.
+        self.assertEqual(r, {"identidades": 2, "sessoes": 2, "senhas": 0})
         self.assertIsNotNone(auth.sessao(self.con, outra["sid"]),
                              "a sessão do outro utilizador não podia ser tocada")
         self.assertEqual(

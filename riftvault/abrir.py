@@ -5,17 +5,22 @@ uma pergunta a cada coisa que tem de estar no sítio, responde em português, e
 **recusa abrir enquanto faltar alguma** — não é um aviso que se possa ignorar
 por distração às duas da manhã.
 
-Os três passos que só ele pode dar (a aplicação no Discord ou no Google, a conta
-na Cloudflare, e os nameservers do `baverone.com`) não se conseguem verificar
-daqui: um exige as credenciais dele, os outros exigem rede e uma conta. Por isso
-aparecem na lista como **passos dele**, com o que fazer, e o `docs/abrir-a-porta.md`
-é o guia. O que se verifica daqui é tudo o que é código, config e ficheiros.
+**ERAM TRÊS PASSOS DELE E PASSARAM A DOIS a 2026-09-30.** O primeiro era criar
+a aplicação no Discord, e desapareceu quando a entrada passou a ser por
+password: já não é preciso pedir nada a ninguém para os amigos entrarem. Ficam
+a conta na Cloudflare e os nameservers do `baverone.com` + o túnel, que não se
+verificam daqui (exigem rede e uma conta dele). Aparecem na lista como **passos
+dele**, com o que fazer, e o `docs/abrir-a-porta.md` é o guia. O que se
+verifica daqui é tudo o que é código, config e ficheiros.
 
 A VERIFICAÇÃO QUE INTERESSA MAIS, E PORQUÊ
-    «A conta DELE está ligada a um fornecedor?» Se a porta abrir sem isso, a
-    escrita passa a exigir sessão (é a regra da LAN, no `rotas_conta.py`) e ele
-    fica do lado de fora da sua própria coleção até conseguir entrar. Por isso é
-    essencial, e é a única que obriga a uma ida ao browser ANTES de abrir.
+    «ELE tem password definida?» Se a porta abrir sem isso, a escrita passa a
+    exigir sessão (é a regra da LAN, no `rotas_conta.py`) e ele fica do lado de
+    fora da sua própria coleção. É a única que o obriga a fazer uma coisa ANTES
+    de abrir — e agora essa coisa é um comando na consola, sem browser e sem
+    contas em sítios de terceiros:
+
+        riftvault conta baverone --nova-password
 """
 
 from __future__ import annotations
@@ -88,28 +93,24 @@ def verificar(cfg: dict | None = None) -> dict:
     aberto = multi.aberto(cfg)
     ensaio = multi.ensaio()
 
-    # 1. O fornecedor de identidade.
-    disponiveis = auth.disponiveis(cfg)
-    prontos = [p for p in disponiveis if p["pronto"] and p["nome"] != "local"]
-    if prontos:
-        passos.append(_essencial(
-            "Entrar sem password",
-            True,
-            f"pronto: {', '.join(p['etiqueta'] for p in prontos)}."))
-    else:
-        falta = "; ".join(
-            f"{p['etiqueta']} (falta {' e '.join(p['falta'])})"
-            for p in disponiveis if p["nome"] != "local")
-        passos.append(_essencial(
-            "Entrar sem password", False,
-            f"nenhum fornecedor configurado — {falta}.",
-            "É o PASSO 1 do docs/abrir-a-porta.md: cria a aplicação no Discord "
-            "(cinco minutos). O client_id vai para `auth.discord.client_id` do "
-            "riftvault_config.json; o client_secret vai para o AMBIENTE, com "
-            "`setx RIFTVAULT_DISCORD_SECRET \"o-segredo\"` numa consola nova — "
-            "esse ficheiro está commitado num repositório público."))
+    # 1. HÁ POR ONDE ENTRAR (2026-09-30).
+    #
+    # Isto já não exige um fornecedor de OAuth. A entrada por PASSWORD não
+    # precisa de configurar nada — está no código e funciona —, por isso este
+    # passo é sempre verde e existe para DIZER o que está ligado: a password
+    # sempre, e o Discord/Google só se ele os tiver configurado um dia.
+    #
+    # É um passo à parte do «tu consegues entrar» de propósito: este responde a
+    # «o site tem uma porta?» e o outro a «e tu tens a chave?». Pode haver porta
+    # e ele não ter chave — foi o caso durante todo o dia 29/09.
+    extra = [p["etiqueta"] for p in auth.disponiveis(cfg)
+             if p["pronto"] and p["nome"] != "local"]
+    passos.append(_essencial(
+        "Há por onde entrar", True,
+        "password (sempre disponível)"
+        + (f" e, a mais, {' e '.join(extra)}." if extra else ".")))
 
-    # 2. O endereço de volta.
+    # 2. O endereço que ele dá aos amigos.
     base = str((cfg.get("auth") or {}).get("base_url") or "").strip()
     if base.startswith("https://"):
         passos.append(_essencial("Endereço da app de edição", True, f"{base}."))
@@ -121,10 +122,10 @@ def verificar(cfg: dict | None = None) -> dict:
     else:
         passos.append(_essencial(
             "Endereço da app de edição", False,
-            "`auth.base_url` está vazio: sem ele a volta do Discord não sabe "
-            "para onde vir.",
+            "`auth.base_url` está vazio: é o endereço que aparece no que "
+            "mandas a um amigo quando lhe crias a conta.",
             "Mete `auth.base_url` a «https://editar.baverone.com» — o mesmo "
-            "endereço que escreveste no Discord."))
+            "endereço que o túnel serve."))
 
     # 3. O SEGREDO NÃO PODE ESTAR NUM FICHEIRO QUE VÁ PARA O GIT.
     #
@@ -192,20 +193,19 @@ def verificar(cfg: dict | None = None) -> dict:
         "" if not ensaio else "Fecha este terminal e abre outro sem o "
                               "RIFTVAULT_ENSAIO."))
 
-    # 8. Os três passos dele que não se verificam daqui.
-    passos.append(_dele(
-        "A aplicação no Discord (ou Google)",
-        "só tu podes criá-la — precisa da tua conta.",
-        "PASSO 1 do docs/abrir-a-porta.md. Depois de colares as credenciais, "
-        "este comando passa a dizer «pronto» na primeira linha."))
+    # 8. OS DOIS passos dele que não se verificam daqui.
+    #
+    # Eram três até 2026-09-30. O primeiro — criar a aplicação no Discord —
+    # DESAPARECEU quando a entrada passou a ser por password: já não é preciso
+    # pedir nada a ninguém para os amigos entrarem.
     passos.append(_dele(
         "A conta na Cloudflare",
         "só tu podes criá-la.",
-        "PASSO 2 do docs/abrir-a-porta.md."))
+        "PASSO 1 do docs/abrir-a-porta.md."))
     passos.append(_dele(
         "Os nameservers do baverone.com + o túnel",
         "só tu podes mudá-los, e é o passo com risco.",
-        "PASSO 3 do docs/abrir-a-porta.md. ANTES de trocar, confirma que a "
+        "PASSO 2 do docs/abrir-a-porta.md. ANTES de trocar, confirma que a "
         "Cloudflare já tem os cinco endereços (baverone.com, rift, mtg, baiak, "
         "tibia) e põe-nos em «DNS only» (nuvem cinzenta). O rift.baverone.com "
         "não pode cair."))
@@ -222,7 +222,19 @@ def verificar(cfg: dict | None = None) -> dict:
 
 
 def _ele_entra(cfg: dict) -> dict:
-    """A conta do dono está ligada a um fornecedor?"""
+    """ELE tem password definida? (Ou uma conta de OAuth ligada.)
+
+    É A VERIFICAÇÃO QUE INTERESSA MAIS. Se a porta abrir sem isto, a escrita
+    passa a exigir sessão (é a regra da LAN, no `rotas_conta.py`) e ele fica do
+    lado de fora da sua própria coleção. É a única que o obriga a fazer uma
+    coisa antes de abrir — e desde 2026-09-30 essa coisa é um comando na
+    consola, sem browser e sem contas em sítios de terceiros.
+
+    A TEMPORÁRIA NÃO CONTA COMO PRONTO, e é de propósito: com uma temporária
+    ele entra mas não faz mais nada até a trocar (ver
+    `rotas_conta._trava_temporaria`). Abrir a porta nesse estado era abri-la
+    com ele meio fora.
+    """
     from . import utilizador
     try:
         dono = utilizador.registo(1)
@@ -234,35 +246,53 @@ def _ele_entra(cfg: dict) -> dict:
 
     con = auth.abrir()
     try:
+        senha = auth.estado_senha(con, 1)
         ligadas = auth.identidades_de(con, 1)
     finally:
         con.close()
 
-    if ligadas:
-        quais = ", ".join(x["provedor"] for x in ligadas)
-        return _essencial("Tu consegues entrar", True,
-                          f"a tua conta está ligada ao {quais}.")
+    quais = [x["provedor"] for x in ligadas]
+    if senha["tem"] and not senha["temporaria"]:
+        return _essencial(
+            "Tu consegues entrar", True,
+            f"tens password definida (utilizador «{dono.get('slug')}»)"
+            + (f", e a conta está ligada ao {', '.join(quais)}." if quais
+               else "."))
+    if senha["temporaria"]:
+        return _essencial(
+            "Tu consegues entrar", False,
+            "a tua password é a temporária e ainda não a trocaste — com ela "
+            "entras, mas não podes fazer mais nada.",
+            f"Com o `riftvault serve` a correr, abre o site, entra como "
+            f"«{dono.get('slug')}» com a temporária, e escolhe uma password "
+            f"tua. Se a perdeste: `riftvault conta {dono.get('slug')} "
+            f"--nova-password`.")
+    if quais:
+        return _essencial(
+            "Tu consegues entrar", True,
+            f"a tua conta está ligada ao {', '.join(quais)} (sem password "
+            f"definida, o que também serve).")
     return _essencial(
         "Tu consegues entrar", False,
-        f"a tua conta ({dono.get('slug')}) ainda não está ligada a nenhum "
-        f"fornecedor.",
-        "Com a porta fechada isto não te incomoda — mas depois de abrires, "
-        "escrever passa a exigir entrar, e ficavas de fora da tua própria "
-        "coleção. Com o `riftvault serve` a correr, corre `riftvault multi "
-        "--ligar` noutro terminal: ele dá-te um endereço para abrires no "
-        "browser, entras com o Discord uma vez, e fica ligado. Depois volta a "
-        "correr este comando.")
+        f"a tua conta («{dono.get('slug')}») não tem password definida.",
+        f"Com a porta fechada isto não te incomoda — mas depois de abrires, "
+        f"escrever passa a exigir entrar, e ficavas de fora da tua própria "
+        f"coleção. Corre agora:  riftvault conta {dono.get('slug')} "
+        f"--nova-password  — ele dá-te uma password temporária; entras com ela "
+        f"uma vez e escolhes a tua.")
 
 
 def ligar(provedor: str = "discord", porta: int = 8770,
           cfg: dict | None = None) -> dict:
     """Um endereço de uso único que liga a conta DELE a um fornecedor.
 
-    É o caminho do primeiro utilizador, e existe porque o André **já existe**:
-    é o utilizador 1, com o slug `baverone`. Na primeira entrada o riftvault não
-    o reconhecia (não há identidade ligada) e oferecia-lhe o REGISTO — que lhe
-    pedia um slug que ele não podia escolher, porque o dele já é dele. Ficava a
-    olhar para um formulário sem saída.
+    **DEIXOU DE SER O CAMINHO PRINCIPAL a 2026-09-30.** Nasceu a 29/09 como a
+    única forma de o André entrar — ele já existia (utilizador 1, slug
+    `baverone`) e o registo pedia-lhe um slug que já era dele, por isso ficava
+    a olhar para um formulário sem saída. Desde que se entra por password, a
+    resposta a esse problema é `riftvault conta baverone --nova-password`, e
+    isto fica para quem **quiser ligar um fornecedor** a uma conta que já
+    existe. Só funciona com o fornecedor configurado (sem segredo, recusa).
 
     O código vem da CONSOLA de propósito: quem tem a consola do PC é o dono do
     PC, e isso prova mais do que qualquer verificação de endereço — o túnel da

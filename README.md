@@ -1564,33 +1564,51 @@ decks/            listas de deck em .txt
 docs/             spec da API e snapshot do catálogo, para referência
 ```
 
-## Contas para amigos — PRONTO, com a porta fechada (2026-09-29)
+## Contas para amigos — PRONTO, com a porta fechada (2026-09-30)
 
 Os amigos podem ter a coleção deles aqui. Está tudo construído e testado, e
 **a porta está fechada** (`multi.aberto: false`): hoje o riftvault é de um dono
 só, exactamente como ontem, e o site publicado não tem sinal nenhum de que isto
 existe — nem um link de login.
 
-**Quando quiseres abrir, o guia é o [docs/abrir-a-porta.md](docs/abrir-a-porta.md).**
-São três passos que só tu podes dar (a aplicação no Discord, a conta na
-Cloudflare, os nameservers do `baverone.com`), e este comando diz-te em
-português o que já está pronto e o que falta:
+**Entra-se com utilizador e password** (30/09, pedido teu). As contas **nascem
+de um comando teu** — não há registo no site:
 
 ```
-riftvault multi --verificar      # o que falta; recusa abrir se faltar algo
-riftvault multi --ligar          # liga a TUA conta ao Discord (faz isto antes)
-riftvault multi --abrir          # abre. --fechar volta atrás
+riftvault conta --criar miguel          # cria e diz uma password temporária
+riftvault conta miguel --nova-password  # o «esqueci-me»: dá-lhe outra
+riftvault conta                         # quem existe e em que estado está
+```
+
+A temporária aparece **uma vez** (`varanda-tigre-bolo-chave-47`), mandas-lha
+pelo WhatsApp, e o site obriga-a a escolher uma dela antes de fazer seja o que
+for. **Tu nunca lês a password de ninguém** — nem a tua: o que fica guardado é
+um `scrypt` com sal, que não se desfaz de volta. Quem se esquece recebe uma
+nova. A razão está em
+[docs/contas-e-autenticacao.md](docs/contas-e-autenticacao.md) §0, e em duas
+linhas é esta: as pessoas reutilizam passwords, e a que o Miguel escolher é
+provavelmente a do email dele.
+
+**Quando quiseres abrir, o guia é o [docs/abrir-a-porta.md](docs/abrir-a-porta.md).**
+São **dois** passos que só tu podes dar (a conta na Cloudflare e os nameservers
+do `baverone.com` + o túnel), e este comando diz-te em português o que já está
+pronto e o que falta:
+
+```
+riftvault conta baverone --nova-password   # a TUA password (faz isto antes)
+riftvault multi --verificar                # o que falta; recusa abrir se faltar algo
+riftvault multi --abrir                    # abre. --fechar volta atrás
 ```
 
 O que é bom saber sem ler o guia todo:
 
-- **Nunca se guarda uma password.** Entra-se com uma conta que já existe
-  (Discord ou Google) e fica só um ponteiro; o token do fornecedor não se
-  grava. As credenciais vivem em `data/auth.db`, **fora do Git** — o
-  `data/vault.db` é commitado num repositório público.
-- **O `client_secret` vai para o AMBIENTE**
-  (`setx RIFTVAULT_DISCORD_SECRET "…"`), nunca para o `riftvault_config.json`,
-  que está commitado. O `client_id` não é segredo e fica no config.
+- **A password não se lê.** `scrypt` (n=2^16, medido: 130 ms na tua máquina),
+  sal por pessoa, e o hash diz os parâmetros com que foi feito — para um dia se
+  poderem subir sem trancar ninguém de fora. Vive em `data/auth.db`, **fora do
+  Git** — o `data/vault.db` é commitado num repositório público.
+- **Quem erra muitas vezes espera**: à sexta tentativa errada na mesma conta a
+  espera começa em 1 minuto e sobe até uma hora. Nunca fica trancado para
+  sempre.
 - **Cada coleção é um ficheiro seu** (`data/users/<slug>/vault.db`). O
   servidor só abre a do dono da sessão, por isso não existe caminho de código
   que escreva na de outra pessoa.
@@ -1602,10 +1620,14 @@ O que é bom saber sem ler o guia todo:
 - O endereço público de cada um é `rift.baverone.com/u/<nome>/` (com barra e não
   com ponto — o GitHub Pages não faz `*.rift.baverone.com`; a razão está no
   guia).
+- **O «entrar com Discord» de 29/09 ficou feito e desligado.** Sem um segredo
+  no ambiente o botão não aparece; se um dia o quiseres, está no fim do guia.
 
 O desenho está em [docs/contas-e-autenticacao.md](docs/contas-e-autenticacao.md)
-e a prova de ponta a ponta em
-[docs/prova-contas-2026-09-29.md](docs/prova-contas-2026-09-29.md).
+e as provas de ponta a ponta em
+[docs/prova-senhas-2026-09-30.md](docs/prova-senhas-2026-09-30.md) (as
+passwords) e [docs/prova-contas-2026-09-29.md](docs/prova-contas-2026-09-29.md)
+(o isolamento e a privacidade).
 
 O contexto todo — incluindo as armadilhas da API e o que ainda não foi
 validado — está no [CLAUDE.md](CLAUDE.md).

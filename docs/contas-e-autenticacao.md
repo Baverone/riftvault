@@ -1,32 +1,117 @@
 # Contas e autenticação — o desenho, e o que o decidiu
 
-Fatia `2-multi-contas`, 2026-09-29. Vem a seguir a `0-multi-utilizador-1` (o
-modelo de dados, `docs/multi-utilizador.md`) e a `1-multi-guardas` (o
-isolamento, a privacidade e o interruptor).
+Fatia `2-multi-contas`, 2026-09-29, **revista a 2026-09-30 (as passwords)**.
+Vem a seguir a `0-multi-utilizador-1` (o modelo de dados,
+`docs/multi-utilizador.md`) e a `1-multi-guardas` (o isolamento, a privacidade
+e o interruptor).
 
 O guia dos passos DELE está em `docs/abrir-a-porta.md`. Este ficheiro é o
 porquê.
 
 ---
 
-## 1. Nenhuma password, e o que isso dá de graça
+## 0. A DECISÃO DE 2026-09-30: passwords, mas nenhuma legível
 
-Não há campo de password, não há hash, não há «esqueci-me da minha». Quem entra
-prova quem é ao **Google** ou ao **Discord**, e o riftvault fica com um ponteiro.
+**O que ele pediu**, no dia seguinte a isto ficar pronto com OAuth:
 
-Não é preguiça: é o que se evita.
+> *"em vez de discord, nao era melhor a pessoa criar uma conta com usuario e
+> password e ficar guardado em base de dados?? / **o esqueci-me da password
+> fica manual, eu acedo o ficheiro e digo A pessoa a password dela** / isto e
+> uma coisa caseira, para usar entre amigos, entao nao ha problema"*
 
-| o que não existe | logo não pode correr mal |
-|---|---|
-| tabela de passwords | não há nada para vazar num PC de casa |
-| «recuperar password» | não há email a enviar nem token a expirar mal |
-| política de força | não há utilizador a reutilizar a password do banco |
-| bcrypt/argon2 e os parâmetros | não há escolha de custo errada em 2029 |
+A primeira metade fez-se tal e qual. **A segunda recusei**, contrapus, e ele
+aceitou:
 
-**Recomendado: Discord primeiro.** A malta de TCG já o tem, e a aplicação
-fica pronta em cinco minutos. O Google obriga a um ecrã de consentimento que,
-para contas que não a dele, passa por verificação — pode levar dias. Os dois
-podem estar ligados ao mesmo tempo e a mesma pessoa pode usar qualquer deles.
+> *"pode ficar a tua sugestao de nova password, e melhor / faz e da-me o
+> proximo passo que precisas entao"*
+
+**A contraproposta, numa linha:** ele nunca LÊ a password de ninguém — quando
+alguém se esquece, ele DÁ UMA NOVA (`riftvault conta <nome> --nova-password`),
+temporária, que a pessoa é obrigada a trocar ao entrar.
+
+### Porque é que recusei ler a password
+
+Não é por «boas práticas». É por **uma coisa concreta que acontece a toda a
+gente: as pessoas reutilizam passwords.** A password que o Miguel escolher para
+o riftvault é, com grande probabilidade, a do email dele. Guardá-la legível
+transforma o risco de:
+
+> «alguém mexeu no PC do André e viu as cartas de três amigos»
+
+em:
+
+> «alguém mexeu no PC do André e entrou no **email** de três amigos»
+
+E o segundo não é um problema de cartas. Isto num PC de casa, ao lado de um
+repositório **público** que é empurrado para o GitHub de 30 em 30 minutos —
+onde um ficheiro trocado de pasta é uma fuga permanente.
+
+**O fluxo dele não muda.** Continua a ser ele a resolver, na consola, sem
+emails, sem sistemas e sem depender de nada: um comando, uma password nova,
+três linhas para mandar pelo WhatsApp. O que muda é que já não existe nada que
+possa vazar — e por isso a pergunta «e se alguém ler o ficheiro?» deixa de ter
+resposta má.
+
+### O que se guarda, e como
+
+`scrypt` da biblioteca padrão, **n=2^16, r=8, p=1**, sal de 16 bytes por
+pessoa. **Medido na máquina dele a 2026-09-30:** 32 ms a n=2^14, 64 ms a 2^15,
+**130 ms a 2^16**, 262 ms a 2^17. Escolheu-se o de 130 ms — imperceptível para
+quem entra uma vez por mês, e 130 ms × 67 MB de memória por tentativa para quem
+atacar o ficheiro.
+
+**Armadilha medida:** o `hashlib.scrypt` passa `maxmem=0` ao OpenSSL, que são
+32 MB, e o n=2^16 quer 67 — sem o argumento explícito isto rebentava na
+primeira password.
+
+O hash guardado **diz como foi feito** (`scrypt$65536$8$1$sal$hash`): o dia em
+que estes parâmetros ficarem baratos, sobe-se o `N` e as passwords antigas
+continuam a entrar, recifradas na primeira vez que a pessoa entra. Guardar só o
+hash e presumir os parâmetros era prender-se a eles para sempre.
+
+### A password temporária
+
+Quatro palavras de uma lista de 256 e dois dígitos —
+`varanda-tigre-bolo-chave-47`. **38,6 bits**, ou 4×10^11 combinações: offline,
+a 130 ms cada, são ~1 600 anos de um núcleo; online, com o travão, é
+inalcançável. As palavras são ASCII, 3 a 6 letras, sem acentos nem cedilha — há
+que as ditar ao telefone —, e os hífens dizem onde cada uma acaba.
+
+**Vive uns minutos**: quem entra com ela não pode fazer mais NADA senão trocá-la
+(ver §3b). O tempo de vida dela é o tempo que o amigo leva a abrir o WhatsApp.
+
+### As regras da password que a pessoa escolhe
+
+**Dez caracteres, e recusam-se as óbvias.** Não há exigência de maiúscula,
+dígito e símbolo, e é uma decisão: essa regra produz `Password1!` e um post-it
+no monitor. Dez caracteres de uma frase que a pessoa se lembre valem mais.
+Recusam-se: as da lista das mais usadas (com os dígitos do fim ignorados —
+`password12345` continua a ser `password`), o próprio nome de utilizador, o
+nome dela, um caractere repetido, e espaços nas pontas (perdem-se ao copiar e
+colar, e depois ela não entra e não sabe porquê).
+
+### NÃO HÁ REGISTO ABERTO
+
+As contas nascem de `riftvault conta --criar <nome>` e de mais lado nenhum. A
+rota `/api/conta/registar` responde **403** com o que fazer, e há teste que
+tenta criar uma conta por todos os caminhos que restam. É o que ele quer —
+*"entre amigos"* — e tem a vantagem de não haver formulário público onde bater.
+
+**Não é uma chave de config**, de propósito: uma chave num ficheiro commitado
+está a um merge de distância de abrir o registo sem ninguém ter decidido nada.
+É uma constante no código (`rotas_conta.REGISTO_ABERTO`).
+
+---
+
+## 1. O OAuth ficou, parado
+
+O caminho de 29/09 — entrar com Google ou Discord — **não se apagou**. Está
+inteiro e testado, e um dia pode servir (é a forma de ele não ter de gerir
+password nenhuma). Ordem dele, 2026-09-30: *"Nao apagues o codigo do Discord e
+do Google […] Sem segredo configurado, o botao simplesmente nao aparece. O
+`auth.discord.client_id` que ja esta no config fica onde esta."*
+
+O que continua a valer, e que foi bem pensado na altura:
 
 ### O que se guarda de cada pessoa
 
@@ -45,11 +130,19 @@ esquecida). Em vez disso pergunta-se ao fornecedor, por TLS, com o
 a resposta é o TLS** — a mesma garantia em que a troca do código já assenta — e
 não há criptografia nossa para correr mal.
 
+**Uma diferença desde 30/09:** entrar por um fornecedor **não cria conta**. Quem
+entre sem ter conta aqui vê uma frase a dizer que é o André que as cria. O
+`riftvault multi --ligar` (o código de uso único da consola) continua a ser o
+caminho para LIGAR um fornecedor a uma conta que já existe.
+
 ---
 
 ## 2. ONDE VIVEM AS CREDENCIAIS — e a armadilha que quase se repetiu
 
-`data/auth.db`, ficheiro à parte, **no `.gitignore`**.
+`data/auth.db`, ficheiro à parte, **no `.gitignore`**. Com passwords lá dentro
+(2026-09-30) isto passou de cuidado a essencial: um hash publicado no GitHub é
+um hash que qualquer pessoa pode atacar com todo o tempo do mundo, e uma
+password reutilizada que caia é uma conta de email de um amigo.
 
 A `1-multi-guardas` propôs pô-las na «base do sistema», que é o
 `data/vault.db`. Mediu-se antes de aceitar:
@@ -114,13 +207,72 @@ lê o `app.js` e rebenta se aparecer um POST que não passe por ela. Acrescentar
 a marca a 17 sítios à mão era garantir que um dia se esquecia num — e um
 esquecido é uma rota sem protecção, não um erro visível.
 
+### A entrada por password não pode usar a marca de CSRF — e o que a protege
+
+Quem está a entrar ainda não tem sessão, logo não tem marca nenhuma. O que se
+faz em vez disso: **a rota exige `Content-Type: application/json`** (415 se não
+vier). Um `<form>` de outro site não consegue mandar JSON — o browser obriga a
+um pedido prévio de permissão (CORS preflight) que nós não respondemos.
+
+O que isto trava chama-se **login CSRF** e não é teórico aqui: alguém levar o
+browser do André a entrar numa conta que não é a dele, e o que ele escrevesse a
+seguir ia para a coleção do atacante, a pensar que era a dele. É o mesmo
+problema que o `nonce` resolve no caminho do OAuth.
+
+### A PASSWORD TEMPORÁRIA TRANCA O SITE ATÉ SER TROCADA
+
+Ordem dele: *"Quem entra com uma temporaria e OBRIGADO a trocar antes de fazer
+seja o que for"*. Com uma temporária, **tudo o que é `/api/` responde 403**
+menos duas rotas: o `api/conta.json` (para a página saber o que mostrar) e o
+`api/conta/senha` (a troca). O resto — o `index.html`, o `app.js`, o CSS — passa,
+senão não havia página onde mostrar o formulário; e o `/sair` funciona.
+
+**Bloqueia as LEITURAS e não só as escritas**, e é a parte que interessa: a
+temporária andou por uma aplicação de mensagens. Quem a apanhasse no caminho
+podia não escrever nada e ler a coleção toda. Uma password que passou pelo
+WhatsApp vale para trocar a password, e mais nada.
+
+O estado lê-se **a cada pedido** e não se guarda na sessão: assim a troca
+liberta o site no pedido seguinte, sem ter de entrar outra vez. É um `SELECT`
+por chave primária numa tabela com tantas linhas quantos os amigos dele.
+
+**Trocar a password fecha TODAS as sessões dela** e abre uma nova. Se alguém
+tinha o cookie (que é a razão de estar a trocar), deixa de valer; entrar outra
+vez no telemóvel é o preço, e é o que se espera de uma troca de password.
+
 ### Tecto de tentativas
 
-20 por hora e por endereço (`auth.tentativas_por_hora`). Não é uma password que
-se adivinhe; o que isto trava é usar o riftvault como amplificador de pedidos ao
-Google à custa do IP dele. A chave do balde é o endereço, **que é
-falsificável** — e não faz mal: falsificá-lo dá mais baldes, não dá acesso a
-nada. Em sítio nenhum do código o endereço decide **quem** alguém é.
+**No OAuth:** 20 por hora e por endereço (`auth.tentativas_por_hora`). Não é uma
+password que se adivinhe; o que isto trava é usar o riftvault como amplificador
+de pedidos ao Google à custa do IP dele.
+
+**NA PASSWORD (2026-09-30) é outro travão, porque uma password ADIVINHA-SE.**
+Conta FALHAS na última hora, em duas dimensões, e faz esperar cada vez mais:
+
+| | de graça | porquê esse número |
+|---|---|---|
+| por **conta** | 5 falhas | uma password ditada pelo WhatsApp escreve-se mal duas ou três vezes; quem se engana tem de poder tentar sem ir pedir ajuda |
+| por **endereço** | 10 falhas | o dobro, porque um endereço pode ser uma casa inteira: dois amigos atrapalhados no mesmo wi-fi não se trancam um ao outro |
+
+A escada, a contar da **última** falha: **1 → 5 → 15 → 60 minutos**. Ao quarto
+patamar está numa hora, que é a janela de contagem: no pior caso são ~9
+tentativas por hora contra 4×10^11 combinações. Um ataque de dicionário
+desiste.
+
+**As duas dimensões fazem falta as duas:** só por endereço, quem tivesse muitos
+endereços (qualquer pessoa com dados móveis) batia à vontade numa conta; só por
+conta, alguém podia varrer nomes de utilizador à vontade. A chave do balde do
+endereço é falsificável — e não faz mal: falsificá-la dá mais baldes, não dá
+acesso a nada. Em sítio nenhum do código o endereço decide **quem** alguém é.
+
+**Não há bloqueio permanente**, de propósito: era a maneira de um estranho
+tirar o riftvault a um amigo só por lhe saber o nome. E o travão corre **antes**
+do scrypt — verificar primeiro fazia cada tentativa custar 130 ms, e era isso
+que punha o PC dele de joelhos.
+
+**A mesma mensagem para «não existe» e «password errada»**, e a falha conta nos
+dois casos: mensagens diferentes (ou tempos diferentes) diziam a um estranho
+que nomes de utilizador existem, e o nome é metade do que ele precisa.
 
 ---
 

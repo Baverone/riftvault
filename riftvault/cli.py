@@ -1248,17 +1248,114 @@ def cmd_foil(args) -> int:
     return 0
 
 
+def _password_uma_vez(slug: str, nome: str, password: str,
+                      criada: bool) -> None:
+    """Escreve a password temporária. **É a única vez que ela existe.**
+
+    Não se guarda em claro em lado nenhum — nem num ficheiro, nem no registo
+    de operações, nem no histórico da consola (isto é `print`, não um comando
+    que ele escreva). Se ele fechar a janela antes de a copiar, corre o
+    comando outra vez e dá outra.
+    """
+    from . import config
+    base = (str((config.load().get("auth") or {}).get("base_url") or "").rstrip("/")
+            or "http://localhost:8770")
+    print()
+    print(f"{'Conta criada' if criada else 'Password nova'}: {slug}"
+          + (f"  ({nome})" if nome and nome != slug else ""))
+    print()
+    print("  Manda-lhe isto, e mais nada:")
+    print()
+    print(f"      Endereço:   {base}")
+    print(f"      Utilizador: {slug}")
+    print(f"      Password:   {password}")
+    print()
+    print("      (é temporária — o site pede-lhe uma dela na primeira vez)")
+    print()
+    print("Esta password aparece AQUI e em sítio nenhum mais: fica guardada")
+    print("cifrada, e nem tu a consegues ler outra vez. Se ela se esquecer,")
+    print(f"corre `riftvault conta {slug} --nova-password` e dá-lhe outra.")
+    print()
+
+
 def cmd_conta(args) -> int:
-    """EXPORTAR, IMPORTAR e APAGAR a conta de um utilizador (2026-09-29).
+    """CRIAR, dar PASSWORD NOVA, EXPORTAR, IMPORTAR e APAGAR uma conta.
 
     *"Com cinco pessoas lá dentro, restaurar um erro dele desfaz o mês dos
-    outros."* A unidade do backup passa a ser a PESSOA.
+    outros."* (2026-09-29) A unidade do backup é a PESSOA.
 
-    As três operações que escrevem exigem `--sim`, e o apagar faz um export
-    antes — apagar uma conta é a operação que mais vezes se faz por engano e
-    a que menos se desfaz.
+    E desde 2026-09-30 é também daqui que as contas NASCEM — não há registo
+    aberto no site (`rotas_conta.REGISTO_ABERTO`), porque *"isto e uma coisa
+    caseira, para usar entre amigos"*. Dois comandos:
+
+        riftvault conta --criar miguel            cria e diz a temporária
+        riftvault conta miguel --nova-password    o «esqueci-me»
+
+    Os dois funcionam com a PORTA FECHADA, de propósito: ele prepara as contas
+    e só depois abre. E o `--nova-password` serve para ele próprio
+    (`riftvault conta baverone --nova-password`), que é o que o deixa entrar na
+    sua própria coleção quando a porta abrir.
+
+    As operações que escrevem por cima de dados exigem `--sim`, e o apagar faz
+    um export antes — apagar uma conta é a operação que mais vezes se faz por
+    engano e a que menos se desfaz.
     """
-    from . import conta, utilizador
+    from . import auth, conta, utilizador
+
+    # CRIAR uma conta (2026-09-30). Aceita as duas escritas — `--criar miguel` e
+    # `miguel --criar` — porque as duas são a coisa natural de escrever.
+    alvo_criar = args.criar if isinstance(args.criar, str) else None
+    if args.criar is True and args.slug:
+        alvo_criar, args.slug = args.slug, None
+    if alvo_criar:
+        try:
+            slug = auth.validar_slug(alvo_criar)
+        except ValueError as e:
+            print(e, file=sys.stderr)
+            return 1
+        if not auth.slug_livre(slug):
+            print(f"já há uma conta com o nome «{slug}». "
+                  f"`riftvault conta` lista as que existem.", file=sys.stderr)
+            return 1
+        nome = (args.nome or slug).strip()
+        u = utilizador.criar(nome, slug)
+        con = auth.abrir()
+        try:
+            password = auth.nova_temporaria(con, int(u["user_id"]))
+        finally:
+            con.close()
+        _password_uma_vez(u["slug"], u["nome"], password, criada=True)
+        from . import multi
+        if not multi.aberto():
+            print("A porta das contas está FECHADA: ela ainda não consegue",
+                  file=sys.stderr)
+            print("entrar. Quando estiver tudo pronto, `riftvault multi "
+                  "--abrir`.", file=sys.stderr)
+        return 0
+
+    if args.nova_password:
+        if not args.slug:
+            print("falta dizer de quem: `riftvault conta miguel "
+                  "--nova-password`", file=sys.stderr)
+            return 1
+        try:
+            u = utilizador.por_slug(args.slug)
+        except utilizador.UtilizadorDesconhecido as e:
+            print(e, file=sys.stderr)
+            return 1
+        con = auth.abrir()
+        try:
+            password = auth.nova_temporaria(con, int(u["user_id"]))
+            # Uma password nova invalida as sessões: se ela pediu outra porque
+            # perdeu o telemóvel, o telemóvel deixa de entrar.
+            fora = auth.terminar_todas(con, int(u["user_id"]))
+        finally:
+            con.close()
+        _password_uma_vez(u["slug"], u["nome"], password, criada=False)
+        if fora:
+            print(f"(as {fora} sessões abertas dela foram fechadas)",
+                  file=sys.stderr)
+        return 0
 
     if args.importar:
         try:
@@ -1280,9 +1377,20 @@ def cmd_conta(args) -> int:
         return 0
 
     if not args.slug:
-        for u in utilizador.todos():
-            print(f"{u['user_id']:3}  {u['slug']:<16} {u['nome']}")
-        print("\n`riftvault conta <slug> --exportar` / `--apagar --sim`",
+        con = auth.abrir()
+        try:
+            for u in utilizador.todos():
+                e = auth.estado_senha(con, int(u["user_id"]))
+                # O estado da password, nunca a password (nem um pedaço dela).
+                como = ("temporária, por trocar" if e["temporaria"]
+                        else "password definida" if e["tem"]
+                        else "SEM PASSWORD — não consegue entrar")
+                print(f"{u['user_id']:3}  {u['slug']:<16} {u['nome']:<20} {como}")
+        finally:
+            con.close()
+        print("\n`riftvault conta --criar <nome>` cria uma conta nova"
+              "\n`riftvault conta <nome> --nova-password` dá outra password"
+              "\n`riftvault conta <nome> --exportar` / `--apagar --sim`",
               file=sys.stderr)
         return 0
 
@@ -1300,6 +1408,20 @@ def cmd_conta(args) -> int:
         print(f"apagado «{r['utilizador']['slug']}»: {r['total']} linhas "
               f"({', '.join(f'{t} {n}' for t, n in sorted(r['linhas'].items()) if n)})"
               f" e {len(r['ficheiros'])} ficheiros em {r['pasta']}")
+        # A PASSWORD, AS SESSÕES E AS IDENTIDADES vivem no `auth.db`, que é
+        # outra casa — o `conta.apagar` não lhe toca de propósito (ver o topo
+        # do `conta.py`). Quem limpa é quem sabe dessa casa, no MESMO passo: a
+        # rota do site já o fazia, e a CLI não — ficava um hash órfão a
+        # envelhecer num ficheiro do PC dele. Apanhado a escrever a prova de
+        # ponta a ponta de 2026-09-30.
+        con = auth.abrir()
+        try:
+            limpo = auth.esquecer_identidades(con, int(r["utilizador"]["user_id"]))
+        finally:
+            con.close()
+        if any(limpo.values()):
+            print("e do auth.db: "
+                  + ", ".join(f"{n} {o}" for o, n in sorted(limpo.items()) if n))
         if r["backup"]:
             print(f"a cópia ficou em {r['backup']}")
         return 0
@@ -2216,11 +2338,14 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--fechar", action="store_true", help="volta a fechar")
     p.add_argument("--forcar", action="store_true",
                    help="abre mesmo com coisas em falta (não uses sem ler o que falta)")
-    # O caminho do PRIMEIRO utilizador: ele já existe e por isso não se pode
-    # «registar». Ver `abrir.ligar`.
+    # Ligar um FORNECEDOR (Discord/Google) a uma conta que já existe. Deixou de
+    # ser o caminho de entrada a 2026-09-30, quando a password chegou — ver
+    # `abrir.ligar`.
     p.add_argument("--ligar", action="store_true",
                    help="dá um endereço de uso único para ligares a TUA conta "
-                        "a um fornecedor (funciona com a porta fechada)")
+                        "a um fornecedor (Discord/Google; funciona com a porta "
+                        "fechada). Para entrares: `riftvault conta baverone "
+                        "--nova-password`")
     p.add_argument("--provedor", default="discord",
                    help="o fornecedor do --ligar (discord por omissão)")
     p.add_argument("--porta", type=int, default=8770,
@@ -2424,9 +2549,18 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--so-tenho", action="store_true", help="só o que tens")
     p.set_defaults(func=cmd_selado)
 
-    p = sub.add_parser("conta", help="exportar, importar e APAGAR a conta de um "
-                                     "utilizador — sem tocar nas outras")
+    p = sub.add_parser("conta", help="criar uma conta, dar uma password nova, "
+                                     "exportar, importar e APAGAR — sem tocar "
+                                     "nas outras")
     p.add_argument("slug", nargs="?", help="o utilizador (baverone, miguel, …)")
+    # As contas nascem AQUI e em mais lado nenhum (2026-09-30): não há registo
+    # aberto no site. Ver `rotas_conta.REGISTO_ABERTO`.
+    p.add_argument("--criar", nargs="?", const=True, metavar="NOME",
+                   help="cria a conta e diz uma password temporária (uma vez)")
+    p.add_argument("--nome", metavar="TEXTO",
+                   help="o nome a mostrar (omissão: o mesmo do endereço)")
+    p.add_argument("--nova-password", action="store_true",
+                   help="dá-lhe uma password temporária nova — é o «esqueci-me»")
     p.add_argument("--exportar", action="store_true",
                    help="um .zip com a coleção, o config e as listas dele")
     p.add_argument("--para", metavar="CAMINHO",

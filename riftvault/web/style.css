@@ -224,6 +224,21 @@ main { flex: 1 0 auto; padding: 0; }
   padding: 6px 8px; font: inherit; font-size: 13px;
 }
 .conta-erro { color: var(--bad); font-size: 11.5px; margin: 0; line-height: 1.45; }
+/* «Trocar a password» (2026-09-30) fechado por omissão: quem entra não vem
+   para aqui, e um formulário sempre aberto na barra lateral era ruído a
+   pedir a password de cada vez que ele olhasse para o lado. */
+.conta-det > summary {
+  cursor: pointer; color: var(--muted); font-size: 11.5px;
+  padding: 2px 0; list-style: none;
+}
+.conta-det > summary::marker, .conta-det > summary::-webkit-details-marker { display: none; }
+.conta-det > summary::before { content: '▸ '; }
+.conta-det[open] > summary::before { content: '▾ '; }
+.conta-det > summary:hover { color: var(--text); }
+.conta-det[open] {
+  display: flex; flex-direction: column; gap: 7px;
+  border-top: 1px solid var(--h-line); padding-top: 8px; margin-top: 1px;
+}
 
 .sidenav { padding: 10px 10px 22px; flex: 1 0 auto; }
 .sgrp { margin-top: 14px; }
