@@ -608,15 +608,27 @@ function cabecalhos() {
 
 /* A zona da conta na barra lateral.
  *
- * COM AS CONTAS FECHADAS NÃO DESENHA NADA, e é uma decisão dele de 2026-09-29
- * (*"Quero apenas apresentar quando tiver tudo"*): o site dele fica exactamente
- * como estava, sem um «em breve» nem um link de login à espreita. O elemento
- * existe no HTML mas fica `hidden`. */
+ * NO SITE PUBLICADO NÃO DESENHA NADA, e é a decisão dele de 2026-09-29
+ * (*"Quero apenas apresentar quando tiver tudo"*): a cópia publicada fica
+ * exactamente como estava, sem um «em breve» nem um link de login à espreita.
+ *
+ * O CRITÉRIO MUDOU a 2026-09-30, e a versão anterior era um beco. Escondia-se
+ * quando a PORTA das contas estava fechada (`!c.aberto`) — mas o
+ * `multi --verificar` exige que ele troque a password temporária ANTES de
+ * abrir, e a troca só se faz entrando no site: não abria sem trocar e não
+ * trocava sem abrir. O que ele pediu era outra coisa — não queria um link de
+ * login no SITE PUBLICADO; no 8770, que é a casa dele, esconder a entrada não
+ * serve ninguém.
+ *
+ * Hoje o critério é `state.conta` existir, e não é uma bandeira nova: o
+ * `boot()` só pede o `api/conta.json` quando o `index.editable` diz que isto é
+ * o servidor. No estático não há rota nenhuma, não se pergunta, e isto fica
+ * `null` — a mesma condição que já evitava um 404 na consola. */
 function renderConta() {
   const zona = $('#conta-zona');
   if (!zona) return;
   const c = state.conta;
-  if (!c || !c.aberto) { zona.hidden = true; zona.innerHTML = ''; return; }
+  if (!c) { zona.hidden = true; zona.innerHTML = ''; return; }
   zona.hidden = false;
 
   /* 1. ENTROU COM A TEMPORÁRIA (2026-09-30). O site está trancado até trocar
@@ -674,8 +686,16 @@ function renderConta() {
   if (!c.entrado) {
     const bts = (c.provedores || []).filter((p) => p.pronto).map((p) =>
       `<a class="btn ghost" href="entrar/${encodeURIComponent(p.nome)}">ou entrar com ${escapeHTML(p.etiqueta)}</a>`).join('');
+    // COM A PORTA FECHADA a caixa aparece na mesma (é onde ele trata da
+    // password dele antes de abrir), mas diz o que é verdade: os amigos ainda
+    // não entram, e ele não precisa de entrar para usar isto.
+    const nota = c.aberto ? ''
+      : `<small>As contas ainda não estão abertas — isto é para tratares da
+         TUA password. Enquanto estiver fechada não precisas de entrar para
+         usar o site, e os teus amigos ainda não conseguem.</small>`;
     zona.innerHTML = `<div class="conta-cx">
       <b>Entrar</b>
+      ${nota}
       <label class="conta-lbl" for="en-nome">Utilizador</label>
       <input id="en-nome" class="conta-inp" maxlength="32" autocomplete="username"
              spellcheck="false" autocapitalize="off">
@@ -684,7 +704,7 @@ function renderConta() {
              autocomplete="current-password">
       <button class="btn primary" id="en-ok" type="button">Entrar</button>
       <p class="conta-erro" id="en-erro" hidden></p>
-      <small>Não tens conta? Pede uma ao André — é ele que as cria.</small>
+      ${c.aberto ? '<small>Não tens conta? Pede uma ao André — é ele que as cria.</small>' : ''}
       ${bts}
     </div>`;
     $('#en-ok').addEventListener('click', entrarComSenha);
@@ -840,13 +860,54 @@ async function criarConta() {
   }
 }
 
+/* O site está trancado por uma password temporária? Então desenha SÓ o ecrã da
+ * troca e diz que sim.
+ *
+ * Chama-se quando o `api/index.json` falha, e é a rede do segundo beco de
+ * 2026-09-30. Não decide nada por si: pergunta ao servidor, que é quem sabe, e
+ * se a resposta não for «trancado» devolve `false` para o erro original subir —
+ * um `riftvault sync` em falta tem de continuar a dizer o que é. */
+async function mostrarSeTrancado() {
+  const c = await getJSON('api/conta.json').catch(() => null);
+  if (!c || !c.entrado || !c.senha_temporaria) return false;
+  state.conta = c;
+  renderConta();
+  // A NAVEGAÇÃO FICA DE FORA, e é de propósito: as abas escondidas
+  // (2026-09-25) vêm no `api/index.json`, que está barrado — desenhá-la aqui
+  // mostrava as três que ele mandou tirar. E enquanto o site está trancado não
+  // se chega a secção nenhuma, por isso não faz falta nenhuma.
+  const nav = $('#sidenav');
+  if (nav) nav.hidden = true;
+  // A mensagem vai para o CABEÇALHO, não para o `#grid`: as secções estão todas
+  // `hidden` (o `boot()` não chegou à parte que abre uma), e uma frase dentro
+  // de uma secção escondida é uma frase que ninguém lê — ficava um ecrã preto
+  // ao lado do formulário, que é o que a fotografia mostrou.
+  $('#pg-titulo').textContent = 'Escolhe uma password';
+  $('#pg-sub').textContent = 'O site fica à espera até escolheres uma password '
+    + 'tua — a temporária serve para isso e mais nada. O formulário está na '
+    + 'barra do lado.';
+  $('#topbar-tit').textContent = 'Escolhe uma password';
+  return true;
+}
+
 async function boot() {
   loadPrefs();
   wireCasca();
   wireControls();
   wireKeyboard();
 
-  state.index = await getJSON('api/index.json');
+  // O SITE PODE ESTAR TRANCADO POR UMA PASSWORD TEMPORÁRIA (2026-09-30), e
+  // isto era o segundo beco: o `_trava_temporaria` do servidor responde 403 a
+  // tudo o que é `/api/`, o `api/index.json` é a primeira coisa que se pede, e
+  // o `boot()` morria aqui — o ecrã da troca, que é a ÚNICA coisa que ela pode
+  // fazer, nunca chegava a ser desenhado. Lia-se «Falhou a carregar: HTTP 403».
+  // O `api/conta.json` é o que passa a trava, de propósito (ver `COM_TEMPORARIA`).
+  try {
+    state.index = await getJSON('api/index.json');
+  } catch (err) {
+    if (await mostrarSeTrancado()) return;
+    throw err;
+  }
   // As abas escondidas (2026-09-25) vêm no índice, e por isso a barra só se
   // desenha DEPOIS dele: desenhá-la antes mostrava por um instante uma aba que
   // ele mandou tirar. Se o índice falhar, o `boot().catch` do fim do ficheiro
@@ -863,6 +924,10 @@ async function boot() {
   // nenhuma. Sem esta condição cada visita à cópia publicada deixava um 404 de
   // `api/conta.json` na consola — a página funcionava (o `catch` devolvia
   // `null`), mas um 404 no site dele lê-se como avaria.
+  //
+  // E desde 2026-09-30, à tarde, ESTA LINHA É TAMBÉM O CRITÉRIO da zona da
+  // conta: `state.conta` fica `null` no estático e com objecto no servidor, que
+  // é exactamente a pergunta que o `renderConta` faz. Uma bandeira, dois usos.
   state.conta = state.index.editable
     ? await getJSON('api/conta.json').catch(() => null) : null;
   const meu = !state.conta || state.conta.editavel !== false;
