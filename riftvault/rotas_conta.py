@@ -44,6 +44,26 @@ A DECISÃO DA LAN, E O QUE A DECIDIU (2026-09-29)
     E o `riftvault multi --verificar` **recusa abrir** enquanto a conta DELE não
     estiver ligada a um fornecedor: assim nunca se abre a porta com ele do lado
     de fora.
+
+A PORTA NÃO É A FECHADURA DA ENTRADA (2026-09-30)
+    Corrigido um BECO SEM SAÍDA. A porta fechada recusava também o
+    `/api/conta/entrar` e nem resolvia a sessão — e como o `multi --verificar`
+    exige que ele TROQUE a password temporária ANTES de abrir, e a troca se faz
+    entrando no site, ficava um ciclo: não abria sem trocar e não trocava sem
+    abrir.
+
+    A regra passou a ser esta: **entrar funciona sempre**, e a porta decide
+    apenas se a ESCRITA exige sessão. Com ela fechada a app continua a não ter
+    autenticação nenhuma — quem chega ao 8770 já escreve tudo —, por isso deixar
+    entrar não dá acesso a nada que não estivesse dado: dá o que faltava, que é
+    o sítio onde se troca a password.
+
+    O que a porta fechada continua a garantir, e é o que ele pediu:
+      * sem sessão, escrever não pede nada (o de ontem, ao byte);
+      * **com** sessão, o guarda da escrita corre inteiro — CSRF incluído. É
+        estritamente mais seguro do que ontem, não menos: hoje já é possível ele
+        criar a conta de um amigo com a porta fechada (`riftvault conta
+        --criar`), e sem isto esse amigo escrevia no config partilhado dele.
 """
 
 from __future__ import annotations
@@ -245,15 +265,19 @@ def _antes():
     g.alvo_slug = None
     g.senha_temporaria = False
 
-    if not _porta_aberta():
-        # O de hoje: um dono só, sem autenticação. O `None` faz o
-        # `db.connect(user_id=None)` cair no utilizador da sessão do processo,
-        # que é o 1 — exactamente o comportamento de ontem.
-        return None
+    aberto = _porta_aberta()
 
+    # A SESSÃO RESOLVE-SE NAS DUAS PORTAS (2026-09-30), e é o que tira o beco
+    # descrito no topo: sem isto, quem entrasse com a password temporária com a
+    # porta fechada não tinha `g.sessao` e o `/api/conta/senha` respondia
+    # «precisas de entrar» a quem tinha acabado de entrar.
+    #
+    # SEM COOKIE nem se abre o `auth.db`: o caminho normal da porta fechada —
+    # ele no 8770, sem nunca ter entrado — fica exactamente como ontem, sem um
+    # ficheiro a mais aberto por pedido.
     sid = request.cookies.get(auth.COOKIE)
-    con = _auth_con()
-    sess = auth.sessao(con, sid)
+    con = _auth_con() if sid else None
+    sess = auth.sessao(con, sid) if sid else None
     if sess is not None:
         g.sessao = sess
         if sess.get("user_id"):
@@ -280,11 +304,12 @@ def _antes():
     # haver rota que casasse — segurança por acidente. As leituras da coleção de
     # outro fazem-se no site ESTÁTICO (`rift.baverone.com/u/<slug>/`), que já sai
     # filtrado pela privacidade dele; ver `_u_explica`.
-    alvo = _dono_pedido()
-    if alvo is not None:
-        g.alvo_slug = alvo.get("slug")
-        g.somente_leitura = alvo["user_id"] != (
-            g.sessao.get("user_id") if g.sessao else None)
+    if aberto:
+        alvo = _dono_pedido()
+        if alvo is not None:
+            g.alvo_slug = alvo.get("slug")
+            g.somente_leitura = alvo["user_id"] != (
+                g.sessao.get("user_id") if g.sessao else None)
 
     _dono_do_fio(g.riftvault_user)
 
@@ -293,6 +318,12 @@ def _antes():
         return travado
 
     if request.method in ESCREVE:
+        # SEM SESSÃO E COM A PORTA FECHADA não se pede nada — é o de ontem, ao
+        # byte. **Com** sessão o guarda corre inteiro nas duas portas: quem
+        # entrou tem `csrf` e é dono do que escreve, e sem isto um amigo com
+        # conta criada antes de abrir escrevia no config partilhado dele.
+        if not aberto and g.sessao is None:
+            return None
         return _guardar_escrita()
     return None
 
@@ -437,25 +468,21 @@ def api_conta():
     out = {
         "aberto": aberto,
         "entrado": False,
-        "editavel": False,
-        # A entrada por PASSWORD está sempre disponível quando a porta está
-        # aberta: não precisa de configurar nada (2026-09-30). Os `provedores`
-        # são o OAuth, que fica parado e só aparece se ele o configurar.
-        "senha": aberto,
-        "provedores": [],
+        # Fechado e sem sessão: um dono só, e o `editavel` é o de sempre — é o
+        # `server.py` que o põe no payload da Coleção; aqui diz-se o mesmo para
+        # o cliente não ter de adivinhar.
+        "editavel": not aberto,
+        # A entrada por PASSWORD está SEMPRE disponível (2026-09-30): não
+        # precisa de configurar nada, e funciona com a porta fechada — é o que
+        # lhe dá onde trocar a temporária antes de abrir (ver o topo). Os
+        # `provedores` são o OAuth, que fica parado e só aparece configurado.
+        "senha": True,
+        "provedores": auth.disponiveis(cfg) if aberto else [],
         "registo_aberto": REGISTO_ABERTO,
         "senha_temporaria": False,
         "csrf": None,
         "utilizador": None,
     }
-    if not aberto:
-        # Fechado: um dono só. O `editavel` continua a ser o de sempre — é o
-        # `server.py` que o põe no payload da Coleção; aqui diz-se o mesmo para
-        # o cliente não ter de adivinhar.
-        out["editavel"] = True
-        return jsonify(out)
-
-    out["provedores"] = auth.disponiveis(cfg)
     sess = g.get("sessao")
     if sess is None:
         return jsonify(out)
@@ -711,15 +738,18 @@ def entrar_com_senha():
       marca nenhuma;
     * **a mesma mensagem** para nome que não existe e password errada (ver
       `auth.entrar`).
+
+    **FUNCIONA COM A PORTA FECHADA** (2026-09-30), e é o que tira o beco do topo
+    deste ficheiro: o `multi --verificar` exige que ele troque a temporária
+    ANTES de abrir, e a troca faz-se entrando. Não afrouxa nada — com a porta
+    fechada a app já não tem autenticação, por isso entrar não dá acesso a nada
+    que não estivesse dado; dá o sítio onde se troca a password. O travão de
+    tentativas corre igual nas duas portas.
     """
     if not request.is_json:
         return _resposta(
             "este pedido tem de vir em JSON (é uma protecção: impede outro "
             "site de te fazer entrar aqui sem saberes).", 415)
-    try:
-        auth.exigir_porta_aberta(_cfg())
-    except auth.PortaFechada as e:
-        return _resposta(str(e), 403)
 
     dados = request.get_json(silent=True) or {}
     con = _auth_con()

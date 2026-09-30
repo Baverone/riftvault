@@ -2788,8 +2788,18 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   (5 por conta · 10 por endereço · 1→5→15→60 min), **sem registo aberto** (as
   contas nascem de `riftvault conta --criar`), e o OAuth intacto e sem botão.
   O `multi --verificar` deixou de exigir Discord e os passos DELE passaram de
-  três a dois. `senha.py`, `tests/test_senhas.py`. Ver a última secção deste
+  três a dois. `senha.py`, `tests/test_senhas.py`. Ver a penúltima secção deste
   ficheiro.
+- **CORRIGIDO no mesmo dia, à tarde:** o BECO DA PORTA FECHADA — a caixa de
+  «Entrar» escondia-se com `multi.aberto: false`, e o `multi --verificar` exige
+  trocar a temporária ANTES de abrir: **não abria sem trocar e não trocava sem
+  abrir**. Hoje esconde-se no **SITE PUBLICADO** (pelo `index.editable`, que já
+  existia), a entrada por password **funciona com a porta fechada** (a porta só
+  decide se a ESCRITA exige sessão), e o `boot()` deixou de morrer no 403 da
+  trava da temporária — o **segundo beco**, que existia com a porta aberta
+  também. Mais a rede de segurança `riftvault conta <slug>
+  --definir-password`, que resolve tudo na consola. O site publicado sai
+  **igual ficheiro a ficheiro**. Ver a última secção deste ficheiro.
 - **Por fazer:** a parte 2 do seguir — o separador no site e a tarefa diária;
   vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck,
   com as partilhadas assinaladas); e apagar decks pela interface (hoje apaga-se
@@ -9295,3 +9305,139 @@ password à mão numa tabela e exige que o varrimento a encontre — um varrimen
 que nunca acha nada vale zero. O `test_contas.py` e o `test_auth.py` foram
 ajustados: descreviam o registo aberto e o «não há password nenhuma» de 29/09,
 que era o regime de ontem.
+
+## 2026-09-30, à tarde — O BECO DA PORTA FECHADA: a entrada esconde-se no SITE PUBLICADO, não com a porta fechada
+
+**ERRO NOSSO, e a causa foi ler mal uma frase dele.** A 29/09 ele disse *"Quero
+apenas apresentar quando tiver tudo"* e nós traduzimos isso para «esconder a
+zona da conta enquanto `multi.aberto` for `false`». O que ele não queria era um
+link de login **no SITE PUBLICADO**; no 8770, que é a casa dele, esconder a
+entrada não serve ninguém. Ramo `ai-pc/conta-fechada-2026-09-30`.
+
+**O ciclo, e ele estava preso nele.** O `renderConta()` começava com
+`if (!c || !c.aberto) { zona.hidden = true; … }` — com a porta fechada não se
+desenhava **nem a caixa de «Entrar»**. Mas o `multi --verificar` **recusa
+abrir** enquanto a password dele for a temporária, e a troca só se fazia
+entrando no site. Medido no `data/` real: o `--verificar` dizia
+*«[FALTA] Tu consegues entrar: a tua password é a temporária»* e mandava-o
+«abrir o site e entrar» — o site não tinha por onde.
+
+### 1. O critério novo: é o `index.editable`, e já existia
+
+Não se inventou bandeira nenhuma. O `boot()` já distinguia os dois modos para
+não deixar um 404 na consola da cópia publicada:
+
+    state.conta = state.index.editable ? await getJSON('api/conta.json') : null;
+
+O servidor manda **sempre** `editable: true` no `api/index.json`
+(`server.py:116`) e o `build` manda **sempre** `false` (`build.py:253`) — por
+isso `state.conta` é um objecto no servidor e `null` no estático, que é
+exactamente a pergunta certa. O `renderConta` passou a esconder-se com **`if
+(!c)`**, e mais nada mudou.
+
+**No servidor a caixa aparece com a porta fechada, e diz o que é verdade**: «as
+contas ainda não estão abertas — isto é para tratares da TUA password;
+enquanto estiver fechada não precisas de entrar para usar o site, e os teus
+amigos ainda não conseguem».
+
+### 2. A porta NÃO é a fechadura da entrada
+
+Não chegava mudar o ecrã: com a porta fechada o `_antes` **nem resolvia a
+sessão** e o `/api/conta/entrar` respondia **403**. Três mudanças no
+`rotas_conta.py`, e a regra passou a ser uma frase:
+
+> **Entrar funciona sempre. A porta decide apenas se a ESCRITA exige sessão.**
+
+Com a porta fechada a app continua a não ter autenticação nenhuma — quem chega
+ao 8770 já escreve tudo —, por isso deixar entrar **não dá acesso a nada que
+não estivesse dado**: dá o que faltava, que é o sítio onde se troca a password.
+O travão de tentativas corre igual nas duas portas (há teste).
+
+| | porta FECHADA, **sem** sessão | porta FECHADA, **com** sessão | porta ABERTA |
+|---|---|---|---|
+| escrever | não pede nada (o de ontem, ao byte) | guarda inteiro: CSRF, dono, `SO_DO_DONO` | guarda inteiro |
+| a base que se abre | a dele (utilizador 1) | a de quem entrou | a de quem entrou |
+| `auth.db` | **nem se abre** (só há cookie) | abre | abre |
+
+A segunda coluna é **estritamente mais segura do que ontem**, e é precisa: ele
+já pode criar a conta de um amigo com a porta fechada (`riftvault conta
+--criar`, 30/09 de manhã), e sem isto esse amigo escrevia no config partilhado
+dele. **O OAuth continua a exigir a porta aberta** — obriga a configurar uma
+aplicação em sítio de terceiros e ele não precisa dela para tratar da password.
+
+### 3. O SEGUNDO BECO, que a ordem não nomeou — e que existia com a porta ABERTA
+
+O `_trava_temporaria` responde **403 a tudo o que é `/api/`** (é de propósito:
+a temporária andou pelo WhatsApp). O `boot()` pede o `api/index.json` na
+primeira linha e **morria ali** — o `renderConta()` nunca chegava a ser
+chamado, e o ecrã da troca, que é a ÚNICA coisa que se pode fazer com uma
+temporária, não era desenhado. **Lia-se «Falhou a carregar: HTTP 403».**
+
+O `boot()` passou a apanhar essa falha e a perguntar ao `api/conta.json`, que é
+o que passa a trava (`COM_TEMPORARIA`). Se a resposta for «trancado», desenha o
+formulário e pára; **se não for, o erro original sobe** — um `riftvault sync`
+em falta tem de continuar a dizer o que é (há teste).
+
+**Duas correcções vieram da FOTOGRAFIA, não do código:** a primeira versão
+escrevia a frase no `#grid`, que vive dentro de uma `<section hidden>` — via-se
+um ecrã preto ao lado do formulário; e chamava o `renderNav()`, que sem o
+índice **mostrava as três abas que ele mandou esconder** a 25/09 («A mais»,
+«Por deck», «Pimp decks»). A frase foi para o cabeçalho da página e a navegação
+fica de fora enquanto o site está trancado.
+
+### 4. A REDE DE SEGURANÇA: `riftvault conta <slug> --definir-password`
+
+Para nunca mais a recuperação depender do browser. Pergunta a password **duas
+vezes e não a mostra** (`getpass` da biblioteca padrão — não aparece no ecrã,
+não vai para o histórico da consola, não passa por ficheiro nenhum), e aplica
+as **mesmas** regras de força do site (`senha.validar`, pelo `definir_senha`):
+não há uma porta com regras mais frouxas, e não há uma segunda lista de regras
+a divergir. Grava com `temporaria=False` — é escolhida, não ditada, e por isso
+**não tranca o site** — e fecha as sessões abertas dela, como a troca pelo site.
+
+**Nunca um argumento** (`--password xyz`): ia para o histórico da consola. Há
+teste que o proíbe no ficheiro inteiro.
+
+O `multi --verificar` passou a apontar para aqui: os passos dele continuam
+**dois**, mas o que era «dá-te uma temporária, abre o site, entra, troca» é
+agora um comando só. O `--nova-password` fica — é o «esqueci-me» de um amigo,
+que é outra pergunta.
+
+### Medido a 2026-09-30, à tarde
+
+**O SITE PUBLICADO não mexe.** Gerado dos dois lados contra a MESMA cópia do
+`data/` real (`_revisao\_medir_conta_fechada.py` + `_comparar_cf.py`, com o
+`main` num worktree): **24 ficheiros de cada lado, os mesmos nomes; os 20 JSON
+da `api/` byte a byte iguais** (a menos do relógio). Dos quatro estáticos, o
+`index.html` e o `style.css` diferem **só em comentários** (verificado com
+`diff`: zero mudanças de marcação ou de regras) e o `app.js` leva o código
+novo. O HTML publicado não tem **nada** de contas no texto visível, o
+`#conta-zona` nasce `hidden`, o `api/index.json` diz `editable: false` e **não
+existe `api/conta.json` no estático**. E há teste que gera o site com a porta
+fechada e com a porta aberta e exige que saia **igual ficheiro a ficheiro**: o
+publicado deixou de depender do `multi.aberto`.
+
+**A COLEÇÃO não se tocou.** Tudo correu contra uma cópia feita por `VACUUM
+INTO` (as bases estão em WAL e ele estava a mexer na coleção). O `registo.db`
+real continua com **`baverone` e mais ninguém** — a conta de prova nasceu e
+morreu na cópia. A `copies` real: **1046 linhas · 2663 normais + 540 foil**.
+
+**A prova por HTTP**, contra um `riftvault serve` a sério na 8779
+(`_prova_cf_http.py`), **19/19**: com a porta fechada o `api/conta.json`
+responde 200 (`aberto: false`, `entrado: false`, `editavel: true`, `senha:
+true`); entra-se com a temporária; o `api/index.json` passa a **403** e o
+`api/conta.json` continua a **200** com o `csrf`; troca-se; o site volta a 200
+e `editavel: true`. **Fotografado** a 1280 px nos dois estados
+(`_foto-cf-fechada-1280.png`, `_foto-cf-temporaria-1280.png`).
+
+`tests/test_conta_fechada.py` (**37 testes**): o critério e que não é bandeira
+nova; a entrada por HTTP com a porta fechada, com o travão; o estático sem nada
+e igual nas duas portas; a troca da temporária de ponta a ponta, com a fraca
+recusada e o `/sair` sempre possível; o segundo beco (o índice barrado, o
+`conta.json` não, e o erro que não é a trava a continuar a subir); o
+`--definir-password` (aceita, recusa cinco fracas com a razão certa, pergunta
+duas vezes, não mostra nada, fecha as sessões, e o slug que não existe nem
+chega a perguntar); e o que **não** mudou. `test_contas.py` e `test_senhas.py`
+foram ajustados em quatro testes — **fixavam o beco**: `!c.aberto` no
+`renderConta`, o `/api/conta/entrar` a dar 403 com a porta fechada, e o
+`--nova-password` na dica do `--verificar`.
