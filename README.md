@@ -1564,5 +1564,48 @@ decks/            listas de deck em .txt
 docs/             spec da API e snapshot do catálogo, para referência
 ```
 
+## Contas para amigos — PRONTO, com a porta fechada (2026-09-29)
+
+Os amigos podem ter a coleção deles aqui. Está tudo construído e testado, e
+**a porta está fechada** (`multi.aberto: false`): hoje o riftvault é de um dono
+só, exactamente como ontem, e o site publicado não tem sinal nenhum de que isto
+existe — nem um link de login.
+
+**Quando quiseres abrir, o guia é o [docs/abrir-a-porta.md](docs/abrir-a-porta.md).**
+São três passos que só tu podes dar (a aplicação no Discord, a conta na
+Cloudflare, os nameservers do `baverone.com`), e este comando diz-te em
+português o que já está pronto e o que falta:
+
+```
+riftvault multi --verificar      # o que falta; recusa abrir se faltar algo
+riftvault multi --ligar          # liga a TUA conta ao Discord (faz isto antes)
+riftvault multi --abrir          # abre. --fechar volta atrás
+```
+
+O que é bom saber sem ler o guia todo:
+
+- **Nunca se guarda uma password.** Entra-se com uma conta que já existe
+  (Discord ou Google) e fica só um ponteiro; o token do fornecedor não se
+  grava. As credenciais vivem em `data/auth.db`, **fora do Git** — o
+  `data/vault.db` é commitado num repositório público.
+- **O `client_secret` vai para o AMBIENTE**
+  (`setx RIFTVAULT_DISCORD_SECRET "…"`), nunca para o `riftvault_config.json`,
+  que está commitado. O `client_id` não é segredo e fica no config.
+- **Cada coleção é um ficheiro seu** (`data/users/<slug>/vault.db`). O
+  servidor só abre a do dono da sessão, por isso não existe caminho de código
+  que escreva na de outra pessoa.
+- **A coleção de um amigo nasce privada** e, quando for publicada, sai com
+  `noindex` até dizeres o contrário. A tua fica exactamente como está.
+- **Com a porta aberta, escrever exige entrar — tu incluído.** A rede de casa
+  deixa de ser fronteira: o túnel da Cloudflare faz todo o tráfego da internet
+  chegar ao riftvault como se viesse de dentro do PC.
+- O endereço público de cada um é `rift.baverone.com/u/<nome>/` (com barra e não
+  com ponto — o GitHub Pages não faz `*.rift.baverone.com`; a razão está no
+  guia).
+
+O desenho está em [docs/contas-e-autenticacao.md](docs/contas-e-autenticacao.md)
+e a prova de ponta a ponta em
+[docs/prova-contas-2026-09-29.md](docs/prova-contas-2026-09-29.md).
+
 O contexto todo — incluindo as armadilhas da API e o que ainda não foi
 validado — está no [CLAUDE.md](CLAUDE.md).

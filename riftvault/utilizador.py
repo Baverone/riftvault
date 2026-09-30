@@ -211,6 +211,10 @@ def abrir_registo() -> sqlite3.Connection:
     con = sqlite3.connect(caminho, timeout=15.0, isolation_level=None)
     con.row_factory = sqlite3.Row
     con.executescript((config.PKG / "users_schema.sql").read_text(encoding="utf-8"))
+    # A coluna `publico` numa `users` que já tenha nascido sem ela
+    # (2026-09-29, a ordem das guardas). Idempotente — ver `privacidade.migrar`.
+    from . import privacidade
+    privacidade.migrar(con)
     semear(con)
     return con
 
@@ -223,9 +227,12 @@ def semear(con: sqlite3.Connection) -> None:
     sítio. Idempotente: o `INSERT OR IGNORE` não mexe se já lá está, e mudar-lhe
     o nome à mão não se desfaz na abertura seguinte.
     """
+    # `publico = 'tudo'` só para o ANDRÉ, e não é excepção: é o que ele já
+    # escolheu e tem hoje, e a regra desta semana é que para ele nada muda. A
+    # omissão de toda a gente é `nada`, a mais fechada — ver `privacidade.py`.
     con.execute(
-        "INSERT OR IGNORE INTO users (user_id, nome, slug, criado_em) "
-        "VALUES (?,?,?,?)", (ANDRE, NOME_ANDRE, SLUG_ANDRE, _agora()))
+        "INSERT OR IGNORE INTO users (user_id, nome, slug, criado_em, publico) "
+        "VALUES (?,?,?,?,'tudo')", (ANDRE, NOME_ANDRE, SLUG_ANDRE, _agora()))
 
 
 def criar(nome: str, slug: str) -> dict:

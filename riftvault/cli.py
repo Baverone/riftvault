@@ -118,7 +118,25 @@ def cmd_images(args) -> int:
 
 
 def cmd_serve(args) -> int:
-    server.serve(host=args.host, port=args.port)
+    """O modo edição.
+
+    EM ENSAIO (`RIFTVAULT_ENSAIO=1`) escuta em **127.0.0.1:8779** e recusa-se
+    a escutar na 8770 — é essa a garantia de que o túnel, que serve a 8770,
+    nunca aponta para uma experiência. Nem a LAN: uma base de ensaio não tem
+    nada que estar ao alcance do telemóvel dele. Ver `riftvault/multi.py`.
+    """
+    from . import multi
+    try:
+        porta = multi.porta(args.port if args.port != 8770 else None)
+    except multi.PortaDeProducao as e:
+        print(e, file=sys.stderr)
+        return 2
+    anfitriao = multi.anfitriao(args.host if args.host != "0.0.0.0" else None)
+    if multi.ensaio():
+        print(f"ENSAIO — dados em {config.DATA_DIR}, config "
+              f"{config.CONFIG_PATH.name}, a escutar só em {anfitriao}:{porta}",
+              file=sys.stderr)
+    server.serve(host=anfitriao, port=porta)
     return 0
 
 
@@ -1230,6 +1248,71 @@ def cmd_foil(args) -> int:
     return 0
 
 
+def cmd_conta(args) -> int:
+    """EXPORTAR, IMPORTAR e APAGAR a conta de um utilizador (2026-09-29).
+
+    *"Com cinco pessoas lá dentro, restaurar um erro dele desfaz o mês dos
+    outros."* A unidade do backup passa a ser a PESSOA.
+
+    As três operações que escrevem exigem `--sim`, e o apagar faz um export
+    antes — apagar uma conta é a operação que mais vezes se faz por engano e
+    a que menos se desfaz.
+    """
+    from . import conta, utilizador
+
+    if args.importar:
+        try:
+            m = conta.ler_manifesto(args.importar)
+        except conta.PacoteInvalido as e:
+            print(f"pacote inválido: {e}", file=sys.stderr)
+            return 1
+        u = m["utilizador"]
+        print(f"pacote de «{u['slug']}» ({u.get('nome')}), de {m['quando']}: "
+              f"{m.get('linhas', {}).get('copies', 0)} linhas em `copies`",
+              file=sys.stderr)
+        if not args.sim:
+            print("importar ESCREVE POR CIMA da coleção dele. Repete com "
+                  "`--sim`.", file=sys.stderr)
+            return 1
+        r = conta.importar(args.importar, confirmar=True)
+        print(f"reposto em {r['ficheiro']}"
+              + (f"  (o que lá estava ficou em {r['backup']})" if r["backup"] else ""))
+        return 0
+
+    if not args.slug:
+        for u in utilizador.todos():
+            print(f"{u['user_id']:3}  {u['slug']:<16} {u['nome']}")
+        print("\n`riftvault conta <slug> --exportar` / `--apagar --sim`",
+              file=sys.stderr)
+        return 0
+
+    if args.apagar:
+        try:
+            r = conta.apagar(args.slug, confirmar=bool(args.sim),
+                             com_backup=not args.sem_backup)
+        except conta.PrecisaConfirmar as e:
+            print(e, file=sys.stderr)
+            print("Repete com `--sim`.", file=sys.stderr)
+            return 1
+        except conta.NaoSeApaga as e:
+            print(e, file=sys.stderr)
+            return 1
+        print(f"apagado «{r['utilizador']['slug']}»: {r['total']} linhas "
+              f"({', '.join(f'{t} {n}' for t, n in sorted(r['linhas'].items()) if n)})"
+              f" e {len(r['ficheiros'])} ficheiros em {r['pasta']}")
+        if r["backup"]:
+            print(f"a cópia ficou em {r['backup']}")
+        return 0
+
+    # por omissão: exportar
+    r = conta.exportar(args.slug, destino=args.para)
+    print(r["ficheiro"])
+    print(f"{r['bytes']:,} bytes · "
+          + ", ".join(f"{t} {n}" for t, n in sorted(r["linhas"].items()) if n),
+          file=sys.stderr)
+    return 0
+
+
 def cmd_selado(args) -> int:
     """PRODUTO SELADO (2026-09-25): o que HÁ, o que TEM e o que NÃO TEM.
 
@@ -2067,6 +2150,54 @@ def cmd_find(args) -> int:
     return 0
 
 
+def cmd_multi(args) -> int:
+    """`riftvault multi` — a porta das contas: ver, abrir, fechar.
+
+    O `--verificar` é o que ele corre para saber se isto está pronto, e é ele
+    que trava o `--abrir`. Ver `riftvault/abrir.py` e `docs/abrir-a-porta.md`.
+    """
+    from . import abrir as porta
+
+    if args.ligar:
+        try:
+            r = porta.ligar(provedor=args.provedor, porta=args.porta)
+        except Exception as e:
+            print(f"\n{e}\n", file=sys.stderr)
+            return 1
+        print(f"Abre isto no browser e entra com o {r['etiqueta']}:\n")
+        print(f"    {r['url']}\n")
+        if r.get("url_publico"):
+            print(f"  (de fora de casa: {r['url_publico']})\n")
+        print(f"Liga a tua conta («{r['slug']}») ao {r['etiqueta']}. O código "
+              f"serve UMA vez e expira em {r['minutos']} minutos.")
+        print("Precisa do `riftvault serve` a correr noutro terminal.")
+        return 0
+
+    if args.abrir:
+        try:
+            r = porta.abrir(forcar=args.forcar)
+        except porta.NaoEstaPronto as e:
+            print(f"\n{e}\n", file=sys.stderr)
+            return 1
+        if r["mudou"]:
+            print("Aberto. Os teus amigos já se podem registar.")
+            print("Para fechar outra vez:  riftvault multi --fechar")
+        else:
+            print("Já estava aberto.")
+        return 0
+
+    if args.fechar:
+        r = porta.fechar()
+        print("Fechado." if r["mudou"] else "Já estava fechado.")
+        if r["mudou"]:
+            print("Ninguém perde nada: as contas e as coleções ficam, só "
+                  "deixa de se entrar.")
+        return 0
+
+    print(porta.texto())
+    return 0
+
+
 # --------------------------------------------------------------------------
 
 
@@ -2074,6 +2205,27 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="riftvault", description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
+
+    # A porta das contas (2026-09-29). Sem opção nenhuma, VERIFICA — é o que se
+    # quer quando se escreve o comando sem saber o que ele faz.
+    p = sub.add_parser("multi", help="a porta das contas: ver, abrir, fechar")
+    p.add_argument("--verificar", action="store_true",
+                   help="diz o que está pronto e o que falta (é o que faz por omissão)")
+    p.add_argument("--abrir", action="store_true",
+                   help="abre as contas (recusa se faltar alguma coisa)")
+    p.add_argument("--fechar", action="store_true", help="volta a fechar")
+    p.add_argument("--forcar", action="store_true",
+                   help="abre mesmo com coisas em falta (não uses sem ler o que falta)")
+    # O caminho do PRIMEIRO utilizador: ele já existe e por isso não se pode
+    # «registar». Ver `abrir.ligar`.
+    p.add_argument("--ligar", action="store_true",
+                   help="dá um endereço de uso único para ligares a TUA conta "
+                        "a um fornecedor (funciona com a porta fechada)")
+    p.add_argument("--provedor", default="discord",
+                   help="o fornecedor do --ligar (discord por omissão)")
+    p.add_argument("--porta", type=int, default=8770,
+                   help="a porta onde o `serve` está a correr (8770 por omissão)")
+    p.set_defaults(func=cmd_multi)
 
     p = sub.add_parser("sync", help="descarrega o catálogo da RiftScribe")
     p.add_argument("--set", action="append", help="só esta edição (repetível)")
@@ -2271,6 +2423,23 @@ def main(argv: list[str] | None = None) -> int:
                    help="só o que não tens (sem os que ainda não saíram)")
     p.add_argument("--so-tenho", action="store_true", help="só o que tens")
     p.set_defaults(func=cmd_selado)
+
+    p = sub.add_parser("conta", help="exportar, importar e APAGAR a conta de um "
+                                     "utilizador — sem tocar nas outras")
+    p.add_argument("slug", nargs="?", help="o utilizador (baverone, miguel, …)")
+    p.add_argument("--exportar", action="store_true",
+                   help="um .zip com a coleção, o config e as listas dele")
+    p.add_argument("--para", metavar="CAMINHO",
+                   help="onde gravar o .zip (omissão: data/backups/)")
+    p.add_argument("--importar", metavar="ZIP",
+                   help="põe um utilizador de volta a partir de um .zip")
+    p.add_argument("--apagar", action="store_true",
+                   help="apaga o utilizador e tudo o que é dele")
+    p.add_argument("--sim", action="store_true",
+                   help="confirma (o `--importar` e o `--apagar` exigem-no)")
+    p.add_argument("--sem-backup", action="store_true",
+                   help="apaga sem exportar primeiro (não recomendado)")
+    p.set_defaults(func=cmd_conta)
 
     p = sub.add_parser("principal", help="o DECK PRINCIPAL e a wantlist dele: o que "
                                          "falta para ser auto-suficiente (comuns e "

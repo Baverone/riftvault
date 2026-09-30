@@ -596,6 +596,23 @@ class TestAPortaUnica(Base):
         for py in sorted(pkg.glob("*.py")):
             if py.name in ("db.py", "utilizador.py"):
                 continue          # é aqui que a porta vive
+            # O `auth.py` (fatia `2-multi-contas`, 2026-09-29) abre o
+            # `data/auth.db`, que NÃO é uma base de dono: são as identidades e
+            # as sessões, não tem coluna `user_id`, não está nas
+            # `db.TABELAS_DE_DONO` e vive fora do Git. Tem de ficar fora do
+            # `db.connect` de propósito — esse anexa o catálogo e os preços e
+            # carrega um `riftvault_user`, e nada disso faz sentido para uma
+            # tabela de sessões. O que este teste protege é o **vault.db**, e o
+            # `auth.py` não lhe toca: há teste no `test_contas.py` que o fixa.
+            # A prova de que a excepção continua a valer é de CÓDIGO e não de
+            # prosa: o `auth.py` **não importa o `db`**, e por isso não tem por
+            # onde abrir uma base de dono. (Fala do `vault.db` nos comentários,
+            # a explicar porque é que as credenciais não vivem lá.)
+            if py.name == "auth.py":
+                texto = py.read_text(encoding="utf-8")
+                assert "import db" not in texto and "from . import db" not in texto, \
+                    "o auth.py passou a importar o `db` — revê esta excepção"
+                continue
             texto = py.read_text(encoding="utf-8")
             if "sqlite3.connect(" in texto:
                 maus.append(py.name)
@@ -604,9 +621,22 @@ class TestAPortaUnica(Base):
 
     def test_o_utilizador_da_sessao_le_se_num_sitio_so(self):
         pkg = Path(__file__).resolve().parent.parent / "riftvault"
-        maus = [py.name for py in sorted(pkg.glob("*.py"))
-                if py.name != "utilizador.py"
-                and "RIFTVAULT_USER" in py.read_text(encoding="utf-8")]
+        maus = []
+        for py in sorted(pkg.glob("*.py")):
+            if py.name == "utilizador.py":
+                continue
+            texto = py.read_text(encoding="utf-8")
+            if "RIFTVAULT_USER" not in texto:
+                continue
+            # O `server.py` (fatia `2-multi-contas`) lê a variável para se
+            # RECUSAR a arrancar quando ela está definida com as contas
+            # abertas — não para decidir quem alguém é. Ela fixa o dono para o
+            # PROCESSO inteiro, e num servidor `threaded` isso punha todos os
+            # pedidos a escrever na mesma coleção. É o oposto de a usar como
+            # identidade, e por isso não contraria este teste.
+            if py.name == "server.py" and "_recusar_user_fixo" in texto:
+                continue
+            maus.append(py.name)
         self.assertEqual(maus, [], "quem quer saber o utilizador chama `atual()`")
 
     def test_o_como_vale_so_no_fio_dele(self):

@@ -2761,6 +2761,19 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   A Coleção não muda um número: medido, zero diferenças em 24 invariantes.
   `principal.py`, `POST /api/decks/principal`, `riftvault principal`. Ver a
   última secção deste ficheiro.
+- **Feito também:** AS GUARDAS do multi-utilizador (2026-09-29, a seguir à
+  fundação) — o interruptor `multi.aberto` (nasce FECHADO: sem registo, sem
+  túnel, sem páginas de outros, e o site dele igual ao de hoje); `users.publico`
+  (`nada` por omissão, o André em `tudo`) com o `build.py` a respeitá-lo e o
+  filtro que tira **7 129 quantias** no site real; o guarda em tempo de
+  execução (tocar numa tabela de dono sem dono rebenta a dizer qual, e uma
+  ligação ligada não anexa outra base — **custo medido: nenhum**); o
+  `config.ConfigPartilhado`, que tapa o que o SQL não vê; `conta.py`
+  (exportar/importar/apagar uma pessoa sem tocar nas outras); a Coleção
+  Soberana como TESTE, em três camadas com prova pela negativa; a base de
+  ENSAIO (`RIFTVAULT_ENSAIO=1`, que se recusa a usar o `data/` a sério); e o
+  PORTÃO do merge, que lê o placar. A identidade fica DECIDIDA e não
+  implementada. Ver as duas secções no fim deste ficheiro.
 - **Por fazer:** a parte 2 do seguir — o separador no site e a tarefa diária;
   vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck,
   com as partilhadas assinaladas); e apagar decks pela interface (hoje apaga-se
@@ -8676,3 +8689,418 @@ dele tem 95 pontos de restauro no Git; a pasta `data/users/` está no
 `.gitignore` de propósito, e por isso precisa de uma cópia para fora do PC
 ANTES do primeiro amigo. Também lá: apagar a conta a pedido, o PC desligado, e
 quem entrar na máquina tem as coleções todas.
+
+## 29/09/2026, à noite — CONTAS: entrar sem password, e a porta ainda FECHADA (`auth.py`, `rotas_conta.py`, `abrir.py`)
+
+Palavras dele, antes de ir dormir: *"Quero que deixas a parte do riftbound
+pronta para amigos meus criarem conta e poderem comecar a usar a registar a
+coleccao deles!!! Nao estarei aqui para aprovar pois estou a dormir, faz tudo o
+que puderes sem precisar de mim, quero isso a funcionar!"* — e, uma hora antes,
+*"Quero apenas apresentar quando tiver tudo"*. As duas encaixam: **tudo a
+funcionar e pronto a abrir, com a porta ainda fechada.** Ele abre quando quiser.
+
+Terceira fatia da cadeia, a seguir à `0-multi-utilizador-1` (o modelo de dados)
+e à `1-multi-guardas` (o isolamento, a privacidade e o `multi.aberto`). O
+desenho está em `docs/contas-e-autenticacao.md` e o guia dos passos DELE em
+`docs/abrir-a-porta.md`.
+
+### NENHUMA PASSWORD, EM SÍTIO NENHUM
+
+Não há campo, não há hash, não há «esqueci-me da minha». Entra-se com uma conta
+que já existe — **Discord** (recomendado: a malta de TCG já o tem e a aplicação
+faz-se em cinco minutos) ou **Google** (que obriga a ecrã de consentimento e
+verificação, e pode levar dias). Guarda-se `provedor` + `sub` + `user_id`, e
+**nenhum token do fornecedor**: o `access_token` serve uma pergunta («quem és
+tu?») e morre no mesmo pedido. Não se pede o email — o `sub` identifica, e é
+menos um dado de terceiros num PC de casa.
+
+**Não se verifica o `id_token` à mão, de propósito.** Validar a assinatura de um
+JWT exige JWKS, rotação de chaves e RSA, e é um dos sítios clássicos de falhas
+(`alg: none`, o `kid` não verificado, a expiração esquecida). Pergunta-se ao
+fornecedor por TLS (`userinfo` no Google, `users/@me` no Discord): quem autentica
+a resposta é o TLS, e não há criptografia nossa para correr mal.
+
+### ONDE VIVEM AS CREDENCIAIS — e a armadilha que quase se repetiu
+
+**`data/auth.db`, à parte e no `.gitignore`.** A `1-multi-guardas` propôs
+pô-las na «base do sistema», que é o `data/vault.db`. Mediu-se antes de aceitar:
+`git ls-files data/` devolve `data/vault.db`, o `origin` é
+`github.com/Baverone/riftvault` (**PÚBLICO**) e a `riftvault-publicar` faz push
+**de 30 em 30 minutos**. O `sub` do Google é um identificador estável e único de
+uma pessoa: ali ficava publicado para sempre, com histórico.
+
+**É a mesma armadilha que levou a `0-multi-utilizador-1` a pôr cada coleção num
+ficheiro seu — e ela tinha ficado a dois metros.** A tabela `users` estava do
+lado público: registar um amigo publicava-lhe o nome e o slug, mesmo com a
+coleção privada. Corrigido na mesma corrida (o registo passou a
+`data/users/registo.db`). Por isso **`users.auth_ref` fica VAZIA** — nem um
+ponteiro opaco.
+
+**E o mesmo vale para o CLIENT SECRET, contra o que esta ordem escreveu
+primeiro.** O `riftvault_config.json` **está commitado** (`git ls-files`
+confirma). O segredo passou a vir do AMBIENTE (`RIFTVAULT_DISCORD_SECRET` /
+`RIFTVAULT_GOOGLE_SECRET`), que é a regra que o `.gitignore` já escreve para o
+`CARDTRADER_TOKEN`; o `client_id` **não é segredo** (viaja no endereço de
+autorização) e fica no config. O `multi --verificar` avisa se o segredo estiver
+no ficheiro versionado, com o comando para o tirar de lá.
+
+### O QUE DECIDIU A REGRA DA LAN: O TÚNEL FAZ A INTERNET PARECER LOOPBACK
+
+O CLAUDE.md diz desde o início que *«o modo edição não tem autenticação nenhuma
+[…] é aceitável na LAN»*. Com coleções de amigos lá dentro deixa de ser.
+
+Pensou-se em confiar no endereço («se vem de casa, é ele»). **Não se pode:**
+`cloudflared tunnel run --url http://localhost:8770` faz **todo** o tráfego da
+internet chegar ao Flask como `127.0.0.1`. Uma regra que confiasse no loopback
+dava a identidade do André a qualquer visitante. Por isso **não há atalho por
+endereço em sítio nenhum** — o `remote_addr` só se lê para contar tentativas.
+
+| | |
+|---|---|
+| porta FECHADA (`multi.aberto: false`, o de hoje) | um dono só, sem autenticação, **tudo exactamente como ontem** |
+| porta ABERTA | toda a escrita exige sessão e CSRF, **ele incluído** — entra uma vez e a sessão dura 30 dias |
+
+### O CAMINHO DO PRIMEIRO UTILIZADOR (`multi --ligar`) — um buraco que partia tudo
+
+**Ele JÁ EXISTE**: é o utilizador 1, com o slug `baverone`. Na primeira entrada
+com o Discord o `por_identidade` devolvia `None` e a app oferecia-lhe o
+**REGISTO** — que lhe pedia um slug que ele não podia escolher, porque o dele já
+é dele (`utilizador.criar` recusa um slug tomado). Formulário sem saída, com a
+coleção de um mês do outro lado. E o próprio `--verificar` mandava-o fazer isso.
+
+A saída é `riftvault multi --ligar`: um código de uso único criado na **consola**
+(`auth_convites`, o SHA-256 do código; `auth_pedidos.liga_a`), que autoriza a
+próxima entrada a **ligar-se** a uma conta que já existe. Duas decisões:
+**funciona com a porta FECHADA** (ele liga antes de abrir, e por isso nunca se
+abre a porta com ele do lado de fora) e **o código vem da consola** — quem tem a
+consola do PC é o dono do PC, e isso prova mais do que qualquer verificação de
+IP. O convite gasta-se na IDA, para não ficar um código válido à espera.
+
+### O QUE É SEGURO POR CONSTRUÇÃO, E O FURO QUE NÃO ERA
+
+Cada coleção é um FICHEIRO, e o servidor só abre a do dono da sessão: **não é um
+`WHERE user_id` que se pode esquecer, é um ficheiro que não se chega a abrir.** O
+`g.riftvault_user` é escrito **num sítio só** (a sessão), e há teste que varre o
+próprio ficheiro e rebenta se alguém lho voltar a atribuir a partir do caminho —
+era assim que a base de outra pessoa se abria num GET, e só não vazava porque
+nenhuma rota casava com o prefixo `/u/<slug>/`: segurança por acidente.
+
+**O furo a sério estava fora das bases de dados.** Duas rotas não escrevem em
+tabela nenhuma — escrevem no `riftvault_config.json`, que é UM ficheiro para
+todos:
+
+    POST /api/decks/montar     -> decks.alternar_montado()    -> decks.montados
+    POST /api/decks/principal  -> decks.escrever_principal()   -> decks.principal
+
+Um amigo autenticado a carregar em «Montar» escrevia o slug do deck DELE na
+lista do André. Não passa pelo SQLite, por isso um `authorizer` não o vê.
+Ficam em `rotas_conta.SO_DO_DONO` (403 com a razão), e a `1-multi-guardas`
+acrescentou um guarda dentro do `config.escrever_valor` para cobrir a CLI.
+**Consequência escrita: o ESTADO dos decks (montados/principal/ordem) fica fora
+das contas** até o config ser por utilizador.
+
+**A lição, para a fatia seguinte:** num sistema multi-inquilino, «onde é que
+isto se guarda?» tem de ser perguntado a cada ESCRITA, não só às tabelas. Um
+ficheiro de configuração é estado partilhado tanto quanto uma tabela sem dono.
+
+### Sessões, CSRF e o resto
+
+Cookie `HttpOnly`, `SameSite=Lax` (**não `Strict`**: a volta do fornecedor é uma
+navegação que vem de outro site, e com `Strict` o cookie não seguia e a entrada
+nunca se concluía), `Secure` só em HTTPS (no 8770 é `http://` e um `Secure` ali
+fazia o browser descartá-lo). Na base fica o **SHA-256** do que está no cookie.
+**Rotação no login**: uma sessão nasce sem dono enquanto se escolhe o nome, e ao
+criar a conta o identificador é substituído. Uma sessão pré-registo dura **uma
+hora**, não trinta dias.
+
+**CSRF num cabeçalho, não num cookie** (num cookie era enviado junto com o
+pedido falso, que é o que isto trava). No cliente havia **17** `fetch` de POST,
+cada um com o seu literal de cabeçalhos: passaram todos por **uma** função
+(`cabecalhos()`), e há teste que lê o `app.js` e rebenta se aparecer um POST que
+não passe por ela — acrescentar a marca a 17 sítios à mão era garantir que um dia
+se esquecia num, e um esquecido é uma rota sem protecção, não um erro visível.
+
+**Login CSRF fechado**: o `state` não estava atado ao browser, e sem isso quem
+começasse uma entrada podia levar OUTRA pessoa a concluí-la — o browser dela
+ficava com uma sessão da conta dele. Há um `nonce` num cookie curto e o SHA-256
+dele na `auth_pedidos`. O **prazo verifica-se ANTES do nonce**, por causa da
+mensagem: quem demorou vinte minutos também perdeu o cookie, e dizer-lhe «não
+começou neste browser» mandava-o procurar um problema que não tem.
+
+Tecto de **20 tentativas por hora e por endereço** — a chave do balde é
+falsificável e não faz mal: falsificá-la dá mais baldes, não dá acesso. Corpo do
+pedido até **256 KB** (o `/api/local/marcar` manda uma lista de centenas de
+linhas). `RIFTVAULT_USER` definido com a porta aberta **recusa arrancar**: fixa o
+dono para o processo inteiro e faria todos os pedidos escrever na mesma coleção.
+
+### O `Miguel.riftvault` que ele pediu é com BARRA, e a razão é medida
+
+`rift.baverone.com/u/miguel/`. Os sites públicos estão no **GitHub Pages**, que
+aceita **um** endereço personalizado por repositório e **não** aceita
+`*.rift.baverone.com`. Para ser `miguel.rift.baverone.com` era preciso ou um
+repositório por amigo, ou a Cloudflare a reescrever endereços à frente do GitHub
+— mais uma peça, e uma peça cuja falha tira os sites do ar. O nome que ele
+escolhe é o mesmo nas duas formas, por isso a escolha não fica presa.
+
+**Dois endereços com papéis diferentes, de propósito:** o público é estático
+(GitHub Pages) e **abre com o PC desligado**; o de edição
+(`editar.baverone.com`) é o PC dele pelo túnel. O PC fica fora do caminho de
+quem só espreita, que é a maior parte do tráfego e do risco.
+
+### O que ficou de fora, e porquê
+
+- **Config por utilizador.** As regras (`foil.raridades`, `master_set.*`, alvos,
+  `decks.*`, `selado.*`) continuam **globais**: um amigo herda as dele. É
+  limitação conhecida da `0-multi-utilizador-1`, está no documento dela, e não
+  se inventou aqui um config por utilizador de véspera.
+- **O estado dos decks** — ver o furo do config, acima.
+- **Convites.** Com a porta aberta, quem chegar ao endereço registra-se. Uma
+  lista de `sub` permitidos obrigava-o a recolher o `sub` de cada amigo, o que é
+  pior do que parece. Fica como pergunta.
+- **Mudar de slug.** O endereço É o slug, e mudá-lo parte os links que o amigo
+  já deu. Não se faz sem ele decidir o que acontece ao antigo.
+
+## 29/09/2026 — AS GUARDAS: isolamento imposto pelo código, conta por pessoa, privacidade, e as portas fechadas
+
+Palavras dele: *"O que achas que deve ser já feito para evitar erros futuros, e
+o quê? / Posso concordar e começamos também já a tratar disso?"* — concordou de
+antemão. A lista é curta de propósito: são as coisas **baratas agora e caras
+depois de haver gente lá dentro**. Ramo `ai-pc/guardas-2026-09-29`, a seguir à
+fundação (a secção acima). Ver `docs/multi-utilizador.md`, «As guardas».
+
+### 1. PORTAS FECHADAS até ele mandar abrir (`multi.aberto`)
+
+*"Quero apenas apresentar quando tiver tudo"* (2026-09-29). Um interruptor só,
+no config, e **nasce fechado**:
+
+    "multi": { "aberto": false }
+
+Lê-se por `multi.aberto(cfg)` e por mais nenhuma função. Enquanto for `false`:
+não há registo nem contas de amigos (há **um** utilizador, ele); **o túnel não
+se liga** — não há cloudflared instalado nem configurado; as páginas públicas
+dos outros **não se publicam** (o `build_todos` sabe gerá-las e há teste que o
+prova, mas para o `site/` vai só a dele); e **o site dele fica exactamente como
+hoje**, sem «em breve» nem link de login. Quando ele quiser abrir, muda-se **um
+valor**, não dez condições.
+
+### 2. O QUE O PÚBLICO VÊ: `users.publico`
+
+| valor | o público vê |
+|---|---|
+| **`nada`** (omissão) | **nada** — não se gera site nenhum |
+| `sem-valores` | a coleção, e **nenhum euro em lado nenhum** |
+| `tudo` | como o site dele hoje |
+
+**A omissão é a mais fechada** porque publicar a coleção de outra pessoa tem de
+ser um acto ESCOLHIDO: uma página pública indexa-se e fica em cache em sítios
+que não controlamos — na prática **não se despublica**. **O André fica em
+`tudo`**, que é o que ele já escolheu e tem; o site dele não muda um byte.
+
+O campo vive no **REGISTO** (`data/users/registo.db`), não na coleção — quem o
+lê não tem motivo nenhum para ter a base de cartas de alguém aberta. A cópia
+que viaja dentro de cada `vault.db` é descritiva.
+
+**Como é que o `sem-valores` tira os euros: TRÊS regras**, aplicadas ao payload
+antes de ser escrito (`privacidade.limpar`), e **uma porta só** no `build.py`
+(o `escrever()`, com teste que recusa um `json.dumps` fora dele):
+
+1. uma chave cujo NOME fala de dinheiro e cujo valor é um número perde o valor;
+2. `total` é AMBÍGUA — é uma quantia nas linhas das Faltas (`price × missing`)
+   e uma CONTAGEM em todo o resto (o denominador «910 de 928»). Medido contexto
+   a contexto no site real: nas **820** em que é dinheiro o dicionário tem
+   sempre um `price` ao lado; nas **84** em que é contagem, nenhuma tem;
+3. **um dicionário cujo nome fala de dinheiro tem dinheiro lá dentro**, tenham
+   as chaves o nome que tiverem. Esta nasceu de uma fuga a sério: o
+   `progress.value` é `{"owned": 213751, "full": 128087, "hidden_owned": 0}` —
+   o valor da coleção em cêntimos, com três nomes que não dizem dinheiro.
+
+**DUAS REDES, e apanham coisas diferentes.** A regra apanha o que tem nome; o
+teste pega em números que **são** preços (sentinelas inconfundíveis — um preço
+pequeno em cêntimos COLIDE com uma contagem: o 3195 é ao mesmo tempo o número
+de cópias da coleção e o preço de uma carta) e exige que não apareçam em lado
+nenhum. Foi a segunda que encontrou a fuga da regra 3. **Medido no site real:
+tira 7 129 quantias e 1 texto com `€` nos 20 ficheiros, e as contagens — o
+denominador, as cópias, as percentagens — ficam.**
+
+### 3. ISOLAMENTO IMPOSTO PELO CÓDIGO — e a pergunta mudou de forma
+
+A ordem foi escrita a contar com uma base só filtrada por `WHERE user_id = ?`,
+onde o erro clássico é um `WHERE` esquecido. **Não é esse o modelo que ficou**
+(ver a secção da fundação): é **um ficheiro por pessoa**, e um `WHERE`
+esquecido já não mostra nada de ninguém — os dados do outro não estão na
+ligação. O modelo novo tem o SEU esquecimento, e são **quatro** as guardas:
+
+1. **Tocar numa tabela de dono sem dono REBENTA** (`guarda.SemDono`), com a
+   tabela nomeada. É um **autorizador do `sqlite3`** — não um wrapper à volta
+   do `execute`, que se contorna com um `cursor()`. **Medido: 50 000 consultas
+   em 48 ms armado contra 49 ms desarmado**, custo nenhum (o SQLite chama-o na
+   PREPARAÇÃO e o Python guarda os statements em cache). Hoje nunca dispara
+   porque `utilizador.atual()` devolve sempre o André; **o dia em que valer** é
+   aquele em que houver sessões e `atual()` puder não saber quem é — sem
+   guarda, esse dia serve a coleção dele a um visitante anónimo, em silêncio.
+2. **Uma ligação ligada a alguém não pode ANEXAR outra base** (`SoUmaBase`) —
+   é a única maneira de dois donos aparecerem no mesmo `SELECT`.
+   **ARMADILHA MEDIDA: o `VACUUM INTO` anexa o destino por dentro**, e sem uma
+   porta explícita isto partia **todos** os backups das migrações. A porta é o
+   `guarda.a_copiar(con)`, um contador que fecha mesmo que rebente lá dentro, e
+   só se usa no `db.backup` e no `conta`.
+3. **Uma base com dados de outro dono recusa-se a abrir**
+   (`utilizador.guardar`, `DonoErrado`).
+4. **Ninguém abre um `vault.db` fora do `db.py`** — `tests/test_isolamento.py`
+   lê o código-fonte e recusa um `sqlite3.connect` ou o caminho fixo da base
+   dele em qualquer outro módulo.
+
+**O QUE O AUTORIZADOR NÃO VÊ, e é preciso dizê-lo: o que não é SQL.** As
+escritas no `riftvault_config.json` (`decks.montados`, `decks.principal`) não
+passam pelo SQLite — um amigo autenticado a carregar em «Montar» escrevia o
+slug do deck DELE na lista do André. Tapado por um guarda próprio,
+`config.ConfigPartilhado`, no `escrever_valor` (cobre a CLI e tudo o resto), e
+pela camada de rotas (cobre o HTTP com a mensagem certa). Pelo mesmo motivo o
+`config.decks_dir(con)` passou a rebentar com uma ligação sem dono, em vez de
+devolver a pasta dele. **Consequência honesta:** enquanto o config não for por
+utilizador, o ESTADO dos decks — montados, principal, ordem — é o do dono do
+ficheiro. As CARTAS de cada um contam na mesma.
+
+**A prova de comportamento:** dois utilizadores com colecções PARECIDAS (de
+propósito — obviamente diferentes, um engano denunciava-se sozinho) e pegada em
+todos os subsistemas, e **26 funções públicas** varridas, cada uma com três
+perguntas: o segredo do outro nunca aparece, a sentinela do outro vale zero, e
+a função DISTINGUE os donos. **Uma função que dê o mesmo aos dois é uma função
+que não sabe de quem são os dados** — a lista das que podem dar igual tem uma
+entrada só (`principal.estado`, pela razão do config acima) e está escrita no
+teste.
+
+### 4. BACKUP, RESTAURO E APAGAR — por pessoa (`conta.py`)
+
+*"Com cinco pessoas lá dentro, restaurar um erro dele desfaz o mês dos
+outros."*
+
+    conta.exportar(slug)                       -> um .zip
+    conta.importar(ficheiro, confirmar=True)
+    conta.apagar(slug, confirmar=True)
+
+Barato por a separação ser por ficheiro. O pacote leva o `vault.db` (por
+`VACUUM INTO` — as bases estão em WAL), o config e as listas dele; **não leva
+credenciais** (vivem no `data/auth.db`, fora do Git e fora daqui) **nem o
+catálogo nem os preços** (são partilhados). O `apagar` **faz um export antes**,
+diz quantas linhas saíram de que tabelas, e é a POLÍTICA por cima da primitiva
+`utilizador.apagar`. **O utilizador 1 não se apaga por aqui.**
+
+**UMA DESCOBERTA A MEDIR, e mudou o código dos dois lados: o carimbo do dono é
+PREGUIÇOSO.** O `utilizador.guardar` corre no `db.connect`, ou seja ANTES das
+escritas da sessão — uma linha escrita durante a sessão fica a `NULL` e só é
+carimbada na abertura seguinte. **Um ficheiro criado e nunca mais reaberto tem
+as linhas todas a `NULL`**, e nesse estado elas não distinguem ninguém: um
+backup de outra pessoa passava. Apanhado com um teste que forjava um manifesto
+e via a recusa não acontecer. A identidade fiável do ficheiro é a **`users` de
+dentro dele**, que o `_carimbar_dono` escreve em toda a ligação — e é por aí
+que o `guardar` e o `conta` passaram a perguntar primeiro.
+
+### 5. A COLEÇÃO É SOBERANA — e passou a ser TESTE
+
+*"Já foi violada uma vez (a contagem dos foils, 26/09) e só se apanhou por eu
+medir à mão."* `tests/test_coleccao_soberana.py`, **três camadas**, porque «não
+mexe na `copies`» à letra seria mentira:
+
+- **A.** O caminho da Coleção é uma **lista fechada de seis** (`collection.adjust`,
+  `undo_last`, `pending.arrive`, `venda.vender`, `foil.ajustar`,
+  `proprias.ajustar`). **Tudo o resto** — 25 operações e o `build` inteiro —
+  deixa a `copies` byte a byte igual;
+- **B.** as duas que tocam sem serem a Coleção (`foil`, `proprias`) **não mudam
+  o número de cópias NORMAIS na Coleção** nem os níveis. É a invariante que a
+  avaria de 26–27/09 partiu;
+- **C.** nada do que um faz mexe na `copies` do outro.
+
+Cada camada tem a **prova pela negativa** a seguir — um teste que mostra que a
+fotografia sabe mesmo detectar uma mudança. Uma fotografia de zeros passa
+sempre, e era assim que isto não valia nada.
+
+### 6. A IDENTIDADE É EMPRESTADA — decisão, não implementação
+
+*"Não quero que ele guarde passwords, nunca."* **Autenticação por um fornecedor
+que já existe** (OAuth/OIDC); o riftvault guarda só o identificador que ele
+devolve. Três razões: o que não se guarda não se perde (uma base de palavras-
+passe é um alvo, e isto corre no PC de casa dele); não há «esqueci-me da
+palavra-passe» para construir; e é menos um passo para quem entra. **Discord
+primeiro, Google a seguir** — é onde a malta de TCG já está. **Não se
+implementou nada**; o encaixe é o `users.auth_ref`, e está vazio.
+
+### 7. UM SÍTIO PARA PARTIR COISAS (`RIFTVAULT_ENSAIO=1`)
+
+| | a sério | ensaio |
+|---|---|---|
+| dados | `data/` | **`data-ensaio/`** |
+| config | `riftvault_config.json` | **`riftvault_config-ensaio.json`** |
+| o `serve` escuta em | `0.0.0.0:8770` | **`127.0.0.1:8779`** |
+
+É uma variável do AMBIENTE e **não** uma chave do config: uma chave de ensaio
+dentro de um ficheiro que vai para o Git está a um merge de distância de ir
+para produção ligada. **A garantia de que o túnel nunca aponta para o ensaio é
+a última linha, e é por construção:** o túnel serve a 8770, o ensaio recusa-se a
+escutar nessa porta (`multi.PortaDeProducao`) e só aceita o loopback. **E o
+ensaio recusa-se a usar o `data/` a sério** — o `config` rebenta ao ser
+importado.
+
+### 8. O PORTÃO DO MERGE
+
+Ver a secção própria, a seguir.
+
+## 29/09/2026 — O PORTÃO DO MERGE LÊ O PLACAR, e um placar ausente é VERMELHO
+
+**O que aconteceu.** A 2026-09-29 o harness que corre estas sessões disse
+**«exit code 0»** numa corrida cuja suite tinha acabado de imprimir **«1 a
+falhar»**. Quem lesse o código de saída dava o ramo por verde e fazia o merge.
+
+A regra «lê o PLACAR, não acredites no harness» já estava escrita nas regras da
+casa desde que isto começou — e era uma regra FALADA. Uma regra falada é uma
+regra que um dia se esquece, às duas da manhã, no fim de uma ordem longa.
+Passou a ser mecânica.
+
+**`tools/placar.py` + `tools/portao.py`.**
+
+    py -X utf8 tools/portao.py suite        corre a suite e grava o placar
+    py -X utf8 tools/portao.py verificar    lê o placar; sai 1 se vermelho
+    py -X utf8 tools/portao.py merge <ramo> -m "<mensagem>" [--push]
+
+O `merge` **verifica primeiro e recusa-se a chamar o `git`** se o placar não
+for verde. **Não há bandeira para forçar**, e é de propósito: uma bandeira de
+forçar é a que se usa exactamente na noite em que não se devia. Quem quiser
+mesmo integrar com a suite vermelha escreve o `git merge` à mão — e aí é uma
+decisão, não um descuido.
+
+**AS CINCO MANEIRAS DE ESTAR VERMELHO** (`placar.verde`), e nenhuma é
+«a suite falhou»:
+
+| | |
+|---|---|
+| 1 | **não há placar** — ninguém correu a suite |
+| 2 | **o placar não se lê** — JSON partido, campos a menos, corrida morta a meio |
+| 3 | **o código mudou depois de a suite ter corrido** |
+| 4 | **o placar mediu menos ficheiros do que os que estão em disco** |
+| 5 | **há ficheiros a falhar** |
+
+A 3 é a que apanha o caso a sério, e é a razão de o placar guardar uma
+**impressão digital**: o sha256 de tudo o que pode mudar a resposta da suite —
+o `riftvault/` (`.py`, `.sql` e o `web/`, que os testes leem como texto), os
+`tests/`, e o `riftvault_config.json`, que não é enfeite (é lá que vivem as
+regras que os testes medem). Se um byte de qualquer um deles mudou desde a
+corrida, **o placar é de outro código** e não autoriza este merge. «Corri a
+suite, depois emendei uma linha» deixou de passar.
+
+O `data/` **não** entra na impressão digital: os testes correm contra cópias e
+pastas temporárias, e pô-lo lá fazia um `+` num tile invalidar um placar verde.
+
+**Um ficheiro que nem chega a correr conta como vermelho.** Se a saída não
+tiver o `Ran N tests` do `unittest` — um import partido, por exemplo —, o
+placar não o conta como zero testes: marca-o a falhar, com a razão («não
+correu»). Um ficheiro que desaparece da contagem é a outra maneira de um
+vermelho passar despercebido.
+
+**O `.placar.json` está no `.gitignore`**, e isso é decisão e não descuido: é o
+resultado de uma corrida NESTA máquina, não conteúdo do projecto. Um placar
+commitado era a pior versão deste problema — o verde de outra pessoa a
+autorizar o meu merge.
+
+O `tools/portao.py merge` recusa também com a **árvore de trabalho suja**: o
+placar mediu o que está em disco, e o merge integra o que está commitado. Se as
+duas coisas diferem, o placar não fala do que vai ser integrado.

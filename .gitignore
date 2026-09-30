@@ -73,8 +73,33 @@ __pycache__/
 .env
 *token*.txt
 
+# IDENTIDADES E SESSÕES (2026-09-29). NUNCA vai para o Git, e a razão é medida:
+# o `data/vault.db` está commitado num repositório PÚBLICO
+# (github.com/Baverone/riftvault) e é empurrado de 30 em 30 minutos pela
+# `riftvault-publicar`. O `sub` que o Google ou o Discord dão é um identificador
+# estável e único de uma PESSOA — ali dentro ficava publicado para sempre, com
+# histórico, e um repositório com 95 commits não se despublica. Por isso as
+# credenciais moram num ficheiro à parte, e este. Ver
+# docs/contas-e-autenticacao.md.
+data/auth.db
+data/auth.db-wal
+data/auth.db-shm
+data/auth.db-journal
+
 data/backups/
 _lixo/
+
+# O PLACAR da suite (2026-09-29, `tools/portao.py`). NÃO vai para o Git, e é
+# decisão: é o resultado de uma corrida NESTA máquina, não conteúdo do
+# projecto. Um placar commitado era a pior versão do problema que ele resolve
+# — o verde de outra pessoa a autorizar o meu merge.
+.placar.json
+
+# A base de ENSAIO (2026-09-29, `RIFTVAULT_ENSAIO=1`): o sítio para partir
+# coisas. Nunca se commita — são dados de mentira, e o config dela podia
+# ligar em produção o que só era para ensaiar.
+data-ensaio/
+riftvault_config-ensaio.json
 
 
 # artefactos do FUSE (acesso a pasta montada a partir do Claude); nunca sao trabalho
