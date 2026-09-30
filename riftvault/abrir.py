@@ -286,11 +286,13 @@ def ligar(provedor: str = "discord", porta: int = 8770,
           cfg: dict | None = None) -> dict:
     """Um endereço de uso único que liga a conta DELE a um fornecedor.
 
-    É o caminho do primeiro utilizador, e existe porque o André **já existe**:
-    é o utilizador 1, com o slug `baverone`. Na primeira entrada o riftvault não
-    o reconhecia (não há identidade ligada) e oferecia-lhe o REGISTO — que lhe
-    pedia um slug que ele não podia escolher, porque o dele já é dele. Ficava a
-    olhar para um formulário sem saída.
+    **DEIXOU DE SER O CAMINHO PRINCIPAL a 2026-09-30.** Nasceu a 29/09 como a
+    única forma de o André entrar — ele já existia (utilizador 1, slug
+    `baverone`) e o registo pedia-lhe um slug que já era dele, por isso ficava
+    a olhar para um formulário sem saída. Desde que se entra por password, a
+    resposta a esse problema é `riftvault conta baverone --nova-password`, e
+    isto fica para quem **quiser ligar um fornecedor** a uma conta que já
+    existe. Só funciona com o fornecedor configurado (sem segredo, recusa).
 
     O código vem da CONSOLA de propósito: quem tem a consola do PC é o dono do
     PC, e isso prova mais do que qualquer verificação de endereço — o túnel da

@@ -2338,11 +2338,14 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--fechar", action="store_true", help="volta a fechar")
     p.add_argument("--forcar", action="store_true",
                    help="abre mesmo com coisas em falta (não uses sem ler o que falta)")
-    # O caminho do PRIMEIRO utilizador: ele já existe e por isso não se pode
-    # «registar». Ver `abrir.ligar`.
+    # Ligar um FORNECEDOR (Discord/Google) a uma conta que já existe. Deixou de
+    # ser o caminho de entrada a 2026-09-30, quando a password chegou — ver
+    # `abrir.ligar`.
     p.add_argument("--ligar", action="store_true",
                    help="dá um endereço de uso único para ligares a TUA conta "
-                        "a um fornecedor (funciona com a porta fechada)")
+                        "a um fornecedor (Discord/Google; funciona com a porta "
+                        "fechada). Para entrares: `riftvault conta baverone "
+                        "--nova-password`")
     p.add_argument("--provedor", default="discord",
                    help="o fornecedor do --ligar (discord por omissão)")
     p.add_argument("--porta", type=int, default=8770,

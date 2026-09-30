@@ -1,4 +1,12 @@
-"""A autenticação: sem passwords, com PKCE, e o fornecedor local preso ao ensaio.
+"""A autenticação POR FORNECEDOR: PKCE, sessões, e o local preso ao ensaio.
+
+Este ficheiro é o OAuth de 2026-09-29, que ficou parado quando ele pediu
+passwords no dia seguinte — e por isso continua a ser testado inteiro: o que
+está parado tem de continuar a funcionar no dia em que for ligado. A entrada
+por password vive em `tests/test_senhas.py`.
+
+O que ficou daqui da decisão antiga é a fronteira: **nada legível** (ver a
+`TestNenhumaPassword`), e a criptografia da password no `senha.py` e não aqui.
 
 Estes testes correm contra um `auth.db` temporário — nunca contra o `data/` a
 sério. A pergunta que o ficheiro todo responde é: quem entra é quem diz que é,
