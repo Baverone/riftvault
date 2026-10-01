@@ -69,6 +69,7 @@ O FORNECEDOR LOCAL SÓ EXISTE EM ENSAIO
 from __future__ import annotations
 
 import base64
+import contextlib
 import hashlib
 import hmac
 import json
@@ -76,6 +77,7 @@ import os
 import re
 import secrets
 import sqlite3
+import threading
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -720,6 +722,48 @@ def exigir_folga(con: sqlite3.Connection, chave: str,
 # bloqueio permanente é uma maneira de um estranho tirar o riftvault a um
 # amigo só por lhe saber o nome — o remédio seria pior, e com a escada o custo
 # de quem ataca já é absurdo.
+#
+# ---------------------------------------------------------------------------
+# «TRANCA-O-AMIGO»: A PASSWORD CERTA ENTRA SEMPRE (2026-10-01)
+# ---------------------------------------------------------------------------
+# A linha de cima — «não tranca para sempre» — era meia resposta, e a outra
+# metade era um defeito. Com a escada a contar da ÚLTIMA falha, quem souber o
+# nome de um amigo (e os nomes estão PÚBLICOS, em
+# `rift.baverone.com/api/lista.json`) falhava de propósito meia dúzia de vezes
+# e punha a pessoa a esperar; a falhar outra vez de minuto a minuto, a espera
+# nunca acabava. Não era um bloqueio permanente — era um bloqueio renovável,
+# que para o dono é a mesma coisa.
+#
+# E NÃO HÁ MANEIRA DE DISTINGUIR o vizinho a arreliar de um ataque distribuído:
+# qualquer contador por CONTA é enchível por qualquer pessoa. Foi por aí que se
+# tentou primeiro, e nenhuma variante resiste — «contar só as falhas dos outros
+# sítios» tranca o dono (o vizinho é um dos outros sítios), «contar por (conta,
+# sítio)» passa a não acrescentar nada ao travão do sítio, e um tecto baixo na
+# escada só torna a espera mais curta e igualmente renovável.
+#
+# A saída é não pôr o travão da CONTA à frente da porta:
+#
+#     travao_do_sitio   corre ANTES do scrypt, e é ele que protege o CPU.
+#                       Só pode ser enchido por quem está a tentar — enchê-lo
+#                       tranca o atacante, nunca outra pessoa.
+#     travao_da_conta   corre DEPOIS de a password sair errada. Quem acerta
+#                       entra, sempre.
+#
+# ISTO NÃO AFROUXA O TRAVÃO, e vale a pena ver porquê: quem está a adivinhar
+# não ganha nada com «a certa entra» — não a tem. Continua a levar o mesmo 429
+# e a mesma espera por cada palpite errado, e a escada continua a subir. O
+# único a quem a excepção serve é a quem já sabe a password — e contra essa
+# pessoa um travão nunca protegeu nada.
+#
+# O QUE SE PAGA: uma tentativa errada passa a custar os 130 ms de scrypt mesmo
+# com a conta travada. O tecto desse custo é o travão DO SÍTIO, que não mudou
+# (~13 tentativas por hora por endereço), e o número de verificações a correr
+# ao mesmo tempo tem agora tecto próprio (ver `VAGAS_DE_SCRYPT`).
+#
+# O que se revela: um 429 em vez de um 401 diz que aquele nome existe. É
+# aceitável aqui e em mais lado nenhum — **os nomes já são públicos** (é o
+# mesmo ficheiro que torna este ataque possível), e quem lê o 429 foi quem
+# encheu o contador.
 
 #: Falhas que não custam nada, por conta e por endereço.
 FALHAS_LIVRES_CONTA = 5
@@ -751,6 +795,12 @@ def _em_palavras(segundos: int) -> str:
     return "uma hora"
 
 
+#: Falhas que ficam na tabela. A janela do travão é UMA HORA — tudo o que é
+#: mais velho do que isto não serve para decidir nada e é lixo a crescer. Uma
+#: semana deixa rasto suficiente para ele perceber que alguém andou a tentar.
+TENTATIVAS_DIAS = 7
+
+
 def _falhas(con: sqlite3.Connection, *, user_id: int | None = None,
             chave: str | None = None) -> tuple[int, str | None]:
     """Quantas falhas na última hora, e quando foi a última."""
@@ -779,25 +829,18 @@ def _espera(falhas: int, livres: int) -> int:
     return ESCADA[min(passos, len(ESCADA)) - 1]
 
 
-def travao(con: sqlite3.Connection, user_id: int | None,
-           chave: str | None) -> None:
-    """Tem de esperar? Rebenta com `TemDeEsperar` e diz quanto.
+def _travao(con: sqlite3.Connection, dimensoes: list, desconto: int = 0) -> None:
+    """O cálculo, partilhado pelas duas dimensões. Lê e não escreve.
 
-    Olha para as duas dimensões e fica-se pela mais exigente. Lê e não
-    escreve: quem registra a tentativa é o `registar_tentativa`.
+    Quem registra a tentativa é o `registar_tentativa`; o `desconto` é para
+    quem já a registou antes de perguntar (ver `travao_da_conta`).
     """
     agora = datetime.now(timezone.utc)
     pior = 0
     porque = ""
-    dimensoes = []
-    if user_id is not None:
-        dimensoes.append(({"user_id": int(user_id)},
-                          FALHAS_LIVRES_CONTA, "nesta conta"))
-    if chave:
-        dimensoes.append(({"chave": chave}, FALHAS_LIVRES_CHAVE, "deste sítio"))
     for filtro, livres, texto in dimensoes:
         n, ultima = _falhas(con, **filtro)
-        espera = _espera(n, livres)
+        espera = _espera(max(0, n - desconto), livres)
         if not espera or not ultima:
             continue
         try:
@@ -811,6 +854,104 @@ def travao(con: sqlite3.Connection, user_id: int | None,
             pior, porque = falta, f"{n} vezes {texto}"
     if pior > 0:
         raise TemDeEsperar(pior, porque)
+
+
+def travao_do_sitio(con: sqlite3.Connection, chave: str | None) -> None:
+    """Quantas falhas vieram DESTE endereço? — e corre ANTES do scrypt.
+
+    É o travão que protege o PC: sem ele cada tentativa custava 130 ms e 64 MiB
+    a quem está do lado de cá. **Enchê-lo tranca quem o encheu** e mais
+    ninguém, e é por isso que este pode estar à frente da porta.
+    """
+    if not chave:
+        return
+    _travao(con, [({"chave": chave}, FALHAS_LIVRES_CHAVE, "deste sítio")])
+
+
+def travao_da_conta(con: sqlite3.Connection, user_id: int | None, *,
+                    ja_registada: bool = False) -> None:
+    """Quantas falhas levou ESTA conta? — e corre DEPOIS de a password falhar.
+
+    Nunca à frente da porta: era isso que deixava um estranho trancar um amigo
+    só por lhe saber o nome (ver «TRANCA-O-AMIGO», acima). Quem acerta a
+    password nunca passa por aqui.
+
+    `ja_registada=True` quando a falha desta tentativa já está na tabela: as
+    cinco de graça são cinco, e a que acabou de falhar não se conta a si mesma.
+    """
+    if user_id is None:
+        return
+    _travao(con, [({"user_id": int(user_id)},
+                   FALHAS_LIVRES_CONTA, "nesta conta")],
+            desconto=1 if ja_registada else 0)
+
+
+# --------------------------------------------------------------------------
+# QUANTAS PASSWORDS SE VERIFICAM AO MESMO TEMPO (2026-10-01)
+# --------------------------------------------------------------------------
+#
+# O travão limita as tentativas NO TEMPO; nada limitava quantas corriam AO
+# MESMO TEMPO. O `serve` é `threaded=True`: N pedidos simultâneos são N vezes
+# 64 MiB de scrypt (os «67 MB» que o `senha.py` documenta, em decimal), e
+# ninguém contava os N.
+#
+# MEDIDO NA MÁQUINA DELE a 2026-10-01 (32 núcleos lógicos, 31,7 GB de RAM,
+# 12,1 GB livres com o que ele tinha aberto):
+#
+#      1 em paralelo    128 ms      64 MiB
+#      2 em paralelo    136 ms     128 MiB
+#      4 em paralelo    135 ms     256 MiB
+#      8 em paralelo    158 ms     512 MiB
+#     16 em paralelo    207 ms       1 GiB
+#     32 em paralelo    276 ms       2 GiB     <- ainda sem um erro
+#
+# Ou seja: em DÉBITO esta máquina engole tudo o que o travão lhe consegue
+# mandar, e um tecto por causa de tempo não se justificava.
+#
+# O TECTO ESTÁ AQUI POR OUTRA RAZÃO, E É DE CORRECÇÃO, não de desempenho:
+# o `senha.confere` apanha o `MemoryError` e devolve **False**. Com memória a
+# faltar — e 190 verificações a par chegavam aos 12 GB livres desta máquina —
+# uma password CERTA passava a sair errada, e a tentativa ainda contava para o
+# travão da conta. Um atacante que consiga encher a memória fazia o dono
+# falhar a entrada e, de caminho, trancava-lhe a conta. Com uma fila essa
+# situação deixa de ser alcançável: quem não tem vaga ESPERA, e quem espera
+# demasiado lê que o servidor está ocupado — nunca «a password está errada».
+#
+# OITO, e não trinta e dois: 512 MiB de pico é 1,6% da RAM dele e cabe com
+# folga no que estava livre, e oito a 20 ms cada esvaziam a fila a ~60 por
+# segundo — muito mais do que o travão do sítio consegue entregar. O número
+# não vem dos núcleos de propósito: o que falta primeiro aqui é memória.
+
+#: Verificações de password a correr ao mesmo tempo. Ver o comentário acima.
+VAGAS_DE_SCRYPT = 8
+
+#: Quanto um pedido espera por uma vaga antes de desistir. Nunca deve chegar
+#: aqui: são ~600 pedidos à frente na fila. Sem tecto, um pedido em espera
+#: prendia um fio do servidor para sempre.
+ESPERA_POR_VAGA_S = 10
+
+_VAGAS = threading.BoundedSemaphore(VAGAS_DE_SCRYPT)
+
+
+class ServidorOcupado(ErroDeAutenticacao):
+    """Não houve vaga para verificar a password. **Não é password errada.**
+
+    A distinção é o ponto: isto responde 503 e não conta falha nenhuma, senão
+    um ataque à memória virava um ataque à conta de quem estava a entrar.
+    """
+
+
+@contextlib.contextmanager
+def _uma_vaga():
+    """Uma vaga para correr o scrypt. Ver `VAGAS_DE_SCRYPT`."""
+    if not _VAGAS.acquire(timeout=ESPERA_POR_VAGA_S):
+        raise ServidorOcupado(
+            "o servidor está a verificar demasiadas passwords ao mesmo tempo. "
+            "Tenta outra vez dentro de alguns segundos.")
+    try:
+        yield
+    finally:
+        _VAGAS.release()
 
 
 # --------------------------------------------------------------------------
@@ -836,12 +977,14 @@ def definir_senha(con: sqlite3.Connection, user_id: int, nova: str, *,
     if validar:
         nova = _senha.validar(nova, slug=slug, nome=nome)
     agora = _agora()
+    with _uma_vaga():
+        cifrada = _senha.cifrar(nova)
     con.execute(
         "INSERT INTO user_senha (user_id, hash, temporaria, criado_em, mudado_em) "
         "VALUES (?, ?, ?, ?, ?) "
         "ON CONFLICT(user_id) DO UPDATE SET hash = excluded.hash, "
         "temporaria = excluded.temporaria, mudado_em = excluded.mudado_em",
-        (int(user_id), _senha.cifrar(nova), 1 if temporaria else 0, agora, agora))
+        (int(user_id), cifrada, 1 if temporaria else 0, agora, agora))
     con.commit()
 
 
@@ -900,9 +1043,14 @@ def entrar(con: sqlite3.Connection, slug: str, senha_escrita: str, *,
     `SenhaErrada` nos dois casos; o `SemConta` fica para a CLI, que já sabe
     quem existe.
 
-    A ORDEM É TRAVÃO -> PROCURAR -> VERIFICAR, e importa: verificar primeiro
-    fazia cada tentativa custar 130 ms de scrypt, e era isso que um atacante
-    usava para pôr o PC dele de joelhos.
+    A ORDEM É TRAVÃO DO SÍTIO -> PROCURAR -> VERIFICAR -> TRAVÃO DA CONTA, e
+    cada peça está onde está por uma razão:
+
+    * o do SÍTIO antes do scrypt, senão cada tentativa custava 130 ms de
+      scrypt e era isso que um atacante usava para pôr o PC dele de joelhos;
+    * o da CONTA depois, e só quando a password sai errada — à frente da porta
+      era o «tranca-o-amigo» (ver o comentário dele, acima). **Quem sabe a
+      password entra, sempre.**
     """
     from . import senha as _senha, utilizador
 
@@ -914,15 +1062,23 @@ def entrar(con: sqlite3.Connection, slug: str, senha_escrita: str, *,
         alvo = None
     uid = int(alvo["user_id"]) if alvo else None
 
-    travao(con, uid, chave)
+    travao_do_sitio(con, chave)
 
     row = (con.execute("SELECT * FROM user_senha WHERE user_id = ?",
                        (uid,)).fetchone() if uid else None)
-    if row is None or not _senha.confere(row["hash"], str(senha_escrita or "")):
+    with _uma_vaga():
+        certa = (row is not None
+                 and _senha.confere(row["hash"], str(senha_escrita or "")))
+    if not certa:
         registar_tentativa(con, chave or "?", "senha", False, uid)
+        # O travão da conta DEPOIS de a falha estar registada (e sem se contar
+        # a si mesma): a escada continua a subir e a password certa continua a
+        # entrar. Rebenta com `TemDeEsperar` em vez de `SenhaErrada` para quem
+        # falha dizer o que fazer.
+        travao_da_conta(con, uid, ja_registada=True)
         # Uma conta sem nome e uma password errada respondem igual — e o travão
-        # também conta as duas, senão dava para descobrir quais os nomes que
-        # existem só pelo tempo até ser travado.
+        # do sítio também conta as duas, senão dava para descobrir quais os
+        # nomes que existem só pelo tempo até ser travado.
         raise SenhaErrada(
             "o nome ou a password não estão certos. Se te esqueceste, pede ao "
             "André uma password nova.")
@@ -938,19 +1094,36 @@ def entrar(con: sqlite3.Connection, slug: str, senha_escrita: str, *,
 
 
 def mudar_senha(con: sqlite3.Connection, user_id: int, atual: str,
-                nova: str, *, slug: str = "", nome: str = "") -> None:
+                nova: str, *, slug: str = "", nome: str = "",
+                chave: str | None = None) -> None:
     """Troca a password, exigindo a que está. Levanta `SenhaErrada`/`SenhaFraca`.
 
     EXIGE A ACTUAL mesmo tendo sessão, e não é burocracia: um computador
     deixado aberto no café não pode dar a conta a quem passar. É a mesma razão
     por que todos os sites o pedem.
+
+    **O TRAVÃO É O MESMO DA ENTRADA, e estava a faltar aqui** (defeito
+    encontrado a 2026-10-01). A rota registava a falha e nunca chamava o
+    travão: quem tivesse uma sessão — um computador deixado aberto, um cookie
+    apanhado — martelava a password ACTUAL sem limite nenhum, a 130 ms e 64 MB
+    de scrypt por palpite. Exigir a actual sem travar as tentativas é pedir a
+    chave e deixar experimentar à vontade.
     """
     from . import senha as _senha
     row = con.execute("SELECT hash FROM user_senha WHERE user_id = ?",
                       (int(user_id),)).fetchone()
     if row is None:
         raise SemConta("esta conta ainda não tem password definida.")
-    if not _senha.confere(row["hash"], str(atual or "")):
+    # O do sítio ANTES do scrypt (é o que protege o CPU); o da conta depois, e
+    # só se a actual sair errada — a mesma ordem da `entrar`, e pela mesma
+    # razão: com ele à frente, quem soubesse o nome de um amigo impedia-o de
+    # trocar a password dele.
+    travao_do_sitio(con, chave)
+    with _uma_vaga():
+        certa = _senha.confere(row["hash"], str(atual or ""))
+    if not certa:
+        registar_tentativa(con, chave or "?", "senha", False, int(user_id))
+        travao_da_conta(con, int(user_id), ja_registada=True)
         raise SenhaErrada("a password actual não está certa.")
     if str(nova or "") == str(atual or ""):
         raise _senha.SenhaFraca(
@@ -978,6 +1151,9 @@ def comecar(con: sqlite3.Connection, nome: str, *, redirect_uri: str,
     """
     p = provedor(nome)
     p.exigir_configurado(cfg)
+    # Um fluxo abandonado deixa uma linha na `auth_pedidos` que mais ninguém
+    # vai buscar; varre-se aqui, que é onde ela nasce. Ver `limpar`.
+    limpar(con)
     verifier, desafio = par_pkce()
     state = secrets.token_urlsafe(BYTES)
     nonce = secrets.token_urlsafe(BYTES)
@@ -1117,6 +1293,9 @@ def criar_sessao(con: sqlite3.Connection, *, user_id: int | None = None,
     `user_id` a `None` com `identidade` preenchida é a sessão pré-registo: a
     pessoa já provou quem é e ainda não tem conta.
     """
+    # Uma entrada é o momento em que estas tabelas crescem, e é raro: varre-se
+    # aqui. Ver `limpar`.
+    limpar(con)
     sid = secrets.token_urlsafe(BYTES)
     csrf = secrets.token_urlsafe(BYTES)
     agora = _agora()
@@ -1216,9 +1395,58 @@ def terminar_todas(con: sqlite3.Connection, user_id: int) -> int:
 
 
 def limpar_expiradas(con: sqlite3.Connection) -> int:
+    """As sessões que já passaram do prazo. É o `ix_sessions_expira` a servir.
+
+    A `sessao()` apaga a linha de quem TENTA usar uma sessão expirada — mas uma
+    sessão que ninguém volta a tocar ficava na tabela para sempre, e uma pessoa
+    que entre do telemóvel, do portátil e do PC do trabalho deixa três linhas
+    mortas por mês. Não era um buraco; era lixo a crescer, e o índice para o
+    limpar já cá estava desde o primeiro dia. Ver `limpar`.
+    """
     cur = con.execute("DELETE FROM sessions WHERE expira_em < ?", (_agora(),))
     con.commit()
     return cur.rowcount
+
+
+def limpar_tentativas(con: sqlite3.Connection) -> int:
+    """As tentativas velhas. A janela do travão é uma hora; guardam-se 7 dias."""
+    limite = _mais(-TENTATIVAS_DIAS * 86400)
+    cur = con.execute("DELETE FROM auth_tentativas WHERE ts < ?", (limite,))
+    con.commit()
+    return cur.rowcount
+
+
+def limpar_convites(con: sqlite3.Connection) -> int:
+    """Os convites de ligação gastos, e os que passaram do prazo."""
+    limite = _mais(-CONVITE_MINUTOS * 60)
+    cur = con.execute(
+        "DELETE FROM auth_convites WHERE usado_em IS NOT NULL OR criado_em < ?",
+        (limite,))
+    con.commit()
+    return cur.rowcount
+
+
+def limpar(con: sqlite3.Connection) -> dict:
+    """Varre as quatro tabelas que CRESCEM. Devolve quantas linhas saíram.
+
+    AS QUATRO SÃO A MESMA AVARIA, por isso é uma função só: sessões expiradas,
+    pedidos de entrada abandonados, convites gastos e tentativas velhas. Nenhuma
+    delas era apagada em lado nenhum — o `limpar_expiradas` e o `limpar_pedidos`
+    existiam desde 2026-09-29 e **nunca eram chamados**.
+
+    ONDE CORRE, E PORQUE AQUI: no `criar_sessao` e no `comecar`, que são os dois
+    sítios onde estas tabelas crescem. São eventos RAROS (uma entrada por pessoa
+    por mês) e por isso o custo é nenhum; e põe um tecto que se prova — depois
+    de cada entrada não sobra uma única linha morta, logo a tabela nunca guarda
+    mais do que o que apodreceu desde a última entrada. Uma tarefa agendada
+    fazia o mesmo trabalho com mais peças e um sítio a mais para falhar.
+    """
+    return {
+        "sessoes": limpar_expiradas(con),
+        "pedidos": limpar_pedidos(con),
+        "convites": limpar_convites(con),
+        "tentativas": limpar_tentativas(con),
+    }
 
 
 # --------------------------------------------------------------------------

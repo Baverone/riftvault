@@ -93,6 +93,11 @@ def correr(raiz: Path, log=print) -> dict:
     acompanhado esconde-se atrás de um verde.
     """
     todos = ficheiros_de_teste(raiz)
+    # A impressao digital tira-se dos DOIS lados do ciclo (2026-10-01). A de
+    # baixo, sozinha, so apanhava «corri e depois emendei»; uma alteracao feita
+    # A MEIO deixava os ficheiros ja corridos a medir bytes antigos e o placar a
+    # dizer os novos — verde a descrever codigo que nunca correu inteiro.
+    antes = impressao_digital(raiz)
     maus: list[dict] = []
     testes = 0
     for f in todos:
@@ -113,11 +118,17 @@ def correr(raiz: Path, log=print) -> dict:
                          "razao": "não correu (sem «Ran N tests»)" if not m else "falhou",
                          "cauda": saida[-3000:]})
 
+    depois = impressao_digital(raiz)
     placar = {
         "quando": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "raiz": str(raiz),
         "head": _head(raiz),
-        "impressao_digital": impressao_digital(raiz),
+        # A do FIM e a que a `verde()` compara com o disco — e ela que apanha
+        # uma emenda feita depois da corrida. A do INICIO esta ca para se poder
+        # perguntar se o codigo se manteve o mesmo do principio ao fim.
+        "impressao_digital": depois,
+        "impressao_no_inicio": antes,
+        "mexeram_a_meio": antes != depois,
         "ficheiros": len(todos),
         "testes": testes,
         "a_falhar": len(maus),
@@ -125,6 +136,10 @@ def correr(raiz: Path, log=print) -> dict:
     }
     log(f"\nPLACAR: {placar['ficheiros']} ficheiros, {placar['testes']} testes, "
         f"{placar['a_falhar']} a falhar", flush=True)
+    if placar["mexeram_a_meio"]:
+        log("AVISO: o codigo mudou DURANTE a corrida — este placar nao vale "
+            f"({antes[:12]} no inicio, {depois[:12]} no fim). Volta a correr.",
+            flush=True)
     for m in maus:
         log(f"\n===== {m['ficheiro']} ({m['razao']})\n{m['cauda']}")
     return placar
@@ -179,12 +194,26 @@ def verde(raiz: Path) -> tuple[bool, str]:
       4. faltam ficheiros          — o placar mediu menos ficheiros do que os
                                      que estão em disco (um teste novo por
                                      correr, ou uma corrida interrompida);
-      5. há testes a falhar        — o placar diz.
+      5. o código mudou A MEIO     — a impressão do princípio não bate com a do
+                                     fim, portanto parte da suite correu contra
+                                     bytes que já não existem. É a que a de
+                                     cima não apanha, porque no fim já está
+                                     tudo coerente (2026-10-01);
+      6. há testes a falhar        — o placar diz.
     """
     p = ler(raiz)
     if p is None:
         return False, (f"VERMELHO: não há placar legível em {raiz / PLACAR}. "
                        f"Corre `py -X utf8 tools/portao.py suite`.")
+    if "impressao_no_inicio" not in p:
+        return False, ("VERMELHO: este placar é de antes de 01/10/2026 e não "
+                       "diz se o código se manteve o mesmo durante a corrida. "
+                       "Volta a correr a suite.")
+    if p.get("mexeram_a_meio") or p["impressao_no_inicio"] != p["impressao_digital"]:
+        return False, ("VERMELHO: o código mudou A MEIO da corrida "
+                       f"({str(p['impressao_no_inicio'])[:12]} no início, "
+                       f"{str(p['impressao_digital'])[:12]} no fim). Parte da "
+                       "suite mediu bytes que já não existem — volta a correr.")
     agora = impressao_digital(raiz)
     if p["impressao_digital"] != agora:
         return False, ("VERMELHO: o código mudou depois de a suite ter corrido "
