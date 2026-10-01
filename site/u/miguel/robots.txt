@@ -1,0 +1,4 @@
+# Enquanto as contas do riftvault não estiverem abertas ao público,
+# nada daqui se indexa. Ver docs/abrir-a-porta.md.
+User-agent: *
+Disallow: /
