@@ -686,13 +686,19 @@ function renderConta() {
   if (!c.entrado) {
     const bts = (c.provedores || []).filter((p) => p.pronto).map((p) =>
       `<a class="btn ghost" href="entrar/${encodeURIComponent(p.nome)}">ou entrar com ${escapeHTML(p.etiqueta)}</a>`).join('');
-    // COM A PORTA FECHADA a caixa aparece na mesma (é onde ele trata da
-    // password dele antes de abrir), mas diz o que é verdade: os amigos ainda
-    // não entram, e ele não precisa de entrar para usar isto.
-    const nota = c.aberto ? ''
-      : `<small>As contas ainda não estão abertas — isto é para tratares da
-         TUA password. Enquanto estiver fechada não precisas de entrar para
-         usar o site, e os teus amigos ainda não conseguem.</small>`;
+    // A NOTA TEM DE DIZER A VERDADE NOS DOIS SÍTIOS (2026-10-01). A frase
+    // «enquanto estiver fechada não precisas de entrar» é verdade em casa e
+    // MENTIRA de fora: desde hoje a origem é que decide se é preciso entrar, e
+    // de fora é preciso sempre, com a porta aberta ou fechada.
+    let nota = '';
+    if (c.exige_entrar) {
+      nota = `<small>Estás a chegar de fora de casa. Daqui o riftvault pede
+         sempre que entres — mesmo para ver a coleção.</small>`;
+    } else if (!c.aberto) {
+      nota = `<small>As contas ainda não estão abertas — isto é para tratares da
+         TUA password. Em casa não precisas de entrar para usar o site, e os
+         teus amigos ainda não conseguem.</small>`;
+    }
     zona.innerHTML = `<div class="conta-cx">
       <b>Entrar</b>
       ${nota}
@@ -869,7 +875,17 @@ async function criarConta() {
  * um `riftvault sync` em falta tem de continuar a dizer o que é. */
 async function mostrarSeTrancado() {
   const c = await getJSON('api/conta.json').catch(() => null);
-  if (!c || !c.entrado || !c.senha_temporaria) return false;
+  if (!c) return false;
+  // DOIS MOTIVOS PARA O SITE ESTAR TRANCADO, e o ecrã é o mesmo:
+  //   * entrou com a temporária e tem de a trocar (2026-09-30);
+  //   * está FORA DE CASA e não entrou (2026-10-01) — de fora o servidor pede
+  //     sessão para tudo, leituras incluídas, e o `api/index.json` dá 401.
+  // Sem o segundo caso, quem abrisse o editar.baverone.com lia «Falhou a
+  // carregar: HTTP 401» em vez de ver a caixa de entrar — era o mesmo beco de
+  // 30/09 por outra porta.
+  const temporaria = c.entrado && c.senha_temporaria;
+  const temDeEntrar = !c.entrado && c.exige_entrar;
+  if (!temporaria && !temDeEntrar) return false;
   state.conta = c;
   renderConta();
   // A NAVEGAÇÃO FICA DE FORA, e é de propósito: as abas escondidas
@@ -882,11 +898,14 @@ async function mostrarSeTrancado() {
   // `hidden` (o `boot()` não chegou à parte que abre uma), e uma frase dentro
   // de uma secção escondida é uma frase que ninguém lê — ficava um ecrã preto
   // ao lado do formulário, que é o que a fotografia mostrou.
-  $('#pg-titulo').textContent = 'Escolhe uma password';
-  $('#pg-sub').textContent = 'O site fica à espera até escolheres uma password '
-    + 'tua — a temporária serve para isso e mais nada. O formulário está na '
-    + 'barra do lado.';
-  $('#topbar-tit').textContent = 'Escolhe uma password';
+  const tit = temporaria ? 'Escolhe uma password' : 'Entra para ver a tua coleção';
+  $('#pg-titulo').textContent = tit;
+  $('#pg-sub').textContent = temporaria
+    ? 'O site fica à espera até escolheres uma password tua — a temporária '
+      + 'serve para isso e mais nada. O formulário está na barra do lado.'
+    : 'Estás a chegar de fora de casa, e daqui pede-se sempre que entres — '
+      + 'mesmo para ver. O formulário está na barra do lado.';
+  $('#topbar-tit').textContent = tit;
   return true;
 }
 
