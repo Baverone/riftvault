@@ -745,14 +745,24 @@ class TestOTravao(Base):
             with self.assertRaises(self.auth.TemDeEsperar) as ctx:
                 self.auth.entrar(con, "miguel", "errada", chave="1.1.1.1")
             self.assertIn("nesta conta", str(ctx.exception))
-            # e trava a password CERTA também — senão o travão não travava nada
-            with self.assertRaises(self.auth.TemDeEsperar):
-                self.auth.entrar(con, "miguel", SENTINELA, chave="1.1.1.1")
+            # ... e a password CERTA entra, SEMPRE. Esta linha dizia o
+            # contrário («senão o travão não travava nada») até 2026-10-01, e
+            # era um defeito: com os nomes das contas publicados em
+            # `api/lista.json`, qualquer pessoa trancava um amigo de fora. Quem
+            # está a adivinhar não ganha nada com a excepção — não tem a
+            # password; ver «TRANCA-O-AMIGO» no `auth.py` e
+            # `tests/test_fechaduras.py`.
+            self.auth.entrar(con, "miguel", SENTINELA, chave="1.1.1.1")
         finally:
             con.close()
 
     def test_muitos_enderecos_nao_libertam_a_conta(self):
-        """É a razão de o travão contar por CONTA e não só por endereço."""
+        """É a razão de o travão contar por CONTA e não só por endereço.
+
+        Continua a contar — o que mudou a 2026-10-01 é QUANDO: depois de a
+        password sair errada, e não à frente da porta. Quem anda a adivinhar de
+        vinte endereços leva a mesma espera; quem sabe a password entra.
+        """
         self.com_senha("miguel", SENTINELA)
         con = self.auth.abrir()
         try:
@@ -763,7 +773,8 @@ class TestOTravao(Base):
                 except self.auth.ErroDeAutenticacao:
                     pass
             with self.assertRaises(self.auth.TemDeEsperar):
-                self.auth.entrar(con, "miguel", SENTINELA, chave="10.0.0.99")
+                self.auth.entrar(con, "miguel", "mais-um-palpite",
+                                 chave="10.0.0.99")
         finally:
             con.close()
 
@@ -798,18 +809,25 @@ class TestOTravao(Base):
         for _ in range(6):
             c.post("/api/conta/entrar",
                    json={"nome": "miguel", "senha": "errada"})
+        # Mais um PALPITE: a password certa passa a entrar (2026-10-01).
         r = c.post("/api/conta/entrar",
-                   json={"nome": "miguel", "senha": SENTINELA})
+                   json={"nome": "miguel", "senha": "outro-palpite"})
         self.assertEqual(r.status_code, 429)
         self.assertIn("Espera", r.get_json()["erro"])
 
     def test_o_travao_corre_ANTES_do_scrypt(self):
         """Verificar primeiro fazia cada tentativa custar 130 ms — era isso que
-        punha o PC dele de joelhos."""
+        punha o PC dele de joelhos.
+
+        Desde 2026-10-01 são DOIS travões e só um está à frente do scrypt: o do
+        SÍTIO, que é o que protege o CPU e que só pode ser enchido por quem está
+        a tentar. O da CONTA corre depois — ver `tests/test_fechaduras.py`.
+        """
         fonte = (REPO / "riftvault" / "auth.py").read_text(encoding="utf-8")
-        corpo = fonte.split("def entrar(")[1].split("\ndef ")[0]
-        self.assertLess(corpo.index("travao(con"), corpo.index("confere("),
-                        "o travão tem de correr antes do scrypt")
+        corpo = fonte.split("\ndef entrar(")[1].split("\ndef ")[0]
+        self.assertLess(corpo.index("travao_do_sitio(con"),
+                        corpo.index("confere("),
+                        "o travão do sítio tem de correr antes do scrypt")
 
     def test_nao_ha_bloqueio_para_sempre(self):
         """Um bloqueio permanente dava a um estranho a maneira de tirar o
@@ -828,6 +846,7 @@ class TestOTravao(Base):
         self.assertEqual(a.get_json()["erro"], b.get_json()["erro"])
 
     def test_uma_troca_de_password_falhada_conta_como_falha(self):
+        """E desde 2026-10-01 TRAVA também — ver `tests/test_fechaduras.py`."""
         c = self.cliente(aberto=True)
         self.com_senha("miguel", SENTINELA)
         csrf = self.entrar(c, "miguel", SENTINELA)
@@ -838,7 +857,10 @@ class TestOTravao(Base):
         con = self.auth.abrir()
         try:
             with self.assertRaises(self.auth.TemDeEsperar):
-                self.auth.entrar(con, "miguel", SENTINELA, chave="1.1.1.1")
+                self.auth.entrar(con, "miguel", "um-palpite", chave="1.1.1.1")
+            # E a password dela continua a entrar: falhar a troca não pode ser
+            # a maneira de alguém se trancar a si mesmo de fora.
+            self.auth.entrar(con, "miguel", SENTINELA, chave="1.1.1.1")
         finally:
             con.close()
 

@@ -826,8 +826,10 @@ def entrar_com_senha():
 
     PROTECÇÕES, e cada uma tem uma razão:
 
-    * **o travão de tentativas** (`auth.travao`), antes de gastar 130 ms de
-      scrypt — ver o comentário dele no `auth.py`;
+    * **o travão de tentativas** — o do SÍTIO antes de gastar 130 ms de scrypt,
+      o da CONTA só depois de a password sair errada. Ver «TRANCA-O-AMIGO» no
+      `auth.py`: com o da conta à frente, quem soubesse o nome de um amigo
+      trancava-o de fora;
     * **exige JSON**. Um `<form>` de outro site não consegue mandar
       `Content-Type: application/json`: o browser obriga a um pedido prévio de
       permissão (CORS preflight) que nós não respondemos. É o que impede o
@@ -858,6 +860,10 @@ def entrar_com_senha():
                            chave=_chave_do_pedido())
     except auth.TemDeEsperar as e:
         return _resposta(str(e), 429)
+    except auth.ServidorOcupado as e:
+        # 503 e NÃO 401: isto não é uma password errada, e dizer-lhe que era
+        # mandava-o trocar uma password que está certa. Ver `VAGAS_DE_SCRYPT`.
+        return _resposta(str(e), 503)
     except auth.ErroDeAutenticacao as e:
         return _resposta(str(e), 401)
 
@@ -888,13 +894,21 @@ def mudar_senha():
     dados = request.get_json(silent=True) or {}
     con = _auth_con()
     try:
+        # O `chave` é o que liga esta rota ao TRAVÃO, e era o que faltava
+        # (defeito de 2026-10-01): a falha era registada e nunca travada, por
+        # isso quem tivesse uma sessão martelava a password actual sem limite —
+        # e cada palpite custava 130 ms e 64 MiB. A política vive toda no
+        # `auth.mudar_senha`, com o registo da falha incluído, para não haver
+        # duas versões dela.
         auth.mudar_senha(con, uid, dados.get("atual") or "",
                          dados.get("nova") or "",
-                         slug=u.get("slug") or "", nome=u.get("nome") or "")
+                         slug=u.get("slug") or "", nome=u.get("nome") or "",
+                         chave=_chave_do_pedido())
+    except auth.TemDeEsperar as e:
+        return _resposta(str(e), 429)
+    except auth.ServidorOcupado as e:
+        return _resposta(str(e), 503)
     except auth.SenhaErrada as e:
-        # Conta como falha, senão o travão não valia para quem entrasse num
-        # computador alheio e ficasse a tentar a password actual à sorte.
-        auth.registar_tentativa(con, _chave_do_pedido(), "senha", False, uid)
         return _resposta(str(e), 403)
     except senha_mod.SenhaFraca as e:
         return _resposta(str(e), 400)
