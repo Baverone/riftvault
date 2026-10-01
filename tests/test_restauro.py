@@ -223,9 +223,19 @@ class TestPacoteNaContaErrada(Base):
         """
         p = conta.exportar("miguel")["ficheiro"]
         conta.apagar("miguel", confirmar=True, com_backup=False)
-        # o id dela fica com outra pessoa
-        outra = utilizador.criar("Rafa", "rafa")
-        self.assertEqual(outra["user_id"], self.uid_b)
+        # O id dela fica com outra pessoa. Escreve-se o id à mão porque a
+        # `users` é AUTOINCREMENT e um utilizador novo nunca reaproveita um id
+        # apagado — o cenário a sério é uma instalação onde os ids foram
+        # semeados por outra ordem.
+        mestre = utilizador.abrir_registo()
+        try:
+            mestre.execute(
+                "INSERT INTO users (user_id, nome, slug, criado_em, publico) "
+                "VALUES (?,?,?,?,'nada')",
+                (self.uid_b, "Rafa", "rafa", "2026-01-01T00:00:00+00:00"))
+        finally:
+            mestre.close()
+        self.assertEqual(utilizador.por_slug("rafa")["user_id"], self.uid_b)
         with self.assertRaises(utilizador.DonoErrado):
             conta.importar(p, confirmar=True)
         r = conta.importar(p, confirmar=True, adoptar=True)
@@ -409,7 +419,19 @@ class TestRestaurarORegisto(Base):
 class TestApagarEOsPacotes(Base):
 
     def tres_pacotes(self) -> list[Path]:
-        return [conta.exportar("miguel")["ficheiro"] for _ in range(2)]
+        """Dois pacotes de datas DIFERENTES, com o nome escrito à mão.
+
+        O nome leva o `%Y%m%d-%H%M%S` e dois exports no mesmo segundo dão o
+        mesmo ficheiro — o que faz o teste medir um pacote em vez de dois. As
+        datas escrevem-se aqui para o cenário ser o que se diz.
+        """
+        fora = []
+        for n, quando in enumerate(("20260101-000001", "20260102-000002")):
+            alvo = self.backups / f"conta-miguel-{quando}.zip"
+            alvo.parent.mkdir(parents=True, exist_ok=True)
+            fora.append(conta.exportar("miguel", destino=alvo)["ficheiro"])
+            self.assertEqual(fora[n], alvo)
+        return fora
 
     def test_apagar_DIZ_onde_ficaram_os_pacotes(self):
         antigos = self.tres_pacotes()

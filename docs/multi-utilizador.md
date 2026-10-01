@@ -390,9 +390,11 @@ A migração desta corrida já deixou `vault-antes-do-multi-utilizador-*.db` em
 dezasseis `DELETE` que é preciso lembrar de escrever todos. O utilizador 1 não
 se apaga por aqui.
 
-O que **falta** e é dele decidir: se apagar guarda uma cópia primeiro e por
-quanto tempo; e que os backups (acima) têm de ser apagados também, senão
-«apaguei a minha conta» é falso.
+O que **falta** e é dele decidir: por quanto tempo é que a cópia fica. O resto
+foi respondido a 2026-10-01 (ver «O que o restauro não pode fazer», na secção
+4): o `conta.apagar` guarda uma cópia primeiro, **diz** quais as cópias dela que
+ficam em disco — senão «apaguei a minha conta» era falso e calado — e
+`--levar-copias` leva-as também.
 
 ### Se o PC estiver desligado
 
@@ -550,8 +552,9 @@ Mas o modelo novo tem o SEU esquecimento, e são **quatro** as guardas:
 outros."*
 
     conta.exportar(slug, destino=None)        -> um .zip
-    conta.importar(ficheiro, confirmar=True)
-    conta.apagar(slug, confirmar=True)
+    conta.importar(ficheiro, confirmar=True, adoptar=False)
+    conta.apagar(slug, confirmar=True, levar_copias=False)
+    conta.copias_de(slug)                     -> o que fica dela em disco
 
 O que torna isto barato é o ficheiro por pessoa: exportar é empacotar o
 ficheiro dela, importar é pô-lo de volta, apagar é apagar a pasta e a linha do
@@ -565,6 +568,39 @@ catálogo nem os preços**: são partilhados e não são de ninguém.
 
 **O utilizador 1 não se apaga por aqui** — é na base dele que vive a tabela
 `users`. Apagá-lo não apagava uma conta, apagava o serviço.
+
+### O que o restauro não pode fazer (2026-10-01)
+
+Três buracos no caminho que só se usa no pior dia, os três com teste que falha
+no código de antes:
+
+1. **UM PACOTE SÓ ENTRA NA CONTA DELE.** O `importar` validava o pacote contra o
+   `user_id` do manifesto e a seguir adoptava o id do slug que já existia no
+   registo, **sem os comparar**: um pacote de `miguel` exportado de outra
+   instalação (onde o `miguel` é o 7) aterrava na base do `miguel` desta (que é
+   o 2). Hoje compara e **recusa** (`conta.DonoTrocado`, da família do
+   `DonoErrado`), antes de escrever um byte. O caso legítimo — restaurar para
+   uma instalação em que os ids foram semeados por outra ordem — tem uma porta
+   explícita, `adoptar=True` (`--adoptar`), que **recarimba a base inteira** para
+   o id de destino: deixar entrar sem recarimbar dava uma conta que não abria
+   mais, que é pior do que uma recusa.
+2. **UM RESTAURO NUNCA ALARGA A PRIVACIDADE.** A escolha vive no registo, que é
+   um ficheiro; quem o restaurar de uma cópia fica com as escolhas do dia da
+   cópia, e quem tivesse fechado a coleção entretanto voltava a público — com o
+   site a regenerar-se de 30 em 30 minutos. A regra é «**só se alarga por um
+   `privacidade.definir()` explícito; qualquer outro caminho só pode fechar**»,
+   e os dois testemunhos são o registo e a cópia dentro do `vault.db` (que já
+   existia e agora se LÊ). Está por extenso no topo do `privacidade.py`.
+   O lado mau do erro é fechar o que estava aberto: desfaz-se com um clique, ao
+   contrário de publicar o que estava fechado.
+3. **APAGAR UMA CONTA DIZ O QUE FICA.** Os `.zip` de cada export e os
+   `antes-de-importar-*.db` de cada restauro têm a coleção inteira dela e
+   **ficam** — é a única maneira de desfazer um apagar feito por engano, e é a
+   mesma razão por que o `apagar` exporta antes. O que não podem é ficar
+   calados: vão no `copias` do resultado, a mensagem da confirmação conta-os, e
+   `levar_copias=True` (`--levar-copias`) apaga-os para quem pede «apaga os meus
+   dados» e quer dizer todos. **Responde à pergunta que estava aberta em «Apagar
+   a conta a pedido»**, acima, menos a parte do «por quanto tempo», que é dele.
 
 ## 5. A IDENTIDADE É EMPRESTADA — decisão, não implementação
 

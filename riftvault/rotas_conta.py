@@ -1043,6 +1043,12 @@ def apagar():
 
     resp = jsonify({"ok": True, "linhas": r.get("linhas"),
                     "ficheiros": [str(f) for f in (r.get("ficheiros") or [])],
+                    # O QUE FICA DELA EM DISCO (2026-10-01): os pacotes de cada
+                    # export têm a coleção inteira lá dentro e ficam — é a única
+                    # maneira de desfazer um apagar feito por engano. Dizem-se,
+                    # porque é a casa DELE e quem pediu para apagar tem de saber
+                    # que elas existem e a quem pedir para as tirar.
+                    "copias": [str(p) for p in (r.get("copias") or [])],
                     "identidades": meu["identidades"], "sessoes": meu["sessoes"]})
     resp.delete_cookie(auth.COOKIE, path="/")
     return resp
