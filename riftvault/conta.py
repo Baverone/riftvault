@@ -47,6 +47,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import shutil
 import sqlite3
 import tempfile
@@ -54,7 +55,7 @@ import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
-from . import config, db, guarda, utilizador
+from . import config, db, guarda, privacidade, utilizador
 
 #: A versão do formato. Um pacote de uma versão que não conhecemos recusa-se a
 #: entrar, em vez de ser lido a metade.
@@ -64,6 +65,16 @@ NOME_MANIFESTO = "manifesto.json"
 NOME_VAULT = "vault.db"
 NOME_CONFIG = "riftvault_config.json"
 PASTA_DECKS = "decks"
+
+#: COMO SE CHAMA UM PACOTE, e lê-se pela mesma regra que o escreve (ver o
+#: `exportar` e o `copias_de`). É exacta de propósito: um `conta-miguel-*`
+#: cego também casa com o `conta-miguel-2-…`, que é de OUTRA PESSOA. O rabo é
+#: o `%Y%m%d-%H%M%S` do nome, e é ele que diz onde é que o slug acaba.
+NOME_DE_PACOTE = re.compile(r"^conta-(?P<slug>.+)-\d{8}-\d{6}\.zip$")
+#: O `.db` que o `importar` deixa com a coleção inteira dela, antes de escrever
+#: por cima. Conta como cópia dela tanto quanto um pacote.
+NOME_DE_ANTERIOR = re.compile(
+    r"^antes-de-importar-(?P<slug>.+)-\d{8}-\d{6}\.db$")
 
 
 class PrecisaConfirmar(RuntimeError):
@@ -80,6 +91,20 @@ class PacoteInvalido(ValueError):
 
 class NaoSeApaga(RuntimeError):
     """O utilizador 1 não se apaga por aqui — ver o `apagar()`."""
+
+
+class DonoTrocado(utilizador.DonoErrado):
+    """O pacote é de um `user_id` e a conta de destino é de outro (2026-10-01).
+
+    É a mesma família do `DonoErrado` — «este ficheiro não é desta pessoa» — e
+    por isso quem já apanha um apanha os dois. O que é diferente é a causa: ali
+    o pacote é incoerente consigo mesmo; aqui é coerente, mas a conta deste
+    registo que tem aquele slug tem outro id. Dois pacotes com o mesmo slug e
+    ids diferentes — duas instalações, ou um ficheiro renomeado — e sem esta
+    recusa a coleção de uma pessoa aterrava por cima da de outra.
+
+    Há uma porta explícita para o caso legítimo: `importar(..., adoptar=True)`.
+    """
 
 
 def _agora() -> str:
@@ -188,6 +213,44 @@ def _so_deste_dono(con: sqlite3.Connection, user_id: int) -> None:
             ". Não se escreveu nada: é um backup de outra pessoa.")
 
 
+def _dono_do_id(user_id: int) -> str | None:
+    """O slug de quem tem este id hoje, ou `None` se estiver livre.
+
+    Pergunta-se ANTES de escrever a linha de uma conta recriada: insistir no
+    `INSERT` e apanhar o `IntegrityError` já era escrever primeiro e pensar
+    depois — e a escrita que vinha a seguir era a que punha a coleção na conta
+    errada.
+    """
+    try:
+        return utilizador.registo(int(user_id))["slug"]
+    except utilizador.UtilizadorDesconhecido:
+        return None
+
+
+def copias_de(slug: str) -> list[Path]:
+    """Os pacotes e os `.db` de uma pessoa que estão em `data/backups/`.
+
+    LÊ-SE PELA MESMA REGRA QUE OS ESCREVE (`NOME_DE_PACOTE`,
+    `NOME_DE_ANTERIOR`), e o slug compara-se INTEIRO. Um `glob("conta-miguel-*")`
+    também apanhava o `conta-miguel-2-…`, que é de outra pessoa — apagar o
+    backup de quem não pediu nada era o pior que esta função podia fazer.
+    """
+    pasta = config.DATA_DIR / "backups"
+    if not pasta.is_dir():
+        return []
+    s = (slug or "").strip().lower()
+    fora = []
+    for p in sorted(pasta.iterdir()):
+        if not p.is_file():
+            continue
+        for regra in (NOME_DE_PACOTE, NOME_DE_ANTERIOR):
+            m = regra.match(p.name)
+            if m and m.group("slug").lower() == s:
+                fora.append(p)
+                break
+    return fora
+
+
 def _linhas(con: sqlite3.Connection) -> dict[str, int]:
     """Quantas linhas tem cada tabela de dono. É o que se diz a quem apaga."""
     fora = {}
@@ -279,7 +342,40 @@ def ler_manifesto(ficheiro: Path | str) -> dict:
     return m
 
 
-def importar(ficheiro: Path | str, confirmar: bool = False) -> dict:
+def _readoptar(con: sqlite3.Connection, de_uid: int, para_uid: int) -> int:
+    """Recarimba uma base inteira de um `user_id` para outro. Devolve as linhas.
+
+    É o que torna o `adoptar` honesto: deixar entrar um pacote de outro id sem
+    lhe mexer no carimbo dava uma conta **que não abria** — o
+    `utilizador.guardar` vê a `users` de dentro a dizer outro dono e rebenta,
+    para sempre. Um import que «corre bem» e deixa a coleção inutilizável é
+    pior do que uma recusa.
+
+    A LINHA DO DONO MUDA DE ID em vez de ser apagada, e não é indiferente: as
+    tabelas de dono declaram `REFERENCES users(user_id)` e o `db.connect` abre
+    com `foreign_keys=ON`. Sem pai nenhum, a primeira migração que reescreva uma
+    tabela (o `_tirar_o_tecto_do_foil` reconstrói a `copies`) rebentava na chave
+    estrangeira. O nome e o slug que ficam aqui são os do pacote e duram um
+    instante: o `db._carimbar_dono` reescreve-os a partir do REGISTO, que é quem
+    manda neles — uma verdade só.
+    """
+    n = 0
+    for t in db.TABELAS_DE_DONO:
+        try:
+            cur = con.execute(
+                f"UPDATE {t} SET user_id = ? WHERE user_id = ? OR "  # noqa: S608
+                f"user_id IS NULL", (para_uid, de_uid))
+        except sqlite3.OperationalError:
+            continue
+        n += cur.rowcount or 0
+    con.execute("DELETE FROM users WHERE user_id = ?", (para_uid,))
+    con.execute("UPDATE users SET user_id = ? WHERE user_id = ?",
+                (para_uid, de_uid))
+    return n
+
+
+def importar(ficheiro: Path | str, confirmar: bool = False,
+             adoptar: bool = False) -> dict:
     """Põe um utilizador de volta a partir de um `.zip`. Não toca nos outros.
 
     **ESCREVE POR CIMA DA BASE DELE**, por isso exige `confirmar=True` e faz
@@ -292,8 +388,28 @@ def importar(ficheiro: Path | str, confirmar: bool = False) -> dict:
       3. **não tem linhas de outro dono** — é a mesma pergunta do
          `utilizador.guardar`, feita antes de o ficheiro ir para a pasta de
          alguém. É isto que impede restaurar o backup do A por cima do B;
-      4. o sha256 bate com o manifesto.
+      4. o sha256 bate com o manifesto;
+      5. **o `user_id` do pacote é o da conta que vai receber** — ver a seguir.
     Só depois é que se mexe em disco, e o que se mexe é **uma pasta só**.
+
+    O PONTO 5 É DE 2026-10-01, e era um buraco calado. O pacote validava-se
+    contra o id do MANIFESTO e logo a seguir adoptava-se o id do slug que já
+    existia no registo, sem os comparar: um pacote de `miguel` exportado de
+    outra instalação (onde o `miguel` é o 7) aterrava na base do `miguel` desta
+    (que é o 2). Com sorte dava uma conta que não abria mais; sem sorte, era a
+    coleção de uma pessoa por cima da de outra. O backup limitava o estrago; o
+    certo é RECUSAR.
+
+    `adoptar=True` É A PORTA EXPLÍCITA do caso legítimo: restaurar para uma
+    instalação em que os ids foram semeados por outra ordem (ou uma conta cujo
+    id entretanto foi dado a outra pessoa). Aí recarimba-se a base inteira para
+    o id de destino — ver o `_readoptar` — e o resultado diz `adoptado`.
+
+    A PRIVACIDADE NÃO VEM DO PACOTE, e isto é um backup como outro qualquer
+    (2026-10-01, ver `privacidade.py`): a base restaurada fica a dizer o que o
+    REGISTO diz hoje, porque o registo não foi restaurado e é ele o testemunho
+    vivo. **Uma conta RECRIADA de um pacote volta em «nada»** — foi apagada, não
+    há consentimento vivo nenhum, e quem a quiser pública torna-a pública.
 
     Um utilizador que já não exista no registo é recriado a partir do
     manifesto (com o `user_id` dele, se estiver livre) — restaurar uma conta
@@ -339,32 +455,80 @@ def importar(ficheiro: Path | str, confirmar: bool = False) -> dict:
         finally:
             prova.close()
 
-        # Só a partir daqui é que se escreve.
+        # A CONTA DE DESTINO. A pergunta do ponto 5 faz-se TODA antes de se
+        # escrever a primeira coisa — incluindo a linha do registo de uma conta
+        # recriada, que já era uma escrita.
         reg = utilizador.por_slug(slug, obrigatorio=False)
-        if reg is None:
+        recriada = reg is None
+        if recriada:
+            tomado = _dono_do_id(uid)
+            if tomado and not adoptar:
+                raise DonoTrocado(
+                    f"este pacote é do utilizador {uid} («{slug}»), mas o id "
+                    f"{uid} é hoje de «{tomado}». A conta só pode voltar com um "
+                    f"id NOVO, e isso é uma adopção: repete com `adoptar=True` "
+                    f"(na consola, `--adoptar`) se é mesmo isso que queres. "
+                    f"Não se escreveu nada.")
             # Restaurar uma conta APAGADA é o caso normal de um restauro, não
             # uma excepção. Repõe-se com o `user_id` do manifesto se ele
             # estiver livre — assim as linhas carimbadas lá dentro continuam
             # a bater certo com o registo.
+            #
+            # A PRIVACIDADE NÃO VEM DO PACOTE: volta em «nada». Um pacote é um
+            # backup, e um backup não pode republicar o que foi apagado — não há
+            # consentimento vivo nenhum para uma conta que não existe (ver
+            # `privacidade.py`, «um restauro nunca alarga»).
             mestre = utilizador.abrir_registo()
             try:
-                mestre.execute(
-                    "INSERT INTO users (user_id, nome, slug, criado_em, publico) "
-                    "VALUES (?,?,?,?,?)",
-                    (uid, u.get("nome") or slug, slug,
-                     u.get("criado_em") or _agora(),
-                     u.get("publico") or "nada"))
-            except sqlite3.IntegrityError:
-                # o id já é de outra pessoa: entra com um id novo
-                mestre.execute(
-                    "INSERT INTO users (nome, slug, criado_em, publico) "
-                    "VALUES (?,?,?,?)",
-                    (u.get("nome") or slug, slug, u.get("criado_em") or _agora(),
-                     u.get("publico") or "nada"))
+                if tomado:
+                    mestre.execute(
+                        "INSERT INTO users (nome, slug, criado_em, publico) "
+                        "VALUES (?,?,?,?)",
+                        (u.get("nome") or slug, slug,
+                         u.get("criado_em") or _agora(), privacidade.OMISSAO))
+                else:
+                    mestre.execute(
+                        "INSERT INTO users (user_id, nome, slug, criado_em, "
+                        "publico) VALUES (?,?,?,?,?)",
+                        (uid, u.get("nome") or slug, slug,
+                         u.get("criado_em") or _agora(), privacidade.OMISSAO))
             finally:
                 mestre.close()
             reg = utilizador.por_slug(slug)
-        uid = reg["user_id"]
+        destino = int(reg["user_id"])
+        adoptado = None
+        if destino != uid:
+            if not adoptar:
+                raise DonoTrocado(
+                    f"este pacote é do utilizador {uid}, e a conta «{slug}» "
+                    f"deste registo é o utilizador {destino}. São duas pessoas "
+                    f"diferentes com o mesmo nome de endereço — duas "
+                    f"instalações, ou um ficheiro renomeado — e escrevê-lo aqui "
+                    f"punha a coleção de uma por cima da da outra. Não se "
+                    f"escreveu nada. Se é mesmo o mesmo dono (um restauro para "
+                    f"uma instalação com outros ids), repete com "
+                    f"`adoptar=True` (na consola, `--adoptar`).")
+            # RECARIMBAR, e não só deixar entrar: ver o `_readoptar`.
+            dono = db.abrir_vault(entrada, uid, readonly=True)
+            try:
+                _readoptar(dono, uid, destino)
+            finally:
+                dono.close()
+            prova = db.abrir_vault(entrada, destino, readonly=True)
+            try:
+                _so_deste_dono(prova, destino)      # o recarimbo funcionou?
+                linhas = _linhas(prova)
+            finally:
+                prova.close()
+            # O `-wal` da ligação que recarimbou não pode viajar com o ficheiro
+            # (o sha256 do manifesto já foi verificado em cima, contra o pacote
+            # tal como veio — é essa a comparação que interessa).
+            for sufixo in ("-wal", "-shm"):
+                sobra = entrada.with_name(entrada.name + sufixo)
+                if sobra.exists():
+                    sobra.unlink()
+            adoptado = {"de": uid, "para": destino}
+        uid = destino
 
         alvo = db.vault_de(uid)
         alvo.parent.mkdir(parents=True, exist_ok=True)
@@ -387,6 +551,13 @@ def importar(ficheiro: Path | str, confirmar: bool = False) -> dict:
             if velho.exists():
                 velho.unlink()
         shutil.copy2(entrada, alvo)
+        # A PRIVACIDADE É A DE HOJE, NÃO A DO PACOTE (2026-10-01). O que acabou
+        # de entrar traz a escolha do dia do export, e a base é um dos dois
+        # testemunhos dessa escolha (ver `privacidade.py`): deixá-la com um
+        # valor velho era pôr lá um «tudo» a contradizer o registo, ou um «nada»
+        # a fechar sozinho uma coleção aberta. Quem não foi restaurado foi o
+        # REGISTO — é ele o testemunho vivo, e é ele que se escreve.
+        privacidade.gravar_no_vault(uid, privacidade.no_registo(None, uid))
 
         cfg_dentro = tmp / NOME_CONFIG
         cfg_alvo = _config_de(slug)
@@ -398,8 +569,10 @@ def importar(ficheiro: Path | str, confirmar: bool = False) -> dict:
             decks_alvo.mkdir(parents=True, exist_ok=True)
             shutil.copy2(tmp / n, decks_alvo / Path(n).name)
 
-    return {"utilizador": reg, "linhas": linhas, "ficheiro": alvo,
-            "backup": anterior, "decks": len(decks),
+    return {"utilizador": utilizador.registo(uid), "linhas": linhas,
+            "ficheiro": alvo, "backup": anterior, "decks": len(decks),
+            "adoptado": adoptado, "recriada": recriada,
+            "publico": privacidade.de(None, uid),
             "config": cfg_alvo if (cfg_alvo.exists()) else None}
 
 
@@ -407,7 +580,8 @@ def importar(ficheiro: Path | str, confirmar: bool = False) -> dict:
 # APAGAR
 # ---------------------------------------------------------------------------
 
-def apagar(slug: str, confirmar: bool = False, com_backup: bool = True) -> dict:
+def apagar(slug: str, confirmar: bool = False, com_backup: bool = True,
+           levar_copias: bool = False) -> dict:
     """Apaga um utilizador e tudo o que é dele. Nada mais.
 
     O QUE SAI: a base dele (`data/users/<slug>/vault.db`), a pasta inteira
@@ -417,6 +591,21 @@ def apagar(slug: str, confirmar: bool = False, com_backup: bool = True) -> dict:
 
     **FAZ UM EXPORT ANTES**, por omissão, e diz onde ficou. Apagar uma conta é
     a operação que mais vezes se faz por engano, e a que menos se desfaz.
+
+    OS PACOTES DELA FICAM, E DIZEM-SE (2026-10-01). Em `data/backups/` ficam os
+    `.zip` de cada export e os `antes-de-importar-*.db` de cada restauro — a
+    coleção dela, inteira, tantas vezes quantas se exportou. **Não se apagam por
+    omissão**, e a razão é a mesma que faz esta função exportar antes de apagar:
+    é a única maneira de desfazer um apagar feito por engano, e deitá-la fora
+    calados fazia a rede de segurança desaparecer exactamente no minuto em que
+    é precisa. O que não se pode é ficar calado sobre elas — vão no `copias` do
+    resultado, e a mensagem da confirmação conta-as.
+
+    `levar_copias=True` apaga-as, e é a resposta a quem pede «apaga os meus
+    dados» e quer dizer todos. A ORDEM É EXPORTAR PRIMEIRO e limpar depois: com
+    `com_backup` ligado fica a cópia final e sai o histórico; com os dois ao
+    contrário não fica nada dela em disco. Limpar antes de exportar deixava-a
+    sem nada se o export falhasse.
 
     O UTILIZADOR 1 NÃO SE APAGA POR AQUI, e não é timidez: a tabela `users` —
     o registo de quem existe — vive na base dele. Apagá-la não apaga uma
@@ -446,14 +635,25 @@ def apagar(slug: str, confirmar: bool = False, com_backup: bool = True) -> dict:
         finally:
             con.close()
 
+    antigas = copias_de(reg["slug"])
     if not confirmar:
         raise PrecisaConfirmar(
             f"apagar «{reg['slug']}» tira {sum(linhas.values())} linhas em "
             f"{len([t for t, n in linhas.items() if n])} tabelas "
             f"({linhas.get('copies', 0)} em `copies`) e a pasta {pasta}. "
-            f"Chama com `confirmar=True`.")
+            + (f"Os {len(antigas)} backups dela em "
+               f"{config.DATA_DIR / 'backups'} FICAM (têm a coleção inteira lá "
+               f"dentro) — `levar_copias=True` leva-os também. " if antigas else
+               f"Não há backups dela em {config.DATA_DIR / 'backups'}. ")
+            + "Chama com `confirmar=True`.")
 
     backup = exportar(slug)["ficheiro"] if com_backup else None
+    if levar_copias:
+        # DEPOIS do export, nunca antes: se o export falhasse, limpar primeiro
+        # deixava-a sem nada. A cópia que acabámos de fazer não se leva.
+        for p in antigas:
+            if backup is None or p != Path(backup):
+                p.unlink(missing_ok=True)
     ficheiros = ([str(p.relative_to(pasta)) for p in sorted(pasta.rglob("*"))
                   if p.is_file()] if pasta.exists() else [])
     # A PRIMITIVA é do `utilizador.apagar` — apaga a pasta e a linha do
@@ -461,4 +661,6 @@ def apagar(slug: str, confirmar: bool = False, com_backup: bool = True) -> dict:
     utilizador.apagar(uid)
 
     return {"utilizador": reg, "linhas": linhas, "total": sum(linhas.values()),
-            "ficheiros": ficheiros, "pasta": pasta, "backup": backup}
+            "ficheiros": ficheiros, "pasta": pasta, "backup": backup,
+            # O QUE FICA DELA EM DISCO, dito em voz alta — ver a docstring.
+            "copias": [str(p) for p in copias_de(reg["slug"])]}

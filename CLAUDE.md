@@ -2811,6 +2811,15 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   dele em casa fica igual** (telemóvel na LAN, sem password). Medido contra o
   túnel a sério: **nove sinais**, cada um suficiente sozinho. Ver a última
   secção deste ficheiro e `docs/origem-do-pedido.md`.
+- **Feito também:** O RESTAURO (2026-10-01) — um pacote só entra na conta DELE
+  (`conta.DonoTrocado`, com a porta explícita `--adoptar`, que recarimba a base
+  para o id de destino: deixar entrar sem recarimbar dava uma conta que não
+  abria mais); **um restauro nunca ALARGA a privacidade** — dois testemunhos (o
+  registo e a cópia dentro do `vault.db`), o mais fechado ganha, e só o
+  `privacidade.definir` alarga; e apagar uma conta **diz** que pacotes dela
+  ficam em disco, com `--levar-copias` para os levar. Medido no `data/` real:
+  os quatro registos e as quatro bases dizem o mesmo, **zero** passam a ficar
+  mais fechados. Ver a última secção deste ficheiro.
 - **Por fazer:** a parte 2 do seguir — o separador no site e a tarefa diária;
   vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck,
   com as partilhadas assinaladas); e apagar decks pela interface (hoje apaga-se
@@ -9753,3 +9762,124 @@ vivia numa modificação por gravar, e um `git checkout` mudava-o sozinho), e
 **nenhuma conta de TESTE** no registo real (o `miguel` fica de fora dessa lista:
 é um amigo a sério e um nome de brincar nos testes ao mesmo tempo). A metade «há
 um utilizador só» morreu no dia em que ele criou as contas dos amigos.
+
+## 2026-10-01 — O RESTAURO: um pacote só entra na conta DELE, e um restauro nunca torna nada público (`conta.py`, `privacidade.py`)
+
+Três defeitos no caminho que só se usa no pior dia — aquele em que alguém está a
+restaurar alguma coisa com outra pessoa à espera. Ramo
+`ai-pc/restauro-2026-10-01`; o desenho está na secção 4 do
+`docs/multi-utilizador.md` e a regra da privacidade no topo do `privacidade.py`.
+
+**A ordem dos commits é a prova:** os testes entraram PRIMEIRO e falhavam **24
+de 35** no código de ontem; depois da cura passam os **40**.
+
+### 1. O pacote entrava na conta errada, em silêncio
+
+O `conta.importar` validava o pacote contra o `user_id` do **manifesto**
+(`_so_deste_dono`) e logo a seguir fazia `uid = reg["user_id"]` — **adoptava o id
+do slug que já existia no registo, sem o comparar com o que vinha no pacote** — e
+copiava. Um pacote de `miguel` exportado de outra instalação (onde o `miguel` é o
+7) aterrava na base do `miguel` desta (que é o 2): com sorte dava uma conta que
+**não abria mais** (o `utilizador.guardar` vê a `users` de dentro a dizer outro
+dono e rebenta, para sempre), sem sorte era a coleção de uma pessoa por cima da
+de outra. O backup limitava o estrago; o certo é **recusar**.
+
+Hoje compara e recusa com **`conta.DonoTrocado`** — subclasse do
+`utilizador.DonoErrado`, porque é a mesma família («este ficheiro não é desta
+pessoa») e quem já apanha um apanha os dois —, a dizer de quem é o pacote e para
+quem ia. **A pergunta faz-se TODA antes da primeira escrita**: o `INSERT` a
+apanhar o `IntegrityError` já era escrever primeiro e pensar depois
+(`_dono_do_id`).
+
+**A porta explícita do caso legítimo é `adoptar=True` (`--adoptar`)** — restaurar
+para uma instalação em que os ids foram semeados por outra ordem, ou uma conta
+cujo id entretanto foi dado a outra pessoa — e ela **RECARIMBA a base inteira**
+(`_readoptar`): deixar entrar sem recarimbar era o tal import que «corre bem» e
+deixa a conta inutilizável. A linha do dono **muda de id em vez de ser apagada**,
+e isso não é indiferente: as tabelas de dono declaram `REFERENCES
+users(user_id)` e o `db.connect` abre com `foreign_keys=ON` — sem pai nenhum, a
+primeira migração que reescreva uma tabela (o `_tirar_o_tecto_do_foil`
+reconstrói a `copies`) rebentava na chave estrangeira.
+
+### 2. Restaurar o registo republicava uma coleção fechada
+
+A privacidade vive no REGISTO, que é um ficheiro (`data/users/registo.db`) e
+**não há código que o restaure** — restaura-se copiando-o de uma cópia. Quem o
+fizesse ficava com as escolhas do DIA DA CÓPIA, e quem tivesse fechado a coleção
+entretanto **voltava a público**, com o site a regenerar-se de 30 em 30 minutos.
+Pior: o `db._carimbar_dono` copia o registo para dentro da base **em toda a
+ligação**, e por isso o primeiro `db.connect` apagava o único sítio onde a
+escolha de hoje ainda estava escrita — a cura durava um pedido.
+
+**A regra, numa frase: uma escolha só se ALARGA por um `privacidade.definir()`
+explícito; qualquer outro caminho só pode FECHAR.** São dois testemunhos — o
+registo e a cópia dentro de cada `vault.db`, que existia desde 29/09 (o
+`_carimbar_dono` escreve-a) e que agora **se LÊ**: é a única coisa que sobrevive
+a um restauro do registo, porque os dois ficheiros não se restauram juntos. O
+`de()` devolve o **mais fechado** dos dois (`mais_fechado`, que lê a escala da
+própria `VALORES` em vez de uma segunda tabela de números), o `reconciliar` cura
+o desacordo **nos dois lados** (senão ficava um `tudo` velho no registo à espera
+de que a base desaparecesse para voltar a valer), e o `importar` escreve na base
+restaurada o que o **registo diz hoje** — é ele o testemunho vivo, porque não foi
+ele que foi restaurado. **Uma conta RECRIADA de um pacote volta em «nada»**: foi
+apagada, não há consentimento vivo nenhum, e o pacote diz o que era no dia do
+export.
+
+**O lado mau do erro, escolhido de propósito:** um `vault.db` restaurado de uma
+cópia antiga pode fechar uma coleção que hoje está aberta — e isso desfaz-se com
+um clique. O contrário não se desfaz: uma página pública indexa-se e fica em
+cache em sítios que não controlamos. E o `no_vault` **não engole um «database is
+locked»** (`_ainda_nao_ha_coluna`): devolver `None` ali é dizer «este testemunho
+não diz nada», e sem o testemunho a escolha do registo passava sozinha, que é a
+direcção má.
+
+**MEDIDO no `data/` a sério** (`_revisao\_medir_restauro.py`, só leitura, contra
+cópias com o `-wal` e o `-shm`): os **quatro** registos e as **quatro** cópias
+dentro das bases dizem o mesmo — `baverone tudo`, `miguel tudo`, `rafael nada`,
+`goncalves tudo`. **ZERO passam a ficar mais fechados: a regra nova não muda o
+que se publica hoje, para ninguém.** Era a única maneira de esta ordem fazer
+estragos (o site dele regenera-se sozinho) e por isso mediu-se antes.
+
+### 3. Apagar uma conta deixava os pacotes dela para trás, calado
+
+Em `data/backups/` ficam os `.zip` de cada export e os
+`antes-de-importar-*.db` de cada restauro, **com a coleção inteira dela lá
+dentro**. **FICAM, de propósito:** é a única maneira de desfazer um apagar feito
+por engano, e é a mesma razão por que o `apagar` exporta antes de apagar —
+deitá-las fora calados fazia a rede de segurança desaparecer exactamente no
+minuto em que é precisa. O que não podem é ficar **caladas**: vão no `copias` do
+resultado, a mensagem da confirmação conta-as, a CLI escreve-as uma a uma e a
+rota `/api/conta/apagar` devolve-as. **`levar_copias=True` (`--levar-copias`)
+apaga-as**, para quem pede «apaga os meus dados» e quer dizer todos; a ordem é
+**exportar primeiro e limpar depois**, senão um export que falhasse deixava-a sem
+nada.
+
+**O nome de um pacote lê-se pela MESMA regra que o escreve** (`NOME_DE_PACOTE`,
+`NOME_DE_ANTERIOR`) e o slug compara-se **inteiro**: um `glob("conta-miguel-*")`
+cego também apanha o `conta-miguel-2-…`, que é de **outra pessoa** — apagar o
+backup de quem não pediu nada era o pior que esta função podia fazer. Há teste
+com os dois slugs.
+
+**Dois defeitos apanhados pelos próprios testes**, e nenhum pela leitura do
+código: o caminho na mensagem da confirmação era `pasta.parent / "backups"`, que
+dá a raiz do repo para ele e `data/users/backups` para os outros — **nenhum dos
+dois existe** —, e o cenário do «id tomado» não se produzia com um utilizador
+novo, porque a `users` é `AUTOINCREMENT` e nunca reaproveita um id apagado.
+
+**Medido e NÃO mudado:** dois exports no MESMO SEGUNDO dão o mesmo nome de
+ficheiro (o `%Y%m%d-%H%M%S`) e o segundo escreve por cima do primeiro, em
+silêncio. É de sempre, o conteúdo é o mesmo nesse segundo, e mudá-lo era mudar o
+formato do nome que o `copias_de` passou a ler. Fica anotado. **E o config
+continua GLOBAL** — um amigo herda as regras dele —, que é a limitação conhecida
+de 29/09 e não é desta ordem.
+
+`tests/test_restauro.py` (**40 testes**, contra pastas temporárias): o pacote de
+outro id recusado e **nada escrito** (nem o backup), a recusa a dizer os dois
+ids, o pacote dele próprio a entrar como sempre (a prova pela negativa), o
+`--adoptar` a entrar **e a base a ABRIR** com as linhas carimbadas no id novo, o
+id tomado; o restauro do registo ponta a ponta (uma cópia por cima da outra) a
+não republicar nada — nem depois de a base ser aberta —, o desacordo a curar-se,
+**abrir a coleção a continuar a funcionar** (sem isto, «nunca alarga» passava com
+um `de()` que devolvesse sempre «nada»), o restauro para mais fechado, o André
+intacto, a conta sem base ainda criada; e as cópias que ficam, as que saem, a que
+NÃO é dela, e as duas portas na consola.
