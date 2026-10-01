@@ -346,6 +346,14 @@ def texto(estado: dict | None = None, cfg: dict | None = None) -> str:
     linhas.append(f"A porta das contas está {porta}."
                   + (" (a correr em ENSAIO)" if est["ensaio"] else ""))
     linhas.append(f"Utilizadores: {est['utilizadores']}.")
+    # A PORTA NÃO MANDA NA AUTENTICAÇÃO (2026-10-01). Dizia-se aqui só se ela
+    # estava aberta ou fechada, e quem lesse isso concluía — como nós
+    # concluímos — que fechada queria dizer «sem autenticação». Diz-se as duas
+    # metades juntas, porque são as duas que ele precisa de ter na cabeça.
+    linhas.append("De fora de casa, entrar é sempre obrigatório — mesmo para "
+                  "ver, e com a porta fechada também.")
+    linhas.append("Em casa, escrever " + ("exige entrar." if est["aberto"]
+                                          else "não pede password."))
     linhas.append("")
     for p in est["passos"]:
         linhas.append(f"[{_MARCA[p['ok']]}] {p['nome']}: {p['diz']}")
@@ -453,7 +461,35 @@ def abrir(forcar: bool = False, cfg: dict | None = None) -> dict:
 
 
 def fechar(cfg: dict | None = None) -> dict:
-    """Volta a fechar. Ninguém perde nada — só deixa de se entrar."""
+    """Volta a fechar: as contas dos amigos deixam de valer.
+
+    **A DOCSTRING ANTIGA DIZIA «Ninguém perde nada — só deixa de se entrar», E
+    ERA FALSO DE UMA MANEIRA PERIGOSA** (corrigido a 2026-10-01). Até aqui
+    fechar DESLIGAVA A AUTENTICAÇÃO: o `rotas_conta._antes` deixava passar
+    qualquer escrita sem sessão e sem CSRF, e com o túnel vivo isso era escrita
+    anónima na coleção dele a partir da internet. Uma frase que descrevia a
+    porta como inofensiva, num sítio que a punha a abaixo.
+
+    O que fechar faz HOJE, e é tudo:
+
+      * o OAuth não anda e não se registam contas (`auth.exigir_porta_aberta`);
+      * o site publicado continua a ser só o dele;
+      * **em casa** volta a escrever-se sem password, que é o que ele quer.
+
+    O que fechar **nunca** fez, e convém não repetir a asneira ao contrário:
+    não impede quem já tem conta de entrar. A entrada por password não passa
+    pela porta desde 2026-09-30 — medido a 01/10, com a porta fechada um amigo
+    entra e usa a coleção DELE (a dele, não a do André: é o `get_con` a abrir o
+    ficheiro do dono da sessão).
+
+    O que fechar **NÃO** faz, e é a correcção: não mexe no que se exige a quem
+    vem de FORA. Quem chega pelo túnel precisa de sessão para tudo, com a porta
+    aberta ou fechada. Quem decide isso é a ORIGEM do pedido (`origem.py`), não
+    esta chave.
+
+    Nada se apaga: as contas, as passwords e as coleções ficam todas, e abrir
+    outra vez repõe o que era.
+    """
     from . import multi
     if not multi.aberto(cfg if cfg is not None else config.load()):
         return {"aberto": False, "mudou": False}

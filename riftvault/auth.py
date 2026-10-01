@@ -137,9 +137,15 @@ class PortaFechada(ErroDeAutenticacao):
 
     Trava o OAuth e o registo. **NÃO trava a entrada por password** desde
     2026-09-30, à tarde: ele tem de poder entrar para trocar a temporária antes
-    de abrir, e com a porta fechada a app não tem autenticação nenhuma — deixar
-    entrar não dá acesso a nada que não estivesse dado. Ver o topo do
-    `rotas_conta.py`.
+    de abrir.
+
+    A justificação original dizia «com a porta fechada a app não tem
+    autenticação nenhuma — deixar entrar não dá acesso a nada que não estivesse
+    dado». **Isso deixou de ser verdade a 2026-10-01**, e é bom que tenha
+    deixado: de fora de casa exige-se sessão para tudo, porta fechada incluída.
+    O que fica de pé é o essencial — entrar tem de funcionar sempre, senão não
+    há por onde trocar a password. Ver o topo do `rotas_conta.py` e
+    `docs/origem-do-pedido.md`.
     """
 
 
@@ -1233,10 +1239,15 @@ def csrf_valido(sess: dict | None, enviado: str | None) -> bool:
 
 
 def exigir_porta_aberta(cfg: dict | None = None) -> None:
-    """A porta manda em tudo o que é identidade. Fechada, ninguém entra.
+    """Fechada, não se entra POR UM FORNECEDOR nem se registam contas.
 
     É o `multi.aberto` da `1-multi-guardas`: uma leitura só, aqui, e não uma
     condição espalhada por cada rota.
+
+    **Não é «ninguém entra»**, como esta linha dizia: a entrada por PASSWORD
+    não passa por aqui desde 2026-09-30, e com a porta fechada quem já tem
+    conta entra e usa a sua coleção (medido a 2026-10-01). O que a porta trava
+    é o OAuth, o registo e a publicação das páginas dos outros.
     """
     from . import multi
     if not multi.aberto(cfg):

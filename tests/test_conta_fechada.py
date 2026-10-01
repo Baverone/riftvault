@@ -133,17 +133,27 @@ class TestNoServidorAEntradaAparece(Base):
         self.assertFalse(d["entrado"], "o ecrã 4 é o do `!c.entrado`")
 
         js = APP_JS.read_text(encoding="utf-8")
-        ecra = js.split("if (!c.entrado) {")[1][:1400]
+        ecra = js.split("if (!c.entrado) {")[1][:2400]
         for peca in ('id="en-nome"', 'id="en-senha"', 'id="en-ok"'):
             self.assertIn(peca, ecra, f"falta o {peca} na caixa de entrada")
 
     def test_com_a_porta_fechada_a_caixa_diz_que_as_contas_nao_estao_abertas(self):
-        """Aparece, mas não mente: os amigos ainda não entram."""
+        """Aparece, mas não mente: os amigos ainda não entram.
+
+        A 2026-10-01 passaram a ser TRÊS casos e não dois: de fora de casa é
+        preciso entrar, com a porta aberta ou fechada, e a frase antiga («não
+        precisas de entrar para usar o site») era mentira nesse caso. O que o
+        teste exige continua a ser o mesmo — que o texto distinga os estados em
+        vez de dizer um deles sempre.
+        """
         js = APP_JS.read_text(encoding="utf-8")
-        ecra = js.split("if (!c.entrado) {")[1][:1400]
-        self.assertIn("c.aberto ?", ecra,
+        ecra = js.split("if (!c.entrado) {")[1][:2400]
+        self.assertIn("c.exige_entrar", ecra,
+                      "de fora de casa a nota tem de dizer que é preciso entrar")
+        self.assertIn("!c.aberto", ecra,
                       "o ecrã 4 tem de distinguir as duas portas no TEXTO")
         self.assertIn("ainda não estão abertas", ecra)
+        self.assertIn("Em casa não precisas de entrar", ecra)
 
     def test_entrar_por_HTTP_com_a_porta_fechada(self):
         """A prova que interessa: a mesma chamada que o botão faz."""
@@ -376,7 +386,7 @@ class TestOSegundoBeco(Base):
         se via era um ecrã preto ao lado do formulário.
         """
         js = APP_JS.read_text(encoding="utf-8")
-        fn = js.split("async function mostrarSeTrancado()")[1][:1400]
+        fn = js.split("async function mostrarSeTrancado()")[1][:2400]
         self.assertIn("#pg-titulo", fn, "a frase tem de ir para o cabeçalho")
         # O QUE CONTA É O CÓDIGO, NÃO O COMENTÁRIO (2026-09-30). A primeira
         # versão deste teste procurava «#grid» no texto todo e apanhava a

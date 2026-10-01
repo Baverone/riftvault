@@ -20,30 +20,44 @@ PORQUE É QUE ISTO É SEGURO POR CONSTRUÇÃO, E NÃO POR DISCIPLINA
     user_id` que se pode esquecer, é um ficheiro que não se chega a abrir. As 20
     rotas de escrita herdam isto sem uma linha cada.
 
-A DECISÃO DA LAN, E O QUE A DECIDIU (2026-09-29)
-    Hoje o 8770 serve a rede de casa sem autenticação nenhuma, e está escrito
-    no CLAUDE.md que «é aceitável na LAN». Com coleções de amigos lá dentro
-    deixa de ser: o risco já não é só dele.
+QUEM MANDA NA AUTENTICAÇÃO É A ORIGEM, NÃO A PORTA (2026-10-01)
+    **Isto é a correcção de um defeito que expunha dados**, encontrado por duas
+    revisões independentes no mesmo sítio. Até aqui a regra era:
 
-    Podia-se pensar em confiar no endereço de quem pede — «se vem de casa, é
-    ele». **Não se pode, e a razão é concreta:** o túnel da Cloudflare corre
-    `cloudflared tunnel run --url http://localhost:8770`, ou seja **todo o
-    tráfego da internet chega ao Flask como `127.0.0.1`**. Uma regra que
-    confiasse no loopback dava a identidade do André a qualquer visitante. Por
-    isso **não há atalho por endereço, nem por loopback, nem por sub-rede** — em
-    sítio nenhum deste ficheiro se lê o `remote_addr` para decidir quem é
-    alguém.
+        porta FECHADA  ->  não há autenticação nenhuma
+        porta ABERTA   ->  a escrita exige sessão
 
-    O que fica, e é simples de dizer:
-      * porta FECHADA (`multi.aberto: false`, o de hoje): um dono só, sem
-        autenticação, tudo exactamente como ontem. Não há dados de terceiros
-        para proteger, e ele não fica fechado fora da sua própria app.
-      * porta ABERTA: toda a escrita precisa de sessão e de CSRF, ele incluído.
-        Entra uma vez com o Discord e a sessão dura 30 dias — é o mesmo que já
-        faz com o telemóvel.
-    E o `riftvault multi --verificar` **recusa abrir** enquanto a conta DELE não
-    estiver ligada a um fornecedor: assim nunca se abre a porta com ele do lado
-    de fora.
+    Com o túnel vivo, a primeira linha é «escrita anónima na coleção dele a
+    partir da internet». E não era um risco teórico: o `multi.aberto` vivia numa
+    modificação por gravar, e um `git checkout` do config fechava a porta — ou
+    seja, DESLIGAVA a autenticação — sozinho. Pior ainda, um pedido sem sessão
+    caía no `db.connect(user_id=None)` -> `utilizador.atual()` -> **o André**, e
+    por isso nenhuma leitura de fora passava pela privacidade dele.
+
+    A regra nova, em três linhas:
+
+      * **a PORTA** trava o OAuth, o registo e a publicação das páginas dos
+        outros, e devolve à casa o escrever-sem-password. É isso e mais nada —
+        **fechar deixou de desligar a autenticação**. (E nunca travou a entrada
+        por password: com ela fechada, quem já tem conta entra e usa a sua
+        coleção. É assim desde 2026-09-30 e foi medido a 01/10.)
+      * **a ORIGEM** diz se é preciso entrar. Um pedido que não seja
+        inequivocamente de casa (`origem.py`) exige sessão para **tudo**:
+        leitura e escrita, com a porta aberta ou fechada. Só passam a casca da
+        página e a porta de entrada (`DE_FORA_SEM_SESSAO`).
+      * **de casa** fica exactamente como estava: com a porta fechada escreve-se
+        sem password (o telemóvel na LAN, que ele usa todos os dias), e com a
+        porta aberta a escrita exige sessão e CSRF, ele incluído.
+
+    O «inequivocamente de casa» é um E de três condições e está explicado no
+    `origem.py`: endereço da rede local **e** nenhum cabeçalho de intermediário
+    **e** não pediu o anfitrião público. Forjar qualquer uma delas só pode
+    TIRAR confiança, nunca dá-la.
+
+    O QUE ISTO NÃO FAZ: não protege a LAN. Quem estiver na rede de casa com a
+    porta fechada continua a escrever na coleção dele sem password — é a decisão
+    dele, está no banner do `serve` («Sem palavra-passe: quem chegar ao URL pode
+    escrever na coleção») e não é desta correcção mudá-la.
 
 A PORTA NÃO É A FECHADURA DA ENTRADA (2026-09-30)
     Corrigido um BECO SEM SAÍDA. A porta fechada recusava também o
@@ -53,17 +67,7 @@ A PORTA NÃO É A FECHADURA DA ENTRADA (2026-09-30)
     abrir.
 
     A regra passou a ser esta: **entrar funciona sempre**, e a porta decide
-    apenas se a ESCRITA exige sessão. Com ela fechada a app continua a não ter
-    autenticação nenhuma — quem chega ao 8770 já escreve tudo —, por isso deixar
-    entrar não dá acesso a nada que não estivesse dado: dá o que faltava, que é
-    o sítio onde se troca a password.
-
-    O que a porta fechada continua a garantir, e é o que ele pediu:
-      * sem sessão, escrever não pede nada (o de ontem, ao byte);
-      * **com** sessão, o guarda da escrita corre inteiro — CSRF incluído. É
-        estritamente mais seguro do que ontem, não menos: hoje já é possível ele
-        criar a conta de um amigo com a porta fechada (`riftvault conta
-        --criar`), e sem isto esse amigo escrevia no config partilhado dele.
+    apenas se a ESCRITA **de casa** exige sessão.
 """
 
 from __future__ import annotations
@@ -73,9 +77,21 @@ from urllib.parse import urlsplit
 
 from flask import Blueprint, current_app, g, jsonify, redirect, request
 
-from . import auth, config
+from . import auth, config, origem
 
 bp = Blueprint("conta", __name__)
+
+
+class SemSessao(Exception):
+    """Pediram a base de alguém sem haver alguém. Ver `server.get_con`.
+
+    É a rede da `1-multi-guardas` («uma consulta sem dono deve rebentar») na
+    camada que importa: o `db.connect(user_id=None)` cai no utilizador 1, e por
+    isso um pedido de fora sem sessão abria a base DELE. O guarda do `_antes`
+    responde 401 antes de chegar aqui; isto é para uma rota futura que alguém
+    acrescente e se esqueça — em vez de servir a coleção dele, rebenta.
+    """
+
 
 #: Os métodos que mudam alguma coisa. Um `GET` nunca escreve nesta app.
 ESCREVE = frozenset({"POST", "PUT", "PATCH", "DELETE"})
@@ -92,6 +108,30 @@ DONO = 1
 #: com a razão em vez de um 401 que não explica nada.
 ABERTOS = ("/entrar", "/sair", "/api/conta.json", "/api/conta/entrar",
            "/api/conta/registar")
+
+#: O QUE SE SERVE A QUEM VEM DE FORA SEM SESSÃO — e é só isto (2026-10-01).
+#:
+#: A casca da página e a porta de entrada. Nem um payload de leitura, nem uma
+#: imagem: `editar.baverone.com` é a aplicação de EDIÇÃO, e quem não entrou não
+#: tem nada para ver aqui. As coleções que se podem ver sem entrar estão no site
+#: ESTÁTICO, que o `build.py` gera já filtrado pela privacidade de cada um — ver
+#: `_u_explica`.
+#:
+#: **É por isto que a privacidade fica respeitada sem uma linha de filtragem.**
+#: A alternativa era filtrar dezassete rotas de leitura, e uma esquecida era uma
+#: fuga; aqui não se serve nada, por isso não há nada para filtrar.
+#:
+#: A lista é LITERAL, e não «qualquer ficheiro que exista no `web/`»: um
+#: ficheiro novo naquela pasta não pode passar a ser público em silêncio. Há
+#: teste que compara as duas coisas e rebenta se alguém lá puser um quarto
+#: ficheiro sem decidir o que fazer com ele.
+DE_FORA_SEM_SESSAO = (
+    "/", "/index.html", "/app.js", "/style.css",   # a casca
+    "/sair", "/api/conta.json", "/api/conta/entrar", "/api/conta/registar",
+)
+
+#: Prefixos, a par da lista de cima: o `/entrar/<fornecedor>` e a volta dele.
+DE_FORA_PREFIXOS = ("/entrar/",)
 
 #: NÃO HÁ REGISTO ABERTO (2026-09-30). *"isto e uma coisa caseira, para usar
 #: entre amigos"* — as contas nascem de um comando dele:
@@ -164,6 +204,19 @@ def ligar(app) -> None:
     app.after_request(_depois)
     _apanhar_config_partilhado(app)
     _apanhar_corpo_grande(app)
+    _apanhar_sem_sessao(app)
+
+
+def _apanhar_sem_sessao(app) -> None:
+    """A `SemSessao` do `get_con()` vira 401 com a razão, e não um 500.
+
+    Não devia chegar aqui — o `_so_a_porta_de_entrada` responde antes. Se
+    chegar, é uma rota que escapou ao guarda, e o que se vê é «precisas de
+    entrar» em vez de uma página de erro com um traço da pilha.
+    """
+    @app.errorhandler(SemSessao)
+    def _traduzir(e):  # pragma: no cover - rede de segurança
+        return _resposta(str(e), 401)
 
 
 def _apanhar_config_partilhado(app) -> None:
@@ -199,11 +252,6 @@ def _apanhar_corpo_grande(app) -> None:
 
 def _cfg() -> dict:
     return config.load()
-
-
-def _porta_aberta() -> bool:
-    from . import multi
-    return multi.aberto(_cfg())
 
 
 def _auth_con():
@@ -265,7 +313,16 @@ def _antes():
     g.alvo_slug = None
     g.senha_temporaria = False
 
-    aberto = _porta_aberta()
+    cfg = _cfg()
+    from . import multi
+    aberto = multi.aberto(cfg)
+
+    # DE ONDE VEM ISTO (2026-10-01). Primeiro de tudo, porque é o que decide se
+    # é preciso entrar — e porque o `get_con()` do `server.py` lê o `de_casa`
+    # para se recusar a abrir a base de alguém sem haver alguém.
+    o = origem.do_pedido(request, cfg)
+    g.de_casa = o["de_casa"]
+    g.sinais_de_fora = o["sinais"]
 
     # A SESSÃO RESOLVE-SE NAS DUAS PORTAS (2026-09-30), e é o que tira o beco
     # descrito no topo: sem isto, quem entrasse com a password temporária com a
@@ -317,15 +374,46 @@ def _antes():
     if travado is not None:
         return travado
 
+    # DE FORA E SEM SESSÃO: só a casca e a porta de entrada (2026-10-01).
+    #
+    # Isto vem ANTES do ramo da escrita de propósito: vale para as LEITURAS
+    # também, e é o que fecha o segundo defeito — sem isto, um GET anónimo pelo
+    # túnel caía na base do utilizador 1 e servia a coleção dele sem a
+    # privacidade ser consultada uma única vez.
+    barrado = _so_a_porta_de_entrada()
+    if barrado is not None:
+        return barrado
+
     if request.method in ESCREVE:
-        # SEM SESSÃO E COM A PORTA FECHADA não se pede nada — é o de ontem, ao
-        # byte. **Com** sessão o guarda corre inteiro nas duas portas: quem
-        # entrou tem `csrf` e é dono do que escreve, e sem isto um amigo com
-        # conta criada antes de abrir escrevia no config partilhado dele.
-        if not aberto and g.sessao is None:
+        # DE CASA, SEM SESSÃO E COM A PORTA FECHADA não se pede nada — é o de
+        # ontem, ao byte, e é o telemóvel dele na rede de casa. O `g.de_casa`
+        # desta linha é o que já não deixa isto valer para a internet.
+        #
+        # **Com** sessão o guarda corre inteiro nas duas portas: quem entrou tem
+        # `csrf` e é dono do que escreve, e sem isto um amigo com conta criada
+        # antes de abrir escrevia no config partilhado dele.
+        if not aberto and g.sessao is None and g.de_casa:
             return None
         return _guardar_escrita()
     return None
+
+
+def _entrou() -> bool:
+    return bool(g.get("sessao") and g.sessao.get("user_id"))
+
+
+def _so_a_porta_de_entrada():
+    """Quem vem de fora sem sessão vê a página de entrada, e mais nada."""
+    if g.de_casa or _entrou():
+        return None
+    caminho = request.path
+    if caminho in DE_FORA_SEM_SESSAO or caminho.startswith(DE_FORA_PREFIXOS):
+        return None
+    return _resposta(
+        "este endereço é a aplicação de edição do riftvault e de fora de casa "
+        "pede sempre que entres — mesmo para ver. Entra com o teu nome e a tua "
+        "password. As coleções que se vêem sem entrar estão no site publicado, "
+        "e só as de quem as tornou públicas.", 401)
 
 
 def _trava_temporaria():
@@ -465,13 +553,24 @@ def api_conta():
 
     cfg = _cfg()
     aberto = multi.aberto(cfg)
+    de_casa = bool(g.get("de_casa", True))
     out = {
         "aberto": aberto,
         "entrado": False,
-        # Fechado e sem sessão: um dono só, e o `editavel` é o de sempre — é o
-        # `server.py` que o põe no payload da Coleção; aqui diz-se o mesmo para
-        # o cliente não ter de adivinhar.
-        "editavel": not aberto,
+        # DE ONDE VEIO ESTE PEDIDO (2026-10-01). Serve duas coisas: o `app.js`
+        # precisa de saber se «não entrar» é uma opção (de fora não é), e ele
+        # precisa de poder conferir, do telemóvel, se a rede de casa está a ser
+        # reconhecida como tal. Os `sinais` dizem o NOME do que fez a decisão —
+        # nunca o valor de um cabeçalho.
+        "origem": "casa" if de_casa else "fora",
+        "sinais": list(g.get("sinais_de_fora") or []),
+        "exige_entrar": not de_casa,
+        # Fechado, de casa e sem sessão: um dono só, e o `editavel` é o de
+        # sempre — é o `server.py` que o põe no payload da Coleção; aqui diz-se
+        # o mesmo para o cliente não ter de adivinhar. **De fora é `false`**
+        # (2026-10-01): sem sessão não há nada editável nem sequer legível, e
+        # dizer `true` punha os `+`/`−` à vista a dar 401 a cada clique.
+        "editavel": not aberto and de_casa,
         # A entrada por PASSWORD está SEMPRE disponível (2026-09-30): não
         # precisa de configurar nada, e funciona com a porta fechada — é o que
         # lhe dá onde trocar a temporária antes de abrir (ver o topo). Os
