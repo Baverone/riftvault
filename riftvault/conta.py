@@ -641,10 +641,10 @@ def apagar(slug: str, confirmar: bool = False, com_backup: bool = True,
             f"apagar «{reg['slug']}» tira {sum(linhas.values())} linhas em "
             f"{len([t for t, n in linhas.items() if n])} tabelas "
             f"({linhas.get('copies', 0)} em `copies`) e a pasta {pasta}. "
-            + (f"Os {len(antigas)} backups dela em {pasta.parent / 'backups'} "
-               f"FICAM (têm a coleção inteira lá dentro) — `levar_copias=True` "
-               f"leva-os também. " if antigas else
-               f"Não há backups dela em {pasta.parent / 'backups'}. ")
+            + (f"Os {len(antigas)} backups dela em "
+               f"{config.DATA_DIR / 'backups'} FICAM (têm a coleção inteira lá "
+               f"dentro) — `levar_copias=True` leva-os também. " if antigas else
+               f"Não há backups dela em {config.DATA_DIR / 'backups'}. ")
             + "Chama com `confirmar=True`.")
 
     backup = exportar(slug)["ficheiro"] if com_backup else None

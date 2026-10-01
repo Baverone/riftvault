@@ -449,6 +449,16 @@ class TestApagarEOsPacotes(Base):
             conta.apagar("miguel")
         self.assertIn("2", str(e.exception))
         self.assertIn("backups", str(e.exception).lower())
+        # O CAMINHO TEM DE SER O CAMINHO. A primeira versão escrevia
+        # `pasta.parent / "backups"`, que para ele dava a raiz do repo e para os
+        # outros `data/users/backups` — mandava-o procurar numa pasta que não
+        # existe, e numa mensagem que ele lê quando está a apagar uma conta.
+        self.assertIn(str(self.backups), str(e.exception))
+
+    def test_a_mensagem_diz_o_caminho_mesmo_sem_pacotes_nenhuns(self):
+        with self.assertRaises(conta.PrecisaConfirmar) as e:
+            conta.apagar("miguel")
+        self.assertIn(str(self.backups), str(e.exception))
 
     def test_com_levar_copias_as_antigas_SAEM(self):
         antigos = self.tres_pacotes()
