@@ -366,7 +366,15 @@ Para fechar outra vez, a qualquer momento:
 riftvault multi --fechar
 ```
 
-Ninguém perde nada: as contas e as coleções ficam, só deixa de se entrar.
+Ninguém perde nada: as contas, as passwords e as coleções ficam todas. O que
+fechar faz é **deixar de usar as contas** — em casa voltas a escrever sem
+password, e os teus amigos deixam de entrar.
+
+**Fechar NÃO desliga a autenticação de fora de casa** (corrigido a 2026-10-01:
+até aí desligava, e com o túnel vivo isso era escrita anónima na tua coleção a
+partir da internet). Quem chegar pelo `editar.baverone.com` precisa de entrar
+para tudo, mesmo para ver, com a porta aberta ou fechada. Ver
+`docs/origem-do-pedido.md`.
 
 ---
 

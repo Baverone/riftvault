@@ -308,18 +308,36 @@ do André a qualquer visitante do mundo. Por isso:
 > sítio nenhum do `rotas_conta.py` se lê o `remote_addr` para decidir quem é
 > alguém — só para contar tentativas.
 
-O que fica, em duas linhas:
+> ### ⚠ A CONCLUSÃO DESTA SECÇÃO ESTAVA ERRADA, e deu um buraco (2026-10-01)
+>
+> O FACTO acima continua verdadeiro — medido outra vez a 01/10. Errada era a
+> conclusão: de «o loopback não prova que é ele» tirou-se «não se pode
+> distinguir nada», e daí **«então a porta decide»**. O resultado foi que
+> `multi.aberto: false` DESLIGAVA a autenticação, e com o túnel vivo isso era
+> escrita anónima na coleção dele a partir da internet; e um pedido sem sessão
+> caía na base do utilizador 1, sem a privacidade ser consultada.
+>
+> **Hoje quem manda na autenticação é a ORIGEM do pedido, não a porta.** A
+> pergunta mudou de forma: não «isto vem de fora?» mas **«isto é
+> inequivocamente de casa?»** — um E de três condições (endereço da rede de
+> casa, nenhum cabeçalho de intermediário, não pediu o anfitrião público).
+> Medido contra o túnel a sério: nove sinais, cada um suficiente sozinho, e a
+> Cloudflare não reescreve o `Host`. Ver **`docs/origem-do-pedido.md`** e o
+> `riftvault/origem.py`. As duas linhas abaixo são as de 29/09 e valem hoje
+> **só para quem está em casa**.
 
-- **Porta FECHADA** (`multi.aberto: false`, o de hoje): um dono só, sem
-  autenticação, tudo **exactamente** como ontem. Não há dados de terceiros para
-  proteger, e ele não fica fechado fora da sua própria app às duas da manhã.
+O que fica, em duas linhas (**em casa**; de fora exige-se sessão sempre, ver o
+aviso acima):
+
+- **Porta FECHADA** (`multi.aberto: false`): um dono só, sem autenticação, tudo
+  **exactamente** como ontem. Não há dados de terceiros para proteger, e ele não
+  fica fechado fora da sua própria app às duas da manhã.
 - **Porta ABERTA**: toda a escrita exige sessão e CSRF, **ele incluído**. Entra
-  uma vez com o Discord e a sessão dura 30 dias — é o que já faz com o
-  telemóvel.
+  uma vez e a sessão dura 30 dias — é o que já faz com o telemóvel.
 
 E o travão que fecha o círculo: **o `riftvault multi --verificar` recusa abrir
-enquanto a conta dele não estiver ligada a um fornecedor.** Assim nunca se abre
-a porta com ele do lado de fora.
+enquanto ele não puder entrar** (password definida, ou um fornecedor ligado).
+Assim nunca se abre a porta com ele do lado de fora.
 
 ### O `RIFTVAULT_USER` é uma armadilha num servidor
 

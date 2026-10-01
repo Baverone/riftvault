@@ -36,11 +36,28 @@ def get_con():
     existe caminho de código que abra a base de outra pessoa — não é um `WHERE
     user_id` que se possa esquecer, é um ficheiro que não se chega a abrir.
 
-    Com a porta fechada o `g.riftvault_user` é `None` e isto é o `db.connect()`
+    De CASA e sem sessão o `g.riftvault_user` é `None` e isto é o `db.connect()`
     de sempre: um dono só, o André, tudo como ontem.
+
+    DE FORA E SEM SESSÃO REBENTA (2026-10-01), e é o segundo defeito desta
+    correcção. O `db.connect(user_id=None)` cai no `utilizador.atual()`, que
+    devolve **1** — ou seja, um GET anónimo pelo túnel abria a base DELE e
+    servia-a sem a privacidade ser consultada uma única vez. A regra escrita no
+    desenho («uma consulta sem dono deve rebentar») não se cumpria aqui porque
+    o `connect` punha sempre um número.
+
+    Quem responde a este caso é o guarda do `rotas_conta._antes`, com um 401
+    antes de a rota correr. Isto é o cinto a par dos suspensórios: se um dia
+    alguém acrescentar um caminho que escape ao guarda, não há leitura
+    silenciosa da coleção dele — há uma excepção com o nome do problema.
     """
     if "con" not in g:
-        g.con = db.connect(user_id=g.get("riftvault_user"))
+        uid = g.get("riftvault_user")
+        if uid is None and not g.get("de_casa", True):
+            raise rotas_conta.SemSessao(
+                "este pedido vem de fora e não trouxe sessão: não há coleção "
+                "nenhuma para abrir. Entra primeiro.")
+        g.con = db.connect(user_id=uid)
     return g.con
 
 
@@ -953,8 +970,13 @@ def _aviso_das_contas() -> list[str]:
     from . import multi
 
     if not multi.aberto(config.load()):
+        # A primeira linha vale para a REDE DE CASA, e só. A segunda é de
+        # 2026-10-01: lida sozinha, a primeira dizia que o túnel estava escancarado
+        # — e desde essa data não está, porque quem manda em «é preciso entrar?» é
+        # a ORIGEM do pedido e não esta porta. Ver docs/origem-do-pedido.md.
         return ["  Sem palavra-passe: quem chegar ao URL pode escrever na coleção.",
-                "  Não abras este porto no router."]
+                "  Isso é na REDE DE CASA. De fora (o túnel) entrar é sempre",
+                "  obrigatório, mesmo para ver. Não abras este porto no router."]
     # Com contas, a rede de casa já não é fronteira: há coleções de outras
     # pessoas aqui dentro e a escrita exige entrar. Ver docs/contas-e-autenticacao.md.
     return ["  CONTAS ABERTAS: escrever exige entrar, e cada um só mexe na sua.",

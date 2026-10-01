@@ -2800,6 +2800,17 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   também. Mais a rede de segurança `riftvault conta <slug>
   --definir-password`, que resolve tudo na consola. O site publicado sai
   **igual ficheiro a ficheiro**. Ver a última secção deste ficheiro.
+- **CORRIGIDO a 2026-10-01:** **QUEM MANDA NA AUTENTICAÇÃO É A ORIGEM, NÃO A
+  PORTA** (`origem.py`) — duas revisões externas independentes encontraram os
+  mesmos dois defeitos: «fechar» a porta **desligava** a autenticação (com o
+  túnel vivo, escrita anónima da internet) e um pedido sem sessão caía na base
+  do utilizador **1**, sem a privacidade ser consultada. Hoje um pedido que não
+  seja inequivocamente de casa (um **E** de três condições: endereço da rede de
+  casa, nenhum cabeçalho de intermediário, não pediu o anfitrião público) exige
+  sessão para **tudo**, leitura incluída, com a porta aberta ou fechada; **o uso
+  dele em casa fica igual** (telemóvel na LAN, sem password). Medido contra o
+  túnel a sério: **nove sinais**, cada um suficiente sozinho. Ver a última
+  secção deste ficheiro e `docs/origem-do-pedido.md`.
 - **Por fazer:** a parte 2 do seguir — o separador no site e a tarefa diária;
   vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck,
   com as partilhadas assinaladas); e apagar decks pela interface (hoje apaga-se
@@ -9441,3 +9452,169 @@ chega a perguntar); e o que **não** mudou. `test_contas.py` e `test_senhas.py`
 foram ajustados em quatro testes — **fixavam o beco**: `!c.aberto` no
 `renderConta`, o `/api/conta/entrar` a dar 403 com a porta fechada, e o
 `--nova-password` na dica do `--verificar`.
+
+## 2026-10-01 — QUEM MANDA NA AUTENTICAÇÃO É A ORIGEM, NÃO A PORTA (`origem.py`)
+
+Duas revisões externas independentes (o ChatGPT e uma sessão de Claude Code)
+leram o código a 01/10 e encontraram **os mesmos dois defeitos no topo**, no
+mesmo sítio e com a mesma raiz: a app perguntava à PORTA DAS CONTAS
+(`multi.aberto`) se era preciso autenticação, em vez de perguntar a quem estava
+a bater. Ramo `ai-pc/origem-2026-10-01`; o desenho e as medições em
+**`docs/origem-do-pedido.md`**.
+
+### Os dois defeitos, e porque é que eram a sério
+
+**1. «Fechar» DESLIGAVA a autenticação.** O guarda tinha
+`if not aberto and g.sessao is None: return None` — com a porta fechada
+qualquer escrita passava sem sessão e sem CSRF. E o túnel está VIVO: medido a
+01/10, o `cloudflared` corre como **serviço do Windows** (`tunnel run
+--token-file`) e o `editar.baverone.com` chega ao 8770. Era escrita anónima na
+coleção dele a partir da internet, à distância de um `git checkout` do config —
+o `multi.aberto: true` vivia numa modificação por gravar até ele o commitar
+nessa manhã (`79fe63b`), como mitigação.
+
+**2. Um pedido sem sessão caía na base do utilizador 1.** O mesmo caminho:
+`get_con()` com `riftvault_user=None` → `db.connect(user_id=None)` →
+`utilizador.atual()` → **o André**. A privacidade dele nunca era consultada, e
+por isso no dia em que a pusesse em «nada» o `editar.baverone.com` continuava a
+servir tudo.
+
+### O FACTO estava certo; a CONCLUSÃO estava errada
+
+Está escrito desde 29/09 — aqui, no `rotas_conta.py` e no
+`docs/contas-e-autenticacao.md` — que **não há atalho por endereço**, porque «o
+túnel faz todo o tráfego da internet chegar ao Flask como `127.0.0.1`». **O
+facto continua verdadeiro** e foi medido outra vez. O que estava errado foi
+tirar dali «não se pode distinguir nada» e daí «então a porta decide».
+
+Há coisas que o loopback **não explica**, e são essas que decidem. A pergunta
+mudou de forma: não «isto vem de fora?» (falsificável para os dois lados), mas
+**«isto é inequivocamente de casa?»**.
+
+### A regra: um E de TRÊS condições (`origem.py`)
+
+`de_casa` exige as três ao mesmo tempo — o par TCP numa gama da casa
+(loopback, RFC 1918, link-local), **nenhum** dos 21 cabeçalhos de intermediário,
+e **não** ter pedido o anfitrião público (`auth.base_url`).
+
+**A direcção do erro é a que interessa:** forjar qualquer uma só pode TIRAR
+confiança, nunca dá-la — quem estiver na rede de casa e mandar um
+`CF-Connecting-IP` inventado consegue uma coisa só, passar a precisar de
+password. Para um pedido da internet ser tratado como de casa teria de vencer as
+três.
+
+**AS GAMAS DA CASA ESCREVEM-SE UMA A UMA, e não é pedantismo.** A primeira
+versão fazia `ip.is_private` e a bateria apanhou-a no primeiro teste: **para o
+Python, `203.0.113.9` é privado** (ele marca assim as gamas de documentação e a
+`240.0.0.0/4`). E o pior não é a lista estar errada — é **mudar sozinha**: o
+CGNAT `100.64.0.0/10` era privado e no 3.14 não é. Uma decisão de segurança não
+pode depender disso em silêncio.
+
+### Medido contra o TÚNEL A SÉRIO, a 2026-10-01
+
+`GET https://editar.baverone.com/api/conta.json` com o código novo na 8770:
+**`origem: "fora"`, com NOVE sinais** — `CF-Connecting-IP`, `CF-Ray`,
+`CF-IPCountry`, `CF-Visitor`, `CF-Warp-Tag-Id`, `CDN-Loop`, `X-Forwarded-For`,
+`X-Forwarded-Proto`, **mais o anfitrião público**. Cada um basta sozinho, e é
+essa a redundância que faltava. Dois factos que ficam escritos: **a Cloudflare
+NÃO reescreve o `Host`** (chega `editar.baverone.com` ao Flask, por isso a
+terceira condição funciona sem cabeçalho nenhum), e o mesmo pedido ao
+`127.0.0.1:8770` dá `origem: "casa"` com zero sinais.
+
+**A prova do defeito 1** num servidor HTTP a sério com `multi.aberto: false` e
+estes nove sinais (pasta de dados descartável — o `data/` dele nunca tocado,
+`_revisao\_prova_porta_fechada.py`): pelo túnel, as cinco escritas e as seis
+leituras dão **401**, e a casca (`/`, `/app.js`, `/style.css`,
+`/api/conta.json`) dá **200**; de casa, a leitura dá **200** e a escrita passa o
+guarda (404 da rota, que não achou a carta — ou seja, não pediu password).
+
+### O que ficou a significar «fechado»
+
+| | |
+|---|---|
+| **a PORTA** (`multi.aberto`) | fechada: OAuth parado, sem registo, só o site DELE se publica, e **em casa** escreve-se sem password |
+| **a ORIGEM** | se é preciso entrar. De fora exige sessão para **tudo**, leitura incluída, com a porta aberta ou fechada |
+
+**O que a porta fechada NÃO faz, e apanhou-nos a escrever o contrário no meio
+desta correcção:** não impede quem já tem conta de entrar. A entrada por
+password não passa pela porta desde 30/09, e **medido a 01/10** — com
+`multi.aberto: false` um amigo com conta entra (200) e o guarda deixa-o
+escrever na coleção **dele**. Uma mensagem do `--fechar` chegou a dizer «os
+teus amigos deixam de entrar»; estava errada e foi corrigida antes do merge,
+a par das duas docstrings do `auth.py` que diziam «fechada, ninguém entra» e
+«com a porta fechada a app não tem autenticação nenhuma».
+
+A docstring do `abrir.fechar()` dizia *«Ninguém perde nada — só deixa de se
+entrar»*, e **essa frase era parte do defeito**: descrevia como inofensiva a
+chave que punha a autenticação abaixo. Está corrigida, e o `riftvault multi
+--fechar` passou a dizer as duas metades («em casa voltas a escrever sem
+password» / «de fora continua a pedir que entres, mesmo para ver»). O
+`--verificar` e o `--abrir` também.
+
+**A privacidade fica respeitada sem uma linha de filtragem:** de fora e sem
+sessão não se serve nada — nem um payload, nem uma imagem —, por isso não há o
+que filtrar. É a decisão do `_u_explica` de 29/09: filtrar dezassete rotas de
+leitura era deixar uma esquecida a vazar. A lista do que passa
+(`rotas_conta.DE_FORA_SEM_SESSAO`) é **literal** e não «qualquer ficheiro do
+`web/`» — um ficheiro novo naquela pasta não pode passar a público em silêncio, e
+há teste que compara as duas coisas.
+
+**O `get_con()` passou a REBENTAR** (`rotas_conta.SemSessao`) num pedido de fora
+sem sessão, em vez de abrir a base do utilizador 1. Não devia chegar lá — o
+guarda responde 401 antes —, é a rede para uma rota futura que escape.
+
+### O que isto NÃO faz, e fica dito
+
+**Não protege a rede de casa.** Quem estiver na LAN com a porta fechada continua
+a escrever na coleção dele sem password: é a decisão dele, está no banner do
+`serve` e não era desta correcção mudá-la. **Não é identidade** — isto nunca diz
+QUEM é alguém, só se o pedido pode ser tratado como de casa; quem decide quem é
+alguém continua a ser a sessão, e de casa com a porta aberta escrever continua a
+exigir sessão e CSRF.
+
+**Anotado:** o `config.load()` tem `lru_cache` por processo, por isso um
+`riftvault multi --fechar` na consola **não** muda a porta do `serve` que já
+está a correr — só na reinicialização seguinte. Não é buraco (a origem lê-se a
+cada pedido), é uma surpresa à espera de quem contar o contrário.
+
+### Fotografado, e uma coisa veio de lá
+
+A 1280 e a 375 px, contra um servidor de prova com a porta fechada (o truque:
+pôr o `auth.base_url` no próprio endereço do servidor de prova faz o mesmo
+processo responder «casa» num URL e «fora» no outro, sem forjar cabeçalhos num
+browser — `_revisao\_foto_origem.py`). Quem chega de fora vê **o ecrã de
+entrar**, com o formulário, e não um «Falhou a carregar: HTTP 401».
+
+**O que a foto a 375 px apanhou:** a frase *«o formulário está na barra do
+lado»* mente no telemóvel — ali a barra está atrás do **☰ Menu**. O formulário
+ESTÁ lá (o `mostrarSeTrancado` esconde só o `#sidenav`, não a `<aside>`
+inteira, e a foto com o menu aberto mostra-o), mas o ecrã mandava-o procurar
+uma coisa que não se vê. Vinha assim **desde 30/09**, no ecrã da password
+temporária. A frase passou a dizer os dois sítios, de um sítio só do código
+(`ONDE_ESTA_O_FORMULARIO`).
+
+`tests/test_origem.py` (**46 testes**): a regra sem Flask (o telemóvel, o
+loopback, o `is_private` que não serve, o E que não é um OU, os nove sinais
+medidos cada um sozinho, forjar só tira confiança, os sinais sem valores de
+cabeçalhos); a escrita anónima recusada pelo túnel e da rua, com a porta
+**fechada** e **aberta**, e a `copies` a não mexer; a leitura anónima recusada
+em **todas** as rotas `GET /api/` do `url_map` (varrimento, não amostra), as
+imagens incluídas, com a privacidade nos três valores; o `get_con` a rebentar,
+com prova pela negativa; a porta de entrada a funcionar de fora, de ponta a
+ponta e ainda a exigir CSRF; **o uso dele em casa** (PC e telemóvel, a ler e a
+escrever sem password); e as mensagens. `test_conta_fechada` foi ajustado em
+três testes — liam o `app.js` com cortes de tamanho fixo e descreviam a nota que
+passou a ter três casos em vez de dois.
+
+**O placar já estava VERMELHO antes desta ordem, e não era por causa dela.**
+Dois testes do `test_privacidade.py` exigiam, do ambiente REAL, o mundo de
+29/09: `multi.aberto: false` no config e **um** utilizador no registo. Ele abriu
+a porta (commit `79fe63b`, dele) e criou **três** contas a sério (`goncalves`,
+`miguel`, `rafael`) — provado que é anterior: o `git show main:riftvault_config.json`
+já dizia `true` e nenhum dos dois ficheiros está no diff desta ordem. Os testes é
+que estavam velhos. Ficaram a medir o que não envelhece: o interruptor da porta
+tem de estar **escrito** no ficheiro commitado (é a lição desta ordem — o estado
+vivia numa modificação por gravar, e um `git checkout` mudava-o sozinho), e
+**nenhuma conta de TESTE** no registo real (o `miguel` fica de fora dessa lista:
+é um amigo a sério e um nome de brincar nos testes ao mesmo tempo). A metade «há
+um utilizador só» morreu no dia em que ele criou as contas dos amigos.

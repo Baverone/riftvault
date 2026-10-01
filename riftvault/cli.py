@@ -1373,10 +1373,16 @@ def cmd_conta(args) -> int:
         _password_uma_vez(u["slug"], u["nome"], password, criada=True)
         from . import multi
         if not multi.aberto():
-            print("A porta das contas está FECHADA: ela ainda não consegue",
+            # ISTO DIZIA «ela ainda não consegue entrar», e era falso desde
+            # 2026-09-30 — medido a 01/10: com a porta fechada ela entra com a
+            # password e usa a coleção dela. O que a porta trava é outra coisa.
+            print("A porta das contas está FECHADA — mas ela JÁ consegue "
+                  "entrar com esta password e usar a coleção dela.",
                   file=sys.stderr)
-            print("entrar. Quando estiver tudo pronto, `riftvault multi "
-                  "--abrir`.", file=sys.stderr)
+            print("O que falta com a porta fechada: a página pública dela não "
+                  "se publica, e não há entrada pelo Discord/Google.",
+                  file=sys.stderr)
+            print("Para abrir: `riftvault multi --abrir`.", file=sys.stderr)
         return 0
 
     if args.definir_password:
@@ -2386,7 +2392,9 @@ def cmd_multi(args) -> int:
             print(f"\n{e}\n", file=sys.stderr)
             return 1
         if r["mudou"]:
-            print("Aberto. Os teus amigos já se podem registar.")
+            print("Aberto. O Discord/Google ficam disponíveis e passa a "
+                  "publicar-se a página de quem a quiser pública.")
+            print("Em casa, escrever passa a pedir que entres — a ti também.")
             print("Para fechar outra vez:  riftvault multi --fechar")
         else:
             print("Já estava aberto.")
@@ -2396,8 +2404,20 @@ def cmd_multi(args) -> int:
         r = porta.fechar()
         print("Fechado." if r["mudou"] else "Já estava fechado.")
         if r["mudou"]:
-            print("Ninguém perde nada: as contas e as coleções ficam, só "
-                  "deixa de se entrar.")
+            # ISTO MENTIA ATÉ 2026-10-01, e a mentira era de segurança: dizia
+            # «só deixa de se entrar» quando o que fechar fazia era DESLIGAR a
+            # autenticação — com o túnel vivo, escrita anónima da internet.
+            # A primeira escrita desta correcção também mentia, ao contrário
+            # («os teus amigos deixam de entrar»): medido, com a porta fechada
+            # quem já tem conta entra e usa a sua coleção — é assim desde
+            # 2026-09-30, quando a entrada por password deixou de depender da
+            # porta.
+            print("Nada se apaga: as contas, as passwords e as coleções ficam.")
+            print("Em casa volta a escrever-se sem password, só o teu site se "
+                  "publica, e o Discord/Google ficam parados.")
+            print("Quem já tem conta continua a entrar com a password dela.")
+            print("E de FORA de casa entrar continua a ser obrigatório, mesmo "
+                  "para ver: fechar a porta nunca desliga isso.")
         return 0
 
     print(porta.texto())
