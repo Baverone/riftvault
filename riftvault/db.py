@@ -464,17 +464,27 @@ def _carimbar_dono(con: sqlite3.Connection, user_id: int) -> None:
     porque é barato e porque assim uma mudança de nome no registo chega cá.
 
     O `publico` viaja com eles (2026-09-29): a escolha de privacidade decide-se
-    no REGISTO (ver `privacidade.py`), e esta cópia é descritiva — para o
-    ficheiro se explicar a quem o restaura de um backup.
+    no REGISTO (ver `privacidade.py`), e esta cópia é o SEGUNDO TESTEMUNHO dela
+    — a única coisa que sobrevive a um restauro do registo, porque os dois
+    ficheiros não se restauram juntos.
+
+    **E POR ISSO ESTA CÓPIA NUNCA SE ALARGA AQUI** (2026-10-01). Até então
+    escrevia-se o valor do registo por cima do que lá estava: com um registo
+    restaurado de uma cópia antiga, isto apagava a escolha de hoje e republicava
+    uma coleção que a pessoa tinha fechado. O `privacidade.reconciliar` devolve
+    o mais fechado dos dois e cura o desacordo nos dois lados — alargar é só
+    pelo `privacidade.definir`, que é uma pessoa a escolher.
     """
+    from . import privacidade          # local: o `privacidade` importa o `db`
     reg = utilizador.registo(user_id)
+    publico = privacidade.reconciliar(con, user_id, reg.get("publico"))
     con.execute("INSERT INTO users (user_id, nome, slug, criado_em, publico, "
                 "auth_ref) VALUES (?,?,?,?,?,NULL) "
                 "ON CONFLICT(user_id) DO UPDATE SET "
                 "nome = excluded.nome, slug = excluded.slug, "
                 "publico = excluded.publico",
                 (reg["user_id"], reg["nome"], reg["slug"], reg["criado_em"],
-                 reg.get("publico") or "nada"))
+                 publico))
 
 
 def catalog_only() -> sqlite3.Connection:

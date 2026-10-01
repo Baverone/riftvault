@@ -1470,7 +1470,25 @@ def cmd_conta(args) -> int:
             print("importar ESCREVE POR CIMA da coleção dele. Repete com "
                   "`--sim`.", file=sys.stderr)
             return 1
-        r = conta.importar(args.importar, confirmar=True)
+        try:
+            r = conta.importar(args.importar, confirmar=True,
+                               adoptar=bool(args.adoptar))
+        except utilizador.DonoErrado as e:
+            # O `DonoTrocado` é desta família: o pacote é de um id e a conta de
+            # destino é de outro. Recusa-se em vez de aterrar por cima de
+            # alguém — ver `conta.importar`, ponto 5.
+            print(e, file=sys.stderr)
+            return 1
+        if r["adoptado"]:
+            print(f"ADOPTADO: o pacote era do utilizador "
+                  f"{r['adoptado']['de']} e entrou como o "
+                  f"{r['adoptado']['para']} (a base foi recarimbada).",
+                  file=sys.stderr)
+        if r["recriada"]:
+            print(f"a conta não existia e foi recriada — a privacidade dela "
+                  f"volta em «{r['publico']}», não a do pacote. "
+                  f"`riftvault conta {r['utilizador']['slug']}` mostra-a.",
+                  file=sys.stderr)
         print(f"reposto em {r['ficheiro']}"
               + (f"  (o que lá estava ficou em {r['backup']})" if r["backup"] else ""))
         return 0
@@ -1497,7 +1515,8 @@ def cmd_conta(args) -> int:
     if args.apagar:
         try:
             r = conta.apagar(args.slug, confirmar=bool(args.sim),
-                             com_backup=not args.sem_backup)
+                             com_backup=not args.sem_backup,
+                             levar_copias=bool(args.levar_copias))
         except conta.PrecisaConfirmar as e:
             print(e, file=sys.stderr)
             print("Repete com `--sim`.", file=sys.stderr)
@@ -1524,6 +1543,17 @@ def cmd_conta(args) -> int:
                   + ", ".join(f"{n} {o}" for o, n in sorted(limpo.items()) if n))
         if r["backup"]:
             print(f"a cópia ficou em {r['backup']}")
+        # O QUE FICA DELA EM DISCO, dito em voz alta (2026-10-01): os pacotes
+        # de cada export e os `.db` de cada restauro têm a coleção inteira lá
+        # dentro, e ficam. `--levar-copias` leva-os.
+        if r["copias"]:
+            print(f"\nFICAM {len(r['copias'])} cópias dela em disco "
+                  f"(a coleção inteira, em cada uma):", file=sys.stderr)
+            for p in r["copias"]:
+                print(f"  {p}", file=sys.stderr)
+            if not args.levar_copias:
+                print("`--levar-copias` apaga-as também (fica só a desta vez; "
+                      "com `--sem-backup` não fica nada).", file=sys.stderr)
         return 0
 
     # por omissão: exportar
@@ -2685,12 +2715,21 @@ def main(argv: list[str] | None = None) -> int:
                    help="onde gravar o .zip (omissão: data/backups/)")
     p.add_argument("--importar", metavar="ZIP",
                    help="põe um utilizador de volta a partir de um .zip")
+    # A porta EXPLÍCITA de 2026-10-01: um pacote de um `user_id` que não é o da
+    # conta de destino é recusado, e isto é o «sim, é mesmo o mesmo dono» (um
+    # restauro para uma instalação onde os ids foram semeados por outra ordem).
+    p.add_argument("--adoptar", action="store_true",
+                   help="deixa entrar um pacote de outro user_id, recarimbando "
+                        "a base para o id desta conta")
     p.add_argument("--apagar", action="store_true",
                    help="apaga o utilizador e tudo o que é dele")
     p.add_argument("--sim", action="store_true",
                    help="confirma (o `--importar` e o `--apagar` exigem-no)")
     p.add_argument("--sem-backup", action="store_true",
                    help="apaga sem exportar primeiro (não recomendado)")
+    p.add_argument("--levar-copias", action="store_true",
+                   help="apaga também os pacotes dela em data/backups/ (por "
+                        "omissão ficam, e dizem-se)")
     p.set_defaults(func=cmd_conta)
 
     p = sub.add_parser("principal", help="o DECK PRINCIPAL e a wantlist dele: o que "
