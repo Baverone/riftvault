@@ -512,6 +512,40 @@ class TestApagarEOsPacotes(Base):
                          "miguel")
 
 
+class TestAConsola(unittest.TestCase):
+    """As duas portas estão na consola — é lá que um restauro se faz.
+
+    Lê-se o código-fonte, como o resto da casa faz com o `app.js`: o que se
+    fixa é que a porta EXISTE e que o caminho passa por ela. Sem isto, o
+    `adoptar` podia ficar só no módulo e quem está a restaurar às duas da manhã
+    não tinha como lhe chegar.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.src = (Path(__file__).resolve().parent.parent / "riftvault"
+                   / "cli.py").read_text(encoding="utf-8")
+
+    def test_ha_um_adoptar_e_vai_ao_importar(self):
+        self.assertIn('"--adoptar"', self.src)
+        self.assertIn("adoptar=bool(args.adoptar)", self.src)
+
+    def test_a_recusa_do_dono_trocado_sai_escrita_e_nao_em_traceback(self):
+        self.assertIn("except utilizador.DonoErrado", self.src)
+
+    def test_ha_um_levar_copias_e_vai_ao_apagar(self):
+        self.assertIn('"--levar-copias"', self.src)
+        self.assertIn("levar_copias=bool(args.levar_copias)", self.src)
+
+    def test_o_apagar_escreve_as_copias_que_ficam(self):
+        self.assertIn('r["copias"]', self.src)
+
+    def test_a_rota_de_apagar_tambem_as_diz(self):
+        rotas = (Path(__file__).resolve().parent.parent / "riftvault"
+                 / "rotas_conta.py").read_text(encoding="utf-8")
+        self.assertIn('"copias"', rotas)
+
+
 class TestAFronteira(Base):
     """O que não pode mudar com isto."""
 
