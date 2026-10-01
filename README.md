@@ -68,6 +68,12 @@ py -m riftvault build
 
 Gera `site/` — o **mesmo** frontend, sem os controlos de edição.
 
+**A raiz é a coleção dele enquanto houver só uma pública** (2026-09-30). A
+partir da segunda, a raiz passa a ser a LISTA das coleções (`riftvault/lista.py`)
+e a dele vai para `site/u/baverone/`, sem ele mudar chave nenhuma. Hoje, com as
+portas fechadas, há uma — e por isso nada muda. Os favoritos antigos vão
+sozinhos para o sítio novo: a página da lista reencaminha qualquer `#`.
+
 **A pasta `site/` vai no Git, e é ela que o GitHub Pages publica** (desde
 2026-09-10). O workflow `.github/workflows/pages.yml` não vai à rede: pega na
 pasta commitada e publica-a, mais nada. Quem gera o site é o PC — as tarefas
@@ -1542,6 +1548,7 @@ riftvault/
   selado.py       produto selado: o que há (CardTrader), o que tens e o que não tens
   server.py       modo edição (Flask)
   build.py        modo publicado (estático)
+  lista.py        o índice das coleções públicas, e quando ele toma a raiz
   cli.py          linha de comandos
   utilizador.py   DE QUEM são os dados desta sessão (2026-09-29) — a porta
                   única; hoje devolve sempre o André

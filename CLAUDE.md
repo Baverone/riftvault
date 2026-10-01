@@ -9317,6 +9317,141 @@ que nunca acha nada vale zero. O `test_contas.py` e o `test_auth.py` foram
 ajustados: descreviam o registo aberto e o «não há password nenhuma» de 29/09,
 que era o regime de ontem.
 
+## 2026-09-30 — A LISTA das coleções públicas (`lista.py`); e a raiz só muda com DUAS
+
+Palavras dele: *"a baverone.com tem que ter tudo / depois quando se abre o
+Riftbound, vai ter lá, em modo leitura, as coleções: Baverone / Miguel / Rafa
+/ na Baverone.com, em baixo, é onde se entra para editar / cada pessoa tem um
+acesso usuário password que edita a sua própria coleção"*. Ramo
+`ai-pc/lista-2026-09-30`.
+
+**AS PÁGINAS INDIVIDUAIS JÁ EXISTIAM** — o `build.build_todos` gera `u/<slug>/`
+desde 29/09 e já salta quem tem privacidade «nada» ou está atrás das portas
+fechadas. O que faltava era o ÍNDICE que as junta, e é só isso que nasceu aqui.
+
+### 1. A troca é AUTOMÁTICA, e não uma chave que ele tenha de mudar
+
+    0 ou 1 coleção pública  ->  a raiz fica EXACTAMENTE como está hoje
+    2 ou mais               ->  a raiz é a lista, e a dele vai para `u/baverone/`
+
+`lista.MINIMO_PARA_A_RAIZ = 2`. **Com as portas fechadas há uma pública (a
+dele), por isso HOJE NADA MUDA** — e é a leitura da frase dele de 29/09,
+*"quero apenas apresentar quando tiver tudo"*. A lista aparece sozinha no dia
+em que ele abrir as portas e um amigo escolher publicar, que é exactamente o
+dia em que ela passa a fazer sentido: **uma lista com uma entrada só não é uma
+lista**, é um clique a mais entre ele e a coleção dele, e uma montra de um
+serviço que ainda não tem ninguém.
+
+**Medido a 2026-09-30 contra o `data/` real** (`_revisao\_medir_lista.py`, o
+`build.build()` de antes e o `build.build_todos()` de agora na mesma corrida):
+**24 ficheiros dos dois lados, os mesmos nomes, ZERO a diferir em conteúdo** —
+os 4 que diferem em bytes diferem só no `generated_at`, porque as duas gerações
+caíram em segundos diferentes.
+
+### 2. O `riftvault build` passou a ser o `build_todos`
+
+Estava a chamar o `build()`, que só sabe do site DELE: a lista nunca chegaria
+ao site a sério. Com as portas fechadas os dois fazem o mesmo — há teste que os
+compara —, e a partir de agora é o `build_todos` que responde pelas portas, pela
+privacidade de cada um e pela lista.
+
+**Quando a lista toma a raiz, os restos do site dele SAEM de lá**
+(`lista.limpar_raiz`, `RESTOS_DA_RAIZ`): a `api/`, o `app.js`, o `style.css` e
+o `robots.txt`. Senão ficavam na raiz os payloads antigos dele a envelhecer, e
+um `api/index.json` velho ainda por cima fazia o `--se-mudou` comparar contra o
+sítio errado. É uma lista ESCRITA e não um «apaga o que não é `u/`»: na raiz
+podem estar coisas que não são nossas para apagar — o `CNAME` do domínio, o
+`.nojekyll`, o `img/` de 88 MB de uma corrida em `static_images: local`.
+
+**E DESPUBLICAR PASSOU A SER TÃO FÁCIL COMO PUBLICAR**
+(`lista.limpar_nao_publicadas`), que é a metade que faltava à privacidade de
+29/09. Quem tivesse escolhido «tudo» e mudasse para «nada» deixava de ter
+página GERADA — mas a que já lá estava **ficava publicada para sempre**: o
+`build.py` saltava-a, e saltar não é apagar. Agora qualquer pasta debaixo de
+`u/` que já não se publique sai do site: por a pessoa ter fechado a coleção,
+por as portas se terem fechado, ou por ele ter voltado à raiz (senão ficava em
+`u/baverone/` uma cópia a envelhecer — e é para lá que os favoritos foram
+reencaminhados enquanto a lista existiu). Só mexe DENTRO do `u/`.
+
+**A pasta de prova do `--se-mudou` mudou-se para a raiz do repo.** Era
+`out.parent / (out.name + "-prova")`, e com o site dele em `site/u/baverone/`
+isso era **dentro do `site/`**: uma corrida interrompida a meio deixava uma
+`site/u/baverone-prova/` commitada e publicada. Para o `site/` o caminho é o
+mesmo de sempre (`site-prova/`, que já estava no `.gitignore`).
+
+### 3. OS FAVORITOS DELE NÃO PARTEM — e o que não se consegue diz-se
+
+O site é uma aplicação de uma página com rotas no `#` (`#colecao/UNL`,
+`#decks/ornn`). **O `#` nunca chega ao servidor**, por isso não há
+reencaminhamento de servidor que o possa apanhar — e o GitHub Pages também não
+tem regras de reencaminhamento nenhumas. Quem o vê é o browser, e é por isso
+que o reencaminhamento vive na página da lista, em JavaScript, **no `<head>`**
+(no fim do `<body>` via-se a lista a piscar antes do salto) e com
+`location.replace` (com `href`, o botão «voltar» trazia a pessoa outra vez para
+aqui).
+
+É deliberadamente **CEGO ao nome da secção** — não repete a `SECCOES` do
+`app.js`. Uma rota nova nasce reencaminhada sozinha, e um `#` que já não exista
+cai na regra de sempre do `app.js` (abre a primeira secção visível), que é o
+mesmo que acontecia antes. **Testado no node, contra o JavaScript que a página
+leva mesmo**: 13 endereços — `#colecao`, `#colecao/UNL`, `#colecao/OGN`,
+`#decks`, `#decks/ornn`, `#faltas-edicao/OGN`, `#encomendas`, `#venda`,
+`#selado`, `#inicio`, `#a-mais`, `#staples` e um inventado que ainda não existe
+— acabam todos em `u/baverone/<o mesmo #>`; a raiz sem `#` **não** reencaminha,
+senão ninguém chegava a ver a lista.
+
+**O QUE NÃO SE CONSEGUE REENCAMINHAR, e fica dito em vez de partir em
+silêncio:** os ficheiros de dados (`/api/set/OGN.json` e companhia) passam a
+viver em `u/baverone/api/…` e um endereço antigo para eles dá **404**. Num
+alojamento estático não há como evitar sem duplicar o site inteiro na raiz. São
+endereços de máquina e não de pessoa — o que se marca nos favoritos é a página,
+e essa é reencaminhada. Há teste que exige que isto continue escrito.
+
+### 4. A privacidade, no cartão
+
+**Quem está em «nada» não aparece em sítio nenhum — nem o nome.** Não é só não
+ter cartão: o teste varre o HTML da raiz **e** o `api/lista.json` à procura do
+nome e do slug. Não estar na lista é a forma mais completa de não estar
+publicado, e «nada» é a OMISSÃO de quem entra de novo.
+
+**Os números de cada cartão saem do `api/index.json` JÁ GERADO da pessoa** — não
+se calculam outra vez. Duas consequências, as duas boas: não há uma segunda
+definição de «quantas cartas tem o Miguel», e **o cartão não pode mostrar mais
+do que a página dela já mostra**, porque lê o ficheiro que já passou pelo
+`privacidade.limpar`. Por cima disso o cartão volta a passar pelo mesmo filtro —
+cinto e suspensórios de propósito: «um cartão de quem escolheu sem-valores não
+mostra euros» deixa de depender de alguém se lembrar. Com a **prova pela
+negativa** ao lado (em «tudo» os euros TÊM de aparecer), senão o teste passava
+com um cartão vazio.
+
+### 5. A página
+
+Uma página estática à parte, com os tokens da marca (o roxo `#a77bff`, o «R»),
+**sem depender do `app.js`**. Cabeçalho, um cartão por coleção (inicial, nome,
+barra do playset, cartas/cópias e o valor quando o há), e o rodapé a dizer que
+quem não escolheu publicar não aparece. **Zero** diz o que se passa em vez de
+ficar em branco; **uma** escreve-se no singular; **cinco** enchem a grelha, que
+envolve sozinha (`auto-fill`, nada de `overflow-x` — a lição das filas de
+botões de 24/09) e passa a uma coluna abaixo dos 480 px. Medido no Chrome a
+**375 px**: `scrollWidth == clientWidth == 375`, zero elementos fora do ecrã e
+zero com scroll próprio. O nome vai escapado (um nome com HTML dentro não
+escapa).
+
+**Não se tocou no `baverone-home`** (a página de entrada dele): é outra ordem, e
+só se lhe mexe quando o `editar.baverone.com` existir — senão ficava lá um link
+partido.
+
+`tests/test_lista.py` (43 testes): quem entra e a ordem (ele primeiro, depois
+por nome sem tropeçar nos acentos); a raiz só muda com duas, e a coleção dele é
+a MESMA ao mudar de sítio; quem fecha a coleção perde a página que já lá
+estava; os restos saem e o `CNAME` fica; a privacidade no
+cartão com as duas redes; os favoritos no node; a página com zero, uma e cinco;
+e que **nenhum módulo de contas importa o `lista`** — é apresentação. O
+`test_privacidade.test_o_SITE_DELE_e_igual_com_o_interruptor_de_um_lado_e_do_outro`
+foi ajustado (abrir as portas com um amigo público muda-lhe o SÍTIO, não o
+conteúdo) e ganhou ao lado a prova pela negativa: com o amigo privado, a raiz
+continua a ser a dele.
+
 ## 2026-09-30, à tarde — O BECO DA PORTA FECHADA: a entrada esconde-se no SITE PUBLICADO, não com a porta fechada
 
 **ERRO NOSSO, e a causa foi ler mal uma frase dele.** A 29/09 ele disse *"Quero

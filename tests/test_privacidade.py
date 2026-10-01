@@ -193,7 +193,13 @@ class TestPortasFechadas(Base):
 
     def test_o_SITE_DELE_e_igual_com_o_interruptor_de_um_lado_e_do_outro(self):
         """Checklist 17: com as portas fechadas o site dele fica como hoje.
-        E, mais forte: ABRIR as portas também não lhe muda o site."""
+
+        E ABRIR as portas também não lhe muda o SITE — muda-lhe o SÍTIO, e é
+        decisão dele de 2026-09-30: *"quando se abre o Riftbound, vai ter lá
+        as coleções: Baverone / Miguel / Rafa"*. A partir da segunda coleção
+        pública a raiz é a lista e a dele passa a `u/baverone/`, com o mesmo
+        conteúdo ficheiro a ficheiro. Ver `test_lista.py`.
+        """
         u = utilizador.criar("Miguel", "miguel")
         con = db.connect(user_id=u["user_id"])
         collection.adjust(con, "tst-002-100", 2, source="test")
@@ -201,6 +207,23 @@ class TestPortasFechadas(Base):
         con.close()
         f = self.v.root / "fechado"
         a = self.v.root / "aberto"
+        build.build_todos(f, log=lambda *_: None, cfg={"multi": {"aberto": False}})
+        build.build_todos(a, log=lambda *_: None, cfg={"multi": {"aberto": True}})
+        self.assertTrue(build.mesmo_conteudo(f, a / "u" / "baverone"),
+                        "abrir as portas mudou o CONTEÚDO do site dele")
+
+    def test_com_o_miguel_privado_a_raiz_continua_a_ser_a_dele(self):
+        """A lista só toma a raiz quando há mesmo mais do que uma coleção.
+
+        É a prova pela negativa do teste de cima: não é «abrir as portas» que
+        muda a raiz, é haver uma segunda coleção PÚBLICA.
+        """
+        u = utilizador.criar("Miguel", "miguel")
+        con = db.connect(user_id=u["user_id"])
+        collection.adjust(con, "tst-002-100", 2, source="test")
+        con.close()   # fica em «nada»
+        f = self.v.root / "fechado2"
+        a = self.v.root / "aberto2"
         build.build_todos(f, log=lambda *_: None, cfg={"multi": {"aberto": False}})
         build.build_todos(a, log=lambda *_: None, cfg={"multi": {"aberto": True}})
         self.assertTrue(build.mesmo_conteudo_raiz(f, a),

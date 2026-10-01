@@ -31,8 +31,8 @@ import shutil
 from pathlib import Path
 
 from . import (a_mais, a_subir, abrir, config, db, decks, faltas, faltas_foil,
-               metrics, multi, pending, principal, privacidade, runas_vista,
-               selado, utilizador, venda)
+               lista, metrics, multi, pending, principal, privacidade,
+               runas_vista, selado, utilizador, venda)
 
 # A pasta das imagens fica de fora da comparação: em `static_images: "local"`
 # são ~88 MB e não dependem da colecção — o que muda nelas é o `riftvault
@@ -124,7 +124,11 @@ def build(out_dir: Path | str | None = None, log=print,
         return {"out": str(out), "sets": 0, "images": 0, "mudou": False,
                 "publico": modo, "gerado": False}
     if so_se_mudou and (out / "api" / "index.json").exists():
-        prova = out.parent / (out.name + "-prova")
+        # A pasta de prova fica NA RAIZ DO REPO e não ao lado do `out`: desde
+        # 2026-09-30 o site dele pode viver em `site/u/baverone/`, e ali
+        # `out.parent` era DENTRO do `site/` — uma corrida interrompida a meio
+        # deixava uma `site/u/baverone-prova/` commitada e publicada.
+        prova = config.ROOT / (out.name + "-prova")
         shutil.rmtree(prova, ignore_errors=True)
         try:
             _gerar(prova, log=lambda *_: None, imagens=False, user_id=uid,
@@ -159,10 +163,19 @@ def build_todos(out_dir: Path | str | None = None, log=print,
     (`test_privacidade.TestPortasFechadas`) — «não publica» tem de ser uma
     escolha, não uma incapacidade; senão no dia de abrir descobria-se que não
     estava feito.
+
+    A LISTA (2026-09-30) entra aqui, e a troca é AUTOMÁTICA: com duas ou mais
+    coleções públicas a raiz passa a ser o índice (`lista.py`) e a dele muda-se
+    para `u/baverone/`. Com uma — que é o de hoje, com as portas fechadas — a
+    raiz fica exactamente como está. Ele não tem de mudar chave nenhuma.
     """
     cfg = config.load() if cfg is None else cfg
     out = Path(out_dir or config.ROOT / "site")
-    res = build(out, log=log, so_se_mudou=so_se_mudou,
+    pub = lista.publicas(cfg)
+    indice = lista.na_raiz(pub)
+    dele = lista.pasta_de(out, {"user_id": utilizador.ANDRE,
+                                "slug": utilizador.SLUG_ANDRE}, pub)
+    res = build(dele, log=log, so_se_mudou=so_se_mudou,
                 user_id=utilizador.ANDRE)
     outros, saltados = [], []
     for u in utilizador.todos():
@@ -180,6 +193,26 @@ def build_todos(out_dir: Path | str | None = None, log=print,
         outros.append({"slug": u["slug"], "publico": modo, **r})
     if saltados:
         log("  não publicados: " + " · ".join(f"{s} ({p})" for s, p in saltados))
+    # DESPUBLICAR TEM DE SER TÃO FÁCIL COMO PUBLICAR: quem deixou de ser
+    # público perde a pasta que já lá estava, e não só a geração desta vez.
+    # Saltar não é apagar — ver `lista.limpar_nao_publicadas`.
+    saiu = lista.limpar_nao_publicadas(out, pub)
+    if saiu:
+        log("  saíram do site (já não se publicam): " + " · ".join(saiu))
+    if indice:
+        # A ORDEM IMPORTA: tirar os restos do site dele da raiz ANTES de lá
+        # escrever a lista — o `limpar_raiz` leva a `api/` inteira, e a lista
+        # escreve a sua `api/lista.json` por cima.
+        restos = lista.limpar_raiz(out)
+        if restos:
+            log("  a raiz passa a ser a lista — saíram de lá: "
+                + " · ".join(restos))
+        dados = lista.escrever(out, pub=pub, cfg=cfg)
+        log(f"  index.html + api/lista.json  ({len(dados['coleccoes'])} "
+            f"coleções públicas; a dele em u/{utilizador.SLUG_ANDRE}/)")
+        res["lista"] = dados
+    res["na_raiz"] = indice
+    res["publicas"] = pub
     res["outros"] = outros
     res["saltados"] = saltados
     res["aberto"] = multi.aberto(cfg)
