@@ -148,8 +148,8 @@ def api_set(set_id: str):
 def api_runas():
     """O bloco «Runas — 12 de cada» no fim da grelha da Coleção (2026-09-19):
     o contador dele por runa, com a referência do que a coleção sabe ao lado
-    — não conta para nada. Um URL só, para as cinco edições — as runas são
-    as mesmas seis."""
+    — não conta para nada. Um URL só: as runas são as mesmas seis, e a
+    referência de cada edição vem em `por_edicao` (2026-10-01)."""
     return jsonify(runas_vista.payload(get_con(), image_mode="local", editable=True))
 
 

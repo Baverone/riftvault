@@ -537,7 +537,8 @@ class TestFrontend(unittest.TestCase):
     def test_o_tile_tem_os_botoes_do_contador_e_a_referencia(self):
         """Os `+`/`−` são `.steppers` — a classe que o `body.readonly`
         esconde no site publicado —, mandam ao `api/runas/ajustar` e a linha
-        de baixo é a referência «na coleção»."""
+        de baixo é a referência («nesta edição» desde 2026-10-01, «na
+        coleção» em «Todas» — ver `tests/test_runas_por_edicao.py`)."""
         js = self.js
         tile = re.search(r"function runaTile\(x\) \{(.*?)\n\}\n", js, re.S).group(1)
         self.assertIn('class="steppers runa"', tile)
@@ -545,7 +546,8 @@ class TestFrontend(unittest.TestCase):
         self.assertIn('data-runa-delta="1"', tile)
         self.assertIn("const n = runaContador(x)", tile)       # o crachá é o dele
         self.assertIn("${n}/${x.target}", tile)
-        self.assertIn("na coleção: <b>${x.total}</b>", tile)
+        self.assertIn("${onde}: <b>${x.total}</b>", tile)
+        self.assertIn("'nesta edição' : 'na coleção'", tile)
         # Os botões pedem o `editable` do payload (o build escreve `false`; um
         # servidor antigo não o traz — e aí não há botões).
         self.assertIn("state.runas.editable", tile)

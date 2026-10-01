@@ -1157,6 +1157,18 @@ def cmd_runas(args) -> int:
           f"na coleção: {t['total']}"
           + (f" (sem as retiradas: {t['sem_retiradas']})"
              if t["sem_retiradas"] != t["total"] else ""))
+    # POR EDIÇÃO (2026-10-01): é a vista que o site mostra na página de cada
+    # edição. A arte alternativa de cada edição é uma carta própria, por isso
+    # o número de cima — a soma — só é o certo em «Todas».
+    if p.get("por_edicao"):
+        print("\npor edição (a alt art de cada edição é uma carta própria):")
+        for sid, e in p["por_edicao"].items():
+            te = e["totals"]
+            extra = (f" (sem as retiradas: {te['sem_retiradas']})"
+                     if te["sem_retiradas"] != te["total"] else "")
+            print(f"  {sid:<5} {te['total']:>3} em {te['cards']} runas{extra}   "
+                  + ", ".join(f"{x['name'].split()[0]} {x['total']}"
+                              for x in e["runas"]))
     print(p["nota"], file=sys.stderr)
     con.close()
     return 0

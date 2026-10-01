@@ -217,12 +217,16 @@ responder, o cartão fica a «—» e a página aguenta-se.
   contabilizam nada, eu e que mexo nisso para minha referencia"*). As seis
   runas do jogo, cada uma com um número **que pões tu** com os `+`/`−` do
   tile (só no modo edição; nunca abaixo de 0), guardado numa tabela própria
-  do `vault.db` e semeado uma única vez com o que tinhas na mão. Ao lado, em
-  letra pequena, «na coleção: N» — **tudo o que tens dela, de todas as
-  versões**: a base do OGN (que também está na sequência, em cima), a alt art
-  retirada, a promo do VEN, as do CardTrader — só para comparares. Não conta
-  para nada: nem barra, nem níveis, nem wantlist, nem valor, nem decks.
-  `riftvault runas [--mais RUNA | --menos RUNA] [--n N]` na consola.
+  do `vault.db` e semeado uma única vez com o que tinhas na mão. **O crachá é
+  esse contador e é o mesmo em todas as edições** — 12 de cada é o Rune Pool
+  de um deck, não um alvo por edição. Ao lado, em letra pequena, **«nesta
+  edição: N»** — o que tens das impressões **dessa** edição, porque a arte
+  alternativa de cada edição é uma carta própria (2026-10-01: *"A contagem das
+  runas Alt.Art é exclusiva para cada edição"*); em **Todas** é a soma. Uma
+  edição sem runas (o OGS) não leva bloco. Não conta para nada: nem barra, nem
+  níveis, nem wantlist, nem valor, nem decks.
+  `riftvault runas [--mais RUNA | --menos RUNA] [--n N]` na consola, com a
+  tabela por edição no fim.
 - **Filtros:** Tudo / Faltas, e por tipo de impressão (Base, Arte alt.,
   Signature, Tokens/Promos). "Faltas" mostra tudo o que não está completo,
   tanto faz faltarem 3, 2 ou 1.
