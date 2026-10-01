@@ -36,6 +36,26 @@ desde 2026-09-15) e as do CardTrader que a RiftScribe não tem
 Como isto contraria a retirada, o payload leva os DOIS números — `total` e
 `sem_retiradas`. Não é contabilidade: é referência.
 
+A REFERÊNCIA É DA EDIÇÃO ABERTA, desde 2026-10-01. André: *"A contagem das
+runas Alt.Art é exclusiva para cada edição / vi que a contagem está a ser
+partilhada por todas as edições"*. Até aqui o bloco somava num número só as
+impressões das cinco edições e repetia-o em todas: na página do OGN a Calm
+Rune dizia «na coleção: 21», e 12 dessas eram as `SFD-R02a`; na do UNL dizia
+o mesmo 21 sem ele ter lá uma única runa. A arte alternativa de cada edição é
+uma CARTA PRÓPRIA — é a regra da Coleção inteira (um alvo por impressão, um
+bloco por edição) —, por isso `por_edicao` dá, para cada edição, as runas
+dela, as origens dela e o total dela; o `runas`/`totals` do topo continua a
+ser a soma, e é o que o separador «Todas» mostra. Continua a ser UM ficheiro
+(`api/runas.json`): as seis runas são as mesmas em toda a parte, o que muda é
+a impressão.
+
+O CONTADOR NÃO SE PARTIU POR EDIÇÃO, e isso é decisão a tomar por ele: o
+alvo dele é «12 de cada», que é o Rune Pool de um deck, e 12 × 6 × 4 edições
+(288) não é uma coisa que se tenha nem se jogue. Os seis números que ele
+contou à mão não têm edição nenhuma gravada e não se podem repartir sem os
+inventar. Por isso o crachá é o mesmo nas quatro edições, e o cabeçalho
+DIZ-LO em vez de o esconder.
+
 «Runa» é o `runas_especiais.tipos`, a mesma definição da Coleção e dos
 decks; o alvo (`runas_vista.alvo`, 12) é o número dele e não o do Rune Pool,
 embora hoje coincidam.
@@ -56,9 +76,11 @@ ALVO_OMISSAO = 12
 # voltam a aparecer aqui. Não é duplicação — é outra pergunta («quantas tenho
 # na mão») — mas tem de se ler.
 NOTA = ("o número é teu: os + e − mexem só nele e não contam para nada — nem "
-        "coleção, nem decks, nem métricas. Ao lado, «na coleção» é o que o "
-        "site sabe que tens de todas as versões, só para comparares. As runas "
-        "base do OGN também estão na sequência do master set, em cima.")
+        "coleção, nem decks, nem métricas, e é o mesmo em todas as edições. Ao "
+        "lado, «nesta edição» é o que o site sabe que tens das impressões "
+        "DESTA edição — a arte alternativa de cada edição é uma carta própria "
+        "—, só para comparares. As runas base do OGN também estão na "
+        "sequência do master set, em cima.")
 
 
 class RunaDesconhecida(LookupError):
@@ -96,7 +118,10 @@ def _qtys(con: sqlite3.Connection) -> dict[str, int]:
 
 def _na_colecao(con: sqlite3.Connection, cfg: dict) -> dict[str, dict]:
     """A referência «na coleção»: uma linha por runa (`card_key`) com tudo o
-    que ele fisicamente tem dela, de todas as versões, e as origens."""
+    que ele fisicamente tem dela, de todas as versões, e as origens.
+
+    Cada origem diz a EDIÇÃO a que pertence e traz o tile dela — é com isso
+    que o `por_edicao` responde por edição sem segunda consulta."""
     tps = tipos(cfg)
     qty = _qtys(con)
 
@@ -114,26 +139,23 @@ def _na_colecao(con: sqlite3.Connection, cfg: dict) -> dict[str, dict]:
         if linha is None:
             linha = runas[ck] = {
                 "card_key": ck, "name": r["name"], "type": r["type"],
-                # A imagem e o código são os da primeira impressão BASE (a do
-                # OGN); se não houver base, os da primeira que aparecer.
+                # O tile sai do `_fechar`, da primeira impressão BASE do
+                # conjunto; se não houver base, da primeira que aparecer.
                 "code": None, "img": None, "cdn": None, "landscape": False,
-                "origens": [], "total": 0, "sem_retiradas": 0,
+                "origens": [], "total": 0, "sem_retiradas": 0, "_todas": [],
             }
-        e_base = r["variant_kind"] == "base"
-        if linha["code"] is None or (e_base and not linha.get("_base")):
-            linha.update({
-                "code": r["public_code"], "img": f"img/{r['printing_id']}.webp",
-                "cdn": r["image_medium"] or r["image_large"] or r["image_url"],
-                "landscape": (r["orientation"] or "").lower() == "landscape",
-                "_base": e_base,
-            })
         n = qty.get(r["printing_id"], 0)
         retirada = metrics.retirada(r, cfg)
-        _somar(linha, n, retirada, {
-            "id": r["printing_id"], "code": r["public_code"], "kind": r["variant_kind"],
+        _somar(linha, {
+            "id": r["printing_id"], "set_id": r["set_id"],
+            "code": r["public_code"], "kind": r["variant_kind"],
             "label": _rotulo(r, cfg, retirada), "qty": n,
             "retirada": retirada, "escondida": metrics.escondida(r, cfg),
             "fora_do_catalogo": False,
+            "base": r["variant_kind"] == "base",
+            "img": f"img/{r['printing_id']}.webp",
+            "cdn": r["image_medium"] or r["image_large"] or r["image_url"],
+            "landscape": (r["orientation"] or "").lower() == "landscape",
         })
 
     # As runas que só o CardTrader lista (`market_only`): fora do catálogo,
@@ -143,7 +165,7 @@ def _na_colecao(con: sqlite3.Connection, cfg: dict) -> dict[str, dict]:
     if runas:
         marcas = ",".join("?" * len(runas))
         mo = con.execute(
-            f"SELECT printing_id, set_id, collector_raw, card_key, version "
+            f"SELECT printing_id, set_id, collector_raw, card_key, version, image_url "
             f"FROM catalog.market_only WHERE card_key IN ({marcas}) "
             "ORDER BY card_key, set_id, collector_raw", list(runas)).fetchall()
         for r in mo:
@@ -156,26 +178,50 @@ def _na_colecao(con: sqlite3.Connection, cfg: dict) -> dict[str, dict]:
             # leva-o (ver `faltas.pimp`).
             raw = r["collector_raw"] or ""
             codigo = f"{r['set_id']}-{raw}" + ("a" if alt and not raw.lower().endswith("a") else "")
-            _somar(linha, n, retirada, {
-                "id": r["printing_id"], "code": codigo,
+            _somar(linha, {
+                "id": r["printing_id"], "set_id": r["set_id"], "code": codigo,
                 "kind": "alt_art" if alt else "base",
                 "label": ("alt art (CardTrader, retirada)" if retirada
                           else "alt art (CardTrader)" if alt else "CardTrader"),
                 "qty": n, "retirada": retirada, "escondida": False,
                 "fora_do_catalogo": True,
+                "base": not alt,
+                # Fora do catálogo não há imagem em cache: só o CDN do
+                # CardTrader, como no Pimp (`faltas.pimp`).
+                "img": None, "cdn": r["image_url"], "landscape": False,
             })
 
     for linha in runas.values():
-        linha.pop("_base", None)
-        # Só as origens com cópias: é uma linha por baixo do tile, não uma
-        # lista de tudo o que existe. A sequência primeiro, depois o que o
-        # site ainda conta (a promo escondida), depois as retiradas e o
-        # CardTrader — pela ordem em que o resto do site as lê.
-        linha["origens"] = sorted(
-            (o for o in linha["origens"] if o["qty"] > 0),
-            key=lambda o: (o["label"] != "sequência", o["retirada"],
-                           o["fora_do_catalogo"], o["code"]))
+        _fechar(linha, linha["_todas"])
     return runas
+
+
+def edicoes(referencia: dict[str, dict]) -> list[str]:
+    """As edições que TÊM runas, pela ordem dos separadores da Coleção (a do
+    config, pelo `set_order`). Uma edição sem runa nenhuma — o OGS — não
+    entra, e por isso não ganha bloco: até 2026-10-01 ganhava, com as seis
+    runas das outras edições."""
+    sids = {o["set_id"] for linha in referencia.values() for o in linha["_todas"]}
+    return sorted(sids, key=lambda s: (config.set_order(s), s))
+
+
+def por_edicao(referencia: dict[str, dict]) -> dict[str, dict]:
+    """Uma cópia da referência por edição: as runas dessa edição, as origens
+    dessa edição e os totais dessa edição. A runa que a edição não tem não
+    aparece — o `cards` dos totais é o das runas DELA."""
+    out: dict[str, dict] = {}
+    for sid in edicoes(referencia):
+        linhas = {}
+        for ck, linha in referencia.items():
+            minhas = [o for o in linha["_todas"] if o["set_id"] == sid]
+            if not minhas:
+                continue
+            nova = {k: v for k, v in linha.items() if k not in ("_todas", "origens")}
+            nova["_todas"] = minhas
+            _fechar(nova, minhas)
+            linhas[ck] = nova
+        out[sid] = linhas
+    return out
 
 
 # ---------------------------------------------------------------- o contador
@@ -245,10 +291,16 @@ def ajustar(con: sqlite3.Connection, card_key: str, delta: int,
     except BaseException:
         con.execute("ROLLBACK")
         raise
+    n_alvo = alvo(cfg)
     return {"card_key": card_key, "qty": depois, "delta": depois - antes,
             "name": referencia[card_key]["name"],
             "na_colecao": referencia[card_key]["total"],
-            "totals": _totals(con, referencia, alvo(cfg))}
+            "totals": _totals(con, referencia, n_alvo),
+            # O contador é o mesmo em todas as edições, mas o cabeçalho de
+            # cada uma mostra-o: o servidor devolve os totais das duas vistas
+            # para não haver uma segunda aritmética no cliente.
+            "totals_por_edicao": {sid: _totals(con, linhas, n_alvo) for sid, linhas
+                                  in por_edicao(referencia).items()}}
 
 
 def _totals(con: sqlite3.Connection, referencia: dict, n_alvo: int) -> dict:
@@ -273,13 +325,17 @@ def payload(con: sqlite3.Connection, cfg: dict | None = None,
     semeadas = semear(con, cfg, referencia)
     cont = _contadores(con)
 
-    itens = []
-    for linha in sorted(referencia.values(), key=lambda x: x["name"]):
-        linha["contador"] = cont.get(linha["card_key"], 0)
-        linha["target"] = n_alvo
-        itens.append(linha)
+    def _itens(linhas: dict[str, dict]) -> list[dict]:
+        out = []
+        for linha in sorted(linhas.values(), key=lambda x: x["name"]):
+            linha = {k: v for k, v in linha.items() if k != "_todas"}
+            # O contador é o DELE e é o mesmo em todas as edições — ver o topo
+            # do módulo: 12 de cada é o Rune Pool, não um alvo por edição.
+            linha["contador"] = cont.get(linha["card_key"], 0)
+            linha["target"] = n_alvo
+            out.append(linha)
+        return out
 
-    totals = _totals(con, referencia, n_alvo)
     return {
         "generated_at": _now(),
         "image_mode": image_mode,
@@ -289,17 +345,46 @@ def payload(con: sqlite3.Connection, cfg: dict | None = None,
         "so_para_ver": True,
         "alvo": n_alvo,
         "nota": NOTA,
-        "runas": itens,
+        # A soma das edições — é o que o separador «Todas» mostra.
+        "runas": _itens(referencia),
         "semeadas": semeadas,
-        "totals": totals,
+        "totals": _totals(con, referencia, n_alvo),
+        # Uma entrada por edição COM runas (2026-10-01): as runas dela, as
+        # origens dela e o total dela. O OGS não tem runas e não entra.
+        "por_edicao": {sid: {"set_id": sid, "runas": _itens(linhas),
+                             "totals": _totals(con, linhas, n_alvo)}
+                       for sid, linhas in por_edicao(referencia).items()},
     }
 
 
-def _somar(linha: dict, n: int, retirada: bool, origem: dict) -> None:
-    linha["origens"].append(origem)
-    linha["total"] += n
-    if not retirada:
-        linha["sem_retiradas"] += n
+def _somar(linha: dict, origem: dict) -> None:
+    """Guarda a impressão. Os totais e o tile saem do `_fechar`, que é o mesmo
+    para o conjunto inteiro e para a fatia de uma edição — uma conta só."""
+    linha["_todas"].append(origem)
+
+
+def _fechar(linha: dict, origens: list[dict]) -> None:
+    """Os dois totais, o tile e a lista visível de um conjunto de impressões.
+
+    O tile é a primeira impressão BASE do conjunto (no OGN a da sequência, no
+    SFD a base do CardTrader); sem base nenhuma, a primeira que aparecer."""
+    linha["total"] = sum(o["qty"] for o in origens)
+    linha["sem_retiradas"] = sum(o["qty"] for o in origens if not o["retirada"])
+    tile = next((o for o in origens if o["base"]), origens[0] if origens else None)
+    linha.update({
+        "code": tile["code"] if tile else None,
+        "img": tile["img"] if tile else None,
+        "cdn": tile["cdn"] if tile else None,
+        "landscape": bool(tile and tile["landscape"]),
+    })
+    # Só as origens com cópias: é uma linha por baixo do tile, não uma lista
+    # de tudo o que existe. A sequência primeiro, depois o que o site ainda
+    # conta (a promo escondida), depois as retiradas e o CardTrader — pela
+    # ordem em que o resto do site as lê.
+    linha["origens"] = sorted(
+        (o for o in origens if o["qty"] > 0),
+        key=lambda o: (o["label"] != "sequência", o["retirada"],
+                       o["fora_do_catalogo"], o["code"]))
 
 
 def _rotulo(r, cfg: dict, retirada: bool) -> str:

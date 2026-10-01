@@ -2820,6 +2820,16 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   ficam em disco, com `--levar-copias` para os levar. Medido no `data/` real:
   os quatro registos e as quatro bases dizem o mesmo, **zero** passam a ficar
   mais fechados. Ver a última secção deste ficheiro.
+- **CORRIGIDO a 2026-10-01:** a CONTAGEM DAS RUNAS é de cada EDIÇÃO
+  (`runas_vista.por_edicao`) — *"A contagem das runas Alt.Art é exclusiva para
+  cada edição / vi que a contagem está a ser partilhada por todas as edições"*.
+  Tinha razão: o bloco somava as cinco edições num número só e repetia-o em
+  todas (no OGN a Calm Rune dizia «21», e **12 dessas eram as `SFD-R02a`**; no
+  UNL dizia o mesmo 21 sem ele ter lá uma runa; o OGS levava o bloco inteiro).
+  A soma do topo não mexeu — é o que «Todas» mostra —, e o **contador dele**
+  continua um por runa, de propósito e dito no ecrã: 12 de cada é o Rune Pool, e
+  os 14 que ele contou à mão não têm edição para onde ir. Ver a última secção
+  deste ficheiro.
 - **Por fazer:** a parte 2 do seguir — o separador no site e a tarefa diária;
   vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck,
   com as partilhadas assinaladas); e apagar decks pela interface (hoje apaga-se
@@ -9883,3 +9893,106 @@ não republicar nada — nem depois de a base ser aberta —, o desacordo a cura
 um `de()` que devolvesse sempre «nada»), o restauro para mais fechado, o André
 intacto, a conta sem base ainda criada; e as cópias que ficam, as que saem, a que
 NÃO é dela, e as duas portas na consola.
+
+## 2026-10-01 — A CONTAGEM DAS RUNAS É DE CADA EDIÇÃO (`runas_vista.por_edicao`)
+
+Palavras dele: *"A contagem das runas Alt.Art é exclusiva para cada edição / vi
+que a contagem está a ser partilhada por todas as edições"*. Ramo
+`ai-pc/runas-edicao-2026-10-01`.
+
+**Tinha razão, e o defeito era NOSSO — de 2026-09-19, escrito no código como se
+fosse decisão.** O bloco «Runas — 12 de cada» somava num número só as impressões
+das CINCO edições e repetia-o em todas: o comentário do `app.js` dizia *«fecha a
+grelha em todas as edições (as runas são as mesmas seis)»* e o docstring do
+módulo *«tudo o que ele fisicamente tem de cada runa … seja que impressão for»*.
+Isso é verdade da CARTA LÓGICA e falso da COLEÇÃO — e a Coleção inteira é feita
+ao contrário (um alvo por impressão, um bloco por edição): a `SFD-R02a` é uma
+carta e a `OGN-042a` é outra.
+
+**Medido no `data/` real antes de mexer** (`_revisao\_medir_runas_edicao.py`,
+contra uma cópia por `VACUUM INTO`): na página do **OGN** a Calm Rune dizia «na
+coleção: **21**» — e **12 dessas eram as `SFD-R02a`** do CardTrader; a Mind Rune
+dizia 12 com 4 do SFD; a Order Rune 22 com 7 do SFD. Na página do **UNL** dizia
+exactamente o mesmo 21, 12 e 22 **sem ele ter lá uma única runa**. E o **OGS**,
+que não tem runa nenhuma no catálogo, levava o bloco inteiro.
+
+As runas em arte alternativa, por edição: **OGN 6** no catálogo
+(`OGN-007a..214a`, 8 cópias), **SFD 6** (`market_only`, **23 cópias** — 12 Calm,
+4 Mind, 7 Order), **UNL 6** (0) e **VEN 6** (0). São 31 cópias, e estavam todas
+misturadas em seis linhas.
+
+**A correcção.** `payload()` ganhou **`por_edicao`**: cada origem passou a dizer
+a `set_id` a que pertence e a trazer o tile dela, e o `_fechar` — a MESMA função
+— calcula os dois totais, o tile e a lista visível tanto para o conjunto inteiro
+como para a fatia de uma edição (uma conta só, não duas). O topo (`runas` e
+`totals`) **não mexeu** e continua a ser a soma: é o que o separador «Todas»
+mostra, e é a única vista em que o número somado está certo. Continua a ser **UM
+ficheiro** (`api/runas.json`) — as seis runas são as mesmas, o que muda é a
+impressão. No `app.js` o `runasDaEdicao()` escolhe a fatia pelo `edicaoAberta()`
+que já existia; um payload sem `por_edicao` (o 8770 não se reinicia a cada
+merge) volta a ser a soma, como era. A linha do tile passou de «na coleção» a
+**«nesta edição»**, e o `riftvault runas` ganhou a tabela por edição.
+
+**O OGS deixou de levar bloco** — `edicoes()` só devolve as edições que TÊM
+runas.
+
+**O CONTADOR DELE NÃO SE PARTIU, e é decisão a tomar por ele.** O alvo é «12 de
+cada», que é o **Rune Pool de um deck**: 12 × 6 runas × 4 edições = **288** não é
+uma coisa que se tenha nem se jogue. E os seis números que ele contou à mão
+(Body 3, Calm 3, Chaos 2, Fury 3, Mind 1, Order 2 — **14**, semeados a 26/09 e
+a 01/10) **não têm edição nenhuma gravada**: reparti-los era inventá-los, e a
+regra do bloco desde 19/09 é que *«uma linha a 0 é uma linha dele e nunca mais
+se recalcula a partir da coleção»*. Por isso a `rune_counter` continua com a
+chave de sempre (`card_key`, sem `set_id`), o crachá é o mesmo nas quatro
+edições, e **o cabeçalho DI-LO** em vez de o esconder: «contas 14 de 72 (o teu
+contador, igual em todas as edições) · nesta edição (OGN) tens: 45 (37 sem as
+retiradas)». Um `+` numa edição mexe o número em todas (`runaPorContador`), e os
+totais das duas vistas vêm do servidor (`totals_por_edicao`), para não haver uma
+segunda aritmética no cliente. **É pergunta para ele.**
+
+**Medido a 2026-10-01, o `main` e o ramo na MESMA cópia do `data/` real**
+(`_revisao\_comparar_runas.py`) — **o topo não mexe**: `totals` iguais, as seis
+linhas da soma iguais campo a campo (70 cópias, 39 sem as retiradas, 14 no
+contador, alvo 72), e a soma das edições fecha com o total (70 = 45+23+0+2;
+39 = 37+0+0+2).
+
+| edição | antes (o mesmo em todas) | depois |
+|---|---|---|
+| **OGN** | na coleção **70** (39 sem as retiradas) | **45** (37) — Body 1 · Calm 9 · Chaos 9 · Fury 3 · Mind 8 · Order 15 |
+| **SFD** | 70 (39) | **23** (0) — Calm 12 · Mind 4 · Order 7, todas alt art do CardTrader |
+| **UNL** | 70 (39) | **0** (0) |
+| **VEN** | 70 (39) | **2** (2) — Fury 1 · Body 1, as promo `VEN-R01`/`R04` |
+| **OGS** | 70 (39), com o bloco inteiro | **sem bloco** |
+| «Todas» | — | **70** (39), a soma |
+
+Carta a carta, o que ele vai ver mudar: a **Calm Rune** passa de «21» em todas
+as páginas a **9 no OGN · 12 no SFD · 0 no UNL · 0 no VEN**; a **Mind Rune** de
+12 a **8 · 4 · 0 · 0**; a **Order Rune** de 22 a **15 · 7 · 0 · 0**. A Chaos e a
+Fury quase não mexem (não têm impressões do CardTrader): 9 → 9 no OGN, 4 → 3 no
+OGN + 1 no VEN.
+
+**O que estava decidido fica de pé, e há teste para os dois:** as runas do master
+set continuam a pedir o alvo da Coleção (**3**, `master_targets_by_type` desde
+15/09 à tarde; o 12 é só do bloco e vive noutro sítio), a runa base continua na
+**sequência** do master set e a alt art dela continua **retirada**; e as promo
+`VEN-R01..R06` **não saem da Coleção** — continuam escondidas da grelha (15/09)
+mas dentro do vault, no `copies` e no valor, e o bloco mostra-as no VEN, que é
+onde elas são.
+
+**NÃO MEXE EM NÚMERO NENHUM DO RESTO**, como desde 19/09:
+`tests/test_runas_por_edicao.py::TestNaoMexeEmNumeroNenhumDoResto` fotografa
+níveis, índice, wantlist, Faltas, A mais, valor, as cinco barras e o `copies`
+inteiro, mexe nos contadores, e exige igualdade — com a prova pela negativa ao
+lado (um `+` na grelha TEM de mudar a fotografia, senão ela não vale nada).
+
+`tests/test_runas_por_edicao.py` (**28 testes**; **20 falham no `main`** e os 8
+que passam são os que fixam o que não pode mudar): cada edição responde por si
+(o total, as origens só dela, a runa que ela não tem, o tile dela, o
+`sem_retiradas` dela, os totais a somarem as runas dela e as edições a somarem o
+total); a soma do topo intacta e sem a marca interna `_todas`; o contador
+continua dele (a chave da tabela, o mesmo número em todas, a sementeira pela
+soma, os totais das duas vistas, e mexer nele não mexe na referência de edição
+nenhuma); a fotografia; e o frontend (a fatia, o payload antigo que não parte o
+ecrã, o cabeçalho, o contador a andar em todas as listas, a nota e a ajuda). O
+`test_runas_vista.py` foi ajustado em **um** teste — fixava o literal «na
+coleção» do tile.

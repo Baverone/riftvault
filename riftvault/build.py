@@ -293,12 +293,16 @@ def _gerar(out_dir: Path | str, log=print, imagens: bool = True,
         n_sets += 1
         log(f"  api/set/{s['id']}.json  ({len(payload['groups'])} grupos)")
     # O bloco «Runas — 12 de cada» do fim da grelha (2026-09-19): o contador
-    # dele, um ficheiro para as cinco edições. Não conta para nada — e no
-    # site publicado é só de leitura (`editable: False`, sem `+`/`−`).
+    # dele. Um ficheiro só, com a referência de CADA edição em `por_edicao`
+    # (2026-10-01) — as seis runas são as mesmas, o que muda é a impressão.
+    # Não conta para nada — e no site publicado é só de leitura
+    # (`editable: False`, sem `+`/`−`).
     runas = runas_vista.payload(con, cfg, image_mode=image_mode, editable=False)
     escrever(out / "api" / "runas.json", runas)
     log(f"  api/runas.json  ({runas['totals']['cards']} runas, contador "
-        f"{runas['totals']['contador']} · na coleção {runas['totals']['total']} — só para ver)")
+        f"{runas['totals']['contador']} · na coleção {runas['totals']['total']} — só para ver; "
+        + " ".join(f"{sid} {e['totals']['total']}"
+                   for sid, e in runas["por_edicao"].items()) + ")")
     con.close()
 
     # Decks: os mesmos URLs que o servidor serve em modo edição.
