@@ -52,12 +52,31 @@ jobs:
 
       - name: Confirmar que a pasta do site existe
         # Publicar uma pasta vazia deixava o André com um 404 e o Actions verde.
+        #
+        # 2026-10-01: a raiz passou a poder ser a LISTA das colecções públicas
+        # (`site/api/lista.json`, que não tem `generated_at` porque não é uma
+        # geração) e o site dele mudou-se para `site/u/<slug>/`. Este guarda
+        # exigia `site/api/index.json` e matou a build das 15:31 em 10 s — o
+        # site ficou no ar na versão das 09:31 com tudo já commitado.
+        #
+        # Agora pergunta-se o que tem de ser verdade NOS DOIS CASOS: há uma
+        # página na raiz, e há pelo menos uma colecção gerada. Nenhum caminho
+        # que possa mudar de dono fica escrito à mão.
         run: |
-          test -f site/api/index.json || {
-            echo "site/api/index.json não existe — a pasta do site não está commitada." >&2
+          test -f site/index.html || {
+            echo "site/index.html não existe — a pasta do site não está commitada." >&2
             exit 1
           }
-          echo "site/: $(du -sh site | cut -f1), gerado em $(python3 -c "import json;print(json.load(open('site/api/index.json'))['generated_at'])")"
+          n=$(find site -path '*/api/index.json' | wc -l)
+          test "$n" -ge 1 || {
+            echo "não há nenhum api/index.json em site/ — a pasta está incompleta." >&2
+            exit 1
+          }
+          if [ -f site/api/lista.json ]; then
+            echo "site/: $(du -sh site | cut -f1), a raiz é a lista de $n colecção(ões)"
+          else
+            echo "site/: $(du -sh site | cut -f1), uma colecção, gerada em $(python3 -c "import json;print(json.load(open('site/api/index.json'))['generated_at'])")"
+          fi
 
       - uses: actions/upload-pages-artifact@v3
         with:
