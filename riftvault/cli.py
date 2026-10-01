@@ -1288,6 +1288,40 @@ def _password_uma_vez(slug: str, nome: str, password: str,
     print()
 
 
+def _perguntar_password(slug: str, nome: str) -> str | None:
+    """Pergunta a password duas vezes, SEM A MOSTRAR. `None` se não der.
+
+    Usa o `getpass` da biblioteca padrão: o que ela escreve não aparece no
+    ecrã, não vai para o histórico da consola (não é um argumento de um
+    comando) e não passa por ficheiro nenhum. É a mesma razão por que a
+    temporária se imprime e não se guarda — ver `_password_uma_vez`.
+
+    PERGUNTA DUAS VEZES porque não há como corrigir depois: se ela escrever a
+    password errada às escuras, fica sem entrar e sem saber porquê. A
+    comparação faz-se aqui, que é onde as duas existem; as REGRAS DE FORÇA não
+    se repetem aqui — quem as aplica é o `senha.validar`, pelo `definir_senha`,
+    para não haver duas listas de regras a divergir.
+    """
+    import getpass
+    from . import senha as senha_mod
+
+    print(f"A escolher a password de «{slug}»"
+          + (f" ({nome})" if nome and nome != slug else "") + ".")
+    print(f"Pelo menos {senha_mod.MINIMO} caracteres; uma frase curta serve.")
+    print("Não aparece nada no ecrã enquanto escreves — é normal.")
+    try:
+        primeira = getpass.getpass("Password nova: ")
+        segunda = getpass.getpass("Outra vez, para confirmar: ")
+    except (EOFError, KeyboardInterrupt):
+        print("\nnada feito.", file=sys.stderr)
+        return None
+    if primeira != segunda:
+        print("\nas duas não são iguais — nada feito. Corre o comando outra "
+              "vez.", file=sys.stderr)
+        return None
+    return primeira
+
+
 def cmd_conta(args) -> int:
     """CRIAR, dar PASSWORD NOVA, EXPORTAR, IMPORTAR e APAGAR uma conta.
 
@@ -1306,11 +1340,23 @@ def cmd_conta(args) -> int:
     (`riftvault conta baverone --nova-password`), que é o que o deixa entrar na
     sua própria coleção quando a porta abrir.
 
+    E desde 2026-09-30, à tarde, há o terceiro:
+
+        riftvault conta miguel --definir-password   escolhe-a AQUI, sem browser
+
+    É a REDE DE SEGURANÇA, e nasceu de um beco a sério: a troca da temporária
+    fazia-se só no site, e o site tinha-a escondida com a porta fechada — não
+    abria sem trocar e não trocava sem abrir. Com isto a troca deixa de
+    depender do browser, e uma recuperação passa a ser possível a partir da
+    consola em qualquer estado. Pergunta duas vezes, **sem mostrar o que se
+    escreve** (`getpass`), e aplica as MESMAS regras de força do site
+    (`senha.validar`) — não há uma porta com regras mais frouxas.
+
     As operações que escrevem por cima de dados exigem `--sim`, e o apagar faz
     um export antes — apagar uma conta é a operação que mais vezes se faz por
     engano e a que menos se desfaz.
     """
-    from . import auth, conta, utilizador
+    from . import auth, conta, senha as senha_mod, utilizador
 
     # CRIAR uma conta (2026-09-30). Aceita as duas escritas — `--criar miguel` e
     # `miguel --criar` — porque as duas são a coisa natural de escrever.
@@ -1337,10 +1383,53 @@ def cmd_conta(args) -> int:
         _password_uma_vez(u["slug"], u["nome"], password, criada=True)
         from . import multi
         if not multi.aberto():
-            print("A porta das contas está FECHADA: ela ainda não consegue",
+            # ISTO DIZIA «ela ainda não consegue entrar», e era falso desde
+            # 2026-09-30 — medido a 01/10: com a porta fechada ela entra com a
+            # password e usa a coleção dela. O que a porta trava é outra coisa.
+            print("A porta das contas está FECHADA — mas ela JÁ consegue "
+                  "entrar com esta password e usar a coleção dela.",
                   file=sys.stderr)
-            print("entrar. Quando estiver tudo pronto, `riftvault multi "
-                  "--abrir`.", file=sys.stderr)
+            print("O que falta com a porta fechada: a página pública dela não "
+                  "se publica, e não há entrada pelo Discord/Google.",
+                  file=sys.stderr)
+            print("Para abrir: `riftvault multi --abrir`.", file=sys.stderr)
+        return 0
+
+    if args.definir_password:
+        if not args.slug:
+            print("falta dizer de quem: `riftvault conta miguel "
+                  "--definir-password`", file=sys.stderr)
+            return 1
+        try:
+            u = utilizador.por_slug(args.slug)
+        except utilizador.UtilizadorDesconhecido as e:
+            print(e, file=sys.stderr)
+            return 1
+        escolhida = _perguntar_password(u["slug"], u["nome"] or "")
+        if escolhida is None:
+            return 1
+        con = auth.abrir()
+        try:
+            # `temporaria=False`: esta é escolhida, não ditada — deixa de
+            # trancar o site. E `validar=True` põe as regras do site a valer
+            # aqui, que é o ponto de não haver duas portas com regras
+            # diferentes.
+            try:
+                auth.definir_senha(con, int(u["user_id"]), escolhida,
+                                   temporaria=False, validar=True,
+                                   slug=u["slug"] or "", nome=u["nome"] or "")
+            except senha_mod.SenhaFraca as e:
+                print(f"\n{e}\n", file=sys.stderr)
+                return 1
+            # As sessões vão-se, como na troca pelo site: se ele está a fazer
+            # isto é porque alguém pode ter tido a password.
+            fora = auth.terminar_todas(con, int(u["user_id"]))
+        finally:
+            con.close()
+        print(f"\nPassword definida para «{u['slug']}». Já não é temporária: "
+              f"pode usar o site.")
+        if fora:
+            print(f"(as {fora} sessões abertas dela foram fechadas)")
         return 0
 
     if args.nova_password:
@@ -1400,6 +1489,7 @@ def cmd_conta(args) -> int:
             con.close()
         print("\n`riftvault conta --criar <nome>` cria uma conta nova"
               "\n`riftvault conta <nome> --nova-password` dá outra password"
+              "\n`riftvault conta <nome> --definir-password` escolhe-a aqui"
               "\n`riftvault conta <nome> --exportar` / `--apagar --sim`",
               file=sys.stderr)
         return 0
@@ -2312,7 +2402,9 @@ def cmd_multi(args) -> int:
             print(f"\n{e}\n", file=sys.stderr)
             return 1
         if r["mudou"]:
-            print("Aberto. Os teus amigos já se podem registar.")
+            print("Aberto. O Discord/Google ficam disponíveis e passa a "
+                  "publicar-se a página de quem a quiser pública.")
+            print("Em casa, escrever passa a pedir que entres — a ti também.")
             print("Para fechar outra vez:  riftvault multi --fechar")
         else:
             print("Já estava aberto.")
@@ -2322,8 +2414,20 @@ def cmd_multi(args) -> int:
         r = porta.fechar()
         print("Fechado." if r["mudou"] else "Já estava fechado.")
         if r["mudou"]:
-            print("Ninguém perde nada: as contas e as coleções ficam, só "
-                  "deixa de se entrar.")
+            # ISTO MENTIA ATÉ 2026-10-01, e a mentira era de segurança: dizia
+            # «só deixa de se entrar» quando o que fechar fazia era DESLIGAR a
+            # autenticação — com o túnel vivo, escrita anónima da internet.
+            # A primeira escrita desta correcção também mentia, ao contrário
+            # («os teus amigos deixam de entrar»): medido, com a porta fechada
+            # quem já tem conta entra e usa a sua coleção — é assim desde
+            # 2026-09-30, quando a entrada por password deixou de depender da
+            # porta.
+            print("Nada se apaga: as contas, as passwords e as coleções ficam.")
+            print("Em casa volta a escrever-se sem password, só o teu site se "
+                  "publica, e o Discord/Google ficam parados.")
+            print("Quem já tem conta continua a entrar com a password dela.")
+            print("E de FORA de casa entrar continua a ser obrigatório, mesmo "
+                  "para ver: fechar a porta nunca desliga isso.")
         return 0
 
     print(porta.texto())
@@ -2571,6 +2675,10 @@ def main(argv: list[str] | None = None) -> int:
                    help="o nome a mostrar (omissão: o mesmo do endereço)")
     p.add_argument("--nova-password", action="store_true",
                    help="dá-lhe uma password temporária nova — é o «esqueci-me»")
+    p.add_argument("--definir-password", action="store_true",
+                   help="escolhe a password AQUI, na consola (pergunta duas "
+                        "vezes, sem a mostrar). Substitui a temporária e não "
+                        "precisa do browser — é a rede de segurança")
     p.add_argument("--exportar", action="store_true",
                    help="um .zip com a coleção, o config e as listas dele")
     p.add_argument("--para", metavar="CAMINHO",

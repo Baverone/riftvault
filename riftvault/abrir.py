@@ -17,10 +17,15 @@ A VERIFICAÇÃO QUE INTERESSA MAIS, E PORQUÊ
     «ELE tem password definida?» Se a porta abrir sem isso, a escrita passa a
     exigir sessão (é a regra da LAN, no `rotas_conta.py`) e ele fica do lado de
     fora da sua própria coleção. É a única que o obriga a fazer uma coisa ANTES
-    de abrir — e agora essa coisa é um comando na consola, sem browser e sem
-    contas em sítios de terceiros:
+    de abrir — e desde 2026-09-30, à tarde, essa coisa é UM comando na consola,
+    que resolve tudo de uma vez e sem browser:
 
-        riftvault conta baverone --nova-password
+        riftvault conta baverone --definir-password
+
+    Era o `--nova-password`, que dá uma TEMPORÁRIA — e a temporária não conta
+    como pronto. Havia aí um beco: a temporária trocava-se só no site, e o site
+    escondia a entrada enquanto a porta estivesse fechada. Ver `cmd_conta` e o
+    topo do `rotas_conta.py`.
 """
 
 from __future__ import annotations
@@ -263,10 +268,11 @@ def _ele_entra(cfg: dict) -> dict:
             "Tu consegues entrar", False,
             "a tua password é a temporária e ainda não a trocaste — com ela "
             "entras, mas não podes fazer mais nada.",
-            f"Com o `riftvault serve` a correr, abre o site, entra como "
-            f"«{dono.get('slug')}» com a temporária, e escolhe uma password "
-            f"tua. Se a perdeste: `riftvault conta {dono.get('slug')} "
-            f"--nova-password`.")
+            f"Escolhe-a na consola, aqui e agora:  riftvault conta "
+            f"{dono.get('slug')} --definir-password  — pergunta-a duas vezes e "
+            f"não a mostra. (Pelo site também dá: com o `riftvault serve` a "
+            f"correr, a caixa «Entrar» está na barra do lado, com a porta "
+            f"fechada e tudo.)")
     if quais:
         return _essencial(
             "Tu consegues entrar", True,
@@ -278,8 +284,8 @@ def _ele_entra(cfg: dict) -> dict:
         f"Com a porta fechada isto não te incomoda — mas depois de abrires, "
         f"escrever passa a exigir entrar, e ficavas de fora da tua própria "
         f"coleção. Corre agora:  riftvault conta {dono.get('slug')} "
-        f"--nova-password  — ele dá-te uma password temporária; entras com ela "
-        f"uma vez e escolhes a tua.")
+        f"--definir-password  — escolhes a password na consola, num passo só, "
+        f"sem browser.")
 
 
 def ligar(provedor: str = "discord", porta: int = 8770,
@@ -340,6 +346,14 @@ def texto(estado: dict | None = None, cfg: dict | None = None) -> str:
     linhas.append(f"A porta das contas está {porta}."
                   + (" (a correr em ENSAIO)" if est["ensaio"] else ""))
     linhas.append(f"Utilizadores: {est['utilizadores']}.")
+    # A PORTA NÃO MANDA NA AUTENTICAÇÃO (2026-10-01). Dizia-se aqui só se ela
+    # estava aberta ou fechada, e quem lesse isso concluía — como nós
+    # concluímos — que fechada queria dizer «sem autenticação». Diz-se as duas
+    # metades juntas, porque são as duas que ele precisa de ter na cabeça.
+    linhas.append("De fora de casa, entrar é sempre obrigatório — mesmo para "
+                  "ver, e com a porta fechada também.")
+    linhas.append("Em casa, escrever " + ("exige entrar." if est["aberto"]
+                                          else "não pede password."))
     linhas.append("")
     for p in est["passos"]:
         linhas.append(f"[{_MARCA[p['ok']]}] {p['nome']}: {p['diz']}")
@@ -447,7 +461,35 @@ def abrir(forcar: bool = False, cfg: dict | None = None) -> dict:
 
 
 def fechar(cfg: dict | None = None) -> dict:
-    """Volta a fechar. Ninguém perde nada — só deixa de se entrar."""
+    """Volta a fechar: as contas dos amigos deixam de valer.
+
+    **A DOCSTRING ANTIGA DIZIA «Ninguém perde nada — só deixa de se entrar», E
+    ERA FALSO DE UMA MANEIRA PERIGOSA** (corrigido a 2026-10-01). Até aqui
+    fechar DESLIGAVA A AUTENTICAÇÃO: o `rotas_conta._antes` deixava passar
+    qualquer escrita sem sessão e sem CSRF, e com o túnel vivo isso era escrita
+    anónima na coleção dele a partir da internet. Uma frase que descrevia a
+    porta como inofensiva, num sítio que a punha a abaixo.
+
+    O que fechar faz HOJE, e é tudo:
+
+      * o OAuth não anda e não se registam contas (`auth.exigir_porta_aberta`);
+      * o site publicado continua a ser só o dele;
+      * **em casa** volta a escrever-se sem password, que é o que ele quer.
+
+    O que fechar **nunca** fez, e convém não repetir a asneira ao contrário:
+    não impede quem já tem conta de entrar. A entrada por password não passa
+    pela porta desde 2026-09-30 — medido a 01/10, com a porta fechada um amigo
+    entra e usa a coleção DELE (a dele, não a do André: é o `get_con` a abrir o
+    ficheiro do dono da sessão).
+
+    O que fechar **NÃO** faz, e é a correcção: não mexe no que se exige a quem
+    vem de FORA. Quem chega pelo túnel precisa de sessão para tudo, com a porta
+    aberta ou fechada. Quem decide isso é a ORIGEM do pedido (`origem.py`), não
+    esta chave.
+
+    Nada se apaga: as contas, as passwords e as coleções ficam todas, e abrir
+    outra vez repõe o que era.
+    """
     from . import multi
     if not multi.aberto(cfg if cfg is not None else config.load()):
         return {"aberto": False, "mudou": False}

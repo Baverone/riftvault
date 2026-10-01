@@ -203,17 +203,29 @@ Tu já existes: és o utilizador **1**, com o nome `baverone`, e tens a coleçã
 toda. O que te falta é uma password. **Este é o comando:**
 
 ```
-riftvault conta baverone --nova-password
+riftvault conta baverone --definir-password
 ```
 
-Ele escreve uma password temporária no ecrã, tipo `varanda-tigre-bolo-chave-47`.
-Copia-a. Depois, com o `riftvault serve` a correr, abre o site, entra com
-`baverone` e essa password, e o site pede-te logo para escolheres uma tua —
-**com a temporária não dá para fazer mais nada**, e é de propósito.
+Ele pergunta-a **duas vezes e não a mostra** (não aparece nada no ecrã enquanto
+escreves — é normal). Pelo menos 10 caracteres; uma frase curta serve, tipo
+`o meu gato dorme muito`. Não precisa de maiúsculas nem de símbolos. Fica
+escolhida de vez, num passo só.
+
+> **Isto era mais complicado até 2026-09-30, à tarde, e era um beco.** O
+> comando era o `--nova-password`, que te dá uma password **temporária** —
+> depois tinhas de abrir o site e trocá-la. Só que o site escondia a caixa de
+> «Entrar» enquanto a porta estivesse fechada: não abrias sem trocar e não
+> trocavas sem abrir. Está resolvido nos dois lados — a caixa aparece sempre no
+> `riftvault serve`, e agora há este comando que resolve tudo na consola.
+
+**Pelo site também dá**, se preferires: com o `riftvault serve` a correr, a
+caixa «Entrar» está na barra do lado, com a porta fechada e tudo. Entras com a
+temporária e ele pede-te logo uma tua — **com a temporária não dá para fazer
+mais nada**, e é de propósito.
 
 > **Nem eu consigo ler a tua password depois disso**, e é a mesma regra para
 > todos: o que fica guardado não se desfaz de volta. Se a perderes, corres o
-> mesmo comando e ele dá-te outra temporária. Não há nada a recuperar porque não
+> mesmo comando outra vez e escolhes outra. Não há nada a recuperar porque não
 > há nada legível para recuperar.
 
 Confirma:
@@ -281,6 +293,14 @@ Escreve uma temporária nova, fecha as sessões que ele tinha abertas (se foi o
 telemóvel que ele perdeu, o telemóvel sai), e ele volta a escolher uma dele na
 primeira entrada.
 
+Se ele estiver ao teu lado e for mais simples escolher a dele ali mesmo, há o
+outro comando — pergunta-a duas vezes, não a mostra, e fica escolhida de vez
+(não é temporária, por isso ele não tem de trocar nada a seguir):
+
+```
+riftvault conta miguel --definir-password
+```
+
 > **Porque não te dou a password dela para lhe ler ao telefone?** Porque tu
 > pediste isso e eu contrapus: *«as pessoas reutilizam passwords»*. A que o
 > Miguel escolher é provavelmente a do email dele. Guardá-la legível no teu PC
@@ -346,7 +366,15 @@ Para fechar outra vez, a qualquer momento:
 riftvault multi --fechar
 ```
 
-Ninguém perde nada: as contas e as coleções ficam, só deixa de se entrar.
+Ninguém perde nada: as contas, as passwords e as coleções ficam todas. O que
+fechar faz é **deixar de usar as contas** — em casa voltas a escrever sem
+password, e os teus amigos deixam de entrar.
+
+**Fechar NÃO desliga a autenticação de fora de casa** (corrigido a 2026-10-01:
+até aí desligava, e com o túnel vivo isso era escrita anónima na tua coleção a
+partir da internet). Quem chegar pelo `editar.baverone.com` precisa de entrar
+para tudo, mesmo para ver, com a porta aberta ou fechada. Ver
+`docs/origem-do-pedido.md`.
 
 ---
 

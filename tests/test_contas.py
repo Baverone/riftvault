@@ -204,6 +204,13 @@ class TestPortaFechada(Base):
         self.assertIn(r.status_code, (401, 403))
 
     def test_nao_se_pode_entrar_por_fornecedor_nenhum(self):
+        """O OAuth continua a exigir a porta aberta — só a PASSWORD é que não.
+
+        A diferença tem razão: um fornecedor obriga a configurar uma aplicação
+        em sítio de terceiros, e ele não precisa dela para tratar da password
+        dele. O caminho do `?ligar=` continua a ser a excepção, e é testado à
+        parte (`abrir.ligar`).
+        """
         c = self.cliente(aberto=False)
         for nome in ("google", "discord", "local"):
             self.assertEqual(c.get(f"/entrar/{nome}").status_code, 403,
@@ -237,11 +244,21 @@ class TestPortaFechada(Base):
             self.assertNotIn(palavra, visivel,
                              f"«{palavra}» não pode aparecer no HTML visível")
 
-    def test_o_js_nao_desenha_a_zona_com_a_porta_fechada(self):
+    def test_o_js_esconde_a_zona_no_ESTATICO_e_nao_com_a_porta_fechada(self):
+        """O critério mudou a 2026-09-30, e este teste descrevia o BECO.
+
+        Escondia-se por `!c.aberto` — e como o `multi --verificar` exige trocar
+        a temporária ANTES de abrir, e a troca se faz entrando no site, não
+        havia por onde. Hoje esconde-se quando não há resposta do
+        `api/conta.json`, que é exactamente o site publicado. Ver
+        `TestNoServidorAEntradaAparece` e `TestNoEstaticoNaoApareceNada`.
+        """
         js = APP_JS.read_text(encoding="utf-8")
         trecho = js.split("function renderConta()")[1][:400]
-        self.assertIn("!c.aberto", trecho)
+        self.assertIn("if (!c) {", trecho)
         self.assertIn("hidden = true", trecho)
+        self.assertNotIn("!c.aberto", trecho,
+                         "a porta não pode voltar a decidir isto — era o beco")
 
 
 # --------------------------------------------------------------------------

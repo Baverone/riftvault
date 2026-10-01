@@ -203,9 +203,10 @@ main { flex: 1 0 auto; padding: 0; }
   color: var(--accent-2); background: #2a2210; border: 1px solid #5a4a1c;
   border-radius: 99px; padding: 2px 9px;
 }
-/* A zona da conta na barra lateral (2026-09-29). Só aparece com as contas
-   abertas — com elas fechadas o elemento fica `hidden` e o site dele é o de
-   sempre. */
+/* A zona da conta na barra lateral (2026-09-29). Só aparece no SERVIDOR — no
+   site publicado o elemento fica `hidden` e a cópia publicada é a de sempre.
+   O critério mudou a 2026-09-30: era «só com as contas abertas», e isso
+   escondia a entrada a quem tinha de trocar a password antes de abrir. */
 .conta-zona { margin-top: 12px; }
 .conta-cx {
   display: flex; flex-direction: column; gap: 7px;

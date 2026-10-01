@@ -1582,9 +1582,10 @@ existe — nem um link de login.
 de um comando teu** — não há registo no site:
 
 ```
-riftvault conta --criar miguel          # cria e diz uma password temporária
-riftvault conta miguel --nova-password  # o «esqueci-me»: dá-lhe outra
-riftvault conta                         # quem existe e em que estado está
+riftvault conta --criar miguel             # cria e diz uma password temporária
+riftvault conta miguel --nova-password     # o «esqueci-me»: dá-lhe outra
+riftvault conta miguel --definir-password  # escolhe-a aqui (pergunta 2x, não a mostra)
+riftvault conta                            # quem existe e em que estado está
 ```
 
 A temporária aparece **uma vez** (`varanda-tigre-bolo-chave-47`), mandas-lha
@@ -1602,10 +1603,17 @@ do `baverone.com` + o túnel), e este comando diz-te em português o que já est
 pronto e o que falta:
 
 ```
-riftvault conta baverone --nova-password   # a TUA password (faz isto antes)
-riftvault multi --verificar                # o que falta; recusa abrir se faltar algo
-riftvault multi --abrir                    # abre. --fechar volta atrás
+riftvault conta baverone --definir-password  # a TUA password (faz isto antes)
+riftvault multi --verificar                  # o que falta; recusa abrir se faltar algo
+riftvault multi --abrir                      # abre. --fechar volta atrás
 ```
+
+> **A caixa de «Entrar» aparece SEMPRE no `riftvault serve`**, porta fechada ou
+> aberta — é lá que tratas da tua password. O que fica escondido é a **cópia
+> publicada**, que continua sem sinal nenhum de que há contas. Até 30/09 à tarde
+> a regra era a outra (escondia-se com a porta fechada) e dava um beco: o
+> `--verificar` exigia trocar a temporária antes de abrir, e a troca fazia-se
+> entrando no site.
 
 O que é bom saber sem ler o guia todo:
 

@@ -261,18 +261,40 @@ class TestPortasFechadas(Base):
                 maus.append(p.name)
         self.assertEqual(maus, [], f"há configuração de túnel: {maus}")
 
-    def test_nao_ha_utilizadores_criados_no_config_real(self):
-        """*"SEM registo, SEM convites, SEM contas de amigos criadas"* — e o
-        interruptor do config real tem de estar mesmo fechado."""
+    def test_o_interruptor_da_porta_e_EXPLICITO_no_config_real(self):
+        """ESTE TESTE MUDOU DE PERGUNTA a 2026-10-01, e a razão interessa.
+
+        Até aqui exigia `multi.aberto: false` no config REAL — era a ordem dele
+        de 29/09 (*"SEM registo, SEM convites, SEM contas de amigos criadas"*).
+        **Ele abriu a porta e criou três contas a sério**, e desde então o teste
+        dava vermelho a descrever um mundo que já não existe: o teste é que
+        estava velho, não o código.
+
+        O que fica, e continua a valer: o interruptor tem de estar **escrito no
+        ficheiro commitado**. É a lição de 01/10 — o estado «aberta» vivia numa
+        modificação por gravar, e por isso um `git checkout` do config podia
+        mudá-lo sozinho (nessa altura, DESLIGANDO a autenticação; ver
+        `docs/origem-do-pedido.md`). Ele commitou-o em `79fe63b` por isso mesmo.
+        """
         raiz = Path(__file__).resolve().parent.parent
         bruto = json.loads((raiz / "riftvault_config.json").read_text(
             encoding="utf-8"))
-        self.assertIs((bruto.get("multi") or {}).get("aberto", False), False,
-                      "o `multi.aberto` do config REAL não está fechado")
+        valor = (bruto.get("multi") or {}).get("aberto")
+        self.assertIsInstance(
+            valor, bool,
+            "o `multi.aberto` tem de estar escrito no riftvault_config.json, "
+            "e ser true ou false — não pode ficar por omissão nem vir de uma "
+            "modificação por gravar")
 
-    def test_so_ha_um_utilizador_no_registo_real(self):
-        """*"SEM registo, SEM convites, SEM contas de amigos criadas"*. As
-        contas de teste vivem nos testes e na base de ensaio — nunca na real."""
+    def test_nenhuma_conta_de_TESTE_ficou_no_registo_real(self):
+        """A metade que não envelheceu: *"as contas de teste vivem nos testes e
+        na base de ensaio — nunca na real"*.
+
+        A outra metade («há um utilizador só») morreu no dia em que ele criou
+        as contas dos amigos. Esta fica, e é a que apanha o acidente a sério:
+        uma bateria que escreva no `data/users/registo.db` por se ter esquecido
+        de apontar o `RIFTVAULT_DATA` para uma pasta temporária.
+        """
         raiz = Path(__file__).resolve().parent.parent
         registo = raiz / "data" / "users" / "registo.db"
         if not registo.exists():
@@ -280,12 +302,24 @@ class TestPortasFechadas(Base):
         import sqlite3
         con = sqlite3.connect(registo)
         try:
-            n = con.execute("SELECT COUNT(*) FROM users").fetchone()[0]
-            slugs = [r[0] for r in con.execute("SELECT slug FROM users")]
+            linhas = con.execute(
+                "SELECT user_id, slug FROM users ORDER BY user_id").fetchall()
         finally:
             con.close()
-        self.assertEqual(n, 1, f"há contas a mais no registo real: {slugs}")
-        self.assertEqual(slugs, [utilizador.SLUG_ANDRE])
+        slugs = [s for _uid, s in linhas]
+
+        # O dono continua a ser o utilizador 1, e isso não muda nunca.
+        self.assertIn((1, utilizador.SLUG_ANDRE), [tuple(l) for l in linhas],
+                      f"o dono saiu do registo real: {slugs}")
+
+        # Os slugs que as baterias criam. Não se põe aqui o `miguel`: é um
+        # amigo a sério E um nome de brincar nos testes — proibi-lo apagava uma
+        # conta verdadeira da lista por causa de uma coincidência.
+        de_teste = {"baverone2", "amigo-a", "amigo-b", "m0", "m1", "prova",
+                    "tst", "teste", "ensaio"}
+        maus = sorted(set(slugs) & de_teste)
+        self.assertEqual(maus, [],
+                         f"contas de TESTE no registo real: {maus}")
 
 
 class TestOSitioParaPartirCoisas(unittest.TestCase):
