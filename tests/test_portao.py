@@ -14,10 +14,13 @@ dentro de uma suite.
 from __future__ import annotations
 
 import json
+import shutil
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest import mock
 
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
@@ -39,8 +42,14 @@ def raiz_de_mentira(base: Path) -> Path:
 
 
 def placar_verde(raiz: Path, **troca) -> dict:
+    # As DUAS impressoes iguais e a bandeira em baixo sao parte de um placar
+    # valido desde 01/10/2026: um placar sem elas nao diz se o codigo se
+    # manteve o mesmo do principio ao fim da corrida, e vale vermelho (ha
+    # teste proprio para isso em `TestMexeramAMeioDaCorrida`).
+    digital = pl.impressao_digital(raiz)
     p = {"quando": "2026-09-29T23:00:00+00:00", "raiz": str(raiz),
-         "head": "0" * 40, "impressao_digital": pl.impressao_digital(raiz),
+         "head": "0" * 40, "impressao_digital": digital,
+         "impressao_no_inicio": digital, "mexeram_a_meio": False,
          "ficheiros": len(pl.ficheiros_de_teste(raiz)), "testes": 42,
          "a_falhar": 0, "maus": []}
     p.update(troca)
@@ -278,3 +287,88 @@ class TestOPlacarNaoVaiParaOGit(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class TestMexeramAMeioDaCorrida(unittest.TestCase):
+    """Uma alteração DURANTE a corrida não pode sair verde (2026-10-01).
+
+    O furo era este: a impressão digital tirava-se depois do ciclo, por isso
+    ficava coerente com o disco e a `verde()` não tinha como saber que os
+    primeiros ficheiros mediram outros bytes. Encontrado a 01/10 pela ordem das
+    fechaduras, a quem aconteceu a sério.
+    """
+
+    def setUp(self):
+        self.raiz = Path(tempfile.mkdtemp(prefix="placar-meio-"))
+        self.addCleanup(shutil.rmtree, self.raiz, ignore_errors=True)
+        (self.raiz / "riftvault").mkdir()
+        (self.raiz / "riftvault" / "web").mkdir()
+        (self.raiz / "tests").mkdir()
+        (self.raiz / "riftvault_config.json").write_text("{}", encoding="utf-8")
+        (self.raiz / "riftvault" / "coisa.py").write_text("A = 1\n", encoding="utf-8")
+        (self.raiz / "tests" / "test_um.py").write_text("x\n", encoding="utf-8")
+        (self.raiz / "tests" / "test_dois.py").write_text("x\n", encoding="utf-8")
+
+    def _placar_verde(self, **extra):
+        p = {"quando": "2026-10-01T00:00:00+00:00", "raiz": str(self.raiz),
+             "head": "0" * 40,
+             "impressao_digital": pl.impressao_digital(self.raiz),
+             "impressao_no_inicio": pl.impressao_digital(self.raiz),
+             "mexeram_a_meio": False,
+             "ficheiros": 2, "testes": 10, "a_falhar": 0, "maus": []}
+        p.update(extra)
+        pl.gravar(self.raiz, p)
+        return p
+
+    def test_o_caso_bom_continua_verde(self):
+        self._placar_verde()
+        ok, razao = pl.verde(self.raiz)
+        self.assertTrue(ok, razao)
+
+    def test_as_duas_impressoes_diferentes_e_vermelho(self):
+        self._placar_verde(impressao_no_inicio="a" * 64, mexeram_a_meio=True)
+        ok, razao = pl.verde(self.raiz)
+        self.assertFalse(ok)
+        self.assertIn("A MEIO", razao)
+
+    def test_a_bandeira_sozinha_chega_para_vermelho(self):
+        # Quem escrever o placar à mão e puser só a bandeira não passa.
+        self._placar_verde(mexeram_a_meio=True)
+        ok, razao = pl.verde(self.raiz)
+        self.assertFalse(ok)
+        self.assertIn("A MEIO", razao)
+
+    def test_um_placar_antigo_sem_o_campo_e_vermelho(self):
+        p = self._placar_verde()
+        del p["impressao_no_inicio"]
+        p.pop("mexeram_a_meio", None)
+        pl.gravar(self.raiz, p)
+        ok, razao = pl.verde(self.raiz)
+        self.assertFalse(ok)
+        self.assertIn("antes de 01/10/2026", razao)
+
+    def test_a_correr_apanha_uma_emenda_feita_a_meio(self):
+        """O ciclo a sério, com um ficheiro a mudar entre dois testes."""
+        chamadas = []
+        alvo = self.raiz / "riftvault" / "coisa.py"
+
+        class Fingida:
+            returncode = 0
+            stdout = "Ran 3 tests in 0.1s\n\nOK\n"
+            stderr = ""
+
+        def falso_run(*a, **k):
+            chamadas.append(1)
+            if len(chamadas) == 1:          # entre o primeiro e o segundo
+                alvo.write_text("A = 2\n", encoding="utf-8")
+            return Fingida()
+
+        with mock.patch.object(pl.subprocess, "run", falso_run):
+            p = pl.correr(self.raiz, log=lambda *a, **k: None)
+        self.assertEqual(p["a_falhar"], 0, "a suite em si passou")
+        self.assertTrue(p["mexeram_a_meio"], "e mesmo assim o placar não vale")
+        self.assertNotEqual(p["impressao_no_inicio"], p["impressao_digital"])
+        pl.gravar(self.raiz, p)
+        ok, razao = pl.verde(self.raiz)
+        self.assertFalse(ok, "verde a descrever código que nunca correu inteiro")
+        self.assertIn("A MEIO", razao)
