@@ -192,9 +192,19 @@ def caixas_escolhidas(cfg: dict | None = None,
 
     Os blocos saem pela ordem da Coleção (a mesma de `blocos`), para a fila dos
     botões seguir a ordem que ele já vê na grelha; as edições pela ordem dos
-    separadores. Um id que não exista rebenta com a lista do que há — uma caixa
-    mal escrita ignorada em silêncio deixava-o a olhar para uma fila de botões
-    sem a que pediu.
+    separadores.
+
+    UM BLOCO desconhecido rebenta, e deve: os valores são um conjunto fixo e só
+    um erro de escrita produz um que não exista.
+
+    UMA EDIÇÃO que o catálogo não tenha, não (2026-10-02). Rebentava, e isso
+    derrubava o `payload()` inteiro — a página das Faltas, a Coleção, o build e
+    38 ficheiros da suite, porque os catálogos de ensaio são TST/AAA e não têm
+    VEN. E não é só nos testes: um catálogo atrasado, ou uma edição que saia,
+    davam o mesmo em casa. Um botão que falta é um defeito pequeno; a página
+    em baixo é um grande. Por isso salta-se — e o `payload` leva a lista do que
+    saltou (`caixas_ignoradas`), para ninguém ficar a olhar para uma fila de
+    botões sem a que pediu e sem saber porquê.
     """
     o = opcoes(cfg)
     pedidos_b = list(dict.fromkeys(o["caixas_blocos"] or ()))
@@ -205,11 +215,7 @@ def caixas_escolhidas(cfg: dict | None = None,
                 f"faltas_edicao.caixas_blocos: bloco desconhecido: {b!r}. "
                 f"Há: {', '.join(BLOCO_IDS)}")
     if sets_ids is not None:
-        for s in pedidos_e:
-            if s not in sets_ids:
-                raise ValueError(
-                    f"faltas_edicao.caixas_edicoes: não há edição {s!r}. "
-                    f"Há: {', '.join(sets_ids)}")
+        pedidos_e = [s for s in pedidos_e if s in sets_ids]
     ordem_b = [b for b, _ in blocos(cfg) if b in pedidos_b]
     out = [{"id": f"bloco-{b}", "label": BLOCO_LABEL[b], "bloco": b, "set": None}
            for b in ordem_b]
@@ -224,6 +230,20 @@ def caixas_escolhidas(cfg: dict | None = None,
     out += [{"id": f"edicao-{s}", "label": f"{config.set_name(s)} — {TUDO}",
              "bloco": None, "set": s} for s in ordem_e]
     return out
+
+
+def caixas_ignoradas(cfg: dict | None = None,
+                     sets_ids: list[str] | None = None) -> list[str]:
+    """As edições pedidas que ESTE catálogo não tem (2026-10-02).
+
+    O par do `caixas_escolhidas`: ele devolve as que se mostram, este as que se
+    saltaram. Vai no `payload` para a fila de botões poder dizer o que falta e
+    porquê, em vez de a página rebentar ou de o botão desaparecer calado.
+    """
+    if sets_ids is None:
+        return []
+    pedidos = list(dict.fromkeys(opcoes(cfg)["caixas_edicoes"] or ()))
+    return [s for s in pedidos if s not in sets_ids]
 
 
 def escondidas_por_set(con: sqlite3.Connection,
@@ -493,6 +513,9 @@ def payload(con: sqlite3.Connection, cfg: dict | None = None) -> dict:
         # contrário — por bloco e por edição, atravessando as edições. Chave
         # NOVA: nada do que está acima mexe por ela existir (há teste).
         "caixas": caixas(sets, cfg, escondidas_por_set(con, cfg)),
+        # As que ele pediu e este catálogo não tem — vazio em casa, onde o VEN
+        # existe; nos ensaios diz qual foi saltada. Ver `caixas_ignoradas`.
+        "caixas_ignoradas": caixas_ignoradas(cfg, sets_ids),
         "scope": {
             "printings": sum(ambito[s][b] for s in sets_ids for b in BLOCO_IDS),
             # O que está na página da Coleção mas não em nenhum dos quatro

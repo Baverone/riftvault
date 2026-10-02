@@ -332,12 +332,41 @@ class TestOConfigMandaENaoRebentaEmSilencio(Base):
             self.fe.payload(con)
         self.assertIn("overnumbered", str(e.exception))
 
-    def test_uma_edicao_que_nao_existe_rebenta(self):
+    def test_uma_edicao_que_este_catalogo_nao_tem_SALTA_E_DIZ(self):
+        """Rebentava, e isso derrubava o `payload()` inteiro (2026-10-02).
+
+        A intenção era boa — um botão que desaparece calado deixa-o a olhar
+        para uma fila sem a caixa que pediu. Mas o preço era a página das
+        Faltas, a Coleção e o build em baixo: 38 ficheiros da suite ficaram
+        vermelhos de uma vez, porque os catálogos de ensaio são TST/AAA e não
+        têm VEN. Em casa dava o mesmo com um catálogo atrasado ou uma edição
+        que saísse. Salta-se, e o payload diz qual saltou.
+        """
         con = self.montar({"faltas_edicao": {"caixas_blocos": [],
                                              "caixas_edicoes": ["ZZZ"]}})
-        with self.assertRaises(ValueError) as e:
+        p = self.fe.payload(con)
+        self.assertEqual(p["caixas"], [])
+        self.assertEqual(p["caixas_ignoradas"], ["ZZZ"])
+
+    def test_a_que_existe_fica_e_so_a_que_falta_salta(self):
+        con = self.montar({"faltas_edicao": {"caixas_blocos": [],
+                                             "caixas_edicoes": ["AAA", "ZZZ"]}})
+        p = self.fe.payload(con)
+        self.assertEqual([c["id"] for c in p["caixas"]], ["edicao-AAA"])
+        self.assertEqual(p["caixas_ignoradas"], ["ZZZ"])
+
+    def test_sem_nada_a_saltar_a_lista_vem_vazia(self):
+        con = self.montar({"faltas_edicao": {"caixas_blocos": [],
+                                             "caixas_edicoes": ["AAA"]}})
+        self.assertEqual(self.fe.payload(con)["caixas_ignoradas"], [])
+
+    def test_o_bloco_desconhecido_CONTINUA_a_rebentar(self):
+        """A outra metade da decisão: aqui o conjunto de valores é fixo e só
+        um erro de escrita produz um que não exista — esse grita."""
+        con = self.montar({"faltas_edicao": {"caixas_blocos": ["nao-existe"],
+                                             "caixas_edicoes": ["AAA"]}})
+        with self.assertRaises(ValueError):
             self.fe.payload(con)
-        self.assertIn("ZZZ", str(e.exception))
 
     def test_a_entrada_repetida_conta_uma(self):
         con = self.montar({"faltas_edicao": {
