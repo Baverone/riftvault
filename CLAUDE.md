@@ -10218,6 +10218,25 @@ só). O crachá, o «N×» e a moldura ficam a cores: são a informação, e a c
 perdiam-se. O que vem a caminho conta como «não tem»: ele ainda não a tem na
 mão.
 
+### 4b. O GUARDA DAS CONTAS APANHOU-ME, e é para isso que ele existe
+
+A suite deu vermelho no `test_contas.py`:
+`test_a_lista_das_rotas_esta_completa` varre o `server.py` à procura de
+`@app.post` e exige que **todas** as rotas de escrita estejam na lista que a
+bateria das contas percorre — as três novas não estavam. Não era um teste
+velho a descrever o passado: era a pergunta 7 da checklist de 2026-09-29
+(«percorreste TODAS?») a funcionar no primeiro caso real depois de ela nascer.
+
+As três entraram na `ESCRITAS` (20 → **23**) e **passam os três testes de
+guarda sem uma linha de código**: sem sessão **401**, com sessão e sem CSRF
+**403**, com CSRF errado **403** — é o guarda genérico por MÉTODO
+(`rotas_conta.ESCREVE`), que as apanha por serem POST.
+
+**O `prever` entra na lista apesar de não escrever na base.** É um POST que LÊ
+a coleção de quem o manda (resolve os nomes contra o catálogo e diz o que ele
+tem), e desde 2026-10-01 um pedido que não seja de casa precisa de sessão para
+ler. Deixá-lo de fora era abrir uma leitura pela porta das escritas.
+
 ### 5. A IMAGEM FICOU POR FAZER, e está DITA
 
 **Não há OCR nenhum instalado na máquina dele** — medido a 2026-10-02: nem
@@ -10264,9 +10283,18 @@ primeiro. E um teste desse ficheiro foi **endurecido**, não afrouxado: lia o
 crescido — passou a ler a função inteira, que é a lição do `test_conta_fechada`
 de 01/10.
 
-`tests/test_colar.py` (37 testes, contra pastas temporárias e um catálogo de
+`tests/test_colar.py` (**39 testes**, contra pastas temporárias e um catálogo de
 brincar): um leitor só e a lista real pelas duas portas; a previsão que não
 escreve; as linhas que não casam a travarem o gravar; o slug que não foge da
 pasta; a edição que cobre e as que se repartem; o que se tapou com que versão;
 a cor; a Coleção que não mexe (com a prova pela negativa ao lado); as três
-rotas; a CLI; e o OCR que não há.
+rotas; o botão de apagar; a CLI; e o OCR que não há.
+
+**A PROVA PELA NEGATIVA** (`_revisao\_prova_negativa_colar.py`, que corre a
+bateria contra uma árvore com o `riftvault/` do `main`): **só CINCO passam**, e
+são exactamente os que fixam o que NÃO podia mudar — o `decks.so_base: true` no
+config real, o mecanismo do `so_base` nos dois sentidos (que é de 2026-09-17 e
+não desta ordem), a prova pela negativa da fotografia da Coleção, e o OCR que
+não há. Os outros **34 ficam vermelhos**: o `colar.py` não existe lá, o
+`decks.parse_texto` também não, e o `app.js`/`style.css` não têm nenhuma das
+marcas.
