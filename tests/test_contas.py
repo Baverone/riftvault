@@ -284,7 +284,7 @@ class TestAsRotasDeEscrita(Base):
         self.assertEqual(
             no_codigo - set(ESCRITAS), set(),
             "há rotas de escrita no server.py que esta bateria não percorre")
-        self.assertEqual(len(ESCRITAS), 23)
+        self.assertEqual(len(ESCRITAS), 24)
 
     def test_sem_sessao_todas_recusam_com_401(self):
         c = self.cliente(aberto=True)

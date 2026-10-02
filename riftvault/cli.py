@@ -2894,7 +2894,7 @@ def main(argv: list[str] | None = None) -> int:
     p.set_defaults(func=cmd_colar)
 
     p = sub.add_parser("imagem", help="lê uma decklist da FOTOGRAFIA de uma página "
-                                      "de torneio — a segunda porta do colar")
+                                      "de classificações — a 2.ª porta do colar")
     p.add_argument("ficheiro", help="a imagem (png/jpg) da página com a grelha de cartas")
     p.add_argument("--nome", help="o slug com que grava (omissão: a Legend)")
     p.add_argument("--gravar", action="store_true",
