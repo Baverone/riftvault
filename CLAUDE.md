@@ -2861,10 +2861,21 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   fecha o «apagar decks pela interface» que estava por fazer desde o início.
   **A leitura por IMAGEM não se fez**: não há OCR nenhum na máquina e não se
   instala nada. Ver a última secção deste ficheiro.
+- **Feito também:** LER UMA DECKLIST POR IMAGEM (2026-10-02, à tarde) — a
+  segunda porta da mesma caixa, e **sem OCR**: não há nenhum nesta máquina
+  (medido outra vez) e não se instalou nada. Cada recorte casa-se com a ARTE
+  do catálogo (as 1180 `.webp` que já estavam em disco), o que identifica a
+  IMPRESSÃO exacta — as duas Alt Art da lista dele saíram certas —, e as
+  quantidades lêem-se dos crachás `xN` por template, com uma guarda
+  TOPOLÓGICA (buracos) que torna a confusão 3/8 impossível. Os papéis vêm do
+  `type` do catálogo e o corte do sideboard do ESPAÇO entre linhas. O texto
+  entra pela MESMA porta (`colar.py`) e enche a MESMA caixa, que é editável.
+  **Prova com a imagem dele: 31/31 cartas, zero dúvidas.** `imagem.py`,
+  `POST /api/decks/imagem`, `riftvault imagem`. Ver a última secção deste
+  ficheiro.
 - **Por fazer:** a parte 2 do seguir — o separador no site e a tarefa diária;
-  vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck,
-  com as partilhadas assinaladas); e a leitura de uma decklist por IMAGEM
-  (precisa de um OCR, que ninguém instalou — ver a última secção).
+  e a vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck, com as
+  partilhadas assinaladas).
 
 ## `Nome:` no ficheiro do deck, e a chave de um deck é o SLUG (2026-09-11)
 
@@ -10387,3 +10398,160 @@ não desta ordem), a prova pela negativa da fotografia da Coleção, e o OCR que
 não há. Os outros **34 ficam vermelhos**: o `colar.py` não existe lá, o
 `decks.parse_texto` também não, e o `app.js`/`style.css` não têm nenhuma das
 marcas.
+
+## 2026-10-02, à tarde — LER UMA DECKLIST POR IMAGEM (`imagem.py`), sem OCR nenhum
+
+Palavras dele, de 2026-10-01: *"quero que, para introduzir uma decklist, a
+seccao de decks seja possivel ler 2 tipos: **Imagem** / TxT introduzido"*. A
+metade do texto fez-se nesse dia; esta é a outra. O caso de prova é uma página
+de classificações a sério — UVS Games, RQ Los Angeles, 2026-09-26, «Rengar,
+Pridestalker» por DSG Prismaticism, 1.º de 2165 jogadores. Ramo
+`ai-pc/imagem-decklist-2026-10-02`.
+
+### 1. NÃO HÁ OCR, e por isso não se lê texto nenhum
+
+Medido outra vez a 2026-10-02, antes de desenhar seja o que for: **não há
+`pytesseract`, nem `tesseract` no PATH, nem `easyocr`, `paddleocr`,
+`rapidocr`, `cv2`, `imagehash` nem `scipy`.** Há **Pillow 12.2** e **numpy
+2.4**, e mais nada. A regra da casa é não instalar nada, por isso a pergunta
+passou a ser «o que é que se consegue identificar sem ler uma letra».
+
+A resposta estava em disco: **`data/images/` tem as 1180 artes do catálogo**,
+600×837 em `.webp`, descarregadas pelo `riftvault images`. Casar o recorte com
+a arte **identifica a IMPRESSÃO**, não só a carta — e isso é MELHOR do que ler
+o nome, porque separa a base da arte alternativa. Na lista dele havia duas Alt
+Art (`OGN-007a` Fury Rune ×4 e `OGN-039a` Kai'Sa ×3) e **as duas saíram
+certas**.
+
+**A assinatura tem DUAS metades**, e a segunda faz falta: um `dHash` 16×16 da
+janela da ARTE (que o crachá não tapa) e outro da CARTA INTEIRA com o crachá
+tapado **nos dois lados**, mais a cor média 4×4. Só com a arte, duas impressões
+com a mesma arte e molduras diferentes ficavam empatadas — é o caso da runa
+base do OGN contra a promo do VEN. Com a carta inteira separam-se.
+
+**Os battlefields aparecem DEITADOS na página**, e o catálogo sabe disso: a
+coluna `orientation` tem 66 `landscape`. Cada uma entra no índice **duas
+vezes**, rodada 90 e 270 — uma landscape rodada cabe exactamente na caixa de
+uma portrait. Sem isto os três battlefields da lista dele davam lixo
+(pontuação 89–97 contra 39–47 depois).
+
+O índice é **1246 assinaturas para 1180 artes** e leva ~13 s a construir, com
+cache em `data/images/.assinaturas.npz` (dentro do cache das imagens, que já
+está no `.gitignore`), invalidada pela contagem e pelo `mtime` dos ficheiros.
+
+### 2. AS QUANTIDADES: os crachás, e a guarda que é topológica
+
+São `x1`, `x3`, `x8` — brancos, grandes, sempre no mesmo canto. A caixa
+**mediu-se pela VARIÂNCIA entre as 31 cartas**: o que é igual em todas e é
+escuro é o crachá (relativo `0.385, 0.841`–`0.615, 1.0`). Mas o recorte é
+reencontrado em cada carta, pela caixa escura cheia — sem isso o branco
+apanhava a **caixa de texto creme da própria carta** e os glifos vinham todos
+colados num só. Foi o defeito que fez 13 das 31 falharem a meio da ordem.
+
+Os dígitos lêem-se por **template de uma fonte do Windows** (Arial, 31/31 na
+imagem de prova). Como uma fonte que acerta numa imagem não é garantia
+nenhuma, por cima há uma **guarda TOPOLÓGICA**: conta-se os BURACOS do glifo
+(um `8` tem dois, o `0/4/6/9` um, os outros nenhum) e só se compara com os
+dígitos desse grupo. A confusão clássica 3↔8 — que o Segoe UI fazia nove vezes
+em 31 — deixa de ser possível, porque é uma propriedade da forma e não da
+fonte. Sem fonte nenhuma em disco, a quantidade fica por ler e **diz-se**.
+
+### 3. OS PAPÉIS vêm do catálogo; da imagem só se lê o CORTE
+
+`Legend`, `Rune` e `Battlefield` saem do `type` da impressão. O sideboard é a
+única coisa que a disposição tem de dar, e lê-se o **ESPAÇO** entre linhas, não
+a palavra: na página de prova sobram 94 e 69 px entre linhas seguidas (0,13 e
+0,10 da altura de uma carta) e **274 no corte** (0,38). O limite é `0.22`.
+**Não se compara com a mediana dos intervalos**, de propósito — com duas linhas
+só, a mediana É o corte e ele deixava de se ver. Com mais do que um corte não
+se adivinha qual é qual: fica tudo no deck e a página di-lo.
+
+**O CHAMPION é um PALPITE DE DISPOSIÇÃO, e vai dito.** O catálogo **não o
+marca** (as `tags_json` estão todas vazias, verificado) e em Riftbound «Champion
+Unit» é um supertipo que dezenas de cartas têm — o Champion de um deck é o que
+casa com a Legend, e isso não está na base. A página põe-no logo a seguir aos
+battlefields, e é daí que ele sai; a caixa do texto é editável e o ecrã e o CLI
+avisam para conferir a linha.
+
+### 4. «SÓ ACEITA O QUE TEM A CERTEZA»
+
+Uma carta só entra com pontuação ≤ 110 **e** margem ≥ 25 para a segunda. O que
+não passa fica de fora, é CONTADO, e a página diz com o que se parecia — nunca
+se escolhe o mais parecido. Medido: as 31 leituras boas deram margem 62–164; a
+única dúvida que apareceu durante a ordem deu **1,9**.
+
+**A margem mede-se contra a melhor CARTA diferente, não contra a melhor
+IMPRESSÃO diferente**, e foi isso que resolveu a última dúvida. Era a Body Rune:
+`OGN-126` e `VEN-R04` são a mesma arte e ficaram a 1,9 de distância — mas são
+**a mesma carta**, dão a mesma linha, e a lista que sai daqui é por NOME. Não
+havia nada a desempatar.
+
+### 5. PELA MESMA PORTA, e o tecto do corpo passou a ser POR ROTA
+
+A imagem produz **texto**, e daí para a frente é o `colar.py` de 01/10: o mesmo
+`prever`, o mesmo `gravar`, o mesmo `decks.parse_texto`. **Não há segundo
+caminho de gravação**, e há teste que recusa que o `imagem.py` tenha gramática
+própria. No ecrã, o texto lido enche a **MESMA caixa** do copy-paste — é
+editável, que é o que faz o palpite do Champion e as linhas por ler serem
+corrigíveis antes de gravar.
+
+`POST /api/decks/imagem` (não grava nada; devolve o texto, o que não leu e a
+previsão) e `riftvault imagem foto.png [--gravar]`, que escreve o texto no
+stdout (colável) e as dúvidas no stderr.
+
+**O tecto do corpo deixou de ser um só.** O do Flask é global e a imagem de
+prova são **19 MB**; ficou no maior (40 MB) e são as outras **vinte e duas**
+rotas que passaram a ser travadas no `_antes`, nos mesmos 256 KB de sempre
+(`rotas_conta.CORPO_DE_FICHEIRO`). Assim o alargamento é explícito e vale só
+onde está escrito. A rota entrou na lista das escritas do `test_contas` — **o
+guarda das contas apanhou-a**, como tinha apanhado as três do colar.
+
+### Medido a 2026-10-02 contra o `data/` real, com a imagem dele
+
+`_revisao\_prova_imagem.py` (só leitura; a única escrita é a cache de
+assinaturas, que está no `.gitignore`):
+
+| | |
+|---|---|
+| grelha | 6 colunas × 6 linhas, **31 cartas** |
+| lidas | **31** |
+| por ler | **0** |
+| Legend | 1 — `UNL-183/219` Pridestalker |
+| Champion | 1 — `UNL-120/219` Rengar, Trophy Hunter |
+| MainDeck | **39** cópias em 17 cartas (39 + 1 Champion = **40**) |
+| Battlefields | 3 |
+| Rune Pool | **12** — 8 Body Rune + 4 Fury Rune |
+| Sideboard | 10 |
+| linhas que o catálogo não conhece | **0** |
+
+**A aritmética que ele leu a olho fecha toda**, e as duas Alt Art estão lá. A
+geometria saiu ao pixel: colunas em 84/647/1210/1773/2336/2899 (largura 491),
+linhas em 692/1498/2303/3109/4095/4876 (altura 712) — conferidas contra a
+medição à mão.
+
+`tests/test_imagem.py` (**25 testes**, contra pastas temporárias e um catálogo
+de brincar — nunca contra a coleção dele; a página de torneio é montada pelo
+próprio teste): o texto sai no formato que o `colar` já lê e o módulo não tem
+gramática própria; ler não grava nada; os crachás de 1 a 9; **o 8 não vira 3**,
+provado pelos buracos; a ambígua fica de fora e é contada — e a ambígua é
+metade de uma carta e metade de outra, para provar a regra da MARGEM, que é a
+que protege a sério (uma intrusa qualquer seria apanhada por qualquer regra); o
+corte do sideboard pelo espaço, com DUAS linhas só, e com dois cortes a não
+adivinhar; os papéis do catálogo; as recusas legíveis; o ecrã; e o tecto do
+corpo por rota.
+
+### O que NÃO se fez, e porquê
+
+- **Ler o CÓDIGO do rodapé** (`UNL • 183/219`). É legível na imagem e teria
+  confirmado cada carta por um segundo caminho — mas precisa de OCR ou de uma
+  biblioteca de glifos para dígitos e para os cinco códigos de edição, e com a
+  arte a dar 31/31 não se pagava. Fica como o caminho óbvio se um dia uma
+  página der margens apertadas.
+- **Outras disposições.** Isto lê a grelha regular das páginas de
+  classificações. Uma fotografia de cartas em cima da mesa, com perspectiva e
+  sombras, é outro problema — e a recusa é legível («não se vê uma grelha de
+  cartas nesta imagem»), em vez de uma lista inventada.
+- **Uma segunda imagem de prova.** Só há esta; os limiares estão medidos contra
+  ela e contra as páginas sintéticas dos testes. Se uma página nova falhar, os
+  números a mexer são o `MAX_PONTO`, o `MIN_MARGEM` e o `SALTO`, e cada um está
+  comentado com a medição que lhe deu origem.
