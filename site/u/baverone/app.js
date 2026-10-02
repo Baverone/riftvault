@@ -2871,14 +2871,21 @@ async function loadDecks(sub = '') {
   // e o mesmo vale para uma vista ESCONDIDA (2026-09-25): quem tinha o «Por
   // deck» guardado abre no primeiro deck, não numa vista que já não existe.
   const ids = deckFaltaIds();
+  // A caixa de colar (2026-10-02) é uma vista como as outras — só existe no
+  // modo edição, por isso `#decks/colar` no site publicado cai no 1.º deck.
+  const podeColar = !!state.editable;
   const daRota = ids.includes(sub) ? sub
+    : (podeColar && sub === COLAR_ID) ? COLAR_ID
     : (state.decks.find(x => x.slug === sub) || {}).id;
   const first = daRota
     || (ids.includes(state.prefs.deck)
+        || (podeColar && state.prefs.deck === COLAR_ID)
         || state.decks.some(x => x.id === state.prefs.deck)
       ? state.prefs.deck : (state.decks[0] && state.decks[0].id));
-  if (ids.includes(first)) await loadDeckFaltas(first);
+  if (first === COLAR_ID) await loadColar();
+  else if (ids.includes(first)) await loadDeckFaltas(first);
   else if (first) await loadDeck(first);
+  else if (podeColar) await loadColar();   // sem decks, abre onde se entra um
   else {
     $('#deck-head').innerHTML = '';
     $('#deck-body').innerHTML = `<p class="empty">${SEM_DECKS} ${SEM_DECKS_COMO}
@@ -2893,7 +2900,7 @@ async function loadDecks(sub = '') {
    lista estar vazia — isso é verdade num dia e falso no seguinte; o que não
    muda é o estado e como sair dele. */
 const SEM_DECKS = 'Não há decks.';
-const SEM_DECKS_COMO = 'Mete um .txt em decks/ para entrar um.';
+const SEM_DECKS_COMO = 'Cola a lista na secção Decks, ou mete um .txt em decks/.';
 
 /* O índice dos decks. Era uma FILA de nove botões que, num telemóvel de
    390 px, acabava aos 1042 px — vêem-se três, os outros seis estavam fora do
@@ -2946,7 +2953,17 @@ function itensDoIndice() {
     nota: contadorFalta(t.id) || t.sub,
     accao: () => loadDeckFaltas(t.id),
   }));
-  return decks.concat(listas);
+  // COLAR UMA LISTA (2026-10-02). Só no modo edição: o site publicado é de
+  // leitura e não tem onde gravar. Entra no índice E no `<select>` do
+  // telemóvel porque sai desta mesma lista.
+  const entrar = state.editable ? [{
+    grupo: 'Entrar um deck',
+    chave: COLAR_ID, on: state.deckId === COLAR_ID, ico: 'decks',
+    rot: 'Colar uma lista', titulo: 'copy-paste de uma decklist',
+    nota: 'copy-paste do texto',
+    accao: () => loadColar(),
+  }] : [];
+  return decks.concat(listas, entrar);
 }
 
 function renderDeckTabs() {
@@ -3104,6 +3121,12 @@ function renderDeck() {
         ${state.editable && !state.ordemFixa ? `<button class="btn" data-act="subir">Subir</button>
           <button class="btn" data-act="descer">Descer</button>` : ''}
         <button class="btn" data-act="csv">Lista de compras (CSV)</button>
+        ${/* APAGAR A LISTA (2026-10-02): o par da caixa de colar. Quem mete
+              uma lista pela janela tem de poder tirá-la por lá — era a última
+              coisa que ainda obrigava a ir à pasta à mão. NÃO apaga cópias:
+              as próprias do deck ficam no `proprio:<slug>`. */ ''}
+        ${state.editable
+          ? '<button class="btn perigo" data-act="apagar-lista">Apagar a lista</button>' : ''}
         ${state.editable && state.ordemFixa
           ? '<small class="nota">A ordem dos decks está no <code>riftvault_config.json</code> (<code>decks.ordem</code>) — muda-se lá.</small>' : ''}
       </div>
@@ -3602,9 +3625,17 @@ function deckTile(c) {
       ser própria${c.aviso === 1 ? '' : 's'} do deck</div>`;
   }
 
+  // A COR DIZ SE ELE TEM (André, 2026-10-01): *"diz as cartas que tens e que
+  // nao tens, com imagem com cor e sem cor"*. A cinzento = não tem NENHUMA
+  // cópia desta carta; a cores a partir da primeira. Faz-se em CSS
+  // (`filter: grayscale(1)`) e não com imagens novas — é a mesma foto, e o
+  // cache do browser e o `cdn.riftscribe.gg` continuam a servir uma só.
+  // O que vem a caminho conta como «não tem»: ele ainda não a tem na mão.
+  const semCor = !c.have ? ' sem-cor' : '';
+
   return `<div class="dtile ${st}${c.outras ? ' outra-versao' : ''}${
     c.aviso ? ' tem-regra' : ''}" data-ck="${escapeAttr(c.card_key)}">
-    <div class="art${c.landscape ? ' landscape' : ''}">
+    <div class="art${c.landscape ? ' landscape' : ''}${semCor}">
       ${src ? `<img src="${src}" alt="${escapeAttr(c.name)}" loading="lazy" decoding="async"
          ${alt ? `data-fallback="${escapeAttr(alt)}"` : ''}>` : ''}
       <span class="need">${c.wanted}×</span>
@@ -3659,15 +3690,52 @@ function propriaForaTile(x) {
 function versoesNota(c) {
   const vs = c.versoes || [];
   const cod = x => escapeHTML((x.code || x.id || '?').split('/')[0]);
+  let out = '';
   if (vs.length > 1) {
-    return `<div class="onde versoes">${vs.map(x =>
+    out = `<div class="onde versoes">${vs.map(x =>
       `<span class="${x.lugar === 'outra' ? 'outra' : ''}">${x.qty} ${escapeHTML(x.label)} · ${cod(x)}</span>`
     ).join('')}</div>`;
+  } else if (vs.length === 1 && c.outras) {
+    out = `<div class="onde versoes"><span class="outra">em ${escapeHTML(vs[0].label)} · ${cod(vs[0])}</span></div>`;
   }
-  if (vs.length === 1 && c.outras) {
-    return `<div class="onde versoes"><span class="outra">em ${escapeHTML(vs[0].label)} · ${cod(vs[0])}</span></div>`;
+  return out + edicoesNota(c) + tapadaNota(c);
+}
+
+/* AS DUAS EDIÇÕES (André, 2026-10-01): *"se houver em duas edicoes diferentes,
+   conta as 2, seleciona a que cobrir o numero necessario, **caso nao consiga,
+   indica que e x de uma edicao e x de outra**"*.
+
+   Quem escolhe é o `decks.por_cobertura`, que põe à frente a edição que cobre
+   sozinha; esta linha é a segunda metade — a que só aparece quando NENHUMA
+   cobriu e a linha ficou mesmo repartida por edições. Com uma edição só não
+   escreve nada: o código da carta já a diz. */
+function edicoesNota(c) {
+  const por = new Map();
+  for (const x of (c.versoes || [])) {
+    if (!x.set) continue;
+    por.set(x.set, (por.get(x.set) || 0) + x.qty);
   }
-  return '';
+  if (por.size < 2) return '';
+  return `<div class="onde edicoes" title="nenhuma edição cobria sozinha as ${c.wanted} — tens de ir a duas">${
+    [...por].map(([s, n]) => `${n} de ${escapeHTML(s)}`).join(' + ')}</div>`;
+}
+
+/* COM O QUE SE TAPOU (André, 2026-10-01): *"Se nao houver versao normal, ele
+   avisa que sao X normais e X Alt Art / Overnumbered ou o que quer que seja"*.
+   A conta por ARTE, numa frase — as sub-linhas de cima dizem-no por impressão,
+   e numa carta servida por três impressões isso lê-se mal. Só sai quando
+   alguma cópia veio de outra versão por a base não ter chegado. */
+function tapadaNota(c) {
+  if (!c.outras) return '';
+  const por = new Map();
+  for (const x of (c.versoes || [])) {
+    if (x.lugar === 'especial') continue;
+    const k = x.lugar === 'outra' ? (x.label || 'outra') : 'normal';
+    por.set(k, (por.get(k) || 0) + x.qty);
+  }
+  if (!por.size) return '';
+  return `<div class="onde tapada">${c.have} — ${[...por]
+    .map(([k, n]) => `${n} ${escapeHTML(k)}`).join(', ')}</div>`;
 }
 
 /* Edição + número + preço, em texto legível. É por aqui que ele procura a
@@ -3713,6 +3781,7 @@ async function deckAction(act) {
   if (act === 'montar' || act === 'desmontar') return montarDeck(act === 'montar');
   if (act === 'tornar-principal') return definirPrincipal(state.deck.slug);
   if (act === 'despromover') return definirPrincipal(null);
+  if (act === 'apagar-lista') return apagarLista();
   const ids = state.decks.map(d => d.id);
   const i = ids.indexOf(state.deckId);
   let novo = ids.slice();
@@ -3734,6 +3803,38 @@ async function deckAction(act) {
     toast('Ordem alterada — a alocação foi refeita.');
   } catch (err) {
     toast(`Não deu para reordenar: ${err.message}`, { error: true });
+  }
+}
+
+/* APAGAR A LISTA de um deck (2026-10-02) — o par da caixa de colar.
+   NÃO apaga cópias: as próprias do deck ficam gravadas no `proprio:<slug>`,
+   fora da Coleção, como já acontecia a um deck cujo `.txt` desaparecia. É por
+   isso que a pergunta fala da LISTA e não do deck. */
+async function apagarLista() {
+  const p = state.deck;
+  if (!p) return;
+  if (!confirm(`Apagar a lista «${p.name}»?\n\n`
+    + 'O deck deixa de existir e a Coleção volta a dar os números que daria se '
+    + 'ele nunca tivesse havido. As cópias NÃO se apagam — as próprias deste '
+    + 'deck continuam guardadas.')) return;
+  try {
+    const r = await fetch('api/decks/apagar', {
+      method: 'POST', headers: cabecalhos(),
+      body: JSON.stringify({ slug: p.slug, confirmar: true }),
+    });
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(body.error || `HTTP ${r.status}`);
+    state.decks = body.decks;
+    state.compras = null;
+    state.aMais = null;
+    state.colecaoVelha = true;
+    state.deckId = null;
+    state.prefs.deck = null;
+    savePrefs();
+    toast(`A lista «${p.name}» foi apagada.`);
+    await loadDecks();
+  } catch (err) {
+    toast(`Não deu para apagar: ${err.message}`, { error: true });
   }
 }
 
@@ -4627,6 +4728,176 @@ async function loadDeckFaltas(id) {
   if (id === 'staples') renderStaples();
   else if (id === 'pordeck') renderPorDeck();
   else renderPimp();
+}
+
+/* ======================================================= COLAR UMA LISTA ===
+   André, 2026-10-01: *"dos decks, tem que ser possivel colar o texto em copy
+   paste e gerar o deck"*. Até 2026-10-02 a única porta era pôr um `.txt` na
+   pasta `decks/` à mão.
+
+   DOIS PASSOS, e o primeiro não grava: «Ler» mostra o que vai gravar (as
+   linhas que casaram, as que não casaram, a aritmética) e só depois «Gravar»
+   escreve. Uma lista com um nome que o catálogo não conhece não pode virar um
+   deck em silêncio — o servidor recusa-a com 409 e é preciso confirmar.
+
+   O id não pode colidir com um slug de deck (é o `state.deckId` que o guarda),
+   e por isso é uma palavra que o `_slug` do `colar.py` nunca produz sozinha
+   para um deck: um deck chamado «colar» ficaria com este id. É o mesmo risco
+   que os ids do `DECK_FALTA_TABS` já corriam desde 2026-09-15. */
+const COLAR_ID = 'colar';
+
+async function loadColar() {
+  state.deckId = COLAR_ID;
+  state.prefs.deck = COLAR_ID;
+  savePrefs();
+  renderDeckTabs();
+  if (state.prefs.section === 'decks') escreverHash('decks', COLAR_ID);
+  // `<span>` e não `<small>`: o `.section-head` é `text-transform: capitalize`
+  // e só o `span` está isento. Isto é uma FRASE — com `<small>` lia-se
+  // «Copy-Paste De Uma Decklist». É a mesma avaria do Produto Selado
+  // («Binders E Deck Boxes», 2026-09-25), e a cura é usar a marcação que já
+  // existe em vez de uma regra nova.
+  $('#deck-head').innerHTML = `<div class="section-head"><h2>Colar uma lista</h2>
+    <span>copy-paste de uma decklist — vira um deck gravado</span></div>`;
+  renderColar();
+}
+
+/* O estado da caixa vive aqui e não no `state`: é de um ecrã só, e perde-se
+   de propósito quando ele sai — uma previsão guardada envelhecia em silêncio
+   (a Coleção dele muda a cada `+`). */
+let colarEstado = { texto: '', prev: null, erro: '', ocupado: false };
+
+function renderColar() {
+  const e = colarEstado;
+  $('#deck-body').innerHTML = `
+    <p class="note">Cola a lista como ela sai do sítio onde a construíste — com
+    as secções (<code>Legend:</code>, <code>Champion:</code>, <code>MainDeck:</code>,
+    <code>Battlefields:</code>, <code>Rune Pool:</code>, <code>Sideboard:</code>)
+    e as linhas <code>3 Nome da carta</code>. Não precisa de código de edição:
+    o nome identifica a carta, e o deck usa as versões que tiveres.
+    Uma linha <code>Nome: …</code> no topo dá o nome ao deck.</p>
+    <textarea id="colar-txt" class="colar-txt" rows="12" spellcheck="false"
+      placeholder="Nome: O meu deck&#10;&#10;Legend:&#10;1 Leona, Radiant Dawn&#10;&#10;MainDeck:&#10;3 Zenith Blade&#10;…"
+      aria-label="Cola aqui a decklist">${escapeHTML(e.texto)}</textarea>
+    <div class="colar-bar">
+      <button type="button" class="btn" id="colar-ler">Ler a lista</button>
+      ${e.prev ? `<button type="button" class="btn primary" id="colar-gravar">${
+        e.ocupado ? 'Substituir o deck' : 'Gravar o deck'}</button>` : ''}
+      <button type="button" class="btn" id="colar-limpar">Limpar</button>
+    </div>
+    ${e.erro ? `<p class="note aviso">${escapeHTML(e.erro)}</p>` : ''}
+    ${e.prev ? colarPrevHTML(e.prev) : ''}`;
+
+  $('#colar-txt').oninput = (ev) => { colarEstado.texto = ev.target.value; };
+  $('#colar-ler').onclick = () => colarLer();
+  $('#colar-limpar').onclick = () => {
+    colarEstado = { texto: '', prev: null, erro: '', ocupado: false };
+    renderColar();
+  };
+  const g = $('#colar-gravar');
+  if (g) g.onclick = () => colarGravar();
+}
+
+/* A PREVISÃO: o que vai gravar, antes de gravar. */
+function colarPrevHTML(p) {
+  const falhas = p.nao_casaram || [];
+  const regras = p.regras || {};
+  const alvo = { main: regras.main, runes: regras.runes, battlefields: regras.battlefields };
+  return `<div class="colar-prev">
+    <div class="section-head"><h3>${escapeHTML(p.nome)}</h3>
+      <span>vai gravar-se como <code>${escapeHTML(p.slug)}.txt</code>${
+        p.ocupado ? ' — <b>já existe um deck com este nome</b>' : ''}</span></div>
+    <table class="colar-tab">
+      <thead><tr><th>Secção</th><th>Cartas</th><th>Cópias</th><th>Regra</th></tr></thead>
+      <tbody>${(p.por_papel || []).map(b => {
+        const a = alvo[b.role];
+        // A regra do main conta o Champion (`main_includes_champion`), que é o
+        // que as listas dele fazem: 39 + 1 = 40.
+        const soma = b.role === 'main' && regras.main_includes_champion
+          ? b.copias + ((p.por_papel.find(x => x.role === 'champion') || {}).copias || 0)
+          : b.copias;
+        return `<tr${b.faltam_ler ? ' class="tem-falha"' : ''}>
+          <td data-l="Secção">${escapeHTML(b.label)}</td>
+          <td data-l="Cartas">${b.cartas}</td>
+          <td data-l="Cópias"><span>${b.copias}${
+            b.role === 'main' && regras.main_includes_champion && soma !== b.copias
+              ? ` <small>(+1 Champion = ${soma})</small>` : ''}</span></td>
+          <td data-l="Regra">${a ? `<span class="${soma === a ? 'ok' : 'nok'}">${soma}/${a}</span>` : '—'}</td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table>
+    ${falhas.length ? `<div class="colar-falhas">
+      <b>${falhas.length} ${falhas.length === 1 ? 'linha não casou' : 'linhas não casaram'}
+      com o catálogo</b> — corrige o nome, ou grava sem elas:
+      <ul>${falhas.map(f => `<li><code>${escapeHTML(f.qty + ' ' + f.raw)}</code>
+        <small>(${escapeHTML(f.role)})</small></li>`).join('')}</ul></div>`
+      : `<p class="note tudo-casou">As ${p.totais.linhas} linhas casaram todas com o catálogo.</p>`}
+    <details class="colar-linhas"><summary>As ${p.totais.linhas} linhas lidas
+      (${p.totais.copias} cópias)</summary>
+      <ul>${(p.linhas || []).map(l => `<li class="${l.casou ? '' : 'nok'}">
+        ${l.qty}× ${escapeHTML(l.name || l.raw)}
+        <small>${escapeHTML(l.casou ? (l.type || '') : 'não casou')}</small></li>`).join('')}</ul>
+    </details></div>`;
+}
+
+async function colarLer() {
+  const texto = ($('#colar-txt') || {}).value || '';
+  colarEstado.texto = texto;
+  colarEstado.erro = '';
+  colarEstado.prev = null;
+  try {
+    const r = await fetch('api/decks/prever', {
+      method: 'POST', headers: cabecalhos(),
+      body: JSON.stringify({ texto }),
+    });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+    colarEstado.prev = j;
+    colarEstado.ocupado = !!j.ocupado;
+  } catch (err) {
+    colarEstado.erro = err.message;
+  }
+  renderColar();
+}
+
+async function colarGravar() {
+  const e = colarEstado;
+  if (!e.prev) return;
+  // Duas perguntas, cada uma com a sua confirmação: gravar sem as linhas que
+  // não casaram, e escrever por cima de um deck que já existe.
+  if ((e.prev.nao_casaram || []).length
+      && !confirm(`${e.prev.nao_casaram.length} linha(s) não casaram com o `
+        + 'catálogo e vão ficar de fora do deck. Gravar assim?')) return;
+  if (e.ocupado && !confirm(`Já existe um deck «${e.prev.slug}». `
+      + 'A lista dele vai ser substituída por esta. Continuar?')) return;
+  e.erro = '';
+  renderColar();
+  try {
+    // `substituir` vai com o que a PREVISÃO disse, não `true` fixo: se o deck
+    // passou a existir entre o «Ler» e o «Gravar», o servidor responde 409 e
+    // ele volta a ler — com `true` fixo, escrevia-se por cima sem perguntar.
+    const r = await fetch('api/decks/colar', {
+      method: 'POST', headers: cabecalhos(),
+      body: JSON.stringify({ texto: e.texto, confirmar: true,
+                             substituir: !!e.ocupado }),
+    });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+    state.decks = j.decks;
+    // Gravar um deck muda o que a Coleção diz que está em uso, o que falta
+    // comprar e o «A mais»: marcam-se por reler, como o resto da app faz.
+    state.compras = null;
+    state.aMais = null;
+    state.colecaoVelha = true;
+    wlDesatualizar();
+    colarEstado = { texto: '', prev: null, erro: '', ocupado: false };
+    toast(`Deck «${j.nome}» gravado.`);
+    const d = (j.decks || []).find(x => x.slug === j.slug);
+    if (d) { await loadDeck(d.id); return; }
+  } catch (err) {
+    e.erro = err.message;
+  }
+  renderColar();
 }
 
 /* O cabeçalho é a carência GLOBAL DOS DECKS (`faltas.shortfall`): tudo o que
