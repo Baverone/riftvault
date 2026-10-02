@@ -432,6 +432,64 @@ def cmd_value(args) -> int:
     return 0
 
 
+def cmd_imagem(args) -> int:
+    """LER UMA DECKLIST DE UMA IMAGEM (2026-10-02), na consola.
+
+    Escreve o TEXTO no stdout, para ficar colável e para se poder emendar antes
+    de gravar (`riftvault imagem foto.png > lista.txt`). O que NÃO conseguiu ler
+    vai para o stderr; com `--gravar` segue pela MESMA porta do colar.
+    """
+    from pathlib import Path
+
+    from . import colar, imagem
+
+    dados = Path(args.ficheiro).read_bytes()
+    con = db.connect()
+    try:
+        r = imagem.ler(con, dados)
+    except (imagem.SemPillow, imagem.ImagemIlegivel, ValueError) as e:
+        print(f"não dá para ler: {e}", file=sys.stderr)
+        con.close()
+        return 2
+
+    g = r["grelha"]
+    print(f"grelha {g['colunas']}x{g['linhas']}, {g['cartas']} cartas na imagem; "
+          f"li {len(r['cartas'])}, não li {len(r['duvidas'])}", file=sys.stderr)
+    for d in r["duvidas"]:
+        p = f"  (parecida com {d['parecida']})" if d.get("parecida") else ""
+        print(f"  linha {d['linha']}, coluna {d['coluna']}: {d['porque']}{p}",
+              file=sys.stderr)
+    if r["champion_por_posicao"]:
+        print("  o Champion saiu da POSIÇÃO na página — o catálogo não o marca; "
+              "confere a linha antes de gravar", file=sys.stderr)
+    if not r["sideboard"]:
+        print("  não se viu corte nenhum para o sideboard: ficou tudo no deck",
+              file=sys.stderr)
+
+    print(r["texto"], end="")
+    if not args.gravar:
+        print("\n(nada foi gravado — junta --gravar, ou emenda o texto e passa-o "
+              "ao `riftvault colar`)", file=sys.stderr)
+        con.close()
+        return 0
+    try:
+        res = colar.gravar(con, r["texto"], args.nome, confirmar=args.confirmar,
+                           substituir=args.substituir)
+    except (colar.PrecisaConfirmar, colar.NomeOcupado) as e:
+        print(f"{e}", file=sys.stderr)
+        qual = "--substituir" if isinstance(e, colar.NomeOcupado) else "--confirmar"
+        print(f"  (volta a correr com {qual})", file=sys.stderr)
+        con.close()
+        return 1
+    except (colar.SemCartas, ValueError) as e:
+        print(f"não dá para gravar: {e}", file=sys.stderr)
+        con.close()
+        return 2
+    print(f"\ngravado em {res['path']}", file=sys.stderr)
+    con.close()
+    return 0
+
+
 def cmd_colar(args) -> int:
     """COLAR UMA DECKLIST (2026-10-02), na consola.
 
@@ -2879,6 +2937,18 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--substituir", action="store_true",
                    help="escreve por cima de um deck que já exista")
     p.set_defaults(func=cmd_colar)
+
+    p = sub.add_parser("imagem", help="lê uma decklist da FOTOGRAFIA de uma página "
+                                      "de classificações — a 2.ª porta do colar")
+    p.add_argument("ficheiro", help="a imagem (png/jpg) da página com a grelha de cartas")
+    p.add_argument("--nome", help="o slug com que grava (omissão: a Legend)")
+    p.add_argument("--gravar", action="store_true",
+                   help="grava mesmo; sem isto só ESCREVE o texto que leu")
+    p.add_argument("--confirmar", action="store_true",
+                   help="grava mesmo havendo linhas que o catálogo não conhece")
+    p.add_argument("--substituir", action="store_true",
+                   help="escreve por cima de um deck que já exista")
+    p.set_defaults(func=cmd_imagem)
 
     p = sub.add_parser("seguir", help="os decks dos jogadores seguidos no Piltover "
                                       "Archive e o que falta para os montar")

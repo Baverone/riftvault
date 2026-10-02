@@ -19,8 +19,8 @@ from datetime import datetime, timezone
 from flask import Flask, g, jsonify, redirect, request, send_from_directory
 
 from . import (a_mais, a_subir, colar, collection, config, db, decks, faltas,
-               faltas_foil, foil, locais, metrics, pending, principal, proprias,
-               rotas_conta, runas_vista, selado, venda)
+               faltas_foil, foil, imagem, locais, metrics, pending, principal,
+               proprias, rotas_conta, runas_vista, selado, venda)
 
 app = Flask(__name__, static_folder=None)
 
@@ -455,6 +455,34 @@ def api_decks_principal():
     except decks.DeckDesconhecido as exc:
         return jsonify({"error": str(exc)}), 404
     return jsonify({**res, "decks": decks.decks_index(con)})
+
+
+@app.post("/api/decks/imagem")
+def api_decks_imagem():
+    """Ler uma decklist de uma IMAGEM (2026-10-02) — a segunda porta do colar.
+
+    **Não grava nada.** Devolve o TEXTO que leu, o que não conseguiu ler, e a
+    previsão desse texto — exactamente a mesma do copy-paste. A caixa do texto
+    é EDITÁVEL: o que a imagem não deu, ele corrige à mão antes de confirmar, e
+    daí para a frente é o caminho de sempre (`/api/decks/colar`).
+
+    O corpo é a imagem crua (`application/octet-stream`) ou um `multipart` com
+    o campo `ficheiro`.
+    """
+    fich = request.files.get("ficheiro")
+    dados = fich.read() if fich is not None else request.get_data()
+    con = get_con()
+    try:
+        lido = imagem.ler(con, dados)
+    except imagem.SemPillow as exc:
+        return jsonify({"error": str(exc)}), 501
+    except (imagem.ImagemIlegivel, ValueError) as exc:
+        return jsonify({"error": str(exc)}), 400
+    try:
+        previsao = colar.prever(con, lido["texto"])
+    except (colar.SemCartas, ValueError) as exc:
+        return jsonify({**lido, "previsao": None, "error": str(exc)}), 400
+    return jsonify({**lido, "previsao": previsao})
 
 
 @app.post("/api/decks/prever")

@@ -190,6 +190,18 @@ SO_DO_DONO = ("/api/decks/montar", "/api/decks/principal")
 #: um corpo de 2 GB é um ataque de uma linha.
 CORPO_MAXIMO = 256 * 1024
 
+#: As rotas que recebem um FICHEIRO, e quanto cada uma pode receber. A leitura
+#: de uma decklist por IMAGEM (2026-10-02) manda a fotografia inteira de uma
+#: página de torneio — a de prova são 19 MB. O tecto do Flask é um só para a
+#: app toda, por isso é ele que leva o valor maior e são as outras rotas que
+#: passam a ser travadas aqui, uma a uma, nos mesmos 256 KB de sempre. Assim o
+#: alargamento é EXPLÍCITO e vale só onde está escrito.
+CORPO_DE_FICHEIRO = {"/api/decks/imagem": 40 * 1024 * 1024}
+
+
+def corpo_maximo(caminho: str) -> int:
+    return CORPO_DE_FICHEIRO.get(caminho, CORPO_MAXIMO)
+
 
 # --------------------------------------------------------------------------
 # Ligar ao servidor
@@ -198,7 +210,8 @@ CORPO_MAXIMO = 256 * 1024
 
 def ligar(app) -> None:
     """Uma linha no `server.py`. Põe o guarda e as rotas novas."""
-    app.config.setdefault("MAX_CONTENT_LENGTH", CORPO_MAXIMO)
+    app.config.setdefault("MAX_CONTENT_LENGTH",
+                          max([CORPO_MAXIMO, *CORPO_DE_FICHEIRO.values()]))
     app.register_blueprint(bp)
     app.before_request(_antes)
     app.after_request(_depois)
@@ -245,9 +258,9 @@ def _apanhar_corpo_grande(app) -> None:
     """Um corpo acima do tecto dá 413 com a razão, e não uma página de erro."""
     @app.errorhandler(413)
     def _grande(_e):
+        lim = corpo_maximo(request.path)
         return _resposta(
-            f"o pedido é demasiado grande (o máximo é "
-            f"{CORPO_MAXIMO // 1024} KB).", 413)
+            f"o pedido é demasiado grande (o máximo é {lim // 1024} KB).", 413)
 
 
 def _cfg() -> dict:
@@ -312,6 +325,14 @@ def _antes():
     g.somente_leitura = False
     g.alvo_slug = None
     g.senha_temporaria = False
+
+    # O tecto do corpo é o da ROTA. O do Flask ficou no maior de todos (por
+    # causa da imagem); sem isto, alargá-lo para uma rota alargava-o para as
+    # outras vinte e duas.
+    lim = corpo_maximo(request.path)
+    if request.content_length is not None and request.content_length > lim:
+        return _resposta(
+            f"o pedido é demasiado grande (o máximo é {lim // 1024} KB).", 413)
 
     cfg = _cfg()
     from . import multi
