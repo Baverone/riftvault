@@ -186,7 +186,18 @@ def norm(name: str) -> str:
 
 def parse(path: Path) -> dict:
     """Lê um .txt e devolve as linhas por papel, ainda sem resolver nomes."""
-    text = path.read_text(encoding="utf-8")
+    return parse_texto(path.read_text(encoding="utf-8"),
+                       slug=path.stem, path=str(path))
+
+
+def parse_texto(text: str, slug: str = "", path: str | None = None) -> dict:
+    """O LEITOR, e é um só (2026-10-02).
+
+    O `parse` de um `.txt` e a caixa de colar da secção Decks (`colar.py`)
+    entram os dois por aqui: um segundo leitor divergia do primeiro no dia em
+    que o formato mudasse, e aí uma lista colada e a mesma lista em ficheiro
+    davam decks diferentes.
+    """
     role, out, nome = "main", [], None
     for raw in text.splitlines():
         line = raw.strip()
@@ -208,7 +219,7 @@ def parse(path: Path) -> dict:
 
     # A lista é identificada pelo conteúdo, para reimportar não duplicar.
     body = "\n".join(f"{r}|{q}|{norm(n)}" for r, q, n in out)
-    return {"path": str(path), "slug": path.stem, "lines": out, "nome": nome,
+    return {"path": path, "slug": slug, "lines": out, "nome": nome,
             "content_hash": hashlib.sha256(body.encode()).hexdigest()[:16]}
 
 
@@ -443,7 +454,10 @@ ARQUIVO_DECKS = "decks"
 # NÃO diz «depois do torneio»: hoje é verdade e no mês que vem não é — o que
 # não muda é o estado e o caminho para sair dele.
 SEM_DECKS = "Não há decks."
-SEM_DECKS_COMO = "Mete um .txt em decks/ para entrar um."
+# Desde 2026-10-02 há duas maneiras de entrar um, e a frase diz a nova
+# primeiro: COLAR a lista na secção Decks (`colar.py`) é a que não obriga a
+# sair do browser. O `.txt` na pasta continua a valer — é o mesmo ficheiro.
+SEM_DECKS_COMO = "Cola a lista na secção Decks, ou mete um .txt em decks/."
 
 
 def apagar_todos(con: sqlite3.Connection, cfg: dict | None = None,
@@ -1276,6 +1290,41 @@ def versoes_dos_decks(con: sqlite3.Connection, cfg: dict | None = None) -> Verso
         retiradas, frozenset() if base_only else papeis_especiais(cfg), linha_de)
 
 
+def por_cobertura(pids: list[str], qty: int, disponivel: dict[str, int],
+                  set_de: dict[str, str | None]) -> list[str]:
+    """Reordena as impressões para que a EDIÇÃO que cobre sozinha venha à frente.
+
+    André, 2026-10-01: *"se houver em duas edicoes diferentes, conta as 2,
+    **seleciona a que cobrir o numero necessario**, caso nao consiga, indica que
+    e x de uma edicao e x de outra"*.
+
+    Sem isto, o `tirar` consome as impressões pela ordem do catálogo (a edição
+    mais antiga primeiro) e **reparte sempre que a primeira não chega**: com 1
+    cópia no OGN e 3 no UNL, um pedido de 3 saía «1 do OGN + 2 do UNL» quando o
+    UNL o cobria sozinho — três cartas iguais à mão em vez de duas de uma
+    edição e uma de outra.
+
+    A unidade é a edição e não a impressão, porque foi assim que ele falou (e
+    uma edição pode ter mais do que uma impressão da mesma carta). Entre as
+    edições que cobrem, e entre as que não cobrem, a ordem de entrada
+    mantém-se — a do catálogo, a mais antiga primeiro: só se põe à frente quem
+    cobre, nada mais se mexe. Não há aqui escolha de preço: a cópia já é dele,
+    e a mais barata não é mais fácil de encontrar na pasta.
+    """
+    if qty <= 1 or len(pids) < 2:
+        return pids
+    tem: dict[str | None, int] = {}
+    for pid in pids:
+        s = set_de.get(pid)
+        tem[s] = tem.get(s, 0) + max(0, disponivel.get(pid, 0))
+    # Uma edição que cobra sozinha o pedido; se nenhuma cobrir, nada se mexe e
+    # a repartição é a de sempre (e é a página que a diz, carta a carta).
+    if not any(n >= qty for n in tem.values()):
+        return pids
+    cobre = lambda pid: 0 if tem.get(set_de.get(pid), 0) >= qty else 1
+    return sorted(pids, key=lambda pid: (cobre(pid), pids.index(pid)))
+
+
 def cartas_especiais(con: sqlite3.Connection, deck_id: int,
                      papeis=None) -> set[str]:
     """As cartas que ESTE deck joga numa versão especial: as das linhas cujo
@@ -1905,7 +1954,15 @@ def allocate(con: sqlite3.Connection) -> dict:
 
             # Os lugares NORMAIS: a base primeiro...
             reg_n: dict[str, int] = {}
-            pids = versoes.normais_de(ck)
+            # ...e, entre as bases, a EDIÇÃO QUE COBRE SOZINHA à frente
+            # (2026-10-01). Só reordena; quem tira continua a ser o `tirar`,
+            # pela ordem dos montes. Ver `por_cobertura`.
+            bases = versoes.normais_de(ck)
+            pids = por_cobertura(
+                bases, qty - n_esp,
+                {p: fixo.get(p, 0) + binder.get(p, 0) + colecao.get(p, 0)
+                 for p in bases},
+                {p: versoes.info(p)["set"] for p in bases})
             do_deck, do_binder, da_colecao, encomendada = servir(pids, qty - n_esp, reg_n)
             anotar(reg_n, "normal")
             # ...e o que a base não tapar, com OUTRAS impressões que ele tenha
@@ -2601,6 +2658,10 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
             versoes_linha = [{
                 "id": x["id"], "code": versoes.info(x["id"])["code"],
                 "kind": versoes.info(x["id"])["kind"], "label": versoes.rotulo(x["id"]),
+                # A EDIÇÃO de onde sai esta fatia (2026-10-01): é com ela que a
+                # página escreve «2 de OGN + 1 de UNL» quando nenhuma edição
+                # cobriu o pedido sozinha (`por_cobertura`).
+                "set": versoes.info(x["id"])["set"],
                 "qty": x["qty"], "lugar": x["lugar"],
                 # Uma cópia PRÓPRIA do deck (2026-09-21), não da Coleção.
                 "propria": bool(x.get("propria")),

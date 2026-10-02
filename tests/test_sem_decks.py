@@ -546,8 +546,13 @@ class TestAFraseEmVezDoVazioMudo(Base):
         self.assertNotIn("state.decks", corpo)
 
     def test_a_pagina_do_deck_vazia_diz_que_a_colecao_nao_perdeu_nada(self):
-        i = APP_JS.index("async function loadDecks")
-        trecho = APP_JS[i:i + 1400]
+        # O trecho é a FUNÇÃO inteira, não um número fixo de bytes: com o corte
+        # a 1400 caracteres, acrescentar linhas ao `loadDecks` empurrava a
+        # frase para fora da janela e o teste dava vermelho sem nada ter
+        # mudado (aconteceu a 2026-10-02, com a caixa de colar). É a lição do
+        # `test_conta_fechada`, de 2026-10-01.
+        corpo = APP_JS[APP_JS.index("async function loadDecks"):]
+        trecho = corpo[:corpo.index("\n}\n")]
         self.assertIn("SEM_DECKS", trecho)
         self.assertIn("mesmos números", trecho)
 

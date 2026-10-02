@@ -432,6 +432,61 @@ def cmd_value(args) -> int:
     return 0
 
 
+def cmd_colar(args) -> int:
+    """COLAR UMA DECKLIST (2026-10-02), na consola.
+
+    O gémeo da caixa da secção Decks, e pela MESMA porta (`colar.py`): mostra
+    primeiro o que ia gravar e só grava com `--gravar`. Sem ficheiro lê do
+    stdin, para um `riftvault colar < lista.txt` ou um cole directo.
+    """
+    from pathlib import Path
+
+    from . import colar
+
+    texto = (Path(args.ficheiro).read_text(encoding="utf-8")
+             if args.ficheiro else sys.stdin.read())
+    con = db.connect()
+    try:
+        if args.gravar:
+            r = colar.gravar(con, texto, args.nome, confirmar=args.confirmar,
+                             substituir=args.substituir)
+        else:
+            r = colar.prever(con, texto, args.nome)
+    except colar.SemCartas as e:
+        print(f"não dá para ler: {e}", file=sys.stderr)
+        con.close()
+        return 2
+    except (colar.PrecisaConfirmar, colar.NomeOcupado) as e:
+        print(f"{e}", file=sys.stderr)
+        qual = "--substituir" if isinstance(e, colar.NomeOcupado) else "--confirmar"
+        print(f"  (volta a correr com {qual})", file=sys.stderr)
+        con.close()
+        return 1
+
+    print(f"{r['nome']}  ->  {r['slug']}.txt"
+          + ("  (JÁ EXISTE)" if r["ocupado"] and not args.gravar else ""))
+    for b in r["por_papel"]:
+        regra = r["regras"].get({"main": "main", "runes": "runes",
+                                 "battlefields": "battlefields"}.get(b["role"], ""))
+        print(f"  {b['label']:<14} {b['cartas']:>3} cartas  {b['copias']:>3} cópias"
+              + (f"   regra {regra}" if regra else ""))
+    print(f"  {'TOTAL':<14} {r['totais']['linhas']:>3} linhas  "
+          f"{r['totais']['copias']:>3} cópias")
+    if r["nao_casaram"]:
+        print(f"\n{len(r['nao_casaram'])} linha(s) que o catálogo não conhece:",
+              file=sys.stderr)
+        for x in r["nao_casaram"]:
+            print(f"  {x['qty']} {x['raw']}  ({x['role']})", file=sys.stderr)
+    else:
+        print(f"  as {r['totais']['linhas']} linhas casaram todas", file=sys.stderr)
+    if r.get("gravado"):
+        print(f"\ngravado em {r['path']}", file=sys.stderr)
+    else:
+        print("\n(nada foi gravado — junta --gravar)", file=sys.stderr)
+    con.close()
+    return 0
+
+
 def cmd_decks(args) -> int:
     con = db.connect()
     imp = decks_mod.import_all(con)
@@ -2764,6 +2819,21 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--so-faltas", dest="so_faltas", action="store_true",
                    help="só as cartas que faltam ao deck")
     p.set_defaults(func=cmd_proprias)
+
+    p = sub.add_parser("colar", help="lê uma decklist de um ficheiro de texto (ou do "
+                                     "stdin) e grava-a como deck — o gémeo da caixa "
+                                     "de colar da secção Decks")
+    p.add_argument("ficheiro", nargs="?",
+                   help="o .txt a ler; sem ele, lê do stdin (um cole da consola)")
+    p.add_argument("--nome", help="o slug com que grava (omissão: o `Nome:` da lista, "
+                                  "ou a Legend)")
+    p.add_argument("--gravar", action="store_true",
+                   help="grava mesmo; sem isto só MOSTRA o que gravaria")
+    p.add_argument("--confirmar", action="store_true",
+                   help="grava mesmo havendo linhas que o catálogo não conhece")
+    p.add_argument("--substituir", action="store_true",
+                   help="escreve por cima de um deck que já exista")
+    p.set_defaults(func=cmd_colar)
 
     p = sub.add_parser("seguir", help="os decks dos jogadores seguidos no Piltover "
                                       "Archive e o que falta para os montar")

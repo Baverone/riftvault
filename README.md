@@ -1230,16 +1230,37 @@ sobreavaliadas — o `riftvault value` diz-te que percentagem do total vem daí.
 
 ## Decks
 
-> **HOJE NÃO HÁ DECKS** (28/09/2026). Apagaste os seis para entrarem as listas
-> novas: *"apaga os decks todos, vamos atualizar com as listas novas
-> posteriormente"*. A Coleção **não mudou um número** — dá exactamente os
-> mesmos números que daria se nunca tivesse havido decks. Para voltar a haver
-> decks é meter os `.txt` em `decks/`; o que se segue volta a valer nesse
-> momento. As seis listas antigas ficam no git (o commit que as apagou) e em
-> `data/backups/decks-<data>/`.
+> A 28/09/2026 apagaste os seis decks para entrarem as listas novas: *"apaga os
+> decks todos, vamos atualizar com as listas novas posteriormente"*. A Coleção
+> **não mudou um número**. As seis listas antigas ficam no git (o commit que as
+> apagou) e em `data/backups/decks-<data>/`. Desde 01/10 há um deck outra vez
+> (o **Leona Radiant Dawn**).
 
 As listas ficam em `decks/*.txt`. Cada uma dá um separador, com o nome
-**Legend · Champion**.
+**Legend · Champion** — ou o que a linha `Nome:` disser.
+
+### Entrar um deck: COLAR a lista (02/10/2026)
+
+*"dos decks, tem que ser possivel colar o texto em copy paste e gerar o deck"*.
+Na secção **Decks**, o índice tem **«Colar uma lista»**: colas o texto como ele
+sai do sítio onde construíste o deck, carregas em **Ler a lista**, e antes de
+gravar vês o que vai gravar —
+
+* as linhas que **casaram** com o catálogo e as que **não casaram** (essas
+  ficam de fora, e é preciso confirmar);
+* a **aritmética por secção**, contra as regras (`40/40`, `12/12`, `3/3`).
+
+**Gravar o deck** escreve o `.txt` na tua pasta de listas e importa-o pela porta
+de sempre — não há um segundo leitor, é o mesmo que lê os ficheiros. Um deck com
+o mesmo nome pede confirmação antes de ser substituído, e o botão **«Apagar a
+lista»** na página do deck é o caminho de volta (não apaga cópias nenhumas).
+
+Na consola é o mesmo: `riftvault colar lista.txt` mostra, e
+`riftvault colar lista.txt --gravar` grava. Sem ficheiro lê do stdin.
+
+**Por IMAGEM ainda não dá** — precisa de um OCR, e não há nenhum instalado na
+máquina. O critério, quando houver, é só entrar o que casa exactamente com o
+catálogo e dizer quantas linhas não deu para ler.
 
 ### Trocar as listas todas (`--apagar-todos`)
 

@@ -18,9 +18,9 @@ from datetime import datetime, timezone
 
 from flask import Flask, g, jsonify, redirect, request, send_from_directory
 
-from . import (a_mais, a_subir, collection, config, db, decks, faltas, faltas_foil,
-               foil, locais, metrics, pending, principal, proprias, rotas_conta,
-               runas_vista, selado, venda)
+from . import (a_mais, a_subir, colar, collection, config, db, decks, faltas,
+               faltas_foil, foil, locais, metrics, pending, principal, proprias,
+               rotas_conta, runas_vista, selado, venda)
 
 app = Flask(__name__, static_folder=None)
 
@@ -452,6 +452,67 @@ def api_decks_principal():
     _reimport_if_changed(con)
     try:
         res = principal.definir(con, data.get("slug") or None)
+    except decks.DeckDesconhecido as exc:
+        return jsonify({"error": str(exc)}), 404
+    return jsonify({**res, "decks": decks.decks_index(con)})
+
+
+@app.post("/api/decks/prever")
+def api_decks_prever():
+    """O que uma decklist COLADA ia gravar (2026-10-02): `{texto, slug?}`.
+
+    **Não grava nada** — é o ecrã que ele vê antes de carregar em «Gravar»: as
+    linhas que casaram com o catálogo, as que não casaram, e a aritmética por
+    papel. Uma lista com um nome que o catálogo não conhece não pode virar um
+    deck em silêncio.
+    """
+    data = request.get_json(silent=True) or {}
+    con = get_con()
+    try:
+        return jsonify(colar.prever(con, data.get("texto") or "",
+                                    data.get("slug")))
+    except (colar.SemCartas, ValueError) as exc:
+        return jsonify({"error": str(exc)}), 400
+
+
+@app.post("/api/decks/colar")
+def api_decks_colar():
+    """GRAVAR uma decklist colada (2026-10-02):
+    `{texto, slug?, confirmar?, substituir?}`.
+
+    Escreve o `.txt` na pasta DE QUEM colou (`config.decks_dir`, por
+    utilizador) e reimporta pela porta de sempre. `confirmar` é preciso se
+    alguma linha não casou (409); `substituir`, se o deck já existe (409).
+    """
+    data = request.get_json(silent=True) or {}
+    con = get_con()
+    try:
+        res = colar.gravar(con, data.get("texto") or "", data.get("slug"),
+                           confirmar=bool(data.get("confirmar")),
+                           substituir=bool(data.get("substituir")))
+    except (colar.PrecisaConfirmar, colar.NomeOcupado) as exc:
+        return jsonify({"error": str(exc),
+                        "precisa": "substituir" if isinstance(exc, colar.NomeOcupado)
+                                   else "confirmar"}), 409
+    except (colar.SemCartas, ValueError) as exc:
+        return jsonify({"error": str(exc)}), 400
+    return jsonify({**res, "decks": decks.decks_index(con)})
+
+
+@app.post("/api/decks/apagar")
+def api_decks_apagar():
+    """Apagar a lista de um deck (2026-10-02): `{slug, confirmar}`.
+
+    O par do `colar`: quem mete uma lista pela janela tem de poder tirá-la por
+    lá. **Não apaga cópias** — as próprias do deck ficam no `proprio:<slug>`.
+    """
+    data = request.get_json(silent=True) or {}
+    con = get_con()
+    try:
+        res = colar.apagar(con, data.get("slug") or "",
+                           confirmar=bool(data.get("confirmar")))
+    except colar.PrecisaConfirmar as exc:
+        return jsonify({"error": str(exc), "precisa": "confirmar"}), 409
     except decks.DeckDesconhecido as exc:
         return jsonify({"error": str(exc)}), 404
     return jsonify({**res, "decks": decks.decks_index(con)})

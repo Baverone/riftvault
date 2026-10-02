@@ -2840,10 +2840,21 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   página do deck passou de **27 steppers a 0** e a Coleção (512), as Faltas
   (232), as Encomendas (162), a Venda (3) e o Selado (30) ficaram iguais. Ver a
   última secção deste ficheiro.
+- **Feito também:** COLAR UMA DECKLIST (2026-10-02) — a caixa de copy-paste na
+  secção Decks, com a previsão antes de gravar (as linhas que casaram, as que
+  não casaram, a aritmética por papel) e o `.txt` a aterrar na pasta DE QUEM
+  COLOU; o leitor é UM só (`decks.parse_texto`, o mesmo dos ficheiros) e o deck
+  nasce do `import_all` de sempre. Mais a **edição que cobre sozinha**
+  (`decks.por_cobertura`) e as duas frases do relato («2 de OGN + 1 de UNL»,
+  «3 — 1 normal, 2 Alt Art»), e a **arte a cinzento** no que ele não tem.
+  `colar.py`, três rotas, `riftvault colar`, e o botão «Apagar a lista» — que
+  fecha o «apagar decks pela interface» que estava por fazer desde o início.
+  **A leitura por IMAGEM não se fez**: não há OCR nenhum na máquina e não se
+  instala nada. Ver a última secção deste ficheiro.
 - **Por fazer:** a parte 2 do seguir — o separador no site e a tarefa diária;
   vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck,
-  com as partilhadas assinaladas); e apagar decks pela interface (hoje apaga-se
-  o `.txt`).
+  com as partilhadas assinaladas); e a leitura de uma decklist por IMAGEM
+  (precisa de um OCR, que ninguém instalou — ver a última secção).
 
 ## `Nome:` no ficheiro do deck, e a chave de um deck é o SLUG (2026-09-11)
 
@@ -10117,3 +10128,145 @@ payload). **A prova pela negativa** está em
 fixam o que ficou continuam verdes — e o script rebenta se algum trocar de lado.
 O `test_copias_proprias.py::TestFrontend` foi ajustado: descrevia os botões de
 ontem.
+
+## 2026-10-02 — COLAR UMA DECKLIST (`colar.py`): a porta pela janela do browser
+
+Palavras dele: *"dos decks, tem que ser possivel colar o texto em copy paste e
+gerar o deck, depois diz as cartas que tens e que nao tens, com imagem com cor
+e sem cor"* e *"quero que, para introduzir uma decklist, a seccao de decks seja
+possivel ler 2 tipos: Imagem / TxT introduzido"*. Ramo
+`ai-pc/colar-decklist-2026-10-02`.
+
+Até aqui a única maneira de meter uma lista era pôr um `.txt` na pasta `decks/`
+**à mão** — foi assim que a `leona-radiant-dawn.txt` entrou a 01/10. O motor
+dos decks já estava todo feito; o que faltava era a porta.
+
+### 1. NÃO HÁ LEITOR NOVO, e é o ponto de partida
+
+O `decks.parse(path)` passou a ser uma casca do **`decks.parse_texto(texto)`**,
+e é por aí que entram os dois caminhos. Um segundo leitor divergia do primeiro
+no dia em que o formato mudasse, e aí uma lista colada e a mesma lista em
+ficheiro davam decks diferentes. Há teste que lê o `colar.py` e recusa que ele
+tenha gramática própria (`ROLES`, `endswith(":")`, `^(\d+)`).
+
+Pelo mesmo motivo o deck nasce do **`decks.import_all`**: o texto colado aterra
+como `.txt` em `config.decks_dir(con)` — a pasta **DE QUEM COLOU** (por
+utilizador desde 2026-09-29, por isso cada amigo escreve na dele) — e a seguir
+importa-se pela porta de sempre. O ficheiro continua a dar-se a ler, a
+versionar no Git e a abrir num editor; leva à frente um comentário
+(`colar.MARCA`) a dizer de onde veio, e um `Nome:` se a lista não o trazia.
+
+### 2. ANTES DE GRAVAR, MOSTRA — e uma lista não vira deck em silêncio
+
+`POST /api/decks/prever` **não escreve nada** (há teste que fotografa
+ficheiros, `decks`, `deck_cards`, `copies` e `ops` antes e depois) e devolve as
+linhas que casaram com o catálogo, **as que não casaram**, e a aritmética por
+papel contra o `deck_rules`. `gravar()` sem `confirmar` **recusa-se** quando
+alguma linha não casou (`PrecisaConfirmar` → 409), e sem `substituir` recusa-se
+a escrever por cima de um deck que existe (`NomeOcupado` → 409) — a mesma forma
+do `venda.vender`.
+
+O **slug** sai do `Nome:` ou da Legend, e é saneado: vira um caminho em disco e
+vem de uma caixa de texto (teste com `../../etc/passwd` e companhia).
+
+`POST /api/decks/apagar` é o par, com o botão **«Apagar a lista»** na página do
+deck: quem mete uma lista pela janela tem de poder tirá-la por lá, e era a
+última coisa que ainda obrigava a ir à pasta à mão (estava em «Por fazer»
+desde o início). **Não apaga cópias** — as próprias do deck ficam no
+`proprio:<slug>`, como já acontecia a um deck cujo ficheiro desaparecia, e é
+por isso que a pergunta fala da LISTA e não do deck. Na consola,
+`riftvault colar [FICHEIRO] [--gravar]` (sem ficheiro lê do stdin; sem
+`--gravar` só mostra).
+
+### 3. A REGRA DAS VERSÕES: duas metades já existiam, e DIZ-SE qual
+
+*"usa o que esta na coleccao, sendo foil ou nao, sendo Alt Art ou nao, sendo
+Overnumbered ou nao. Se nao houver versao normal, ele avisa que sao X normais e
+X Alt Art"* / *"se houver em duas edicoes diferentes, conta as 2, seleciona a
+que cobrir o numero necessario, caso nao consiga, indica que e x de uma edicao
+e x de outra"*.
+
+Medido antes de escrever código (`_revisao\_medir_versoes_1002.py`), são **três
+perguntas** e só uma era nova:
+
+| metade | estado | hoje vale? |
+|---|---|---|
+| Alt Art / OverNumbered a taparem um lugar normal | **JÁ EXISTIA** (`Versoes.outras_de`, 2026-09-17) e o `decks.so_base: true` desliga-a | **ligar não muda nada**: medido, 0 cópias tapadas dos dois lados |
+| a foil servir um deck | o monte vem do `locais.na_colecao`, que com `foil.conta_para_coleccao: false` (27/09) **só dá normais** | sem caso: as cartas do deck dele têm **0 foils** |
+| a edição que COBRE SOZINHA | **não existia** — o `tirar` consumia pela ordem do catálogo e repartia sempre | sem caso hoje: **nenhuma** carta do deck tem base em mais do que uma edição |
+
+**O `so_base` NÃO se virou**, e é decisão dele: ligá-lo faz a Alt Art e a
+sobrenumerada que ele tenha taparem buracos do main. Hoje vale zero cópias; o
+dia em que ele comprar uma alt art de uma carta que joga, passa a valer.
+`tests/test_colar.py::TestComQueSeTapou` fixa as duas pontas — o que acontece
+com ele ligado, e que o config de hoje o tem desligado.
+
+**O que se construiu** foi a terceira: `decks.por_cobertura(pids, qty,
+disponivel, set_de)` põe à frente a edição que cobre o pedido sozinha, antes de
+o `tirar` consumir. A unidade é a **edição** (é como ele falou, e uma edição
+pode ter mais do que uma impressão da mesma carta); entre as que cobrem e entre
+as que não cobrem a ordem do catálogo mantém-se, e sem nenhuma a cobrir nada se
+mexe. E as duas metades do RELATO, que valem assim que houver caso: cada versão
+do payload leva agora o **`set`**, e a página escreve «2 de OGN + 1 de UNL»
+(`edicoesNota`) e «3 — 1 normal, 2 Alt Art» (`tapadaNota`).
+
+### 4. A COR: a cores quando tem, a cinzento quando não tem
+
+`filter: grayscale(1)` na arte do tile quando `have === 0` — **a mesma foto com
+um filtro**, não uma imagem nova (o `cdn.riftscribe.gg` continua a servir uma
+só). O crachá, o «N×» e a moldura ficam a cores: são a informação, e a cinzento
+perdiam-se. O que vem a caminho conta como «não tem»: ele ainda não a tem na
+mão.
+
+### 5. A IMAGEM FICOU POR FAZER, e está DITA
+
+**Não há OCR nenhum instalado na máquina dele** — medido a 2026-10-02: nem
+`pytesseract`, nem `tesseract` no PATH, nem `easyocr`, `paddleocr` ou
+`rapidocr_onnxruntime`. Há `PIL` e `numpy`, que abrem uma imagem e não lhe lêem
+texto nenhum. A regra da casa é não instalar nada por iniciativa própria, por
+isso a metade da imagem **não se fez** e não se fingiu que se fez.
+`TestOCR` existe para o dia em que alguém instalar um: aí fica vermelho, e é o
+sinal de que a segunda metade se pode construir — **com o critério dele**: só
+entra o que casa EXACTAMENTE com o catálogo, e diz-se quantas linhas não
+conseguiu ler.
+
+### Medido a 2026-10-02 contra uma CÓPIA do `data/` real
+
+`_revisao\_prova_colar.py` (por `VACUUM INTO`: as bases estão em WAL; o `data/`
+a sério nunca se escreveu). A lista dele pelas DUAS portas:
+
+| | pelo `.txt` à mão | **pela caixa de colar** |
+|---|---|---|
+| deck | Leona Radiant Dawn | **igual** |
+| tenho | 50/54 · 12 runas fora | **igual** |
+| **falta** | **4 cópias de 2 cartas** | **4 cópias de 2 cartas** |
+| quais | 3× Zenith Blade · 1× Salvage (tem 2 de 3) | **as mesmas** |
+| a cinzento (0 cópias) | 1 carta | 1 carta |
+
+**As duas portas dão o mesmo deck**, carta a carta — e é o número que a ordem
+mandava confirmar. Fotografado a 375 e a 1280 px contra o ramo servido na 8779:
+`documentElement.scrollWidth == clientWidth == 375`, **zero** elementos a sair
+pela direita e **zero** com scroll próprio; 29 tiles, **1 a cinzento** (a
+Zenith Blade, com `0/3` e «faltam 3 a comprar»), **0 steppers** — a decisão de
+01/10 fica de pé.
+
+**Dois defeitos vieram da FOTOGRAFIA, não do código:** o `.section-head` é
+`text-transform: capitalize` e só o `<span>` está isento — com `<small>` lia-se
+«Vai Gravar-Se Como Leona-Radiant-Dawn.Txt», que é a mesma avaria do Produto
+Selado («Binders E Deck Boxes», 2026-09-25); e a 375 px o
+`justify-content: space-between` da célula mandava «39» e «(+1 Champion = 40)»
+para extremos opostos da linha.
+
+**A frase do «sem decks» mudou nos dois sítios** (`decks.SEM_DECKS_COMO` e o
+`app.js`, que o `test_sem_decks` compara): passou a dizer a porta nova
+primeiro. E um teste desse ficheiro foi **endurecido**, não afrouxado: lia o
+`loadDecks` com um corte de 1400 caracteres e dava vermelho só por a função ter
+crescido — passou a ler a função inteira, que é a lição do `test_conta_fechada`
+de 01/10.
+
+`tests/test_colar.py` (37 testes, contra pastas temporárias e um catálogo de
+brincar): um leitor só e a lista real pelas duas portas; a previsão que não
+escreve; as linhas que não casam a travarem o gravar; o slug que não foge da
+pasta; a edição que cobre e as que se repartem; o que se tapou com que versão;
+a cor; a Coleção que não mexe (com a prova pela negativa ao lado); as três
+rotas; a CLI; e o OCR que não há.
