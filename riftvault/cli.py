@@ -490,6 +490,20 @@ def cmd_imagem(args) -> int:
     return 0
 
 
+#: As assinaturas dos formatos de imagem que o `riftvault imagem` aceita.
+#: Olha-se aos BYTES e nao a extensao — um `.txt` que seja um PNG tambem cai
+#: aqui, e e isso que se quer.
+_ASSINATURAS = (b"\x89PNG\r\n\x1a\n", b"\xff\xd8\xff", b"GIF87a", b"GIF89a",
+                b"BM", b"II*\x00", b"MM\x00*")
+
+
+def _parece_imagem(cabeca: bytes) -> bool:
+    if any(cabeca.startswith(a) for a in _ASSINATURAS):
+        return True
+    # WEBP: "RIFF" + 4 bytes de tamanho + "WEBP"
+    return cabeca[:4] == b"RIFF" and cabeca[8:12] == b"WEBP"
+
+
 def cmd_colar(args) -> int:
     """COLAR UMA DECKLIST (2026-10-02), na consola.
 
@@ -501,6 +515,21 @@ def cmd_colar(args) -> int:
 
     from . import colar
 
+    # Uma IMAGEM passada ao `colar` dava um `UnicodeDecodeError` em bruto
+    # (2026-10-02): quem acaba de saber que ha duas portas tenta a que ja
+    # conhece, e um traceback de descodificacao nao lhe diz que errou a porta —
+    # diz-lhe que o programa esta partido. A assinatura do ficheiro, e nao a
+    # extensao, porque a extensao renomeia-se.
+    if args.ficheiro:
+        try:
+            cabeca = Path(args.ficheiro).read_bytes()[:12]
+        except OSError:
+            cabeca = b""
+        if _parece_imagem(cabeca):
+            print("`%s` parece uma IMAGEM, nao um texto.\n"
+                  "Para ler uma decklist de uma fotografia:  riftvault imagem %s"
+                  % (args.ficheiro, args.ficheiro), file=sys.stderr)
+            return 2
     texto = (Path(args.ficheiro).read_text(encoding="utf-8")
              if args.ficheiro else sys.stdin.read())
     con = db.connect()
