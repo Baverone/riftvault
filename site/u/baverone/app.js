@@ -274,7 +274,10 @@ const PAGINA = {
          + '<p>Tokens, signatures e as runas sem numeração de master set não se mostram; as '
          + 'runas em arte alternativa estão retiradas de tudo. O bloco <b>Runas — 12 de '
          + 'cada</b>, no fim, é o contador dele: os <b>+</b>/<b>−</b> de lá escrevem numa '
-         + 'tabela à parte e não contam para número nenhum do site.</p>'
+         + 'tabela à parte e não contam para número nenhum do site. O <b>crachá</b> é o '
+         + 'contador, igual em todas as edições; a linha de baixo, <b>«nesta edição»</b>, '
+         + 'conta só as impressões da edição aberta — a arte alternativa de cada edição é '
+         + 'uma carta própria.</p>'
          + '<p>Nas comuns e incomuns há <b>duas contagens separadas</b>, e nunca se '
          + 'somam: o <b>crachá</b> do tile são as <b>normais</b> contra o alvo da '
          + 'Coleção, e a linha por baixo são as <b>foils</b> contra o playset do tipo em '
@@ -1063,7 +1066,7 @@ async function loadSet(setId, { url = true } = {}) {
   renderWantlists();
   renderFoilResumo();
   renderFaltaLinha();
-  // Idem: o bloco das runas é do JOGO inteiro, não da edição nem do filtro.
+  // Idem: o bloco das runas é da EDIÇÃO (desde 2026-10-01), não do filtro.
   renderRunasVista();
 }
 
@@ -1152,15 +1155,22 @@ function juntarEdicoes(sets, ps) {
    É O CONTADOR DELE: o número do crachá vem da `rune_counter` do vault.db e
    os `+`/`−` daqui escrevem SÓ lá (`api/runas/ajustar`) — não no `copies`,
    não nas encomendas, não nos locais. Vem de `api/runas.json` — fora do
-   payload da edição, de propósito —, fecha a grelha em todas as edições (as
-   runas são as mesmas seis), e não entra em conta nenhuma daqui: nem na
-   barra, nem nos níveis, nem no valor, nem nas wantlists. O `state.runas`
+   payload da edição, de propósito —, e não entra em conta nenhuma daqui: nem
+   na barra, nem nos níveis, nem no valor, nem nas wantlists. O `state.runas`
    não é lido por mais ninguém.
 
-   Ao lado, em letra pequena, «na coleção: N» é o que o site sabe que ele
-   tem de todas as versões (a base do OGN, que também está na sequência em
-   cima; a alt art retirada; a promo do VEN escondida; as do CardTrader) —
-   só para ele comparar com o que contou à mão. */
+   A REFERÊNCIA É DA EDIÇÃO ABERTA (2026-10-01). André: *"A contagem das
+   runas Alt.Art é exclusiva para cada edição / vi que a contagem está a ser
+   partilhada por todas as edições"*. O ficheiro continua a ser um só (as
+   seis runas são as mesmas), mas traz `por_edicao`: na página do OGN a linha
+   «nesta edição» conta as impressões do OGN, na do SFD as do SFD, e em
+   «Todas» a soma. O OGS não tem runas e não leva bloco nenhum.
+
+   Ao lado, em letra pequena, «nesta edição: N» é o que o site sabe que ele
+   tem das impressões DESSA edição (a base e a alt art retirada no OGN; a
+   promo escondida no VEN; as do CardTrader no SFD/UNL/VEN) — só para ele
+   comparar com o que contou à mão. O CRACHÁ é o mesmo nas quatro edições: é
+   o contador dele, e o cabeçalho di-lo. */
 async function renderRunasVista(reler = false) {
   const el = $('#runas-vista');
   if (!el) return;
@@ -1168,12 +1178,25 @@ async function renderRunasVista(reler = false) {
     try { state.runas = await getJSON('api/runas.json'); }
     catch (err) { el.innerHTML = ''; return; }
   }
-  const p = state.runas;
-  if (!(p.runas || []).length) { el.innerHTML = ''; return; }
+  const v = runasDaEdicao();
+  if (!v || !(v.runas || []).length) { el.innerHTML = ''; return; }
   // Os tiles vão directos na grelha (o `#runas-vista` é uma `.grid`), sem o
   // `.group.multi`: um grupo de 6 colunas não cabe no telemóvel.
-  el.innerHTML = runasHead(p) + p.runas.map(runaTile).join('');
+  el.innerHTML = runasHead(v) + v.runas.map(runaTile).join('');
   ligarRunas();
+}
+
+/* A vista do bloco: a fatia da edição aberta, ou a soma das cinco em
+   «Todas». `null` numa edição sem runas (o OGS) — e num payload anterior a
+   2026-10-01, que não traz `por_edicao`, volta a ser a soma, para o 8770 não
+   partir entre o merge e o relançamento do processo. */
+function runasDaEdicao() {
+  const p = state.runas;
+  if (!p) return null;
+  const todas = { set_id: null, runas: p.runas || [], totals: p.totals };
+  const sid = edicaoAberta();
+  if (!sid || !p.por_edicao) return todas;
+  return p.por_edicao[sid] || null;
 }
 
 /* Um payload SEM `contador` vem de um servidor anterior à tarde de 19/09
@@ -1184,13 +1207,18 @@ function runaContador(x) {
   return x.contador != null ? x.contador : x.total;
 }
 
-function runasHead(p) {
-  const t = p.totals;
+/* Recebe a VISTA (a fatia da edição ou a soma), não o payload: o `alvo` e a
+   `nota` são do payload e o resto é da vista. */
+function runasHead(v) {
+  const p = state.runas;
+  const t = v.totals;
   const sem = t.sem_retiradas !== t.total ? ` (${t.sem_retiradas} sem as retiradas)` : '';
   const n = t.contador != null ? t.contador : t.total;
+  const onde = v.set_id ? `nesta edição (${escapeHTML(v.set_id)})` : 'nas edições todas';
   return `<h2 class="section-head fora vista" id="runas-head">Runas — ${p.alvo} de cada
       <span>contas <b>${n}</b> de <b>${t.alvo}</b>
-      <small class="ref">· na coleção: ${t.total}${sem}</small> — ${escapeHTML(p.nota)}</span></h2>`;
+      <small class="ref">(o teu contador, igual em todas as edições) · ${onde}
+      tens: ${t.total}${sem}</small> — ${escapeHTML(p.nota)}</span></h2>`;
 }
 
 function runaTile(x) {
@@ -1201,6 +1229,8 @@ function runaTile(x) {
   const origens = x.origens.map(o => `${o.qty}× ${(o.code || '').split('/')[0]} ${o.label}`)
     .join(' · ') || 'nenhuma à mão';
   const sem = x.sem_retiradas !== x.total ? ` (${x.sem_retiradas} sem as retiradas)` : '';
+  const onde = edicaoAberta() && state.runas && state.runas.por_edicao
+    ? 'nesta edição' : 'na coleção';
   const botoes = state.runas && state.runas.editable && x.contador != null
     ? `<div class="steppers runa">
       <button class="step minus" data-runa-delta="-1" ${n > 0 ? '' : 'disabled'}
@@ -1214,7 +1244,7 @@ function runaTile(x) {
     ${artHTML(x, `<span class="need">${n}/${x.target}</span>`)}
     <div class="tname" title="${escapeAttr(x.name)}">${escapeHTML(x.name)}</div>
     ${botoes}
-    <div class="onde tenho ref" title="${escapeAttr(origens)}">na coleção: <b>${x.total}</b>${escapeHTML(sem)}</div>
+    <div class="onde tenho ref" title="${escapeAttr(origens)}">${onde}: <b>${x.total}</b>${escapeHTML(sem)}</div>
   </div>`;
 }
 
@@ -1228,12 +1258,31 @@ function ligarRunas() {
 
 function runaRefreshTile(ck) {
   const el = document.querySelector(`#runas-vista .dtile[data-runa="${CSS.escape(ck)}"]`);
-  const x = state.runas && state.runas.runas.find(r => r.card_key === ck);
+  const v = runasDaEdicao();
+  const x = v && v.runas.find(r => r.card_key === ck);
   if (!el || !x) return;
   el.outerHTML = runaTile(x);
   const head = $('#runas-head');
-  if (head) head.outerHTML = runasHead(state.runas);
+  if (head) head.outerHTML = runasHead(v);
   ligarRunas();
+}
+
+/* Todas as listas onde a mesma runa aparece: a soma e cada edição. O
+   contador é UM por runa (ver o topo do bloco), por isso um `+` tem de o
+   mudar em todas — senão o número mudava no OGN e ficava velho no SFD. */
+function runasListas() {
+  const p = state.runas;
+  if (!p) return [];
+  return [{ runas: p.runas || [], totals: p.totals },
+          ...Object.values(p.por_edicao || {})];
+}
+
+function runaPorContador(ck, novo) {
+  for (const l of runasListas()) {
+    const x = l.runas.find(r => r.card_key === ck);
+    if (x) x.contador = novo;
+    if (l.totals) l.totals.contador = l.runas.reduce((s, r) => s + (r.contador || 0), 0);
+  }
 }
 
 /* O clique no `+`/`−` do contador: ecrã otimista, pedidos da MESMA runa em
@@ -1242,13 +1291,13 @@ function runaRefreshTile(ck) {
    não se marca nada como velho. */
 async function runaAjustar(ck, delta) {
   if (!state.editable || !state.runas || !state.runas.editable) return;
-  const x = state.runas.runas.find(r => r.card_key === ck);
+  const v = runasDaEdicao();
+  const x = v && v.runas.find(r => r.card_key === ck);
   if (!x || x.contador == null) return;
   if (delta < 0 && x.contador <= 0) return;
   state.runas.voo = state.runas.voo || new Map();
   state.runas.fila = state.runas.fila || new Map();
-  x.contador = Math.max(0, x.contador + delta);
-  state.runas.totals.contador = state.runas.runas.reduce((s, r) => s + r.contador, 0);
+  runaPorContador(ck, Math.max(0, x.contador + delta));
   runaRefreshTile(ck);
   state.runas.voo.set(ck, (state.runas.voo.get(ck) || 0) + 1);
   const fila = state.runas.fila.get(ck) || Promise.resolve();
@@ -1266,14 +1315,21 @@ async function runaAjustar(ck, delta) {
     const resto = (state.runas.voo.get(ck) || 1) - 1;
     state.runas.voo.set(ck, resto);
     if (resto === 0) {
-      x.contador = res.qty;
+      runaPorContador(ck, res.qty);
+      // Os totais vêm do servidor (uma aritmética só): a soma e cada edição.
       state.runas.totals = res.totals;
+      for (const [sid, t] of Object.entries(res.totals_por_edicao || {})) {
+        if (state.runas.por_edicao && state.runas.por_edicao[sid]) {
+          state.runas.por_edicao[sid].totals = t;
+        }
+      }
       runaRefreshTile(ck);
     }
   } catch (err) {
     state.runas.voo.set(ck, Math.max(0, (state.runas.voo.get(ck) || 1) - 1));
-    x.contador = Math.max(0, x.contador - delta);
-    state.runas.totals.contador = state.runas.runas.reduce((s, r) => s + r.contador, 0);
+    // Desfaz ESTE delta sobre o valor de agora, não sobre o `antes`: pode
+    // haver mais cliques em voo na fila desta runa.
+    runaPorContador(ck, Math.max(0, x.contador - delta));
     runaRefreshTile(ck);
     toast(`Não gravou: ${err.message}`, { error: true });
   }
