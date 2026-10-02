@@ -282,6 +282,14 @@ DEFAULTS: dict = {
     # coleção extra tem alvo para se VER, não para se comprar. Ver
     # `a_subir.so_master_set`.
     "listas_de_compra": {"so_master_set": True},
+    # AS CAIXAS do separador «Faltas» (2026-10-02): o separador é por EDIÇÃO e
+    # ele quis o corte ao contrário — uma caixa que atravessa as edições, com a
+    # sua lista do Cardmarket. Nomeou dois blocos (sobrenumeradas, alt art) e
+    # uma edição inteira (o VEN, «que era tudo»). A do master set de todas as
+    # edições já existe: é a «Wantlist — tudo» do fim da Coleção. Um bloco ou
+    # uma edição que não existam REBENTAM. Ver `faltas_edicao.caixas`.
+    "faltas_edicao": {"caixas_blocos": ["overnumbered", "alt_art"],
+                      "caixas_edicoes": ["VEN"]},
     # O separador «A mais» (2026-09-17): o que ele tem acima do alvo e o que
     # os decks libertaram. Um botão por edição, menos estas (o OGS, como na
     # tabela de preços que se apagou a 2026-09-19); a edição sem botão

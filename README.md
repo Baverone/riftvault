@@ -262,6 +262,19 @@ faltam**.
   set é **exactamente** a wantlist dessa edição no fim da Coleção. Na
   consola: `py -m riftvault faltas --edicao OGN --bloco alt_art --cardmarket`
   (blocos: `master`, `alt_art`, `overnumbered`, `special`).
+- **AS CAIXAS** (02/10/2026 — *"gostava que tivesse uma caixa tambem para
+  faltas de Overnumbered e outra caixa para faltas AltArt e uma caixa para as
+  faltas de Vendetta (que era tudo). pode ser com sistema de botoes para nao
+  ocupar muito espaco"*): uma **segunda fila de botões**, por baixo da das
+  edições, com o separador cortado **ao contrário** — um bloco de **todas** as
+  edições numa lista só (**OverNumbered**, **Alt Art**) ou uma edição
+  **inteira** numa lista só (**VEN — tudo**). Cada caixa é igual a um bloco:
+  tiles, preço, total e a **sua** wantlist. A do master set de todas as
+  edições não está aqui porque já existe — é a «Wantlist — tudo» do fim da
+  Coleção. **As caixas sobrepõem-se** (uma sobrenumerada do VEN está em duas),
+  por isso a soma delas não é o total do separador, e a página di-lo. Quais
+  são vem do config (`faltas_edicao.caixas_blocos` / `caixas_edicoes`); na
+  consola, `py -m riftvault faltas --caixa bloco-overnumbered`.
 - **O `+` e o `−` marcam «já encomendei»** (2026-09-27 — *"nas faltas,
   coloca o + e - para eu indicar que ja encomendei, fica bem mais facil para
   eu visualizar assim"*), em **todas** as linhas de **todos** os blocos,

@@ -1435,6 +1435,15 @@ body.readonly .btn.chegou { display: none; }
 /* Os blocos que se vêem mas não se compram: cabeçalho apagado, os tiles não. */
 .fe-bloco.fe-ver { color: var(--dim); }
 .fe-bloco.fe-ver small { color: var(--accent-2); }
+/* AS CAIXAS (2026-10-02): a segunda fila de botões, a das caixas, é da MESMA
+   escolha que a das edições — fica encostada a ela, e não a 14 px, que se liam
+   como dois controlos independentes.
+
+   `.secbar[hidden]` FAZ FALTA: o `display: flex` da classe ganha ao `display:
+   none` que o browser dá ao atributo `hidden`, e sem isto a fila aparecia com
+   a lista de caixas vazia. É a mesma armadilha do `.chips[hidden]`. */
+.secbar[hidden] { display: none; }
+#fe-caixas-bar { margin-top: -8px; }
 .fe-grid { margin-bottom: 10px; }
 .fe-vazio { padding: 8px 0 12px; font-size: 12px; }
 .fe-set i.caminho, .fe-bloco i.caminho { font-style: normal; color: #9aa8ff; }

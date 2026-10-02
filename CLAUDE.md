@@ -10387,3 +10387,178 @@ não desta ordem), a prova pela negativa da fotografia da Coleção, e o OCR que
 não há. Os outros **34 ficam vermelhos**: o `colar.py` não existe lá, o
 `decks.parse_texto` também não, e o `app.js`/`style.css` não têm nenhuma das
 marcas.
+
+## 2026-10-02 — AS CAIXAS DAS FALTAS: o separador cortado AO CONTRÁRIO (`faltas_edicao.caixas`)
+
+Palavras dele: *"nas faltas, tens as faltas de masterset, mas gostava que
+tivesse uma caixa tambem para faltas de Overnumbered e outra caixa para faltas
+AltArt e uma caixa para as faltas de Vendetta (que era tudo). pode ser com
+sistema de botoes para nao ocupar muito espaco ou como achares melhor"*. E, a
+duas perguntas: a caixa do Vendetta leva **tudo** o que falta da edição (master
+set, sobrenumeradas, alt art, signatures e promos) e as três caixas são **iguais
+à do master set** — com preço, total e lista para o Cardmarket, *"nao sao so
+para ver"*. Ramo `ai-pc/caixas-faltas-2026-10-02`.
+
+### 1. O que faltava, e porque é que ele disse «tens as faltas de masterset»
+
+O separador é **por EDIÇÃO** desde 2026-09-15: com «Todas» escolhido são cinco
+edições × quatro blocos, e portanto **vinte listas do Cardmarket** para
+percorrer. O corte que não existia é o de atravessar as edições — e a frase dele
+diz exactamente qual é a excepção: **a lista do master set de todas as edições
+JÁ EXISTE**, é a «Wantlist — tudo» do fim da Coleção (`a_subir.wantlist`). As
+outras três categorias nunca tiveram uma lista que não fosse por edição.
+
+| caixa | atravessa | âmbito | tem ≥1 | FALTAM | CUSTAM |
+|---|---|---|---|---|---|
+| **OverNumbered** | 4 edições (o OGS não tem) | 92 impressões | 41 | **51 cópias de 51** | **6 660,55 €** |
+| **Alt Art** | 4 edições | 96 | 80 | **160 cópias de 84** | **1 014,90 €** |
+| **VEN — tudo** | os 4 blocos do VEN | 221 | 199 | **58 cópias de 39** | **2 069,42 €** |
+
+Medido a 2026-10-02 contra uma cópia do `data/` real (`VACUUM INTO`: as bases
+estão em WAL). **Os números são reais e explicam-se**, e conferiu-se antes de
+desenhar seja o que for:
+
+* **6 660 € em 51 cópias são 131 €/carta, e 2 100 € são UMA**: o `UNL-238` Baron
+  Nashor, a carta que ele disse a 2026-09-05 que **nunca compraria** — 31 % do
+  total da caixa. As seguintes são `VEN-189` Rogue Assassin 390 €, `SFD-225`
+  Irelia 300 €, `OGN-299` Daughter of the Void 200 €. É a classe das
+  reimpressões de topo de set, e é por isso que elas saíram da Coleção a
+  2026-09-10 e não entram nas listas gerais. Por isso cada caixa leva a
+  **`mais_cara`** no payload e o cabeçalho escreve-a: um total de 6 660 € sem
+  ela não se lê.
+* o VEN parte-se em master 9 cópias · 23,57 € + sobrenumeradas 18 · 1 921,65 €
+  (93 % da caixa) + alt art 31 · 124,20 € + promos **0** — ele tem as seis
+  `VEN-SP` todas. 9+18+31+0 = 58 ✓.
+
+### 2. NÃO É UM CÁLCULO NOVO — e não há um segundo item
+
+Uma caixa é uma **re-arrumação** dos itens que o `payload` já calculou, e leva
+só a lista dos `printing_id` (**`pids`**): nunca uma cópia da linha. O
+`feLigarCaixas` do `app.js` resolve-os para os MESMOS objectos, por referência.
+
+**É isso que faz o `+` de «já encomendei» (2026-09-27) continuar a valer sem
+plumbing nenhum**: o `feItem()` mexe num objecto só, e a caixa e o bloco da
+edição dizem o mesmo número por serem a mesma linha. Com duas cópias divergiam
+no primeiro clique — e o payload engordava com 174 linhas repetidas.
+
+Pelo mesmo princípio a caixa tem a FORMA de um bloco (`id`, `label`, `scope`, os
+campos do `soma`, `wantlist`), e por isso o `feTile`, o `feWantlistHTML`, o
+`feSoma` e o `feWlSoma` desenham-na sem saber que ela existe.
+
+### 3. AS CAIXAS SOBREPÕEM-SE, e é o que ele quer
+
+Uma sobrenumerada do VEN está na caixa «OverNumbered» **e** na «VEN — tudo» —
+«que era tudo»; foi-lhe dito e não objectou. Consequência: **a soma das caixas
+não é o total do separador**, e a página di-lo, como a nota do «Todos juntos»
+dos decks diz desde 2026-09-11. No separador a linha continua a ser UMA (há
+teste).
+
+### 4. O BOTÃO «VEN — tudo» não se chama «VEN», e a razão é de leitura
+
+O separador já tem um botão **«VEN»** (a edição em quatro blocos, com o master
+set na wantlist geral) e esta caixa é outra coisa. Dois botões com a mesma
+palavra lado a lado leem-se como um — é a lição do «principal» contra a
+«prioridade 1» de 2026-09-27. O nome vem do `config.set_name`, que para o VEN é
+o **código** por decisão dele de 2026-08-31; o sufixo é que diz o que a caixa
+tem. Pelo mesmo motivo a fila das caixas é uma fila **PRÓPRIA e rotulada**
+(«CAIXAS»), por baixo da das edições («EDIÇÃO»), com **uma só escolha**
+(`prefs.feSet`) nas duas.
+
+### 5. AS SIGNATURES: ele nomeou-as e são ZERO
+
+A caixa do VEN leva «master set, sobrenumeradas, alt art, **signatures** e
+promos» nas palavras dele. As signatures saíram da Coleção a 2026-09-09 e estão
+ESCONDIDAS (`master_set.escondidas` leva o `"*"`), por isso não chegam ao
+âmbito — e **o VEN não tem nenhuma no catálogo da RiftScribe**: medido a 02/10,
+**0 de 228**, como este ficheiro já dizia desde 09/09.
+
+**Não se alargou o âmbito para apanhar zero cartas.** Fazê-lo era desfazer a
+decisão de 09/09 sem um caso. O que se fez foi **contar o que ficou de fora e
+pô-lo no ecrã**: no VEN são **7 escondidas — 6 runas sem numeração (`VEN-R01..
+R06`, que ele mandou esconder a 15/09) e 1 token** —, e uma signature nova
+apareceria ali **pelo nome** em vez de desaparecer em silêncio (há teste que
+mete uma no catálogo e exige que ela apareça na linha). **As foils também não
+entram** — não são faltas desde 27/09 e ele não as nomeou nesta —, e a caixa diz
+quantas são (19 cópias no VEN).
+
+### 6. Quais são as caixas vive no CONFIG
+
+`faltas_edicao.caixas_blocos` (ids de bloco → uma caixa com esse bloco de todas
+as edições) e `caixas_edicoes` (códigos de edição → a edição inteira). Hoje
+`["overnumbered", "alt_art"]` e `["VEN"]`. Uma edição nova que ele queira ver
+inteira é **uma palavra na lista**, não um `if`. Um bloco ou uma edição que não
+existam **REBENTAM**, com a lista do que há — a regra das outras listas do
+config. Lista vazia = sem caixas, e a fila de botões desaparece sozinha.
+
+### Medido a 2026-10-02 — o site INTEIRO, `main` e ramo, na mesma cópia
+
+`_revisao\_medir_main_vs_caixas.py`: o `main` (`af9c3a0`) num worktree e o ramo,
+cada um a gerar o site contra a MESMA cópia do `data/` real, com o MESMO config.
+**25 ficheiros de cada lado, os mesmos nomes; dos 21 JSON, UM difere** — o
+`api/faltas_edicao.json`, e dentro dele **a única chave nova é `caixas`: o resto
+do ficheiro é byte a byte igual ao do main**. Os outros três que diferem são o
+`app.js`, o `index.html` e o `style.css`, que são o código desta ordem.
+
+Ou seja: os níveis, o denominador, a wantlist do master set, o valor, as Faltas
+normais, a metade das foils, o painel, o A mais, as Encomendas, a Venda e o
+Selado **não mexem um número**, e não é uma asserção — é o site comparado
+ficheiro a ficheiro.
+
+### A 375 px, e o que a fotografia apanhou
+
+Medido no Chrome a sério (DevTools Protocol) contra o ramo servido na 8779, nas
+três caixas e a 375 e 1280 px: `documentElement.scrollWidth == clientWidth ==
+375`, **zero** elementos com scroll próprio no `#fe-body`, e a fila de botões
+**envolve** (`segwrap`), não corre para o lado. A caixa do VEN mostra **39 tiles
+e 1 lista**; a vista por edição do mesmo VEN mostra **50 tiles e 4 listas** — é
+o «não ocupar muito espaço» a aparecer no número.
+
+**Três coisas vieram da medição e da foto, não do código:**
+
+1. **`.secbar[hidden]` fazia falta.** O `display: flex` da classe ganha ao
+   `display: none` que o browser dá ao atributo `hidden`, e sem a regra a fila
+   das caixas aparecia vazia com a lista do config a `[]`. É a mesma armadilha
+   do `.chips[hidden]`, que já estava no ficheiro.
+2. **«852 foils fora» numa caixa de sobrenumeradas era uma omissão inventada.**
+   O âmbito das foils são as comuns e incomuns BASE e não sobrenumeradas: uma
+   caixa de sobrenumeradas ou de alt art **nunca teve foil nenhuma** para deixar
+   de fora. Só as caixas de edição contam foils (e é o
+   `faltas_foil.payload_completo` que o faz — o `faltas_edicao` continua a não
+   conhecer a outra metade).
+3. **«1 tokens»**, e o título da lista a ler-se «Wantlist — VEN — tudo · a
+   edição inteira · 4 blocos», três traços para uma lista.
+
+**Transbordo a 375 px: 3 `<i class="var">Arte alt.</i>`, e NÃO é desta ordem** —
+provado medindo o mesmo na vista por edição do VEN, no mesmo ramo e com os
+mesmos tiles: **os mesmos 3**. É o que este ficheiro já anotava a 27/09 («quatro
+pequenos `span` a transbordar (`var`, `piso` ×3). Ficam anotadas; não se
+tocaram»). A caixa do OverNumbered, que não tem alt arts, dá **0**.
+
+### Na consola
+
+`riftvault faltas --caixa bloco-overnumbered [--codigos]` escreve a lista para
+colar (o stdout fica colável, o resto vai para o stderr, como no `riftvault
+wantlist`); o `riftvault faltas` sem argumentos passou a listar as três caixas
+com o `--caixa` de cada uma e a dizer que se sobrepõem. Uma caixa desconhecida
+rebenta com a lista das que há.
+
+`tests/test_caixas_faltas.py` (**49 testes**, contra cópias e config
+temporário): o que as caixas são (os dois cortes, a sobreposição, a ordem dos
+`pids`, os números a saírem do `soma` dos mesmos itens, a caixa a levar `pids` e
+não itens); a wantlist de cada uma pelo gerador único, com o pendente a sair da
+lista e a linha a ficar; o `lists` a dizer quanto dela já está na wantlist
+geral; a `mais_cara`; o config a mandar, as listas vazias, o bloco e a edição
+inventados a rebentarem, e o config REAL; o que fica de fora dito pelo nome (com
+uma signature metida no catálogo a aparecer na linha); e **a fotografia da
+Coleção** — níveis, índice, wantlist, master_faltas, valor, as quatro chaves da
+metade das normais, o painel de cada edição e a `copies` — igual com as caixas
+ligadas e desligadas, com a **prova pela negativa** ao lado e **sem o relógio
+dentro** (`sem_relogio`, a lição de ontem).
+
+**Dois defeitos do PRÓPRIO TESTE, e o segundo vale para o ficheiro ao lado:** o
+`metrics.index_payload(con, cfg)` passa o config no segundo posicional, que é o
+**`editable`** — a fotografia passava a conter o próprio ficheiro que o teste
+muda e comparava-se a si mesma. O `cfg` vai agora por nome. O
+`tests/test_runas_por_edicao.py` tem a mesma chamada posicional (fica anotado:
+lá não dá falso negativo porque aquele teste não mexe no config, mas é a mesma
+armadilha à espera).
