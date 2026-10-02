@@ -633,9 +633,26 @@ def apagar(slug: str, confirmar: bool = False, com_backup: bool = True,
     conta, apaga o serviço. Se alguma vez for para acontecer, o registo tem de
     mudar de casa primeiro (está no `docs/multi-utilizador.md`).
 
-    A `user_auth` e as sessões **não se tocam aqui**: vivem no `data/auth.db`,
-    são do código da autenticação, e é ele que as limpa no mesmo passo em que
-    chama isto. Combinado a 2026-09-29; está no documento.
+    AS CREDENCIAIS SAEM DAQUI DESDE 2026-10-02, e antes não saíam. A `user_auth`,
+    as `sessions` e o `user_senha` vivem no `data/auth.db`, que é outra casa, e
+    até aqui era **cada chamador** que se lembrava de a limpar (`auth.
+    esquecer_identidades`). Os dois que contam lembravam-se, e o `users.user_id`
+    é `AUTOINCREMENT` — por isso nunca houve hash órfão por um caminho real nem
+    ninguém herdou a password de ninguém. O defeito era de desenho: uma
+    primitiva que deixa dados pessoais atrás e confia na MEMÓRIA de quem a
+    chama, com o terceiro chamador a pagar. A invariante é «apagar a conta
+    apaga tudo o que é da pessoa», e quem a tem de garantir é esta função — que
+    é a camada de POLÍTICA (a confirmação, o export antes, a contagem).
+
+    A casa continua a ser a de lá: quem apaga é o `auth.esquecer_identidades`,
+    porque a `user_auth` é dele. O que mudou é que é esta função que o chama, e
+    **devolve o que ele limpou** em `auth`, para os chamadores dizerem o número
+    em vez de voltarem a perguntar.
+
+    E É DEPOIS DO `utilizador.apagar`, de propósito: se o apagar falhasse, ter
+    limpado a password primeiro deixava uma conta VIVA sem forma de entrar (ele
+    tinha de lhe dar outra). Ao contrário fica, no pior caso, um hash órfão de
+    um id que já não existe e que nunca se reutiliza — é o lado seguro do erro.
     """
     reg = utilizador.por_slug(slug)
     uid = reg["user_id"]
@@ -683,7 +700,20 @@ def apagar(slug: str, confirmar: bool = False, com_backup: bool = True,
     # registo. Aqui é a POLÍTICA: a confirmação, o backup antes e a contagem.
     utilizador.apagar(uid)
 
+    # E AS CREDENCIAIS, no mesmo passo (2026-10-02). O import é tardio para o
+    # cruzamento das duas casas se ver num ponto só; não há ciclo (o `auth`
+    # importa o `config` e mais nada). É idempotente, por isso um chamador que
+    # ainda limpe por fora não parte — só não encontra nada para limpar.
+    from . import auth
+    con_auth = auth.abrir()
+    try:
+        limpo = auth.esquecer_identidades(con_auth, uid)
+    finally:
+        con_auth.close()
+
     return {"utilizador": reg, "linhas": linhas, "total": sum(linhas.values()),
             "ficheiros": ficheiros, "pasta": pasta, "backup": backup,
+            # O que saiu do `auth.db`: identidades, sessões e a password.
+            "auth": limpo,
             # O QUE FICA DELA EM DISCO, dito em voz alta — ver a docstring.
             "copias": [str(p) for p in copias_de(reg["slug"])]}

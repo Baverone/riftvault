@@ -1138,18 +1138,24 @@ class TestVerificar(Base):
         self.assertTrue(est["pode_abrir"],
                         f"não deixou abrir: {[p['nome'] for p in est['faltam']]}")
 
-    def test_sao_DOIS_passos_dele_e_nao_tres(self):
-        est = self.abrir.verificar(self.config.load())
-        dele = [p for p in est["passos"] if p["ok"] is None]
-        self.assertEqual(len(dele), 2, [p["nome"] for p in dele])
-        self.assertNotIn("Discord", " ".join(p["nome"] for p in dele))
-        self.assertIn("Cloudflare", " ".join(p["nome"] for p in dele))
+    def test_o_passo_dele_e_UM_e_nao_fala_do_Discord(self):
+        """ERAM DOIS E PASSARAM A UM a 2026-10-02, e os dois MEDEM-SE.
 
-    def test_os_passos_dele_apontam_para_os_numeros_certos_do_guia(self):
+        Este teste dizia `len(dele) == 2` e que o `dele[0]` apontava ao PASSO 1
+        e o `dele[1]` ao PASSO 2 — ou seja, FIXAVA o defeito do §3 do
+        varrimento: dois passos marcados «[TEU]», como se faltassem fazer,
+        quando estavam feitos desde 29/09 e eram verificáveis. Hoje é um passo
+        só, que pergunta ao endereço público, e `ok is None` quer dizer «não
+        medi», não «falta». Ver `abrir._tunel`.
+        """
         est = self.abrir.verificar(self.config.load())
         dele = [p for p in est["passos"] if p["ok"] is None]
-        self.assertIn("PASSO 1", dele[0]["como"])
-        self.assertIn("PASSO 2", dele[1]["como"])
+        self.assertEqual(len(dele), 1, [p["nome"] for p in dele])
+        self.assertNotIn("Discord", dele[0]["nome"])
+        self.assertIn("Cloudflare", dele[0]["nome"])
+        # Os dois passos DELE continuam escritos no «como» — o que deixou de se
+        # presumir é se estão feitos.
+        self.assertIn("PASSO", dele[0]["como"])
 
     def test_o_texto_diz_o_comando_da_password(self):
         texto = self.abrir.texto(cfg=self.config.load())

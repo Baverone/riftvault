@@ -126,6 +126,17 @@ Corrigir o código obriga a corrigir esse teste, e é o teste que está velho.
 
 ## 3. `riftvault multi --verificar` DIZ `[TEU]` A DOIS PASSOS QUE ESTÃO FEITOS — E VERIFICÁVEIS
 
+> **CORRIGIDO a 2026-10-02** (`abrir.perguntar_ao_tunel`, `abrir._tunel`,
+> `tests/test_achados_346.py`) — ver a secção própria no fim do CLAUDE.md. Os
+> dois passos `[TEU]` passaram a **UM que mede**: um `GET` ao
+> `auth.base_url/api/conta.json` e lê-se o `origem`/`sinais` que a própria app
+> escreveu. Medido outra vez a 02/10: **200, nove sinais, `origem: "fora"`**.
+> A marca ` TEU  ` do `None` passou a `NÃO SEI`, e **sem rede a resposta é «não
+> sei», nunca «falta»**. A medição é INJECTÁVEL e por omissão não há rede — quem
+> a pede é o comando que um humano corre. O teste que fixava o defeito
+> (`test_senhas.test_sao_DOIS_passos_dele_e_nao_tres`) foi reescrito: era ele
+> que exigia os dois passos presumidos.
+
 **Onde.** `riftvault/abrir.py` (`verificar`, os passos `[TEU]`).
 
 **O que o comando diz hoje:**
@@ -162,6 +173,21 @@ vivo → `[OK]`) e o estado do serviço. **Sem rede, a resposta é «não sei»,
 ---
 
 ## 4. O PAYLOAD CONTRADIZ-SE: `editable: true` A QUEM NÃO PODE ESCREVER
+
+> **CORRIGIDO a 2026-10-02** (`rotas_conta.editavel`, `server._editavel`,
+> `metrics.index_payload(servidor=...)`) — ver a secção própria no fim do
+> CLAUDE.md. Os 15 `True` fixos passaram a chamar a regra que já existia, e o
+> `api_conta` chama a MESMA. Medido no servidor a sério, mesmo pedido anónimo
+> com a porta aberta: **antes 8 payloads contradiziam o `conta.json`, agora
+> zero**; e com a porta fechada de casa continua tudo `true` — o uso dele não
+> mexeu. O **site publicado sai igual ficheiro a ficheiro**, com uma chave nova
+> (`servidor: false`, +17 bytes por `index.json`).
+>
+> **O campo tinha de se PARTIR EM DOIS**, e isso a ordem não previu: o `app.js`
+> usava o `editable` também para decidir se vale a pena pedir o
+> `api/conta.json`, por isso torná-lo honesto **escondia a caixa de «Entrar»**
+> a um leitor anónimo com a porta aberta — o beco de 2026-09-30 por outro
+> caminho. A segunda pergunta ganhou campo próprio (`servidor`).
 
 **Onde.** `riftvault/server.py` — **15 sítios** com `editable=True` fixo (linhas
 133, 144, 153, 217, 245, 270, 281, 318, 347, 360, 382, 401, 550, 559, 659)
@@ -306,6 +332,17 @@ para decidir **ficheiro a ficheiro** e não só para o site todo.
 
 ## 6. `conta.apagar()` DEIXA O HASH DA PASSWORD ATRÁS — DEPENDE DE CADA CHAMADOR SE LEMBRAR
 
+> **CORRIGIDO a 2026-10-02** (`conta.apagar` → `auth.esquecer_identidades`) —
+> ver a secção própria no fim do CLAUDE.md. Fez-se **as duas coisas** que esta
+> secção propõe, e não só o teste: a primitiva passou a limpar (é ela a camada
+> de POLÍTICA — a confirmação, o export antes, a contagem) e **devolve o que
+> limpou** em `auth`, para os dois chamadores dizerem o número em vez de
+> voltarem a perguntar. A casa continua a ser a de lá: quem apaga é o
+> `auth.esquecer_identidades`, e é **depois** do `utilizador.apagar` (ao
+> contrário, um apagar que falhasse deixava uma conta VIVA sem entrada). Mais
+> o teste que a secção preferia: por **cada** caminho — biblioteca, CLI, rota —
+> varre-se o `auth.db`, com a prova pela negativa ao lado.
+
 **Onde.** `riftvault/conta.py` (`apagar`) · `riftvault/auth.py:1516-1535`
 (`esquecer_identidades`, que apaga as três coisas, a password incluída).
 
@@ -415,13 +452,15 @@ Nas partes onde um erro custa dados. Cada um destes é um teste pequeno.
    existem (`tests/test_contas.py:776-802`) são da página de cada um. Falta: a
    página da lista, quando nomeia alguém que não é o dono, tem de sair marcada —
    ou não nomear ninguém.
-3. **Nenhum teste varre o `auth.db` depois de apagar uma conta.** O
-   `tests/test_auth.py:676` chama o `esquecer_identidades` directamente; falta o
-   teste que percorre **cada** caminho de apagar (CLI, rota, biblioteca) e exige
-   que nada do `user_id` fique — com a prova pela negativa ao lado.
-4. **Nenhum teste exige coerência entre os dois campos de «podes editar».**
-   O `editable` dos payloads e o `editavel` do `/api/conta.json` podem divergir
-   (§4) e a suite passa com os 2 403 testes.
+3. ~~**Nenhum teste varre o `auth.db` depois de apagar uma conta.**~~
+   **FEITO a 2026-10-02**: `test_achados_346.TestApagarNaoDeixaNadaNoAuthDb`
+   percorre os três caminhos (biblioteca, CLI, rota) e varre as três tabelas,
+   com a prova pela negativa ao lado.
+4. ~~**Nenhum teste exige coerência entre os dois campos de «podes editar».**~~
+   **FEITO a 2026-10-02**: `test_achados_346.TestOPayloadNaoSeContradiz` varre
+   os payloads de leitura e compara cada `editable` com o `editavel` do
+   `/api/conta.json`, nos quatro regimes (porta aberta/fechada, de casa/de
+   fora, entrado, com a temporária).
 5. **Nenhum teste mede o tamanho do site por pessoa.** Um teste que falhe
    quando a casca passa a ser copiada N vezes travava o §5 antes de doer — hoje
    `tests/test_lista.py` conta ficheiros e nomes, nunca bytes.
@@ -505,11 +544,11 @@ ficam em ficheiro nenhum, e a raiz volta a ser a dele**) → apagar.
 
 | # | o que | custo | urgência |
 |---|---|---|---|
-| 1 | `noindex` + `robots.txt` na raiz da lista | 2 linhas + 1 teste | **alta** — uma página indexada não se desfaz |
-| 2 | logs e backups por utilizador | 1 função + 6 chamadas + ajustar `test_binders` | **alta** — o rasto não serve para o que foi feito |
-| 4 | o `editable` dos payloads | 1 função + 15 linhas (ou tirar 14) | média |
-| 3 | o `--verificar` a medir o túnel | 2 passos | média — custa-lhe confiança na checklist |
-| 6 | `conta.apagar` e o `auth.db` | 1 teste (preferível) | média |
+| 1 | `noindex` + `robots.txt` na raiz da lista | 2 linhas + 1 teste | **alta** — uma página indexada não se desfaz · **o `noindex` FEITO a 02/10**; o `robots.txt` na raiz continua por decidir (ele escolheu não o pôr) |
+| 2 | logs e backups por utilizador | 1 função + 6 chamadas + ajustar `test_binders` | ~~alta~~ **FEITO a 2026-10-02** |
+| 4 | o `editable` dos payloads | 1 função + 15 linhas (ou tirar 14) | ~~média~~ **FEITO a 2026-10-02** — e foram DOIS campos, não um |
+| 3 | o `--verificar` a medir o túnel | 2 passos | ~~média~~ **FEITO a 2026-10-02** — um passo que mede |
+| 6 | `conta.apagar` e o `auth.db` | 1 teste (preferível) | ~~média~~ **FEITO a 2026-10-02** — a primitiva limpa, e o teste também |
 | 5 | casca na raiz e o `generated_at` | caminhos no `build.py` / comparação por ficheiro | **baixa hoje, alta aos 10-15** |
 | 8 | os cinco testes que faltam | pequenos, um a um | média |
 | 9 | `so_base` — a coerência do CLAUDE.md | uma palavra, **decisão dele** | baixa (custa zero hoje) |

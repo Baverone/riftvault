@@ -72,11 +72,19 @@ class TestOCriterio(Base):
             "!c.aberto", trecho,
             "a porta não pode voltar a decidir isto — era exactamente o beco")
 
-    def test_a_bandeira_e_o_index_editable_que_ja_existia(self):
-        """Não se inventou nenhuma: o `boot()` já usava esta para não pedir o
-        `api/conta.json` no estático (e não deixar um 404 na consola)."""
+    def test_a_bandeira_diz_se_isto_e_o_SERVIDOR(self):
+        """ERA O `index.editable` ATÉ 2026-10-02, e este teste dizia-o.
+
+        Não se inventou uma bandeira em 30/09: usou-se a que já existia para
+        não pedir o `api/conta.json` no estático (e não deixar um 404 na
+        consola). Só que essa respondia a DUAS perguntas de uma vez — «posso
+        escrever?» e «isto é o servidor?» —, e por isso o `editable` não podia
+        dizer a verdade: com a porta aberta um leitor anónimo não pode
+        escrever, e se o campo dissesse `false` esta caixa desaparecia. Era o
+        beco de hoje por outro caminho. Ver `tests/test_achados_346.py` (§4).
+        """
         js = APP_JS.read_text(encoding="utf-8")
-        self.assertIn("state.conta = state.index.editable", js)
+        self.assertIn("state.conta = state.index.servidor", js)
         self.assertIn("api/conta.json", js)
 
     def test_o_servidor_diz_editable_true_e_o_build_false(self):
@@ -208,13 +216,17 @@ class TestNoEstaticoNaoApareceNada(Base):
         self.assertFalse((fora / "api" / "conta.json").exists(),
                          "o estático não tem rota nem ficheiro de conta")
 
-    def test_o_site_gerado_diz_editable_false_e_por_isso_nao_pergunta(self):
+    def test_o_site_gerado_diz_servidor_false_e_por_isso_nao_pergunta(self):
+        """A BANDEIRA MUDOU a 2026-10-02 e a invariante não: o estático não
+        pergunta. Era o `editable` que a decidia, e o campo respondia a duas
+        perguntas de uma vez — ver `tests/test_achados_346.py` (§4)."""
         import json
         fora = self.sitio()
         d = json.loads((fora / "api" / "index.json").read_text(encoding="utf-8"))
-        self.assertFalse(d["editable"])
+        self.assertFalse(d["servidor"], "é este campo que não pergunta")
+        self.assertFalse(d["editable"], "e no estático não se escreve, também")
         js = (fora / "app.js").read_text(encoding="utf-8")
-        self.assertIn("state.conta = state.index.editable", js,
+        self.assertIn("state.conta = state.index.servidor", js,
                       "é esta linha que não pergunta no estático")
 
     def test_o_html_publicado_nao_fala_de_contas(self):

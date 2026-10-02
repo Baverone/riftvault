@@ -26,6 +26,8 @@ const state = {
   // «Estou dentro, e isto é meu?» (2026-09-29). Com as contas FECHADAS o
   // `editable` é o de sempre — um dono só. Com elas abertas passa a ser
   // `index.editable && é meu`: a coleção de outro é leitura, mesmo autenticado.
+  // Desde 2026-10-02 o `index.editable` do servidor já responde a isto sozinho
+  // (`rotas_conta.editavel()`); o `&& é meu` fica como segunda rede.
   editable: false,
   // O que o `api/conta.json` respondeu: a porta, a sessão, o token de CSRF e os
   // fornecedores prontos. `null` no site publicado, que nem tem essa rota.
@@ -620,10 +622,15 @@ function cabecalhos() {
  * login no SITE PUBLICADO; no 8770, que é a casa dele, esconder a entrada não
  * serve ninguém.
  *
- * Hoje o critério é `state.conta` existir, e não é uma bandeira nova: o
- * `boot()` só pede o `api/conta.json` quando o `index.editable` diz que isto é
- * o servidor. No estático não há rota nenhuma, não se pergunta, e isto fica
- * `null` — a mesma condição que já evitava um 404 na consola. */
+ * Hoje o critério é `state.conta` existir: o `boot()` só pede o
+ * `api/conta.json` quando o `index.servidor` diz que isto é o servidor. No
+ * estático não há rota nenhuma, não se pergunta, e isto fica `null` — a mesma
+ * condição que já evitava um 404 na consola.
+ *
+ * (Era o `index.editable` até 2026-10-02. Mudou porque esse campo passou a
+ * dizer a verdade sobre quem pode escrever, e com a porta aberta a verdade é
+ * `false` para um leitor anónimo — que é precisamente quem tem de ver esta
+ * caixa. Ver o `boot()`.) */
 function renderConta() {
   const zona = $('#conta-zona');
   if (!zona) return;
@@ -945,21 +952,28 @@ async function boot() {
   state.escondidas = new Set((state.index.abas || {}).escondidas || []);
   renderNav();
 
-  // QUEM SOU EU (2026-09-29). Com a porta das contas fechada isto responde
-  // `{aberto: false, editavel: true}` e o `editable` é o de sempre. Com a porta
-  // aberta, EDITAR É «estou dentro E isto é meu»: sem sessão a página é de
-  // leitura, como a de um amigo é para mim.
+  // QUEM SOU EU (2026-09-29). Com a porta das contas fechada e de casa isto
+  // responde `{aberto: false, editavel: true}`. Com a porta aberta, EDITAR É
+  // «estou dentro E isto é meu»: sem sessão a página é de leitura, como a de um
+  // amigo é para mim.
   //
   // No SITE PUBLICADO não se pergunta: aquilo são ficheiros e não há rota
   // nenhuma. Sem esta condição cada visita à cópia publicada deixava um 404 de
   // `api/conta.json` na consola — a página funcionava (o `catch` devolvia
   // `null`), mas um 404 no site dele lê-se como avaria.
   //
-  // E desde 2026-09-30, à tarde, ESTA LINHA É TAMBÉM O CRITÉRIO da zona da
-  // conta: `state.conta` fica `null` no estático e com objecto no servidor, que
-  // é exactamente a pergunta que o `renderConta` faz. Uma bandeira, dois usos.
-  state.conta = state.index.editable
+  // O CRITÉRIO É O `servidor`, E ERA O `editable` ATÉ 2026-10-02. O `editable`
+  // respondia a duas perguntas de uma vez — «posso escrever?» e «isto é o
+  // servidor?» — e por isso NÃO PODIA DIZER A VERDADE: com a porta aberta, um
+  // leitor anónimo não pode escrever, mas se o campo dissesse `false` o
+  // `conta.json` deixava de ser pedido e a caixa de «Entrar» desaparecia (o
+  // `renderConta` esconde-se com `state.conta` nulo). Era o beco de 2026-09-30
+  // por outro caminho. Duas perguntas, dois campos.
+  state.conta = state.index.servidor
     ? await getJSON('api/conta.json').catch(() => null) : null;
+  // O `editable` do índice já vem honesto do servidor, e o `meu` fica como
+  // segunda rede: a resposta do `conta.json` é a mesma, e um ficheiro gerado
+  // por uma versão antiga continua a ser lido pelo lado restritivo.
   const meu = !state.conta || state.conta.editavel !== false;
   state.editable = !!state.index.editable && meu;
   renderConta();

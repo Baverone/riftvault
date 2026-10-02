@@ -567,6 +567,44 @@ def por_cookie(resp, sid: str, cfg: dict | None = None):
 # --------------------------------------------------------------------------
 
 
+def editavel() -> bool:
+    """QUEM MANDOU ESTE PEDIDO pode escrever? A resposta, num sítio só.
+
+    NASCEU A 2026-10-02 PORQUE HAVIA DUAS. Esta regra vivia aqui, no
+    `api_conta`, e o `server.py` tinha **quinze** `editable=True` FIXOS ao lado:
+    o mesmo pedido anónimo, no mesmo minuto, levava `editavel: false` numa
+    resposta e `editable: true` nas outras oito — medido no varrimento de
+    2026-10-01 (§4). Hoje não se via, porque o `app.js` cruzava os dois campos e
+    ficava pelo mais restritivo; o estrago era no próximo leitor que confiasse
+    no campo, e o sintoma seriam `+`/`−` desenhados a dar 401 a cada clique.
+
+    AS DUAS METADES, e a ordem importa:
+
+    1. **com sessão de uma conta** — pode escrever se a página não for a de
+       OUTRA pessoa (`somente_leitura`) e se a password não for a temporária
+       (com ela o site está trancado; ver `_trava_temporaria`);
+    2. **sem sessão** — só de casa E com a porta fechada, que é o regime de
+       sempre: um dono só, sem password na LAN. De fora é sempre `False`, com a
+       porta aberta ou fechada (2026-10-01): sem sessão não há nada editável nem
+       sequer legível.
+
+    Uma sessão SEM conta (identificada por um fornecedor, sem utilizador aqui)
+    cai no caso 2 de propósito — de casa com a porta fechada escreve-se sem
+    sessão nenhuma, por isso ter uma a mais não pode tirar permissões.
+
+    NÃO É O MESMO QUE «ISTO É O SERVIDOR». Essa é a outra pergunta que o campo
+    `editable` respondia à socapa, e tem campo próprio desde hoje
+    (`metrics.index_payload(servidor=...)`).
+    """
+    from . import multi
+
+    sess = g.get("sessao")
+    if sess is not None and sess.get("user_id"):
+        return (not g.get("somente_leitura", False)
+                and not g.get("senha_temporaria", False))
+    return not multi.aberto(_cfg()) and bool(g.get("de_casa", True))
+
+
 @bp.get("/api/conta.json")
 def api_conta():
     """O estado da sessão. É daqui que o `app.js` sabe se pode mostrar os `+`."""
@@ -586,12 +624,10 @@ def api_conta():
         "origem": "casa" if de_casa else "fora",
         "sinais": list(g.get("sinais_de_fora") or []),
         "exige_entrar": not de_casa,
-        # Fechado, de casa e sem sessão: um dono só, e o `editavel` é o de
-        # sempre — é o `server.py` que o põe no payload da Coleção; aqui diz-se
-        # o mesmo para o cliente não ter de adivinhar. **De fora é `false`**
-        # (2026-10-01): sem sessão não há nada editável nem sequer legível, e
-        # dizer `true` punha os `+`/`−` à vista a dar 401 a cada clique.
-        "editavel": not aberto and de_casa,
+        # PODE ESCREVER? Uma resposta só, no `editavel()` — e desde 2026-10-02
+        # é a MESMA que o `server.py` põe no `editable` de cada payload. Eram
+        # duas, e contradiziam-se no mesmo pedido.
+        "editavel": editavel(),
         # A entrada por PASSWORD está SEMPRE disponível (2026-09-30): não
         # precisa de configurar nada, e funciona com a porta fechada — é o que
         # lhe dá onde trocar a temporária antes de abrir (ver o topo). Os
@@ -627,10 +663,11 @@ def api_conta():
     u = utilizador.registo(int(sess["user_id"]))
     out["entrado"] = True
     out["senha_temporaria"] = bool(g.get("senha_temporaria"))
-    # Com a temporária o site está trancado (ver `_trava_temporaria`): dizer
-    # `editavel: true` punha os `+`/`−` à vista a dar 403 a cada clique.
-    out["editavel"] = (not g.get("somente_leitura", False)
-                       and not out["senha_temporaria"])
+    # O `editavel` NÃO se volta a calcular aqui, e até 2026-10-02 calculava-se:
+    # o `_antes` já pôs a sessão no `g` antes desta rota correr, por isso a
+    # chamada lá em cima já respondeu pelo caso 1 (a página de outra pessoa é
+    # leitura; com a temporária o site está trancado). Repeti-lo era ter a
+    # regra escrita duas vezes no mesmo ficheiro.
     out["utilizador"] = {
         "nome": u.get("nome"),
         "slug": u.get("slug"),
@@ -1070,11 +1107,12 @@ def apagar():
     except Exception as e:
         return _resposta(f"não foi possível apagar: {e}", 500)
 
-    # As credenciais e as sessões são desta casa, e a limpeza também
-    # (combinado com a `1-multi-guardas`, que não mexe numa tabela que não é
-    # dela). Feito no MESMO passo, para não ficar uma identidade órfã a apontar
-    # para um utilizador que já não existe.
-    meu = auth.esquecer_identidades(_auth_con(), uid)
+    # As credenciais e as sessões são desta casa, mas desde 2026-10-02 quem as
+    # manda limpar é o `conta.apagar` — a limpeza era feita aqui E na CLI, duas
+    # cópias da mesma disciplina, e o terceiro chamador é que pagava. A função
+    # que lhes mexe continua a ser a de lá (`auth.esquecer_identidades`); isto
+    # só lê o que ela limpou.
+    meu = r.get("auth") or {"identidades": 0, "sessoes": 0, "senhas": 0}
 
     resp = jsonify({"ok": True, "linhas": r.get("linhas"),
                     "ficheiros": [str(f) for f in (r.get("ficheiros") or [])],

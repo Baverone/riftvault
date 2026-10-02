@@ -1445,7 +1445,26 @@ def ordem_da_grelha(payload: dict) -> list[tuple[str, str]]:
 
 
 def index_payload(con: sqlite3.Connection, editable: bool = True,
-                  image_mode: str = "local", cfg: dict | None = None) -> dict:
+                  image_mode: str = "local", cfg: dict | None = None,
+                  servidor: bool = False) -> dict:
+    """O índice. O `servidor` é um campo NOVO, e não é o mesmo que `editable`.
+
+    O `editable` respondia a DUAS perguntas de uma vez, e foi isso que o
+    varrimento de 2026-10-01 apanhou (§4): «quem pediu isto pode escrever?» e
+    «isto é o servidor dinâmico ou um ficheiro do site publicado?». O `app.js`
+    usava-o para as duas — para desenhar os `+`/`−` E para decidir se vale a
+    pena pedir o `api/conta.json` (no estático não há rota, e pedir deixava um
+    404 na consola).
+
+    Separar era obrigatório para o `editable` poder dizer a verdade: com a porta
+    aberta, um leitor anónimo não pode escrever (`editable: false`) **e** tem de
+    poder ver a caixa de «Entrar» — que só aparece se o `conta.json` for pedido.
+    Com um campo só, torná-lo honesto escondia a entrada, que é exactamente o
+    beco de 2026-09-30 por outro caminho.
+
+    O `servidor` é `False` por omissão porque o `build` é quem o omite, e um
+    ficheiro publicado sem o campo tem de se ler como «não é o servidor».
+    """
     from . import abas, collection, foil, painel, prices
 
     cfg = cfg or config.load()
@@ -1459,7 +1478,11 @@ def index_payload(con: sqlite3.Connection, editable: bool = True,
         value = None            # ainda não correu `riftvault prices`
 
     return {
+        # PODE ESCREVER quem pediu isto (`rotas_conta.editavel()` no servidor,
+        # sempre `False` no site publicado).
         "editable": editable,
+        # É O SERVIDOR DINÂMICO? Outra pergunta — ver a docstring.
+        "servidor": servidor,
         "image_mode": image_mode,
         "generated_at": _now(),
         "sets": sets_payload(con),

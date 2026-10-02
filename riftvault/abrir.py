@@ -5,13 +5,24 @@ uma pergunta a cada coisa que tem de estar no sítio, responde em português, e
 **recusa abrir enquanto faltar alguma** — não é um aviso que se possa ignorar
 por distração às duas da manhã.
 
-**ERAM TRÊS PASSOS DELE E PASSARAM A DOIS a 2026-09-30.** O primeiro era criar
-a aplicação no Discord, e desapareceu quando a entrada passou a ser por
-password: já não é preciso pedir nada a ninguém para os amigos entrarem. Ficam
-a conta na Cloudflare e os nameservers do `baverone.com` + o túnel, que não se
-verificam daqui (exigem rede e uma conta dele). Aparecem na lista como **passos
-dele**, com o que fazer, e o `docs/abrir-a-porta.md` é o guia. O que se
-verifica daqui é tudo o que é código, config e ficheiros.
+**ERAM TRÊS PASSOS DELE, PASSARAM A DOIS a 2026-09-30 E A UM MEDIDO a
+2026-10-02.** O primeiro era criar a aplicação no Discord, e desapareceu quando
+a entrada passou a ser por password. Ficavam dois — a conta na Cloudflare e os
+nameservers do `baverone.com` + o túnel — marcados `[TEU]`, «só tu podes»,
+como se faltassem fazer.
+
+**ESTAVAM FEITOS, e eram verificáveis.** O varrimento de 2026-10-01 (§3) mediu
+no mesmo minuto o serviço `Cloudflared` a correr e o `editar.baverone.com` a
+responder 200 com nove sinais de «fora» — e a checklist mandava-o lá outra vez,
+ao único passo com risco declarado («o rift.baverone.com não pode cair»). Uma
+checklist que presume em vez de medir ensina a ignorar a checklist, e a seguir
+ignora-se o passo que importava.
+
+Hoje é UM passo que PERGUNTA ao endereço público (`_tunel` +
+`perguntar_ao_tunel`), e a cadeia inteira prova-se de uma vez. **Sem medição a
+resposta é «não sei», nunca «falta»** — é a diferença entre não medir e medir
+mal. O `docs/abrir-a-porta.md` continua a ser o guia dos passos dele, e o passo
+aponta-lhe quando dá vermelho.
 
 A VERIFICAÇÃO QUE INTERESSA MAIS, E PORQUÊ
     «ELE tem password definida?» Se a porta abrir sem isso, a escrita passa a
@@ -30,10 +41,70 @@ A VERIFICAÇÃO QUE INTERESSA MAIS, E PORQUÊ
 
 from __future__ import annotations
 
+import json
 import os
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 from . import auth, config
+
+#: Quanto tempo se espera pelo endereço público. Curto de propósito: isto é uma
+#: checklist que ele corre na consola, não um teste de disponibilidade. Se o
+#: túnel estiver vivo responde em ~300 ms (medido a 2026-10-01 e 02/10).
+ESPERA_DO_TUNEL = 5.0
+
+#: ASCII puro. É a regra desta casa desde 2026-08-31: um User-Agent com acentos
+#: dá 403 no CardTrader, e nunca se finge ser um browser.
+USER_AGENT = "riftvault/1.0 (verificacao da propria app; +github)"
+
+
+def perguntar_ao_tunel(base: str, espera: float = ESPERA_DO_TUNEL) -> dict:
+    """Pergunta à app, PELO ENDEREÇO PÚBLICO, se o pedido lhe chegou de fora.
+
+    É a medição do passo dele, e **não há sinal melhor do que este**: se a
+    própria app responde num pedido que saiu pela internet e diz que o viu
+    chegar de fora, então a conta na Cloudflare existe, os nameservers estão
+    trocados, o `cloudflared` corre e entrega neste Flask. Os quatro de uma vez,
+    de ponta a ponta.
+
+    PORQUE É QUE SE PERGUNTA AO `/api/conta.json`, e não a outra rota: é a única
+    que diz `origem` e `sinais` — a leitura que o `origem.py` fez do pedido —, e
+    é das poucas que passa **sem sessão vindo de fora** (`rotas_conta.
+    DE_FORA_SEM_SESSAO`). Qualquer outra responde 401, e aí não se distinguia
+    «o túnel está em baixo» de «o túnel está vivo e pediu-me password».
+
+    DAQUI NÃO SE VEEM OS CABEÇALHOS que a Cloudflare acrescenta — eles são
+    postos no caminho de ida. Por isso não se tenta adivinhá-los: lê-se o que o
+    SERVIDOR diz que viu, que é a mesma pergunta respondida por quem tem a
+    resposta.
+
+    Nunca levanta. Devolve sempre um dicionário, e `respondeu: False` com a
+    razão escrita é um resultado — é o «não sei» de quem não tem rede.
+    """
+    url = base.rstrip("/") + "/api/conta.json"
+    try:
+        pedido = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+        with urllib.request.urlopen(pedido, timeout=espera) as resp:
+            codigo = getattr(resp, "status", None) or resp.getcode()
+            corpo = resp.read(64 * 1024)
+    except urllib.error.HTTPError as e:
+        # Respondeu, mas não como deve: um 502/530 da Cloudflare é o túnel em
+        # baixo com o DNS a funcionar, e isso é informação, não falta de rede.
+        return {"respondeu": True, "codigo": e.code, "origem": None,
+                "sinais": [], "url": url}
+    except Exception as e:
+        return {"respondeu": False, "url": url,
+                "erro": f"{type(e).__name__}: {e}"}
+    try:
+        dados = json.loads(corpo.decode("utf-8", "replace"))
+    except Exception:
+        return {"respondeu": True, "codigo": codigo, "origem": None,
+                "sinais": [], "url": url,
+                "erro": "respondeu, mas o que veio não é o riftvault"}
+    return {"respondeu": True, "codigo": codigo, "url": url,
+            "origem": dados.get("origem"),
+            "sinais": list(dados.get("sinais") or [])}
 
 #: Os dois fornecedores a sério (o `local` é de ensaio e não tem segredos).
 GOOGLE_D = auth.GOOGLE
@@ -46,11 +117,6 @@ class NaoEstaPronto(Exception):
 
 def _essencial(nome: str, ok: bool, diz: str, como: str = "") -> dict:
     return {"nome": nome, "ok": ok, "essencial": True, "diz": diz, "como": como}
-
-
-def _dele(nome: str, diz: str, como: str = "") -> dict:
-    """Um passo dele: não se verifica daqui, e não trava o `--abrir` sozinho."""
-    return {"nome": nome, "ok": None, "essencial": False, "diz": diz, "como": como}
 
 
 def _texto_do_config() -> str:
@@ -88,8 +154,20 @@ def _versionado(caminho: Path) -> bool:
     return True
 
 
-def verificar(cfg: dict | None = None) -> dict:
-    """O estado de tudo. Não escreve nada — dá para correr à vontade."""
+def verificar(cfg: dict | None = None, medir=None) -> dict:
+    """O estado de tudo. Não escreve nada — dá para correr à vontade.
+
+    O `medir` é quem pergunta ao endereço público (`perguntar_ao_tunel`), e por
+    omissão é **`None`: não se mede e diz-se que não se mediu**. É uma escolha, e
+    aqui está a razão: esta função é chamada pelo `--abrir`, por testes e por
+    quem quiser, e uma biblioteca que vá à rede nas costas de quem a chama é uma
+    biblioteca que fica a ver se um `urlopen` estoura o prazo. Quem pede a
+    medição é o comando que um humano corre — o `riftvault multi --verificar`
+    passa o `perguntar_ao_tunel` —, e aí a resposta é medida de ponta a ponta.
+
+    **Sem medição a resposta é «não sei», nunca «falta».** É a diferença entre
+    não medir e medir mal, e era medir mal que estava aqui até 2026-10-02.
+    """
     from . import multi, privacidade, utilizador
 
     cfg = cfg if cfg is not None else config.load()
@@ -198,22 +276,20 @@ def verificar(cfg: dict | None = None) -> dict:
         "" if not ensaio else "Fecha este terminal e abre outro sem o "
                               "RIFTVAULT_ENSAIO."))
 
-    # 8. OS DOIS passos dele que não se verificam daqui.
+    # 8. O CAMINHO DE FORA — e isto MEDE-SE desde 2026-10-02.
     #
-    # Eram três até 2026-09-30. O primeiro — criar a aplicação no Discord —
-    # DESAPARECEU quando a entrada passou a ser por password: já não é preciso
-    # pedir nada a ninguém para os amigos entrarem.
-    passos.append(_dele(
-        "A conta na Cloudflare",
-        "só tu podes criá-la.",
-        "PASSO 1 do docs/abrir-a-porta.md."))
-    passos.append(_dele(
-        "Os nameservers do baverone.com + o túnel",
-        "só tu podes mudá-los, e é o passo com risco.",
-        "PASSO 2 do docs/abrir-a-porta.md. ANTES de trocar, confirma que a "
-        "Cloudflare já tem os cinco endereços (baverone.com, rift, mtg, baiak, "
-        "tibia) e põe-nos em «DNS only» (nuvem cinzenta). O rift.baverone.com "
-        "não pode cair."))
+    # Eram DOIS passos marcados `[TEU]` («a conta na Cloudflare» e «os
+    # nameservers + o túnel»), e os dois estavam FEITOS desde 29/09: o
+    # varrimento de 2026-10-01 (§3) mediu o serviço a correr e o
+    # `editar.baverone.com` a responder 200 com nove sinais de «fora». Uma
+    # checklist que manda repetir o passo que ele já fez — e que é o ÚNICO com
+    # risco declarado, «o rift.baverone.com não pode cair» — ensina a ignorar a
+    # checklist, e a seguir ignora-se o passo que importava.
+    #
+    # PASSOU A SER UM E NÃO DOIS, de propósito: a medição prova a cadeia inteira
+    # de uma vez e, quando falha, **não sabe dizer qual elo quebrou**. Partir a
+    # resposta em dois era voltar a presumir metade.
+    passos.append(_tunel(cfg, medir))
 
     faltam = [p for p in passos if p["essencial"] and not p["ok"]]
     return {
@@ -224,6 +300,94 @@ def verificar(cfg: dict | None = None) -> dict:
         "faltam": faltam,
         "pode_abrir": not faltam,
     }
+
+
+#: O nome do passo medido. Nomeia os TRÊS elos que a medição prova juntos, para
+#: ninguém o ler como «só o túnel».
+NOME_DO_TUNEL = "O caminho de fora (Cloudflare + nameservers + túnel)"
+
+#: O que fazer quando a medição dá vermelho, ou quando não houve medição. Os
+#: dois passos dele continuam escritos — o que deixou de se presumir é se
+#: estão feitos.
+COMO_O_TUNEL = (
+    "São os PASSOS 1 e 2 do docs/abrir-a-porta.md (a conta na Cloudflare e os "
+    "nameservers + o túnel). Se já os fizeste, olha primeiro ao que corre aqui: "
+    "`sc query Cloudflared` tem de dizer RUNNING. ANTES de mexer nos "
+    "nameservers, confirma que a Cloudflare já tem os cinco endereços "
+    "(baverone.com, rift, mtg, baiak, tibia) em «DNS only» (nuvem cinzenta) — "
+    "o rift.baverone.com não pode cair.")
+
+
+def _medido(nome: str, ok: bool | None, diz: str, como: str = "") -> dict:
+    """Um passo que se MEDE. `ok=None` quer dizer «não sei», não «falta».
+
+    Não é essencial, e isso é deliberado: o `--abrir` recusa pelos passos que
+    deixam **ele** de fora da própria coleção (ver `_ele_entra`), e abrir a
+    porta com o túnel em baixo não é dessa família — os amigos não chegam lá,
+    e nada se perde. Fazê-lo essencial tinha ainda um efeito pior: um `ok=None`
+    por falta de rede passava a travar o `--abrir` num avião.
+    """
+    return {"nome": nome, "ok": ok, "essencial": False, "diz": diz, "como": como}
+
+
+def _tunel(cfg: dict, medir=None) -> dict:
+    """Mede se o endereço público chega a ESTA app, vindo de fora.
+
+    Quatro respostas, e cada uma diz o que sabe:
+
+    * **OK** — respondeu 200 e a app diz que viu o pedido chegar de FORA, com N
+      sinais de intermediário. Prova a cadeia inteira;
+    * **não sei** — não há endereço escrito, ou ninguém pediu a medição, ou a
+      rede não deu (o `respondeu: False`, que é o caso do avião);
+    * **FALTA** — respondeu, mas não como deve: um código que não é 200 (o
+      DNS resolve e o túnel está em baixo), ou não era o riftvault do outro
+      lado, ou a app diz que o pedido lhe chegou «de casa» — e aí o endereço
+      público não está a passar por túnel nenhum, que é configuração errada.
+    """
+    base = str((cfg.get("auth") or {}).get("base_url") or "").strip()
+    if not base.startswith("https://"):
+        return _medido(
+            NOME_DO_TUNEL, None,
+            "não medi: não há um endereço https escrito em `auth.base_url` "
+            "para onde perguntar.", COMO_O_TUNEL)
+    if medir is None:
+        return _medido(
+            NOME_DO_TUNEL, None,
+            f"não medi (ninguém pediu uma medição). O endereço é {base}.",
+            "Corre `riftvault multi --verificar`, que pergunta ao endereço "
+            "e responde medido.")
+
+    r = medir(base) or {}
+    if not r.get("respondeu"):
+        return _medido(
+            NOME_DO_TUNEL, None,
+            f"não consegui perguntar a {base} — {r.get('erro') or 'sem razão'}."
+            f" Sem rede isto é «não sei», não «falta»: se já fizeste os passos, "
+            f"está feito.", COMO_O_TUNEL)
+    codigo = r.get("codigo")
+    if codigo != 200:
+        return _medido(
+            NOME_DO_TUNEL, False,
+            f"{base} respondeu {codigo} — o endereço resolve, mas não chega a "
+            f"esta app. O túnel costuma ser o que está em baixo.", COMO_O_TUNEL)
+    if r.get("erro"):
+        return _medido(
+            NOME_DO_TUNEL, False,
+            f"{base} respondeu 200, mas {r['erro']} — o endereço está a apontar "
+            f"para outra coisa.", COMO_O_TUNEL)
+    sinais = list(r.get("sinais") or [])
+    if r.get("origem") != "fora":
+        return _medido(
+            NOME_DO_TUNEL, False,
+            f"{base} chega a esta app, mas ela diz que o pedido veio de CASA — "
+            f"o endereço público não está a passar por túnel nenhum. Isto é "
+            f"configuração errada, não falta de passo.", COMO_O_TUNEL)
+    return _medido(
+        NOME_DO_TUNEL, True,
+        f"MEDIDO: {base} responde e chega-lhe de fora "
+        f"({len(sinais)} {'sinal' if len(sinais) == 1 else 'sinais'} de "
+        f"intermediário). A conta na Cloudflare, os nameservers e o túnel estão "
+        f"feitos — os PASSOS 1 e 2 não têm de se repetir.")
 
 
 def _ele_entra(cfg: dict) -> dict:
@@ -336,7 +500,11 @@ def ligar(provedor: str = "discord", porta: int = 8770,
 # Texto
 # --------------------------------------------------------------------------
 
-_MARCA = {True: "  OK  ", False: "FALTA ", None: " TEU  "}
+#: ERA ` TEU  ` NO `None` ATÉ 2026-10-02, e isso era o defeito a ler em voz
+#: alta: a marca dizia «isto é contigo» a um passo que estava feito. Hoje o
+#: `None` é **«não sei»** — o passo mede-se, e quando a medição não corre (sem
+#: rede, ou ninguém a pediu) diz-se isso em vez de se presumir.
+_MARCA = {True: "  OK   ", False: "FALTA  ", None: "NÃO SEI"}
 
 
 def texto(estado: dict | None = None, cfg: dict | None = None) -> str:
@@ -359,13 +527,18 @@ def texto(estado: dict | None = None, cfg: dict | None = None) -> str:
         linhas.append(f"[{_MARCA[p['ok']]}] {p['nome']}: {p['diz']}")
         if p["como"] and p["ok"] is not True:
             for pedaco in _dobrar(p["como"], 72):
-                linhas.append(f"           {pedaco}")
+                linhas.append(f"            {pedaco}")
     linhas.append("")
     if est["aberto"]:
         linhas.append("Já está aberta. Para fechar: riftvault multi --fechar")
     elif est["pode_abrir"]:
         linhas.append("Está tudo pronto do lado do código.")
-        linhas.append("Falta só o que é teu (as linhas marcadas TEU), e depois:")
+        # ERA «falta só o que é teu (as linhas marcadas TEU)», e desde
+        # 2026-10-02 já não há nenhuma: o passo dele MEDE-SE. Uma linha
+        # `NÃO SEI` é a medição que não correu, e di-lo.
+        if any(p["ok"] is None for p in est["passos"]):
+            linhas.append("Há linhas em NÃO SEI: é a medição que não correu, "
+                          "não um passo a faltar. Depois:")
         linhas.append("    riftvault multi --abrir")
     else:
         n = len(est["faltam"])
