@@ -216,13 +216,17 @@ class TestNoEstaticoNaoApareceNada(Base):
         self.assertFalse((fora / "api" / "conta.json").exists(),
                          "o estático não tem rota nem ficheiro de conta")
 
-    def test_o_site_gerado_diz_editable_false_e_por_isso_nao_pergunta(self):
+    def test_o_site_gerado_diz_servidor_false_e_por_isso_nao_pergunta(self):
+        """A BANDEIRA MUDOU a 2026-10-02 e a invariante não: o estático não
+        pergunta. Era o `editable` que a decidia, e o campo respondia a duas
+        perguntas de uma vez — ver `tests/test_achados_346.py` (§4)."""
         import json
         fora = self.sitio()
         d = json.loads((fora / "api" / "index.json").read_text(encoding="utf-8"))
-        self.assertFalse(d["editable"])
+        self.assertFalse(d["servidor"], "é este campo que não pergunta")
+        self.assertFalse(d["editable"], "e no estático não se escreve, também")
         js = (fora / "app.js").read_text(encoding="utf-8")
-        self.assertIn("state.conta = state.index.editable", js,
+        self.assertIn("state.conta = state.index.servidor", js,
                       "é esta linha que não pergunta no estático")
 
     def test_o_html_publicado_nao_fala_de_contas(self):

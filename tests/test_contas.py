@@ -612,9 +612,15 @@ class TestHigieneDoCliente(Base):
         self.assertIn("state.editable = !!state.index.editable && meu", js)
 
     def test_o_site_publicado_nao_pede_a_conta(self):
-        """Lá não há rota: sem isto, cada visita deixava um 404 na consola."""
+        """Lá não há rota: sem isto, cada visita deixava um 404 na consola.
+
+        A BANDEIRA PASSOU DE `editable` A `servidor` a 2026-10-02 — a
+        invariante é a mesma, o campo é que se partiu em dois para o `editable`
+        poder dizer a verdade sobre quem pode escrever. Ver
+        `tests/test_achados_346.py` (§4).
+        """
         js = APP_JS.read_text(encoding="utf-8")
-        self.assertIn("state.index.editable\n    ? await getJSON('api/conta.json')",
+        self.assertIn("state.index.servidor\n    ? await getJSON('api/conta.json')",
                       js.replace("\r\n", "\n"))
 
 
