@@ -465,6 +465,12 @@ def api_decks_prever():
     linhas que casaram com o catálogo, as que não casaram, e a aritmética por
     papel. Uma lista com um nome que o catálogo não conhece não pode virar um
     deck em silêncio.
+
+    É um POST **de propósito**, apesar de não escrever: LÊ a coleção de quem o
+    manda (diz o que ele tem de cada carta da lista), e por ser POST herda o
+    guarda das escritas — sem sessão responde 401, sem CSRF 403. Um GET com o
+    texto na query era uma leitura da coleção sem essa protecção, e ainda por
+    cima com a decklist no registo do servidor.
     """
     data = request.get_json(silent=True) or {}
     con = get_con()
