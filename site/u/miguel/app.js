@@ -4766,7 +4766,8 @@ async function loadColar() {
 /* O estado da caixa vive aqui e não no `state`: é de um ecrã só, e perde-se
    de propósito quando ele sai — uma previsão guardada envelhecia em silêncio
    (a Coleção dele muda a cada `+`). */
-let colarEstado = { texto: '', prev: null, erro: '', ocupado: false };
+let colarEstado = { texto: '', prev: null, erro: '', ocupado: false,
+                    img: null, aler: false };
 
 function renderColar() {
   const e = colarEstado;
@@ -4777,6 +4778,17 @@ function renderColar() {
     e as linhas <code>3 Nome da carta</code>. Não precisa de código de edição:
     o nome identifica a carta, e o deck usa as versões que tiveres.
     Uma linha <code>Nome: …</code> no topo dá o nome ao deck.</p>
+    <p class="note">Ou <b>escolhe uma IMAGEM</b> da página de classificações, com
+    a grelha de cartas: cada carta é reconhecida pela ARTE e a quantidade pelo
+    crachá <code>xN</code>. O que sair vem para a caixa de baixo, para
+    <b>emendares antes de gravar</b> — e o que não se reconhecer fica de fora e
+    é dito, nunca adivinhado.</p>
+    <div class="colar-bar">
+      <input type="file" id="colar-img" accept="image/*" class="colar-img"
+        aria-label="Escolhe a imagem da decklist">
+      ${e.aler ? '<span class="note">a ler a imagem…</span>' : ''}
+    </div>
+    ${e.img ? colarImagemHTML(e.img) : ''}
     <textarea id="colar-txt" class="colar-txt" rows="12" spellcheck="false"
       placeholder="Nome: O meu deck&#10;&#10;Legend:&#10;1 Leona, Radiant Dawn&#10;&#10;MainDeck:&#10;3 Zenith Blade&#10;…"
       aria-label="Cola aqui a decklist">${escapeHTML(e.texto)}</textarea>
@@ -4792,11 +4804,66 @@ function renderColar() {
   $('#colar-txt').oninput = (ev) => { colarEstado.texto = ev.target.value; };
   $('#colar-ler').onclick = () => colarLer();
   $('#colar-limpar').onclick = () => {
-    colarEstado = { texto: '', prev: null, erro: '', ocupado: false };
+    colarEstado = { texto: '', prev: null, erro: '', ocupado: false,
+                    img: null, aler: false };
     renderColar();
+  };
+  const fi = $('#colar-img');
+  if (fi) fi.onchange = (ev) => {
+    const f = ev.target.files && ev.target.files[0];
+    if (f) colarImagem(f);
   };
   const g = $('#colar-gravar');
   if (g) g.onclick = () => colarGravar();
+}
+
+/* O que a IMAGEM deu, e sobretudo o que ela NÃO deu. */
+function colarImagemHTML(r) {
+  const d = r.duvidas || [];
+  const avisos = [];
+  if (r.champion_por_posicao) avisos.push(
+    'o <b>Champion</b> saiu da POSIÇÃO na página — o catálogo não o marca: ' +
+    'confere a linha antes de gravar');
+  if (!r.sideboard) avisos.push(
+    'não se viu corte nenhum para o <b>sideboard</b>: ficou tudo no deck');
+  return `<div class="colar-img-res">
+    <p class="note"><b>${r.cartas.length}</b> carta(s) lida(s) das
+      ${r.grelha.cartas} da imagem${d.length
+        ? `, <b class="aviso">${d.length} por ler</b>` : ', nenhuma por ler'}.</p>
+    ${d.length ? `<ul class="colar-falhas">${d.map(x => `<li>linha ${x.linha},
+      coluna ${x.coluna}: ${escapeHTML(x.porque)}${x.parecida
+        ? ` <small>(parecida com ${escapeHTML(x.parecida)}${
+            x.qty ? `, ×${x.qty}` : ''})</small>` : ''}</li>`).join('')}</ul>
+      <p class="note">Escreve-as à mão na caixa — a lista só leva o que se
+      reconheceu com certeza.</p>` : ''}
+    ${avisos.map(a => `<p class="note aviso">${a}</p>`).join('')}
+  </div>`;
+}
+
+async function colarImagem(ficheiro) {
+  colarEstado.aler = true;
+  colarEstado.erro = '';
+  renderColar();
+  try {
+    const r = await fetch('api/decks/imagem', {
+      method: 'POST',
+      headers: { ...cabecalhos(), 'Content-Type': 'application/octet-stream' },
+      body: ficheiro,
+    });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+    colarEstado.img = j;
+    // O texto vai para a MESMA caixa do copy-paste, e é editável: daí para a
+    // frente é o caminho de sempre.
+    colarEstado.texto = j.texto || '';
+    colarEstado.prev = j.previsao || null;
+    colarEstado.ocupado = !!(j.previsao && j.previsao.ocupado);
+  } catch (err) {
+    colarEstado.erro = err.message;
+    colarEstado.img = null;
+  }
+  colarEstado.aler = false;
+  renderColar();
 }
 
 /* A PREVISÃO: o que vai gravar, antes de gravar. */
