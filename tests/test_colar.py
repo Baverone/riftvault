@@ -663,13 +663,20 @@ class TestOCR(Base):
     `rapidocr_onnxruntime`. Há `PIL` e `numpy`, que abrem uma imagem e não
     lêem texto nenhum dela.
 
-    A regra da casa é não instalar nada por iniciativa própria, por isso a
-    metade da imagem fica por fazer e está DITA em vez de meio-feita. Este
-    teste existe para o dia em que alguém instalar um OCR: aí falha, e é o
-    sinal de que a segunda metade pode ser construída.
+    A regra da casa é não instalar nada por iniciativa própria. ESCRITO A
+    2026-10-02, DE MANHÃ, quando a metade da imagem ainda estava por fazer —
+    e nessa tarde fez-se **sem OCR nenhum**: o `riftvault/imagem.py` casa cada
+    recorte com a ARTE do catálogo (as 1180 estão em `data/images/`), o que
+    identifica a IMPRESSÃO e não só a carta, e deu 31 de 31 na página que ele
+    mandou.
+
+    A asserção fica, com outra razão: não é «falta fazer», é «não é por aqui».
+    No dia em que aparecer um OCR na máquina, vale a pena reconsiderar o
+    caminho que se descartou — ler o código do rodapé (`UNL • 160/219`), que
+    confirmaria a impressão por um segundo sinal.
     """
 
-    def test_nao_ha_OCR_instalado_e_por_isso_a_imagem_ficou_por_fazer(self):
+    def test_nao_ha_OCR_instalado_e_a_imagem_fez_se_pela_ARTE(self):
         import importlib.util
         import shutil
         achados = [m for m in ("pytesseract", "easyocr", "paddleocr",
@@ -678,9 +685,69 @@ class TestOCR(Base):
         achados += [x for x in ("tesseract",) if shutil.which(x)]
         self.assertEqual(
             achados, [],
-            "apareceu um OCR na máquina: a leitura por IMAGEM já se pode "
-            "fazer. O critério é o dele — só entra o que casa EXACTAMENTE com "
-            "o catálogo, e diz-se quantas linhas não conseguiu ler.")
+            "apareceu um OCR na máquina: vale a pena reconsiderar o caminho "
+            "descartado a 02/10 — ler o código do rodapé para confirmar a "
+            "impressão por um segundo sinal. A leitura por arte continua a ser "
+            "a principal.")
+
+
+class TestUmaImagemPassadaAoColar(Base):
+    """`riftvault colar uma-imagem.png` rebentava com um UnicodeDecodeError.
+
+    Quem acaba de saber que há duas portas tenta a que já conhece. Um traceback
+    de descodificação não lhe diz que errou a porta — diz-lhe que o programa
+    está partido (02/10/2026).
+    """
+
+    def _cli(self, *args):
+        import subprocess as sp
+        import sys as _sys
+        r = sp.run([_sys.executable, "-X", "utf8", "-m", "riftvault", *args],
+                   cwd=str(REPO), capture_output=True, text=True,
+                   encoding="utf-8", errors="replace", timeout=300)
+        return r.returncode, (r.stdout or "") + (r.stderr or "")
+
+    def setUp(self):
+        super().setUp()
+        import tempfile
+        self._pasta = tempfile.TemporaryDirectory(prefix="colar-img-")
+        self.addCleanup(self._pasta.cleanup)
+
+    def _escrever(self, nome, dados: bytes):
+        p = Path(self._pasta.name) / nome
+        p.write_bytes(dados)
+        return str(p)
+
+    def test_um_png_manda_o_para_o_comando_certo(self):
+        alvo = self._escrever("lista.png", b"\x89PNG\r\n\x1a\n" + b"\0" * 64)
+        rc, saida = self._cli("colar", alvo)
+        self.assertNotEqual(rc, 0)
+        self.assertIn("parece uma IMAGEM", saida)
+        self.assertIn("riftvault imagem", saida)
+        self.assertNotIn("Traceback", saida)
+
+    def test_a_EXTENSAO_nao_decide_decide_a_assinatura(self):
+        """Um PNG chamado `.txt` tambem cai aqui — e e isso que se quer."""
+        alvo = self._escrever("lista.txt", b"\x89PNG\r\n\x1a\n" + b"\0" * 64)
+        rc, saida = self._cli("colar", alvo)
+        self.assertNotEqual(rc, 0)
+        self.assertIn("parece uma IMAGEM", saida)
+
+    def test_um_jpeg_e_um_webp_tambem(self):
+        for nome, cabeca in (("a.jpg", b"\xff\xd8\xff\xe0" + b"\0" * 32),
+                             ("b.webp", b"RIFF" + b"\0\0\0\0" + b"WEBP" + b"\0" * 32)):
+            with self.subTest(nome):
+                rc, saida = self._cli("colar", self._escrever(nome, cabeca))
+                self.assertNotEqual(rc, 0)
+                self.assertIn("parece uma IMAGEM", saida)
+
+    def test_um_TEXTO_continua_a_passar(self):
+        """A prova pela negativa: a guarda nao pode travar uma lista a serio."""
+        alvo = self._escrever("lista.txt",
+                              "Legend:\n1 Radiant Dawn\n".encode("utf-8"))
+        rc, saida = self._cli("colar", alvo)
+        self.assertEqual(rc, 0, saida)
+        self.assertNotIn("parece uma IMAGEM", saida)
 
 
 if __name__ == "__main__":

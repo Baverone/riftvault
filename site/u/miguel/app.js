@@ -4490,7 +4490,8 @@ function deckSubAtual() {
 }
 
 function feSetValido(s) {
-  return s === 'all' || (state.faltasEdicao?.sets || []).some(x => x.set === s);
+  return s === 'all' || (state.faltasEdicao?.sets || []).some(x => x.set === s)
+    || (state.faltasEdicao?.caixas || []).some(c => c.id === s);
 }
 function amSetValido(s) {
   return s === 'all' || (state.aMais?.sets || []).some(x => x.set === s && x.button);
@@ -4765,7 +4766,8 @@ async function loadColar() {
 /* O estado da caixa vive aqui e não no `state`: é de um ecrã só, e perde-se
    de propósito quando ele sai — uma previsão guardada envelhecia em silêncio
    (a Coleção dele muda a cada `+`). */
-let colarEstado = { texto: '', prev: null, erro: '', ocupado: false };
+let colarEstado = { texto: '', prev: null, erro: '', ocupado: false,
+                    img: null, aler: false };
 
 function renderColar() {
   const e = colarEstado;
@@ -4776,6 +4778,17 @@ function renderColar() {
     e as linhas <code>3 Nome da carta</code>. Não precisa de código de edição:
     o nome identifica a carta, e o deck usa as versões que tiveres.
     Uma linha <code>Nome: …</code> no topo dá o nome ao deck.</p>
+    <p class="note">Ou <b>escolhe uma IMAGEM</b> da página de classificações, com
+    a grelha de cartas: cada carta é reconhecida pela ARTE e a quantidade pelo
+    crachá <code>xN</code>. O que sair vem para a caixa de baixo, para
+    <b>emendares antes de gravar</b> — e o que não se reconhecer fica de fora e
+    é dito, nunca adivinhado.</p>
+    <div class="colar-bar">
+      <input type="file" id="colar-img" accept="image/*" class="colar-img"
+        aria-label="Escolhe a imagem da decklist">
+      ${e.aler ? '<span class="note">a ler a imagem…</span>' : ''}
+    </div>
+    ${e.img ? colarImagemHTML(e.img) : ''}
     <textarea id="colar-txt" class="colar-txt" rows="12" spellcheck="false"
       placeholder="Nome: O meu deck&#10;&#10;Legend:&#10;1 Leona, Radiant Dawn&#10;&#10;MainDeck:&#10;3 Zenith Blade&#10;…"
       aria-label="Cola aqui a decklist">${escapeHTML(e.texto)}</textarea>
@@ -4791,11 +4804,66 @@ function renderColar() {
   $('#colar-txt').oninput = (ev) => { colarEstado.texto = ev.target.value; };
   $('#colar-ler').onclick = () => colarLer();
   $('#colar-limpar').onclick = () => {
-    colarEstado = { texto: '', prev: null, erro: '', ocupado: false };
+    colarEstado = { texto: '', prev: null, erro: '', ocupado: false,
+                    img: null, aler: false };
     renderColar();
+  };
+  const fi = $('#colar-img');
+  if (fi) fi.onchange = (ev) => {
+    const f = ev.target.files && ev.target.files[0];
+    if (f) colarImagem(f);
   };
   const g = $('#colar-gravar');
   if (g) g.onclick = () => colarGravar();
+}
+
+/* O que a IMAGEM deu, e sobretudo o que ela NÃO deu. */
+function colarImagemHTML(r) {
+  const d = r.duvidas || [];
+  const avisos = [];
+  if (r.champion_por_posicao) avisos.push(
+    'o <b>Champion</b> saiu da POSIÇÃO na página — o catálogo não o marca: ' +
+    'confere a linha antes de gravar');
+  if (!r.sideboard) avisos.push(
+    'não se viu corte nenhum para o <b>sideboard</b>: ficou tudo no deck');
+  return `<div class="colar-img-res">
+    <p class="note"><b>${r.cartas.length}</b> carta(s) lida(s) das
+      ${r.grelha.cartas} da imagem${d.length
+        ? `, <b class="aviso">${d.length} por ler</b>` : ', nenhuma por ler'}.</p>
+    ${d.length ? `<ul class="colar-falhas">${d.map(x => `<li>linha ${x.linha},
+      coluna ${x.coluna}: ${escapeHTML(x.porque)}${x.parecida
+        ? ` <small>(parecida com ${escapeHTML(x.parecida)}${
+            x.qty ? `, ×${x.qty}` : ''})</small>` : ''}</li>`).join('')}</ul>
+      <p class="note">Escreve-as à mão na caixa — a lista só leva o que se
+      reconheceu com certeza.</p>` : ''}
+    ${avisos.map(a => `<p class="note aviso">${a}</p>`).join('')}
+  </div>`;
+}
+
+async function colarImagem(ficheiro) {
+  colarEstado.aler = true;
+  colarEstado.erro = '';
+  renderColar();
+  try {
+    const r = await fetch('api/decks/imagem', {
+      method: 'POST',
+      headers: { ...cabecalhos(), 'Content-Type': 'application/octet-stream' },
+      body: ficheiro,
+    });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+    colarEstado.img = j;
+    // O texto vai para a MESMA caixa do copy-paste, e é editável: daí para a
+    // frente é o caminho de sempre.
+    colarEstado.texto = j.texto || '';
+    colarEstado.prev = j.previsao || null;
+    colarEstado.ocupado = !!(j.previsao && j.previsao.ocupado);
+  } catch (err) {
+    colarEstado.erro = err.message;
+    colarEstado.img = null;
+  }
+  colarEstado.aler = false;
+  renderColar();
 }
 
 /* A PREVISÃO: o que vai gravar, antes de gravar. */
@@ -4981,33 +5049,64 @@ function renderStaples() {
 async function loadFaltasEdicao(sub = '') {
   $('#fe-body').innerHTML = '<p class="empty">a carregar…</p>';
   state.faltasEdicao = await getJSON('api/faltas_edicao.json');
+  feLigarCaixas();
   if (sub && feSetValido(sub)) state.prefs.feSet = sub;
   renderFeTabs();
   renderFaltasEdicao();
 }
 
-function renderFeTabs() {
-  const nav = $('#fe-tabs');
+/* AS CAIXAS (2026-10-02): a caixa vem do servidor com os `pids` e SEM itens —
+   aqui resolvem-se para os MESMOS objectos que as edições têm, por referência.
+
+   É o que faz uma caixa comportar-se como um bloco no resto do ficheiro (o
+   `feSoma`, o `feWantlistItens`, o `feTile`, o `feWlSoma` não sabem que ela
+   existe) e é o que faz o `+` de «já encomendei» continuar a valer: o
+   `feItem()` mexe num objecto só, e a caixa e o bloco da edição dizem o mesmo
+   número por serem a MESMA linha. Com duas cópias divergiam no primeiro
+   clique. */
+function feLigarCaixas() {
   const p = state.faltasEdicao;
-  nav.innerHTML = '';
-  if (state.prefs.feSet !== 'all' && !p.sets.some(s => s.set === state.prefs.feSet)) {
-    state.prefs.feSet = 'all';
+  if (!p?.caixas) return;
+  const porPid = new Map();
+  for (const s of p.sets) {
+    for (const g of s.blocks) for (const x of g.items) porPid.set(x.printing_id, x);
   }
-  const botoes = [{ set: 'all', name: 'Todas', sub: feCurto(p.totals) },
-                  ...p.sets.map(s => ({ ...s, sub: feCurto(s) }))];
-  for (const s of botoes) {
-    const b = document.createElement('button');
-    const on = s.set === state.prefs.feSet;
-    b.className = 'tab' + (on ? ' is-on' : '');
-    b.setAttribute('aria-pressed', on ? 'true' : 'false');
-    b.innerHTML = `${escapeHTML(s.name)}<small>${escapeHTML(s.sub)}</small>`;
-    b.onclick = () => {
-      state.prefs.feSet = s.set; savePrefs();
-      escreverHash('faltas-edicao', s.set);
-      renderFeTabs(); renderFaltasEdicao();
-    };
-    nav.appendChild(b);
-  }
+  for (const c of p.caixas) c.items = (c.pids || []).map(pid => porPid.get(pid)).filter(Boolean);
+}
+
+/* A caixa escolhida, ou `null` se o que está escolhido é uma edição. UMA
+   escolha para as duas filas de botões — `prefs.feSet`. */
+function feCaixa() {
+  return (state.faltasEdicao?.caixas || []).find(c => c.id === state.prefs.feSet) || null;
+}
+
+function renderFeTabs() {
+  const p = state.faltasEdicao;
+  if (!feSetValido(state.prefs.feSet)) state.prefs.feSet = 'all';
+  const escolher = (id) => {
+    state.prefs.feSet = id; savePrefs();
+    escreverHash('faltas-edicao', id);
+    renderFeTabs(); renderFaltasEdicao();
+  };
+  const fila = (nav, botoes) => {
+    nav.innerHTML = '';
+    for (const s of botoes) {
+      const b = document.createElement('button');
+      const on = s.id === state.prefs.feSet;
+      b.className = 'tab' + (on ? ' is-on' : '');
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      b.innerHTML = `${escapeHTML(s.name)}<small>${escapeHTML(feCurto(s.t))}</small>`;
+      b.onclick = () => escolher(s.id);
+      nav.appendChild(b);
+    }
+  };
+  fila($('#fe-tabs'), [{ id: 'all', name: 'Todas', t: p.totals },
+                       ...p.sets.map(s => ({ id: s.set, name: s.name, t: s }))]);
+  // A fila das caixas não aparece quando não há nenhuma (lista vazia no
+  // config): um rótulo «Caixas» sobre o vazio não diz nada.
+  const cxs = p.caixas || [];
+  $('#fe-caixas-bar').hidden = !cxs.length;
+  if (cxs.length) fila($('#fe-caixas'), cxs.map(c => ({ id: c.id, name: c.label, t: c })));
 }
 
 /* «faltam 304 · 2 257 €» — o resumo curto de um bloco, edição ou total. */
@@ -5028,6 +5127,8 @@ function feResumo(t) {
 }
 
 function renderFaltasEdicao() {
+  const cx = feCaixa();
+  if (cx) { renderFeCaixa(cx); return; }
   const p = state.faltasEdicao;
   const sel = state.prefs.feSet;
   const sets = p.sets.filter(s => sel === 'all' || s.set === sel);
@@ -5103,6 +5204,94 @@ function feBlocosTodos(s) {
   return s.foil ? [...s.blocks, s.foil] : s.blocks;
 }
 
+/* ------------------------------------------------------------------ AS CAIXAS
+
+   André, 2026-10-02: *"gostava que tivesse uma caixa tambem para faltas de
+   Overnumbered e outra caixa para faltas AltArt e uma caixa para as faltas de
+   Vendetta (que era tudo). pode ser com sistema de botoes para nao ocupar muito
+   espaco"*.
+
+   Uma caixa é UMA lista e UMA wantlist, com o mesmo aspecto de um bloco — os
+   mesmos tiles (`feTile`), a mesma caixa do Cardmarket (`feWantlistHTML`), o
+   mesmo resumo (`feResumo`). O que muda é o corte: ali é «este bloco desta
+   edição», aqui é «este bloco de todas as edições» ou «esta edição inteira». */
+function renderFeCaixa(c) {
+  $('#fe-head').innerHTML = feCaixaCabecalho(c);
+  $('#fe-body').innerHTML = `
+    <h2 class="section-head fe-set">${escapeHTML(c.label)}
+      <span data-fe-res="caixa:${escapeAttr(c.id)}">${feResumo(c)}</span></h2>
+    ${c.items.length
+      ? `<div class="grid deck-grid fe-grid">${c.items.map(feTile).join('')}</div>`
+      : `<p class="empty fe-vazio">${c.scope
+          ? 'Nada falta nesta caixa.' : 'Esta caixa não tem impressões no âmbito.'}</p>`}
+    ${feWantlistHTML(null, c)}`;
+
+  const itens = feWantlistItens(c);
+  if (itens.length) {
+    const zid = feWlId(null, c) + '-cm';
+    cmLigar(zid, () => feWantlistItens(c), `riftvault-faltas-${c.id}-${hojeISO()}.csv`);
+    cmMostrar(zid, itens, false, { foco: false, copiar: false });
+  }
+  ligarFeEnc();
+}
+
+/* O cabeçalho de uma caixa. À parte porque o `feAcertarResumos` o reescreve a
+   cada `+` — e aí não se pode redesenhar o `#fe-body`, que faria as imagens
+   todas piscar. Aqui não há imagens, por isso reescreve-se inteiro em vez de
+   haver os mesmos números escritos em dois sítios. */
+function feCaixaCabecalho(c) {
+  const p = state.faltasEdicao;
+  const esc = Object.entries(c.escondidas || {})
+    .map(([k, n]) => `${n} ${escapeHTML(feKind(k, n))}`);
+  return `<div class="deck-card">
+    <div class="deck-title"><b>${escapeHTML(c.label)}</b>
+      <span class="prio">${escapeHTML(c.escopo_label)} · ${
+        plural(c.scope, 'impressão', 'impressões')}</span></div>
+    <div class="deck-meta">
+      <span><i>Fechar esta caixa</i>${eur(c.cents)} · ${
+        plural(c.copies, 'cópia', 'cópias')}</span>
+      <span><i>Alvo</i>${escapeHTML(c.target_label)}</span>
+      ${c.mais_cara ? `<span><i>A mais cara, sozinha</i>${eur(c.mais_cara.cents)} —
+        ${escapeHTML(c.mais_cara.name)} <code>${escapeHTML(
+          (c.mais_cara.code || '').split('/')[0])}</code></span>` : ''}
+      ${c.pending_copies ? `<span><i>A caminho</i>${c.pending_copies} cópias — não contam</span>` : ''}
+    </div>
+    <small class="nota">Uma caixa é o separador cortado <b>ao contrário</b>: em vez
+      de uma edição em ${plural(p.blocks.length, 'bloco', 'blocos')}, ${
+      c.set ? `a edição <b>inteira</b> numa lista só` :
+              `este bloco de <b>todas as edições</b> numa lista só`}.
+      <b>As caixas sobrepõem-se</b> — uma sobrenumerada do VEN está na caixa
+      «OverNumbered» e também na «VEN — tudo» —, por isso <b>a soma das caixas não
+      é o total do separador</b> (${eur(p.totals.cents)}).
+      ${c.lists.copies ? `Desta caixa, ${plural(c.lists.copies, 'cópia', 'cópias')} ·
+        ${eur(c.lists.cents)} já ${c.lists.copies === 1 ? 'está' : 'estão'} na wantlist
+        geral da Coleção (é o master set): comprando por aqui não compras duas vezes,
+        é a mesma carta.` : `Nada desta caixa está na wantlist geral da Coleção
+        (<code>listas_de_compra.so_master_set</code>) — é esta a lista dela.`}
+      ${esc.length ? `<br>Fora desta caixa, por estarem <b>escondidas</b> em todo o
+        site (<code>master_set.escondidas</code>): ${esc.join(' · ')}.` : ''}
+      ${c.foil ? ` E ${c.foil} cópias na metade das <i class="foil">foils</i>, que
+        não são faltas (2026-09-27) e têm a lista delas no separador da edição.` : ''}
+      ${state.editable ? ` O <b>+</b> e o <b>−</b> são os mesmos de sempre e o mesmo
+        registo: marcar aqui marca na edição, é a mesma linha.` : ''}</small>
+  </div>`;
+}
+
+/* O nome de um `variant_kind` em palavras dele, para a linha das escondidas.
+   É aqui que uma signature apareceria pelo nome se o VEN passasse a ter uma —
+   hoje são zero (medido a 2026-10-02: 0 de 228). */
+function feKind(k, n = 2) {
+  const nomes = {
+    rune_promo: ['runa sem numeração', 'runas sem numeração'],
+    token: ['token', 'tokens'],
+    signature: ['signature', 'signatures'],
+    alt_art: ['arte alternativa', 'artes alternativas'],
+    special: ['promo', 'promos'],
+    base: ['da sequência', 'da sequência'],
+  }[k];
+  return nomes ? nomes[n === 1 ? 0 : 1] : k;
+}
+
 /* ---------------------------------------------------------------- «JÁ ENCOMENDEI»
 
    O gémeo do `faltas_edicao.soma` em JavaScript: as contas de um bloco, de uma
@@ -5158,6 +5347,17 @@ function feRecontar() {
   }
   p.totals = feSoma(todos);
   p.totals_lists = feSoma(nasListas);
+  // As caixas são os MESMOS itens noutro corte, por isso refazem-se da mesma
+  // forma — e o `lists` delas também, que é o que a nota promete («desta caixa,
+  // X já está na wantlist geral»).
+  if (p.caixas?.length) {
+    const geral = new Set(nasListas);
+    for (const c of p.caixas) {
+      Object.assign(c, feSoma(c.items || []));
+      c.wantlist = feWlSoma(c);
+      c.lists = feSoma((c.items || []).filter(x => geral.has(x)));
+    }
+  }
   if (p.foil) {
     p.foil.totals = { ...feSoma(foils),
                       no_foil_price: p.sets.reduce(
@@ -5247,11 +5447,35 @@ function feDesenharLinha(pid, foil) {
   renderFeTabs();
 }
 
+/* A caixa do Cardmarket de um bloco (ou de uma CAIXA, com `s` a `null`): o
+   cabeçalho dela e o texto, depois de uma linha ter saído por ter sido
+   encomendada. */
+function feAcertarWantlist(s, g) {
+  const zona = document.getElementById(feWlId(s, g));
+  if (!zona) return;
+  const w = g.wantlist || {};
+  const h = zona.querySelector('.fe-wl-head span');
+  if (h) {
+    h.innerHTML = `${plural(w.lines, 'linha', 'linhas')} ·
+      ${plural(w.copies, 'cópia', 'cópias')} · ${eur(w.cents)}`;
+  }
+  cmMostrar(feWlId(s, g) + '-cm', feWantlistItens(g), false,
+            { foco: false, copiar: false, foilTodas: g.id === 'foil' });
+}
+
 /* Os `<span>` dos cabeçalhos e as caixas do Cardmarket, sem redesenhar a
    grelha inteira — redesenhá-la a cada clique fazia as imagens todas piscar. */
 function feAcertarResumos() {
   const p = state.faltasEdicao;
   const sel = state.prefs.feSet;
+  const cx = feCaixa();
+  if (cx) {
+    $('#fe-head').innerHTML = feCaixaCabecalho(cx);
+    const r = document.querySelector(`#fe-body [data-fe-res="caixa:${CSS.escape(cx.id)}"]`);
+    if (r) r.innerHTML = feResumo(cx);
+    feAcertarWantlist(null, cx);
+    return;
+  }
   for (const s of p.sets.filter(x => sel === 'all' || x.set === sel)) {
     const cab = document.querySelector(`#fe-body [data-fe-res="set:${CSS.escape(s.set)}"]`);
     if (cab) cab.innerHTML = feResumo(s);
@@ -5259,16 +5483,7 @@ function feAcertarResumos() {
       const c = document.querySelector(
         `#fe-body [data-fe-res="bloco:${CSS.escape(s.set)}:${CSS.escape(g.id)}"]`);
       if (c) c.innerHTML = feResumo(g);
-      const cx = document.getElementById(feWlId(s, g));
-      if (!cx) continue;
-      const itens = feWantlistItens(g), w = g.wantlist || {};
-      const h = cx.querySelector('.fe-wl-head span');
-      if (h) {
-        h.innerHTML = `${plural(w.lines, 'linha', 'linhas')} ·
-          ${plural(w.copies, 'cópia', 'cópias')} · ${eur(w.cents)}`;
-      }
-      cmMostrar(feWlId(s, g) + '-cm', itens, false,
-                { foco: false, copiar: false, foilTodas: g.id === 'foil' });
+      feAcertarWantlist(s, g);
     }
   }
   // O cabeçalho do separador: os números grandes e o resumo das foils.
@@ -5381,16 +5596,23 @@ function feWantlistItens(g) {
   return g.items.filter(x => x.missing > 0);
 }
 
+/* `s` a `null` é uma CAIXA (2026-10-02): a lista dela não é de uma edição, e
+   por isso o id e o título saem do id da caixa. */
 function feWlId(s, g) {
-  return `fe-wl-${s.set}-${g.id}`;
+  return s ? `fe-wl-${s.set}-${g.id}` : `fe-wl-cx-${g.id}`;
 }
 
 function feWantlistHTML(s, g) {
   const itens = feWantlistItens(g);
   if (!itens.length) return '';
   const w = g.wantlist || {};
+  // Numa caixa o rótulo basta — o âmbito («4 edições», «a edição inteira») já
+  // está no cabeçalho da página, e repeti-lo aqui dava «Wantlist — VEN — tudo ·
+  // a edição inteira · 4 blocos», que são três traços para uma lista.
+  const titulo = s ? `${escapeHTML(s.name)} · ${escapeHTML(g.label)}`
+                   : escapeHTML(g.label);
   return `<section class="wl-bloco fe-wl" id="${feWlId(s, g)}">
-    <h4 class="wl-head fe-wl-head">Wantlist — ${escapeHTML(s.name)} · ${escapeHTML(g.label)}
+    <h4 class="wl-head fe-wl-head">Wantlist — ${titulo}
       <span>${plural(w.lines != null ? w.lines : itens.length, 'linha', 'linhas')} ·
         ${plural(w.copies != null ? w.copies : itens.reduce((n, x) => n + cmQtd(x), 0), 'cópia', 'cópias')}
         · ${eur(w.cents != null ? w.cents : itens.reduce((n, x) => n + (x.total || 0), 0))}</span></h4>
