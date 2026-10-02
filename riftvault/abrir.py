@@ -393,7 +393,20 @@ def _dobrar(texto_: str, largura: int) -> list[str]:
 #
 # O `noindex` na própria página é o que conta: um `robots.txt` só pede que não
 # se RASTREIE, e uma página já conhecida por um link pode ser indexada sem ser
-# rastreada. Os dois juntos fecham as duas portas.
+# rastreada.
+#
+# ATENÇÃO — ESTE `robots.txt` ESTÁ INERTE, e foi medido (varrimento de
+# 2026-10-01): um `robots.txt` lê-se **só em `/robots.txt` do anfitrião**, por
+# isso o que o `build` escreve em `u/<slug>/robots.txt` nunca é pedido por motor
+# nenhum, e o `rift.baverone.com/robots.txt` responde **404** — que para um
+# motor significa «podes rastrear tudo». Das duas portas que isto dizia fechar,
+# só a etiqueta na página fecha alguma.
+#
+# NÃO SE APAGOU, de propósito: não expõe nada (não leva nomes), custa dois
+# ficheiros, e volta a ser o sítio certo no dia em que o site de um amigo tiver
+# anfitrião próprio (`miguel.rift.baverone.com`, o que ele pediu primeiro — ver
+# `docs/multi-utilizador.md`). Um `robots.txt` **na raiz** é a hipótese que ele
+# viu a 2026-10-02 e **não** escolheu.
 
 META = ('<meta name="robots" content="noindex, nofollow, noarchive">\n'
         '  <meta name="googlebot" content="noindex, nofollow">')
@@ -438,6 +451,30 @@ def publico_indexavel(dono: bool) -> bool:
     não tomou.
     """
     return bool(dono)
+
+
+def lista_indexavel() -> bool:
+    """A página da LISTA (a raiz, quando há duas ou mais) pode ser indexada?
+
+    **NÃO**, e é decisão dele de 2026-10-02, com as quatro hipóteses à frente:
+    *"a lista deixa de ser indexada, como já acontece com as páginas de cada
+    um; quem tiver o link abre tudo igual"*. Não quis tirar os euros da lista
+    nem fechar o site todo com um `robots.txt` na raiz.
+
+    O que o varrimento de 2026-10-01 mediu, e que isto fecha: a raiz publicada
+    nomeia os amigos **e o valor da coleção de cada um** (*«Gonçalves — 433
+    cartas · 686,57 €»*), e era a única página do site sem a marca — a de cada
+    um deles já a tinha, a dele não a tem de propósito (é a dele). A página que
+    os nomeia é mais exposta do que as que ela aponta: basta-lhe um link para
+    aparecer numa pesquisa pelo nome de uma pessoa.
+
+    Uma função à parte do `publico_indexavel` porque a pergunta é outra: ali é
+    «de quem é esta página», aqui não é de ninguém — é o índice que nomeia
+    todos. Mas vive no MESMO ficheiro, ao lado dela, para quem procurar «o que
+    é que se indexa» encontrar as duas respostas no mesmo sítio. A marca é a
+    mesma (`marcar_html`), para não haver duas maneiras de dizer a mesma coisa.
+    """
+    return False
 
 
 # --------------------------------------------------------------------------

@@ -48,6 +48,25 @@ endereços de máquina, não de pessoa — o que se marca nos favoritos é a pá
 e essa é reencaminhada.
 
 ---------------------------------------------------------------------------
+A RAIZ NÃO SE INDEXA (2026-10-02)
+---------------------------------------------------------------------------
+Esta página **nomeia** os amigos e diz o valor da coleção de cada um, e era a
+única do site sem `noindex` — a de cada um deles já saía marcada
+(`build._gerar` + `abrir.marcar_html`), a dele não sai de propósito. A página
+que os nomeia é mais exposta do que as que ela aponta: basta-lhe um link para
+aparecer numa pesquisa pelo nome de uma pessoa.
+
+Decisão dele: *"a lista deixa de ser indexada, como já acontece com as páginas
+de cada um; quem tiver o link abre tudo igual"*. Quem decide é o
+`abrir.lista_indexavel` e quem marca é o `abrir.marcar_html` — os mesmos de
+sempre, para não haver duas maneiras de dizer a mesma coisa.
+
+**O que isto NÃO fecha, e ele sabe:** o `noindex` é uma etiqueta de HTML, por
+isso não vale para o `api/lista.json` (que leva os mesmos nomes e números) nem
+para os payloads de cada pessoa. Fechá-los pedia um `robots.txt` **na raiz** —
+hipótese que ele viu e não escolheu.
+
+---------------------------------------------------------------------------
 O QUE CADA CARTÃO MOSTRA
 ---------------------------------------------------------------------------
 Os números saem do `api/index.json` **já gerado** de cada pessoa — não são
@@ -67,7 +86,7 @@ import shutil
 import unicodedata
 from pathlib import Path
 
-from . import config, multi, privacidade, utilizador
+from . import abrir, config, multi, privacidade, utilizador
 
 #: A partir de quantas coleções públicas é que a lista toma a raiz.
 #: Duas — ver o cabeçalho: com uma, a lista é um clique a mais.
@@ -279,7 +298,7 @@ def html(dados: dict) -> str:
     else:
         corpo = f'<div class="l-grelha">\n      {cartoes}\n    </div>'
     sub = ("1 coleção" if quantos == 1 else f"{quantos} coleções")
-    return f"""<!DOCTYPE html>
+    pagina = f"""<!DOCTYPE html>
 <html lang="pt-PT">
 <head>
 <meta charset="utf-8">
@@ -367,6 +386,17 @@ def html(dados: dict) -> str:
 </body>
 </html>
 """
+    # A RAIZ NÃO SE INDEXA (2026-10-02). A marca é a MESMA das páginas de cada
+    # um (`abrir.marcar_html`, posta pelo `build._gerar`) e quem decide é a
+    # mesma casa (`abrir.lista_indexavel`) — é lá que se muda, não aqui.
+    #
+    # Fica no `html()` e não no `escrever()` de propósito: quem chamar esta
+    # função leva a página como ela vai para o ar, e não uma versão sem a
+    # marca que só a escrita trata. É idempotente, por isso marcar duas vezes
+    # não dobra a etiqueta.
+    if not abrir.lista_indexavel():
+        pagina = abrir.marcar_html(pagina)
+    return pagina
 
 
 def limpar_raiz(out: Path) -> list[str]:
