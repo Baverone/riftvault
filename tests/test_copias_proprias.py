@@ -681,20 +681,32 @@ class TestRotasBuildCLI(Base):
 
 
 class TestFrontend(unittest.TestCase):
-    """O `app.js` tem os `+`/`−` das próprias em cada carta do deck e já não
-    tem a aba do pool; o `index.html` não precisou de mexer."""
+    """O `app.js` diz quantas próprias tem cada carta do deck e já não tem a
+    aba do pool; o `index.html` não precisou de mexer.
+
+    OS `+`/`−` DAS PRÓPRIAS SAÍRAM A 2026-10-01 (*"no deck nao precisa + e - /
+    ele ja indica se tem ou nao tem"*) — ficou o número. Quem defende essa
+    ordem, e que os steppers das OUTRAS vistas não saíram com eles, é o
+    `tests/test_deck_sem_steppers.py`. Aqui fixa-se o que não mexeu: a página
+    continua a dizer as próprias, e o resto do modelo está inteiro.
+    """
 
     def setUp(self):
         self.js = (REPO / "riftvault" / "web" / "app.js").read_text(encoding="utf-8")
         self.css = (REPO / "riftvault" / "web" / "style.css").read_text(encoding="utf-8")
 
-    def test_os_mais_e_menos_das_proprias(self):
-        for s in ("api/proprias/ajustar", "function propriasBotoes", "function propriasAjustar",
-                  "steppers proprias", "propria_compra", "proprias_em", "propriaForaTile",
+    def test_a_pagina_do_deck_diz_as_proprias(self):
+        for s in ("function propriasLinha", "propriaForaTile",
                   "proprias_fora", "so_base"):
             self.assertIn(s, self.js, s)
-        self.assertIn("${propriasBotoes(c)}", self.js, "os botões estão no tile do deck")
-        self.assertIn(".steppers.proprias", self.css)
+        self.assertIn("${propriasLinha(c)}", self.js, "o número está no tile do deck")
+        self.assertIn(".dtile .onde.propria", self.css)
+
+    def test_os_mais_e_menos_das_proprias_sairam(self):
+        for s in ("function propriasBotoes", "function propriasAjustar",
+                  "steppers proprias", "data-prop-delta"):
+            self.assertNotIn(s, self.js, s)
+        self.assertNotIn(".steppers.proprias", self.css)
 
     def test_o_pool_saiu_do_frontend(self):
         limpo = self.js.lower().replace("rune pool", "").replace("«pool\n  // dos decks» (a experiência", "")
