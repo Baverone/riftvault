@@ -349,6 +349,19 @@ def payload_completo(con: sqlite3.Connection, cfg: dict | None = None) -> dict:
     for d in p["sets"]:
         d["foil"] = b["sets"].get(d["set"])
     p["foil"] = {k: v for k, v in b.items() if k != "sets"}
+    # AS CAIXAS (2026-10-02) são das NORMAIS — as foils não são faltas e ele
+    # não as nomeou nelas. Mas a caixa de uma edição diz-se «a edição inteira»,
+    # por isso tem de CONTAR as foils que deixa de fora. É aqui, e só aqui, que
+    # isso se pode fazer: o `faltas_edicao` não conhece esta metade.
+    # Só nas caixas de uma EDIÇÃO: o âmbito das foils são as comuns e incomuns
+    # BASE e não sobrenumeradas, por isso uma caixa de sobrenumeradas ou de
+    # artes alternativas nunca teve foil nenhuma para deixar de fora — dizer-lhe
+    # «852 foils fora» era inventar uma omissão que não existe.
+    for c in p.get("caixas", ()):
+        if c["set"] is None:
+            continue
+        f = b["sets"].get(c["set"])
+        c["foil"] = f["copies"] if f else 0
     return p
 
 

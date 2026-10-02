@@ -90,6 +90,61 @@ ESTE FICHEIRO É A METADE DAS NORMAIS (2026-09-27)
     O `item()` e o `soma()` são PÚBLICOS desde então: são a forma de uma linha
     de falta e a soma de um bloco, e as duas metades usam a mesma (era `_item`
     e `_soma`). Um segundo par era uma segunda definição de «falta».
+
+AS CAIXAS (2026-10-02)
+    André: *"nas faltas, tens as faltas de masterset, mas gostava que tivesse
+    uma caixa tambem para faltas de Overnumbered e outra caixa para faltas
+    AltArt e uma caixa para as faltas de Vendetta (que era tudo). pode ser com
+    sistema de botoes para nao ocupar muito espaco"*.
+
+    O separador é POR EDIÇÃO: com «Todas» escolhido são cinco edições × quatro
+    blocos, e portanto vinte listas do Cardmarket para percorrer. O que faltava
+    era o corte ao contrário — **uma caixa que atravesse as edições**:
+
+        OverNumbered   os 92 sobrenumerados das quatro edições, numa lista
+        Alt Art        as 96 artes alternativas, numa lista
+        Vendetta       o VEN INTEIRO, os quatro blocos numa lista
+
+    «Tens as faltas de masterset» é verdade e explica porque é que estas três
+    são as que faltavam: a lista do master set de todas as edições já existe —
+    é a «Wantlist — tudo» do fim da Coleção (`a_subir.wantlist`). As outras
+    três categorias nunca tiveram uma lista que não fosse por edição.
+
+    NÃO É UM CÁLCULO NOVO, E NÃO HÁ UM SEGUNDO ITEM. Uma caixa é uma
+    RE-ARRUMAÇÃO dos itens que o `payload` já calculou, e leva só a lista dos
+    `printing_id` (`pids`) — nunca uma cópia da linha. É o que faz o `+` de «já
+    encomendei» continuar a valer sem plumbing nenhum: o `feItem` do `app.js`
+    mexe no ÚNICO objecto daquela impressão, e a caixa e o bloco da edição
+    dizem o mesmo número por serem a mesma linha. Duas cópias divergiam no
+    primeiro clique.
+
+    AS CAIXAS SOBREPÕEM-SE, e é o que ele quer. Uma sobrenumerada do VEN está
+    na caixa «OverNumbered» E na «Vendetta» («que era tudo») — dito-lhe, não
+    objectou. Por isso **a soma das caixas não é o total do separador** e a
+    página tem de o dizer, como a nota do «Todos juntos» dos decks diz desde
+    2026-09-11.
+
+    AS SIGNATURES: ELE NOMEOU-AS PARA A CAIXA DO VEN E SÃO ZERO. A caixa leva
+    «master set, sobrenumeradas, alt art, signatures e promos» nas palavras
+    dele. As signatures saíram da Coleção a 2026-09-09 e estão ESCONDIDAS
+    (`master_set.escondidas` leva o `"*"`), por isso não chegam ao âmbito — e
+    **o VEN não tem nenhuma no catálogo da RiftScribe** (medido a 02/10: 0 de
+    228). Não se alargou o âmbito para apanhar zero cartas: fazê-lo era
+    desfazer a decisão de 09/09 sem um caso. O que se fez foi CONTAR o que
+    ficou de fora (`escondidas`, por `variant_kind`) e pô-lo no ecrã — hoje
+    lê-se «7 escondidas: 6 runas sem numeração · 1 token», e uma signature nova
+    apareceria ali pelo nome em vez de desaparecer em silêncio.
+
+    AS FOILS TAMBÉM NÃO ENTRAM, pela mesma razão de serem outra pergunta: ele
+    separou-as a 2026-09-27 (*"as foils nao sao faltas, sao apenas complemento
+    e indicativo"*) e não as nomeou nesta. A metade das foils do VEN continua
+    onde está, no separador da edição, e a caixa diz quantas são.
+
+    QUAIS SÃO AS CAIXAS VIVE NO CONFIG — `faltas_edicao.caixas_blocos` e
+    `caixas_edicoes` (ver `caixas_escolhidas`). Ele nomeou dois blocos e uma
+    edição; uma edição nova que ele queira ver inteira é uma palavra na lista,
+    não um `if` no código. Um bloco ou uma edição que não existam REBENTAM, com
+    a lista do que há — a regra das outras listas do config.
 """
 
 from __future__ import annotations
@@ -109,6 +164,176 @@ BLOCO_LABEL = {
     "special": "Promos",
 }
 BLOCO_IDS = list(BLOCO_LABEL)
+
+# AS CAIXAS (2026-10-02, ver o topo do ficheiro). Quais são vem do config; isto
+# são os defaults, as que ele nomeou. O `riftvault_config.json` e o
+# `config.DEFAULTS` dizem o mesmo.
+CAIXAS_DEFAULTS: dict = {
+    "caixas_blocos": [metrics.BLOCO_OVER, "alt_art"],
+    "caixas_edicoes": ["VEN"],
+}
+# O alvo de uma caixa de edição é o de cada bloco dela — não há um alvo por
+# cima de tudo. A mesma frase do chip «Tudo» do painel da Coleção.
+ALVO_MISTO = "cada bloco com o seu alvo"
+# O sufixo do botão de uma caixa de edição — são as palavras dele, «que era
+# tudo», e é o que a distingue do botão da edição ao lado.
+TUDO = "tudo"
+
+
+def opcoes(cfg: dict | None = None) -> dict:
+    """O bloco `faltas_edicao` do config, com os defaults por baixo."""
+    cfg = cfg if cfg is not None else config.load()
+    return {**CAIXAS_DEFAULTS, **(cfg.get("faltas_edicao") or {})}
+
+
+def caixas_escolhidas(cfg: dict | None = None,
+                      sets_ids: list[str] | None = None) -> list[dict]:
+    """As caixas a mostrar, pela ordem: primeiro os blocos, depois as edições.
+
+    Os blocos saem pela ordem da Coleção (a mesma de `blocos`), para a fila dos
+    botões seguir a ordem que ele já vê na grelha; as edições pela ordem dos
+    separadores.
+
+    UM BLOCO desconhecido rebenta, e deve: os valores são um conjunto fixo e só
+    um erro de escrita produz um que não exista.
+
+    UMA EDIÇÃO que o catálogo não tenha, não (2026-10-02). Rebentava, e isso
+    derrubava o `payload()` inteiro — a página das Faltas, a Coleção, o build e
+    38 ficheiros da suite, porque os catálogos de ensaio são TST/AAA e não têm
+    VEN. E não é só nos testes: um catálogo atrasado, ou uma edição que saia,
+    davam o mesmo em casa. Um botão que falta é um defeito pequeno; a página
+    em baixo é um grande. Por isso salta-se — e o `payload` leva a lista do que
+    saltou (`caixas_ignoradas`), para ninguém ficar a olhar para uma fila de
+    botões sem a que pediu e sem saber porquê.
+    """
+    o = opcoes(cfg)
+    pedidos_b = list(dict.fromkeys(o["caixas_blocos"] or ()))
+    pedidos_e = list(dict.fromkeys(o["caixas_edicoes"] or ()))
+    for b in pedidos_b:
+        if b not in BLOCO_LABEL:
+            raise ValueError(
+                f"faltas_edicao.caixas_blocos: bloco desconhecido: {b!r}. "
+                f"Há: {', '.join(BLOCO_IDS)}")
+    if sets_ids is not None:
+        pedidos_e = [s for s in pedidos_e if s in sets_ids]
+    ordem_b = [b for b, _ in blocos(cfg) if b in pedidos_b]
+    out = [{"id": f"bloco-{b}", "label": BLOCO_LABEL[b], "bloco": b, "set": None}
+           for b in ordem_b]
+    ordem_e = sorted(pedidos_e, key=lambda s: (config.set_order(s), s))
+    # «VEN — tudo», não «VEN»: o separador já tem um botão «VEN» (a edição em
+    # quatro blocos, com o master set na wantlist geral) e esta caixa é outra
+    # coisa — a edição inteira numa lista. Dois botões com a mesma palavra ao
+    # lado um do outro leem-se como um (é a lição do «principal» contra a
+    # «prioridade 1», 2026-09-27). O nome é o do config, que para o VEN é o
+    # CÓDIGO por decisão dele de 2026-08-31; ele chama-lhe «Vendetta» e o
+    # sufixo é que diz o que a caixa tem.
+    out += [{"id": f"edicao-{s}", "label": f"{config.set_name(s)} — {TUDO}",
+             "bloco": None, "set": s} for s in ordem_e]
+    return out
+
+
+def caixas_ignoradas(cfg: dict | None = None,
+                     sets_ids: list[str] | None = None) -> list[str]:
+    """As edições pedidas que ESTE catálogo não tem (2026-10-02).
+
+    O par do `caixas_escolhidas`: ele devolve as que se mostram, este as que se
+    saltaram. Vai no `payload` para a fila de botões poder dizer o que falta e
+    porquê, em vez de a página rebentar ou de o botão desaparecer calado.
+    """
+    if sets_ids is None:
+        return []
+    pedidos = list(dict.fromkeys(opcoes(cfg)["caixas_edicoes"] or ()))
+    return [s for s in pedidos if s not in sets_ids]
+
+
+def escondidas_por_set(con: sqlite3.Connection,
+                       cfg: dict | None = None) -> dict[str, dict[str, int]]:
+    """Por edição, quantas impressões estão ESCONDIDAS e de que tipo.
+
+    Quem está escondido (`metrics.escondida` — tokens, signatures, runas sem
+    numeração, runas retiradas) não entra em página nenhuma, e por isso não
+    entra na caixa de uma edição «inteira». Conta-se para a caixa poder DIZÊ-LO
+    em vez de calar: ele nomeou as signatures para a caixa do VEN e elas são
+    zero, e é esta contagem que o mostra pelo nome.
+    """
+    cfg = cfg if cfg is not None else config.load()
+    out: dict[str, dict[str, int]] = {}
+    for r in con.execute(
+        "SELECT printing_id, set_id, collector_number, public_code, name, card_key, "
+        "       variant_kind, variant_label, rarity, base_rarity, type, is_token "
+        "FROM catalog.printings"
+    ):
+        if not metrics.escondida(r, cfg):
+            continue
+        kind = r["variant_kind"] or "base"
+        por = out.setdefault(r["set_id"], {})
+        por[kind] = por.get(kind, 0) + 1
+    return out
+
+
+def caixas(sets: list[dict], cfg: dict | None = None,
+           escondidas: dict[str, dict[str, int]] | None = None) -> list[dict]:
+    """As caixas, re-arrumando os itens que as edições já têm.
+
+    Leva a MESMA forma de um bloco — `id`, `label`, `scope`, os campos do
+    `soma`, `wantlist` — para o cliente desenhar as duas com a mesma função; o
+    que a caixa NÃO leva é `items`, só os `pids` pela ordem em que se vêem (ver
+    o topo do ficheiro: uma segunda cópia da linha divergia no primeiro `+`).
+    """
+    sets_ids = [d["set"] for d in sets]
+    escondidas = escondidas if escondidas is not None else {}
+    out = []
+    for c in caixas_escolhidas(cfg, sets_ids):
+        # As edições que a caixa atravessa, pela ordem dos separadores; e os
+        # blocos de cada uma, pela ordem da Coleção. As duas ordens já estão
+        # nos `sets`, por isso a caixa herda-as sem reordenar nada.
+        dentro = [d for d in sets if c["set"] is None or d["set"] == c["set"]]
+        grupos = [(d, g) for d in dentro for g in d["blocks"]
+                  if c["bloco"] is None or g["id"] == c["bloco"]]
+        # Uma edição que não tenha âmbito neste bloco (o OGS não tem
+        # sobrenumeradas) não é uma edição que a caixa atravesse: ficava no
+        # `sets` a dizer que contribui com nada.
+        com_ambito = [d["set"] for d in dentro
+                      if any(g["scope"] for e, g in grupos if e is d)]
+        itens = [x for _, g in grupos for x in g["items"]]
+        nas_listas = [x for _, g in grupos if g["in_lists"] for x in g["items"]]
+        alvos = {metrics.alvo_do_bloco(g["id"], cfg) for _, g in grupos}
+        caras = [x for x in itens if x["missing"] > 0 and x["price"] is not None]
+        mais_cara = max(caras, key=lambda x: x["total"]) if caras else None
+        out.append({
+            **c,
+            # Em palavras, o que a caixa junta — é o que o cabeçalho escreve.
+            # «4 edições» e não «todas»: o OGS não tem sobrenumeradas, e
+            # «todas» prometia uma edição que a caixa não atravessa.
+            "escopo_label": (f"{len(com_ambito)} edições"
+                             if c["set"] is None
+                             else f"a edição inteira · {len(grupos)} blocos"),
+            "target_label": alvos.pop() if len(alvos) == 1 else ALVO_MISTO,
+            # Verdade só quando TUDO o que está na caixa entra nas listas de
+            # compra gerais. Na caixa de uma edição é quase sempre falso e
+            # mesmo assim parte dela entra (o master set) — é o `lists` que
+            # diz quanto, para a página não prometer o que não é.
+            "in_lists": bool(grupos) and all(g["in_lists"] for _, g in grupos),
+            "lists": soma(nas_listas),
+            "scope": sum(g["scope"] for _, g in grupos),
+            "sets": com_ambito,
+            "blocos": list(dict.fromkeys(g["id"] for _, g in grupos)),
+            **soma(itens),
+            "pids": [x["printing_id"] for x in itens],
+            "wantlist": _wantlist_do_bloco(itens),
+            # Um total de 6 660 € em 51 cópias não se lê sem isto: 2 100 € são
+            # UMA carta (o `UNL-238` Baron Nashor, que ele disse a 2026-09-05
+            # que nunca compraria). A linha mais cara fica à vista.
+            "mais_cara": ({"code": mais_cara["code"], "name": mais_cara["name"],
+                           "cents": mais_cara["total"]} if mais_cara else None),
+            # O que a caixa não alcança, e porquê: o que está ESCONDIDO não
+            # entra em página nenhuma (e é aqui que se vê que as signatures do
+            # VEN são zero). A metade das FOILS é outra pergunta e também não
+            # entra — quem a conta é o `faltas_foil.payload_completo`, que é o
+            # único sítio onde as duas metades se conhecem.
+            "escondidas": (escondidas.get(c["set"], {}) if c["set"] else {}),
+        })
+    return out
 
 
 def blocos(cfg: dict | None = None) -> list[tuple[str, str]]:
@@ -284,6 +509,13 @@ def payload(con: sqlite3.Connection, cfg: dict | None = None) -> dict:
         # com a wantlist «tudo» da Coleção.
         "totals_lists": soma(nas_listas),
         "sets": sets,
+        # AS CAIXAS (2026-10-02): o mesmo que está em cima, cortado ao
+        # contrário — por bloco e por edição, atravessando as edições. Chave
+        # NOVA: nada do que está acima mexe por ela existir (há teste).
+        "caixas": caixas(sets, cfg, escondidas_por_set(con, cfg)),
+        # As que ele pediu e este catálogo não tem — vazio em casa, onde o VEN
+        # existe; nos ensaios diz qual foi saltada. Ver `caixas_ignoradas`.
+        "caixas_ignoradas": caixas_ignoradas(cfg, sets_ids),
         "scope": {
             "printings": sum(ambito[s][b] for s in sets_ids for b in BLOCO_IDS),
             # O que está na página da Coleção mas não em nenhum dos quatro
@@ -327,4 +559,29 @@ def wantlist(con: sqlite3.Connection, set_id: str, bloco: str,
     itens = [x for x in g["items"] if x["missing"] > 0]
     return {"set": set_id, "name": d["name"], "block": bloco, "label": g["label"],
             "in_lists": g["in_lists"], **cardmarket.gerar(itens, com_codigo),
+            "items": itens}
+
+
+def wantlist_caixa(con: sqlite3.Connection, caixa: str, cfg: dict | None = None,
+                   com_codigo: bool = False) -> dict:
+    """A wantlist de UMA caixa, pronta a colar no Cardmarket (2026-10-02).
+
+    A quarta pergunta da ordem respondida em Python, para a CLI (`riftvault
+    faltas --caixa bloco-overnumbered --cardmarket`) e para os testes. O texto
+    sai do MESMO `cardmarket.gerar` das outras cinco listas; o que muda é só
+    quais as linhas. Os `pids` da caixa resolvem-se contra os itens das edições
+    — não há segunda cópia de uma linha de falta.
+    """
+    cfg = cfg or config.load()
+    p = payload(con, cfg)
+    c = next((x for x in p["caixas"] if x["id"] == caixa), None)
+    if c is None:
+        raise ValueError(f"não há caixa {caixa!r}. Há: "
+                         f"{', '.join(x['id'] for x in p['caixas']) or '(nenhuma)'}")
+    por_pid = {x["printing_id"]: x for d in p["sets"] for g in d["blocks"]
+               for x in g["items"]}
+    itens = [por_pid[pid] for pid in c["pids"]
+             if por_pid[pid]["missing"] > 0]
+    return {"caixa": caixa, "label": c["label"], "escopo": c["escopo_label"],
+            "in_lists": c["in_lists"], **cardmarket.gerar(itens, com_codigo),
             "items": itens}

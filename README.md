@@ -262,6 +262,19 @@ faltam**.
   set é **exactamente** a wantlist dessa edição no fim da Coleção. Na
   consola: `py -m riftvault faltas --edicao OGN --bloco alt_art --cardmarket`
   (blocos: `master`, `alt_art`, `overnumbered`, `special`).
+- **AS CAIXAS** (02/10/2026 — *"gostava que tivesse uma caixa tambem para
+  faltas de Overnumbered e outra caixa para faltas AltArt e uma caixa para as
+  faltas de Vendetta (que era tudo). pode ser com sistema de botoes para nao
+  ocupar muito espaco"*): uma **segunda fila de botões**, por baixo da das
+  edições, com o separador cortado **ao contrário** — um bloco de **todas** as
+  edições numa lista só (**OverNumbered**, **Alt Art**) ou uma edição
+  **inteira** numa lista só (**VEN — tudo**). Cada caixa é igual a um bloco:
+  tiles, preço, total e a **sua** wantlist. A do master set de todas as
+  edições não está aqui porque já existe — é a «Wantlist — tudo» do fim da
+  Coleção. **As caixas sobrepõem-se** (uma sobrenumerada do VEN está em duas),
+  por isso a soma delas não é o total do separador, e a página di-lo. Quais
+  são vem do config (`faltas_edicao.caixas_blocos` / `caixas_edicoes`); na
+  consola, `py -m riftvault faltas --caixa bloco-overnumbered`.
 - **O `+` e o `−` marcam «já encomendei»** (2026-09-27 — *"nas faltas,
   coloca o + e - para eu indicar que ja encomendei, fica bem mais facil para
   eu visualizar assim"*), em **todas** as linhas de **todos** os blocos,
@@ -461,7 +474,8 @@ sem botão mas aparece em «Todas»), e em cada edição dois blocos, com a
   17/09/2026 e começa vazio**: o riftvault não guardava o que os decks
   pediam — a alocação é recalculada a cada leitura —, por isso só sabe do
   que mudou desde então. Escreve-se no fim de cada importação das listas
-  (`deck_need_log` no vault.db; cópia legível em `data/decks.log`).
+  (`deck_need_log` no vault.db; cópia legível no `decks.log` de quem é a
+  lista — `data/decks.log` para o André).
 
 **Só mostra.** Não muda alvos nem contas — a percentagem, a wantlist, a
 falta dos decks e o valor ficam iguais — e não é a Venda: não há preço de
@@ -1274,7 +1288,8 @@ uma pela porta que já existia:
    vender, e nada sai do `proprio:<slug>`);
 3. **manda ao binder** o que estivesse sleevado nos decks — nunca à Coleção;
 4. **arquiva e apaga** os `decks/*.txt` (o arquivo a sério é o **git**, que os
-   versiona; a cópia em `data/backups/decks-<data>/` é a de conveniência);
+   versiona; a cópia em `<backups de quem é>/decks-<data>/` é a de
+   conveniência);
 5. **tira as linhas** da `decks` e da `deck_cards`;
 6. **recomeça o `deck_need_log`** e **limpa o estado no config** — `montados`
    vazia, `principal` sem valor, `ordem` vazia.
@@ -1512,9 +1527,12 @@ No site, em modo edição, é o botão **«Marcar o que este deck usa…»** no
 cabeçalho do deck: mostra a proposta com checkboxes e grava **só as marcadas**.
 O «Marcar tudo» liga as caixas e mais nada.
 
-Cada movimento deixa uma linha em **`data/locais.log`** (CSV: quando, cópia,
-de → para, de onde veio o clique). Se uma cópia aparecer num deck sem linha
-aí, é bug.
+Cada movimento deixa uma linha no **`locais.log` de quem o fez** (CSV: quando,
+cópia, de → para, de onde veio o clique) — `data/locais.log` para o André,
+`data/users/<slug>/locais.log` para os outros, desde 2026-10-02. Se uma cópia
+aparecer num deck sem linha aí, é bug — e é precisamente por isso que é um
+ficheiro por pessoa: num CSV partilhado por quatro, essa verificação não se
+podia fazer.
 
 O cabeçalho valida main 40 (o Champion conta), 12 runas, 3 battlefields,
 máximo 3 cópias e a identidade de domínio do Legend, e mostra **quantas cópias

@@ -791,9 +791,13 @@ def encomendas(con: sqlite3.Connection) -> dict:
 
 
 def _log(con: sqlite3.Connection, linhas: list[dict]) -> None:
-    """Uma linha por movimento em `data/encomendas.log`. Nunca impede a escrita.
+    """Uma linha por movimento no `encomendas.log` DE QUEM encomendou.
+    Nunca impede a escrita.
 
-    É o gémeo do `locais.log`: se uma encomenda aparecer ou desaparecer sem
+    É o gémeo do `locais.log` — inclusive no caminho, que vem do
+    `config.log_path(con, ...)` desde 2026-10-02 (antes era sempre a pasta do
+    André, fosse quem fosse que estivesse a encomendar, e sem coluna de dono).
+    E na promessa: se uma encomenda aparecer ou desaparecer sem
     linha aqui, é bug. Colunas: quando, impressão, código, nome, quantidade,
     acabamento (normal/foil, desde 2026-09-27), acção (encomendar / anular /
     chegou), origem (web, cli, deck de onde veio o clique) e a nota.
@@ -804,7 +808,7 @@ def _log(con: sqlite3.Connection, linhas: list[dict]) -> None:
     """
     if not linhas:
         return
-    caminho = config.DATA_DIR / LOG_NAME
+    caminho = config.log_path(con, LOG_NAME)
     novo = not caminho.exists()
     buf = io.StringIO()
     w = csv.writer(buf, lineterminator="\n")
@@ -819,7 +823,7 @@ def _log(con: sqlite3.Connection, linhas: list[dict]) -> None:
                     x["qty"], x["accao"], x.get("source") or "", x.get("nota") or "",
                     "" if acab is None else ("foil" if acab else "normal")])
     try:
-        config.DATA_DIR.mkdir(parents=True, exist_ok=True)
+        caminho.parent.mkdir(parents=True, exist_ok=True)
         with open(caminho, "a", encoding="utf-8", newline="") as fh:
             if novo:
                 fh.write(BOM)

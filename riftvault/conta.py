@@ -228,26 +228,39 @@ def _dono_do_id(user_id: int) -> str | None:
 
 
 def copias_de(slug: str) -> list[Path]:
-    """Os pacotes e os `.db` de uma pessoa que estão em `data/backups/`.
+    """Os pacotes e os `.db` de uma pessoa que estão nas pastas de backups.
 
     LÊ-SE PELA MESMA REGRA QUE OS ESCREVE (`NOME_DE_PACOTE`,
     `NOME_DE_ANTERIOR`), e o slug compara-se INTEIRO. Um `glob("conta-miguel-*")`
     também apanhava o `conta-miguel-2-…`, que é de outra pessoa — apagar o
     backup de quem não pediu nada era o pior que esta função podia fazer.
+
+    PROCURA EM DOIS SÍTIOS (2026-10-02): a pasta dela
+    (`config.backups_dir(slug=...)`, onde caem os novos) **e a raiz
+    `data/backups/`, onde caíam os antigos** — um pacote escrito antes de hoje
+    não pode deixar de se encontrar só porque a regra mudou de sítio, senão o
+    `levar_copias` deixava para trás exactamente os ficheiros que já lá estão.
+    A regra do nome é a mesma nos dois, por isso um ficheiro do André na raiz
+    continua a ser dele e nenhum muda de dono. (Medido a 2026-10-02: na raiz a
+    sério não há pacote de amigo nenhum — são 13 ficheiros, todos do André ou
+    do catálogo partilhado. Não houve nada a mover.)
     """
-    pasta = config.DATA_DIR / "backups"
-    if not pasta.is_dir():
-        return []
     s = (slug or "").strip().lower()
+    pastas, vistas = [], set()
+    for p in (config.backups_dir(slug=slug), config.DATA_DIR / "backups"):
+        if p.is_dir() and p.resolve() not in vistas:
+            vistas.add(p.resolve())
+            pastas.append(p)
     fora = []
-    for p in sorted(pasta.iterdir()):
-        if not p.is_file():
-            continue
-        for regra in (NOME_DE_PACOTE, NOME_DE_ANTERIOR):
-            m = regra.match(p.name)
-            if m and m.group("slug").lower() == s:
-                fora.append(p)
-                break
+    for pasta in pastas:
+        for p in sorted(pasta.iterdir()):
+            if not p.is_file():
+                continue
+            for regra in (NOME_DE_PACOTE, NOME_DE_ANTERIOR):
+                m = regra.match(p.name)
+                if m and m.group("slug").lower() == s:
+                    fora.append(p)
+                    break
     return fora
 
 
@@ -270,15 +283,19 @@ def exportar(slug: str, destino: Path | str | None = None) -> dict:
     """Um `.zip` com tudo o que é de um utilizador. Não escreve na base dele.
 
     `destino` pode ser uma pasta (o nome sai daqui) ou o caminho do ficheiro.
-    Por omissão vai para `data/backups/`, que é onde já vivem os backups e
-    está no `.gitignore` — um export de uma coleção de outra pessoa não vai
-    para um repositório público por descuido nosso.
+    Por omissão vai para a pasta de backups DELA
+    (`config.backups_dir(slug=...)`: `data/backups/` para o André,
+    `data/backups/<slug>/` para os outros — 2026-10-02), que está no
+    `.gitignore` — um export de uma coleção de outra pessoa não vai para um
+    repositório público por descuido nosso, e desde hoje também não vai para o
+    meio dos backups do dono da máquina.
     """
     reg = utilizador.por_slug(slug)
     uid = reg["user_id"]
     origem = db.vault_de(uid)
 
-    alvo = Path(destino) if destino else (config.DATA_DIR / "backups")
+    alvo = (Path(destino) if destino
+            else config.backups_dir(slug=reg["slug"]))
     if alvo.is_dir() or not alvo.suffix:
         alvo.mkdir(parents=True, exist_ok=True)
         alvo = alvo / (f"conta-{reg['slug']}-"
@@ -534,7 +551,8 @@ def importar(ficheiro: Path | str, confirmar: bool = False,
         alvo.parent.mkdir(parents=True, exist_ok=True)
         anterior = None
         if alvo.exists():
-            anterior = (config.DATA_DIR / "backups" /
+            # Na pasta de backups DELA, como o export (2026-10-02).
+            anterior = (config.backups_dir(slug=slug) /
                         f"antes-de-importar-{slug}-"
                         f"{datetime.now().strftime('%Y%m%d-%H%M%S')}.db")
             anterior.parent.mkdir(parents=True, exist_ok=True)
@@ -592,7 +610,10 @@ def apagar(slug: str, confirmar: bool = False, com_backup: bool = True,
     **FAZ UM EXPORT ANTES**, por omissão, e diz onde ficou. Apagar uma conta é
     a operação que mais vezes se faz por engano, e a que menos se desfaz.
 
-    OS PACOTES DELA FICAM, E DIZEM-SE (2026-10-01). Em `data/backups/` ficam os
+    OS PACOTES DELA FICAM, E DIZEM-SE (2026-10-01). Na pasta de backups dela
+    (`config.backups_dir(slug=...)`, que desde 2026-10-02 é
+    `data/backups/<slug>/` e **não** `data/users/<slug>/backups/`, para esta
+    função não a apagar com a conta — ver lá o porquê) ficam os
     `.zip` de cada export e os `antes-de-importar-*.db` de cada restauro — a
     coleção dela, inteira, tantas vezes quantas se exportou. **Não se apagam por
     omissão**, e a razão é a mesma que faz esta função exportar antes de apagar:
@@ -642,9 +663,11 @@ def apagar(slug: str, confirmar: bool = False, com_backup: bool = True,
             f"{len([t for t, n in linhas.items() if n])} tabelas "
             f"({linhas.get('copies', 0)} em `copies`) e a pasta {pasta}. "
             + (f"Os {len(antigas)} backups dela em "
-               f"{config.DATA_DIR / 'backups'} FICAM (têm a coleção inteira lá "
-               f"dentro) — `levar_copias=True` leva-os também. " if antigas else
-               f"Não há backups dela em {config.DATA_DIR / 'backups'}. ")
+               f"{config.backups_dir(slug=reg['slug'])} FICAM (têm a coleção "
+               f"inteira lá dentro) — `levar_copias=True` leva-os também. "
+               if antigas else
+               f"Não há backups dela em "
+               f"{config.backups_dir(slug=reg['slug'])}. ")
             + "Chama com `confirmar=True`.")
 
     backup = exportar(slug)["ficheiro"] if com_backup else None
