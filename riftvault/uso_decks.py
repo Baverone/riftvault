@@ -135,10 +135,17 @@ def recomecar(con: sqlite3.Connection) -> int:
 
 
 def _log(con: sqlite3.Connection, linhas: list[dict]) -> None:
-    """Uma linha por mudança em `data/decks.log`, com o nome da carta."""
+    """Uma linha por mudança no `decks.log` DE QUEM mexeu na lista, com o nome
+    da carta.
+
+    O terceiro gémeo do `locais.log`: o caminho vem do
+    `config.log_path(con, ...)` desde 2026-10-02 — escrevia na pasta do André
+    fosse de quem fosse a lista, e as listas são de dono desde 2026-09-29
+    (`config.decks_dir`). O André continua em `data/decks.log`.
+    """
     nomes = {r["card_key"]: r["name"] for r in con.execute(
         "SELECT card_key, name FROM catalog.cards")}
-    caminho = config.DATA_DIR / LOG_NAME
+    caminho = config.log_path(con, LOG_NAME)
     novo = not caminho.exists()
     buf = io.StringIO()
     w = csv.writer(buf, lineterminator="\n")
@@ -148,7 +155,7 @@ def _log(con: sqlite3.Connection, linhas: list[dict]) -> None:
         w.writerow([x["ts"], x["deck"], x["slug"], nomes.get(x["card_key"], x["card_key"]),
                     x["qty_before"], x["qty_after"]])
     try:
-        config.DATA_DIR.mkdir(parents=True, exist_ok=True)
+        caminho.parent.mkdir(parents=True, exist_ok=True)
         with open(caminho, "a", encoding="utf-8", newline="") as fh:
             if novo:
                 fh.write(BOM)

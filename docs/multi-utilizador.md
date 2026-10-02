@@ -33,7 +33,7 @@ Medido a 2026-09-29 no `data/` real.
 | `data/vault.db` | a coleção e tudo o que ela arrasta — 16 tabelas | **864 KB, 4 778 linhas** |
 | `riftvault_config.json` | as REGRAS: alvos, foil, master set, decks, selado, venda, abas | 1 ficheiro global |
 | `decks/*.txt` | as listas de deck | hoje **0** (apagadas a 2026-09-28) |
-| `data/locais.log`, `decks.log`, `encomendas.log` | as cópias legíveis dos registos | no `.gitignore` |
+| `data/locais.log`, `decks.log`, `encomendas.log` | as cópias legíveis dos registos — **de cada um, no `config.log_path(con, ...)`, desde 2026-10-02** | no `.gitignore` |
 | `data/seguir/estado.json` | os jogadores que ele segue | 1 ficheiro |
 | `site/` | o site publicado — um só | no Git |
 | o `serve` no 8770 | um processo, uma coleção, sem autenticação | — |
@@ -382,6 +382,15 @@ coleção deles morre com ele. É preciso, antes de aceitar o primeiro amigo:
 
 A migração desta corrida já deixou `vault-antes-do-multi-utilizador-*.db` em
 `data/backups/` — mas isso é um instantâneo de hoje, não uma política.
+
+**Desde 2026-10-02 cada um tem a sua pasta de backups** (`config.backups_dir`):
+`data/backups/` continua a ser a dele e os outros vão para
+`data/backups/<slug>/`. **E não para `data/users/<slug>/backups/`**, que era o
+sítio óbvio: a pasta de um utilizador é apagada inteira pelo
+`utilizador.apagar`, e com os backups lá dentro o `conta.apagar` apagava a
+cópia de segurança que ele próprio acabou de fazer — a rede desaparecia no
+minuto em que é precisa. Uma cópia periódica para fora do PC passa a ser **duas
+pastas** (`data/users/` e `data/backups/`), e continua a fazer falta.
 
 ### Apagar a conta a pedido
 

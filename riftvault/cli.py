@@ -2450,8 +2450,11 @@ def cmd_local(args) -> int:
                   f"{locais_mod.rotulo(x['para'], nomes)}")
         for x in res["falhadas"]:
             print(f"  X {x['printing_id']}: {x['erro']}", file=sys.stderr)
+        # O CAMINHO QUE SE DIZ É O QUE SE ESCREVEU (2026-10-02): era
+        # `data/locais.log` à mão, e com o rasto a ir para a pasta de quem mexe
+        # isso mandava um amigo procurar o ficheiro na pasta do André.
         print(f"\n{res['copies']} cópias marcadas. Rasto em "
-              f"data/{locais_mod.LOG_NAME}.")
+              f"{config.log_path(con, locais_mod.LOG_NAME)}.")
         con.close()
         return 0 if not res["falhadas"] else 1
 

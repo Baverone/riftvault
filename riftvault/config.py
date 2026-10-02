@@ -701,6 +701,116 @@ def ensure_dirs() -> None:
     DECKS_DIR.mkdir(parents=True, exist_ok=True)
 
 
+def _dono(con, o_que: str) -> int | None:
+    """O `user_id` de quem abriu esta ligação. `None` = a CLI, sem ligação.
+
+    É a regra do `decks_dir` extraída para um sítio só, porque passou a haver
+    quatro perguntas com a mesma resposta (as listas, os três logs e os
+    backups). UMA LIGAÇÃO SEM DONO NÃO É «O ANDRÉ» (2026-09-29): devolver-lhe
+    a pasta dele era escrever o rasto de uma pessoa na pasta de outra.
+    """
+    from . import guarda
+    uid = getattr(con, "riftvault_user", None)
+    if isinstance(con, guarda.Ligacao) and uid is None:
+        raise guarda.SemDono(
+            f"{o_que} é de dono e esta ligação não sabe de quem: "
+            "abre a base pelo `db.connect()`.")
+    return uid
+
+
+def user_dir(con=None) -> Path:
+    """A pasta dos ficheiros DE QUEM abriu esta ligação (2026-10-02).
+
+    Gémea do `decks_dir`, para tudo o que não é uma tabela: o André fica em
+    `data/` (`utilizador.pasta` devolve-lhe a raiz, e por isso nenhum ficheiro
+    dele muda de caminho) e os outros em `data/users/<slug>/`.
+    """
+    from . import utilizador
+    uid = _dono(con, "esta pasta")
+    if uid is None or uid == utilizador.ANDRE:
+        return DATA_DIR
+    d = utilizador.pasta(utilizador.registo(uid)["slug"])
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def log_path(con, nome: str) -> Path:
+    """O CSV de rasto (`locais.log`, `encomendas.log`, `decks.log`) de quem
+    está a mexer — ACHADO 2 do varrimento de 2026-10-01.
+
+    **UM LOG POR PESSOA, e o dono é o CAMINHO — não uma coluna.** Até aqui os
+    três `_log` escreviam em `config.DATA_DIR / LOG_NAME`, ou seja na pasta do
+    André, fosse quem fosse que estivesse a mexer, e sem nada na linha a dizer
+    de quem era. Isso parte a promessa que o `locais._log` faz — *«se uma cópia
+    aparecer num deck sem linha aqui, é bug»*: com quatro pessoas a escrever no
+    mesmo ficheiro, essa verificação deixa de se poder fazer.
+
+    Porque é que é um ficheiro por pessoa e não uma coluna de dono:
+
+      * **é a mesma separação que os dados** (2026-09-29): as coleções estão
+        separadas por FICHEIRO, e não por um `WHERE user_id` que se esquece. O
+        rasto com a forma dos dados que rastreia verifica-se por comparação
+        directa, sem filtro nenhum que alguém se tenha de lembrar de pôr;
+      * **apagar a conta leva o rasto dela.** Com um ficheiro só era preciso
+        reescrever um CSV para tirar as linhas de uma pessoa — e reescrever um
+        registo é a operação que um registo existe para não precisar;
+      * o que o amigo mexe nas cartas dele não é informação do André.
+
+    OS LOGS QUE JÁ EXISTEM NÃO SE MEXEM, e medi porquê: a 2026-10-02 as pastas
+    dos três amigos têm **só o `vault.db`** e as linhas do `data/*.log` de
+    30/09 e 01/10 são todas identificáveis como dele (o deck Leona, encomendas
+    de cartas da coleção dele). Não há linhas de ninguém misturadas para
+    dividir, e por isso não se divide nem se reescreve nada: o `data/locais.log`
+    continua a ser o dele e a crescer. Se alguma vez houver dúvida sobre uma
+    linha anterior a hoje, ela não tem resposta — é o estrago que isto fecha
+    para a frente, não para trás.
+    """
+    return user_dir(con) / nome
+
+
+def backups_dir(con=None, slug: str | None = None) -> Path:
+    """Onde cai um backup ou um pacote de export — ACHADO 2 do varrimento.
+
+    O André fica em `data/backups/` (os 13 ficheiros que lá estão são todos
+    dele ou do catálogo partilhado, verificado a 2026-10-02 — nada se move); os
+    outros vão para `data/backups/<slug>/`.
+
+    **E NÃO PARA `data/users/<slug>/backups/`, que era o sítio óbvio.** A pasta
+    de um utilizador é apagada inteira pelo `utilizador.apagar`, e o
+    `conta.apagar` faz um export ANTES de apagar: com os backups lá dentro, a
+    última cópia de segurança de uma conta era apagada no mesmo passo que a
+    conta — desaparecia exactamente no minuto em que é precisa. Isso revogava
+    em silêncio a decisão de 2026-10-01 (*«os pacotes dela FICAM, e dizem-se»*)
+    e tirava a única maneira de desfazer um apagar feito por engano. O que o
+    varrimento pedia era que deixassem de cair soltos entre os do dono, e é o
+    que a subpasta por pessoa faz: ficam separados, nomeados, e sobrevivem.
+
+    `levar_copias=True` continua a ser a resposta a quem pede «apaga os meus
+    dados» e quer dizer todos (`conta.apagar`).
+
+    Dá-se o `slug` quando se sabe de quem é (`conta.exportar`) e o `con` quando
+    quem manda é a sessão (`db.backup`, `decks.apagar_todos`).
+    """
+    from . import utilizador
+    raiz = DATA_DIR / "backups"
+    if slug is None:
+        uid = _dono(con, "um backup")
+        if uid is None or uid == utilizador.ANDRE:
+            return raiz
+        slug = utilizador.registo(uid)["slug"]
+    if slug == utilizador.SLUG_ANDRE:
+        return raiz
+    # A FORMA valida-se (é ela que impede um slug de fugir da pasta), os
+    # RESERVADOS não: é a lição do `conta._slug_de_um_pacote` — a lista de
+    # reservados é para quem se REGISTA, e uma conta que exista com um nome
+    # reservado tem de poder ter os backups dela lidos e escritos.
+    s = (slug or "").strip().lower()
+    if not utilizador.SLUG_RE.match(s):
+        raise utilizador.SlugInvalido(
+            f"«{slug}» não serve como nome de pasta de backups.")
+    return raiz / s
+
+
 def decks_dir(con=None) -> Path:
     """A pasta das listas de deck DE QUEM abriu esta ligação (2026-09-29).
 
@@ -715,16 +825,12 @@ def decks_dir(con=None) -> Path:
     comportamento de sempre.
     """
     from . import utilizador
-    uid = getattr(con, "riftvault_user", None)
     # UMA LIGAÇÃO SEM DONO NÃO É «O ANDRÉ» (2026-09-29, a ordem das guardas):
     # devolver-lhe a pasta dele era servir as listas de uma pessoa a quem não
     # se sabe se elas pertencem. Sem ligação nenhuma (`con=None`) continua a
-    # ser o André, que é o uso legítimo da CLI e o comportamento de sempre.
-    from . import guarda
-    if isinstance(con, guarda.Ligacao) and uid is None:
-        raise guarda.SemDono(
-            "as listas de deck são de dono e esta ligação não sabe de quem: "
-            "abre a base pelo `db.connect()`.")
+    # ser o André, que é o uso legítimo da CLI e o comportamento de sempre. A
+    # regra é a mesma do `log_path` e do `backups_dir` — está no `_dono`.
+    uid = _dono(con, "as listas de deck")
     if uid is None or uid == utilizador.ANDRE:
         return DECKS_DIR
     d = utilizador.pasta(utilizador.registo(uid)["slug"]) / "decks"

@@ -482,7 +482,7 @@ def apagar_todos(con: sqlite3.Connection, cfg: dict | None = None,
          à Coleção** — quem as tirou de lá foi ele.
       4. **Arquiva e apaga os `.txt`.** O arquivo a sério é o GIT (os
          `decks/*.txt` são versionados: recupera-se com `git checkout <sha>~1
-         -- decks/`); a cópia em `data/backups/decks-<data>/` é a de
+         -- decks/`); a cópia em `<backups de quem é>/decks-<data>/` é a de
          conveniência, para ele abrir a lista sem git à mão.
       5. **Tira as linhas da base pelo `import_all`** — «decks cujo ficheiro
          desapareceu saem, é assim que se apaga um deck» já estava escrito
@@ -542,7 +542,10 @@ def apagar_todos(con: sqlite3.Connection, cfg: dict | None = None,
     # 4. Arquivar e apagar os `.txt`.
     arquivo, apagados = None, []
     if arquivar and slugs:
-        arquivo = (config.DATA_DIR / "backups"
+        # A pasta de backups DE QUEM é a lista (2026-10-02): as listas são de
+        # dono desde 2026-09-29 (`config.decks_dir(con)`, três linhas abaixo) e
+        # o arquivo delas não tinha por que ir para outro sítio.
+        arquivo = (config.backups_dir(con)
                    / f"{ARQUIVO_DECKS}-{datetime.now().strftime('%Y%m%d-%H%M%S')}")
         arquivo.mkdir(parents=True, exist_ok=True)
     pasta_decks = config.decks_dir(con)

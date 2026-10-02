@@ -1287,6 +1287,77 @@ body.readonly .btn.chegou { display: none; }
   .mont-tab tr.r-ok td.m-zero { display: none; }
 }
 
+/* --------------------------------------------- COLAR UMA LISTA (2026-10-02)
+
+   André: *"dos decks, tem que ser possivel colar o texto em copy paste e gerar
+   o deck"*. A caixa, os dois botões, e a PREVISÃO — que é o que faz a lista
+   não virar um deck em silêncio. A tabela da aritmética vira cartões a 559 px,
+   como a da montagem (2026-09-24): é com o telemóvel na mão que ele cola. */
+.colar-txt { width: 100%; box-sizing: border-box; margin: 10px 0; padding: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px;
+  line-height: 1.6; color: var(--ink); background: var(--card2);
+  border: 1px solid var(--line); border-radius: 10px; resize: vertical; }
+.colar-txt:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.colar-bar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.colar-prev { margin-top: 14px; border: 1px solid var(--line); border-radius: 12px;
+  background: var(--card2); overflow: hidden; }
+.colar-prev .section-head { margin: 0; padding: 12px 14px 10px; }
+.colar-prev > .note { margin: 0 14px 12px; }
+.colar-tab { width: 100%; border-collapse: collapse; font-size: 14px; }
+.colar-tab th, .colar-tab td { padding: 7px 14px; border-top: 1px solid var(--line);
+  text-align: right; }
+.colar-tab th:first-child, .colar-tab td:first-child { text-align: left; }
+.colar-tab thead th { font-size: 11px; text-transform: uppercase; letter-spacing: .08em;
+  color: var(--muted); font-weight: 600; }
+/* O conteúdo de uma célula vai num `span` para o `justify-content: space-between`
+   do telemóvel o tratar como UM bloco: sem ele, «39» e «(+1 Champion = 40)»
+   iam parar a extremos opostos da linha. */
+.colar-tab td small { color: var(--dim); }
+.colar-tab td > span { white-space: nowrap; }
+.colar-tab .ok { color: var(--ok); font-weight: 700; }
+.colar-tab .nok { color: var(--warn); font-weight: 700; }
+.colar-tab tr.tem-falha td:first-child { color: var(--bad); }
+.colar-falhas { margin: 12px 14px; padding: 10px 12px; border-radius: 10px;
+  background: rgba(255, 107, 107, .08); border: 1px solid rgba(255, 107, 107, .35);
+  font-size: 13px; line-height: 1.6; }
+.colar-falhas b { color: var(--bad); }
+.colar-falhas ul { margin: 6px 0 0; padding-left: 18px; }
+.colar-falhas code { color: var(--ink); }
+.colar-linhas { margin: 0 14px 14px; font-size: 13px; }
+.colar-linhas > summary { cursor: pointer; color: var(--muted); padding: 6px 0; }
+.colar-linhas ul { margin: 4px 0 0; padding-left: 18px; color: var(--ink2);
+  columns: 2; column-gap: 24px; }
+.colar-linhas li { break-inside: avoid; }
+.colar-linhas li.nok { color: var(--bad); }
+.colar-linhas small { color: var(--dim); }
+.note.tudo-casou { color: var(--ok); }
+
+@media (max-width: 559px) {
+  .colar-tab thead { display: none; }
+  .colar-tab, .colar-tab tbody, .colar-tab tr, .colar-tab td { display: block; width: auto; }
+  .colar-tab tr { border-top: 1px solid var(--line); padding: 8px 14px 10px; }
+  .colar-tab td { border: 0; padding: 2px 0; text-align: left;
+    display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  .colar-tab td::before { content: attr(data-l); color: var(--muted); font-size: 12px; }
+  .colar-linhas ul { columns: 1; }
+  .colar-bar .btn { flex: 1 1 auto; }
+}
+
+/* A COR DIZ SE ELE TEM (2026-10-02): *"com imagem com cor e sem cor"*. Sem
+   nenhuma cópia, a arte sai a cinzento — é a MESMA foto, com um filtro, e não
+   uma imagem nova (o `cdn.riftscribe.gg` serve uma só). O crachá, o «N×» e a
+   moldura ficam a cores: são a informação, e a cinzento perdiam-se. */
+.dtile .art.sem-cor img { filter: grayscale(1); opacity: .62; }
+.dtile.gone .art.sem-cor img { opacity: .55; }
+@media (prefers-reduced-motion: no-preference) {
+  .dtile .art img { transition: filter .15s ease, opacity .15s ease; }
+}
+
+/* As DUAS EDIÇÕES e o COM QUE SE TAPOU (2026-10-02) — as duas metades do
+   «indica que e x de uma edicao e x de outra» / «X normais e X Alt Art». */
+.dtile .onde.edicoes { color: var(--accent-2); }
+.dtile .onde.tapada { color: var(--warn); }
+
 /* ------------------------------------------------- O DECK PRINCIPAL (2026-09-27)
 
    André: *"Deck Principal: neste caso LeBlanc […] todas as cartas do Deck sao

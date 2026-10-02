@@ -474,7 +474,8 @@ sem botão mas aparece em «Todas»), e em cada edição dois blocos, com a
   17/09/2026 e começa vazio**: o riftvault não guardava o que os decks
   pediam — a alocação é recalculada a cada leitura —, por isso só sabe do
   que mudou desde então. Escreve-se no fim de cada importação das listas
-  (`deck_need_log` no vault.db; cópia legível em `data/decks.log`).
+  (`deck_need_log` no vault.db; cópia legível no `decks.log` de quem é a
+  lista — `data/decks.log` para o André).
 
 **Só mostra.** Não muda alvos nem contas — a percentagem, a wantlist, a
 falta dos decks e o valor ficam iguais — e não é a Venda: não há preço de
@@ -1287,7 +1288,8 @@ uma pela porta que já existia:
    vender, e nada sai do `proprio:<slug>`);
 3. **manda ao binder** o que estivesse sleevado nos decks — nunca à Coleção;
 4. **arquiva e apaga** os `decks/*.txt` (o arquivo a sério é o **git**, que os
-   versiona; a cópia em `data/backups/decks-<data>/` é a de conveniência);
+   versiona; a cópia em `<backups de quem é>/decks-<data>/` é a de
+   conveniência);
 5. **tira as linhas** da `decks` e da `deck_cards`;
 6. **recomeça o `deck_need_log`** e **limpa o estado no config** — `montados`
    vazia, `principal` sem valor, `ordem` vazia.
@@ -1525,9 +1527,12 @@ No site, em modo edição, é o botão **«Marcar o que este deck usa…»** no
 cabeçalho do deck: mostra a proposta com checkboxes e grava **só as marcadas**.
 O «Marcar tudo» liga as caixas e mais nada.
 
-Cada movimento deixa uma linha em **`data/locais.log`** (CSV: quando, cópia,
-de → para, de onde veio o clique). Se uma cópia aparecer num deck sem linha
-aí, é bug.
+Cada movimento deixa uma linha no **`locais.log` de quem o fez** (CSV: quando,
+cópia, de → para, de onde veio o clique) — `data/locais.log` para o André,
+`data/users/<slug>/locais.log` para os outros, desde 2026-10-02. Se uma cópia
+aparecer num deck sem linha aí, é bug — e é precisamente por isso que é um
+ficheiro por pessoa: num CSV partilhado por quatro, essa verificação não se
+podia fazer.
 
 O cabeçalho valida main 40 (o Champion conta), 12 runas, 3 battlefields,
 máximo 3 cópias e a identidade de domínio do Legend, e mostra **quantas cópias
