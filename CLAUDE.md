@@ -10387,3 +10387,158 @@ não desta ordem), a prova pela negativa da fotografia da Coleção, e o OCR que
 não há. Os outros **34 ficam vermelhos**: o `colar.py` não existe lá, o
 `decks.parse_texto` também não, e o `app.js`/`style.css` não têm nenhuma das
 marcas.
+
+## 2026-10-02 — O RASTO E OS BACKUPS SÃO DE QUEM OS FEZ (`config.log_path`, `config.backups_dir`)
+
+Achado 2 do `docs/varrimento-2026-10-01.md`: os três CSV de rasto e os backups
+iam para `config.DATA_DIR`, ou seja para a pasta do André, **fosse quem fosse
+que estivesse a mexer**. Seis sítios, e os três logs sem coluna que dissesse de
+quem era a linha. Ramo `ai-pc/logs-por-dono-2026-10-02`.
+
+**NÃO É FUGA PÚBLICA, e verificou-se outra vez:** `data/users/`,
+`data/backups/`, `data/locais.log`, `data/encomendas.log` e `data/decks.log`
+estão todos no `.gitignore`, e as pastas novas (`data/users/<slug>/`,
+`data/backups/<slug>/`) caem debaixo das duas primeiras — não é por sorte, há
+teste. **O estrago era outro**, e por esta ordem:
+
+1. **o rasto deixava de servir para o que foi feito.** O `locais._log` promete
+   *«se uma cópia aparecer num deck sem linha aqui, é bug»* — com quatro
+   pessoas a escrever no mesmo CSV e sem coluna de dono, essa verificação não
+   se pode fazer;
+2. a coleção inteira de um amigo num `.zip` solto entre os backups do dono;
+3. apagar a conta de um amigo não tirava os ficheiros dele de lá.
+
+**O caminho já estava aberto**: o `config.decks_dir(con)` resolveu esta família
+para os `.txt` dos decks a 2026-09-29. Fizeram-se-lhe os gémeos —
+`config.user_dir(con)`, `config.log_path(con, nome)` e
+`config.backups_dir(con|slug)` —, e a regra de «de quem é esta ligação» passou
+a viver numa função só (`config._dono`), que as quatro famílias partilham.
+**Uma ligação sem dono continua a não ser «o André»** (`guarda.SemDono`); sem
+ligação nenhuma é ele, que é a CLI e o comportamento de sempre.
+
+### As duas decisões que a ordem mandava tomar
+
+**1. UM LOG POR PESSOA, e o dono é o CAMINHO — não uma coluna.** É a mesma
+separação que os dados já têm desde 2026-09-29: as coleções estão separadas por
+FICHEIRO e não por um `WHERE user_id` que se esquece. Três razões, por ordem de
+peso: um rasto com a forma dos dados que rastreia verifica-se por comparação
+directa, sem filtro que alguém se tenha de lembrar de pôr; **apagar a conta
+leva o rasto dela** (com um ficheiro só era preciso reescrever um CSV para tirar
+as linhas de uma pessoa, e reescrever um registo é a operação que um registo
+existe para não precisar); e o que um amigo mexe nas cartas dele não é
+informação do André. O cabeçalho dos três CSV **não mudou**.
+
+**2. OS LOGS QUE JÁ EXISTEM FICAM ONDE ESTÃO — e nada se reescreveu nem se
+moveu.** Medido a 2026-10-02 antes de tocar em código: as pastas dos três
+amigos têm **só o `vault.db`** (`data/users/{rafael,miguel,goncalves}/`), e as
+linhas do `data/*.log` de 30/09 e 01/10 — 2 no `locais.log`, 8 no
+`encomendas.log`, 27 no `decks.log` — são **todas identificáveis como dele** (o
+deck «Leona Radiant Dawn», encomendas de cartas da coleção dele). Não havia
+linhas de ninguém misturadas para dividir. O `data/locais.log` continua a ser o
+dele e a crescer; se alguma vez houver dúvida sobre uma linha anterior a hoje,
+ela não tem resposta — é o estrago que isto fecha para a frente, não para trás.
+
+### A DECISÃO QUE NÃO ESTAVA NA ORDEM: os backups NÃO vão para a pasta do utilizador
+
+O sítio óbvio era `data/users/<slug>/backups/`, e **está errado**: o
+`utilizador.apagar` apaga a pasta inteira, e o `conta.apagar` faz um export
+ANTES de apagar — a última cópia de segurança de uma conta era apagada no mesmo
+passo que a conta, e desaparecia exactamente no minuto em que é precisa. Isso
+revogava em silêncio a decisão de 2026-10-01 (*«os pacotes dela FICAM, e
+dizem-se»*). Por isso vão para **`data/backups/<slug>/`**: ficam separados,
+nomeados, e sobrevivem ao apagar. `levar_copias=True` continua a ser a resposta
+a quem pede «apaga os meus dados» e quer dizer todos. **Há teste, e é o mais
+importante do ficheiro.**
+
+**O CATÁLOGO E OS PREÇOS NÃO TÊM DONO, e o backup deles também não.** O
+`db.backup` só manda para a pasta de alguém o `schema == "main"` (o vault);
+mandar a cópia do `catalog.db` para a pasta do amigo que abriu a app primeiro
+era dizer que o catálogo é dele.
+
+**O `copias_de` passou a procurar em DOIS sítios** — a pasta dela e a raiz
+`data/backups/`, pela mesma regra de nome. Um pacote escrito antes de hoje não
+pode deixar de se encontrar só porque a regra mudou de sítio, senão o
+`levar_copias` deixava para trás exactamente os ficheiros que já lá estão.
+(Medido: na raiz a sério **não há pacote de amigo nenhum** — são 13 ficheiros,
+todos do vault dele, do config dele ou do catálogo partilhado, mais o
+`decks-20260928-141128/` do «apaga os decks todos». **Não houve nada a mover.**)
+
+**MEDIDO E NÃO MUDADO, de propósito:** o `abrir.py:167` (o
+`riftvault multi --verificar`) confirma que ficam fora do Git o `auth.db` e a
+pasta `data/users/` — e **não nomeia o `data/backups/`**, que desde hoje tem a
+coleção de um amigo dentro de um `.zip` numa subpasta. Não é exposição nova
+(`git check-ignore` confirma as quatro escritas: `data/users/miguel/locais.log`
+e `decks.log` pela linha 13, `data/backups/miguel/*.zip` e `*.db` pela 92), e o
+`data/backups/` já guardava pacotes de amigos antes desta ordem — era esse o
+defeito. Mudar o texto do `--verificar` é o achado 3 do varrimento, que é outra
+ordem; alargá-lo aqui custava uma segunda corrida da suite por uma frase que
+não muda o que fica em disco. **Fica anotado para quem fizer o achado 3.**
+
+**Um efeito de ordem, apanhado a implementar:** o `_migrate` chama o `backup()`,
+e o `con.riftvault_user` era posto **no fim** do `db.connect` — a migração de um
+amigo perguntava a uma ligação que ainda não sabia de quem era. O dono passou
+a ser posto antes da migração; o ficheiro já está escolhido (`vault_de(uid)`),
+por isso dizê-lo mais cedo não afirma nada de novo. O guarda continua a armar-se
+no fim.
+
+### O ENSAIO DO VARRIMENTO, REPETIDO (`_revisao\_ensaio_rasto_dono.py`)
+
+Contra uma CÓPIA do `data/` real (por `VACUUM INTO` — as bases estão em WAL), o
+MESMO guião a correr contra o `main` e contra o ramo. Criar o utilizador 2,
+mexer como ele (marcar um local e encomendar), e ver onde cai cada coisa:
+
+| | `main` (o defeito) | ramo (a cura) |
+|---|---|---|
+| `locais.log` do amigo | na pasta do **André** | **`users/zeteste/locais.log`** |
+| `encomendas.log` do amigo | na pasta do **André** | **`users/zeteste/encomendas.log`** |
+| o log do André mexeu? | **SIM**, nos dois | **não**, em nenhum |
+| `conta.exportar('zeteste')` | `backups/conta-zeteste-….zip` | **`backups/zeteste/conta-zeteste-….zip`** |
+| `db.backup` do vault dele | `backups/vault-….db` | **`backups/zeteste/vault-….db`** |
+| **o do André** | `locais.log`, `backups/` | **os mesmos caminhos** |
+| apagar a conta dele | o pacote fica (na pasta errada) | **o pacote fica, na dele** |
+
+A prova pela negativa está na mesma corrida: as linhas do André continuam a cair
+em `data/locais.log` e `data/encomendas.log` e o backup dele em
+`data/backups/`, e o log dele fica **byte a byte igual** quando o amigo mexe.
+(Nota do ensaio contra o `main`: o `db.backup` do André devolveu `None` porque
+os dois backups caíam na mesma pasta com o mesmo nome do mesmo segundo — a
+colisão de nomes que está anotada em «O RESTAURO» e que não se mudou. No ramo
+caem em pastas diferentes e os dois dão-se.)
+
+### Testes
+
+**E a CLI passou a dizer o caminho QUE ESCREVEU.** O `riftvault local --marcar`
+imprimia «Rasto em `data/locais.log`» com o caminho à mão — mandava um amigo
+procurar o ficheiro na pasta do André. **Dois textos ficaram por acertar, e
+dizem-se:** a ajuda do `app.js` na página dos locais (**não se tocou** porque há
+outra ordem a correr nesse ficheiro hoje) e o `--help` do `riftvault conta`
+(«omissão: `data/backups/`», «os pacotes dela em `data/backups/`»), que continua
+exacto para o André e incompleto para os outros. São duas frases, e não valiam
+uma segunda corrida da suite.
+
+`tests/test_rasto_por_dono.py` (**29 testes**, contra pastas temporárias e um
+config temporário — o `decks.apagar_todos` escreve no config): os três logs de
+um amigo na pasta dele e **não** na do André, os dois logs que não se tocam, o
+dono a ser o caminho e não uma coluna; o que já lá está a continuar a crescer no
+mesmo ficheiro e a não ser reescrito; a ligação sem dono a rebentar nas duas
+funções novas e a regra a ser a MESMA do `decks_dir`; o backup do vault dele na
+pasta dele, o do André na raiz, **o do catálogo partilhado**, e a migração de um
+amigo; o export, o `antes-de-importar`, o `copias_de` nos dois sítios e a não
+apanhar o de outra pessoa; **apagar a conta a não levar os pacotes dela** e o
+`levar_copias` a levá-los; o arquivo das listas de deck; e o `.gitignore`.
+
+**A PROVA PELA NEGATIVA** (`_revisao\_prova_negativa_rasto.py`, que corre a
+bateria contra uma árvore com o `riftvault/` do `main`): **17 dos 29 ficam
+vermelhos** — são todos os que fixam a cura. Os 12 que passam nos dois lados são
+os que fixam o que NÃO podia mudar (o caminho do André, o log antigo que não se
+move, o cabeçalho dos CSV, o `.gitignore`, a confirmação do apagar).
+
+**E O TESTE QUE A ORDEM DIZIA QUE FIXAVA O DEFEITO NÃO PRECISOU DE MUDANÇA
+NENHUMA.** O `tests/test_binders.py:399` exige `self.v.data /
+self.locais.LOG_NAME` — a raiz —, e isso **continua a ser verdade**: aquele
+teste corre como o utilizador 1, e para o André o `utilizador.pasta()` devolve o
+`data/`, por isso o caminho dele não mexeu. **Os 25 sítios da suite (em 11
+ficheiros) que nomeiam um log ou a pasta `backups/` são TODOS do André** e
+nenhum precisou de ser tocado: **zero testes ajustados nesta ordem.** O que a
+ordem leu como «o teste fixa o defeito» era, na verdade, o teste a fixar a parte
+que não podia mudar.

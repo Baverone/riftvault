@@ -83,11 +83,21 @@ def backup(con: sqlite3.Connection, motivo: str, schema: str = "main",
     fora): o SQLite não aceita um parâmetro ali. Com `catalog_only()` o catálogo
     É o `main`, e é por isso que o nome do ficheiro se passa à parte.
 
+    **O VAULT VAI PARA A PASTA DE BACKUPS DE QUEM É** (2026-10-02, achado 2 do
+    varrimento): a cópia da coleção de um amigo caía solta entre as do André.
+    **O CATÁLOGO E OS PREÇOS NÃO: são PARTILHADOS**, não são de ninguém, e por
+    isso o backup deles fica em `data/backups/` seja quem for que esteja a
+    correr a migração — mandá-lo para a pasta do amigo que abriu a app primeiro
+    era dizer que o catálogo é dele. O discriminante é o `schema`: só o `main`
+    de uma ligação ao vault é de dono.
+
     Devolve o caminho, ou `None` se não deu (uma migração não pode falhar por
     causa do backup; quem chama decide).
     """
     nome = nome or ("vault" if schema == "main" else schema)
-    alvo = config.DATA_DIR / "backups" / (
+    pasta = (config.backups_dir(con) if schema == "main"
+             else config.DATA_DIR / "backups")
+    alvo = pasta / (
         f"{nome}-{motivo}-{datetime.now().strftime('%Y%m%d-%H%M%S')}.db")
     try:
         alvo.parent.mkdir(parents=True, exist_ok=True)
@@ -409,6 +419,13 @@ def connect(readonly: bool = False, user_id: int | None = None) -> sqlite3.Conne
 
     con.execute("ATTACH DATABASE ? AS catalog", (str(config.CATALOG_DB),))
     con.execute("ATTACH DATABASE ? AS prices", (str(config.PRICES_DB),))
+    # O DONO POSTO ANTES DA MIGRAÇÃO (2026-10-02). Era posto no fim, e desde que
+    # o backup de uma migração vai para a pasta de quem é (`config.backups_dir`)
+    # isso deixou de servir: o `_migrate` chama o `backup()` e perguntava a uma
+    # ligação que ainda não sabia de quem era. O ficheiro já está escolhido
+    # (`vault_de(uid)`), por isso dizê-lo mais cedo não afirma nada de novo —
+    # só o diz antes de alguém precisar. O guarda continua a armar-se no fim.
+    con.riftvault_user = uid
     if not readonly:
         _apply_schema(con, "catalog_schema.sql", schema="catalog")
         _apply_schema(con, "prices_schema.sql", schema="prices")
@@ -421,7 +438,6 @@ def connect(readonly: bool = False, user_id: int | None = None) -> sqlite3.Conne
         # ou a restaurar. O registo de quem existe é outro ficheiro, fora do
         # Git (`utilizador.registo_db`).
         _carimbar_dono(con, uid)
-    con.riftvault_user = uid
     # O GUARDA arma-se no fim, e a ordem importa: o catálogo e os preços já
     # estão anexados (depois disto a ligação não anexa mais nada) e o dono já
     # está posto (senão a própria migração rebentava). Ver `guarda.py`.

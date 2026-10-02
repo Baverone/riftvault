@@ -411,15 +411,21 @@ def _qty_em(con: sqlite3.Connection, printing_id: str, local: str) -> int:
 
 
 def _log(con: sqlite3.Connection, linhas: list[dict]) -> None:
-    """Uma linha por movimento em `data/locais.log`. Nunca impede a escrita.
+    """Uma linha por movimento no `locais.log` DE QUEM mexeu. Nunca impede a escrita.
 
     O ficheiro é o rasto para ele: se uma cópia aparecer num deck sem linha
     aqui, é bug. É a lição do `registos-caixas.csv` do mtgvault — a defesa não é
     a intenção do código, é o registo de que ele passou.
+
+    **E é por isso que o caminho vem do `config.log_path(con, ...)` desde
+    2026-10-02**: escrevia sempre em `config.DATA_DIR / LOG_NAME`, a pasta do
+    André, e sem coluna que dissesse de quem era a linha — com quatro pessoas a
+    escrever no mesmo CSV, a promessa da frase acima deixava de se poder
+    verificar. O André continua em `data/locais.log`; os outros no deles.
     """
     if not linhas:
         return
-    caminho = config.DATA_DIR / LOG_NAME
+    caminho = config.log_path(con, LOG_NAME)
     nomes = nomes_dos_decks(con)
     novo = not caminho.exists()
     buf = io.StringIO()
@@ -433,7 +439,7 @@ def _log(con: sqlite3.Connection, linhas: list[dict]) -> None:
                     rotulo(x["para"], nomes) if x["para"] != SAIU else x["para"],
                     x.get("source") or ""])
     try:
-        config.DATA_DIR.mkdir(parents=True, exist_ok=True)
+        caminho.parent.mkdir(parents=True, exist_ok=True)
         with open(caminho, "a", encoding="utf-8", newline="") as fh:
             if novo:
                 fh.write(BOM)
