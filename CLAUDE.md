@@ -10104,11 +10104,13 @@ nomes), custa dois ficheiros, e volta a ser o sítio certo no dia em que o site
 de um amigo tiver anfitrião próprio (`miguel.rift.baverone.com`, o que ele
 pediu primeiro — ver `docs/multi-utilizador.md`). **Decisão dele.**
 
-**Anotado, não mudado:** o `site/.nojekyll` da raiz é um resto de quando a raiz
-era o site dele — desde que a lista a tomou, o `_gerar` escreve-o em
-`u/baverone/` e ninguém o reescreve na raiz. Sobrevive por estar commitado (o
-`RESTOS_DA_RAIZ` não lhe toca de propósito), e faz falta: sem ele o Pages
-ignora pastas começadas por `_`. Uma geração num clone limpo não o criaria.
+**Anotado, e CORRIGIDO horas depois** (ver a secção dos achados 3/4/6, acima —
+passou a ser do `lista.escrever`): o `site/.nojekyll` da raiz era um resto de
+quando a raiz era o site dele — desde que a lista a tomou, o `_gerar` escreve-o
+em `u/baverone/` e ninguém o reescrevia na raiz. **Sobrevivia por estar
+commitado** (o `RESTOS_DA_RAIZ` não lhe toca de propósito, e continua a não
+tocar), e faz falta: sem ele o Pages ignora pastas começadas por `_`. Uma
+geração num clone limpo não o criava — medido no mesmo dia, horas depois.
 
 `tests/test_lista.py` ganhou a `TestARaizNaoSeIndexa` (**12 testes**, que lêem
 o ficheiro que SAI do `build_todos` e nunca um pedaço de HTML à mão — o defeito
@@ -10917,8 +10919,18 @@ os que fixam o que NÃO podia mudar — o utilizador 1 que não se apaga, a rota
 CLI que já limpavam o `auth.db`, o `.nojekyll` de cada `u/`, e o `editable` de
 quem está entrado.
 
-`test_conta_fechada.test_a_bandeira_e_o_index_editable_que_ja_existia` foi
-reescrito — descrevia o campo com os dois significados, que era o defeito.
+**Quatro testes foram reescritos, e os quatro FIXAVAM o que estava errado** —
+é o padrão desta casa, o mesmo do `test_binders.py:399` no achado 2:
+`test_senhas.test_sao_DOIS_passos_dele_e_nao_tres` (exigia os dois passos
+presumidos e que o `dele[0]` apontasse ao PASSO 1 e o `dele[1]` ao PASSO 2); e
+três que exigiam o literal `state.index.editable` como bandeira do estático —
+`test_conta_fechada.test_a_bandeira_e_o_index_editable_que_ja_existia`, o
+`test_conta_fechada.test_o_site_gerado_diz_editable_false_e_por_isso_nao_pergunta`
+e o `test_contas.test_o_site_publicado_nao_pede_a_conta`. **Nos três a
+invariante não mudou** (o estático não pergunta pelo `conta.json`): mudou o
+campo que a decide, e o do site gerado passou a exigir as DUAS coisas
+(`servidor: false` **e** `editable: false`). Os dois últimos só apareceram na
+primeira corrida da suite — não se viam a ler o código.
 
 ## 2026-10-02 — O RASTO E OS BACKUPS SÃO DE QUEM OS FEZ (`config.log_path`, `config.backups_dir`)
 
