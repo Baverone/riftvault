@@ -68,6 +68,14 @@ de quem o tiver autorizado à parte de «publicar a coleção». Mais um teste n
 
 ## 2. OS LOGS E OS BACKUPS DE UM AMIGO CAEM NA PASTA DO ANDRÉ, E SEM DIZER DE QUEM SÃO
 
+> **CORRIGIDO a 2026-10-02** (`config.log_path`, `config.user_dir`,
+> `config.backups_dir`, `tests/test_rasto_por_dono.py`) — ver a secção própria
+> no fim do CLAUDE.md. Um log por pessoa (o dono é o CAMINHO, não uma coluna);
+> os backups em `data/backups/<slug>/` e **não** dentro da pasta apagável do
+> utilizador; os logs que já existem ficam onde estão, porque são todos dele —
+> medido. O teste que fixava o defeito (`tests/test_binders.py:399`) **não
+> precisou de mudança nenhuma**: o caminho do André não mexeu.
+
 **Onde.** `riftvault/locais.py:422` · `riftvault/pending.py:807` ·
 `riftvault/uso_decks.py:141` — os três fazem `config.DATA_DIR / LOG_NAME`.
 E `riftvault/decks.py:531` · `riftvault/db.py:90` · `riftvault/conta.py:238,281,537`

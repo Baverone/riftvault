@@ -2132,6 +2132,29 @@ def cmd_faltas(args) -> int:
         print("catálogo vazio — corre `riftvault sync`.", file=sys.stderr)
         return 1
     alvo = args.edicao.upper() if args.edicao else None
+    # AS CAIXAS (2026-10-02): o corte ao contrário — a lista de um bloco de
+    # TODAS as edições, ou de uma edição inteira. Vem antes do resto porque não
+    # é por edição: `--caixa` dispensa o `--edicao` e o `--bloco`.
+    if args.caixa:
+        try:
+            w = faltas_edicao.wantlist_caixa(con, args.caixa, com_codigo=args.codigos)
+        except ValueError as e:
+            print(f"erro: {e}", file=sys.stderr)
+            con.close()
+            return 1
+        sys.stdout.write(w["text"] + ("\n" if w["text"] else ""))
+        print(f"# caixa {w['label']} ({w['escopo']}): {w['lines']} linhas · "
+              f"{w['copies']} cópias · {prices.eur(w['cents'])}"
+              + ("" if w["in_lists"] else " — é a lista desta caixa, não a geral"),
+              file=sys.stderr)
+        if w["foil"]:
+            print(f"# {len(w['foil'])} destas só têm oferta foil no mercado: liga o "
+                  f"filtro Foil nessas entradas depois de colares.", file=sys.stderr)
+        print("# as caixas SOBREPÕEM-SE (uma sobrenumerada do VEN está na caixa "
+              "«OverNumbered» e na «VEN — tudo»): a soma delas não é o total do "
+              "separador.", file=sys.stderr)
+        con.close()
+        return 0
     if args.cardmarket:
         if not alvo or not args.bloco:
             print("erro: --cardmarket precisa de --edicao e --bloco "
@@ -2220,6 +2243,21 @@ def cmd_faltas(args) -> int:
              if p["so_master_set"] else ""))
     print()
     print(faltas_foil.texto(p["foil"]))
+    # AS CAIXAS: o corte ao contrário, em três linhas. Não somam ao que está em
+    # cima (sobrepõem-se), e a linha di-lo.
+    if p.get("caixas"):
+        print()
+        print("CAIXAS — o mesmo cortado ao contrário; SOBREPÕEM-SE entre si e com os "
+              "blocos acima, por isso não somam a nada:")
+        for c in p["caixas"]:
+            mais = (f"   a mais cara sozinha: {prices.eur(c['mais_cara']['cents'])} "
+                    f"({cardmarket.codigo(c['mais_cara']['code'])})") if c["mais_cara"] else ""
+            print(f"  {c['label']:<18} {c['escopo_label']:<26} faltam {c['copies']:>4} "
+                  f"cópias de {c['cards']:>3} · {prices.eur(c['cents']):>12}{mais}")
+            print(f"    --caixa {c['id']}" + (
+                f"   (fora: {', '.join(f'{n} {k}' for k, n in sorted(c['escondidas'].items()))}"
+                + (f", {c['foil']} foils" if c.get("foil") else "") + ")"
+                if c["escondidas"] or c.get("foil") else ""))
     con.close()
     return 0
 
@@ -2470,8 +2508,11 @@ def cmd_local(args) -> int:
                   f"{locais_mod.rotulo(x['para'], nomes)}")
         for x in res["falhadas"]:
             print(f"  X {x['printing_id']}: {x['erro']}", file=sys.stderr)
+        # O CAMINHO QUE SE DIZ É O QUE SE ESCREVEU (2026-10-02): era
+        # `data/locais.log` à mão, e com o rasto a ir para a pasta de quem mexe
+        # isso mandava um amigo procurar o ficheiro na pasta do André.
         print(f"\n{res['copies']} cópias marcadas. Rasto em "
-              f"data/{locais_mod.LOG_NAME}.")
+              f"{config.log_path(con, locais_mod.LOG_NAME)}.")
         con.close()
         return 0 if not res["falhadas"] else 1
 
@@ -2761,6 +2802,10 @@ def main(argv: list[str] | None = None) -> int:
                                    + " (o `foil` é a metade das foils, que não são faltas)")
     p.add_argument("--cardmarket", action="store_true",
                    help="com --edicao e --bloco: a wantlist desse bloco, para colar")
+    p.add_argument("--caixa", help="a wantlist de uma CAIXA — um bloco de todas as "
+                                   "edições ou uma edição inteira (bloco-overnumbered, "
+                                   "bloco-alt_art, edicao-VEN; `riftvault faltas` "
+                                   "lista-as)")
     p.add_argument("--codigos", action="store_true",
                    help="com --cardmarket: 'N Nome [OGN-007]' em vez da versão")
     p.set_defaults(func=cmd_faltas)

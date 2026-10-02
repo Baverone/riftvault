@@ -183,6 +183,11 @@ class TestNaoSaoFaltas(Base):
             "blocks": p["blocks"], "totals": p["totals"],
             "totals_lists": p["totals_lists"], "scope": p["scope"],
             "so_master_set": p["so_master_set"], "rule": p["rule"],
+            # As caixas (2026-10-02) sao das NORMAIS e passam inteiras; este
+            # dicionario enumera os campos a mao de proposito, para um campo
+            # novo no `faltas_edicao.payload` ter de ser notado por alguem — e
+            # foi este teste que notou estes dois.
+            "caixas": p["caixas"], "caixas_ignoradas": p["caixas_ignoradas"],
             "sets": [{k: v for k, v in d.items() if k != "foil"} for d in p["sets"]],
         }
 
