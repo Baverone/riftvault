@@ -1214,14 +1214,13 @@ body.readonly .btn.chegou { display: none; }
 /* ------------------------------------- as cópias PRÓPRIAS de cada deck
 
    (2026-09-21) «colocas em cada deck o + e - para eu dizer se afinal tenho ou
-   nao». Os `+`/`−` são os da grelha (o `body.readonly .steppers` esconde-os no
-   site publicado), com o número de próprias da carta entre os dois, e
-   escrevem no local `proprio:<slug>` — a Coleção não mexe. */
-.dtile .steppers.proprias { margin: 4px 0 2px; align-items: center; justify-content: center; }
-.dtile .steppers.proprias .step { min-height: 34px; font-size: 16px; }
-.dtile .steppers.proprias .step:disabled { opacity: .3; cursor: default; }
-.dtile .steppers.proprias .prop-n { min-width: 22px; text-align: center; font-weight: 700;
-  font-size: 14px; color: #c9a9ff; }
+   nao» — as cópias que ele guarda para um deck, no local `proprio:<slug>`, que
+   nunca contam para a Coleção.
+   Os `+`/`−` saíram a 2026-10-01 (*"no deck nao precisa + e - / ele ja indica
+   se tem ou nao tem"*) e o que fica é o NÚMERO, na cor das próprias, no sítio
+   onde eles estavam — por isso o tile não fica com um buraco. */
+.dtile .onde.propria { color: #c9a9ff; }
+.dtile .onde.propria b { color: #c9a9ff; font-weight: 700; }
 .chip-l.propria { color: #c9a9ff; border-color: rgba(201, 169, 255, .5); }
 .dtile .onde.tenho i { font-style: italic; opacity: .7; }
 .emdecks i.dim { font-style: italic; opacity: .7; }

@@ -25,7 +25,7 @@ import sys
 import unittest
 from pathlib import Path
 
-from riftvault import (build, collection, db, lista, multi, privacidade,
+from riftvault import (abrir, build, collection, db, lista, multi, privacidade,
                        utilizador)
 from tests import fixture
 
@@ -549,6 +549,150 @@ class TestNaoEstragaNada(Base):
         lista.publicas({"multi": {"aberto": True}})
         lista.payload(self.gerar(), cfg={"multi": {"aberto": True}})
         self.assertEqual(fotografia(), antes)
+
+
+# ---------------------------------------------------------------------------
+# A RAIZ NÃO SE INDEXA (2026-10-02)
+# ---------------------------------------------------------------------------
+#
+# O varrimento de 2026-10-01 mediu-o ao vivo: `rift.baverone.com` respondia
+# 200 com «Miguel Valente» e «Gonçalves» no HTML, com o valor da coleção de
+# cada um, e sem `<meta name="robots">` — era a ÚNICA página do site assim (a
+# de cada um deles já levava a marca; a dele não leva de propósito).
+#
+# Tudo o que está aqui lê o ficheiro que SAI do `build_todos`, nunca um pedaço
+# de HTML montado à mão: o defeito era precisamente uma página que a função que
+# marca nunca chegava a ver.
+
+class TestARaizNaoSeIndexa(Base):
+
+    def raiz_com_dois(self) -> Path:
+        """Duas coleções públicas — é o estado em que a raiz é a lista."""
+        self.amigo(nome="Miguel Valente", slug="miguel")
+        return self.gerar()
+
+    # -- o defeito --------------------------------------------------------
+
+    def test_a_raiz_GERADA_leva_a_marca(self):
+        out = self.raiz_com_dois()
+        pagina = (out / "index.html").read_text(encoding="utf-8")
+        # Que é mesmo a lista, e não a coleção dele por a troca não ter dado.
+        self.assertIn('class="l-cartao"', pagina)
+        self.assertIn('name="robots"', pagina)
+        self.assertIn("noindex", pagina)
+
+    def test_a_pagina_que_NOMEIA_as_pessoas_e_a_que_tem_de_estar_marcada(self):
+        """O nome e o euro estão lá — e a marca também, no mesmo ficheiro."""
+        out = self.raiz_com_dois()
+        pagina = (out / "index.html").read_text(encoding="utf-8")
+        self.assertIn("Miguel Valente", pagina)
+        self.assertIn("€", pagina)
+        self.assertIn("noindex", pagina)
+
+    def test_a_marca_e_a_MESMA_das_paginas_de_cada_um(self):
+        """Uma maneira de dizer, não duas: o literal vive no `abrir`."""
+        out = self.raiz_com_dois()
+        raiz = (out / "index.html").read_text(encoding="utf-8")
+        amigo = (out / "u" / "miguel" / "index.html").read_text(encoding="utf-8")
+        self.assertIn(abrir.META, raiz)
+        self.assertIn(abrir.META, amigo)
+
+    def test_vai_no_head_e_nao_depois_do_corpo(self):
+        out = self.raiz_com_dois()
+        pagina = (out / "index.html").read_text(encoding="utf-8")
+        self.assertLess(pagina.index('name="robots"'), pagina.index("</head>"))
+
+    def test_o_reencaminhamento_dos_favoritos_sobreviveu_a_marca(self):
+        """Os dois vivem no `<head>`: a marca não pode ter empurrado o script."""
+        out = self.raiz_com_dois()
+        pagina = (out / "index.html").read_text(encoding="utf-8")
+        cabeca = pagina[:pagina.index("</head>")]
+        self.assertIn("location.replace", cabeca)
+        self.assertIn('name="robots"', cabeca)
+
+    def test_quem_decide_e_o_abrir_e_nao_um_literal_no_lista(self):
+        fonte = Path(__file__).resolve().parents[1] / "riftvault" / "lista.py"
+        texto = fonte.read_text(encoding="utf-8")
+        self.assertIn("abrir.lista_indexavel", texto)
+        self.assertIn("abrir.marcar_html", texto)
+        # A etiqueta não se escreve aqui: se um dia ele quiser indexar a lista,
+        # é UMA função no `abrir.py` e não uma caça ao literal.
+        self.assertNotIn('<meta name="robots"', texto)
+
+    def test_marcar_duas_vezes_nao_dobra_a_etiqueta(self):
+        out = self.raiz_com_dois()
+        pagina = (out / "index.html").read_text(encoding="utf-8")
+        self.assertEqual(pagina.count('name="robots"'), 1)
+        self.assertEqual(abrir.marcar_html(pagina), pagina)
+
+    # -- o que NÃO podia mudar -------------------------------------------
+
+    def test_a_pagina_DELE_continua_sem_marca(self):
+        """A correcção de 2026-09-29 já se apanhou a despublicar o site dele.
+
+        `publico_indexavel` exigia a porta aberta e metia `noindex` na página
+        do próprio dono. Isto fixa que a de hoje não repete o erro: a lista
+        marca-se, a dele não.
+        """
+        out = self.raiz_com_dois()
+        dele = (out / "u" / "baverone" / "index.html").read_text(encoding="utf-8")
+        self.assertNotIn('name="robots"', dele)
+        self.assertTrue(abrir.publico_indexavel(dono=True))
+
+    def test_com_uma_coleccao_so_a_raiz_e_a_DELE_e_continua_sem_marca(self):
+        """Com as portas fechadas (o de hoje) nada disto se vê."""
+        out = self.gerar(aberto=False)
+        pagina = (out / "index.html").read_text(encoding="utf-8")
+        self.assertNotIn('class="l-cartao"', pagina)   # não é a lista
+        self.assertNotIn('name="robots"', pagina)
+
+    def test_a_pagina_de_cada_amigo_continua_marcada(self):
+        out = self.raiz_com_dois()
+        for slug in ("miguel",):
+            p = (out / "u" / slug / "index.html").read_text(encoding="utf-8")
+            self.assertIn("noindex", p, slug)
+
+    # -- a rede: nenhuma página gerada nomeia pessoas sem a marca ---------
+
+    def test_NENHUMA_pagina_gerada_nomeia_uma_pessoa_sem_a_marca(self):
+        """Varre o site todo — não é uma amostra.
+
+        É a pergunta do ponto 4 da ordem feita em teste, para a resposta não
+        envelhecer: uma página nova que nomeie alguém e saia sem marca dá
+        vermelho aqui.
+        """
+        self.amigo(nome="Miguel Valente", slug="miguel")
+        self.amigo(nome="Gonçalves", slug="goncalves")
+        out = self.gerar()
+        nomes = ["Miguel Valente", "Gonçalves"]
+        vistas = 0
+        for p in sorted(out.rglob("*.html")):
+            texto = p.read_text(encoding="utf-8")
+            quais = [n for n in nomes if n in texto]
+            if not quais:
+                continue
+            vistas += 1
+            self.assertIn('name="robots"', texto,
+                          f"{p.relative_to(out)} nomeia {quais} e não leva "
+                          f"`noindex`")
+        # Prova pela negativa: se o varrimento não encontrasse página nenhuma
+        # com nomes, passava sempre e não valia nada.
+        self.assertGreaterEqual(vistas, 1)
+
+    def test_o_noindex_nao_vale_para_o_JSON_e_isso_esta_dito(self):
+        """O que ele escolheu NÃO fecha: os payloads continuam legíveis.
+
+        Uma etiqueta de HTML não marca um `.json`, e fechá-los pedia um
+        `robots.txt` na raiz — hipótese que ele viu e não escolheu. Fica fixado
+        para ninguém ler esta ordem como «o site está fechado aos motores».
+        """
+        out = self.raiz_com_dois()
+        j = (out / "api" / "lista.json").read_text(encoding="utf-8")
+        self.assertIn("Miguel Valente", j)
+        self.assertNotIn("robots", j)
+        fonte = Path(__file__).resolve().parents[1] / "riftvault" / "lista.py"
+        self.assertIn("api/lista.json",
+                      fonte.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

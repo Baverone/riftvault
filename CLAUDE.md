@@ -2832,6 +2832,16 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   continua um por runa, de propósito e dito no ecrã: 12 de cada é o Rune Pool, e
   os 14 que ele contou à mão não têm edição para onde ir. Ver a última secção
   deste ficheiro.
+- **CORRIGIDO a 2026-10-02:** a RAIZ PUBLICADA deixa de se indexar
+  (`abrir.lista_indexavel`) — a lista nomeia os amigos **e o valor da coleção de
+  cada um** e era a única página do site sem `noindex`; a de cada um deles já a
+  tinha. Escolha dele entre quatro hipóteses: *"a lista deixa de ser indexada,
+  como já acontece com as páginas de cada um; quem tiver o link abre tudo
+  igual"* — não quis tirar os euros nem fechar o site com um `robots.txt` na
+  raiz. Pelo mesmo caminho das outras páginas (`abrir.marcar_html`). Medido: 77
+  ficheiros de cada lado, **uma** diferença (o `index.html`, +116 bytes); a dele
+  continua sem marca. Ver a última secção deste ficheiro.
+
 - **Feito também:** a PÁGINA DO DECK NÃO TEM `+`/`−` (2026-10-01) — *"no deck
   nao precisa + e - / ele ja indica se tem ou nao tem"*. Saíram os das CÓPIAS
   PRÓPRIAS, que eram os únicos que lá estavam, e ficou o **número** («N
@@ -10017,6 +10027,85 @@ nenhuma); a fotografia; e o frontend (a fatia, o payload antigo que não parte o
 ecrã, o cabeçalho, o contador a andar em todas as listas, a nota e a ajuda). O
 `test_runas_vista.py` foi ajustado em **um** teste — fixava o literal «na
 coleção» do tile.
+
+## 2026-10-02 — A RAIZ PUBLICADA DEIXA DE SE INDEXAR (`abrir.lista_indexavel`)
+
+Achado 1 do `docs/varrimento-2026-10-01.md`: `rift.baverone.com` respondia
+**200** com **«Gonçalves»** e **«Miguel Valente»** no HTML, e o valor da coleção
+de cada um, **sem `<meta name="robots">`**. Era a ÚNICA página do site assim —
+a de cada um deles já saía marcada desde 2026-09-29, a dele não sai de
+propósito (é a dele). A lista desfazia essa decisão sem ninguém a ter tomado.
+
+**Escolha dele, com as quatro hipóteses à frente:** *"a lista deixa de ser
+indexada, como já acontece com as páginas de cada um; quem tiver o link abre
+tudo igual"*. Não quis tirar os euros da lista nem fechar o site todo com um
+`robots.txt` na raiz. Ramo `ai-pc/raiz-noindex-2026-10-02`.
+
+**Pelo caminho que já existia, e por isso são duas linhas de código.** Quem
+decide é o `abrir.lista_indexavel()` — ao lado do `publico_indexavel()`, no
+mesmo ficheiro, para quem procurar «o que é que se indexa» achar as duas
+respostas no mesmo sítio — e quem aplica é o `abrir.marcar_html()`, o mesmo das
+páginas de cada um. O literal da etiqueta continua a viver num sítio só, e o
+`lista.py` **não** pode escrever um `<meta name="robots">` próprio (há teste).
+Vai no `html()` e não no `escrever()`: quem chamar a função leva a página como
+ela vai para o ar.
+
+**Medido a 2026-10-02 contra cópias do `data/` real
+(`_revisao\_medir_raiz_noindex.py`; cada `.db` por `Connection.backup()`, o
+`data/` a sério só se leu), o `main` e o ramo na mesma corrida com a MESMA
+cópia: 77 ficheiros de cada lado, os mesmos nomes, e UMA diferença de
+conteúdo** — o `index.html` da raiz, 5 300 → 5 416 bytes, as duas linhas da
+marca e mais nada.
+
+| página gerada | antes | depois |
+|---|---|---|
+| `index.html` (a lista, nomeia André · Gonçalves · Miguel Valente) | **não** | **SIM** |
+| `u/baverone/index.html` (a dele) | não | **não** — de propósito |
+| `u/goncalves/index.html` | SIM | SIM |
+| `u/miguel/index.html` | SIM | SIM |
+
+São as **quatro** páginas HTML do site; os outros 73 ficheiros são `.json`,
+`.js`, `.css`, `.nojekyll` e `robots.txt`, e **nenhum pode levar a etiqueta**.
+
+**O PONTO 4, procurado e não presumido** (`_revisao\_varrer_nomes_no_site.py`,
+os 78 ficheiros do `site/` commitado contra os nomes e os slugs do registo
+real): a única página que nomeia OUTRA pessoa é a raiz. O `title` de cada
+página é genérico («riftvault — coleção de Riftbound»), por isso a página de um
+amigo não o nomeia; os `u/*/app.js` e `u/*/style.css` levam «André» e
+«baverone» em comentários e URLs do código da app. **O `rafael`
+(`publico = "nada"`) não aparece em ficheiro nenhum** — nem o nome nem o slug,
+como o varrimento já tinha medido.
+
+**O QUE ISTO NÃO FECHA, e ele sabe.** O `noindex` é uma etiqueta de HTML:
+não vale para o **`api/lista.json`**, que leva os mesmos nomes e os mesmos
+números, nem para os payloads de cada pessoa. Num alojamento estático não há
+`X-Robots-Tag` para lhes pôr; fechá-los pedia o `robots.txt` **na raiz**, que
+é a hipótese que ele viu e não escolheu. Está em teste para ninguém ler esta
+ordem como «o site está fechado aos motores».
+
+**O `u/<slug>/robots.txt` ESTÁ INERTE, e NÃO se apagou.** Um `robots.txt`
+lê-se só em `/robots.txt` do anfitrião — o que o `build._gerar` escreve numa
+subpasta nunca é pedido por motor nenhum, e o `rift.baverone.com/robots.txt`
+responde **404**, que para um motor significa «podes rastrear tudo». Das «duas
+portas» que o comentário do `abrir.py` dizia fechar, só a etiqueta fecha
+alguma — e o comentário passou a dizê-lo. Fica porque não expõe nada (não leva
+nomes), custa dois ficheiros, e volta a ser o sítio certo no dia em que o site
+de um amigo tiver anfitrião próprio (`miguel.rift.baverone.com`, o que ele
+pediu primeiro — ver `docs/multi-utilizador.md`). **Decisão dele.**
+
+**Anotado, não mudado:** o `site/.nojekyll` da raiz é um resto de quando a raiz
+era o site dele — desde que a lista a tomou, o `_gerar` escreve-o em
+`u/baverone/` e ninguém o reescreve na raiz. Sobrevive por estar commitado (o
+`RESTOS_DA_RAIZ` não lhe toca de propósito), e faz falta: sem ele o Pages
+ignora pastas começadas por `_`. Uma geração num clone limpo não o criaria.
+
+`tests/test_lista.py` ganhou a `TestARaizNaoSeIndexa` (**12 testes**, que lêem
+o ficheiro que SAI do `build_todos` e nunca um pedaço de HTML à mão — o defeito
+era precisamente uma página que a função que marca nunca chegava a ver):
+**8 falham no código de hoje**, e os 4 que passam são os que fixam o que não
+podia mudar — a página dele sem marca (a correcção de 29/09 já se apanhou a
+despublicar o site dele), as dos amigos com marca, a raiz de uma coleção só, e
+o JSON que a etiqueta não alcança.
 
 ## 2026-10-01 — A PÁGINA DO DECK NÃO TEM `+`/`−`; e as outras sete famílias não se tocaram
 

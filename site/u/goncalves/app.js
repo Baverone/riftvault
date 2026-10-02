@@ -84,9 +84,6 @@ const state = {
   ordemFixa: false,            // a ordem vem do config (`decks.ordem`): sem botões
   // Só versões base nos decks (2026-09-21, `decks.so_base`, do `api/decks.json`).
   soBase: true,
-  // Os `+`/`−` das CÓPIAS PRÓPRIAS de cada deck (2026-09-21): a fila e os
-  // pedidos em voo por (deck, impressão), como as runas e as Encomendas.
-  propFila: new Map(), propVoo: new Map(),
   // O antigo `faltas.json` partiu-se a 2026-09-15 (à tarde) na wantlist da
   // Coleção (`api/wantlist.json`) e nas listas de compra dos decks
   // (`api/compras.json`). Cada um tem o pedido a caminho guardado (`*P`) para
@@ -3137,12 +3134,14 @@ function renderDeck() {
 
   // As cópias PRÓPRIAS deste deck que não o servem (2026-09-21): outra
   // versão com `so_base`, uma carta que a lista não pede, ou acima do que
-  // pede. Dizem-se com o motivo e um `−`, em vez de desaparecer.
+  // pede. Dizem-se com o motivo, em vez de desaparecer.
   const foraP = (p.proprias_fora || []).length ? `
     <h2 class="section-head">Cópias próprias que não servem este deck
       <span>${plural(p.locais.proprias_fora, 'cópia', 'cópias')}</span></h2>
     <p class="note">Estão guardadas para este deck mas a lista não as usa nesta versão:
-      tira-as com o <b>−</b>, ou deixa-as ficar. Não contam para a Coleção.</p>
+      deixa-as ficar, ou tira-as com
+      <code>riftvault proprias ${escapeHTML(p.slug)} --menos REF</code>.
+      Não contam para a Coleção.</p>
     <div class="grid deck-grid">${p.proprias_fora.map(propriaForaTile).join('')}</div>` : '';
 
   $('#deck-body').innerHTML = principalWantlist(p, pri) + montagemHTML(p)
@@ -3159,7 +3158,6 @@ function renderDeck() {
     cmLigar('pri', () => pri.wantlist.items,
             `riftvault-deck-${p.slug}-${hojeISO()}.csv`);
   }
-  ligarProprias();
 }
 
 /* O MODO DE REMONTAGEM (André, 2026-09-24): *"vou colocar tudo nos binders das
@@ -3359,10 +3357,11 @@ function deckLocais(p) {
       plural(p.aviso_cartas, 'carta', 'cartas')}. Pela regra de 2026-09-24, de
       <b>${escapeHTML(p.raridade_colecao || '')}</b> para baixo as cópias dos decks
       deviam ser <b>próprias do deck</b> e a Coleção ficar quieta${
-      state.editable ? ' — mete-as com o <b>+</b> de cada carta' : ''}. Não bloqueia
+      state.editable ? ` — mete-as com <code>riftvault proprias ${escapeHTML(p.slug)} --mais REF</code>` : ''}. Não bloqueia
       nada: é só um aviso.</small>` : ''}
     <small class="nota">As <b>cópias próprias</b> são as que tens guardadas
-      <b>para este deck</b>${state.editable ? ' — diz quantas com o <b>+</b>/<b>−</b> de cada carta' : ''}.
+      <b>para este deck</b>${state.editable ? ` — a página diz quantas tem cada carta;
+      para mudar o número é <code>riftvault proprias ${escapeHTML(p.slug)} --mais/--menos REF</code>` : ''}.
       Servem-no primeiro, só a ele, e <b>não contam para a Coleção</b> (nem para o
       valor); o que elas não taparem vem da Coleção, e o resto é a comprar.${
       p.so_base ? ' Só <b>versões base</b>, a Legend e o Champion incluídos (<code>decks.so_base</code>).' : ''}</small>
@@ -3522,11 +3521,15 @@ async function recarregarDepoisDeMover() {
 /* Tile de deck: a mesma linguagem visual da Coleção, mas o que interessa aqui
    é quantas o deck pede e quantas estão de facto alocadas.
 
-   Os `+`/`−` da encomenda e o «Chegou» viveram aqui de 2026-09-11 a
-   2026-09-17 («tiras esta funcionalidade dos decks»): passaram para o
-   separador «Encomendas». O que fica é a INFORMAÇÃO — «N a caminho», e a
-   moldura azul tracejada quando tudo o que faltava já vem a caminho. O
-   `missing` do deck já vem descontado do servidor; aqui só se mostra. */
+   NÃO HÁ `+`/`−` NENHUNS NESTE TILE, e já foram daqui duas famílias:
+   - os da ENCOMENDA e o «Chegou», de 2026-09-11 a 2026-09-17 («tiras esta
+     funcionalidade dos decks») — vivem nas «Encomendas» e nas «Faltas»;
+   - os das CÓPIAS PRÓPRIAS, de 2026-09-21 a 2026-10-01 (*"no deck nao precisa
+     + e - / ele ja indica se tem ou nao tem"*) — mexem-se na consola.
+   O que fica é a INFORMAÇÃO: o crachá `have/wanted`, «N próprias do deck»,
+   «N a caminho», e a moldura azul tracejada quando tudo o que faltava já vem
+   a caminho. O `missing` do deck já vem descontado do servidor; aqui só se
+   mostra. */
 function deckTile(c) {
   const src = state.imageMode === 'remote' ? (c.cdn || c.img) : (c.img || c.cdn);
   const alt = state.imageMode === 'remote' ? (c.img || '') : (c.cdn || '');
@@ -3566,9 +3569,10 @@ function deckTile(c) {
   } else if (irmaos) {
     nota = `<div class="onde tenho">partilhada com ${irmaos}</div>`;
   } else if (c.no_binder || (c.no_deck && c.na_colecao) || (c.proprias && c.proprias < c.have)) {
-    // De onde vem o que tem, quando não vem todo do mesmo sítio.
+    // De onde vem o que tem, quando não vem todo do mesmo sítio. As próprias
+    // não entram aqui: têm a linha delas (`propriasLinha`) e diziam-se duas
+    // vezes.
     const partes = [];
-    if (c.proprias) partes.push(`${c.proprias} próprias`);
     if (c.no_deck) partes.push(`${c.no_deck} já no deck`);
     if (c.no_binder) partes.push(`${c.no_binder} por ir buscar ao binder Decks/Venda`);
     if (c.na_colecao) partes.push(`${c.na_colecao} na Coleção`);
@@ -3608,103 +3612,44 @@ function deckTile(c) {
     </div>
     <div class="tname" title="${escapeAttr(c.name)}">${escapeHTML(c.name)}</div>
     ${codeLine(c)}
-    ${propriasBotoes(c)}
+    ${propriasLinha(c)}
     ${nota}
   </div>`;
 }
 
-/* OS `+`/`−` DAS CÓPIAS PRÓPRIAS (André, 2026-09-21: «colocas em cada deck o
-   + e - para eu dizer se afinal tenho ou nao; estas copias que eu coloco nos
-   decks nao sao para adicionar a coleccao»). Escrevem no `copies` E no local
-   `proprio:<slug>` de uma vez (`api/proprias/ajustar`) — a Coleção não mexe.
-   O `+` grava na base em que a carta se compra (`propria_compra`); o `−` tira
-   da última impressão própria que o deck tiver desta carta. Só no modo edição
-   (`body.readonly .steppers` esconde-os no site publicado). O número entre os
-   dois é quantas próprias esta linha tem — o que se está a editar. */
-function propriasBotoes(c) {
-  if (!state.editable || !state.deck || !c.propria_compra || !c.propria_compra.id) return '';
-  const tem = c.proprias_em || [];
-  const tira = tem.length ? tem[tem.length - 1] : null;
-  const total = tem.reduce((s, x) => s + x.qty, 0);
-  return `<div class="steppers proprias" title="cópias próprias deste deck — não contam para a Coleção">
-    <button class="step minus" data-prop-delta="-1" data-pid="${escapeAttr(tira ? tira.id : c.propria_compra.id)}"
-            ${total > 0 ? '' : 'disabled'} aria-label="menos uma cópia própria de ${escapeAttr(c.name)}"
-            title="tira uma das próprias do deck">−</button>
-    <span class="prop-n" title="próprias do deck nesta carta">${total}</span>
-    <button class="step plus" data-prop-delta="1" data-pid="${escapeAttr(c.propria_compra.id)}"
-            aria-label="mais uma cópia própria de ${escapeAttr(c.name)}"
-            title="mete uma nas próprias do deck (${escapeAttr((c.propria_compra.code || '').split('/')[0])})">+</button>
-  </div>`;
+/* QUANTAS CÓPIAS PRÓPRIAS deste deck tem esta carta.
+   Teve aqui os `+`/`−` de 2026-09-21 a 2026-10-01 (André, 21/09: «colocas em
+   cada deck o + e - para eu dizer se afinal tenho ou nao»). Ele revogou-os com
+   a mesma frase ao contrário — *"no deck nao precisa + e - / ele ja indica se
+   tem ou nao tem"* —, e por isso o que fica no lugar deles é o NÚMERO, que era
+   a informação que estava entre os dois. Mexer nele é na consola
+   (`riftvault proprias <slug> --mais/--menos REF`): nada se apagou, o local
+   `proprio:<slug>` e a rota continuam lá.
+   As próprias NÃO contam para a Coleção (nem para o valor), por isso este
+   número não é o crachá — o crachá é `have/wanted`, e as próprias são parte
+   do `have`. */
+function propriasLinha(c) {
+  if (!c.proprias) return '';
+  return `<div class="onde propria" title="cópias próprias deste deck — não contam para a Coleção">
+    <b>${c.proprias}</b> ${c.proprias === 1 ? 'própria' : 'próprias'} do deck</div>`;
 }
 
-/* Uma cópia própria que NÃO serve este deck: a arte, quantas, o motivo, e o
-   `−` para a tirar. */
+/* Uma cópia própria que NÃO serve este deck: a arte, quantas e o motivo.
+   Tinha um `−` para a tirar; saiu a 2026-10-01 com os outros botões da página
+   do deck. Tira-se na consola — a nota por cima da grelha di-lo. */
 function propriaForaTile(x) {
   return `<div class="dtile neutro" data-ck="${escapeAttr(x.card_key || '')}">
     ${artHTML(x, `<span class="need">${x.qty}×</span>`)}
     <div class="tname" title="${escapeAttr(x.name)}">${escapeHTML(x.name)}</div>
     ${codeLine({ code: x.code })}
-    ${state.editable ? `<div class="steppers proprias">
-      <button class="step minus" data-prop-delta="-1" data-pid="${escapeAttr(x.printing_id)}"
-              aria-label="menos uma cópia própria de ${escapeAttr(x.name)}" title="tira uma das próprias do deck">−</button>
-    </div>` : ''}
     <div class="onde shared">${escapeHTML(x.motivo)}</div>
   </div>`;
 }
 
-function ligarProprias() {
-  for (const b of document.querySelectorAll('#deck-body .steppers.proprias .step')) {
-    b.onclick = () => propriasAjustar(b.dataset.pid, Number(b.dataset.propDelta));
-  }
-}
-
-/* O clique no `+`/`−` de uma cópia própria: manda o delta para o deck aberto
-   e, quando o último pedido em voo responder, relê-se a página do deck (a
-   alocação inteira muda — o que ele cobre com próprias liberta Coleção) e os
-   separadores. A Coleção não muda de número, mas a grelha diz que decks usam
-   cada carta, e o A mais e as Encomendas lêem a alocação: ficam por reler. */
-async function propriasAjustar(pid, delta) {
-  if (!state.editable || !state.deck || !pid) return;
-  const slug = state.deck.slug;
-  const chave = `${slug}|${pid}`;
-  state.propVoo.set(chave, (state.propVoo.get(chave) || 0) + 1);
-  const fila = state.propFila.get(chave) || Promise.resolve();
-  const tarefa = fila.then(async () => {
-    const r = await fetch('api/proprias/ajustar', {
-      method: 'POST', headers: cabecalhos(),
-      body: JSON.stringify({ slug, printing_id: pid, delta,
-                             request_id: (crypto.randomUUID ? crypto.randomUUID()
-                               : `${Date.now()}-${Math.random().toString(16).slice(2)}`) }),
-    });
-    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `HTTP ${r.status}`);
-    return r.json();
-  });
-  state.propFila.set(chave, tarefa.catch(() => {}));
-  try {
-    await tarefa;
-  } catch (err) {
-    toast(`Não gravou: ${err.message}`, { error: true });
-  }
-  const resto = (state.propVoo.get(chave) || 1) - 1;
-  state.propVoo.set(chave, resto);
-  if (resto !== 0) return;
-  try {
-    state.decks = (await getJSON('api/decks.json')).decks;
-    if (state.deck && state.deck.slug === slug) {
-      state.deck = await getJSON(`api/deck/${state.deck.id}.json`);
-      renderDeckTabs();
-      renderDeck();
-    }
-  } catch (err) {
-    toast(err.message, { error: true });
-  }
-  // A Coleção não muda de NÚMERO, mas a grelha diz que decks usam cada carta
-  // e o A mais / as Encomendas lêem a alocação: ficam por reler.
-  state.compras = null;
-  state.aMais = null;
-  state.enc.payload = null;
-  state.colecaoVelha = true;
-}
+/* O `propriasAjustar` que mandava o delta para `api/proprias/ajustar` viveu
+   aqui de 2026-09-21 a 2026-10-01 e saiu com os botões que o chamavam. A ROTA
+   e o `riftvault proprias` ficam: as cópias próprias não se apagaram, só
+   deixaram de se editar pela página do deck. */
 
 /* «Separa as versões por Art» (André, 2026-09-17): uma linha do deck servida
    por mais do que uma impressão reparte-se, uma sub-linha por versão —
