@@ -30,8 +30,19 @@ def config_decks_sem_alt_art(caso=None) -> Path:
     dependerem do ficheiro real. Chamar ANTES do `Vault`, que é quem recarrega
     o `config`. Com `caso` (o TestCase) a variável é limpa no fim do teste,
     para o ficheiro seguinte da suite voltar a ler o config real.
+
+    O NOME LEVA O PID, e é por isto (2026-10-02, a suite em paralelo). O nome
+    era fixo (`riftvault-decks-sem-alt-art.json`) e ONZE ficheiros de teste
+    chamam isto — em série dava no mesmo, porque o conteúdo é sempre o mesmo e
+    só há um processo de cada vez; em paralelo são onze processos a truncar e a
+    reescrever o MESMO ficheiro do `%TEMP%`, e quem o fosse ler no instante
+    errado lia-o a meio (`JSONDecodeError`) ou vazio. Um vermelho falso desses
+    aparece uma vez em cada tantas corridas e não se reproduz, que é a pior
+    espécie. O PID dá um ficheiro por processo e não muda nada do que o teste
+    mede — o conteúdo é igual ao que sempre foi.
     """
-    caminho = Path(tempfile.gettempdir()) / "riftvault-decks-sem-alt-art.json"
+    caminho = (Path(tempfile.gettempdir())
+               / f"riftvault-decks-sem-alt-art-{os.getpid()}.json")
     # `so_base: false` (2026-09-21): a omissão passou a ser só versões base, a
     # Legend e o Champion incluídos; os testes que chamam isto descrevem a
     # regra de 2026-09-17 e desligam-na de propósito.

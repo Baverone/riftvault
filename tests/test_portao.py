@@ -9,11 +9,18 @@ Os testes correm contra RAÍZES DE MENTIRA, montadas em pastas temporárias com
 a forma de um repositório (um `riftvault/`, um `tests/`, um
 `riftvault_config.json`). Nenhum corre a suite a sério — seria uma suite
 dentro de uma suite.
+
+DESDE 2026-09-30 A SUITE CORRE EM PARALELO e cada vermelho repete-se SOZINHO
+antes de contar. Uma avaria nessa regra não dá erro — dá VERDE —, e por isso as
+três perguntas ficam aqui fixadas, cada uma com a PROVA PELA NEGATIVA a seguir:
+uma colisão conta verde e diz-se qual; um vermelho a sério continua a travar o
+portão; e as cinco maneiras de estar vermelho valem todas na mesma.
 """
 
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import sys
 import tempfile
@@ -283,6 +290,265 @@ class TestOPlacarNaoVaiParaOGit(unittest.TestCase):
     def test_esta_no_gitignore(self):
         ig = (REPO / ".gitignore").read_text(encoding="utf-8")
         self.assertIn(pl.PLACAR, ig)
+
+
+# ---------------------------------------------------------------------------
+# A suite em PARALELO, e a repetição SOZINHO (2026-09-30)
+# ---------------------------------------------------------------------------
+
+class _ambiente:
+    """As duas variáveis do modo, POSTAS e não herdadas, e repostas no fim.
+
+    As duas chaves são sempre limpas à entrada: um teste que queira o modo
+    paralelo não pode depender de quem o chamou não ter o `RIFTVAULT_SUITE_SERIE`
+    no ambiente.
+    """
+
+    CHAVES = (pl.ENV_SERIE, pl.ENV_TRABALHADORES)
+
+    def __init__(self, valores: dict[str, str] | None = None):
+        self.valores = valores or {}
+
+    def __enter__(self):
+        self.antes = {k: os.environ.get(k) for k in self.CHAVES}
+        for k in self.CHAVES:
+            os.environ.pop(k, None)
+        os.environ.update(self.valores)
+        return self
+
+    def __exit__(self, *_):
+        for k in self.CHAVES:
+            os.environ.pop(k, None)
+        for k, v in self.antes.items():
+            if v is not None:
+                os.environ[k] = v
+        return False
+
+
+def _respostas(plano: dict[str, list[bool]]):
+    """Substitui o «correr um ficheiro»: `plano[nome]` é a lista de respostas,
+    por ordem das corridas (o resto passa). Não se simula uma colisão a sério —
+    ela é, por definição, intermitente, e um teste que depende de temporização
+    é um teste que um dia dá vermelho falso. O que se mede é a REGRA.
+
+    A contagem de testes SOBE a cada corrida, de propósito: é assim que se
+    prova qual delas é que o placar guarda.
+    """
+    contagem: dict[str, int] = {}
+
+    def fingir(raiz, f):
+        i = contagem.get(f.name, 0)
+        contagem[f.name] = i + 1
+        seq = plano.get(f.name, [True])
+        return {"ficheiro": f.name, "testes": 10 + i, "segundos": 0.1,
+                "ok": seq[min(i, len(seq) - 1)],
+                "razao": "falhou", "cauda": "cauda de mentira"}
+
+    return fingir, contagem
+
+
+class TestAsuiteEmParalelo(unittest.TestCase):
+    """O placar diz TRÊS números: à primeira, só sozinhos, a sério."""
+
+    def setUp(self):
+        self.tmp = TemporaryDirectory()
+        self.raiz = raiz_de_mentira(Path(self.tmp.name))
+        (self.raiz / "tests" / "test_tres.py").write_text("", encoding="utf-8")
+        self.addCleanup(self.tmp.cleanup)
+        antigo = pl._correr_um
+        self.addCleanup(lambda: setattr(pl, "_correr_um", antigo))
+
+    def _correr(self, plano):
+        pl._correr_um, self.contagem = _respostas(plano)
+        # O MODO TEM DE SER POSTO AQUI, e não herdado. Quem corre a suite pode
+        # ter o `RIFTVAULT_SUITE_SERIE` no ambiente (é o que o cronómetro faz
+        # para medir o modo série), e aí estes testes mediam o modo errado — foi
+        # exactamente assim que este ficheiro deu vermelho na primeira medição.
+        with _ambiente({pl.ENV_TRABALHADORES: "4"}):
+            return pl.correr(self.raiz, log=lambda *a, **k: None)
+
+    def test_tudo_verde_a_primeira_nao_repete_nada(self):
+        """É daqui que vem a rapidez: só os vermelhos pagam a lentidão."""
+        p = self._correr({})
+        self.assertEqual(p["verdes_a_primeira"], 3)
+        self.assertEqual(p["colidiram"], [])
+        self.assertEqual(p["a_falhar"], 0)
+        self.assertEqual(set(self.contagem.values()), {1})
+
+    def test_quem_passa_a_segunda_era_colisao_e_conta_verde(self):
+        p = self._correr({"test_dois.py": [False, True]})
+        self.assertEqual(p["a_falhar"], 0, "uma colisão não é um vermelho")
+        self.assertEqual(p["verdes_a_primeira"], 2)
+        self.assertEqual([c["ficheiro"] for c in p["colidiram"]],
+                         ["test_dois.py"])
+        self.assertEqual(self.contagem["test_dois.py"], 2, "repetiu-se sozinho")
+        pl.gravar(self.raiz, p)
+        ok, razao = pl.verde(self.raiz)
+        self.assertTrue(ok, razao)
+        self.assertIn("test_dois.py", razao,
+                      "o verde tem de dizer QUAIS colidiram — um verde que o "
+                      "esconde é um verde em que se confia de menos")
+
+    def test_a_prova_pela_negativa_da_colisao(self):
+        """Sem a segunda volta isto era um vermelho, e o mesmo ficheiro a
+        falhar SEMPRE tem de continuar a dar vermelho."""
+        self.assertEqual(self._correr({"test_dois.py": [False, True]})["a_falhar"], 0)
+        self.assertEqual(self._correr({"test_dois.py": [False, False]})["a_falhar"], 1)
+
+    def test_quem_falha_as_duas_e_vermelho_a_serio(self):
+        p = self._correr({"test_tres.py": [False, False]})
+        self.assertEqual(p["a_falhar"], 1)
+        self.assertEqual([m["ficheiro"] for m in p["maus"]], ["test_tres.py"])
+        self.assertEqual(p["colidiram"], [])
+        pl.gravar(self.raiz, p)
+        ok, razao = pl.verde(self.raiz)
+        self.assertFalse(ok)
+        self.assertIn("test_tres.py", razao)
+
+    def test_uma_colisao_nao_tapa_um_vermelho(self):
+        p = self._correr({"test_um.py": [False, True],
+                          "test_tres.py": [False, False]})
+        self.assertEqual(p["verdes_a_primeira"], 1)
+        self.assertEqual(len(p["colidiram"]), 1)
+        self.assertEqual(p["a_falhar"], 1)
+        pl.gravar(self.raiz, p)
+        self.assertFalse(pl.verde(self.raiz)[0],
+                         "um vermelho manda, haja ou não colisões ao lado")
+
+    def test_a_contagem_que_vale_e_a_da_corrida_sozinho(self):
+        """Quem repetiu conta pela SEGUNDA: é a que mede o ficheiro sem ninguém
+        ao lado, e é a resposta em que se confia."""
+        p = self._correr({"test_dois.py": [False, True]})
+        self.assertEqual(p["testes"], 10 + 10 + 11)
+
+    def test_o_modo_vai_no_placar(self):
+        p = self._correr({})
+        self.assertEqual(p["modo"], "paralelo")
+        self.assertEqual(p["trabalhadores"], 4)
+
+
+class TestORegistoDasColisoes(unittest.TestCase):
+    """Uma linha por ficheiro que só passou sozinho. É MEMÓRIA e mais nada."""
+
+    def setUp(self):
+        self.tmp = TemporaryDirectory()
+        self.raiz = raiz_de_mentira(Path(self.tmp.name))
+        self.addCleanup(self.tmp.cleanup)
+        antigo = pl._correr_um
+        self.addCleanup(lambda: setattr(pl, "_correr_um", antigo))
+
+    def _correr(self, plano):
+        pl._correr_um, _ = _respostas(plano)
+        return pl.correr(self.raiz, log=lambda *a, **k: None)
+
+    def test_uma_linha_por_colisao_com_a_data(self):
+        p = self._correr({"test_dois.py": [False, True]})
+        reg = self.raiz / pl.COLISOES
+        self.assertTrue(reg.is_file())
+        linhas = reg.read_text(encoding="utf-8").strip().splitlines()
+        self.assertEqual(len(linhas), 1)
+        self.assertIn("test_dois.py", linhas[0])
+        self.assertIn(p["quando"], linhas[0], "com a data da corrida")
+
+    def test_sem_colisoes_nao_escreve_nada(self):
+        self._correr({})
+        self.assertFalse((self.raiz / pl.COLISOES).exists())
+
+    def test_acumula_e_nao_muda_o_veredicto(self):
+        """Um ficheiro já registado repete-se e conta verde pelo MESMO caminho:
+        não é promovido nem desculpado. É o contrário de uma lista à mão."""
+        self._correr({"test_dois.py": [False, True]})
+        p2 = self._correr({"test_dois.py": [False, True]})
+        texto = (self.raiz / pl.COLISOES).read_text(encoding="utf-8")
+        self.assertEqual(texto.strip().count("test_dois.py"), 2)
+        self.assertEqual(p2["a_falhar"], 0)
+        self.assertEqual(len(p2["colidiram"]), 1)
+
+    def test_um_registo_que_nao_se_escreve_nao_estraga_a_suite(self):
+        """O registo é conveniência; nunca é motivo para a suite falhar."""
+        (self.raiz / "data").write_text("sou um ficheiro, não uma pasta",
+                                        encoding="utf-8")
+        p = self._correr({"test_dois.py": [False, True]})
+        self.assertEqual(p["a_falhar"], 0)
+        self.assertEqual(len(p["colidiram"]), 1)
+
+    def test_esta_no_gitignore(self):
+        ig = (REPO / ".gitignore").read_text(encoding="utf-8")
+        self.assertIn(pl.COLISOES, ig,
+                      "é o resultado de uma corrida NESTA máquina, como o placar")
+
+
+class TestForcarOModoSerie(unittest.TestCase):
+    """Tem de haver forma de correr um de cada vez, para depurar."""
+
+    def _com(self, **env):
+        with _ambiente(env):
+            return pl.trabalhadores()
+
+    def test_a_variavel_poe_a_um(self):
+        self.assertEqual(self._com(**{pl.ENV_SERIE: "1"}), 1)
+
+    def test_zero_ou_vazio_nao_liga_o_modo_serie(self):
+        self.assertGreater(self._com(**{pl.ENV_SERIE: "0"}), 1)
+        self.assertGreater(self._com(**{pl.ENV_SERIE: ""}), 1)
+
+    def test_da_para_escolher_o_numero(self):
+        self.assertEqual(self._com(**{pl.ENV_TRABALHADORES: "3"}), 3)
+
+    def test_um_numero_mal_escrito_nao_rebenta_a_suite(self):
+        self.assertGreater(self._com(**{pl.ENV_TRABALHADORES: "muitos"}), 1)
+
+    def test_o_tecto_manda_sobre_os_nucleos(self):
+        """NÃO é o número de núcleos (a máquina dele tem 32): cada ficheiro é
+        um processo que copia bases e as abre, e a partir de certo ponto o que
+        limita é o disco — apertar mais só faz subir as colisões."""
+        self.assertLessEqual(self._com(), pl.TECTO_TRABALHADORES)
+        self.assertGreaterEqual(pl.TECTO_TRABALHADORES, 2)
+
+    def test_sao_variaveis_de_ambiente_e_nao_chaves_do_config(self):
+        """A razão é a do `RIFTVAULT_ENSAIO`: uma chave num ficheiro commitado
+        está a um merge de distância de ficar ligada sem ninguém decidir."""
+        cfg = (REPO / "riftvault_config.json").read_text(encoding="utf-8")
+        self.assertNotIn("suite_serie", cfg)
+        self.assertNotIn("trabalhadores", cfg)
+
+    def test_corre_mesmo_um_de_cada_vez(self):
+        with TemporaryDirectory() as tmp:
+            raiz = raiz_de_mentira(Path(tmp))
+            antigo = pl._correr_um
+            try:
+                pl._correr_um, _ = _respostas({})
+                with _ambiente({pl.ENV_SERIE: "1"}):
+                    p = pl.correr(raiz, log=lambda *a, **k: None)
+            finally:
+                pl._correr_um = antigo
+        self.assertEqual(p["trabalhadores"], 1)
+        self.assertEqual(p["modo"], "série")
+        self.assertEqual(p["a_falhar"], 0)
+
+
+class TestNaoHaListaDeFicheirosMaus(unittest.TestCase):
+    """Uma lista escrita à mão envelhece e dá VERMELHOS FALSOS — e um vermelho
+    falso é a pior coisa que uma suite faz, porque ensina a ignorá-la."""
+
+    def test_o_placar_nao_tem_nomes_de_ficheiros_escritos(self):
+        fonte = (REPO / "tools" / "placar.py").read_text(encoding="utf-8")
+        # os nomes que aparecem na docstring são exemplos DO PORQUÊ da regra de
+        # um processo por ficheiro; o que não pode haver é uma lista a decidir
+        for suspeito in ("MAUS = ", "COLIDEM = ", "SOZINHOS = ", "EXCEPCOES = "):
+            self.assertNotIn(suspeito, fonte)
+
+    def test_quem_decide_e_a_corrida(self):
+        """Prova: o mesmo ficheiro dá verde ou vermelho consoante a SEGUNDA
+        corrida, e nada mais — não há nome nenhum a pesar na decisão."""
+        with TemporaryDirectory() as tmp:
+            raiz = raiz_de_mentira(Path(tmp))
+            antigo = pl._correr_um
+            self.addCleanup(lambda: setattr(pl, "_correr_um", antigo))
+            for segunda, esperado in ((True, 0), (False, 1)):
+                pl._correr_um, _ = _respostas({"test_um.py": [False, segunda]})
+                p = pl.correr(raiz, log=lambda *a, **k: None)
+                self.assertEqual(p["a_falhar"], esperado)
 
 
 if __name__ == "__main__":
