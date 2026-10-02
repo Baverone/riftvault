@@ -315,6 +315,29 @@ class TestOContadorContinuaDele(Base):
         con.close()
 
 
+#: As chaves que mudam sozinhas com o tempo e nao sao contabilidade nenhuma.
+#: Tirar-se-iam uma a uma, mas a fotografia e' feita de payloads inteiros e um
+#: deles pode ganhar outra amanha — por isso a lista e explicita e o teste
+#: `test_a_fotografia_nao_tem_relogio` exige que nenhuma sobre.
+RELOGIOS = ("generated_at", "synced_at", "updated_at", "as_of", "quando", "ts")
+
+
+def sem_relogio(obj):
+    """O mesmo objecto sem as chaves que andam com o relogio (2026-10-02).
+
+    O merge de 02/10 parou com duas fotografias a diferir em UM SEGUNDO
+    (`...:24:28` contra `...:24:27`): o `index_payload` traz um `generated_at`,
+    e as duas tiram-se em momentos diferentes. Um teste que pergunta «mudou
+    alguma conta?» nao pode ter o relogio dentro da conta — ou passa conforme
+    calhe, que e pior do que falhar sempre.
+    """
+    if isinstance(obj, dict):
+        return {k: sem_relogio(v) for k, v in obj.items() if k not in RELOGIOS}
+    if isinstance(obj, (list, tuple)):
+        return type(obj)(sem_relogio(x) for x in obj)
+    return obj
+
+
 class TestNaoMexeEmNumeroNenhumDoResto(Base):
     """A regra do bloco desde 2026-09-19 fica de pé: isto não conta para
     nada. A fatia por edição é vista, não contabilidade."""
@@ -322,7 +345,7 @@ class TestNaoMexeEmNumeroNenhumDoResto(Base):
     def fotografia(self, con):
         from riftvault import a_mais, a_subir, faltas_edicao, metrics, prices
         cfg = self.rv.config.load()
-        return {
+        bruto = {
             "niveis": metrics.niveis_payload(con, cfg),
             "index": metrics.index_payload(con, cfg),
             "wantlist": a_subir.wantlist(con),
@@ -334,6 +357,7 @@ class TestNaoMexeEmNumeroNenhumDoResto(Base):
             "copies": sorted(tuple(r) for r in
                              con.execute("SELECT printing_id, qty, qty_foil FROM copies")),
         }
+        return sem_relogio(bruto)
 
     def test_o_bloco_por_edicao_nao_mexe_em_conta_nenhuma(self):
         con = self.catalogo()
@@ -353,6 +377,17 @@ class TestNaoMexeEmNumeroNenhumDoResto(Base):
         antes = self.fotografia(con)
         collection.adjust(con, "ogn-001-100", 2, source="test")
         self.assertNotEqual(self.fotografia(con), antes)
+        con.close()
+
+    def test_a_fotografia_nao_tem_relogio(self):
+        """Nenhuma chave de tempo sobra — senao o teste de cima volta a passar
+        ou falhar conforme o segundo em que calhe (02/10/2026)."""
+        import json as _json
+        con = self.catalogo()
+        texto = _json.dumps(self.fotografia(con), default=str)
+        for chave in RELOGIOS:
+            self.assertNotIn('"%s"' % chave, texto,
+                             "a fotografia voltou a levar o relogio dentro")
         con.close()
 
     def test_o_payload_da_edicao_nao_traz_o_bloco(self):

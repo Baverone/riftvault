@@ -10,7 +10,9 @@ artes normais **e** alternativas.
 
 **DESDE 2026-09-21 (TARDE) CADA DECK TEM AS SUAS CÓPIAS PRÓPRIAS** — ver a
 última secção deste ficheiro. Os decks servem-se da Coleção (11/09) **e**
-cada um tem um monte à parte (`proprio:<slug>`, com `+`/`−` em cada carta)
+cada um tem um monte à parte (`proprio:<slug>`; os `+`/`−` de cada carta saíram
+a **2026-10-01** — a página diz quantas são e quem as mexe é o `riftvault
+proprias <slug> --mais/--menos`)
 que serve primeiro e **nunca conta para a Coleção**; os decks não partilham
 entre si (a soma); **só versões base, a Legend e o Champion incluídos**
 (`decks.so_base: true`). A experiência do pool próprio (`decks.modo =
@@ -2614,8 +2616,8 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   (o que ficou no lugar dela).
 - **Feito também:** as CÓPIAS PRÓPRIAS de cada deck (2026-09-21, à tarde) —
   os decks voltam a usar a Coleção (11/09) e cada um tem um monte à parte no
-  local `proprio:<slug>` (`+`/`−` em cada carta da página do deck, `riftvault
-  proprias SLUG --mais/--menos`), que serve primeiro, é só daquele deck e
+  local `proprio:<slug>` (`+`/`−` em cada carta da página do deck **até
+  2026-10-01**, `riftvault proprias SLUG --mais/--menos`), que serve primeiro, é só daquele deck e
   NUNCA conta para a Coleção (nem para o valor); os decks não partilham entre
   si (a soma); só versões base, a Legend e o Champion incluídos
   (`decks.so_base`); `proprias.py`, `POST /api/proprias/ajustar`. Ver a
@@ -2839,6 +2841,15 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   raiz. Pelo mesmo caminho das outras páginas (`abrir.marcar_html`). Medido: 77
   ficheiros de cada lado, **uma** diferença (o `index.html`, +116 bytes); a dele
   continua sem marca. Ver a última secção deste ficheiro.
+
+- **Feito também:** a PÁGINA DO DECK NÃO TEM `+`/`−` (2026-10-01) — *"no deck
+  nao precisa + e - / ele ja indica se tem ou nao tem"*. Saíram os das CÓPIAS
+  PRÓPRIAS, que eram os únicos que lá estavam, e ficou o **número** («N
+  próprias do deck») no lugar deles; mexer nele é no `riftvault proprias`. As
+  outras **sete** famílias de `+`/`−` não se tocaram — medido no browser: a
+  página do deck passou de **27 steppers a 0** e a Coleção (512), as Faltas
+  (232), as Encomendas (162), a Venda (3) e o Selado (30) ficaram iguais. Ver a
+  última secção deste ficheiro.
 - **Por fazer:** a parte 2 do seguir — o separador no site e a tarefa diária;
   vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck,
   com as partilhadas assinaladas); e apagar decks pela interface (hoje apaga-se
@@ -10084,3 +10095,114 @@ era precisamente uma página que a função que marca nunca chegava a ver):
 podia mudar — a página dele sem marca (a correcção de 29/09 já se apanhou a
 despublicar o site dele), as dos amigos com marca, a raiz de uma coleção só, e
 o JSON que a etiqueta não alcança.
+
+## 2026-10-01 — A PÁGINA DO DECK NÃO TEM `+`/`−`; e as outras sete famílias não se tocaram
+
+Palavras dele: *"no deck nao precisa + e - / ele ja indica se tem ou nao tem"*.
+Ramo `ai-pc/deck-sem-steppers-2026-10-01`.
+
+### O inventário, porque o `app.js` desenha `steppers` em NOVE sítios
+
+A ordem avisou que o perigo aqui era tirar os errados. Foram-se listar todos
+antes de apagar nada — a vista de cada um, e o selector com que o `ligar*` lhe
+apanha os cliques:
+
+| # | classe | vista | selector | saiu? |
+|---|---|---|---|---|
+| 1 | `steppers runa` | **Coleção** — o contador DELE do bloco «Runas» | `#runas-vista` | fica |
+| 2 | `steppers` (`data-act`) | **Coleção** — as cópias normais do tile | `#grid` | fica |
+| 3 | `steppers foil` | **Coleção** — o contador de foil do tile | `#grid` | fica |
+| 4 | **`steppers proprias`** | **DECK** — `propriasBotoes` no `deckTile` | `#deck-body` | **SAIU** |
+| 5 | **`steppers proprias`** | **DECK** — `propriaForaTile` (só o `−`) | `#deck-body` | **SAIU** |
+| 6 | `steppers enc` | **Encomendas** — o tile da grelha | `#enc-grid` | fica |
+| 7 | `steppers fe-enc-bot` | **Faltas** — «já encomendei» | `#fe-body` | fica |
+| 8 | `steppers` (`data-vd`) | **Venda** — quantas vai vender | `#vd-body` | fica |
+| 9 | `steppers` (`data-sl`) | **Produto Selado** — as unidades | `.sl-lista` | fica |
+
+**Só os 4 e 5 viviam na página do deck**, e o `propriasBotoes` já tinha um
+`!state.deck` à entrada — por isso nunca apareciam nas sub-vistas (Staples, Por
+deck, Pimp) que também escrevem no `#deck-body`.
+
+### A pergunta da ordem: de quem é a acção
+
+- **As CÓPIAS PRÓPRIAS são acção do DECK — e é por isso que saem.** Ele pediu-as
+  a 2026-09-21 com *"cada deck precisa de ter as cartas proprias; **colocas em
+  cada deck o + e - para eu dizer se afinal tenho ou nao**"*. A frase de hoje é
+  a mesma frase ao contrário: o botão existia para ele DIZER se tinha, e ele diz
+  que a página já o indica. É uma revogação no mesmo vocabulário, não uma
+  interpretação nossa.
+- **O «JÁ ENCOMENDEI» não é acção do deck, e já não estava aqui.** CLAUDE.md,
+  2026-09-17: *"uma aba 'encomendas' […] **e tiras esta funcionalidade dos
+  decks**"* — os `+`/`−` da encomenda viveram no `deckTile` de 11/09 a 17/09 e
+  saíram nesse dia; o que ficou foi a informação «N a caminho». Hoje vivem nas
+  **Encomendas** (#6) e nas **Faltas** (#7, 27/09). **Ficam**, e não havia nada
+  a tirar da página do deck por causa deles.
+
+### ESCONDER NÃO É APAGAR, e o número fica
+
+O local `proprio:<slug>`, a tabela, o `proprias.py`, a rota
+`POST /api/proprias/ajustar` e o `riftvault proprias <slug> --mais/--menos`
+**ficam intactos** — o que mudou é que a página do deck já não os edita. O que
+saiu do `app.js` foi o que lá estava morto a seguir: o `propriasBotoes`, o
+`propriaForaTile`, o `ligarProprias`, o `propriasAjustar` (o único que chamava a
+rota) e o estado `propFila`/`propVoo`.
+
+**No lugar dos botões ficou o NÚMERO** (`propriasLinha`, «**2** próprias do
+deck», na cor das próprias), que era a informação que estava entre os dois — por
+isso o tile não fica com um buraco. Sem próprias não escreve nada. A linha «de
+onde vem o que tem» **deixou de as repetir**, senão diziam-se duas vezes. E as
+três notas que mandavam carregar no `+` passaram a dizer o comando.
+
+O resto da página não mexeu: o crachá `have/wanted` (o «já indica se tem ou não
+tem»), o chip «próprias do deck N», a coluna `próprias` da tabela de montagem,
+o aviso da regra de raridade, a secção «que não servem» e a coluna do CSV.
+
+### Medido NO BROWSER, o `main` e o ramo contra a MESMA cópia dos dados
+
+A sonda é uma só (`_revisao\_foto_steppers_sonda.py`), para a comparação valer;
+o `main` na 8778 e o ramo na 8779, contra `_revisao\dados-steppers` — uma cópia
+por `VACUUM INTO`, com duas cópias próprias e três linhas de venda metidas
+nela, porque uma aba vazia dava zero steppers e isso **lia-se como «os botões
+saíram»**, que é o erro a não cometer.
+
+| vista (375 px) | `main` | ramo |
+|---|---|---|
+| **página do deck** | **27 steppers · 52 botões** | **0 · 0** |
+| linha «próprias do deck» no deck | 0 | **2** |
+| Coleção | 512 · 1024 | **512 · 1024** |
+| Faltas | 232 · 464 | **232 · 464** |
+| Encomendas | — | 162 · 324 |
+| Venda | — | 3 · 6 |
+| Produto Selado | — | 30 · 60 |
+
+**A 375 px não há buraco nem scroll lateral na página do deck**:
+`scrollWidth == clientWidth == 375`, 31 tiles, **zero** elementos fora do ecrã
+e zero com scroll próprio, a 375 e a 1280.
+
+**Duas coisas que a medição mostrou NÃO serem desta ordem**, porque o `main` dá
+o mesmo à letra: a Coleção a 375 px tem `SCROLL:binder-wrap` e a grelha a sair
+do ecrã — são as **filas do binder**, de propósito desde 26/09 (*"num ecrã
+estreito o bloco corre para o lado"*) —, e as Faltas a 375 px têm quatro
+pequenos `span` a transbordar (`var`, `piso` ×3). Ficam anotadas; não se
+tocaram.
+
+**Uma armadilha da medição, para a próxima:** com `multi.aberto: true` (o config
+dele desde 01/10) um pedido sem sessão lê `editavel: false`, o `app.js` põe a
+página em `readonly` e **não desenha stepper nenhum, em vista nenhuma**. A
+primeira corrida deu 0 em todas as abas e parecia um estrago enorme; era a
+autenticação. Mede-se com a porta fechada **na cópia**.
+
+`tests/test_deck_sem_steppers.py` (**18 testes**), em quatro classes, e a
+segunda é a que importa: **um teste que só dissesse «já não há steppers» passava
+se alguém os tirasse todos**. `TestSairamOsDoDeck` (a classe, o CSS, o
+selector que já não aponta ao `#deck-body`, as funções mortas, o `fetch`, o
+tile sem o `−`); **`TestFicaramOsOutros`** (um teste por vista, com o nome da
+vista, mais o «já encomendei» que não é do deck); `TestAInformacaoFicou` (o
+número no lugar dos botões, sem duplicar, e o crachá e a tabela intactos); e
+`TestEsconderNaoEApagar` (a rota, o módulo, o local, a CLI e o campo do
+payload). **A prova pela negativa** está em
+`_revisao\_prova_negativa_steppers.py`, que corre a bateria contra o `app.js` do
+`main`: **8 dos 18 ficam VERMELHOS** (todos os que fixam o que saiu) e os 10 que
+fixam o que ficou continuam verdes — e o script rebenta se algum trocar de lado.
+O `test_copias_proprias.py::TestFrontend` foi ajustado: descrevia os botões de
+ontem.
