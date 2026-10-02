@@ -72,11 +72,19 @@ class TestOCriterio(Base):
             "!c.aberto", trecho,
             "a porta não pode voltar a decidir isto — era exactamente o beco")
 
-    def test_a_bandeira_e_o_index_editable_que_ja_existia(self):
-        """Não se inventou nenhuma: o `boot()` já usava esta para não pedir o
-        `api/conta.json` no estático (e não deixar um 404 na consola)."""
+    def test_a_bandeira_diz_se_isto_e_o_SERVIDOR(self):
+        """ERA O `index.editable` ATÉ 2026-10-02, e este teste dizia-o.
+
+        Não se inventou uma bandeira em 30/09: usou-se a que já existia para
+        não pedir o `api/conta.json` no estático (e não deixar um 404 na
+        consola). Só que essa respondia a DUAS perguntas de uma vez — «posso
+        escrever?» e «isto é o servidor?» —, e por isso o `editable` não podia
+        dizer a verdade: com a porta aberta um leitor anónimo não pode
+        escrever, e se o campo dissesse `false` esta caixa desaparecia. Era o
+        beco de hoje por outro caminho. Ver `tests/test_achados_346.py` (§4).
+        """
         js = APP_JS.read_text(encoding="utf-8")
-        self.assertIn("state.conta = state.index.editable", js)
+        self.assertIn("state.conta = state.index.servidor", js)
         self.assertIn("api/conta.json", js)
 
     def test_o_servidor_diz_editable_true_e_o_build_false(self):

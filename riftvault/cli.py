@@ -1682,16 +1682,11 @@ def cmd_conta(args) -> int:
               f"({', '.join(f'{t} {n}' for t, n in sorted(r['linhas'].items()) if n)})"
               f" e {len(r['ficheiros'])} ficheiros em {r['pasta']}")
         # A PASSWORD, AS SESSÕES E AS IDENTIDADES vivem no `auth.db`, que é
-        # outra casa — o `conta.apagar` não lhe toca de propósito (ver o topo
-        # do `conta.py`). Quem limpa é quem sabe dessa casa, no MESMO passo: a
-        # rota do site já o fazia, e a CLI não — ficava um hash órfão a
-        # envelhecer num ficheiro do PC dele. Apanhado a escrever a prova de
-        # ponta a ponta de 2026-09-30.
-        con = auth.abrir()
-        try:
-            limpo = auth.esquecer_identidades(con, int(r["utilizador"]["user_id"]))
-        finally:
-            con.close()
+        # outra casa. Até 2026-10-02 era AQUI que se limpavam, e no site noutro
+        # sítio: duas cópias da mesma disciplina, e um terceiro chamador ficava
+        # com um hash órfão. Hoje quem limpa é o `conta.apagar` — a camada de
+        # política —, e isto só DIZ o que ele limpou.
+        limpo = r.get("auth") or {}
         if any(limpo.values()):
             print("e do auth.db: "
                   + ", ".join(f"{n} {o}" for o, n in sorted(limpo.items()) if n))
@@ -2655,7 +2650,12 @@ def cmd_multi(args) -> int:
                   "para ver: fechar a porta nunca desliga isso.")
         return 0
 
-    print(porta.texto())
+    # O `medir` É AQUI QUE SE PASSA, e é o que faz este comando MEDIR em vez de
+    # presumir (2026-10-02, §3 do varrimento). O `abrir.verificar` não vai à
+    # rede por omissão de propósito — é chamado pelo `--abrir` e pelos testes —,
+    # e este é o comando que um humano corre: pergunta ao endereço público se o
+    # pedido lhe chega de fora, com prazo curto, e sem rede responde «não sei».
+    print(porta.texto(porta.verificar(medir=porta.perguntar_ao_tunel)))
     return 0
 
 

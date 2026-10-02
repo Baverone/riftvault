@@ -448,10 +448,24 @@ def limpar_nao_publicadas(out: Path, pub: list[dict]) -> list[str]:
 
 def escrever(out: Path, pub: list[dict] | None = None,
              cfg: dict | None = None) -> dict:
-    """Escreve a lista na raiz: o `index.html` e o `api/lista.json`."""
+    """Escreve a lista na raiz: o `index.html`, o `api/lista.json` e o `.nojekyll`.
+
+    O `.nojekyll` É DAQUI DESDE 2026-10-02, e até aqui não era de ninguém. Quem
+    o escrevia era o `build._gerar`, na pasta que gera — e desde que a lista
+    tomou a raiz essa pasta é `u/baverone/`. O da raiz **só sobrevivia por estar
+    COMMITADO** (de quando a raiz era o site dele): medido a 2026-10-02 numa
+    geração contra uma cópia do `data/` real, a raiz saiu com `api/`,
+    `index.html` e `u/` — e mais nada. Num clone limpo não nascia.
+
+    E sem ele o **GitHub Pages ignora pastas começadas por `_`**. Hoje não há
+    nenhuma na raiz, por isso o site não está partido; o que estava partido era
+    a garantia — ficheiro que o Git guarda e nenhum código reescreve é ficheiro
+    que desaparece no dia em que alguém apagar o `site/` e voltar a gerar.
+    """
     out = Path(out)
     dados = payload(out, pub=pub, cfg=cfg)
     out.mkdir(parents=True, exist_ok=True)
+    (out / ".nojekyll").write_text("", encoding="utf-8")
     (out / "index.html").write_text(html(dados), encoding="utf-8")
     (out / "api").mkdir(parents=True, exist_ok=True)
     (out / "api" / "lista.json").write_text(

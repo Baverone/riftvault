@@ -75,6 +75,23 @@ def _close(_exc):
 rotas_conta.ligar(app)
 
 
+def _editavel() -> bool:
+    """O `editable` dos payloads: pode QUEM PEDIU ISTO escrever?
+
+    NASCEU A 2026-10-02, e até aqui eram **quinze `True` fixos** neste ficheiro.
+    O varrimento de 2026-10-01 (§4) mediu a contradição: o mesmo pedido anónimo,
+    no mesmo minuto, levava `editavel: false` do `/api/conta.json` e
+    `editable: true` de outras oito rotas. Não se via — o `app.js` cruzava os
+    dois campos e ficava pelo mais restritivo —, e o estrago era no próximo
+    leitor que confiasse no campo: a CLI, um teste, uma vista nova.
+
+    A regra não está aqui: está no `rotas_conta.editavel()`, onde já estava e
+    onde vive o `g` que o `_antes` preenche. Isto é só o caminho até ela, para
+    não haver uma segunda definição a divergir.
+    """
+    return rotas_conta.editavel()
+
+
 # --------------------------------------------------------------------------
 # Frontend (os mesmos ficheiros que o build estático copia)
 # --------------------------------------------------------------------------
@@ -130,7 +147,11 @@ def image(name: str):
 
 @app.get("/api/index.json")
 def api_index():
-    return jsonify(metrics.index_payload(get_con(), editable=True, image_mode="local"))
+    # O `servidor=True` é o que diz ao `app.js` que vale a pena pedir o
+    # `api/conta.json` — era o `editable` que o dizia à socapa, e por isso ele
+    # não podia dizer a verdade. Ver `metrics.index_payload`.
+    return jsonify(metrics.index_payload(get_con(), editable=_editavel(),
+                                         image_mode="local", servidor=True))
 
 
 @app.get("/api/set/<set_id>.json")
@@ -141,7 +162,7 @@ def api_set(set_id: str):
     # depois de alguém abrir a secção Decks.
     _reimport_if_changed(con)
     return jsonify(metrics.set_payload(con, set_id.upper(),
-                                       editable=True, image_mode="local"))
+                                       editable=_editavel(), image_mode="local"))
 
 
 @app.get("/api/runas.json")
@@ -150,7 +171,7 @@ def api_runas():
     o contador dele por runa, com a referência do que a coleção sabe ao lado
     — não conta para nada. Um URL só: as runas são as mesmas seis, e a
     referência de cada edição vem em `por_edicao` (2026-10-01)."""
-    return jsonify(runas_vista.payload(get_con(), image_mode="local", editable=True))
+    return jsonify(runas_vista.payload(get_con(), image_mode="local", editable=_editavel()))
 
 
 @app.post("/api/runas/ajustar")
@@ -214,7 +235,7 @@ def api_foil_ajustar():
 
 @app.get("/api/selado.json")
 def api_selado():
-    return jsonify(selado.payload(get_con(), editable=True))
+    return jsonify(selado.payload(get_con(), editable=_editavel()))
 
 
 @app.post("/api/selado/ajustar")
@@ -242,7 +263,7 @@ def api_selado_ajustar():
         return jsonify({"error": str(exc)}), 404
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
-    return jsonify(selado.payload(con, editable=True))
+    return jsonify(selado.payload(con, editable=_editavel()))
 
 
 @app.post("/api/selado/preco")
@@ -267,7 +288,7 @@ def api_selado_preco():
         return jsonify({"error": str(exc)}), 404
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
-    return jsonify(selado.payload(con, editable=True))
+    return jsonify(selado.payload(con, editable=_editavel()))
 
 
 # --------------------------------------------------------------------------
@@ -278,7 +299,7 @@ def api_selado_preco():
 
 @app.get("/api/venda.json")
 def api_venda():
-    return jsonify(venda.payload(get_con(), editable=True))
+    return jsonify(venda.payload(get_con(), editable=_editavel()))
 
 
 @app.get("/api/venda/procurar")
@@ -315,7 +336,7 @@ def api_venda_linha():
         return jsonify({"error": str(exc)}), 404
     except venda.SemLinha as exc:
         return jsonify({"error": str(exc)}), 400
-    return jsonify(venda.payload(con, editable=True))
+    return jsonify(venda.payload(con, editable=_editavel()))
 
 
 @app.post("/api/venda/trend")
@@ -344,7 +365,7 @@ def api_venda_trend():
         return jsonify({"error": str(exc)}), 404
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
-    return jsonify(venda.payload(con, editable=True))
+    return jsonify(venda.payload(con, editable=_editavel()))
 
 
 @app.post("/api/venda/limpar")
@@ -357,7 +378,7 @@ def api_venda_limpar():
     data = request.get_json(silent=True) or {}
     con = get_con()
     n = venda.limpar(con, origem=data.get("origem") or None)
-    return jsonify({"limpas": n, **venda.payload(con, editable=True)})
+    return jsonify({"limpas": n, **venda.payload(con, editable=_editavel())})
 
 
 @app.post("/api/venda/vender")
@@ -379,7 +400,7 @@ def api_venda_vender():
         return jsonify({"error": str(exc)}), 400
     # O resultado da venda vai numa chave própria: o `payload` traz o `totals`
     # da venda em curso, que a partir de agora está vazia.
-    return jsonify({"vendida": res, **venda.payload(con, editable=True)})
+    return jsonify({"vendida": res, **venda.payload(con, editable=_editavel())})
 
 
 @app.get("/api/history.json")
@@ -398,7 +419,7 @@ def api_decks():
     # servidor relançado) tem de valer sem nenhum .txt ter mexido. Só escreve
     # quando difere.
     decks.aplicar_ordem(con, log=lambda *_: None)
-    return jsonify({"editable": True, "decks": decks.decks_index(con),
+    return jsonify({"editable": _editavel(), "decks": decks.decks_index(con),
                     "rules": decks.rules(), "ordem_fixa": decks.ordem_fixa(),
                     # Só versões base (2026-09-21): o cliente diz-o ao lado
                     # dos `+`/`−` das cópias próprias.
@@ -642,7 +663,7 @@ def api_encomendas():
     ainda falta encomendar (André, 2026-09-11)."""
     con = get_con()
     _reimport_if_changed(con)
-    return jsonify({"editable": True, **pending.encomendas(con)})
+    return jsonify({"editable": _editavel(), **pending.encomendas(con)})
 
 
 @app.get("/api/encomendas/<set_id>.json")
@@ -651,7 +672,7 @@ def api_encomendas_edicao(set_id: str):
     Coleção, de Rara para cima, com o que vem a caminho por impressão."""
     con = get_con()
     _reimport_if_changed(con)
-    return jsonify(pending.grelha(con, set_id.upper(), editable=True, image_mode="local"))
+    return jsonify(pending.grelha(con, set_id.upper(), editable=_editavel(), image_mode="local"))
 
 
 @app.post("/api/pending/arrive")
@@ -751,7 +772,7 @@ def api_encomenda():
 def api_local():
     con = get_con()
     _reimport_if_changed(con)
-    return jsonify({"editable": True, "locais": locais.resumo(con)})
+    return jsonify({"editable": _editavel(), "locais": locais.resumo(con)})
 
 
 @app.get("/api/local/propor/<slug>.json")

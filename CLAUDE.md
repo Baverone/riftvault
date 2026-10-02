@@ -10731,6 +10731,195 @@ muda e comparava-se a si mesma. O `cfg` vai agora por nome. O
 lá não dá falso negativo porque aquele teste não mexe no config, mas é a mesma
 armadilha à espera).
 
+## 2026-10-02 — OS ACHADOS 3, 4 e 6 DA VARREDURA: a checklist passa a MEDIR, o payload deixa de se contradizer, e apagar a conta apaga a password
+
+Três defeitos do `docs/varrimento-2026-10-01.md`, mais o `.nojekyll` da raiz que
+ele encontrou no mesmo dia. Ramo `ai-pc/achados-346-2026-10-02`.
+
+### 3. A VERIFICAÇÃO PRESUMIA DOIS PASSOS QUE ESTAVAM FEITOS
+
+O `riftvault multi --verificar` marcava `[TEU]` — «só tu podes» — a «a conta na
+Cloudflare» e aos «nameservers do baverone.com + o túnel». **Estavam feitos
+desde 29/09 e eram verificáveis**, e isso mediu-se duas vezes: o serviço
+`Cloudflared` em `STATE: 4 RUNNING` e o
+`https://editar.baverone.com/api/conta.json` a responder **200 em ~330 ms, com
+`origem: "fora"` e NOVE sinais de intermediário**.
+
+**O estrago era de checklist, e era o pior sítio para o ter:** o passo 2 é o
+único da lista com risco declarado — *«o rift.baverone.com não pode cair»* — e a
+verificação mandava-o lá outra vez. Uma checklist que presume ensina a ignorar a
+checklist, e a seguir ignora-se o passo que importava.
+
+**Passou a ser UM passo que PERGUNTA** (`abrir._tunel` +
+`abrir.perguntar_ao_tunel`): um `GET` ao `auth.base_url/api/conta.json`, e
+lê-se o `origem`/`sinais` **que a própria app escreveu**. Se um pedido que saiu
+pela internet volta a dizer «vi-te chegar de fora», então a conta na Cloudflare
+existe, os nameservers estão trocados, o `cloudflared` corre e entrega neste
+Flask — **os quatro de uma vez**.
+
+**Daqui não se vêem os cabeçalhos da Cloudflare** (são postos no caminho de
+ida), por isso não se tentou adivinhá-los: pergunta-se a quem tem a resposta.
+E é o `/api/conta.json` de propósito — é a única rota que diz `origem`/`sinais`
+e das poucas que passa **sem sessão vindo de fora**
+(`rotas_conta.DE_FORA_SEM_SESSAO`); qualquer outra dá 401, e aí não se
+distinguia «o túnel está em baixo» de «o túnel está vivo e pediu password».
+
+**É UM E NÃO DOIS** porque a medição prova a cadeia inteira e, quando falha,
+**não sabe dizer qual elo quebrou**. Partir a resposta em dois era voltar a
+presumir metade. Os dois passos dele continuam escritos no «como» — o que
+deixou de se presumir é se estão feitos.
+
+**SEM REDE A RESPOSTA É «NÃO SEI», NUNCA «FALTA»** — é a diferença entre não
+medir e medir mal, e era medir mal que lá estava. A marca ` TEU  ` do `None`
+passou a **`NÃO SEI`**, e a linha «falta só o que é teu (as linhas marcadas
+TEU)» foi-se: já não há nenhuma.
+
+**A medição é INJECTÁVEL e por omissão NÃO HÁ REDE** (`verificar(cfg,
+medir=None)`). É uma escolha: o `verificar` é chamado pelo `--abrir` e pela
+bateria inteira, e uma biblioteca que vá à rede nas costas de quem a chama fica
+a ver se um `urlopen` estoura o prazo. Quem pede a medição é o comando que um
+humano corre — o `cmd_multi` passa o `perguntar_ao_tunel`.
+
+**E o passo NÃO trava o `--abrir`**, nem com vermelho nem com «não sei»: o
+`--abrir` recusa pelos passos que deixam **ele** de fora da própria coleção, e
+abrir com o túnel em baixo não perde nada (os amigos não chegam lá). Fazê-lo
+essencial tinha ainda um efeito pior: um `ok=None` por falta de rede passava a
+travar o `--abrir` num avião.
+
+**As cinco respostas, cada uma a dizer o que sabe:** `OK` (200 + «fora», com N
+sinais); **`NÃO SEI`** (sem endereço escrito · ninguém pediu a medição · a rede
+não deu); **`FALTA`** (um código que não é 200 — o DNS resolve e o túnel está em
+baixo · respondeu mas não era o riftvault · a app diz que o pedido lhe chegou
+**de casa**, e aí o endereço público não passa por túnel nenhum, que é
+configuração errada e não falta de passo).
+
+**O teste que fixava o defeito era o `test_senhas.test_sao_DOIS_passos_dele_e_
+nao_tres`** — exigia `len(dele) == 2` e que o `dele[0]` apontasse ao PASSO 1 e o
+`dele[1]` ao PASSO 2. Foi reescrito; era o teste que estava velho, como o
+`test_binders.py:399` estava para o achado 2.
+
+### 4. O PAYLOAD CONTRADIZIA-SE A SI PRÓPRIO
+
+**Medido no servidor a sério**, mesmo pedido anónimo de casa, com
+`multi.aberto: true` (o estado commitado dele): o `/api/conta.json` dizia
+`editavel: false` e **oito payloads diziam `editable: true`** — eram 15
+`editable=True` **fixos** no `server.py` contra a regra que vivia no
+`rotas_conta.api_conta`.
+
+Hoje não se via, porque o `app.js` cruzava os dois campos e ficava pelo mais
+restritivo. O estrago era no próximo leitor que confiasse no campo — a CLI, um
+teste, uma vista nova —, e o sintoma seriam `+`/`−` desenhados a dar 401 a cada
+clique, que é precisamente o que a nota do `api_conta` diz querer evitar.
+
+**Uma resposta só: `rotas_conta.editavel()`**, onde a regra já estava e onde
+vive o `g` que o `_antes` preenche. O `server.py` tem um `_editavel()` que é só
+o caminho até ela, e o `api_conta` chama a MESMA função — por isso a regra está
+escrita uma vez. As duas metades: **com sessão de uma conta** pode escrever quem
+não está na página de outra pessoa (`somente_leitura`) e não está com a
+password temporária; **sem sessão**, só de casa E com a porta fechada.
+
+**O CAMPO TINHA DE SE PARTIR EM DOIS, e a ordem não previu isto.** O `editable`
+respondia a DUAS perguntas de uma vez, e a segunda era o `boot()` a usá-lo para
+decidir se vale a pena pedir o `api/conta.json` (no estático não há rota, e
+pedir deixava um 404 na consola). Torná-lo honesto, com um campo só,
+**escondia a caixa de «Entrar»** a um leitor anónimo com a porta aberta — que é
+precisamente quem tem de a ver. Era o beco de 2026-09-30 por outro caminho.
+Nasceu por isso o **`servidor`** (`metrics.index_payload(servidor=...)`): o
+servidor manda `true`, o `build` manda `false`, e a omissão é `false` — um
+ficheiro gerado por uma versão antiga não pode passar por servidor.
+
+**Medido a 2026-10-02 contra cópias do `data/` real** (o `main` num worktree e o
+ramo, a mesma cópia do mesmo instante):
+
+| | `main` | ramo |
+|---|---|---|
+| payloads que contradizem o `conta.json` (porta aberta, anónimo de casa) | **8 de 8** | **0** |
+| porta FECHADA, de casa | tudo `true` | **tudo `true`** (o uso dele não mexe) |
+| o `boot()` pede o `conta.json`? | sim (pelo `editable`) | **sim** (pelo `servidor`) |
+| site publicado | 77 ficheiros | **78** (o `.nojekyll`, ver a seguir) |
+| JSON do site a diferir | — | **3**, e só pela chave nova `servidor: false` (+17 bytes cada) |
+
+**O site publicado mantém todos os 48 `editable: false`** — comparado ficheiro a
+ficheiro, não por asserção.
+
+### 6. APAGAR A CONTA DEIXAVA O HASH DA PASSWORD ATRÁS
+
+O `conta.apagar` não tocava no `data/auth.db` **de propósito** — está na
+docstring desde 29/09: «a `user_auth` é desta casa e a limpeza também». O
+problema é que a limpeza era feita **por cada chamador**, e a `cli.py` e a
+`rotas_conta.py` tinham cada uma a sua cópia da mesma disciplina. **Hoje não
+havia hash órfão por um caminho real** (os dois lembravam-se) e `users.user_id`
+é `AUTOINCREMENT`, por isso ninguém herdava a password de ninguém. O defeito era
+de desenho: uma primitiva que deixa dados pessoais atrás e confia na MEMÓRIA de
+quem a chama, com o terceiro chamador a pagar.
+
+**Fechou-se no sítio certo, e fez-se as duas coisas** que o §6 propõe:
+
+* o `conta.apagar` chama o `auth.esquecer_identidades` — é ele a camada de
+  POLÍTICA (a confirmação, o export antes, a contagem), e «apagar a conta apaga
+  tudo o que é da pessoa» é uma invariante de política. **A casa continua a ser
+  a de lá**: quem mexe na `user_auth` é a função do `auth.py`; o que mudou é
+  quem a manda;
+* e **devolve o que limpou** em `res["auth"]`, para a CLI e a rota dizerem o
+  número em vez de voltarem a perguntar — as duas chamadas de fora saíram;
+* **mais o teste que o §6 preferia**: por **cada** caminho de apagar
+  (biblioteca, CLI, rota) varrem-se as três tabelas do `auth.db` à procura do
+  `user_id`, com a prova pela negativa ao lado (um varrimento que nunca ache
+  nada vale zero).
+
+**É DEPOIS do `utilizador.apagar`, de propósito:** se o apagar falhasse, ter
+limpado a password primeiro deixava uma conta **VIVA sem forma de entrar**. Ao
+contrário fica, no pior caso, um hash órfão de um id que nunca se reutiliza — é
+o lado seguro do erro.
+
+### E O `.nojekyll` DA RAIZ, que ele encontrou no mesmo dia
+
+**Confirmado, e era como ele disse.** Quem o escreve é o `build._gerar`, na
+pasta que gera — e desde que a lista tomou a raiz (2026-09-30) essa pasta é
+`u/baverone/`. **O da raiz só sobrevivia por estar COMMITADO**, de quando a raiz
+era o site dele. Medido a 2026-10-02 numa geração contra uma cópia do `data/`
+real: a raiz saiu com `api/`, `index.html` e `u/` — **e mais nada**.
+
+Sem ele o **GitHub Pages ignora pastas começadas por `_`**. Hoje não há nenhuma
+na raiz, por isso o site não está partido; o que estava partido era a garantia —
+um ficheiro que o Git guarda e nenhum código reescreve é um ficheiro que
+desaparece no dia em que alguém apagar o `site/` e voltar a gerar.
+
+**Passou a ser do `lista.escrever`**, que é quem escreve a raiz quando a lista a
+toma. O `RESTOS_DA_RAIZ` continua a não lhe tocar, e bem: é uma lista ESCRITA
+porque na raiz há coisas que não são nossas para apagar (o `CNAME` do domínio, o
+`img/` de 88 MB de uma corrida em `static_images: local`).
+
+### O que se mediu e se decidiu NÃO mudar
+
+* **o `robots.txt` na raiz** (a outra metade do achado 1) — ele escolheu a 02/10
+  não o pôr (*"a lista deixa de ser indexada… quem tiver o link abre tudo
+  igual"*). Não se mexeu;
+* **o que o `--abrir` recusa** — a correcção do achado 3 não mudou o conjunto de
+  passos que travam a abertura, e isso é deliberado: mudar o que o `--abrir`
+  recusa como efeito secundário de um arranjo de checklist era outra ordem;
+* **a `encomendas.raridade_minima`**, o `decks.so_base` e os restantes achados
+  (1 parcial, 5, 7, 8.1, 8.2, 8.5, 9) — ficam como estavam; são decisões dele ou
+  ordens à parte.
+
+`tests/test_achados_346.py` (**41 testes**, contra pastas temporárias e um config
+temporário; **nenhum vai à rede** — a medição do túnel injecta-se, que é metade
+da razão de ela ser injectável): as cinco respostas do passo medido, o «não sei»
+que não é «falta», o passo que não trava o `--abrir`, o prober que nunca levanta
+e o User-Agent ASCII; o `editable` de **todos** os payloads de leitura comparado
+com o `editavel` do `conta.json` nos quatro regimes (porta aberta/fechada, de
+casa/de fora, entrado, com a temporária), o `servidor` nas duas pontas e a caixa
+de «Entrar» a continuar a aparecer; o `auth.db` varrido pelos três caminhos de
+apagar; e o `.nojekyll` na raiz e em cada `u/`. **A PROVA PELA NEGATIVA**
+(`_revisao\_prova_negativa_346.py`, que corre a bateria contra uma árvore com o
+`riftvault/` do `main`): **30 dos 41 ficam vermelhos**, e os 11 que passam são
+os que fixam o que NÃO podia mudar — o utilizador 1 que não se apaga, a rota e a
+CLI que já limpavam o `auth.db`, o `.nojekyll` de cada `u/`, e o `editable` de
+quem está entrado.
+
+`test_conta_fechada.test_a_bandeira_e_o_index_editable_que_ja_existia` foi
+reescrito — descrevia o campo com os dois significados, que era o defeito.
+
 ## 2026-10-02 — O RASTO E OS BACKUPS SÃO DE QUEM OS FEZ (`config.log_path`, `config.backups_dir`)
 
 Achado 2 do `docs/varrimento-2026-10-01.md`: os três CSV de rasto e os backups

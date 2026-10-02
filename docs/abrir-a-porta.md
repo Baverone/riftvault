@@ -342,6 +342,23 @@ riftvault multi --verificar
 Ele diz, em português, o que está pronto e o que falta. **Enquanto faltar
 alguma coisa, recusa-se a abrir** — não é um aviso, é um travão.
 
+**Os PASSOS 1 e 2 desta página já não aparecem como «contigo»: o comando MEDE-OS**
+(2026-10-02). Pergunta ao teu endereço público se o pedido lhe chega de fora, e
+se chegar escreve uma linha a dizer que estão feitos e que **não tens de os
+repetir**. Mandar-te mexer nos nameservers outra vez, no passo em que o
+`rift.baverone.com` pode cair, era o pior conselho que esta lista te podia dar.
+
+Três respostas, e a do meio não é má notícia:
+
+* **`[  OK   ]`** — mediu, e o caminho de fora chega à app;
+* **`[NÃO SEI]`** — não conseguiu perguntar (sem rede, por exemplo). **Não quer
+  dizer que falta**: se já fizeste os passos, estão feitos;
+* **`[FALTA  ]`** — perguntou e a resposta estava errada. Aí a linha diz o que
+  olhar primeiro (começa por `sc query Cloudflared`: tem de dizer `RUNNING`).
+
+Nenhuma destas três trava o `--abrir`. O que o trava é a tua password — se o
+túnel estiver em baixo os teus amigos não chegam lá, mas não se perde nada.
+
 Quando estiver tudo verde:
 
 ```
