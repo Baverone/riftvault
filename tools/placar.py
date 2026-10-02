@@ -97,7 +97,23 @@ def ficheiros_de_teste(raiz: Path) -> list[Path]:
 # de certo ponto o que limita é o disco, e apertar mais só faz subir as
 # colisões — que é justamente o que se paga a repetir. Muda-se pelo ambiente
 # (`RIFTVAULT_SUITE_TRABALHADORES`).
-TECTO_TRABALHADORES = 8
+# MEDIDO a 02/10 com a máquina livre, na amostra dos 8 ficheiros que mandam no
+# tempo de parede:
+#
+#     trabalhadores   parede   sobreposição real
+#           1          462s         1.0
+#           2          314s         1.8
+#           3          308s         2.6
+#           4          241s         3.1
+#           6          189s         5.5   <-- este, 2,4x mais rápido
+#
+# Não se vai além dos 6 de propósito. A primeira medição do dia deu 1,2x com 8,
+# e a razão era essa: havia duas outras ordens pesadas a correr, e cada ficheiro
+# ficava 6,5x mais lento acompanhado — não é processador (são 32 núcleos), é
+# disco e SQLite. Com a máquina livre o paralelo paga-se; com ela ocupada,
+# aumentar o número só a esgana mais. E o 8770 que ele usa do telemóvel corre
+# aqui: uma suite que coma a máquina faz-lhe o site parecer morto.
+TECTO_TRABALHADORES = 6
 
 # Para depurar: corre um de cada vez, como até 2026-09-30.
 ENV_SERIE = "RIFTVAULT_SUITE_SERIE"
