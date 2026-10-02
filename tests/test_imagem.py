@@ -277,6 +277,66 @@ class TestRecusasLegiveis(Base):
         self.assertIn("grelha", str(e.exception).lower())
 
 
+class TestOEcra(unittest.TestCase):
+    """A caixa da secção Decks: a imagem enche a MESMA caixa de texto."""
+
+    @property
+    def js(self):
+        return (Path(__file__).resolve().parent.parent
+                / "riftvault" / "web" / "app.js").read_text(encoding="utf-8")
+
+    def test_ha_um_seletor_de_imagem(self):
+        self.assertIn('id="colar-img"', self.js)
+        self.assertIn('accept="image/*"', self.js)
+
+    def test_manda_para_a_rota_da_imagem(self):
+        self.assertIn("api/decks/imagem", self.js)
+
+    def test_passa_pelo_cabecalhos_como_todos_os_POST(self):
+        trecho = self.js.split("async function colarImagem")[1][:900]
+        self.assertIn("cabecalhos()", trecho)
+
+    def test_o_texto_vai_para_a_MESMA_caixa_e_fica_editavel(self):
+        """Não há segunda caixa: o que a imagem lê é emendável antes de gravar."""
+        trecho = self.js.split("async function colarImagem")[1][:900]
+        self.assertIn("colarEstado.texto = j.texto", trecho)
+        self.assertEqual(self.js.count('id="colar-txt"'), 1)
+
+    def test_diz_o_que_NAO_leu(self):
+        self.assertIn("function colarImagemHTML", self.js)
+        trecho = self.js.split("function colarImagemHTML")[1][:1200]
+        self.assertIn("duvidas", trecho)
+        self.assertIn("por ler", trecho)
+        self.assertIn("champion_por_posicao", trecho)
+
+    def test_o_limpar_tambem_limpa_a_imagem(self):
+        trecho = self.js.split("$('#colar-limpar').onclick")[1][:300]
+        self.assertIn("img: null", trecho)
+
+    def test_o_css_tem_as_classes(self):
+        css = (Path(__file__).resolve().parent.parent
+               / "riftvault" / "web" / "style.css").read_text(encoding="utf-8")
+        for c in (".colar-img", ".colar-img-res", ".colar-falhas"):
+            self.assertIn(c, css)
+
+
+class TestARota(unittest.TestCase):
+    def test_a_rota_esta_na_lista_das_escritas(self):
+        """Lê a coleção de quem a manda: sem sessão não pode responder."""
+        from tests.test_contas import ESCRITAS
+        self.assertIn("/api/decks/imagem", ESCRITAS)
+
+    def test_o_tecto_do_corpo_e_por_ROTA(self):
+        """Alargar para a imagem não pode alargar para as outras vinte e duas."""
+        from riftvault import rotas_conta
+        self.assertGreater(rotas_conta.corpo_maximo("/api/decks/imagem"),
+                           rotas_conta.CORPO_MAXIMO)
+        self.assertEqual(rotas_conta.corpo_maximo("/api/adjust"),
+                         rotas_conta.CORPO_MAXIMO)
+        self.assertEqual(rotas_conta.corpo_maximo("/api/decks/colar"),
+                         rotas_conta.CORPO_MAXIMO)
+
+
 # A IMAGEM DE PROVA do André (UVS Games, RQ Los Angeles, 2026-09-26) mede-se
 # contra o `data/` REAL, no `_revisao\_prova_imagem.py`: 31/31 cartas, zero
 # dúvidas, Legend 1 · Champion 1 · main 39 · battlefields 3 · runas 12 ·

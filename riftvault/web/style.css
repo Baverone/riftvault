@@ -1298,7 +1298,18 @@ body.readonly .btn.chegou { display: none; }
   line-height: 1.6; color: var(--ink); background: var(--card2);
   border: 1px solid var(--line); border-radius: 10px; resize: vertical; }
 .colar-txt:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
-.colar-bar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.colar-bar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;
+  align-items: center; }
+
+/* A SEGUNDA PORTA: a IMAGEM (2026-10-02). O que ela lê vai para a MESMA caixa
+   de texto, por isso aqui só mora o que a imagem acrescenta — o seletor do
+   ficheiro e o relato do que ela NÃO conseguiu ler. */
+.colar-img { max-width: 100%; font-size: 13px; color: var(--dim); }
+.colar-img-res { margin: 0 0 12px; padding: 10px 14px; border-radius: 10px;
+  border: 1px solid var(--line); background: var(--card2); }
+.colar-img-res > .note { margin: 4px 0; }
+.colar-falhas { margin: 6px 0 4px; padding-left: 20px; font-size: 13px;
+  color: var(--dim); line-height: 1.7; }
 .colar-prev { margin-top: 14px; border: 1px solid var(--line); border-radius: 12px;
   background: var(--card2); overflow: hidden; }
 .colar-prev .section-head { margin: 0; padding: 12px 14px 10px; }
