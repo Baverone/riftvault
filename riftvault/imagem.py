@@ -240,18 +240,24 @@ def _grelha(im, np):
     return cols, tops, ocup, larg, alt
 
 
-def _divisor(tops, np):
+#: Um intervalo livre entre duas linhas acima desta fracção da altura de uma
+#: carta é um CABEÇALHO pelo meio. Medido na página de prova: entre linhas
+#: seguidas sobram 94 e 69 px (0,13 e 0,10 da carta) e no corte do «Sideboard»
+#: sobram 274 (0,38). Não se compara com a mediana dos intervalos, de propósito:
+#: com duas linhas só, a mediana É o corte e ele deixava de se ver.
+SALTO = 0.22
+
+
+def _divisor(tops, alt, np):
     """Onde a grelha se parte — a linha «Sideboard».
 
-    Não se lê a palavra (não há OCR): lê-se o SALTO. Um intervalo entre linhas
-    maior do que o normal é um cabeçalho pelo meio. Com mais do que um salto
-    não se adivinha: fica tudo no deck e diz-se.
+    Não se lê a palavra (não há OCR): lê-se o ESPAÇO. Com mais do que um corte
+    não se adivinha qual é qual — fica tudo no deck, e diz-se.
     """
     if len(tops) < 2:
         return None, 0
-    passos = [tops[i + 1] - tops[i] for i in range(len(tops) - 1)]
-    normal = float(np.median(passos))
-    saltos = [i for i, p in enumerate(passos) if p > normal * 1.12]
+    livre = [tops[i + 1] - tops[i] - alt for i in range(len(tops) - 1)]
+    saltos = [i for i, g in enumerate(livre) if g > alt * SALTO]
     if len(saltos) != 1:
         return None, len(saltos)
     return saltos[0] + 1, 1
@@ -427,7 +433,7 @@ def ler(con: sqlite3.Connection, dados: bytes) -> dict:
         raise ImagemIlegivel(f"não se conseguiu abrir a imagem: {e}") from e
 
     cols, tops, ocup, larg, alt = _grelha(im, np)
-    corte, n_saltos = _divisor(tops, np)
+    corte, n_saltos = _divisor(tops, alt, np)
     ids, D, C = indice(con)
     _fonte, modelos = _modelos(ImageFont, ImageDraw, Image, np)
 

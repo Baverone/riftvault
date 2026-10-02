@@ -52,6 +52,9 @@ ESCRITAS = [
     # COLAR UMA DECKLIST (2026-10-02). O `prever` não escreve na base, mas é
     # um POST que lê a coleção de quem o manda: sem sessão não pode responder.
     "/api/decks/prever", "/api/decks/colar", "/api/decks/apagar",
+    # A segunda porta da mesma caixa: a IMAGEM (2026-10-02). Também não grava,
+    # e também lê a coleção de quem a manda.
+    "/api/decks/imagem",
 ]
 
 
