@@ -1,4 +1,4 @@
-"""As contas: entrar, registar, e o guarda que protege as 20 rotas de escrita.
+"""As contas: entrar, registar, e o guarda que protege as rotas de escrita.
 
 Fatia `2-multi-contas` (2026-09-29), a que veste a `0-multi-utilizador-1` e a
 `1-multi-guardas`. O que se fixa aqui:
@@ -37,9 +37,10 @@ from tests.fixture import REPO, Vault  # noqa: E402
 APP_JS = REPO / "riftvault" / "web" / "app.js"
 INDEX_HTML = REPO / "riftvault" / "web" / "index.html"
 
-#: AS VINTE ROTAS DE ESCRITA do `server.py`. A lista é o ponto desta bateria:
-#: uma rota nova que alguém acrescente e não ponha aqui fica de fora, e o
-#: `test_a_lista_das_rotas_esta_completa` dá vermelho por isso.
+#: AS VINTE E TRÊS ROTAS DE ESCRITA do `server.py`. A lista é o ponto desta
+#: bateria: uma rota nova que alguém acrescente e não ponha aqui fica de fora,
+#: e o `test_a_lista_das_rotas_esta_completa` dá vermelho por isso. Foi o que
+#: aconteceu a 2026-10-02 com as três da caixa de colar — o guarda funcionou.
 ESCRITAS = [
     "/api/adjust", "/api/undo", "/api/foil/ajustar", "/api/runas/ajustar",
     "/api/encomenda", "/api/pending/arrive", "/api/selado/ajustar",
@@ -48,6 +49,9 @@ ESCRITAS = [
     "/api/decks/montar", "/api/decks/principal", "/api/decks/order",
     "/api/local/mover", "/api/local/marcar", "/api/local/desfazer-deck",
     "/api/local/undo",
+    # COLAR UMA DECKLIST (2026-10-02). O `prever` não escreve na base, mas é
+    # um POST que lê a coleção de quem o manda: sem sessão não pode responder.
+    "/api/decks/prever", "/api/decks/colar", "/api/decks/apagar",
 ]
 
 
@@ -262,7 +266,7 @@ class TestPortaFechada(Base):
 
 
 # --------------------------------------------------------------------------
-# 3. AS VINTE ROTAS DE ESCRITA
+# 3. AS VINTE E TRÊS ROTAS DE ESCRITA
 # --------------------------------------------------------------------------
 
 
@@ -277,7 +281,7 @@ class TestAsRotasDeEscrita(Base):
         self.assertEqual(
             no_codigo - set(ESCRITAS), set(),
             "há rotas de escrita no server.py que esta bateria não percorre")
-        self.assertEqual(len(ESCRITAS), 20)
+        self.assertEqual(len(ESCRITAS), 23)
 
     def test_sem_sessao_todas_recusam_com_401(self):
         c = self.cliente(aberto=True)

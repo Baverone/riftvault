@@ -358,8 +358,10 @@ outra pessoa para escrever:
 > não é um `WHERE user_id` que se pode esquecer — é um ficheiro que não se chega
 > a abrir.
 
-As 20 rotas de escrita herdam isto sem uma linha cada. Mesmo assim testam-se
-todas, uma por uma, porque «não devia ser possível» não é uma medição.
+As rotas de escrita herdam isto sem uma linha cada (são 23 a 2026-10-02; o
+número vive na asserção do `tests/test_contas.py`, e é uma só). Mesmo assim
+testam-se todas, uma por uma, porque «não devia ser possível» não é uma
+medição.
 
 ### O FURO QUE ISTO NÃO TAPA — e que a medição encontrou
 
