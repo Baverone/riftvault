@@ -93,9 +93,12 @@ ALVO_OMISSAO = 12
 # e as 6 runas base do OGN já aparecem na sequência do master set (a 3) e
 # voltam a aparecer aqui. Não é duplicação — é outra pergunta («quantas tenho
 # na mão») — mas tem de se ler.
-NOTA = ("o número é teu e é DESTA edição: os + e − mexem só nele e não contam "
+# A nota é a MESMA nas duas vistas (o payload é um só), por isso não pode dizer
+# «desta edição» — em «Todas» lia mal. Quem diz de que vista se trata é o
+# cabeçalho, que sabe o `set_id`.
+NOTA = ("o número é teu e é de CADA EDIÇÃO: os + e − mexem só nele e não contam "
         "para nada — nem coleção, nem decks, nem métricas. Ao lado, «nesta "
-        "edição» é o que o site sabe que tens das impressões DESTA edição — a "
+        "edição» é o que o site sabe que tens das impressões dessa edição — a "
         "arte alternativa de cada edição é uma carta própria —, só para "
         "comparares. As runas base do OGN também estão na sequência do master "
         "set, em cima.")

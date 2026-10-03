@@ -37,7 +37,7 @@ from tests.fixture import REPO, Vault  # noqa: E402
 APP_JS = REPO / "riftvault" / "web" / "app.js"
 INDEX_HTML = REPO / "riftvault" / "web" / "index.html"
 
-#: AS VINTE E TRÊS ROTAS DE ESCRITA do `server.py`. A lista é o ponto desta
+#: AS VINTE E CINCO ROTAS DE ESCRITA do `server.py`. A lista é o ponto desta
 #: bateria: uma rota nova que alguém acrescente e não ponha aqui fica de fora,
 #: e o `test_a_lista_das_rotas_esta_completa` dá vermelho por isso. Foi o que
 #: aconteceu a 2026-10-02 com as três da caixa de colar — o guarda funcionou.
@@ -55,6 +55,9 @@ ESCRITAS = [
     # A segunda porta da mesma caixa: a IMAGEM (2026-10-02). Também não grava,
     # e também lê a coleção de quem a manda.
     "/api/decks/imagem",
+    # O aviso do contador das runas reposto a zero (2026-10-03): escreve na
+    # `rune_counter_antes` de quem o dispensa.
+    "/api/runas/dispensar",
 ]
 
 

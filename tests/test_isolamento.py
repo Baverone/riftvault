@@ -178,16 +178,15 @@ class Dois(unittest.TestCase):
         decks.import_all(conb, log=lambda *_: None)
         for d in decks.decks_index(conb):
             proprias.ajustar(conb, d["slug"], SENT_B, 1)
-        runas_vista.semear(conb)
-        runas_vista.ajustar(conb, "calm rune", 9)
+        # 2026-10-03: o contador é por edição (a sementeira saiu).
+        runas_vista.ajustar(conb, "calm rune", "TST", 9)
         conb.close()
 
         # e o André também, para as `proprias` e as runas distinguirem
         con = db.connect(user_id=utilizador.ANDRE)
         for d in decks.decks_index(con):
             proprias.ajustar(con, d["slug"], SENT_A, 2)
-        runas_vista.semear(con)
-        runas_vista.ajustar(con, "calm rune", 4)
+        runas_vista.ajustar(con, "calm rune", "TST", 4)
         con.close()
 
         self.vault_a = db.vault_de(utilizador.ANDRE)
@@ -325,7 +324,7 @@ class EscreverNumNaoMexeNoOutro(Dois):
         venda.juntar(con, sent, 1)
         venda.guardar_trend(con, sent, 1000)
         venda.limpar(con)
-        runas_vista.semear(con)
+        runas_vista.ajustar(con, "calm rune", "TST", 1)
         locais.mover(con, sent, 1, locais.COLECAO, locais.BINDER, source="test")
         locais.mover(con, sent, 1, locais.BINDER, locais.COLECAO, source="test")
         for d in decks.decks_index(con):

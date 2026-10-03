@@ -483,7 +483,9 @@ class TestFrontend(Base):
         con = self.catalogo()
         nota = self.rv.payload(con)["nota"]
         self.assertIn("nesta edição", nota)
-        self.assertIn("é DESTA edição", nota)
+        # A nota é a mesma nas duas vistas: quem diz qual é o cabeçalho.
+        self.assertIn("é de CADA EDIÇÃO", nota)
+        self.assertNotIn("DESTA edição", nota)
         # A que já estava, e continua a ter de estar.
         self.assertIn("o número é teu", nota)
         self.assertIn("sequência do master set", nota)

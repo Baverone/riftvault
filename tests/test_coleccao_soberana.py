@@ -113,7 +113,9 @@ class TestAListaFechada(Base):
         venda.guardar_trend(con, "tst-002-100", 1500)
         feitas.append("venda.guardar_trend")
         venda.limpar(con); feitas.append("venda.limpar")
-        runas_vista.semear(con); feitas.append("runas_vista.semear")
+        # 2026-10-03: a sementeira saiu (o contador é por edição e começa a
+        # zero); quem escreve na tabela dele é o `ajustar`.
+        runas_vista.dispensar(con); feitas.append("runas_vista.dispensar")
         locais.mover(con, "tst-001-100", 1, locais.COLECAO, locais.BINDER,
                      source="test"); feitas.append("locais.mover")
         locais.mover(con, "tst-001-100", 1, locais.BINDER, locais.COLECAO,

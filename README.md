@@ -217,14 +217,21 @@ responder, o cartão fica a «—» e a página aguenta-se.
   contabilizam nada, eu e que mexo nisso para minha referencia"*). As seis
   runas do jogo, cada uma com um número **que pões tu** com os `+`/`−` do
   tile (só no modo edição; nunca abaixo de 0), guardado numa tabela própria
-  do `vault.db` e semeado uma única vez com o que tinhas na mão. **O crachá é
-  esse contador e é o mesmo em todas as edições** — 12 de cada é o Rune Pool
-  de um deck, não um alvo por edição. Ao lado, em letra pequena, **«nesta
-  edição: N»** — o que tens das impressões **dessa** edição, porque a arte
-  alternativa de cada edição é uma carta própria (2026-10-01: *"A contagem das
-  runas Alt.Art é exclusiva para cada edição"*); em **Todas** é a soma. Uma
-  edição sem runas (o OGS) não leva bloco. Não conta para nada: nem barra, nem
-  níveis, nem wantlist, nem valor, nem decks.
+  do `vault.db`. **O contador é POR EDIÇÃO desde 2026-10-03** (*"Zera e
+  recontas por edicao"*): o crachá da página do OGN é o que contaste do OGN, e
+  um `+` lá não aparece no SFD. Começou a **zero** nesse dia — o que tinhas
+  contado antes (14, sem edição) fica no aviso em cima do bloco, para
+  conferires enquanto recontas, e sai com o «Dispensar» sem se apagar de
+  lado nenhum. **Não há sementeira**: uma runa que nunca tocaste lê-se 0, e
+  por isso abrir a página não escreve nada. Em **Todas** o crachá é a soma das
+  quatro e não há botões (um clique ali não saberia a que edição somar). Ao
+  lado, em letra pequena, **«nesta edição: N»** — o que tens das impressões
+  **dessa** edição, porque a arte alternativa de cada edição é uma carta
+  própria (2026-10-01: *"A contagem das runas Alt.Art é exclusiva para cada
+  edição"*). Uma edição sem runas (o OGS) não leva bloco. Não conta para nada:
+  nem barra, nem níveis, nem wantlist, nem valor, nem decks.
+  Na consola: `riftvault runas` (tudo, por edição),
+  `riftvault runas --edicao OGN --mais "Calm Rune" --n 3`.
   `riftvault runas [--mais RUNA | --menos RUNA] [--n N]` na consola, com a
   tabela por edição no fim.
 - **Filtros:** Tudo / Faltas, e por tipo de impressão (Base, Arte alt.,
