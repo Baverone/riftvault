@@ -1210,6 +1210,35 @@ body.readonly .btn.chegou { display: none; }
 /* Os `+`/`−` do contador: os mesmos botões da grelha, um pouco mais baixos
    porque o tile é mais estreito. */
 .dtile.vista .steppers.runa .step { min-height: 34px; font-size: 16px; }
+/* Em «Todas» não há botões (o contador é por edição desde 2026-10-03): no
+   lugar deles fica a frase que diz porquê, para o tile não ficar com um
+   buraco e para não parecer que os botões se perderam. */
+.dtile.vista .soma-sem-botoes {
+  font-size: 10px; text-align: center; opacity: .55; line-height: 1.25;
+  min-height: 34px; display: flex; align-items: center; justify-content: center;
+}
+
+/* O AVISO DO ZERO (2026-10-03). O contador foi reposto para passar a ser por
+   edição, e sem isto um bloco a zeros lia-se «não tens runas». Atravessa a
+   grelha inteira — é uma frase, não um tile — e sai com o «dispensar». */
+.runas-aviso {
+  grid-column: 1 / -1;
+  margin: 2px 0 8px; padding: 10px 12px;
+  border: 1px dashed var(--accent-2); border-radius: 10px;
+  background: rgba(167, 123, 255, .07);
+  font-size: 12px; max-width: 72ch;
+}
+.runas-aviso p { margin: 0 0 4px; }
+.runas-aviso p:last-of-type { margin-bottom: 0; }
+.runas-aviso .ref { color: var(--dim); }
+.runas-aviso b { color: var(--text); }
+/* O «dispensar» leva tamanho PRÓPRIO: a `.btn.mini` não tem base no site (só
+   a `.btn.chegou.mini` a tem), e um `<button>` sem altura dentro de um bloco
+   ficava com a palavra cortada — é a avaria de 2026-09-27. */
+.runas-aviso .btn.mini {
+  margin-top: 8px; width: auto; padding: 3px 10px; font-size: 11px;
+  line-height: 1.45; min-height: 24px;
+}
 
 /* ------------------------------------- as cópias PRÓPRIAS de cada deck
 

@@ -1177,11 +1177,18 @@ function juntarEdicoes(sets, ps) {
    «nesta edição» conta as impressões do OGN, na do SFD as do SFD, e em
    «Todas» a soma. O OGS não tem runas e não leva bloco nenhum.
 
+   E O CONTADOR TAMBÉM, DESDE 2026-10-03. André: *"Zera e recontas por
+   edicao"* — a tabela ganhou `set_id`, o contador foi reposto a ZERO e ele
+   reconta-as aqui, edição a edição. Duas consequências no ecrã: há um AVISO
+   em cima a dizer que o zero é de hoje (senão lia-se «não tens runas»), com
+   o que ele tinha contado à mão ao lado e um «dispensar»; e **os `+`/`−` só
+   aparecem na página de uma edição** — em «Todas» o crachá é a soma das
+   quatro e um clique não saberia a que edição somar.
+
    Ao lado, em letra pequena, «nesta edição: N» é o que o site sabe que ele
    tem das impressões DESSA edição (a base e a alt art retirada no OGN; a
    promo escondida no VEN; as do CardTrader no SFD/UNL/VEN) — só para ele
-   comparar com o que contou à mão. O CRACHÁ é o mesmo nas quatro edições: é
-   o contador dele, e o cabeçalho di-lo. */
+   comparar com o que contou à mão. */
 async function renderRunasVista(reler = false) {
   const el = $('#runas-vista');
   if (!el) return;
@@ -1193,8 +1200,28 @@ async function renderRunasVista(reler = false) {
   if (!v || !(v.runas || []).length) { el.innerHTML = ''; return; }
   // Os tiles vão directos na grelha (o `#runas-vista` é uma `.grid`), sem o
   // `.group.multi`: um grupo de 6 colunas não cabe no telemóvel.
-  el.innerHTML = runasHead(v) + v.runas.map(runaTile).join('');
+  el.innerHTML = runasHead(v) + runasAviso() + v.runas.map(x => runaTile(x, v)).join('');
   ligarRunas();
+}
+
+/* O AVISO DO ZERO (2026-10-03): o contador foi reposto para passar a ser por
+   edição, e sem isto um bloco a zeros lia-se «não tens runas». Mostra o que
+   ele tinha contado à mão — 14 ao todo —, para ele conferir enquanto reconta,
+   e sai com o «dispensar». Dispensar NÃO apaga o rasto: marca a data, e as
+   seis linhas ficam na base e no `riftvault runas`. */
+function runasAviso() {
+  const a = state.runas && state.runas.antes;
+  if (!a || a.dispensado_em) return '';
+  const linhas = a.linhas.map(r => `${escapeHTML(r.card_key.split(' ')[0])} <b>${r.qty}</b>`)
+    .join(' · ');
+  return `<div class="runas-aviso" id="runas-aviso">
+    <p>${escapeHTML(a.aviso)}</p>
+    <p class="ref">Tinhas contado <b>${a.total}</b> ao todo, sem edição:
+      ${linhas}.</p>
+    ${state.runas.editable
+      ? '<button class="btn mini" id="runas-dispensar">Dispensar este aviso</button>'
+      : ''}
+  </div>`;
 }
 
 /* A vista do bloco: a fatia da edição aberta, ou a soma das cinco em
@@ -1225,14 +1252,20 @@ function runasHead(v) {
   const t = v.totals;
   const sem = t.sem_retiradas !== t.total ? ` (${t.sem_retiradas} sem as retiradas)` : '';
   const n = t.contador != null ? t.contador : t.total;
-  const onde = v.set_id ? `nesta edição (${escapeHTML(v.set_id)})` : 'nas edições todas';
+  // Numa edição o contador é DELA; em «Todas» é a soma das quatro, e aí
+  // di-lo — senão um 288 no alvo lia-se como um alvo por runa.
+  const quem = v.set_id
+    ? `(o teu contador de ${escapeHTML(v.set_id)}) · nesta edição (${escapeHTML(v.set_id)})`
+    : '(a soma do teu contador nas edições todas) · nas edições todas';
   return `<h2 class="section-head fora vista" id="runas-head">Runas — ${p.alvo} de cada
       <span>contas <b>${n}</b> de <b>${t.alvo}</b>
-      <small class="ref">(o teu contador, igual em todas as edições) · ${onde}
+      <small class="ref">${quem}
       tens: ${t.total}${sem}</small> — ${escapeHTML(p.nota)}</span></h2>`;
 }
 
-function runaTile(x) {
+/* Recebe a VISTA a par do item: é o `v.set_id` que decide se há botões — o
+   contador é por edição, e em «Todas» não há onde somar o clique. */
+function runaTile(x, v) {
   const n = runaContador(x);
   const feito = n >= x.target;
   // As origens só no `title`: a linha visível é a referência curta, para não
@@ -1240,17 +1273,19 @@ function runaTile(x) {
   const origens = x.origens.map(o => `${o.qty}× ${(o.code || '').split('/')[0]} ${o.label}`)
     .join(' · ') || 'nenhuma à mão';
   const sem = x.sem_retiradas !== x.total ? ` (${x.sem_retiradas} sem as retiradas)` : '';
-  const onde = edicaoAberta() && state.runas && state.runas.por_edicao
-    ? 'nesta edição' : 'na coleção';
-  const botoes = state.runas && state.runas.editable && x.contador != null
+  const onde = v && v.set_id ? 'nesta edição' : 'na coleção';
+  const botoes = state.runas && state.runas.editable && x.contador != null && v && v.set_id
     ? `<div class="steppers runa">
       <button class="step minus" data-runa-delta="-1" ${n > 0 ? '' : 'disabled'}
-              aria-label="menos uma no teu contador de ${escapeAttr(x.name)}"
-              title="menos uma (só no teu contador)">−</button>
+              aria-label="menos uma no teu contador de ${escapeAttr(x.name)} em ${escapeAttr(v.set_id)}"
+              title="menos uma (só no teu contador de ${escapeAttr(v.set_id)})">−</button>
       <button class="step plus" data-runa-delta="1"
-              aria-label="mais uma no teu contador de ${escapeAttr(x.name)}"
-              title="mais uma (só no teu contador)">+</button>
-    </div>` : '';
+              aria-label="mais uma no teu contador de ${escapeAttr(x.name)} em ${escapeAttr(v.set_id)}"
+              title="mais uma (só no teu contador de ${escapeAttr(v.set_id)})">+</button>
+    </div>`
+    : state.runas && state.runas.editable && v && !v.set_id
+      ? `<div class="onde ref soma-sem-botoes">${escapeHTML(state.runas.soma_sem_botoes || '')}</div>`
+      : '';
   return `<div class="dtile neutro vista${feito ? ' ok' : ''}" data-runa="${escapeAttr(x.card_key)}">
     ${artHTML(x, `<span class="need">${n}/${x.target}</span>`)}
     <div class="tname" title="${escapeAttr(x.name)}">${escapeHTML(x.name)}</div>
@@ -1262,9 +1297,13 @@ function runaTile(x) {
 /* Os botões de cada tile. Chama-se depois de cada desenho, porque o
    `innerHTML` deita os handlers fora. */
 function ligarRunas() {
+  const v = runasDaEdicao();
   for (const b of document.querySelectorAll('#runas-vista .steppers.runa .step')) {
-    b.onclick = () => runaAjustar(b.closest('.dtile').dataset.runa, Number(b.dataset.runaDelta));
+    b.onclick = () => runaAjustar(b.closest('.dtile').dataset.runa,
+                                  v && v.set_id, Number(b.dataset.runaDelta));
   }
+  const d = $('#runas-dispensar');
+  if (d) d.onclick = () => runasDispensar();
 }
 
 function runaRefreshTile(ck) {
@@ -1272,50 +1311,69 @@ function runaRefreshTile(ck) {
   const v = runasDaEdicao();
   const x = v && v.runas.find(r => r.card_key === ck);
   if (!el || !x) return;
-  el.outerHTML = runaTile(x);
+  el.outerHTML = runaTile(x, v);
   const head = $('#runas-head');
   if (head) head.outerHTML = runasHead(v);
   ligarRunas();
 }
 
-/* Todas as listas onde a mesma runa aparece: a soma e cada edição. O
-   contador é UM por runa (ver o topo do bloco), por isso um `+` tem de o
-   mudar em todas — senão o número mudava no OGN e ficava velho no SFD. */
-function runasListas() {
+/* O contador é POR EDIÇÃO desde 2026-10-03: um `+` no OGN muda a célula do
+   OGN e a SOMA que «Todas» mostra, e NÃO toca no SFD. Até 02/10 era o
+   contrário — havia um número só e tinha de mudar em todas as listas. */
+function runaPorContador(ck, sid, novo) {
   const p = state.runas;
-  if (!p) return [];
-  return [{ runas: p.runas || [], totals: p.totals },
-          ...Object.values(p.por_edicao || {})];
+  if (!p) return;
+  const e = (p.por_edicao || {})[sid];
+  if (!e) return;
+  const x = e.runas.find(r => r.card_key === ck);
+  if (!x) return;
+  const antes = x.contador || 0;
+  x.contador = novo;
+  if (e.totals) e.totals.contador = e.runas.reduce((s, r) => s + (r.contador || 0), 0);
+  // A soma de «Todas»: o delta desta célula, nada mais.
+  const soma = (p.runas || []).find(r => r.card_key === ck);
+  if (soma) soma.contador = Math.max(0, (soma.contador || 0) + (novo - antes));
+  if (p.totals) {
+    p.totals.contador = (p.runas || []).reduce((s, r) => s + (r.contador || 0), 0);
+  }
 }
 
-function runaPorContador(ck, novo) {
-  for (const l of runasListas()) {
-    const x = l.runas.find(r => r.card_key === ck);
-    if (x) x.contador = novo;
-    if (l.totals) l.totals.contador = l.runas.reduce((s, r) => s + (r.contador || 0), 0);
-  }
+/* O «dispensar» do aviso do zero: marca a data na base e volta a desenhar o
+   bloco. Não apaga o rasto — o `riftvault runas` continua a mostrá-lo. */
+async function runasDispensar() {
+  if (!state.editable || !state.runas || !state.runas.editable) return;
+  try {
+    const r = await fetch('api/runas/dispensar', {
+      method: 'POST', headers: cabecalhos(), body: JSON.stringify({}),
+    });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    state.runas.antes = (await r.json()).antes;
+    renderRunasVista();
+  } catch (err) { toast(`Não gravou: ${err.message}`, { error: true }); }
 }
 
 /* O clique no `+`/`−` do contador: ecrã otimista, pedidos da MESMA runa em
    fila — como as Encomendas —, e só o último em voo aceita o número do
    servidor. Grava SÓ na `rune_counter`; nada mais no site muda, e por isso
    não se marca nada como velho. */
-async function runaAjustar(ck, delta) {
+async function runaAjustar(ck, sid, delta) {
   if (!state.editable || !state.runas || !state.runas.editable) return;
+  // Sem edição aberta não há célula onde contar — em «Todas» não há botões.
+  if (!sid) return;
   const v = runasDaEdicao();
   const x = v && v.runas.find(r => r.card_key === ck);
   if (!x || x.contador == null) return;
   if (delta < 0 && x.contador <= 0) return;
   state.runas.voo = state.runas.voo || new Map();
   state.runas.fila = state.runas.fila || new Map();
-  runaPorContador(ck, Math.max(0, x.contador + delta));
+  runaPorContador(ck, sid, Math.max(0, x.contador + delta));
   runaRefreshTile(ck);
   state.runas.voo.set(ck, (state.runas.voo.get(ck) || 0) + 1);
   const fila = state.runas.fila.get(ck) || Promise.resolve();
   const tarefa = fila.then(async () => {
     const r = await fetch('api/runas/ajustar', {
       method: 'POST', headers: cabecalhos(),
-      body: JSON.stringify({ card_key: ck, delta }),
+      body: JSON.stringify({ card_key: ck, set_id: sid, delta }),
     });
     if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `HTTP ${r.status}`);
     return r.json();
@@ -1326,12 +1384,12 @@ async function runaAjustar(ck, delta) {
     const resto = (state.runas.voo.get(ck) || 1) - 1;
     state.runas.voo.set(ck, resto);
     if (resto === 0) {
-      runaPorContador(ck, res.qty);
+      runaPorContador(ck, sid, res.qty);
       // Os totais vêm do servidor (uma aritmética só): a soma e cada edição.
       state.runas.totals = res.totals;
-      for (const [sid, t] of Object.entries(res.totals_por_edicao || {})) {
-        if (state.runas.por_edicao && state.runas.por_edicao[sid]) {
-          state.runas.por_edicao[sid].totals = t;
+      for (const [s, t] of Object.entries(res.totals_por_edicao || {})) {
+        if (state.runas.por_edicao && state.runas.por_edicao[s]) {
+          state.runas.por_edicao[s].totals = t;
         }
       }
       runaRefreshTile(ck);
@@ -1340,7 +1398,7 @@ async function runaAjustar(ck, delta) {
     state.runas.voo.set(ck, Math.max(0, (state.runas.voo.get(ck) || 1) - 1));
     // Desfaz ESTE delta sobre o valor de agora, não sobre o `antes`: pode
     // haver mais cliques em voo na fila desta runa.
-    runaPorContador(ck, Math.max(0, x.contador - delta));
+    runaPorContador(ck, sid, Math.max(0, x.contador - delta));
     runaRefreshTile(ck);
     toast(`Não gravou: ${err.message}`, { error: true });
   }
@@ -3401,7 +3459,12 @@ function deckLocais(p) {
       para mudar o número é <code>riftvault proprias ${escapeHTML(p.slug)} --mais/--menos REF</code>` : ''}.
       Servem-no primeiro, só a ele, e <b>não contam para a Coleção</b> (nem para o
       valor); o que elas não taparem vem da Coleção, e o resto é a comprar.${
-      p.so_base ? ' Só <b>versões base</b>, a Legend e o Champion incluídos (<code>decks.so_base</code>).' : ''}</small>
+      p.so_base
+        ? ' Só <b>versões base</b>, a Legend e o Champion incluídos (<code>decks.so_base</code>).'
+        : ` O deck usa <b>o que está na Coleção, seja que arte for</b>: a base primeiro e,
+           no que ela não tapar, outra versão que tenhas — Alt Art, sobrenumerada ou promo
+           (nunca assinada). Quando isso acontece a linha da carta diz as versões por arte,
+           e o que faltar compra-se na base.`}</small>
     ${runasNaoContadas(p.runas) ? `<small class="nota">As <b>${p.runas.copies}</b> runas
       do Rune Pool não se contam: não entram no tenho, na falta nem na lista de
       compras — a lista diz só quantas são, e organizas as runas à mão.</small>` : ''}
