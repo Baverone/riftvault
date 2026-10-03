@@ -99,14 +99,19 @@ A ORDEM DOS DECKS ESCREVE-SE NO CONFIG (2026-09-21)
     importação seguinte. Sem lista, vale o que valia: a prioridade guardada
     na base, os decks novos para o fim.
 
-SÓ VERSÕES BASE, A LEGEND E O CHAMPION INCLUÍDOS (2026-09-21, `decks.so_base`)
-    A última coisa que ele disse sobre versões, e mantém-se: com `so_base:
-    true` (a omissão) um lugar de deck só se serve da base não sobrenumerada
-    — sem alt art, sem sobrenumeradas, sem promos, sem assinadas, sem o
-    recurso a «o que houver de não-assinado» — e a regra de 2026-09-17 da
-    Legend/Champion numa versão especial NÃO se aplica. Com `false` o que
-    está escrito em «QUE VERSÃO JOGA CADA LUGAR» volta a valer, tal e qual —
-    é a única chave a mexer (`so_base()`, `versoes_dos_decks`).
+O DECK USA O QUE ESTÁ NA COLEÇÃO, SEJA QUE ARTE FOR (2026-10-03, `decks.so_base`)
+    `so_base: false` desde 2026-10-03, e é a omissão: o que está escrito em
+    «QUE VERSÃO JOGA CADA LUGAR» vale tal e qual — a base primeiro, e o que
+    ela não tapar completa-se com outra versão que ele tenha. É a regra dele,
+    dita duas vezes (2026-09-17 e 2026-10-01).
+
+    Com `true` (de 2026-09-21 a 2026-10-03, ao acabar a experiência do pool
+    próprio) um lugar de deck só se servia da base não sobrenumerada — e uma
+    carta que ele tivesse em alt art aparecia como falta A COMPRAR, que é uma
+    falta que não existe. É a única chave a mexer (`so_base()`,
+    `versoes_dos_decks`); a regra de 2026-09-17 da Legend/Champion numa
+    versão especial continua a depender do `so_normais_excepto`, que está
+    VAZIO, e **não volta** só por esta chave ir a `false`.
 
 CADA DECK TEM AS SUAS CÓPIAS PRÓPRIAS (2026-09-21, `proprias.py`)
     André: *"voltamos aos decks usarem a coleccao, mas cada deck precisa de
@@ -1065,11 +1070,19 @@ def modo(cfg: dict | None = None) -> str:
 
 
 def so_base(cfg: dict | None = None) -> bool:
-    """`decks.so_base` (2026-09-21): os decks jogam SÓ versões base — a
-    Legend e o Champion incluídos. `True` por omissão. Valida o `modo` de
-    caminho, para um config que ainda diga `pool_proprio` rebentar aqui."""
+    """`decks.so_base`: os decks jogam SÓ versões base?
+
+    **`False` desde 2026-10-03**, e é a omissão — a regra dele, dita duas
+    vezes: *"usa o que esta na coleccao, sendo foil ou nao, sendo Alt Art ou
+    nao, sendo Overnumbered ou nao"*. Com `True` (2026-09-21 a 2026-10-03)
+    uma carta que ele tenha em alt art aparecia como falta a comprar, e isso
+    é uma falta que não existe — é por isso que a omissão também virou.
+
+    Valida o `modo` de caminho, para um config que ainda diga `pool_proprio`
+    rebentar aqui.
+    """
     modo(cfg)
-    return bool(_opcoes_decks(cfg).get(SO_BASE, True))
+    return bool(_opcoes_decks(cfg).get(SO_BASE, False))
 
 
 def contar_runas(cfg: dict | None = None) -> bool:
@@ -1235,12 +1248,14 @@ def versoes_dos_decks(con: sqlite3.Connection, cfg: dict | None = None) -> Verso
     Especial = o que `decks.versoes_especiais` disser (alt art, sobrenumerada,
     promo). Signature e retiradas ficam de fora das duas listas.
 
-    Com `decks.so_base: true` (2026-09-21, a omissão) é SÓ A BASE: sem
-    versões especiais (a Legend e o Champion jogam a base — a regra de
-    2026-09-17 não se aplica, esteja o que estiver em `so_normais_excepto`),
-    sem «outras» a tapar buracos, e sem o recurso a «o que houver de
-    não-assinado» — uma carta sem base fica sem impressão nenhuma, e a
-    página do deck diz-o (`sem_base`). Com `false` vale o parágrafo de cima.
+    Com `decks.so_base: false` (2026-10-03, a omissão) vale o parágrafo de
+    cima — é a regra dele: *"usa o que esta na coleccao, sendo foil ou nao,
+    sendo Alt Art ou nao, sendo Overnumbered ou nao"*. Com `true` é SÓ A
+    BASE: sem versões especiais (a Legend e o Champion jogam a base — a regra
+    de 2026-09-17 não se aplica, esteja o que estiver em
+    `so_normais_excepto`), sem «outras» a tapar buracos, e sem o recurso a «o
+    que houver de não-assinado» — uma carta sem base fica sem impressão
+    nenhuma, e a página do deck diz-o (`sem_base`).
     """
     from . import metrics
 

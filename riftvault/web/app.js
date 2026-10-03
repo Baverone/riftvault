@@ -3401,7 +3401,12 @@ function deckLocais(p) {
       para mudar o número é <code>riftvault proprias ${escapeHTML(p.slug)} --mais/--menos REF</code>` : ''}.
       Servem-no primeiro, só a ele, e <b>não contam para a Coleção</b> (nem para o
       valor); o que elas não taparem vem da Coleção, e o resto é a comprar.${
-      p.so_base ? ' Só <b>versões base</b>, a Legend e o Champion incluídos (<code>decks.so_base</code>).' : ''}</small>
+      p.so_base
+        ? ' Só <b>versões base</b>, a Legend e o Champion incluídos (<code>decks.so_base</code>).'
+        : ` O deck usa <b>o que está na Coleção, seja que arte for</b>: a base primeiro e,
+           no que ela não tapar, outra versão que tenhas — Alt Art, sobrenumerada ou promo
+           (nunca assinada). Quando isso acontece a linha da carta diz as versões por arte,
+           e o que faltar compra-se na base.`}</small>
     ${runasNaoContadas(p.runas) ? `<small class="nota">As <b>${p.runas.copies}</b> runas
       do Rune Pool não se contam: não entram no tenho, na falta nem na lista de
       compras — a lista diz só quantas são, e organizas as runas à mão.</small>` : ''}
