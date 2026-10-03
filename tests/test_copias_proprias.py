@@ -228,10 +228,17 @@ class TestOsDecksUsamAColecaoESomam(Base):
 
 
 class TestSoBase(Base):
-    """2. Só versões base — a Legend e o Champion incluídos (`decks.so_base`)."""
+    """2. Só versões base — a Legend e o Champion incluídos (`decks.so_base`).
 
-    def test_so_base_e_a_omissao_e_a_regra_de_17_09_nao_volta(self):
-        self.assertTrue(self.config.DEFAULTS["decks"]["so_base"])
+    **A OMISSÃO VIROU a 2026-10-03** (`so_base: false`, a regra dele): estes
+    testes descrevem o outro lado do interruptor, e o `cfg_decks` do `setUp`
+    escreve `so_base: true` por extenso. O mecanismo continua inteiro e
+    testável nos dois sentidos — ver `tests/test_so_base_dele.py`.
+    """
+
+    def test_com_so_base_LIGADO_e_so_a_base_e_a_regra_de_17_09_nao_volta(self):
+        self.assertIs(self.config.DEFAULTS["decks"]["so_base"], False,
+                      "a omissão é a regra dele desde 2026-10-03")
         self.assertEqual(self.config.DEFAULTS["decks"]["so_normais_excepto"], [])
         con = self.catalogo()
         self.assertTrue(self.decks.so_base())
@@ -556,19 +563,22 @@ class TestOModo(Base):
         self.assertFalse(hasattr(self.decks, "pool_proprio"))
         self.assertFalse(hasattr(self.locais, "POOL"))
 
-    def test_sem_a_chave_e_coleccao_e_so_base(self):
+    def test_sem_a_chave_e_coleccao_e_o_deck_usa_o_que_ha(self):
+        """A omissão do `so_base` virou a 2026-10-03: com `true`, um riftvault
+        sem config mandava comprar uma carta que ele tem em Alt Art."""
         os.environ["RIFTVAULT_CONFIG"] = str(Path(tempfile.gettempdir()) / "riftvault-nao-existe.json")
         importlib.reload(self.config)
         self.config.load.cache_clear()
         self.assertEqual(self.decks.modo(), "coleccao")
-        self.assertTrue(self.decks.so_base())
+        self.assertIs(self.decks.so_base(), False)
         self.assertEqual(self.config.DEFAULTS["decks"]["modo"], "coleccao")
 
-    def test_o_config_real_diz_coleccao_e_so_base(self):
+    def test_o_config_real_diz_coleccao_e_usa_o_que_ha(self):
         cfg = json.loads((REPO / "riftvault_config.json").read_text(encoding="utf-8"))
         self.assertEqual(cfg["decks"]["modo"], "coleccao")
-        self.assertTrue(cfg["decks"]["so_base"])
-        self.assertEqual(cfg["decks"]["so_normais_excepto"], [])
+        self.assertIs(cfg["decks"]["so_base"], False)
+        self.assertEqual(cfg["decks"]["so_normais_excepto"], [],
+                         "a regra de 2026-09-17 continua desligada")
 
 
 class TestRotasBuildCLI(Base):
