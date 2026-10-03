@@ -257,58 +257,86 @@ class TestASomaNaoMexeu(Base):
         con.close()
 
 
-class TestOContadorContinuaDele(Base):
-    """A decisão que NÃO se tomou: o contador não se partiu por edição. O
-    alvo dele é «12 de cada», que é o Rune Pool de um deck; 12 × runas ×
-    edições não é uma coisa que se tenha. E os números que ele contou à mão
-    não têm edição gravada — reparti-los era inventá-los."""
+class TestOContadorPassouASerPorEdicao(Base):
+    """A decisão que ficou por tomar a 02/10 e que ele tomou a 03/10: *"Zera
+    e recontas por edicao"*. A chave passou a `(card_key, set_id)`, começa a
+    zero e não há sementeira — o número é o que ELE conta daquela edição."""
 
-    def test_a_tabela_continua_a_ter_a_chave_de_sempre(self):
+    def test_a_tabela_passou_a_ter_edicao_na_chave(self):
         con = self.catalogo()
         self.rv.payload(con)
         cols = [r[1] for r in con.execute("PRAGMA table_info(rune_counter)")]
-        self.assertNotIn("set_id", cols)
+        self.assertIn("set_id", cols)
         self.assertIn("card_key", cols)
+        pk = [r[1] for r in con.execute("PRAGMA table_info(rune_counter)") if r[5]]
+        self.assertEqual(sorted(pk), ["card_key", "set_id"])
         con.close()
 
-    def test_o_contador_e_o_mesmo_em_todas_as_edicoes(self):
+    def test_o_contador_e_SO_da_edicao_onde_ele_carregou(self):
+        """O que estava mal: o número do OGN aparecia no SFD. Agora um `+` no
+        OGN deixa as outras três a zero."""
         con = self.catalogo()
-        self.rv.ajustar(con, "calm rune", 7)
+        self.rv.ajustar(con, "calm rune", "OGN", 7)
         p = self.rv.payload(con)
-        for sid in p["por_edicao"]:
-            self.assertEqual(self.runa(self.ed(p, sid), "Calm Rune")["contador"],
-                             self.runa(p, "Calm Rune")["contador"], sid)
+        self.assertEqual(self.runa(self.ed(p, "OGN"), "Calm Rune")["contador"], 7)
+        for sid in ("SFD", "UNL", "VEN"):
+            self.assertEqual(self.runa(self.ed(p, sid), "Calm Rune")["contador"], 0,
+                             f"o número do OGN apareceu no {sid}")
+        # Em «Todas» é a SOMA das quatro.
+        self.assertEqual(self.runa(p, "Calm Rune")["contador"], 7)
+        self.rv.ajustar(con, "calm rune", "SFD", 2)
+        p = self.rv.payload(con)
+        self.assertEqual(self.runa(p, "Calm Rune")["contador"], 9)
+        self.assertEqual(p["totals"]["contador"], 9)
         con.close()
 
-    def test_a_sementeira_continua_a_ser_uma_por_runa_com_a_soma(self):
-        """Semeia com o que ele tem de TODAS as edições — é o número dele
-        «na mão», e a mão não é por edição."""
+    def test_comeca_a_zero_e_nao_ha_sementeira(self):
+        """A sementeira era o contrário do que ele pediu: punha 15 no OGN
+        quando ele tinha contado 3 ao todo."""
         con = self.catalogo()
-        self.rv.payload(con)
-        gravado = {r["card_key"]: (r["qty"], r["seeded_from"]) for r in
-                   con.execute("SELECT * FROM rune_counter")}
-        self.assertEqual(gravado, {"calm rune": (35, 35), "fury rune": (3, 3)})
+        p = self.rv.payload(con)
+        self.assertEqual(
+            [tuple(r) for r in con.execute("SELECT * FROM rune_counter")], [],
+            "ler o bloco gravou linhas — a sementeira tinha de ter saído")
+        for sid, e in p["por_edicao"].items():
+            self.assertEqual(e["totals"]["contador"], 0, sid)
+        self.assertEqual(p["totals"]["contador"], 0)
+        con.close()
+
+    def test_o_alvo_conta_celulas_runa_vezes_edicao(self):
+        """12 por runa e por edição: OGN 2 células, SFD/UNL/VEN 1 cada."""
+        con = self.catalogo()
+        p = self.rv.payload(con)
+        self.assertEqual(self.ed(p, "OGN")["totals"]["alvo"], 24)
+        for sid in ("SFD", "UNL", "VEN"):
+            self.assertEqual(self.ed(p, sid)["totals"]["alvo"], 12, sid)
+        # «Todas» é a soma das quatro (5 células), não 12 × 6 runas.
+        self.assertEqual((p["totals"]["celulas"], p["totals"]["alvo"]), (5, 60))
         con.close()
 
     def test_o_ajustar_devolve_os_totais_das_duas_vistas(self):
         """Uma aritmética só: o cabeçalho de cada edição mostra o contador, e
         é o servidor que o soma."""
         con = self.catalogo()
-        self.rv.payload(con)
-        res = self.rv.ajustar(con, "calm rune", -5)
-        self.assertEqual(res["qty"], 30)
+        self.rv.ajustar(con, "calm rune", "SFD", 5)
+        res = self.rv.ajustar(con, "calm rune", "SFD", -2)
+        self.assertEqual(res["qty"], 3)
         self.assertEqual(sorted(res["totals_por_edicao"]), ["OGN", "SFD", "UNL", "VEN"])
         self.assertEqual(res["totals_por_edicao"]["SFD"]["total"], 14)
-        self.assertEqual(res["totals_por_edicao"]["SFD"]["contador"], 30)
+        self.assertEqual(res["totals_por_edicao"]["SFD"]["contador"], 3)
+        self.assertEqual(res["totals_por_edicao"]["OGN"]["contador"], 0)
         self.assertEqual(res["totals"]["total"], 38)
+        self.assertEqual(res["totals"]["contador"], 3)
         con.close()
 
     def test_mexer_no_contador_nao_mexe_na_referencia_de_edicao_nenhuma(self):
         con = self.catalogo()
         antes = {sid: e["totals"]["total"] for sid, e in
                  self.rv.payload(con)["por_edicao"].items()}
-        for ck in ("calm rune", "fury rune"):
-            self.rv.ajustar(con, ck, 99)
+        for ck, sid in (("calm rune", "OGN"), ("calm rune", "SFD"),
+                        ("calm rune", "UNL"), ("calm rune", "VEN"),
+                        ("fury rune", "OGN")):
+            self.rv.ajustar(con, ck, sid, 99)
         depois = {sid: e["totals"]["total"] for sid, e in
                   self.rv.payload(con)["por_edicao"].items()}
         self.assertEqual(antes, depois)
@@ -364,8 +392,9 @@ class TestNaoMexeEmNumeroNenhumDoResto(Base):
         antes = self.fotografia(con)
         p = self.rv.payload(con)
         self.assertTrue(p["por_edicao"], "a fotografia não vale com o bloco vazio")
-        for ck in ("calm rune", "fury rune"):
-            self.rv.ajustar(con, ck, 40)
+        for ck, sid in (("calm rune", "OGN"), ("calm rune", "SFD"),
+                        ("fury rune", "OGN")):
+            self.rv.ajustar(con, ck, sid, 40)
         self.assertEqual(self.fotografia(con), antes)
         con.close()
 
@@ -415,7 +444,7 @@ class TestFrontend(Base):
         desenho = re.search(r"async function renderRunasVista\(reler = false\) \{(.*?)\n\}\n",
                             self.JS, re.S).group(1)
         self.assertIn("runasDaEdicao()", desenho)
-        self.assertIn("v.runas.map(runaTile)", desenho)
+        self.assertIn("v.runas.map(x => runaTile(x, v))", desenho)
 
     def test_um_payload_antigo_nao_parte_o_ecra(self):
         """O 8770 não se reinicia a cada merge: um payload sem `por_edicao`
@@ -423,22 +452,27 @@ class TestFrontend(Base):
         corpo = self.corpo("runasDaEdicao")
         self.assertIn("!p.por_edicao", corpo)
 
-    def test_o_cabecalho_diz_a_edicao_e_que_o_contador_e_de_todas(self):
+    def test_o_cabecalho_diz_de_que_edicao_e_o_contador(self):
         corpo = self.corpo("runasHead")
         self.assertIn("v.set_id", corpo)
         self.assertIn("nesta edição", corpo)
-        self.assertIn("igual em todas as edições", corpo)
+        self.assertIn("o teu contador de ", corpo)
+        # Em «Todas» di-lo, senão o 288 lia-se como um alvo por runa.
+        self.assertIn("a soma do teu contador nas edições todas", corpo)
 
-    def test_o_contador_anda_em_todas_as_listas(self):
-        """É um por runa: um `+` no OGN tem de mudar o número que o SFD
-        mostra, senão ficava velho."""
-        corpo = self.corpo("runasListas")
-        self.assertIn("por_edicao", corpo)
+    def test_o_contador_anda_SO_na_edicao_e_na_soma(self):
+        """2026-10-03: é um por (runa, edição). Um `+` no OGN muda o OGN e a
+        soma de «Todas», e NÃO toca no SFD."""
         corpo = self.corpo("runaPorContador")
-        self.assertIn("runasListas()", corpo)
-        ajustar = re.search(r"async function runaAjustar\(ck, delta\) \{(.*?)\n\}\n",
+        self.assertIn("(p.por_edicao || {})[sid]", corpo)
+        self.assertIn("p.runas", corpo)
+        self.assertNotIn("runasListas", self.JS,
+                         "a lista que punha o número em todas as edições saiu")
+        ajustar = re.search(r"async function runaAjustar\(ck, sid, delta\) \{(.*?)\n\}\n",
                             self.JS, re.S).group(1)
-        self.assertIn("runaPorContador(ck", ajustar)
+        self.assertIn("runaPorContador(ck, sid", ajustar)
+        self.assertIn("set_id: sid", ajustar)
+        self.assertIn("if (!sid) return", ajustar)   # em «Todas» não há botões
         self.assertIn("totals_por_edicao", ajustar)
         # E continua a não tocar em mais nada do site.
         for proibido in ("api/adjust", "api/encomenda", "wlDesatualizar",
@@ -449,7 +483,9 @@ class TestFrontend(Base):
         con = self.catalogo()
         nota = self.rv.payload(con)["nota"]
         self.assertIn("nesta edição", nota)
-        self.assertIn("é o mesmo em todas as edições", nota)
+        # A nota é a mesma nas duas vistas: quem diz qual é o cabeçalho.
+        self.assertIn("é de CADA EDIÇÃO", nota)
+        self.assertNotIn("DESTA edição", nota)
         # A que já estava, e continua a ter de estar.
         self.assertIn("o número é teu", nota)
         self.assertIn("sequência do master set", nota)

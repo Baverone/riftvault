@@ -140,22 +140,26 @@ DEFAULTS: dict = {
                    "um_de_cada": ["overnumbered", "promo"],
                    "ordem_dos_blocos": ["master", "overnumbered", "a", "promo"]},
     # O que os decks JOGAM.
-    #   `so_base`            — SÓ VERSÕES BASE, A LEGEND E O CHAMPION INCLUÍDOS
-    #                          (André, 2026-09-21, ao acabar a experiência do
-    #                          pool próprio: é a última coisa que disse sobre
-    #                          versões e mantém-se). Com `true` (a omissão) um
-    #                          lugar de deck só se serve de `variant_kind ==
-    #                          "base"` não sobrenumerada — sem alt art, sem
-    #                          sobrenumeradas, sem promos, sem assinadas, sem o
-    #                          recurso a «o que houver de não-assinado» — e a
-    #                          regra de 2026-09-17 (a Legend/Champion numa
-    #                          versão especial) NÃO se aplica, esteja o que
-    #                          estiver em `so_normais_excepto`. Com `false`
-    #                          qualquer versão não assinada serve um lugar
-    #                          normal (a base primeiro, depois as outras que
-    #                          ele tenha — `Versoes.outras_de`) e as duas
-    #                          chaves a seguir voltam a ser lidas. Desliga-se
-    #                          mudando esta chave sozinha.
+    #   `so_base`            — O DECK USA O QUE ESTÁ NA COLEÇÃO, SEJA QUE ARTE
+    #                          FOR. `false` desde 2026-10-03, que é a regra dele
+    #                          dita duas vezes (2026-09-17 e 2026-10-01): "usa o
+    #                          que esta na coleccao, sendo foil ou nao, sendo Alt
+    #                          Art ou nao, sendo Overnumbered ou nao. Se nao
+    #                          houver versao normal, ele avisa que sao X normais
+    #                          e X Alt Art". Com `false` (a omissão) um lugar
+    #                          normal serve-se da BASE primeiro e, no que ela não
+    #                          tapar, de outra versão que ele tenha — alt art,
+    #                          sobrenumerada, promo (`Versoes.outras_de`); nunca
+    #                          assinada, nunca uma runa retirada. Com `true`
+    #                          (2026-09-21 a 2026-10-03) era SÓ a base, e uma
+    #                          carta que ele tivesse em alt art aparecia como
+    #                          falta a comprar. O ALVO DA COLEÇÃO NÃO SOBE por
+    #                          isto — uma alt art continua a pedir o que
+    #                          `master_set.um_de_cada` diz (2026-09-17, "vamos
+    #                          voltar atras"). Desliga-se mudando esta chave
+    #                          sozinha; a regra de 2026-09-17 sobre a
+    #                          Legend/Champion continua a depender da lista a
+    #                          seguir, que está VAZIA.
     #   `so_normais_excepto` — (só com `so_base: false`) os PAPÉIS da lista do
     #                          deck que jogam uma versão especial (André,
     #                          2026-09-17: "os decks apenas jogaram versoes
@@ -244,7 +248,7 @@ DEFAULTS: dict = {
     #                          topo é a `epic`.) `null` ou `""` desliga o
     #                          aviso; uma raridade que o catálogo não conheça
     #                          rebenta. Ver `decks.raridades_da_colecao`.
-    "decks": {"so_base": True,
+    "decks": {"so_base": False,
               "so_normais_excepto": [],
               "versoes_especiais": ["a", "overnumbered", "promo"],
               "contar_runas": False,

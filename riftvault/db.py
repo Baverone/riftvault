@@ -11,7 +11,7 @@ toda a coluna nova tem de entrar também em `_migrate()`.
 from __future__ import annotations
 
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from . import config, guarda, utilizador
@@ -32,7 +32,7 @@ from . import config, guarda, utilizador
 TABELAS_DE_DONO = (
     "copies", "copy_locations", "foil_ops", "location_ops", "ops", "pending",
     "sale_lines", "sale_log", "cardmarket_trend", "sealed_copies",
-    "sealed_price", "rune_counter", "settings",
+    "sealed_price", "rune_counter", "rune_counter_antes", "settings",
     "decks", "deck_cards", "deck_need_log",
 )
 
@@ -155,6 +155,73 @@ def _tirar_o_tecto_do_foil(con: sqlite3.Connection) -> None:
     except Exception:
         con.execute("ROLLBACK")
         raise
+
+
+def _migrar_rune_counter_por_edicao(con: sqlite3.Connection) -> int:
+    """O contador das runas passa a ser POR EDIÇÃO, e começa a ZERO (2026-10-03).
+
+    André, hoje: *"Zera e recontas por edicao"* — escolhido entre quatro
+    hipóteses, depois de a 02/10 se ter corrigido a referência «nesta edição» e
+    de o CONTADOR ter ficado por resolver. A chave era só o `card_key`, por isso
+    o mesmo número aparecia nas quatro páginas: as 14 que ele contou à mão não
+    tinham edição gravada e reparti-las era inventá-las.
+
+    **ZERAR NÃO É APAGAR O RASTO.** As seis linhas vão para a
+    `rune_counter_antes` com o `qty`, o `seeded_from` e o `updated_at` de cada
+    uma — é o que ele vai conferir enquanto reconta, no ecrã e no `riftvault
+    runas`. Fora disso há a cópia de segurança em `data/backups/` (JSON e SQL),
+    tirada à mão antes desta mudança.
+
+    REFAZ A TABELA porque o SQLite não sabe mudar uma PRIMARY KEY, e por isso
+    leva BACKUP: é uma tabela do vault.db. Numa transação só, para o que ele
+    carregar entretanto ficar de um lado ou do outro. Idempotente: a segunda
+    ligação já encontra o `set_id` e não faz nada — nem backup, senão cada
+    arranque do `serve` deixava um.
+
+    CORRE ANTES do `_migrar_user_id`, como o tecto do foil: quem refaz uma
+    tabela tem de passar antes de haver uma coluna a mais para copiar. A
+    `user_id` da tabela nova vem da migração seguinte (ou do `schema.sql`, numa
+    base de raiz) e as linhas arquivadas são carimbadas pelo
+    `utilizador.guardar`, como as outras.
+
+    Devolve quantas linhas arquivou (0 quando não havia nada a fazer).
+    """
+    cols = _columns(con, "rune_counter")
+    if not cols or "set_id" in cols:
+        return 0
+    backup(con, "antes-do-contador-de-runas-por-edicao")
+    agora = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    con.execute("BEGIN IMMEDIATE")
+    try:
+        # A tabela do rasto primeiro: se isto falhasse depois do DROP, as 14
+        # dele desapareciam. (`schema.sql` já a criou numa base de raiz; aqui
+        # faz falta para uma base que vem de ontem.)
+        con.execute("CREATE TABLE IF NOT EXISTS rune_counter_antes ("
+                    "card_key TEXT PRIMARY KEY, "
+                    "qty INTEGER NOT NULL, "
+                    "seeded_from INTEGER NOT NULL, "
+                    "updated_at TEXT NOT NULL, "
+                    "arquivado_em TEXT NOT NULL, "
+                    "dispensado_em TEXT, "
+                    "user_id INTEGER REFERENCES users(user_id))")
+        n = con.execute(
+            "INSERT OR IGNORE INTO rune_counter_antes "
+            "(card_key, qty, seeded_from, updated_at, arquivado_em) "
+            "SELECT card_key, qty, seeded_from, updated_at, ? FROM rune_counter",
+            (agora,)).rowcount
+        con.execute("DROP TABLE rune_counter")
+        con.execute("CREATE TABLE rune_counter ("
+                    "card_key TEXT NOT NULL, "
+                    "set_id TEXT NOT NULL, "
+                    "qty INTEGER NOT NULL CHECK (qty >= 0), "
+                    "updated_at TEXT NOT NULL, "
+                    "user_id INTEGER REFERENCES users(user_id), "
+                    "PRIMARY KEY (card_key, set_id))")
+        con.execute("COMMIT")
+    except Exception:
+        con.execute("ROLLBACK")
+        raise
+    return max(0, n)
 
 
 def _migrar_pending_foil(con: sqlite3.Connection) -> None:
@@ -322,6 +389,10 @@ def _migrate(con: sqlite3.Connection) -> None:
     if "qty_foil <= qty" in _sql_da_copies(con):
         backup(con, "antes-do-foil-somar")
         _tirar_o_tecto_do_foil(con)
+
+    # O contador das runas por EDIÇÃO (2026-10-03). Também refaz uma tabela, por
+    # isso vem com o tecto do foil, antes do `_migrar_user_id`.
+    _migrar_rune_counter_por_edicao(con)
 
     # O acabamento da encomenda (2026-09-27): sem ela uma foil encomendada nas
     # Faltas entrava na coleção como normal.

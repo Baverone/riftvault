@@ -2829,8 +2829,20 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   todas (no OGN a Calm Rune dizia «21», e **12 dessas eram as `SFD-R02a`**; no
   UNL dizia o mesmo 21 sem ele ter lá uma runa; o OGS levava o bloco inteiro).
   A soma do topo não mexeu — é o que «Todas» mostra —, e o **contador dele**
-  continua um por runa, de propósito e dito no ecrã: 12 de cada é o Rune Pool, e
-  os 14 que ele contou à mão não têm edição para onde ir. Ver a última secção
+  ficou um por runa, dito no ecrã; **a 2026-10-03 passou a ser por edição
+  também** (ver o ponto a seguir). Ver a última secção deste ficheiro.
+- **ACABADO a 2026-10-03:** o CONTADOR das runas passa a ser **POR EDIÇÃO** e
+  começa a **ZERO** — *"Zera e recontas por edicao"*, escolhido por ele entre
+  quatro hipóteses. A `rune_counter` ganhou `set_id` na chave (migração que
+  refaz a tabela, com backup) e as seis linhas dele — **14 cópias**: Body 3,
+  Calm 3, Chaos 2, Fury 3, Mind 1, Order 2 — foram para a
+  **`rune_counter_antes`** com o `updated_at` de cada uma: **zerar não é apagar
+  o rasto**. Com elas saiu a SEMENTEIRA (o número tem de ser o que ELE conta, e
+  no OGN a Calm Rune calculava 9 contra os 3 que ele contou), e por isso **ler o
+  bloco deixou de escrever na base**. O ecrã ajuda a recontar: um aviso em cima
+  a dizer que o zero é de hoje, com o que ele tinha contado ao lado e um
+  «dispensar» que marca a data sem apagar nada; e **os `+`/`−` só aparecem na
+  página de uma edição** — em «Todas» o crachá é a soma. Ver a última secção
   deste ficheiro.
 - **CORRIGIDO a 2026-10-02:** a RAIZ PUBLICADA deixa de se indexar
   (`abrir.lista_indexavel`) — a lista nomeia os amigos **e o valor da coleção de
@@ -11086,3 +11098,243 @@ ficheiros) que nomeiam um log ou a pasta `backups/` são TODOS do André** e
 nenhum precisou de ser tocado: **zero testes ajustados nesta ordem.** O que a
 ordem leu como «o teste fixa o defeito» era, na verdade, o teste a fixar a parte
 que não podia mudar.
+
+## 2026-10-03 — O CONTADOR DAS RUNAS PASSA A SER POR EDIÇÃO, e começa a ZERO (`rune_counter.set_id`, `rune_counter_antes`)
+
+Palavras dele, escolhidas entre quatro hipóteses que lhe foram postas:
+**«Zera e recontas por edicao»** — *"o contador passa a ser POR EDIÇÃO e começa
+a zero; ele volta a contar as runas uma vez, já separadas, e a partir daí fica
+certo"*. Ramo `ai-pc/runas-contador-edicao-2026-10-03`.
+
+**É A SEGUNDA METADE DE 2026-10-01.** Nesse dia corrigiu-se a REFERÊNCIA («na
+coleção» → «nesta edição»), porque o bloco somava as cinco edições num número
+só e repetia-o em todas. O CONTADOR ficou de fora, e está escrito porquê: a
+chave era só o `card_key`, os 14 que ele contou à mão não tinham edição gravada,
+e reparti-los era inventá-los. Ele resolveu-o pelo único caminho honesto —
+recontar.
+
+### 1. A CÓPIA DE SEGURANÇA, antes de tocar em nada
+
+As seis linhas dele **não se recuperam de fonte nenhuma**: não são calculadas,
+são contadas à mão. Antes da primeira linha de código,
+`_revisao\_backup_rune_counter.py` (só leitura, por ligação `mode=ro`) escreveu
+duas vezes o mesmo pacote — um JSON com as linhas e os `updated_at`, e um `.sql`
+com os `INSERT` prontos a colar:
+
+    data/backups/rune_counter-antes-de-por-edicao-20261003-122326.json  (e .sql)
+    C:\Users\Catarina\_revisao\rune_counter-antes-de-por-edicao-20261003-122326.json
+
+Em dois sítios de propósito: o `data/backups/` está no `.gitignore` e é a pasta
+que o `conta.apagar` conta, mas é na mesma a pasta de um projecto; o `_revisao`
+é fora dele. **O que lá está, e é o que ele reconta contra:**
+
+| runa | contava | a coleção dizia na sementeira | último toque dele |
+|---|---|---|---|
+| Body Rune | **3** | 2 | 2026-10-01 |
+| Calm Rune | **3** | 27 | 2026-09-26 |
+| Chaos Rune | **2** | 9 | 2026-10-01 |
+| Fury Rune | **3** | 4 | 2026-09-26 |
+| Mind Rune | **1** | 12 | 2026-09-26 |
+| Order Rune | **2** | 22 | 2026-09-26 |
+| **total** | **14** | | |
+
+### 2. ZERAR NÃO É APAGAR O RASTO — a `rune_counter_antes`
+
+A `rune_counter` ganhou **`set_id`** e a chave passou a `(card_key, set_id)`. O
+SQLite não sabe mudar uma PRIMARY KEY, por isso a migração REFAZ a tabela
+(`db._migrar_rune_counter_por_edicao`), e por isso leva **backup**, corre numa
+transação só e é idempotente. Vem com o tecto do foil, **antes** do
+`_migrar_user_id`: quem refaz uma tabela passa antes de haver uma coluna a mais
+para copiar.
+
+**As seis linhas não se perdem**: vão para a **`rune_counter_antes`** com o
+`qty`, o `seeded_from` e o `updated_at` de cada uma. A tabela do rasto cria-se
+**antes** do `DROP` — se a ordem fosse a outra, uma falha a meio levava as 14
+dele. Ninguém a lê para fazer contas: é o que ele confere enquanto reconta, no
+ecrã e no `riftvault runas`.
+
+**A SEMENTEIRA FOI-SE, e é o ponto da mudança.** Até 02/10 cada linha nascia com
+o que ele fisicamente tinha dessa runa, para não ter de carregar 74 vezes. Com o
+contador por edição isso era o contrário do que ele pediu: no OGN a Calm Rune
+calculava **9** e ele tinha contado **3**. Uma célula só nasce de um `+`, uma
+célula sem linha lê-se 0 — e por isso **ler o bloco deixou de escrever na
+base**, que é uma propriedade que vale a pena ter escrita (a `semear` era a única
+escrita de uma leitura em toda a app).
+
+### 3. O ECRÃ TEM DE AJUDAR A RECONTAR, e tem de dizer que o zero é de hoje
+
+Um bloco a zeros, sozinho, lê-se **«não tens runas»** — que é o contrário do que
+se passa (ele tem 70 cópias de runas). Por isso há um **aviso** em cima do
+bloco, enquanto ele não o dispensar: diz que o contador foi reposto para passar
+a ser por edição, mostra o que ele tinha contado (**14 ao todo**, runa a runa) e
+tem um «Dispensar este aviso».
+
+**Dispensar NÃO apaga o rasto**: marca a data (`dispensado_em`) e as seis linhas
+ficam na tabela e no `riftvault runas`. Uma coluna e não um `DELETE`, pela mesma
+razão de sempre nesta casa — esconder não é apagar; e `--repor-aviso` traz o
+aviso de volta.
+
+**OS `+`/`−` SÓ APARECEM NA PÁGINA DE UMA EDIÇÃO.** Em «Todas» o crachá é a soma
+das quatro e no lugar dos botões fica a frase que diz porquê — um clique ali não
+saberia a que edição somar, e escolher uma por ele era inventar o número outra
+vez, que é exactamente o que esta ordem veio desfazer. O `runaPorContador` do
+`app.js` mudou de sentido: um `+` no OGN muda a célula do OGN e a SOMA de
+«Todas», e **não toca no SFD** — até 02/10 era o contrário (havia um número só e
+tinha de mudar em todas as listas), e o `runasListas` que o fazia saiu.
+
+### 4. O ALVO conta CÉLULAS, não runas — e é decisão a confirmar com ele
+
+«12 de cada» agora que a célula é por edição lê-se **12 por runa e por edição**:
+uma edição fechada são **72** (um Rune Pool que se pode montar só com runas
+dela) e «Todas» são **288**, que é a soma das quatro. A docstring de 19/09 usava
+esse 288 como ARGUMENTO PARA NÃO partir o contador (*"não é uma coisa que se
+tenha nem se jogue"*); ele decidiu parti-lo, e o número passou a ser a
+consequência. O cabeçalho de «Todas» di-lo («a soma do teu contador nas edições
+todas») para o 288 não se ler como um alvo por runa. **Se ele não quiser esse
+288, é uma linha no `runas_vista.alvo` e é decisão dele.**
+
+### 5. Medido a 2026-10-03, o `main` e o ramo contra cópias do MESMO instante
+
+`_revisao\_medir_runas_contador.py` (as bases estão em WAL: copiam-se por
+`Connection.backup()`, nunca por `copy2`; o `data/` a sério só se leu).
+
+**A tabela:** antes `['card_key', 'qty', 'seeded_from', 'updated_at',
+'user_id']` com 6 linhas; depois `['card_key', 'set_id', 'qty', 'updated_at',
+'user_id']` com **0**, e as 6 no arquivo com as datas intactas.
+
+**O que ele vê no ecrã** (o crachá de cada runa, por página):
+
+| página | antes | depois |
+|---|---|---|
+| **«Todas»** | contas **14** de 72 | contas **0** de **288** · tens 70 (39 sem as retiradas) |
+| **OGN** | contas 14 de 72 (o mesmo 14) | contas **0** de 72 · nesta edição tens **45** (37) |
+| **SFD** | contas 14 de 72 (o mesmo 14) | contas **0** de 72 · nesta edição tens **23** (0) |
+| **UNL** | contas 14 de 72 (o mesmo 14) | contas **0** de 72 · nesta edição tens **0** |
+| **VEN** | contas 14 de 72 (o mesmo 14) | contas **0** de 72 · nesta edição tens **2** |
+
+Runa a runa, o que ele vai ver mudar: o crachá da Calm Rune dizia **3** nas
+quatro páginas e passa a **0 · 0 · 0 · 0**; o mesmo para as outras cinco. A
+REFERÊNCIA ao lado não mexeu um número — é a de 02/10 (OGN: Body 1 · Calm 9 ·
+Chaos 9 · Fury 3 · Mind 8 · Order 15; SFD: Calm 12 · Mind 4 · Order 7; VEN: Body
+1 · Fury 1) —, e é com ela que ele compara o que conta.
+
+**O OGS continua sem bloco** (não tem runas), e a soma do topo continua 70 / 39
+sem as retiradas.
+
+### 6. O que se mediu e se decidiu NÃO mudar
+
+- **As runas do master set continuam a pedir 3** (`master_targets_by_type`,
+  15/09 à tarde); o 12 é só do bloco dele e vive noutro sítio. A runa base
+  continua na **sequência**, a arte alternativa dela continua **retirada**
+  (17/09), e as promo `VEN-R01..R06` continuam **dentro** da Coleção —
+  escondidas da grelha (15/09), mas no `copies` e no valor. Há teste para cada.
+- **A REFERÊNCIA «nesta edição» não se tocou**: é a de 02/10 e está certa.
+- **O `runas_vista.alvo` fica em 12.** Mexer nele a par desta ordem era mudar
+  duas coisas de uma vez e não saber qual delas ele estava a aprovar.
+- **Nada mais mexe, e não é asserção:** a fotografia de níveis, índice,
+  wantlist, `master_faltas`, Faltas, A mais, valor, as cinco barras e o `copies`
+  é igual com as células todas a 12 e todas a 0 — **sem o relógio dentro** (a
+  lição de 02/10), com a prova pela negativa ao lado (um `+` na grelha TEM de
+  mudar a fotografia) e com um teste que recusa que qualquer módulo de contas
+  nomeie o `runas_vista` ou a `rune_counter`.
+
+`tests/test_runas_contador_edicao.py` (**27 testes**): a migração (as seis para
+o arquivo e a tabela vazia, a chave nova e a colisão, idempotente, a forma igual
+numa base de raiz e numa migrada, o backup, as duas tabelas classificadas em
+`TABELAS_DE_DONO`, e o contador de ontem a não voltar a valer por acidente); o
+rasto (no payload com os números e as datas, dispensar a marcar sem apagar, a
+não mexer no contador nem na coleção, o ecrã, a rota); a CLI (ver e mexer por
+edição, sem `--edicao` recusa, a edição que não tem aquela runa recusa, o rasto
+sempre); nada mais mexe; o que estava decidido; e «Todas» sem botões.
+`test_runas_vista` (9 testes) e `test_runas_por_edicao` (6) foram reescritos —
+**fixavam o regime antigo**: a sementeira, o `ajustar(con, ck, delta)` sem
+edição, a tabela sem `set_id` e o «o contador é o mesmo em todas as edições»,
+que era a decisão que ele acabou de revogar. O `test_contas` ganhou a rota nova
+na lista das escritas (23 → **25**).
+
+## 2026-10-03 — O `decks.so_base` VIRA PARA A REGRA DELE: o deck usa o que está na Coleção, seja que arte for
+
+Palavras dele, ditas duas vezes: *"usa o que esta na coleccao, sendo foil ou
+nao, sendo Alt Art ou nao, sendo Overnumbered ou nao. Se nao houver versao
+normal, ele avisa que sao X normais e X Alt Art / Overnumbered ou o que quer que
+seja"* (2026-10-01) e *"caso um deck precise de uma carta, que nao ha versao
+disponivel em normal, mas esteja disponivel em Alt Art ou outra, usa, mas no
+deck separa as versoes por Art"* (2026-09-17). Ramo `ai-pc/so-base-2026-10-03`.
+
+**O MECANISMO JÁ ESTAVA TODO FEITO, e não se reescreveu nada.** É de 2026-09-17,
+à tarde — `Versoes.outras_de` (as mesmas versões especiais, a mais barata
+primeiro, para a mais cara ficar na Coleção), o `versoes_em` a repartir cada
+linha pelas impressões que a servem, e no `app.js` o `versoesNota` (as
+sub-linhas «2 normal · UNL-176» / «1 Alt Art · UNL-176a»), o `tapadaNota` (a
+conta por arte, «3 — 1 normal, 2 Alt Art») e o `edicoesNota` («2 de OGN + 1 de
+UNL», de 01/10). **O que faltava era o interruptor**, e o config dizia o
+contrário desde 2026-09-21.
+
+**VIROU NOS TRÊS SÍTIOS que respondiam à mesma pergunta** — o
+`riftvault_config.json`, o `config.DEFAULTS` e a omissão do `decks.so_base()`.
+A omissão virou também de propósito: com `true`, um riftvault sem config **manda
+comprar uma carta que ele tem em Alt Art**, e isso é uma falta que não existe. É
+a mesma leitura do `foil.conta_para_coleccao` de 27/09 — a omissão não pode
+mentir sobre faltas, em nenhuma das duas direcções.
+
+**A regra de 2026-09-17 sobre a Legend/Champion jogarem uma versão ESPECIAL
+continua DESLIGADA**, e isso não é descuido: depende do `so_normais_excepto`,
+que está VAZIO desde 21/09, e **não volta** só por esta chave ir a `false`. Hoje
+todos os lugares — a Legend e o Champion incluídos — jogam a base e tapam com
+outra arte que ele tenha. É o literal da frase dele.
+
+### Medido a 2026-10-03: ZERO diferença, e o zero EXPLICA-SE
+
+Contra uma cópia do `data/` real (`VACUUM INTO` — as bases estão em WAL; o
+`data/` a sério só se leu), o MESMO código e a MESMA cópia dos dois lados,
+mudando só a chave (`_revisao\_medir_so_base.py`), em **dois** cenários: com o
+deck desmontado (o de hoje) e com ele **montado**, que é o que vai acontecer
+quando ele o montar.
+
+| | `so_base: true` | `so_base: false` |
+|---|---|---|
+| níveis (1 de cada / 2 / playset) | **911 / 876 / 797** de 928 | **iguais** |
+| valor | **8 353,93 €** · 3 299 cópias | **igual** |
+| wantlist «tudo» | 131 linhas · 196 cópias · 718,11 € | **igual** |
+| Faltas (fechar · a comprar) | 407 · 8 377,13 € · 196 · 718,11 € | **iguais** |
+| A mais, painel, os 96 alvos das alt art | — | **iguais** |
+| falta do deck (montado) | 4 cópias de 2 cartas · 1,56 € | **igual** |
+
+**Porque é que é zero** (`_revisao\_so_base_outras.py`): das **25 cartas** que o
+deck pede, ele tem OUTRA arte de **quatro** — Kennen `VEN-135a`, Leona
+`OGN-079a`, Vi `UNL-176a` e Radiant Dawn `OGN-306` (sobrenumerada) — e **nas
+quatro a BASE já cobre** o que o deck pede; e as duas que faltam (**3× Zenith
+Blade `OGN-262`, 1× Salvage `OGN-224`**) não existem no catálogo em arte nenhuma
+além da base. **É uma consequência da coleção DE HOJE, não da regra**: no dia em
+que uma base não chegar, a outra arte tapa — e é essa a pergunta que a medição
+tem de responder, não «mudou algum número hoje» (a lição do foil de 26–27/09).
+
+**O alvo da Coleção NÃO sobe por isto** — *"vamos voltar atras"* (17/09) —, e
+mediu-se impressão a impressão: os alvos das artes alternativas são os mesmos
+com o interruptor de um lado e do outro.
+
+**A página do deck deixou de ficar calada.** A nota que dizia «Só **versões
+base**, a Legend e o Champion incluídos» desaparecia com a chave a `false` e
+nada tomava o lugar dela; passou a dizer a regra em vigor nos dois sentidos.
+
+`tests/test_so_base_dele.py` (**25 testes**, contra pastas temporárias e config
+temporário): a regra pelas palavras dele — a alt art parada a tapar a terceira
+cópia e a **prova pela negativa** (com `true` a MESMA coleção mandava comprar o
+que ele tem), a sobrenumerada a tapar também, a **assinada que NUNCA tapa**, a
+runa em alt art **retirada** que também não, e a falta a comprar-se na BASE; a
+separação por arte (as sub-linhas, os rótulos que são as palavras dele, «3 — 1
+normal, 2 Alt Art», o CLI, e as duas frases do `app.js`); o alvo da Coleção que
+não sobe (e uma alt art que o deck joga a continuar a poder estar «a mais»); **a
+fotografia** da Coleção igual dos dois lados — níveis, denominador, wantlist
+(texto incluído), valor, totais, grelha, playset jogável, barra, painel, Faltas,
+Encomendas e A mais —, com a prova pela negativa ao lado **e** com a outra
+metade (os decks TÊM de mexer, senão o primeiro teste não prova nada); e o
+interruptor nos três sítios, com `true` a voltar ao que era.
+
+**O que se mediu e se decidiu NÃO mudar:** o `so_normais_excepto` fica VAZIO (a
+regra da Legend/Champion em versão especial é outra decisão dele e ele não a
+pediu de volta); o `versoes_especiais` fica `["a", "overnumbered", "promo"]`; e o
+`state.soBase` do `app.js` está **morto desde 01/10** (é escrito no
+`garanteDecks` e nunca lido — era a etiqueta ao lado dos `+`/`−` das cópias
+próprias, que saíram nesse dia). Fica anotado; tirá-lo era mexer no `app.js` por
+uma linha que ninguém vê.

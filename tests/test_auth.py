@@ -127,7 +127,24 @@ class TestPkce(unittest.TestCase):
 
 
 class TestProvedoresSemCredenciais(unittest.TestCase):
-    """Hoje o config está vazio. A app tem de DIZER o que falta, não rebentar."""
+    """Hoje o config está vazio. A app tem de DIZER o que falta, não rebentar.
+
+    «SEM CREDENCIAIS» TEM DE INCLUIR O AMBIENTE (2026-10-03). O segredo vem da
+    variável de ambiente desde 2026-09-29 (o `riftvault_config.json` está
+    commitado num repositório PÚBLICO), e nesta máquina as duas estão POSTAS —
+    com elas, `em_falta` não listava o `client_secret` e três testes desta
+    classe davam vermelho a cada corrida, em qualquer ramo. Era um vermelho
+    pré-existente e que não se reproduzia noutra máquina, que é a pior espécie:
+    um teste que mede «sem credenciais» não pode depender do que o shell de
+    quem o corre tem posto. Limpam-se aqui, e repõem-se no fim para os
+    ficheiros seguintes da suite (e o `riftvault serve`) voltarem a vê-las.
+    """
+
+    def setUp(self):
+        for var in ("RIFTVAULT_GOOGLE_SECRET", "RIFTVAULT_DISCORD_SECRET"):
+            antigo = os.environ.pop(var, None)
+            if antigo is not None:
+                self.addCleanup(os.environ.__setitem__, var, antigo)
 
     def test_sem_config_nenhum_o_google_diz_o_que_falta(self):
         falta = auth.GOOGLE.em_falta({})

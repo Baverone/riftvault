@@ -176,12 +176,15 @@ def api_runas():
 
 @app.post("/api/runas/ajustar")
 def api_runas_ajustar():
-    """Os `+`/`−` do bloco das runas: `{card_key, delta}`.
+    """Os `+`/`−` do bloco das runas: `{card_key, set_id, delta}`.
 
     Mexe SÓ no contador dele (`rune_counter`) — nada de `copies`, `ops`,
     `pending` ou locais; nenhuma conta do site lê este número. Nunca vai
-    abaixo de zero: um `−` a 0 devolve 0. Um `card_key` que não seja runa do
-    catálogo é 404.
+    abaixo de zero: um `−` a 0 devolve 0.
+
+    O `set_id` É OBRIGATÓRIO desde 2026-10-03: o contador é por edição, e sem
+    edição não há célula onde contar. Um `card_key` que não seja runa, ou uma
+    edição que não tenha aquela runa, são 404.
     """
     data = request.get_json(silent=True) or {}
     try:
@@ -192,10 +195,26 @@ def api_runas_ajustar():
         return jsonify({"error": "delta é zero"}), 400
     if not data.get("card_key"):
         return jsonify({"error": "falta card_key"}), 400
+    if not data.get("set_id"):
+        return jsonify({"error": "falta set_id — o contador é por edição"}), 400
     try:
-        return jsonify(runas_vista.ajustar(get_con(), data["card_key"], delta))
+        return jsonify(runas_vista.ajustar(
+            get_con(), data["card_key"], data["set_id"], delta))
     except runas_vista.RunaDesconhecida as exc:
         return jsonify({"error": str(exc)}), 404
+
+
+@app.post("/api/runas/dispensar")
+def api_runas_dispensar():
+    """Tira do ecrã o aviso de que o contador foi reposto a zero (2026-10-03).
+
+    **Não apaga o rasto**: marca a data na `rune_counter_antes`, e as seis
+    linhas que ele contou à mão ficam lá e no `riftvault runas`. `{voltar:
+    true}` repõe o aviso.
+    """
+    data = request.get_json(silent=True) or {}
+    return jsonify({"antes": runas_vista.dispensar(
+        get_con(), voltar=bool(data.get("voltar")))})
 
 
 @app.post("/api/foil/ajustar")
