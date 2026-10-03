@@ -406,16 +406,30 @@ class TestComQueSeTapou(Base):
 
     O MECANISMO já existia (2026-09-17, `Versoes.outras_de`) e o
     `decks.so_base: true` desliga-o. Estes testes fixam as duas pontas: o que
-    acontece com ele ligado, e que o config de HOJE o tem desligado — para
-    ninguém o virar sem ser ele a decidir.
+    acontece com ele ligado, e o que o config de HOJE diz.
+
+    **A 2026-10-03 ele decidiu VIRAR** (`so_base: false`, a regra dele: *"usa
+    o que esta na coleccao, sendo foil ou nao, sendo Alt Art ou nao, sendo
+    Overnumbered ou nao"*). O que a 02/10 era «o config tem-no ligado, e mudar
+    é decisão dele» é hoje «o config tem-no desligado» — a decisão foi tomada.
+    Ver `tests/test_so_base_dele.py`.
     """
 
-    def test_o_config_de_HOJE_tem_so_base_LIGADO(self):
+    def test_o_config_de_HOJE_tem_so_base_DESLIGADO(self):
         cfg = json.loads((REPO / "riftvault_config.json").read_text(encoding="utf-8"))
-        self.assertTrue(cfg["decks"]["so_base"],
-                        "mudar isto é decisão do André, não nossa")
+        self.assertIs(cfg["decks"]["so_base"], False,
+                      "a regra dele desde 2026-10-03")
 
     def test_com_so_base_a_alt_art_NAO_tapa(self):
+        """O outro lado do interruptor, agora escrito por extenso: até
+        2026-10-03 isto vinha da omissão, que era `true`."""
+        caminho = Path(tempfile.gettempdir()) / f"riftvault-colar-so-base-{os.getpid()}.json"
+        caminho.write_text(json.dumps({"decks": {"so_base": True}}), encoding="utf-8")
+        os.environ["RIFTVAULT_CONFIG"] = str(caminho)
+        self.addCleanup(lambda: os.environ.__setitem__("RIFTVAULT_CONFIG", SEM_CONFIG))
+        self.v.close()
+        self.v = Vault()
+        self.addCleanup(self.v.close)
         from riftvault import collection, decks
         con = self._com_alt_art()
         collection.adjust(con, "tst-001-100", 1, source="test")
