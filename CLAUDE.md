@@ -11086,3 +11086,90 @@ ficheiros) que nomeiam um log ou a pasta `backups/` são TODOS do André** e
 nenhum precisou de ser tocado: **zero testes ajustados nesta ordem.** O que a
 ordem leu como «o teste fixa o defeito» era, na verdade, o teste a fixar a parte
 que não podia mudar.
+
+## 2026-10-03 — O `decks.so_base` VIRA PARA A REGRA DELE: o deck usa o que está na Coleção, seja que arte for
+
+Palavras dele, ditas duas vezes: *"usa o que esta na coleccao, sendo foil ou
+nao, sendo Alt Art ou nao, sendo Overnumbered ou nao. Se nao houver versao
+normal, ele avisa que sao X normais e X Alt Art / Overnumbered ou o que quer que
+seja"* (2026-10-01) e *"caso um deck precise de uma carta, que nao ha versao
+disponivel em normal, mas esteja disponivel em Alt Art ou outra, usa, mas no
+deck separa as versoes por Art"* (2026-09-17). Ramo `ai-pc/so-base-2026-10-03`.
+
+**O MECANISMO JÁ ESTAVA TODO FEITO, e não se reescreveu nada.** É de 2026-09-17,
+à tarde — `Versoes.outras_de` (as mesmas versões especiais, a mais barata
+primeiro, para a mais cara ficar na Coleção), o `versoes_em` a repartir cada
+linha pelas impressões que a servem, e no `app.js` o `versoesNota` (as
+sub-linhas «2 normal · UNL-176» / «1 Alt Art · UNL-176a»), o `tapadaNota` (a
+conta por arte, «3 — 1 normal, 2 Alt Art») e o `edicoesNota` («2 de OGN + 1 de
+UNL», de 01/10). **O que faltava era o interruptor**, e o config dizia o
+contrário desde 2026-09-21.
+
+**VIROU NOS TRÊS SÍTIOS que respondiam à mesma pergunta** — o
+`riftvault_config.json`, o `config.DEFAULTS` e a omissão do `decks.so_base()`.
+A omissão virou também de propósito: com `true`, um riftvault sem config **manda
+comprar uma carta que ele tem em Alt Art**, e isso é uma falta que não existe. É
+a mesma leitura do `foil.conta_para_coleccao` de 27/09 — a omissão não pode
+mentir sobre faltas, em nenhuma das duas direcções.
+
+**A regra de 2026-09-17 sobre a Legend/Champion jogarem uma versão ESPECIAL
+continua DESLIGADA**, e isso não é descuido: depende do `so_normais_excepto`,
+que está VAZIO desde 21/09, e **não volta** só por esta chave ir a `false`. Hoje
+todos os lugares — a Legend e o Champion incluídos — jogam a base e tapam com
+outra arte que ele tenha. É o literal da frase dele.
+
+### Medido a 2026-10-03: ZERO diferença, e o zero EXPLICA-SE
+
+Contra uma cópia do `data/` real (`VACUUM INTO` — as bases estão em WAL; o
+`data/` a sério só se leu), o MESMO código e a MESMA cópia dos dois lados,
+mudando só a chave (`_revisao\_medir_so_base.py`), em **dois** cenários: com o
+deck desmontado (o de hoje) e com ele **montado**, que é o que vai acontecer
+quando ele o montar.
+
+| | `so_base: true` | `so_base: false` |
+|---|---|---|
+| níveis (1 de cada / 2 / playset) | **911 / 876 / 797** de 928 | **iguais** |
+| valor | **8 353,93 €** · 3 299 cópias | **igual** |
+| wantlist «tudo» | 131 linhas · 196 cópias · 718,11 € | **igual** |
+| Faltas (fechar · a comprar) | 407 · 8 377,13 € · 196 · 718,11 € | **iguais** |
+| A mais, painel, os 96 alvos das alt art | — | **iguais** |
+| falta do deck (montado) | 4 cópias de 2 cartas · 1,56 € | **igual** |
+
+**Porque é que é zero** (`_revisao\_so_base_outras.py`): das **25 cartas** que o
+deck pede, ele tem OUTRA arte de **quatro** — Kennen `VEN-135a`, Leona
+`OGN-079a`, Vi `UNL-176a` e Radiant Dawn `OGN-306` (sobrenumerada) — e **nas
+quatro a BASE já cobre** o que o deck pede; e as duas que faltam (**3× Zenith
+Blade `OGN-262`, 1× Salvage `OGN-224`**) não existem no catálogo em arte nenhuma
+além da base. **É uma consequência da coleção DE HOJE, não da regra**: no dia em
+que uma base não chegar, a outra arte tapa — e é essa a pergunta que a medição
+tem de responder, não «mudou algum número hoje» (a lição do foil de 26–27/09).
+
+**O alvo da Coleção NÃO sobe por isto** — *"vamos voltar atras"* (17/09) —, e
+mediu-se impressão a impressão: os alvos das artes alternativas são os mesmos
+com o interruptor de um lado e do outro.
+
+**A página do deck deixou de ficar calada.** A nota que dizia «Só **versões
+base**, a Legend e o Champion incluídos» desaparecia com a chave a `false` e
+nada tomava o lugar dela; passou a dizer a regra em vigor nos dois sentidos.
+
+`tests/test_so_base_dele.py` (**25 testes**, contra pastas temporárias e config
+temporário): a regra pelas palavras dele — a alt art parada a tapar a terceira
+cópia e a **prova pela negativa** (com `true` a MESMA coleção mandava comprar o
+que ele tem), a sobrenumerada a tapar também, a **assinada que NUNCA tapa**, a
+runa em alt art **retirada** que também não, e a falta a comprar-se na BASE; a
+separação por arte (as sub-linhas, os rótulos que são as palavras dele, «3 — 1
+normal, 2 Alt Art», o CLI, e as duas frases do `app.js`); o alvo da Coleção que
+não sobe (e uma alt art que o deck joga a continuar a poder estar «a mais»); **a
+fotografia** da Coleção igual dos dois lados — níveis, denominador, wantlist
+(texto incluído), valor, totais, grelha, playset jogável, barra, painel, Faltas,
+Encomendas e A mais —, com a prova pela negativa ao lado **e** com a outra
+metade (os decks TÊM de mexer, senão o primeiro teste não prova nada); e o
+interruptor nos três sítios, com `true` a voltar ao que era.
+
+**O que se mediu e se decidiu NÃO mudar:** o `so_normais_excepto` fica VAZIO (a
+regra da Legend/Champion em versão especial é outra decisão dele e ele não a
+pediu de volta); o `versoes_especiais` fica `["a", "overnumbered", "promo"]`; e o
+`state.soBase` do `app.js` está **morto desde 01/10** (é escrito no
+`garanteDecks` e nunca lido — era a etiqueta ao lado dos `+`/`−` das cópias
+próprias, que saíram nesse dia). Fica anotado; tirá-lo era mexer no `app.js` por
+uma linha que ninguém vê.
