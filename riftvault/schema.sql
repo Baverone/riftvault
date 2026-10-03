@@ -219,16 +219,42 @@ CREATE INDEX IF NOT EXISTS ix_deck_need_log_carta ON deck_need_log(slug, card_ke
 -- um módulo de contas importe o `runas_vista`). Vive no vault.db, e não num
 -- ficheiro solto, porque é o vault.db que vai para o Git e para o backup.
 --
--- Uma linha por runa (carta lógica). Semeia-se UMA VEZ, por runa, com o que
--- ele fisicamente tinha nesse momento (`runas_vista.semear`); a partir daí
--- nunca mais se recalcula a partir da coleção — uma linha a 0 é uma linha
--- dele, não uma linha por semear.
+-- UMA LINHA POR RUNA **E POR EDIÇÃO** (André, 2026-10-03: *"Zera e recontas
+-- por edicao"*). Até 02/10 a chave era só o `card_key`: um número por runa,
+-- repetido nas quatro páginas, porque as 14 que ele contou à mão não tinham
+-- edição gravada e não se podiam repartir sem as inventar. Ele escolheu
+-- recontar: a chave passou a `(card_key, set_id)` e o contador COMEÇA A ZERO.
+--
+-- NÃO HÁ SEMENTEIRA. Até 02/10 cada linha nascia com o que ele fisicamente
+-- tinha dessa runa, para não ter de carregar 74 vezes; isso agora era o
+-- contrário do que ele pediu (o número tem de ser o que ELE conta, não o que
+-- a coleção calcula). Uma linha só nasce de um `+`, e por isso **LER o bloco
+-- deixou de escrever**. Uma runa sem linha lê-se 0.
 CREATE TABLE IF NOT EXISTS rune_counter (
-    card_key    TEXT    PRIMARY KEY,
+    card_key    TEXT    NOT NULL,
+    set_id      TEXT    NOT NULL,
     qty         INTEGER NOT NULL CHECK (qty >= 0),
-    seeded_from INTEGER NOT NULL,   -- o que a coleção dizia na sementeira
     updated_at  TEXT    NOT NULL,
-    user_id     INTEGER REFERENCES users(user_id)
+    user_id     INTEGER REFERENCES users(user_id),
+    PRIMARY KEY (card_key, set_id)
+);
+
+-- O RASTO DO CONTADOR DE ANTES DE 2026-10-03 — zerar não é apagar.
+--
+-- As seis linhas que a `rune_counter` tinha (14 cópias ao todo: Body 3, Calm
+-- 3, Chaos 2, Fury 3, Mind 1, Order 2) foram contadas À MÃO por ele e não se
+-- recuperam de fonte nenhuma. Ficam aqui, com o `updated_at` de cada uma, para
+-- ele poder conferir o que tinha ANTES de recontar — a página mostra-as
+-- enquanto ele não dispensar o aviso (`dispensado_em`), e o `riftvault runas`
+-- mostra-as sempre. Não é contabilidade: ninguém a lê para fazer contas.
+CREATE TABLE IF NOT EXISTS rune_counter_antes (
+    card_key      TEXT    PRIMARY KEY,
+    qty           INTEGER NOT NULL,  -- o que ele tinha contado
+    seeded_from   INTEGER NOT NULL,  -- o que a coleção dizia na sementeira
+    updated_at    TEXT    NOT NULL,  -- o último toque DELE, na altura
+    arquivado_em  TEXT    NOT NULL,
+    dispensado_em TEXT,              -- NULL = o aviso ainda aparece no ecrã
+    user_id       INTEGER REFERENCES users(user_id)
 );
 
 -- O histórico de preços vive no `prices.db` (ver riftvault/prices_schema.sql):

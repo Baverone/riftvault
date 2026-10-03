@@ -1263,54 +1263,76 @@ def cmd_a_mais(args) -> int:
 
 def cmd_runas(args) -> int:
     """O bloco «Runas — 12 de cada» do fim da Coleção (2026-09-19): o contador
-    dele por runa, com o que a coleção sabe ao lado. Não conta para nada.
-    `--mais`/`--menos NOME` mexem no contador — só nele — como os `+`/`−` do
-    site."""
+    dele por runa E POR EDIÇÃO (2026-10-03), com o que a coleção sabe ao lado.
+    Não conta para nada. `--mais`/`--menos RUNA --edicao OGN` mexem no contador
+    — só nele — como os `+`/`−` do site."""
     con = db.connect()
     if db.catalog_is_empty(con):
         print("catálogo vazio — corre `riftvault sync`.", file=sys.stderr)
         return 1
+    if args.dispensar or args.repor_aviso:
+        a = runas_vista_mod.dispensar(con, voltar=args.repor_aviso)
+        if a is None:
+            print("não há aviso nenhum: esta base nunca teve contador por runa.",
+                  file=sys.stderr)
+        else:
+            print("aviso " + ("reposto." if args.repor_aviso else
+                              "dispensado — o rasto fica, aqui e na base."))
+        con.close()
+        return 0
     if args.mais or args.menos:
         nome = args.mais or args.menos
         delta = args.n if args.mais else -args.n
+        if not args.edicao:
+            print("falta --edicao: o contador é por edição desde 2026-10-03.",
+                  file=sys.stderr)
+            con.close()
+            return 1
         try:
-            r = runas_vista_mod.ajustar(con, nome, delta)
+            r = runas_vista_mod.ajustar(con, nome, args.edicao, delta)
         except runas_vista_mod.RunaDesconhecida as exc:
             print(str(exc), file=sys.stderr)
             con.close()
             return 1
-        print(f"{r['name']}: {r['qty']} (na coleção: {r['na_colecao']}) — "
-              f"só o teu contador mexeu.")
+        print(f"{r['name']} em {r['set_id']}: {r['qty']} "
+              f"(nesta edição tens: {r['na_colecao']}) — só o teu contador mexeu.")
         con.close()
         return 0
     p = runas_vista_mod.payload(con)
-    if p["semeadas"]:
-        print(f"contador semeado com o que tens na mão: "
-              + ", ".join(f"{ck} {n}" for ck, n in p["semeadas"].items()), file=sys.stderr)
-    for x in p["runas"]:
-        extra = (f"  (sem as retiradas: {x['sem_retiradas']})"
-                 if x["sem_retiradas"] != x["total"] else "")
-        print(f"{x['name']:<12} {x['contador']:>3}/{x['target']}   "
-              f"na coleção: {x['total']}{extra}")
-        for o in x["origens"]:
-            print(f"    {o['qty']:>3}  {cardmarket.codigo(o['code']):<12} {o['label']}")
+    # O RASTO DO CONTADOR DE ANTES DE 03/10 — aqui mostra-se sempre, dispensado
+    # ou não: é o que ele confere enquanto reconta.
+    a = p.get("antes")
+    if a:
+        print(f"ANTES DE {a['arquivado_em'][:10]} o contador era um número só "
+              f"para as cinco edições, e tinhas contado {a['total']} ao todo:")
+        for r in a["linhas"]:
+            print(f"    {r['card_key']:<12} {r['qty']:>3}   "
+                  f"(a coleção dizia {r['seeded_from']}, "
+                  f"último toque teu {r['updated_at'][:10]})")
+        print("  foi reposto a zero para passar a ser por edição; reconta-o "
+              "edição a edição.\n")
+    # POR EDIÇÃO: é o que o site mostra na página de cada edição, e é onde o
+    # contador vive. A soma vem no fim.
+    for sid, e in (p.get("por_edicao") or {}).items():
+        te = e["totals"]
+        extra = (f" (sem as retiradas: {te['sem_retiradas']})"
+                 if te["sem_retiradas"] != te["total"] else "")
+        print(f"{sid} — contas {te['contador']} de {te['alvo']} · "
+              f"nesta edição tens: {te['total']}{extra}")
+        for x in e["runas"]:
+            ex = (f"  (sem as retiradas: {x['sem_retiradas']})"
+                  if x["sem_retiradas"] != x["total"] else "")
+            print(f"  {x['name']:<12} {x['contador']:>3}/{x['target']}   "
+                  f"nesta edição: {x['total']}{ex}")
+            for o in x["origens"]:
+                print(f"      {o['qty']:>3}  {cardmarket.codigo(o['code']):<12} {o['label']}")
+        print()
     t = p["totals"]
-    print(f"\ncontador: {t['contador']} de {t['alvo']} em {t['cards']} runas · "
-          f"na coleção: {t['total']}"
+    print(f"ao todo (a soma das edições): contas {t['contador']} de {t['alvo']} "
+          f"em {t['celulas']} células ({t['cards']} runas × as edições que as têm) · "
+          f"tens {t['total']}"
           + (f" (sem as retiradas: {t['sem_retiradas']})"
              if t["sem_retiradas"] != t["total"] else ""))
-    # POR EDIÇÃO (2026-10-01): é a vista que o site mostra na página de cada
-    # edição. A arte alternativa de cada edição é uma carta própria, por isso
-    # o número de cima — a soma — só é o certo em «Todas».
-    if p.get("por_edicao"):
-        print("\npor edição (a alt art de cada edição é uma carta própria):")
-        for sid, e in p["por_edicao"].items():
-            te = e["totals"]
-            extra = (f" (sem as retiradas: {te['sem_retiradas']})"
-                     if te["sem_retiradas"] != te["total"] else "")
-            print(f"  {sid:<5} {te['total']:>3} em {te['cards']} runas{extra}   "
-                  + ", ".join(f"{x['name'].split()[0]} {x['total']}"
-                              for x in e["runas"]))
     print(p["nota"], file=sys.stderr)
     con.close()
     return 0
@@ -2845,10 +2867,16 @@ def main(argv: list[str] | None = None) -> int:
     p.set_defaults(func=cmd_a_mais)
 
     p = sub.add_parser("runas", help="o bloco Runas do fim da Coleção: o teu contador "
-                                     "por runa, com o que a coleção sabe ao lado — não conta")
-    p.add_argument("--mais", metavar="RUNA", help="soma ao contador desta runa (só a ele)")
+                                     "por runa E POR EDIÇÃO, com o que a coleção "
+                                     "sabe ao lado — não conta")
+    p.add_argument("--edicao", help="só esta edição (OGN, SFD, …); obrigatória "
+                                    "com --mais/--menos, porque o contador é por edição")
+    p.add_argument("--mais", metavar="RUNA", help="soma ao contador desta runa nesta edição")
     p.add_argument("--menos", metavar="RUNA", help="tira do contador desta runa (nunca abaixo de 0)")
     p.add_argument("--n", type=int, default=1, help="quantas (omissão 1)")
+    p.add_argument("--dispensar", action="store_true",
+                   help="tira do ecrã o aviso do contador reposto a zero (o rasto fica)")
+    p.add_argument("--repor-aviso", action="store_true", help="e põe-no de volta")
     p.set_defaults(func=cmd_runas)
 
     p = sub.add_parser("foil", help="quantas das comuns e incomuns são foil: o "
