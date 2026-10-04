@@ -197,6 +197,7 @@ class _Saida:
         self.modo = modo
         self._corpos: dict[str, bytes] = {}
         self._iguais: set[str] = set()
+        self._fora: list[str] = []
 
     # -- pôr na fila -------------------------------------------------------
 
@@ -216,6 +217,17 @@ class _Saida:
 
     def copia(self, rel: str, origem: Path) -> None:
         self._por(rel, Path(origem).read_bytes(), e_json=False)
+
+    def remover(self, rel: str) -> None:
+        """Um ficheiro que esta pasta já não tem de ter — se lá estiver, sai.
+
+        Serve a mudança de arrumação: a cópia velha da casca numa pasta que
+        passou a apontar à raiz. Fora da `api/` a poda dos órfãos não chega
+        (ali só se apaga o que a `api/` deixou de precisar), e o que é da raiz
+        não é nosso para apagar às cegas — por isso nomeia-se.
+        """
+        if (self.out / rel).is_file():
+            self._fora.append(rel)
 
     def _por(self, rel: str, corpo: bytes, e_json: bool) -> None:
         self._corpos[rel] = corpo
@@ -246,9 +258,10 @@ class _Saida:
 
     def fechar(self) -> dict:
         orfaos = self._orfaos()
+        fora = sorted(set(self._fora) - set(self._corpos))
         mudaram = sorted(r for r in self._corpos if r not in self._iguais)
-        if not mudaram and not orfaos:
-            return {"escritos": [], "kb": 0.0, "orfaos": [],
+        if not mudaram and not orfaos and not fora:
+            return {"escritos": [], "kb": 0.0, "orfaos": [], "fora": [],
                     "iguais": len(self._iguais), "mudou": False}
         a_escrever = set(mudaram)
         if self.INDICE in self._corpos:
@@ -257,11 +270,12 @@ class _Saida:
             p = self.out / rel
             p.parent.mkdir(parents=True, exist_ok=True)
             p.write_bytes(self._corpos[rel])
-        for rel in orfaos:
+        for rel in orfaos + fora:
             (self.out / rel).unlink(missing_ok=True)
         return {"escritos": sorted(a_escrever),
                 "kb": round(sum(len(self._corpos[r]) for r in a_escrever) / 1024, 1),
-                "orfaos": orfaos, "iguais": len(self._iguais), "mudou": True}
+                "orfaos": orfaos, "fora": fora,
+                "iguais": len(self._iguais), "mudou": True}
 
 
 def build(out_dir: Path | str | None = None, log=print,
@@ -421,6 +435,13 @@ def _gerar(out_dir: Path | str, log=print, imagens: bool = True,
     pagina = (config.WEB_DIR / "index.html").read_text(encoding="utf-8")
     if casca:
         pagina = _aponta_a_casca(pagina, casca)
+        # A CÓPIA VELHA TEM DE SAIR, senão a poupança é mentira: o `site/`
+        # commitado foi gerado quando cada pasta levava a sua casca, e a poda
+        # dos órfãos só mexe na `api/`. Sem isto ficavam lá 900,7 KB de
+        # `app.js`/`style.css` que ninguém volta a pedir — nem a página, que
+        # aponta `../../`, nem o build, que já não os escreve.
+        for name in CASCA:
+            saida.remover(name)
 
     # «NÃO INDEXES ISTO» (2026-09-29, fatia `2-multi-contas`). A página DELE fica
     # exactamente como está — publicada e indexada, como sempre foi. A de um
@@ -546,7 +567,9 @@ def _gerar(out_dir: Path | str, log=print, imagens: bool = True,
     if crivo["mudou"]:
         log(f"  escritos {len(crivo['escritos'])} ficheiros ({crivo['kb']} KB); "
             f"{crivo['iguais']} ficaram como estavam"
-            + (f"; {len(crivo['orfaos'])} órfãos podados" if crivo["orfaos"] else ""))
+            + (f"; {len(crivo['orfaos'])} órfãos podados" if crivo["orfaos"] else "")
+            + (f"; saíram as cópias velhas da casca ({', '.join(crivo['fora'])})"
+               if crivo["fora"] else ""))
     else:
         log(f"  nada a escrever — os {crivo['iguais']} ficheiros desta coleção "
             f"dizem o mesmo que já está em disco")

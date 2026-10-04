@@ -186,6 +186,46 @@ class TestACascaEUmaSo(Base):
             self.assertFalse((out / "u" / slug / nome).exists(),
                              "ficou uma cópia da casca na pasta da pessoa")
 
+    def test_a_copia_VELHA_da_casca_sai_do_site(self):
+        """Senão a poupança é mentira.
+
+        O `site/` commitado foi gerado quando cada pasta levava a sua casca, e
+        a poda dos órfãos só mexe na `api/`. Sem isto ficavam lá os 900,7 KB
+        que ninguém volta a pedir — nem a página, que aponta `../../`, nem o
+        build, que já não os escreve.
+
+        Medido no `site/` REAL (`_ef_transicao.py`): o primeiro build com o
+        código novo levou-o de 78 ficheiros / 7 181,7 KB para 74 / 6 280,0 KB,
+        a casca de 6 sítios para 2, e escreveu 2 ficheiros (36,4 KB) para o
+        fazer.
+        """
+        self.amigo("Gonçalves", "goncalves")
+        out, _ = self.gerar()
+        # finge-se o site de ontem: uma cópia da casca na pasta de cada um
+        for slug in ("baverone", "goncalves"):
+            for nome in config.CASCA:
+                (out / "u" / slug / nome).write_bytes(
+                    (config.WEB_DIR / nome).read_bytes())
+        _, res = self.gerar()
+        for slug in ("baverone", "goncalves"):
+            for nome in config.CASCA:
+                self.assertFalse((out / "u" / slug / nome).exists(),
+                                 f"u/{slug}/{nome} ficou — a poupança é mentira")
+        self.assertEqual(sorted(res["crivo"]["fora"]), sorted(config.CASCA),
+                         "o crivo não contou o que tirou")
+        self.assertTrue(res["mudou"], "tirar ficheiros é mexer no site")
+
+    def test_e_nao_tira_a_casca_de_quem_a_tem_de_ter(self):
+        """A prova pela negativa: com UMA coleção a raiz é a dele e a casca
+        mora lá. Tirá-la ali deixava o site sem CSS nem JavaScript."""
+        out = self.v.root / "sozinho"
+        build.build_todos(out, log=lambda *_: None,
+                          cfg={"multi": {"aberto": False}})
+        build.build_todos(out, log=lambda *_: None,
+                          cfg={"multi": {"aberto": False}})
+        for nome in config.CASCA:
+            self.assertTrue((out / nome).is_file(), f"{nome} foi tirado da raiz")
+
     def test_a_casca_da_raiz_e_a_do_riftvault_web(self):
         """Não é uma cópia transformada: são os bytes do `riftvault/web/`."""
         self.amigo("Gonçalves", "goncalves")
