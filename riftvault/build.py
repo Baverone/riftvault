@@ -142,6 +142,128 @@ def mesmo_conteudo_raiz(a: Path, b: Path) -> bool:
     return True
 
 
+class _Saida:
+    """A porta por onde o site sai para o disco — e o CRIVO (2026-10-04).
+
+    **Um ficheiro cujo conteúdo não mudou não se reescreve.** O `generated_at`
+    muda a cada geração e era ele, sozinho, que fazia o Git ver todos os
+    payloads como novos. Medido no repositório real: os dez commits do `site/`
+    de 2026-10-04, de meia em meia hora das 05:37 às 10:07, tocaram
+    **exactamente 28 ficheiros cada um — goncalves 14 + miguel 14 —, e em 28 de
+    28 só o relógio mudava** (comparados dois pares de commits consecutivos com
+    a regra do `_sem_relogio`). Era um commit, um push e uma build do Pages de
+    30 em 30 minutos, 48 vezes por dia, sem uma carta mexer: a avaria de
+    2026-09-10 de volta pela porta de trás, porque o `--se-mudou` só olhava
+    para a coleção DELE e as dos amigos eram sempre regeneradas.
+
+    O crivo é o do `mesmo_conteudo`, aplicado ficheiro a ficheiro em vez de ao
+    site todo.
+
+    DUAS REGRAS, e a segunda é uma decisão explícita:
+
+      1. **ou se escreve tudo o que mudou, ou não se escreve nada.** Se nenhum
+         ficheiro desta pessoa diferir, não se toca em nenhum — nem no índice.
+         Senão o índice sozinho dava o mesmo commit de 30 em 30 minutos;
+      2. **o `api/index.json` é SEMPRE reescrito quando algum outro mudou**,
+         com relógio fresco. É ele a prova de que o site publicado é o que foi
+         gerado aqui: a `riftvault-publicar` e a `riftvault-daily` leem-lhe o
+         `generated_at` (pela `api/lista.json`, que diz de quem é a referência)
+         e comparam-no com o que o Pages serve; e o teste delas exige, quando a
+         tarefa diz que gerou o site, que o ficheiro tenha sido **escrito
+         hoje**. Deixá-lo com o relógio velho dava as duas avarias de uma vez:
+         a prova a comparar uma data antiga (e portanto a passar sempre) e a
+         tarefa a chumbar sem motivo no `escrito_hoje`.
+
+         Custa um ficheiro de ~20 KB por pessoa, e só em publicações que já
+         iam acontecer. Ver `docs/eficiencia-site-2026-10-04.md`.
+
+    O alinhamento com a tarefa é exacto e vale a pena escrevê-lo: o
+    `site_gerado` dela é o `res["mudou"]` DELE (o `cmd_build` só imprime «Site
+    gerado» nesse caso), por isso o `escrito_hoje` só pergunta pelo índice dele
+    quando o `_gerar` dele correu — e aí a regra 2 garante-o fresco.
+    """
+
+    #: O índice, que a regra 2 isenta do crivo. Relativo ao `out`.
+    INDICE = "api/index.json"
+
+    #: De onde se podam os órfãos. É o que o `rmtree(out/"api")` apagava antes:
+    #: uma edição que saia do catálogo tem de sair do site, e um payload órfão
+    #: fazia o `--se-mudou` ver diferença a cada corrida. O resto da pasta não
+    #: é nosso para apagar (o `img/` de 88 MB, um `CNAME`).
+    PODA = "api"
+
+    def __init__(self, out: Path, modo: str = "tudo"):
+        self.out = Path(out)
+        self.modo = modo
+        self._corpos: dict[str, bytes] = {}
+        self._iguais: set[str] = set()
+
+    # -- pôr na fila -------------------------------------------------------
+
+    def json(self, rel: str, payload) -> None:
+        """Um payload. É AQUI que a privacidade se aplica (2026-09-29).
+
+        Uma porta só, e não quinze `json.dumps` espalhados, porque um payload
+        novo que não passe por aqui é uma fuga silenciosa.
+        """
+        self._por(rel, json.dumps(privacidade.limpar(payload, self.modo),
+                                  ensure_ascii=False,
+                                  separators=(",", ":")).encode("utf-8"),
+                  e_json=True)
+
+    def texto(self, rel: str, corpo: str) -> None:
+        self._por(rel, corpo.encode("utf-8"), e_json=False)
+
+    def copia(self, rel: str, origem: Path) -> None:
+        self._por(rel, Path(origem).read_bytes(), e_json=False)
+
+    def _por(self, rel: str, corpo: bytes, e_json: bool) -> None:
+        self._corpos[rel] = corpo
+        p = self.out / rel
+        if not p.is_file():
+            return
+        velho = p.read_bytes()
+        if e_json:
+            try:
+                igual = (_sem_relogio(json.loads(velho))
+                         == _sem_relogio(json.loads(corpo)))
+            except ValueError:
+                igual = False
+        else:
+            igual = velho == corpo
+        if igual:
+            self._iguais.add(rel)
+
+    # -- escrever ----------------------------------------------------------
+
+    def _orfaos(self) -> list[str]:
+        base = self.out / self.PODA
+        if not base.is_dir():
+            return []
+        return sorted(p.relative_to(self.out).as_posix()
+                      for p in base.rglob("*") if p.is_file()
+                      and p.relative_to(self.out).as_posix() not in self._corpos)
+
+    def fechar(self) -> dict:
+        orfaos = self._orfaos()
+        mudaram = sorted(r for r in self._corpos if r not in self._iguais)
+        if not mudaram and not orfaos:
+            return {"escritos": [], "kb": 0.0, "orfaos": [],
+                    "iguais": len(self._iguais), "mudou": False}
+        a_escrever = set(mudaram)
+        if self.INDICE in self._corpos:
+            a_escrever.add(self.INDICE)          # a regra 2
+        for rel in sorted(a_escrever):
+            p = self.out / rel
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_bytes(self._corpos[rel])
+        for rel in orfaos:
+            (self.out / rel).unlink(missing_ok=True)
+        return {"escritos": sorted(a_escrever),
+                "kb": round(sum(len(self._corpos[r]) for r in a_escrever) / 1024, 1),
+                "orfaos": orfaos, "iguais": len(self._iguais), "mudou": True}
+
+
 def build(out_dir: Path | str | None = None, log=print,
           so_se_mudou: bool = False, user_id: int | None = None,
           casca: str | None = None) -> dict:
@@ -184,7 +306,16 @@ def build(out_dir: Path | str | None = None, log=print,
                                    == "local" else "remote")}
     res = _gerar(out, log=log, imagens=True, user_id=uid, modo=modo,
                  casca=casca)
-    res["mudou"] = True
+    # `mudou` é «escreveu-se alguma coisa», e desde 2026-10-04 é o CRIVO que
+    # responde. Era `True` sempre que o `_gerar` corresse, e com o crivo isso
+    # passou a poder ser falso: sem `--se-mudou`, uma geração em que nada
+    # difere não escreve um ficheiro.
+    #
+    # O ERRO CAI PARA O LADO SEGURO: o `cmd_build` só imprime «Site gerado»
+    # quando isto é `True`, e é dessa linha que a `riftvault-publicar` tira o
+    # `site_gerado` que liga o `escrito_hoje(api/index.json)`. Um `False` a
+    # mais salta a verificação; um `True` a mais chumbava a tarefa.
+    res["mudou"] = bool(res["crivo"]["mudou"])
     res["publico"] = modo
     res["gerado"] = True
     return res
@@ -272,25 +403,24 @@ def _gerar(out_dir: Path | str, log=print, imagens: bool = True,
     cfg = config.load()
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
-    # A `api/` é reescrita de raiz. Uma edição que desapareça do catálogo tem de
-    # desaparecer do site; e um payload órfão fazia o `--se-mudou` ver diferença
-    # a cada corrida (o ficheiro está de um lado e não do outro), o que dava uma
-    # build do Pages de 30 em 30 minutos sem nada ter mudado.
-    shutil.rmtree(out / "api", ignore_errors=True)
+    # O CRIVO: nada se escreve até ao `fechar()`, e lá só sai o que mudou. A
+    # `api/` já não se apaga de raiz — os órfãos podam-se ao fim, que dá a
+    # mesma garantia (uma edição que saia do catálogo sai do site) sem obrigar
+    # a reescrever os 24 payloads que não mudaram. Ver o `_Saida`.
+    saida = _Saida(out, modo=modo)
 
     # O GitHub Pages ignora pastas começadas por _ sem isto.
-    (out / ".nojekyll").write_text("", encoding="utf-8")
+    saida.texto(".nojekyll", "")
 
     # A CASCA (2026-10-04): com `casca` posto, o `app.js` e o `style.css` não
     # se copiam para cá — vivem `casca` acima, uma vez só para toda a gente, e
     # o `index.html` sai com as referências reescritas. Sem `casca` (o site de
     # UMA pessoa, na raiz) fica tudo como sempre foi.
-    for name in ("index.html", *(() if casca else CASCA)):
-        shutil.copy2(config.WEB_DIR / name, out / name)
+    for name in (() if casca else CASCA):
+        saida.copia(name, config.WEB_DIR / name)
+    pagina = (config.WEB_DIR / "index.html").read_text(encoding="utf-8")
     if casca:
-        pagina = out / "index.html"
-        pagina.write_text(_aponta_a_casca(pagina.read_text(encoding="utf-8"),
-                                          casca), encoding="utf-8")
+        pagina = _aponta_a_casca(pagina, casca)
 
     # «NÃO INDEXES ISTO» (2026-09-29, fatia `2-multi-contas`). A página DELE fica
     # exactamente como está — publicada e indexada, como sempre foi. A de um
@@ -305,26 +435,17 @@ def _gerar(out_dir: Path | str, log=print, imagens: bool = True,
     # amigo indexada antes de ele saber que existe **não se desfaz** — pede-se a
     # remoção, fica em cache, fica no Bing, fica no archive.org.
     if not abrir.publico_indexavel(dono=(user_id is None or user_id == 1)):
-        pagina = out / "index.html"
-        pagina.write_text(abrir.marcar_html(pagina.read_text(encoding="utf-8")),
-                          encoding="utf-8")
-        (out / "robots.txt").write_text(abrir.robots_txt(), encoding="utf-8")
+        pagina = abrir.marcar_html(pagina)
+        saida.texto("robots.txt", abrir.robots_txt())
+    saida.texto("index.html", pagina)
 
     image_mode = "local" if cfg.get("static_images") == "local" else "remote"
 
-    def escrever(caminho: Path, payload) -> None:
-        """A ÚNICA porta por onde um payload sai para o disco.
-
-        É aqui que a privacidade se aplica (2026-09-29): com `publico:
-        "sem-valores"` o `privacidade.limpar` tira todas as quantias antes de
-        o JSON ser escrito. Uma porta só, e não quinze `json.dumps` espalhados,
-        porque um payload novo que não passe por aqui é uma fuga silenciosa —
-        e há teste que recusa um `json.dumps` neste ficheiro fora daqui.
-        """
-        caminho.parent.mkdir(parents=True, exist_ok=True)
-        caminho.write_text(
-            json.dumps(privacidade.limpar(payload, modo), ensure_ascii=False,
-                       separators=(",", ":")), encoding="utf-8")
+    # A porta dos payloads é o `saida.json` — ver o `_Saida`, que é onde a
+    # privacidade se aplica e onde o crivo decide. Este atalho fica só para
+    # não reescrever as trinta chamadas de baixo.
+    def escrever(rel: str, payload) -> None:
+        saida.json(rel, payload)
 
     con = db.connect(user_id=user_id)  # não readonly: garante o schema num clone fresco
     # As listas TÊM de ser relidas antes dos payloads da Coleção: o nome do deck
@@ -336,16 +457,14 @@ def _gerar(out_dir: Path | str, log=print, imagens: bool = True,
     # (Desde 2026-09-10 o LOCAL de cada cópia já não vem daqui — está gravado na
     # `copy_locations` —, mas o nome de mostrar continua a vir.)
     decks.import_all(con, log=lambda *_: None)
-    api_dir = out / "api" / "set"
-    api_dir.mkdir(parents=True, exist_ok=True)
 
     index = metrics.index_payload(con, editable=False, image_mode=image_mode, cfg=cfg)
-    escrever(out / "api" / "index.json", index)
+    escrever(_Saida.INDICE, index)
 
     n_sets = 0
     for s in index["sets"]:
         payload = metrics.set_payload(con, s["id"], editable=False, image_mode=image_mode)
-        escrever(api_dir / f"{s['id']}.json", payload)
+        escrever(f"api/set/{s['id']}.json", payload)
         n_sets += 1
         log(f"  api/set/{s['id']}.json  ({len(payload['groups'])} grupos)")
     # O bloco «Runas — 12 de cada» do fim da grelha (2026-09-19): o contador
@@ -354,7 +473,7 @@ def _gerar(out_dir: Path | str, log=print, imagens: bool = True,
     # Não conta para nada — e no site publicado é só de leitura
     # (`editable: False`, sem `+`/`−`).
     runas = runas_vista.payload(con, cfg, image_mode=image_mode, editable=False)
-    escrever(out / "api" / "runas.json", runas)
+    escrever("api/runas.json", runas)
     log(f"  api/runas.json  ({runas['totals']['cards']} runas, contador "
         f"{runas['totals']['contador']} · na coleção {runas['totals']['total']} — só para ver; "
         + " ".join(f"{sid} {e['totals']['total']}"
@@ -363,10 +482,8 @@ def _gerar(out_dir: Path | str, log=print, imagens: bool = True,
 
     # Decks: os mesmos URLs que o servidor serve em modo edição.
     con = db.connect(user_id=user_id)
-    deck_dir = out / "api" / "deck"
-    deck_dir.mkdir(parents=True, exist_ok=True)
     index_decks = decks.decks_index(con)
-    escrever(out / "api" / "decks.json",
+    escrever("api/decks.json",
              {"editable": False, "decks": index_decks, "rules": decks.rules(),
               "ordem_fixa": decks.ordem_fixa(), "so_base": decks.so_base(),
               "raridade_colecao": decks.raridade_da_colecao(),
@@ -374,25 +491,25 @@ def _gerar(out_dir: Path | str, log=print, imagens: bool = True,
               # vai no payload de cada deck, como tudo o resto.
               "principal": principal.estado(con)})
     for d in index_decks:
-        escrever(deck_dir / f"{d['id']}.json", decks.deck_payload(con, d["id"]))
+        escrever(f"api/deck/{d['id']}.json", decks.deck_payload(con, d["id"]))
     # O `api/faltas.json` (o antigo separador «Faltas», até 2026-09-15)
     # partiu-se na wantlist da Coleção e nas listas de compra dos decks. (A
     # terceira parte, a tabela de preços, saiu com o separador dela a
     # 2026-09-19 — ver o CLAUDE.md.)
-    escrever(out / "api" / "wantlist.json", a_subir.master_faltas(con))
-    escrever(out / "api" / "compras.json", faltas.compras(con))
+    escrever("api/wantlist.json", a_subir.master_faltas(con))
+    escrever("api/compras.json", faltas.compras(con))
     # O separador «Faltas» (2026-09-15, fim da tarde): por edição, as DUAS
     # metades — os quatro blocos de NORMAIS e, desde 2026-09-27, as FOILS à
     # parte, com a quinta wantlist.
     fe = faltas_foil.payload_completo(con)
-    escrever(out / "api" / "faltas_edicao.json", fe)
+    escrever("api/faltas_edicao.json", fe)
     # O separador «A mais» (2026-09-17): o excedente e as libertadas dos decks.
     am = a_mais.payload(con)
-    escrever(out / "api" / "a_mais.json", am)
+    escrever("api/a_mais.json", am)
     # As encomendas (2026-09-11): a lista do que está a caminho, só de leitura
     # no site publicado — os `+`/`−` são do modo edição.
     encomendas = {"editable": False, **pending.encomendas(con)}
-    escrever(out / "api" / "encomendas.json", encomendas)
+    escrever("api/encomendas.json", encomendas)
     # O separador «Encomendas» (2026-09-17): a grelha da Coleção de Rara para
     # cima, uma por edição, com o que vem a caminho. Sem controlos no site
     # publicado — o `editable: False` é o mesmo flag da Coleção.
@@ -400,18 +517,16 @@ def _gerar(out_dir: Path | str, log=print, imagens: bool = True,
     # publicado — juntar, tirar, escrever o Trend e «marcar como vendidas» são
     # do modo edição (o `editable: False` é o mesmo flag da Coleção).
     vd = venda.payload(con, cfg, editable=False)
-    escrever(out / "api" / "venda.json", vd)
+    escrever("api/venda.json", vd)
     # O «Produto Selado» (2026-09-25): a lista do que há, do que ele tem e do
     # que não tem. Só de leitura no site publicado — os `+`/`−` são do modo
     # edição (o mesmo `editable: False` da Coleção).
     sl = selado.payload(con, cfg, editable=False)
-    escrever(out / "api" / "selado.json", sl)
-    enc_dir = out / "api" / "encomendas"
-    enc_dir.mkdir(parents=True, exist_ok=True)
+    escrever("api/selado.json", sl)
     n_enc = 0
     for s in index["sets"]:
         g = pending.grelha(con, s["id"], editable=False, image_mode=image_mode, cfg=cfg)
-        escrever(enc_dir / f"{s['id']}.json", g)
+        escrever(f"api/encomendas/{s['id']}.json", g)
         n_enc += g["totals"]["printings"]
     con.close()
     log(f"  api/decks.json  ({len(index_decks)} decks, "
@@ -425,6 +540,17 @@ def _gerar(out_dir: Path | str, log=print, imagens: bool = True,
         f"({vd['totals']['lines']} linhas na venda em curso) + api/selado.json "
         f"({sl['totals']['tenho']}/{sl['totals']['ha']} produtos selados)")
 
+    # O CRIVO decide aqui, com tudo na mão: ou se escreve o que mudou (mais o
+    # índice, pela regra 2), ou não se escreve ficheiro nenhum.
+    crivo = saida.fechar()
+    if crivo["mudou"]:
+        log(f"  escritos {len(crivo['escritos'])} ficheiros ({crivo['kb']} KB); "
+            f"{crivo['iguais']} ficaram como estavam"
+            + (f"; {len(crivo['orfaos'])} órfãos podados" if crivo["orfaos"] else ""))
+    else:
+        log(f"  nada a escrever — os {crivo['iguais']} ficheiros desta coleção "
+            f"dizem o mesmo que já está em disco")
+
     n_img = 0
     if imagens and image_mode == "local" and config.IMAGES_DIR.exists():
         dest = out / "img"
@@ -436,4 +562,5 @@ def _gerar(out_dir: Path | str, log=print, imagens: bool = True,
     elif imagens:
         log("  imagens: a apontar para o CDN da RiftScribe (static_images='remote')")
 
-    return {"out": str(out), "sets": n_sets, "images": n_img, "image_mode": image_mode}
+    return {"out": str(out), "sets": n_sets, "images": n_img,
+            "image_mode": image_mode, "crivo": crivo}
