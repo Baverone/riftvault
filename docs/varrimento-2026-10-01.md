@@ -64,6 +64,15 @@ passar a responder também pela página da LISTA — ou a lista mostrar só o no
 de quem o tiver autorizado à parte de «publicar a coleção». Mais um teste no
 `test_lista.py`, que hoje **não tem nenhum** sobre indexação (ver §8).
 
+**CORRIGIDO a 2026-10-02 pela hipótese (b)**, escolhida por ele entre quatro
+(*"a lista deixa de ser indexada, como já acontece com as páginas de cada um;
+quem tiver o link abre tudo igual"*): `abrir.lista_indexavel`. **O `robots.txt`
+da hipótese (a) NÃO se pôs** — ele viu-a e não a escolheu —, e por isso o
+`api/lista.json` continua legível, o que está fixado em teste para ninguém ler
+isto como «o site está fechado aos motores». A vigia é a
+`test_lista.TestARaizNaoSeIndexa`, medida a 2026-10-04: **7 vermelhos** com o
+defeito de volta (§8b).
+
 ---
 
 ## 2. OS LOGS E OS BACKUPS DE UM AMIGO CAEM NA PASTA DO ANDRÉ, E SEM DIZER DE QUEM SÃO
@@ -371,6 +380,13 @@ chamador é que paga. **Não há teste que apanhe um chamador esquecido** (ver �
 de apagar, varra o `auth.db` à procura do `user_id`. Preferia o teste: as duas
 casas são separadas de propósito, e o que falha é a disciplina, não o desenho.
 
+**CORRIGIDO a 2026-10-02, e fizeram-se as DUAS** (ver o §8.3): o `conta.apagar`
+chama o `esquecer_identidades` — depois do `utilizador.apagar`, porque um hash
+órfão de um id que nunca se reutiliza é melhor do que uma conta viva sem forma
+de entrar — **e** o `test_achados_346.TestApagarNaoDeixaNadaNoAuthDb` varre as
+três tabelas por cada um dos três caminhos, com a prova pela negativa ao lado.
+A frase «não há teste que apanhe um chamador esquecido» deixou de ser verdade.
+
 ---
 
 ## 7. RAMOS E WORKTREES
@@ -443,15 +459,31 @@ corre em paralelo no `app.js` — não lhe tocar.
 
 Nas partes onde um erro custa dados. Cada um destes é um teste pequeno.
 
-1. **Nenhum teste exige que um log seja do utilizador que o escreveu** — e
-   `tests/test_binders.py:399` **fixa o contrário** (`self.v.data / LOG_NAME`,
-   a raiz). O teste está a trancar o defeito do §2. Faltam: o log de um amigo na
-   pasta dele, e uma linha que diga de quem é.
-2. **Nenhum teste sobre a indexação da RAIZ.** `grep "noindex\|robots"` em
-   `tests/test_lista.py` e `tests/test_privacidade.py` → **zero**. Os que
-   existem (`tests/test_contas.py:776-802`) são da página de cada um. Falta: a
-   página da lista, quando nomeia alguém que não é o dono, tem de sair marcada —
-   ou não nomear ninguém.
+**Quatro dos cinco estão FECHADOS, e nenhum precisou de um teste novo: as
+correcções trouxeram a vigia com elas** (o 3 e o 4 a 2026-10-02, o 1 e o 2
+confirmados e **medidos** a 2026-10-04 — ver o §8b). **Fica o 5**, que vai com a
+eficiência do §5.
+
+1. ~~**Nenhum teste exige que um log seja do utilizador que o escreveu.**~~
+   **FEITO a 2026-10-02, no mesmo commit da correcção** (`7ac20eb`):
+   `test_rasto_por_dono.TestOsTresLogs` cobre os três — `locais.log`,
+   `encomendas.log` e `decks.log` —, cada um com o par «cai na pasta DELE» +
+   «**e NÃO na do André**», mais o «os dois logs não se tocam». **E o
+   `tests/test_binders.py:395` NÃO estava a trancar o defeito**, ao contrário
+   do que esta linha dizia: corre como utilizador **1**, e para o André o
+   caminho É a raiz — é o caso de CONTROLO, e a correcção preservou-o de
+   propósito (daí os zero testes ajustados nessa ordem). A segunda metade
+   («uma linha que diga de quem é») foi **decidida ao contrário** no mesmo dia —
+   o dono é o CAMINHO e não uma coluna (uma coluna é um filtro que alguém se
+   esquece de pôr) —, e há teste a fixá-lo:
+   `test_o_dono_e_o_CAMINHO__nao_uma_coluna`.
+2. ~~**Nenhum teste sobre a indexação da RAIZ.**~~ **FEITO a 2026-10-02, no
+   mesmo commit da correcção** (`9662496`): `test_lista.TestARaizNaoSeIndexa`,
+   12 testes, que leem o ficheiro que SAI do `build_todos` e nunca um pedaço de
+   HTML à mão — o defeito era precisamente uma página que a função que marca
+   nunca chegava a ver. O que o §8 pedia à letra está em
+   `test_NENHUMA_pagina_gerada_nomeia_uma_pessoa_sem_a_marca`, que varre o site
+   todo (não é amostra) e tem a prova pela negativa dentro.
 3. ~~**Nenhum teste varre o `auth.db` depois de apagar uma conta.**~~
    **FEITO a 2026-10-02**: `test_achados_346.TestApagarNaoDeixaNadaNoAuthDb`
    percorre os três caminhos (biblioteca, CLI, rota) e varre as três tabelas,
@@ -464,6 +496,45 @@ Nas partes onde um erro custa dados. Cada um destes é um teste pequeno.
 5. **Nenhum teste mede o tamanho do site por pessoa.** Um teste que falhe
    quando a casca passa a ser copiada N vezes travava o §5 antes de doer — hoje
    `tests/test_lista.py` conta ficheiros e nomes, nunca bytes.
+
+### 8b. «Há testes» não é «há vigia» — a prova pela negativa dos dois, medida (2026-10-04)
+
+Os pontos 1 e 2 fecharam-se **sem escrever um teste novo**: os dois já tinham
+vigia, e seria um segundo teste a dizer o mesmo. Mas isso não se aceita de
+palavra — **um teste que passa dos dois lados não vigia nada**. Mediu-se.
+
+**Como:** numa worktree descartável em `main`, desfaz-se o defeito **na FONTE,
+uma linha**, e corre-se o MESMO ficheiro de teste de hoje
+(`C:\Users\Catarina\_revisao\_prova_vigias.py`; relatório em
+`prova-vigias.json`). A worktree fica limpa no fim, verificado por
+`git status --porcelain`.
+
+| vigia | hoje | com o defeito de volta | a linha desfeita |
+|---|---|---|---|
+| `test_rasto_por_dono` — **os logs** | 29 verdes | **8 VERMELHOS** | `config.py:772` `return user_dir(con) / nome` → `return DATA_DIR / nome` |
+| `test_rasto_por_dono` — **os backups** | 29 verdes | **6 VERMELHOS** | `config.py:815` `return raiz / s` → `return raiz` |
+| `test_lista` — **a raiz** | 55 verdes | **7 VERMELHOS** | `abrir.py:650` `lista_indexavel` `return False` → `return True` |
+
+Os três vermelhos são os certos, pelo nome: os logs dão
+`test_e_NAO_na_pasta_do_andre` e os três «cai na pasta DELE»; os backups dão
+`test_o_pacote_de_um_amigo_vai…`, `test_levar_copias…` e
+`test_o_antes_de_importar…`; a raiz dá `test_a_raiz_GERADA_leva_a_marca` e
+`test_NENHUMA_pagina_gerada_nomeia_uma_pessoa_sem_a_marca`. **A metade dos
+backups mediu-se por acréscimo** — a ordem falava só dos logs, e o achado 2
+tinha duas metades; está vigiada também.
+
+**ARMADILHA, e é a lição que fica: `tests/fixture.py:80` faz
+`importlib.reload(config)` em cada `setUp`.** A primeira tentativa desta prova
+desfez o defeito com um monkey-patch em memória (`config.log_path = lambda …`)
+e deu **«29 verdes com o defeito»** — que se lê exactamente como «este teste não
+vigia nada». Não era: o `reload` apagava o patch antes do primeiro teste correr.
+**Uma prova pela negativa que dê «nada ficou vermelho» tem de ser desconfiada
+primeiro**, e num módulo que o fixture recarrega o undo tem de ser na fonte. As
+outras duas maneiras também não serviam, e ficam medidas: o reverse-apply do
+commit dá `patch does not apply` em três ficheiros (o `conta.py` mexeu no achado
+6, o `db.py` nas runas, o `abrir.py` no achado 3), e ir ao commit anterior
+inteiro traz código velho de ordens que não têm nada com isto — um vermelho que
+não é o defeito não prova nada.
 
 ---
 
@@ -545,11 +616,11 @@ ficam em ficheiro nenhum, e a raiz volta a ser a dele**) → apagar.
 | # | o que | custo | urgência |
 |---|---|---|---|
 | 1 | `noindex` + `robots.txt` na raiz da lista | 2 linhas + 1 teste | **alta** — uma página indexada não se desfaz · **o `noindex` FEITO a 02/10**; o `robots.txt` na raiz continua por decidir (ele escolheu não o pôr) |
-| 2 | logs e backups por utilizador | 1 função + 6 chamadas + ajustar `test_binders` | ~~alta~~ **FEITO a 2026-10-02** |
+| 2 | logs e backups por utilizador | 1 função + 6 chamadas (~~ajustar `test_binders`~~ — **não foi preciso**: ele corre como utilizador 1 e a raiz continua a ser o caminho do André) | ~~alta~~ **FEITO a 2026-10-02**, vigia medida a 04/10 (§8b) |
 | 4 | o `editable` dos payloads | 1 função + 15 linhas (ou tirar 14) | ~~média~~ **FEITO a 2026-10-02** — e foram DOIS campos, não um |
 | 3 | o `--verificar` a medir o túnel | 2 passos | ~~média~~ **FEITO a 2026-10-02** — um passo que mede |
 | 6 | `conta.apagar` e o `auth.db` | 1 teste (preferível) | ~~média~~ **FEITO a 2026-10-02** — a primitiva limpa, e o teste também |
 | 5 | casca na raiz e o `generated_at` | caminhos no `build.py` / comparação por ficheiro | **baixa hoje, alta aos 10-15** |
-| 8 | os cinco testes que faltam | pequenos, um a um | média |
+| 8 | ~~os cinco testes que faltam~~ **SOBRA UM** (o 5, o tamanho por pessoa) | pequeno | média — **os outros quatro fecharam sem um teste novo**: as correcções trouxeram a vigia, e as quatro ficaram MEDIDAS (§8b) |
 | 9 | `so_base` — a coerência do CLAUDE.md | uma palavra, **decisão dele** | baixa (custa zero hoje) |
 | 7 | 47 ramos lixo; salvar a `suite-paralela` | — | baixa, mas a suite a 17 min paga-se |
