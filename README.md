@@ -74,6 +74,13 @@ e a dele vai para `site/u/baverone/`, sem ele mudar chave nenhuma. Hoje, com as
 portas fechadas, há uma — e por isso nada muda. Os favoritos antigos vão
 sozinhos para o sítio novo: a página da lista reencaminha qualquer `#`.
 
+**A CASCA (`app.js`, `style.css`) vive na raiz, uma vez só** (2026-10-04): cada
+`u/<slug>/index.html` aponta-lhe com `../../`. Eram 450,4 KB copiados por
+pessoa — 900,7 KB com três. E **um ficheiro cujo conteúdo não mudou não se
+reescreve**: o `generated_at` sozinho fazia o Git ver todos os payloads como
+novos, e a publicação de 30 em 30 minutos commitava 28 ficheiros por dia
+inteiro sem uma carta mexer. Ver `docs/eficiencia-site-2026-10-04.md`.
+
 **A pasta `site/` vai no Git, e é ela que o GitHub Pages publica** (desde
 2026-09-10). O workflow `.github/workflows/pages.yml` não vai à rede: pega na
 pasta commitada e publica-a, mais nada. Quem gera o site é o PC — as tarefas

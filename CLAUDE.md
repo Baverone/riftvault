@@ -2885,6 +2885,22 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   **Prova com a imagem dele: 31/31 cartas, zero dúvidas.** `imagem.py`,
   `POST /api/decks/imagem`, `riftvault imagem`. Ver a última secção deste
   ficheiro.
+- **Feito também:** A EFICIÊNCIA DO SITE (2026-10-04) — a CASCA (`app.js`,
+  `style.css`) passou a viver na raiz UMA VEZ SÓ, com cada
+  `u/<slug>/index.html` a apontar-lhe `../../` (`site/` 78 ficheiros /
+  7 181,7 KB → **74 / 6 280,0 KB**, −901,7 KB, e −450,4 KB por cada pessoa
+  nova); e um ficheiro cujo conteúdo não mudou **deixou de se reescrever**
+  (`build._Saida`, o `mesmo_conteudo` a decidir ficheiro a ficheiro). O regime
+  permanente era pior do que o varrimento dizia: **os dez commits do `site/`
+  de 2026-10-04, de meia em meia hora das 05:37 às 10:07, tocaram 28 ficheiros
+  cada um e em 28 de 28 só o relógio mudava** — um commit e uma build do Pages
+  de 30 em 30 minutos, 48×/dia, porque o `--se-mudou` só olhava para a coleção
+  dele. Hoje uma publicação em que nada mudou escreve **0 ficheiros**. A
+  decisão sobre o `generated_at` do índice (a prova de que o site publicado é
+  o gerado aqui) está escrita e em teste, e **nada se mudou em
+  `ai-pc/tasks/`**. Fecha a lacuna 8.5: `tests/test_eficiencia_site.py`, 24
+  testes que CONTAM BYTES, com prova pela negativa na FONTE (4/4/1 vermelhos).
+  Ver a última secção deste ficheiro e `docs/eficiencia-site-2026-10-04.md`.
 - **Por fazer:** a parte 2 do seguir — o separador no site e a tarefa diária;
   e a vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck, com as
   partilhadas assinaladas).
@@ -11338,3 +11354,93 @@ pediu de volta); o `versoes_especiais` fica `["a", "overnumbered", "promo"]`; e 
 `garanteDecks` e nunca lido — era a etiqueta ao lado dos `+`/`−` das cópias
 próprias, que saíram nesse dia). Fica anotado; tirá-lo era mexer no `app.js` por
 uma linha que ninguém vê.
+
+## 2026-10-04 — A EFICIÊNCIA DO SITE: a casca na raiz, e um ficheiro que não mudou não se reescreve
+
+O §5 e a lacuna 8.5 do `docs/varrimento-2026-10-01.md`. Ramo
+`ai-pc/eficiencia-site-2026-10-04`; as medições todas em
+**`docs/eficiencia-site-2026-10-04.md`**.
+
+**O REGIME PERMANENTE ERA PIOR DO QUE O VARRIMENTO DIZIA, e mediu-se primeiro.**
+Ele mediu UM commit (46 ficheiros); o que acontecia todos os dias era isto: os
+dez commits do `site/` de 2026-10-04, das **05:37 às 10:07**, de meia em meia
+hora, tocaram **exactamente 28 ficheiros cada um** — `goncalves` 14 + `miguel`
+14 — e em **28 de 28 só o `generated_at` mudava** (comparados dois pares de
+commits consecutivos com a regra do `build._sem_relogio`). Era um commit, um
+push e uma build do Pages de 30 em 30 minutos, 48 vezes por dia, sem uma carta
+mexer — **a avaria de 2026-09-10 de volta pela porta de trás**, porque o
+`--se-mudou` só olhava para a coleção DELE e as dos amigos eram sempre
+regeneradas.
+
+**A — A CASCA NA RAIZ, UMA VEZ SÓ.** O `app.js` (350,9 KB) e o `style.css`
+(99,5 KB) eram byte a byte iguais nas três pastas `u/<slug>/`: 900,7 KB
+repetidos, e mais 450,4 KB por cada pessoa nova. Passaram a viver na raiz, e
+cada `u/<slug>/index.html` aponta-lhes com `../../`. `config.CASCA` é a
+definição única — a casca tem DOIS escritores (o `build._gerar` quando a raiz é
+a coleção dele, o `lista.escrever` quando é a lista) e o `build` importa o
+`lista`, por isso não podia ser de nenhum dos dois. **Os caminhos têm de ser
+relativos**: o site responde em `rift.baverone.com/` E em
+`baverone.github.io/riftvault/` (é por este que o teste da `riftvault-publicar`
+pergunta), e um `/app.js` absoluto dava 404 no segundo. O `_aponta_a_casca`
+**rebenta** se a referência não estiver no `index.html` exactamente uma vez —
+uma página sem `style.css` não dá erro nenhum, abre em texto cru. O `casca` vai
+**também na prova do `--se-mudou`**: sem ele a prova leva a casca que o `out` já
+não tem e o `mesmo_conteudo` diz «mudou» a todas as corridas. E **a cópia velha
+sai** (`_Saida.remover`), senão a poupança era mentira: o `limpar_raiz` só mexe
+na raiz e a poda dos órfãos só mexe na `api/`.
+
+**B — O CRIVO.** O `mesmo_conteudo` já sabia comparar ignorando o
+`generated_at`; passou a decidir **ficheiro a ficheiro** (`build._Saida`). A
+`api/` deixou de se apagar de raiz — os órfãos podam-se ao fim, que dá a mesma
+garantia sem obrigar a reescrever os 24 payloads que não mudaram.
+
+**O `generated_at` do ÍNDICE — a decisão explícita.** É ele a prova de que o
+site publicado é o que foi gerado aqui (a `riftvault-publicar` compara-o com o
+que o Pages serve, e o `test.py` dela exige, quando a tarefa diz que gerou o
+site, que o ficheiro tenha sido **escrito hoje**). Deixá-lo passar pelo crivo
+dava as duas avarias de uma vez: a prova a comparar uma data velha e a tarefa a
+chumbar sem motivo. São **duas regras**: (1) ou se escreve tudo o que mudou ou
+não se escreve nada — se nenhum ficheiro de uma pessoa diferir, nem o índice se
+toca; (2) o `api/index.json` é **sempre** reescrito, com relógio fresco, quando
+algum outro mudou. O alinhamento com a tarefa é exacto: o `site_gerado` dela é o
+`res["mudou"]` DELE (o `cmd_build` só imprime «Site gerado» nesse caso), por
+isso o `escrito_hoje` só pergunta pelo índice dele quando o `_gerar` dele
+correu. **Nada se mudou em `ai-pc/tasks/`.**
+
+**Medido** (`_revisao\_ef_medir_site.py`, `_ef_publicacoes.py`,
+`_ef_transicao.py`, contra cópias do `data/` real feitas por
+`Connection.backup()`):
+
+| | antes | depois |
+|---|---|---|
+| `site/` | 78 ficheiros · 7 181,7 KB | **74 · 6 280,0 KB** (−901,7) |
+| a casca está em | 6 sítios | **2** (a raiz) |
+| publicação em que **nada mudou** | 28 ficheiros · 2 450,2 KB | **0 · 0,0 KB** |
+| uma carta de UMA pessoa | 31 · 2 516,0 KB | **5 · 336,5 KB** |
+| o catálogo mudou | 47 · 4 787,5 KB | **11 · 1 879,5 KB** |
+
+A transição no `site/` real escreve **2 ficheiros (36,4 KB)** e tira 4.
+
+**PROVA DE PONTA A PONTA** (ele pediu-a a 01/10; a suite verde não prova que uma
+página publicada abre): servido em local, as três páginas abrem a 200, a casca
+que CADA UMA pede — lida do próprio HTML — resolve para `/app.js` e
+`/style.css` da raiz (um ficheiro para as três), sete `api/*.json` relativos
+resolvem dentro da pasta de cada pessoa, e o `noindex` está nas duas dos amigos
+e na raiz, **não** na dele. Repetido numa subpasta. A guarda do `pages.yml`
+passa, e nenhum nome na raiz começa por `_`.
+
+`tests/test_eficiencia_site.py` (**24 testes**, a lacuna 8.5) **conta BYTES**, e
+a regra do duplicado é genérica: não pergunta pelo `app.js` pelo nome, pergunta
+se há ficheiros grandes repetidos byte a byte — um terceiro ficheiro de casca
+que nasça amanhã fica vermelho sem ninguém ter escrito o nome dele. A única
+excepção é o `index.html`, que É a página e tem de existir no URL de cada
+pessoa: **sobra ~16,8 KB × (N−1)**, e está dita em vez de escondida. Prova pela
+negativa com o defeito desfeito **na FONTE, uma linha** por correcção (nunca
+monkey-patch — o `fixture.py` recarrega o `config`): **4 / 4 / 1 vermelhos**, e
+ela apanhou um teste que não vigiava nada (comparava bytes em disco e passava
+com o crivo desligado, porque o `generated_at` tem resolução de um segundo).
+
+**Quatro testes ajustados, todos porque FIXAVAM A ARRUMAÇÃO ANTIGA**: os dois
+`mesmo_conteudo(dele, u/baverone)` passaram a comparar a `api/` (a coleção dele
+é a `api/`; a casca é de todos) e os dois do `limpar_raiz` passaram a exigir que
+a casca FIQUE e que a `api/` dele saia.
