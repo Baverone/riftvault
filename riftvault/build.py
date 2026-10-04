@@ -39,6 +39,41 @@ from . import (a_mais, a_subir, abrir, config, db, decks, faltas, faltas_foil,
 # images`, não o build.
 IMG_DIR = "img"
 
+#: A casca vive no `config` (dois escritores, uma definição) — ver lá.
+#:
+#: UMA VEZ SÓ, NA RAIZ (2026-10-04): cada `u/<slug>/index.html` aponta-lhe com
+#: `../../`. Os caminhos TÊM de ser relativos — o site responde ao mesmo tempo
+#: em `rift.baverone.com/` e em `baverone.github.io/riftvault/` (é por este que
+#: o teste da `riftvault-publicar` pergunta), e um `/app.js` absoluto dava 404
+#: no segundo.
+CASCA = config.CASCA
+
+#: Como o `index.html` se refere a cada ficheiro da casca. Tem de casar com o
+#: `riftvault/web/index.html` — se deixar de casar, o `_aponta_a_casca`
+#: rebenta em vez de publicar uma página sem CSS.
+REFERENCIA_DA_CASCA = {"app.js": 'src="app.js"', "style.css": 'href="style.css"'}
+
+
+def _aponta_a_casca(html: str, subida: str) -> str:
+    """Faz o `index.html` apontar à casca que vive `subida` acima dele.
+
+    REBENTA se a referência não estiver lá exactamente uma vez. É de propósito:
+    uma página sem `style.css` não dá erro nenhum — abre em texto cru —, e
+    descobria-se pela fotografia e não pelo teste. A alternativa (substituir o
+    que houver e seguir) era publicar o site partido em silêncio.
+    """
+    for nome in CASCA:
+        velha = REFERENCIA_DA_CASCA[nome]
+        quantas = html.count(velha)
+        if quantas != 1:
+            raise ValueError(
+                f"o index.html refere {velha} {quantas} vezes (esperava 1) — "
+                f"a casca mudou de forma e o `build.REFERENCIA_DA_CASCA` tem "
+                f"de a acompanhar, senão a página sai sem {nome}")
+        html = html.replace(velha, velha.replace(f'"{nome}"',
+                                                 f'"{subida}{nome}"'))
+    return html
+
 
 def _sem_relogio(obj):
     """O payload sem os `generated_at` — o que sobra é o CONTEÚDO.
@@ -108,7 +143,8 @@ def mesmo_conteudo_raiz(a: Path, b: Path) -> bool:
 
 
 def build(out_dir: Path | str | None = None, log=print,
-          so_se_mudou: bool = False, user_id: int | None = None) -> dict:
+          so_se_mudou: bool = False, user_id: int | None = None,
+          casca: str | None = None) -> dict:
     """O site de UM utilizador, com a privacidade dele respeitada.
 
     `publico = "nada"` não gera nada — nem a pasta. É a omissão de quem entra
@@ -131,8 +167,12 @@ def build(out_dir: Path | str | None = None, log=print,
         prova = config.ROOT / (out.name + "-prova")
         shutil.rmtree(prova, ignore_errors=True)
         try:
+            # O `casca` TEM de ir na prova: sem ele a prova leva o `app.js` e o
+            # `style.css` que o `out` já não tem, o `mesmo_conteudo` compara
+            # conjuntos de ficheiros diferentes e diz «mudou» a TODAS as
+            # corridas — a avaria de 2026-09-10 por outro caminho.
             _gerar(prova, log=lambda *_: None, imagens=False, user_id=uid,
-                   modo=modo)
+                   modo=modo, casca=casca)
             igual = mesmo_conteudo(out, prova)
         finally:
             shutil.rmtree(prova, ignore_errors=True)
@@ -142,7 +182,8 @@ def build(out_dir: Path | str | None = None, log=print,
                     "publico": modo, "gerado": True,
                     "image_mode": ("local" if config.load().get("static_images")
                                    == "local" else "remote")}
-    res = _gerar(out, log=log, imagens=True, user_id=uid, modo=modo)
+    res = _gerar(out, log=log, imagens=True, user_id=uid, modo=modo,
+                 casca=casca)
     res["mudou"] = True
     res["publico"] = modo
     res["gerado"] = True
@@ -173,10 +214,15 @@ def build_todos(out_dir: Path | str | None = None, log=print,
     out = Path(out_dir or config.ROOT / "site")
     pub = lista.publicas(cfg)
     indice = lista.na_raiz(pub)
-    dele = lista.pasta_de(out, {"user_id": utilizador.ANDRE,
-                                "slug": utilizador.SLUG_ANDRE}, pub)
+    # A CASCA fica na RAIZ quando a lista toma a raiz (2026-10-04) — uma vez
+    # só, em vez de uma cópia por pessoa. A subida sai do caminho REAL de cada
+    # um (`u/<slug>/` -> `../../`) e não de um `"../../"` escrito à mão: se a
+    # arrumação mudar de profundidade, muda aqui sozinha.
+    entrada_dele = {"user_id": utilizador.ANDRE, "slug": utilizador.SLUG_ANDRE}
+    casca = lista.subida_da_casca(entrada_dele, pub) if indice else None
+    dele = lista.pasta_de(out, entrada_dele, pub)
     res = build(dele, log=log, so_se_mudou=so_se_mudou,
-                user_id=utilizador.ANDRE)
+                user_id=utilizador.ANDRE, casca=casca)
     outros, saltados = [], []
     for u in utilizador.todos():
         if u["user_id"] == utilizador.ANDRE:
@@ -189,7 +235,8 @@ def build_todos(out_dir: Path | str | None = None, log=print,
             saltados.append((u["slug"], f"privacidade «{modo}»"))
             continue
         r = build(out / "u" / u["slug"], log=lambda *_: None,
-                  user_id=u["user_id"])
+                  user_id=u["user_id"],
+                  casca=lista.subida_da_casca(u, pub))
         outros.append({"slug": u["slug"], "publico": modo, **r})
     if saltados:
         log("  não publicados: " + " · ".join(f"{s} ({p})" for s, p in saltados))
@@ -220,7 +267,8 @@ def build_todos(out_dir: Path | str | None = None, log=print,
 
 
 def _gerar(out_dir: Path | str, log=print, imagens: bool = True,
-           user_id: int | None = None, modo: str = "tudo") -> dict:
+           user_id: int | None = None, modo: str = "tudo",
+           casca: str | None = None) -> dict:
     cfg = config.load()
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -233,8 +281,16 @@ def _gerar(out_dir: Path | str, log=print, imagens: bool = True,
     # O GitHub Pages ignora pastas começadas por _ sem isto.
     (out / ".nojekyll").write_text("", encoding="utf-8")
 
-    for name in ("index.html", "app.js", "style.css"):
+    # A CASCA (2026-10-04): com `casca` posto, o `app.js` e o `style.css` não
+    # se copiam para cá — vivem `casca` acima, uma vez só para toda a gente, e
+    # o `index.html` sai com as referências reescritas. Sem `casca` (o site de
+    # UMA pessoa, na raiz) fica tudo como sempre foi.
+    for name in ("index.html", *(() if casca else CASCA)):
         shutil.copy2(config.WEB_DIR / name, out / name)
+    if casca:
+        pagina = out / "index.html"
+        pagina.write_text(_aponta_a_casca(pagina.read_text(encoding="utf-8"),
+                                          casca), encoding="utf-8")
 
     # «NÃO INDEXES ISTO» (2026-09-29, fatia `2-multi-contas`). A página DELE fica
     # exactamente como está — publicada e indexada, como sempre foi. A de um

@@ -101,7 +101,15 @@ MINIMO_PARA_A_RAIZ = 2
 #: É uma lista ESCRITA e não um «apaga tudo o que não é `u/`»: na raiz podem
 #: estar coisas que não são nossas para apagar (o `CNAME` do domínio, o
 #: `.nojekyll`, o `img/` de 88 MB de uma corrida em `static_images: local`).
-RESTOS_DA_RAIZ = ("api", "app.js", "style.css", "robots.txt")
+#:
+#: O `app.js` E O `style.css` SAÍRAM DAQUI A 2026-10-04, e é a mesma razão por
+#: outro lado: deixaram de ser «restos do site dele» e passaram a ser A CASCA,
+#: que vive na raiz **seja quem for o dono dela** — a lista aponta-lhes de
+#: `u/<slug>/` e, quando a raiz volta a ser a coleção dele, é o `build._gerar`
+#: que os escreve. Nos dois casos são os mesmos bytes do `riftvault/web/`, por
+#: isso não há um caso de ficheiro velho a sobreviver. Apagá-los aqui era
+#: apagar-lhes a casca e reescrevê-la 450 KB a cada publicação.
+RESTOS_DA_RAIZ = ("api", "robots.txt")
 
 
 def _chave(nome: str) -> str:
@@ -161,6 +169,18 @@ def pasta_de(out: Path, entrada: dict, pub: list[dict]) -> Path:
     """A pasta onde o site desta pessoa é gerado."""
     sub = caminho_de(entrada, pub)
     return Path(out) / sub if sub else Path(out)
+
+
+def subida_da_casca(entrada: dict, pub: list[dict]) -> str | None:
+    """Quantos `../` é que esta página precisa para chegar à casca da raiz.
+
+    `None` quando a página JÁ é a raiz — aí a casca está ao lado dela e o
+    `index.html` sai tal e qual, como sempre saiu. Conta-se a profundidade do
+    caminho real (`u/<slug>/` -> `../../`) para a arrumação poder mudar sem
+    isto ficar a mentir.
+    """
+    sub = caminho_de(entrada, pub).strip("/")
+    return "../" * len(sub.split("/")) if sub else None
 
 
 # ---------------------------------------------------------------------------
@@ -461,11 +481,20 @@ def escrever(out: Path, pub: list[dict] | None = None,
     nenhuma na raiz, por isso o site não está partido; o que estava partido era
     a garantia — ficheiro que o Git guarda e nenhum código reescreve é ficheiro
     que desaparece no dia em que alguém apagar o `site/` e voltar a gerar.
+
+    E A CASCA, DESDE 2026-10-04: o `app.js` e o `style.css`, uma vez só, para
+    as páginas de todos lhes apontarem de `u/<slug>/`. Quem é dono da raiz é
+    quem escreve a casca — quando a raiz é a coleção dele é o `build._gerar`,
+    quando é a lista é esta função. **Nenhum dos nomes pode começar por `_`**:
+    o Pages não serve nada que comece assim, e a casca na raiz é o primeiro
+    ficheiro que o browser pede.
     """
     out = Path(out)
     dados = payload(out, pub=pub, cfg=cfg)
     out.mkdir(parents=True, exist_ok=True)
     (out / ".nojekyll").write_text("", encoding="utf-8")
+    for nome in config.CASCA:
+        shutil.copy2(config.WEB_DIR / nome, out / nome)
     (out / "index.html").write_text(html(dados), encoding="utf-8")
     (out / "api").mkdir(parents=True, exist_ok=True)
     (out / "api" / "lista.json").write_text(
