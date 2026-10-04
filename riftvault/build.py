@@ -434,7 +434,8 @@ def _gerar(out_dir: Path | str, log=print, imagens: bool = True,
     # O CRIVO: nada se escreve até ao `fechar()`, e lá só sai o que mudou. A
     # `api/` já não se apaga de raiz — os órfãos podam-se ao fim, que dá a
     # mesma garantia (uma edição que saia do catálogo sai do site) sem obrigar
-    # a reescrever os 24 payloads que não mudaram. Ver o `_Saida`.
+    # a reescrever os outros vinte payloads que não mudaram (medido na pasta
+    # gerada: 23 ficheiros por pessoa, 21 deles `.json`). Ver o `_Saida`.
     saida = _Saida(out, modo=modo)
 
     # O GitHub Pages ignora pastas começadas por _ sem isto.

@@ -49,10 +49,12 @@ GRANDE_KB = 8
 #: regra dos duplicados, nomeado, em vez de se subir o limiar: subi-lo a 17 KB
 #: (o tamanho dela) deixava passar um ficheiro de casca de 20 KB.
 #:
-#: SOBRA MEDIDA, e fica dita em vez de escondida: são ~16,8 KB × (N−1) —
-#: 33,6 KB com as três pessoas de hoje, ~320 KB a 20. Tirá-la pedia que a
-#: página fosse um esboço que carrega tudo por JavaScript, e isso é mexer no
-#: frontend, não na arrumação do site.
+#: SOBRA MEDIDA, e fica dita em vez de escondida (`_ef_sobra_pagina.py`, na
+#: pasta gerada): há DUAS páginas possíveis, a marcada e a dele, por isso com
+#: as três pessoas de hoje a sobra é **UMA** cópia — as dos dois amigos são
+#: iguais, 16,43 KB. A 20 pessoas da mesma privacidade seriam ~312 KB. Tirá-la
+#: pedia que a página fosse um esboço que carrega tudo por JavaScript, e isso é
+#: mexer no frontend, não na arrumação do site.
 A_PAGINA = "index.html"
 
 

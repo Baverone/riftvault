@@ -512,7 +512,8 @@ escrito a 2026-10-04 com a eficiência do §5: nenhum teste contava bytes.
    ficheiros grandes (≥ 8 KB) repetidos byte a byte no site —, por isso um
    terceiro ficheiro de casca que nasça amanhã fica vermelho sem ninguém ter
    escrito o nome dele. A única excepção é o `index.html`, que É a página e
-   tem de existir no URL de cada pessoa: sobra medida de ~16,8 KB × (N−1), e
+   tem de existir no URL de cada pessoa: sobra medida de 16,4 KB hoje (só há
+   duas páginas possíveis, a marcada e a dele), ~312 KB a 20 pessoas, e
    está DITA em vez de escondida. Prova pela negativa com o defeito desfeito
    na FONTE, uma linha por correcção: **4 / 4 / 1 vermelhos**, e ela apanhou
    um teste que não vigiava nada (comparava bytes em disco e passava com o

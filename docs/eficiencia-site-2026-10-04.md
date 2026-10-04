@@ -4,8 +4,8 @@ O §5 do `docs/varrimento-2026-10-01.md` («434 KB de casca repetida por pessoa,
 e cada publicação reescreve 4,65 MB») e a lacuna **8.5** do §8 («nenhum teste
 mede o tamanho do site por pessoa»).
 
-Ramo `ai-pc/eficiencia-site-2026-10-04`, quatro commits — um por correcção,
-mais o da vigia.
+Ramo `ai-pc/eficiencia-site-2026-10-04`, sete commits (mais dois `merge main`)
+— um por correcção, o da vigia, o das docs e dois acertos.
 
 ---
 
@@ -172,6 +172,11 @@ duas tarefas continuem a dizer a verdade sem lhes tocar.
 falhe «quando a casca passa a ser copiada N vezes»; o que faltava era contar
 **bytes** — o `tests/test_lista.py` conta ficheiros e nomes.
 
+**As três provas correram outra vez contra o código final** (`1b396bb`) e dão o
+mesmo ao byte: a geração 74 ficheiros / 6 280,0 KB, a prova de ponta a ponta
+«TUDO OK» nos dois alojamentos, a guarda do `pages.yml` a passar, e a transição
+no `site/` real 78 / 7 181,7 KB → 74 / 6 280,0 KB com 2 ficheiros escritos.
+
 A regra do duplicado é **genérica**: não pergunta pelo `app.js` pelo nome,
 pergunta se há ficheiros grandes (≥ 8 KB) repetidos byte a byte no site. Um
 terceiro ficheiro de casca que nasça amanhã — uma fonte, um `.map`, um segundo
@@ -183,8 +188,11 @@ nome dele.
 A única excepção à regra é o **`index.html`**: ele É a página, e cada coleção
 tem de ter a sua no URL dela. Duas pessoas com a mesma privacidade ficam com
 páginas byte a byte iguais, e isso não é casca copiada — é o sítio onde a
-página mora. São **~16,8 KB × (N−1)**: 33,6 KB com as três pessoas de hoje,
-~320 KB a 20.
+página mora. Medido na pasta gerada pelo código final
+(`_revisao\_ef_sobra_pagina.py`): três páginas em `u/`, duas iguais de
+**16,43 KB** (os dois amigos) e a dele de 16,31 KB (sem o `noindex`) — **sobra
+de 16,4 KB hoje**, e ~312 KB a 20 pessoas da mesma privacidade. Não cresce com
+mais do que isso porque só há duas páginas possíveis: com marca e sem ela.
 
 Tirá-la pedia que a página fosse um esboço que carrega tudo por JavaScript, e
 isso é mexer no frontend e não na arrumação do site. **Não se fez**, e não se
@@ -203,26 +211,28 @@ descartável, e corre-se o mesmo ficheiro de teste
 armadilha está no commit `5cc073e` e no §8b do varrimento, e já custou uma
 manhã a 2026-10-04.
 
+Corrida contra o código FINAL do ramo (`1b396bb`), 24 testes:
+
 | defeito de volta | a linha desfeita | hoje | com o defeito |
 |---|---|---|---|
-| **A** — a casca copiada por pessoa | `build.py`: `for name in (() if casca else CASCA):` → `for name in CASCA:` | 22 verdes | **4 VERMELHOS** |
-| **B** — reescrever tudo, mudado ou não | `build.py`: `mudaram = sorted(r for r in self._corpos if r not in self._iguais)` → `sorted(self._corpos)` | 22 verdes | **4 VERMELHOS** |
-| **B, regra 2** — o índice com o relógio velho | `build.py`: sem o `a_escrever.add(self.INDICE)` | 22 verdes | **1 VERMELHO** |
+| **A** — a casca copiada por pessoa | `build.py`: `for name in (() if casca else CASCA):` → `for name in CASCA:` | 24 verdes | **5 VERMELHOS** |
+| **B** — reescrever tudo, mudado ou não | `build.py`: `mudaram = sorted(r for r in self._corpos if r not in self._iguais)` → `sorted(self._corpos)` | 24 verdes | **4 VERMELHOS** |
+| **B, regra 2** — o índice com o relógio velho | `build.py`: sem o `a_escrever.add(self.INDICE)` | 24 verdes | **1 VERMELHO** |
 
 Os vermelhos são os certos, pelo nome. **A**:
 `test_nenhum_ficheiro_grande_se_repete_byte_a_byte`,
 `test_os_bytes_da_casca_no_site_sao_os_de_UMA_copia`,
 `test_uma_pessoa_nova_nao_traz_outra_casca`,
-`test_cada_pagina_aponta_a_casca_DA_RAIZ_e_ela_esta_la`. **B**:
+`test_cada_pagina_aponta_a_casca_DA_RAIZ_e_ela_esta_la` e
+`test_a_copia_VELHA_da_casca_sai_do_site` — este último é o que a primeira
+corrida (com 22 testes) ainda não tinha: com a casca copiada por pessoa não há
+cópia velha para tirar, e a poupança deixa de se ver. **B**:
 `test_uma_publicacao_em_que_nada_mudou_nao_escreve_NADA` (que inclui as
 coleções dos AMIGOS, que era onde o defeito vivia),
 `test_so_se_reescreve_o_que_mudou`,
 `test_o_mudou_vem_do_crivo_e_nao_de_ter_corrido`,
 `test_e_a_PROVA_PELA_NEGATIVA_da_regra_2`. **Regra 2**:
 `test_o_INDICE_e_sempre_fresco_quando_outro_payload_mudou`.
-
-(A tabela é de quando eram 22 testes; os dois da cópia velha da casca
-entraram no commit seguinte.)
 
 **E a prova pela negativa apanhou um teste que não vigiava nada**, que é para
 isso que ela existe: o `test_uma_publicacao_em_que_nada_mudou_nao_escreve_NADA`

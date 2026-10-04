@@ -11434,7 +11434,9 @@ a regra do duplicado é genérica: não pergunta pelo `app.js` pelo nome, pergun
 se há ficheiros grandes repetidos byte a byte — um terceiro ficheiro de casca
 que nasça amanhã fica vermelho sem ninguém ter escrito o nome dele. A única
 excepção é o `index.html`, que É a página e tem de existir no URL de cada
-pessoa: **sobra ~16,8 KB × (N−1)**, e está dita em vez de escondida. Prova pela
+pessoa: **sobra 16,4 KB hoje** (há DUAS páginas possíveis, a marcada e a dele —
+as dos dois amigos são iguais; ~312 KB a 20 da mesma privacidade), e está dita
+em vez de escondida. Prova pela
 negativa com o defeito desfeito **na FONTE, uma linha** por correcção (nunca
 monkey-patch — o `fixture.py` recarrega o `config`): **4 / 4 / 1 vermelhos**, e
 ela apanhou um teste que não vigiava nada (comparava bytes em disco e passava
