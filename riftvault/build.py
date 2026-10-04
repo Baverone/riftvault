@@ -278,6 +278,20 @@ class _Saida:
                 "iguais": len(self._iguais), "mudou": True}
 
 
+def _nada_escrito() -> dict:
+    """O `crivo` de um `build` que não chegou a gerar.
+
+    Dois casos: privacidade «nada», e o `--se-mudou` a dizer que está em dia.
+    Vai nos dois para quem lê o resultado não ter de perguntar se a chave
+    existe — um `KeyError` num caminho destes aparecia meses depois, no dia em
+    que alguém passasse o `so_se_mudou` aos amigos também. É uma função e não
+    uma constante porque o resultado leva listas lá dentro: devolver sempre o
+    MESMO dicionário punha dois `build` a partilhá-las.
+    """
+    return {"escritos": [], "kb": 0.0, "orfaos": [], "fora": [],
+            "iguais": 0, "mudou": False}
+
+
 def build(out_dir: Path | str | None = None, log=print,
           so_se_mudou: bool = False, user_id: int | None = None,
           casca: str | None = None) -> dict:
@@ -294,7 +308,7 @@ def build(out_dir: Path | str | None = None, log=print,
         log(f"«{utilizador.registo(uid)['slug']}» tem a privacidade em "
             f"«{modo}» — não se gera site nenhum.")
         return {"out": str(out), "sets": 0, "images": 0, "mudou": False,
-                "publico": modo, "gerado": False}
+                "publico": modo, "gerado": False, "crivo": _nada_escrito()}
     if so_se_mudou and (out / "api" / "index.json").exists():
         # A pasta de prova fica NA RAIZ DO REPO e não ao lado do `out`: desde
         # 2026-09-30 o site dele pode viver em `site/u/baverone/`, e ali
@@ -315,7 +329,7 @@ def build(out_dir: Path | str | None = None, log=print,
         if igual:
             log("O site já está em dia — nada mudou desde a última geração.")
             return {"out": str(out), "sets": 0, "images": 0, "mudou": False,
-                    "publico": modo, "gerado": True,
+                    "publico": modo, "gerado": True, "crivo": _nada_escrito(),
                     "image_mode": ("local" if config.load().get("static_images")
                                    == "local" else "remote")}
     res = _gerar(out, log=log, imagens=True, user_id=uid, modo=modo,
