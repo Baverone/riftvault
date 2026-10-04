@@ -25,7 +25,10 @@ WEB_DIR = PKG / "web"
 #:
 #: Desde 2026-10-04 vive UMA VEZ SÓ, na raiz do site: medido no `site/`
 #: commitado, o `app.js` (350,9 KB) e o `style.css` (99,5 KB) eram byte a byte
-#: iguais nas três pastas — 900,7 KB repetidos, e mais 434 KB por pessoa nova.
+#: iguais nas três pastas — **900,7 KB repetidos, e mais 450,4 KB por cada
+#: pessoa nova**. (O varrimento de 01/10 contou 434 KB; é a mesma medição com
+#: um `app.js` mais pequeno. Os dois números têm de bater entre si: 900,7 são
+#: exactamente duas cópias de 450,4.)
 CASCA = ("app.js", "style.css")
 
 # Dá para apontar as bases para outro sítio sem mexer no código (à mtgvault).
