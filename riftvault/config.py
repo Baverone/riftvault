@@ -16,6 +16,21 @@ ROOT = Path(__file__).resolve().parent.parent
 PKG = ROOT / "riftvault"
 WEB_DIR = PKG / "web"
 
+#: A CASCA: a aplicação de uma página, os mesmos bytes para toda a gente.
+#:
+#: Vive AQUI, e não no `build`, porque tem dois escritores e nenhum pode ter a
+#: sua lista: quando a raiz é a coleção dele é o `build._gerar` que a copia,
+#: quando é a lista das coleções públicas é o `lista.escrever` — e o `build`
+#: importa o `lista`, por isso a definição não pode ser de nenhum dos dois.
+#:
+#: Desde 2026-10-04 vive UMA VEZ SÓ, na raiz do site: medido no `site/`
+#: commitado, o `app.js` (350,9 KB) e o `style.css` (99,5 KB) eram byte a byte
+#: iguais nas três pastas — **900,7 KB repetidos, e mais 450,4 KB por cada
+#: pessoa nova**. (O varrimento de 01/10 contou 434 KB; é a mesma medição com
+#: um `app.js` mais pequeno. Os dois números têm de bater entre si: 900,7 são
+#: exactamente duas cópias de 450,4.)
+CASCA = ("app.js", "style.css")
+
 # Dá para apontar as bases para outro sítio sem mexer no código (à mtgvault).
 # ---------------------------------------------------------------------------
 # O SÍTIO PARA PARTIR COISAS (2026-09-29). Ver `riftvault/multi.py`.

@@ -197,8 +197,13 @@ class TestPortasFechadas(Base):
         E ABRIR as portas também não lhe muda o SITE — muda-lhe o SÍTIO, e é
         decisão dele de 2026-09-30: *"quando se abre o Riftbound, vai ter lá
         as coleções: Baverone / Miguel / Rafa"*. A partir da segunda coleção
-        pública a raiz é a lista e a dele passa a `u/baverone/`, com o mesmo
-        conteúdo ficheiro a ficheiro. Ver `test_lista.py`.
+        pública a raiz é a lista e a dele passa a `u/baverone/`, com os mesmos
+        PAYLOADS ficheiro a ficheiro. Ver `test_lista.py`.
+
+        Compara-se a `api/` e não a pasta toda desde 2026-10-04: a casca
+        (`app.js`, `style.css`) passou a viver na RAIZ, uma vez só para as
+        páginas de todos, e por isso a pasta dele já não a leva. A coleção dele
+        é a `api/`, e é dela que este teste fala.
         """
         u = utilizador.criar("Miguel", "miguel")
         con = db.connect(user_id=u["user_id"])
@@ -209,7 +214,8 @@ class TestPortasFechadas(Base):
         a = self.v.root / "aberto"
         build.build_todos(f, log=lambda *_: None, cfg={"multi": {"aberto": False}})
         build.build_todos(a, log=lambda *_: None, cfg={"multi": {"aberto": True}})
-        self.assertTrue(build.mesmo_conteudo(f, a / "u" / "baverone"),
+        self.assertTrue(build.mesmo_conteudo(f / "api",
+                                             a / "u" / "baverone" / "api"),
                         "abrir as portas mudou o CONTEÚDO do site dele")
 
     def test_com_o_miguel_privado_a_raiz_continua_a_ser_a_dele(self):

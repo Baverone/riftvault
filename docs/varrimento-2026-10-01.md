@@ -232,6 +232,18 @@ respostas à mesma pergunta espalhadas por quinze sítios.
 
 ## 5. EFICIÊNCIA: 434 KB DE CASCA REPETIDA POR PESSOA, E CADA PUBLICAÇÃO REESCREVE 4,65 MB
 
+> **CORRIGIDO a 2026-10-04**, as duas correcções — ver
+> `docs/eficiencia-site-2026-10-04.md`. A casca passou a viver na raiz uma vez
+> só (`site/` 78 ficheiros / 7 181,7 KB → **74 / 6 280,0 KB**, −901,7 KB) e um
+> ficheiro cujo conteúdo não mudou deixou de se reescrever. **E o regime
+> permanente era pior do que esta secção diz**: os dez commits do `site/` de
+> 2026-10-04, das 05:37 às 10:07, tocaram 28 ficheiros cada um e em **28 de 28
+> só o relógio mudava** — um commit e uma build do Pages de 30 em 30 minutos,
+> porque o `--se-mudou` só olhava para a coleção DELE. Numa publicação em que
+> nada muda são agora **0 ficheiros**. A decisão sobre o `generated_at` do
+> índice (que é a prova de que o site publicado é o que foi gerado aqui) está
+> escrita no documento e em teste.
+
 ### O que se mediu
 
 **O site publicado hoje: 7 231 KB em 78 ficheiros.**
@@ -459,10 +471,10 @@ corre em paralelo no `app.js` — não lhe tocar.
 
 Nas partes onde um erro custa dados. Cada um destes é um teste pequeno.
 
-**Quatro dos cinco estão FECHADOS, e nenhum precisou de um teste novo: as
-correcções trouxeram a vigia com elas** (o 3 e o 4 a 2026-10-02, o 1 e o 2
-confirmados e **medidos** a 2026-10-04 — ver o §8b). **Fica o 5**, que vai com a
-eficiência do §5.
+**Os CINCO estão FECHADOS.** Quatro não precisaram de um teste novo — as
+correcções trouxeram a vigia com elas (o 3 e o 4 a 2026-10-02, o 1 e o 2
+confirmados e **medidos** a 2026-10-04, ver o §8b). O **5** precisava, e foi
+escrito a 2026-10-04 com a eficiência do §5: nenhum teste contava bytes.
 
 1. ~~**Nenhum teste exige que um log seja do utilizador que o escreveu.**~~
    **FEITO a 2026-10-02, no mesmo commit da correcção** (`7ac20eb`):
@@ -493,9 +505,20 @@ eficiência do §5.
    os payloads de leitura e compara cada `editable` com o `editavel` do
    `/api/conta.json`, nos quatro regimes (porta aberta/fechada, de casa/de
    fora, entrado, com a temporária).
-5. **Nenhum teste mede o tamanho do site por pessoa.** Um teste que falhe
-   quando a casca passa a ser copiada N vezes travava o §5 antes de doer — hoje
-   `tests/test_lista.py` conta ficheiros e nomes, nunca bytes.
+5. ~~**Nenhum teste mede o tamanho do site por pessoa.**~~ **FEITO a
+   2026-10-04, com o §5** (`e63cae5` + `c1cb62d`):
+   `tests/test_eficiencia_site.py`, **24 testes**, e CONTA BYTES. A regra do
+   duplicado é genérica — não pergunta pelo `app.js` pelo nome, pergunta se há
+   ficheiros grandes (≥ 8 KB) repetidos byte a byte no site —, por isso um
+   terceiro ficheiro de casca que nasça amanhã fica vermelho sem ninguém ter
+   escrito o nome dele. A única excepção é o `index.html`, que É a página e
+   tem de existir no URL de cada pessoa: sobra medida de 16,4 KB hoje (só há
+   duas páginas possíveis, a marcada e a dele), ~312 KB a 20 pessoas, e
+   está DITA em vez de escondida. Prova pela negativa com o defeito desfeito
+   na FONTE, uma linha por correcção: **4 / 4 / 1 vermelhos**, e ela apanhou
+   um teste que não vigiava nada (comparava bytes em disco e passava com o
+   crivo desligado, porque o `generated_at` tem resolução de um segundo). Ver
+   `docs/eficiencia-site-2026-10-04.md`.
 
 ### 8b. «Há testes» não é «há vigia» — a prova pela negativa dos dois, medida (2026-10-04)
 
@@ -620,7 +643,7 @@ ficam em ficheiro nenhum, e a raiz volta a ser a dele**) → apagar.
 | 4 | o `editable` dos payloads | 1 função + 15 linhas (ou tirar 14) | ~~média~~ **FEITO a 2026-10-02** — e foram DOIS campos, não um |
 | 3 | o `--verificar` a medir o túnel | 2 passos | ~~média~~ **FEITO a 2026-10-02** — um passo que mede |
 | 6 | `conta.apagar` e o `auth.db` | 1 teste (preferível) | ~~média~~ **FEITO a 2026-10-02** — a primitiva limpa, e o teste também |
-| 5 | casca na raiz e o `generated_at` | caminhos no `build.py` / comparação por ficheiro | **baixa hoje, alta aos 10-15** |
-| 8 | ~~os cinco testes que faltam~~ **SOBRA UM** (o 5, o tamanho por pessoa) | pequeno | média — **os outros quatro fecharam sem um teste novo**: as correcções trouxeram a vigia, e as quatro ficaram MEDIDAS (§8b) |
+| 5 | casca na raiz e o `generated_at` | caminhos no `build.py` / comparação por ficheiro | ~~baixa hoje, alta aos 10-15~~ **FEITO a 2026-10-04** — e não era baixa: a publicação de 30 em 30 minutos reescrevia 28 ficheiros só pelo relógio, 48×/dia |
+| 8 | ~~os cinco testes que faltam~~ **OS CINCO FECHADOS** | pequeno | ~~média~~ **FEITO** — quatro fecharam sem um teste novo (as correcções trouxeram a vigia, e as quatro ficaram MEDIDAS no §8b); o 5.º é o `test_eficiencia_site.py`, de 04/10 |
 | 9 | `so_base` — a coerência do CLAUDE.md | uma palavra, **decisão dele** | baixa (custa zero hoje) |
 | 7 | 47 ramos lixo; salvar a `suite-paralela` | — | baixa, mas a suite a 17 min paga-se |

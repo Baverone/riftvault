@@ -173,15 +173,34 @@ class TestAraizSoMudaComDuas(Base):
         self.assertTrue(res["na_raiz"])
 
     def test_a_coleccao_dele_e_a_MESMA_so_mudou_de_sitio(self):
-        """O conteúdo do site dele não muda ao passar para `u/baverone/`."""
+        """Os PAYLOADS dele não mudam ao passar para `u/baverone/`.
+
+        Desde 2026-10-04 a comparação é da `api/` e não da pasta toda, e a
+        razão é a casca: ela vive na RAIZ, uma vez só, por isso a pasta dele
+        deixou de ter o `app.js` e o `style.css` e o `index.html` sai com as
+        referências a apontar `../../`. A pergunta deste teste é a coleção, e
+        a coleção é a `api/` — a casca é a mesma para todos e tem um teste
+        próprio (`test_eficiencia_site`).
+        """
         self.amigo()
         f = self.gerar("fechado", aberto=False)
         a = self.gerar("aberto", aberto=True)
-        self.assertTrue(build.mesmo_conteudo(f, a / "u" / "baverone"),
+        self.assertTrue(build.mesmo_conteudo(f / "api", a / "u" / "baverone" / "api"),
                         "a coleção dele mudou de conteúdo ao mudar de sítio")
+        # E a página é a MESMA página, a menos do caminho da casca.
+        na_raiz = (f / "index.html").read_text(encoding="utf-8")
+        em_u = (a / "u" / "baverone" / "index.html").read_text(encoding="utf-8")
+        self.assertEqual(na_raiz, em_u.replace('"../../app.js"', '"app.js"')
+                         .replace('"../../style.css"', '"style.css"'),
+                         "o index.html dele mudou em mais do que o caminho da casca")
 
     def test_os_restos_do_site_dele_saem_da_raiz(self):
-        """Senão ficavam lá os payloads antigos dele, a envelhecer."""
+        """Senão ficavam lá os payloads antigos dele, a envelhecer.
+
+        A CASCA É A EXCEPÇÃO, desde 2026-10-04: o `app.js` e o `style.css` não
+        são restos dele — são a casca, e a casca é da RAIZ seja quem for o dono
+        dela. Ficam, e é a pasta dele que deixa de os ter.
+        """
         f = self.gerar("site", aberto=False)          # a raiz é a dele
         self.assertTrue((f / "api" / "set").exists())
         self.assertTrue((f / "app.js").exists())
@@ -189,9 +208,12 @@ class TestAraizSoMudaComDuas(Base):
         build.build_todos(f, log=lambda *_: None, cfg={"multi": {"aberto": True}})
         self.assertFalse((f / "api" / "set").exists(),
                          "ficou na raiz a `api/set/` velha dele")
-        self.assertFalse((f / "app.js").exists())
         self.assertTrue((f / "api" / "lista.json").exists())
-        self.assertTrue((f / "u" / "baverone" / "app.js").exists())
+        self.assertTrue((f / "app.js").exists(),
+                        "a casca tem de ficar na raiz — é de lá que as páginas "
+                        "de todos a pedem")
+        self.assertFalse((f / "u" / "baverone" / "app.js").exists(),
+                         "a pasta dele voltou a ter uma cópia da casca")
 
     def test_quem_deixa_de_publicar_perde_a_pagina_QUE_JA_LA_ESTAVA(self):
         """Saltar não é apagar: despublicar tem de ser tão fácil como publicar."""
@@ -236,9 +258,16 @@ class TestAraizSoMudaComDuas(Base):
         self.assertTrue((out / "CNAME").exists())
 
     def test_o_limpar_raiz_nao_leva_o_que_nao_e_nosso(self):
-        """O `CNAME` do domínio e o `.nojekyll` não são nossos para apagar."""
+        """O `CNAME`, o `.nojekyll` e — desde 2026-10-04 — A CASCA.
+
+        O `app.js` saiu do `RESTOS_DA_RAIZ` nesse dia: deixou de ser um resto
+        do site dele e passou a ser a casca, que a raiz guarda para as páginas
+        de todos. Apagá-la aqui era apagá-la e reescrevê-la 450 KB a cada
+        publicação. O que continua a sair é o que É dele: a `api/`.
+        """
         out = self.v.root / "s"
         (out / "u").mkdir(parents=True)
+        (out / "api").mkdir()
         (out / "CNAME").write_text("rift.baverone.com", encoding="utf-8")
         (out / ".nojekyll").write_text("", encoding="utf-8")
         (out / "app.js").write_text("//", encoding="utf-8")
@@ -246,7 +275,8 @@ class TestAraizSoMudaComDuas(Base):
         self.assertTrue((out / "CNAME").exists())
         self.assertTrue((out / ".nojekyll").exists())
         self.assertTrue((out / "u").exists())
-        self.assertFalse((out / "app.js").exists())
+        self.assertTrue((out / "app.js").exists(), "a casca não é um resto")
+        self.assertFalse((out / "api").exists(), "a `api/` dele é que sai")
 
 
 # ---------------------------------------------------------------------------
