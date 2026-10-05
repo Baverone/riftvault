@@ -11537,8 +11537,8 @@ portas a lerem o mesmo payload; e a regra a continuar ligada e anotada. **A
 PROVA PELA NEGATIVA** (`_revisao\_prova_negativa_colar_regra.py`, que corre a
 bateria contra uma árvore com o `riftvault/` do `main` — na FONTE, porque o
 `tests/fixture.py:80` faz `importlib.reload(config)` e apagava um patch em
-memória): **11 dos 20 ficam vermelhos**, e os que passam são os que fixam o que
-NÃO podia mudar — a regra, a coluna do site que já comparava com a soma, a linha
-do Champion, as outras secções, e o CLI com a regra desligada (que sempre disse
-39). **Zero testes ajustados**: o `test_colar.py` passa inteiro (43) sem uma
-linha mudada.
+memória): **12 dos 20 ficam vermelhos**, e os 8 que passam são os que fixam o
+que NÃO podia mudar — a regra, a coluna do site que já comparava com a soma, a
+linha do Champion, as outras secções, as duas partes no ecrã, a previsão que não
+grava, e o CLI com a regra desligada (que sempre disse 39). **Zero testes
+ajustados**: o `test_colar.py` passa inteiro (43) sem uma linha mudada.
