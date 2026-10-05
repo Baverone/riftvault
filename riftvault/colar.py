@@ -120,15 +120,33 @@ def prever(con: sqlite3.Connection, texto: str, slug: str | None = None) -> dict
             bloco["faltam_ler"] += qty
 
     regras = decks.rules()
+    # A REGRA DO MAIN CONTA O CHAMPION (`main_includes_champion`, inferido das
+    # listas dele: 39 no MainDeck + 1 Champion = 40), e por isso o número que se
+    # compara com ela SAI DAQUI — não da cabeça de quem lê o resumo.
+    #
+    # Era o contrário até 2026-10-05: o payload dava as 39 cópias do main ao
+    # lado da «regra 40», cada porta somava o Champion por sua conta (o CLI não
+    # somava nada) e eu disse-lhe que faltava uma carta a uma lista LEGAL. O
+    # `riftvault deck` já dizia `main 40/40 ok` pelo `decks.legality`, que faz
+    # esta mesma soma — duas portas a dizer coisas diferentes sobre a mesma
+    # lista. Uma pergunta, uma resposta, e é esta.
+    champion_no_main = (por_papel.get("champion", {}).get("copias", 0)
+                        if regras.get("main_includes_champion") else 0)
+    main_com_champion = por_papel.get("main", {}).get("copias", 0) + champion_no_main
     return {
         "nome": nome, "slug": slug, "linhas": linhas,
         "nao_casaram": nao_casaram,
-        # A aritmética, pela ordem dos papéis — é o que ele confere de relance
-        # («39 no main + 1 Champion = 40»).
+        # A aritmética, pela ordem dos papéis. As `copias` do main são as da
+        # SECÇÃO (39); quem compara com a regra lê o `main_com_champion` (40).
         "por_papel": [{"role": r, "label": decks.ROLE_LABEL.get(r, r), **por_papel[r]}
                       for r in decks.ROLE_ORDER if r in por_papel]
                      + [{"role": r, "label": r, **v} for r, v in por_papel.items()
                         if r not in decks.ROLE_ORDER],
+        # O número que se compara com `regras["main"]`, e quantas cópias do
+        # Champion entraram nele (0 quando a regra não o conta) — para ninguém
+        # ter de tirar a diferença nem presumir que o Champion é 1.
+        "main_com_champion": main_com_champion,
+        "champion_no_main": champion_no_main,
         "totais": {"copias": sum(q for _, q, _ in lido["lines"]),
                    "linhas": len(lido["lines"]),
                    "nao_casaram": len(nao_casaram)},

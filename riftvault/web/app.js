@@ -4956,17 +4956,22 @@ function colarPrevHTML(p) {
       <thead><tr><th>Secção</th><th>Cartas</th><th>Cópias</th><th>Regra</th></tr></thead>
       <tbody>${(p.por_papel || []).map(b => {
         const a = alvo[b.role];
-        // A regra do main conta o Champion (`main_includes_champion`), que é o
-        // que as listas dele fazem: 39 + 1 = 40.
-        const soma = b.role === 'main' && regras.main_includes_champion
-          ? b.copias + ((p.por_papel.find(x => x.role === 'champion') || {}).copias || 0)
-          : b.copias;
+        // A regra do main conta o Champion, e o número que se compara com ela
+        // VEM DO PAYLOAD (`main_com_champion`): esta tabela somava-o por sua
+        // conta, que era uma segunda aritmética para a mesma pergunta — e o
+        // «+1» estava escrito à mão, por isso mentia num deck com duas cópias
+        // do Champion. O `??` é só para um payload servido por um Python
+        // anterior a 2026-10-05 (o 8770 não se reinicia a cada merge).
+        const noMain = p.champion_no_main ?? (regras.main_includes_champion
+          ? ((p.por_papel.find(x => x.role === 'champion') || {}).copias || 0) : 0);
+        const soma = b.role === 'main' ? (p.main_com_champion ?? (b.copias + noMain))
+                                       : b.copias;
         return `<tr${b.faltam_ler ? ' class="tem-falha"' : ''}>
           <td data-l="Secção">${escapeHTML(b.label)}</td>
           <td data-l="Cartas">${b.cartas}</td>
           <td data-l="Cópias"><span>${b.copias}${
-            b.role === 'main' && regras.main_includes_champion && soma !== b.copias
-              ? ` <small>(+1 Champion = ${soma})</small>` : ''}</span></td>
+            b.role === 'main' && noMain
+              ? ` <small>(+${noMain} Champion = ${soma})</small>` : ''}</span></td>
           <td data-l="Regra">${a ? `<span class="${soma === a ? 'ok' : 'nok'}">${soma}/${a}</span>` : '—'}</td>
         </tr>`;
       }).join('')}</tbody>

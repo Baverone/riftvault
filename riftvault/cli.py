@@ -555,7 +555,16 @@ def cmd_colar(args) -> int:
     for b in r["por_papel"]:
         regra = r["regras"].get({"main": "main", "runes": "runes",
                                  "battlefields": "battlefields"}.get(b["role"], ""))
-        print(f"  {b['label']:<14} {b['cartas']:>3} cartas  {b['copias']:>3} cópias"
+        # A COLUNA MOSTRA O NÚMERO QUE SE COMPARA COM A REGRA (2026-10-05). A
+        # regra do main conta o Champion, e esta linha dizia «39 cópias · regra
+        # 40» de uma lista legal: eu li aquilo e disse-lhe que lhe faltava uma
+        # carta. A soma vem do payload (`colar.prever`) e o 39 não se esconde —
+        # ele quer ver as duas partes.
+        copias, donde = b["copias"], ""
+        if b["role"] == "main" and r["champion_no_main"]:
+            copias = r["main_com_champion"]
+            donde = (f" (= {b['copias']} + {r['champion_no_main']} Champion)")
+        print(f"  {b['label']:<14} {b['cartas']:>3} cartas  {copias:>3} cópias{donde}"
               + (f"   regra {regra}" if regra else ""))
     print(f"  {'TOTAL':<14} {r['totais']['linhas']:>3} linhas  "
           f"{r['totais']['copias']:>3} cópias")
