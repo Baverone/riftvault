@@ -21,7 +21,7 @@
     riftvault foil [REF] [--mais [N] | --menos [N]] [--edicao OGN]
     riftvault venda [--juntar REF [N] | --tirar REF [N]] [--trend REF EUR]
                     [--limpar] [--vender --sim]
-    riftvault selado [--sync] [--mais ID [N] | --menos ID [N]] [--edicao OGN]
+    riftvault selado [--sync] [--guardar-precos [FICHEIRO]] [--mais ID [N] | --menos ID [N]] [--edicao OGN]
                      [--so-faltas | --so-tenho] [--preco ID [EUROS]]
 """
 
@@ -1750,8 +1750,9 @@ def cmd_selado(args) -> int:
 
     Sem opções, a lista por edição com os três estados. `--sync` vai ao
     CardTrader buscar o catálogo e os preços e reescreve o
-    `data/selado_catalogo.json` (é um comando À MÃO — o `riftvault prices`
-    diário não mexeu). `--mais/--menos ID [N]` mexem no que ele tem.
+    `data/selado_catalogo.json`, e grava o preço do dia no histórico
+    (`prices.sealed_price_history`, 2026-10-13 — corre na tarefa diária).
+    `--mais/--menos ID [N]` mexem no que ele tem.
 
     **Nada disto toca na Coleção**: escreve-se na `sealed_copies` e mais
     nenhum módulo a lê. O valor do selado é um total próprio.
@@ -1772,6 +1773,23 @@ def cmd_selado(args) -> int:
             print(f"  {r['sem_preco']} sem oferta no CardTrader")
 
     con = db.connect()
+    # O HISTÓRICO (2026-10-13): depois de cada `--sync`, os preços do dia vão
+    # para o `prices.db` — senão o próximo `--sync` deitava-os fora. O
+    # `--guardar-precos FICHEIRO` é o backfill de um catálogo antigo (nunca
+    # escreve por cima de um dia que já lá esteja).
+    if args.sync or args.guardar_precos:
+        if args.guardar_precos and args.guardar_precos != "-":
+            from pathlib import Path
+            caminho = Path(args.guardar_precos)
+            dados = json.loads(caminho.read_text(encoding="utf-8"))
+            h = selado_mod.gravar_historico(
+                con, dados, fonte="backfill:" + (args.origem or caminho.name),
+                substituir=False)
+        else:
+            h = selado_mod.gravar_historico(con, fonte="sync" if args.sync else "cli")
+        print(f"histórico do selado: {h['linhas']} linha(s) gravada(s) em "
+              f"{', '.join(h['dias']) or '— (já lá estavam)'} "
+              f"({h['sem_preco']} sem oferta) -> prices.sealed_price_history")
     n = _qty(args.n)
     try:
         if args.mais:
@@ -2914,7 +2932,13 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("selado", help="produto selado (displays, cases, decks, bundles, "
                                       "Proving Grounds): o que há, o que tens e o que não tens")
     p.add_argument("--sync", action="store_true",
-                   help="vai ao CardTrader buscar a lista e os preços (1 pedido/s)")
+                   help="vai ao CardTrader buscar a lista e os preços (1 pedido/s) "
+                        "e grava o preço do dia no histórico")
+    p.add_argument("--guardar-precos", nargs="?", const="-", metavar="FICHEIRO",
+                   help="grava no histórico os preços de um selado_catalogo.json "
+                        "(sem FICHEIRO, o de agora); nunca escreve por cima de um dia")
+    p.add_argument("--origem", help="com --guardar-precos FICHEIRO: de onde veio "
+                                    "(fica na coluna `fonte`, ex. git:f72510d)")
     p.add_argument("--mais", metavar="ID", help="mais unidades deste produto (ct-330791)")
     p.add_argument("--menos", metavar="ID", help="menos unidades deste produto")
     # O preço do Cardmarket é DELE: a app não o pode ler (403). Sem o valor,

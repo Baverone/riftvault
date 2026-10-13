@@ -371,8 +371,11 @@ class TestOCatalogoReal(unittest.TestCase):
     def test_a_aba_tem_30_produtos(self):
         """Eram 32 depois destas três ordens; ficaram **30** nessa mesma noite,
         quando os 2 Showdown Deck saíram com a categoria 262
-        (`test_selado_sem_decks`)."""
-        self.assertEqual(len([x for x in self.lista if not x["acessorio"]]), 30)
+        (`test_selado_sem_decks`). A 2026-10-13 a regra da língua passou a
+        PADRÃO (`*Chinese*`) — o catálogo desse dia trouxe a «Chinese 1st
+        Anniversary Box» e ela entrou sozinha, como o aviso dizia — e com ela
+        sairam os 4 Vault: **26** (`test_selado_precos`)."""
+        self.assertEqual(len([x for x in self.lista if not x["acessorio"]]), 26)
 
     def test_nenhum_vem_do_config(self):
         self.assertEqual([x["nome"] for x in self.lista if x["fonte"] == "config"], [])

@@ -502,17 +502,23 @@ class TestOs22ContraOCatalogoReal(unittest.TestCase):
         cls.config.load.cache_clear()
 
     def test_saem_exactamente_31_e_cada_nome_casa_com_um(self):
+        """Pelo NOME saem 31; a 2026-10-13 juntaram-se 5 pelos PADRÕES (os 4
+        Vault e a caixa chinesa) — `selado.excluidos_padrao`."""
         ex = self.selado.excluidos(self.cfg)
-        self.assertEqual(len(ex), 31)
-        self.assertEqual(len({x["id"] for x in ex}), 31)
+        pelo_nome = [x for x in ex if x["por"] == "nome"]
+        self.assertEqual(len(pelo_nome), 31)
+        self.assertEqual(len({x["id"] for x in pelo_nome}), 31)
+        self.assertEqual(len(ex), 36)
 
     def test_a_aba_fica_com_30_selados(self):
         """Estes 22 levaram-na de 98 a 76; os 10 da segunda ordem a 66, os 11
         Champion Deck a 55, os 7 sem mercado a 48; a 2026-09-28 os 17 do
         `selado.extra` (menos os 2 que voltaram e o chinês que saiu) a 32; e
-        nessa noite os 2 Showdown Deck, com a categoria 262, a **30**."""
+        nessa noite os 2 Showdown Deck, com a categoria 262, a **30**. A
+        2026-10-13 o catálogo trouxe a «Chinese 1st Anniversary Box» (31) e os
+        padrões tiraram-na com os 4 Vault: **26**."""
         lista = [x for x in self.selado.itens(None, self.cfg) if not x["acessorio"]]
-        self.assertEqual(len(lista), 30, "98 − 22 − 10 − 11 − 7 − 17 − 1 + 2 − 2")
+        self.assertEqual(len(lista), 26, "98 − 22 − 10 − 11 − 7 − 17 − 1 + 2 − 2 + 1 − 5")
 
     def test_os_acessorios_estao_desligados(self):
         """`selado.acessorios` ficou VAZIA a 2026-09-25 (ele mandou tirar os
@@ -535,10 +541,14 @@ class TestOs22ContraOCatalogoReal(unittest.TestCase):
                   "Radiance Booster Box", "Legacy Booster Box",
                   "The Reckoning Booster Box",
                   "Origins Booster Box Case",
-                  "Unleashed Vault", "Vendetta Vault", "Radiance Vault",
-                  "Legacy Vault", "Origins: Proving Grounds",
+                  "Origins: Proving Grounds",
                   "Legacy: Proving Grounds"):
             self.assertIn(n, nomes, f"{n} tinha de ficar")
+        # Os 4 Vault ficaram com ESTA lista e saíram a 2026-10-13 por outra —
+        # o padrão `*Vault` (*"nao quero Vault"*); nunca estiveram nos nomes.
+        for n in ("Unleashed Vault", "Vendetta Vault", "Radiance Vault", "Legacy Vault"):
+            self.assertNotIn(n, nomes, n)
+            self.assertNotIn(n, self.cfg["selado"]["excluidos"], n)
         # Estes saíram da ABA a 28/09 (eram do `selado.extra`) e continuam a
         # nunca ter chegado ao `selado.excluidos`, que é o que aqui se mede.
         for n in ("Spiritforged Pre-Rift EVENT Kit", "Unleashed Pre-Rift EVENT Kit",
@@ -592,15 +602,16 @@ class TestOs22ContraOCatalogoReal(unittest.TestCase):
         self.assertIn("ct-383046", ids)
 
     def test_por_edicao_depois_de_tirar(self):
-        """Os números que ele vai ver, edição a edição (a 2026-09-28)."""
+        """Os números que ele vai ver, edição a edição (a 2026-10-13: sem os 4
+        Vault — UNL, VEN, RAD e LGC perdem um cada)."""
         lista = [x for x in self.selado.itens(None, self.cfg) if not x["acessorio"]]
         por = {}
         for x in lista:
             por[x["edicao"]] = por.get(x["edicao"], 0) + 1
-        self.assertEqual(por, {"OGN": 2, "OGS": 1, "SFD": 3, "UNL": 5, "VEN": 4,
-                               "RAD": 3, "LGC": 2, "PG2": 1, "REC": 1, "ARC": 1,
+        self.assertEqual(por, {"OGN": 2, "OGS": 1, "SFD": 3, "UNL": 4, "VEN": 3,
+                               "RAD": 2, "LGC": 1, "PG2": 1, "REC": 1, "ARC": 1,
                                "PROMO-RIFT": 6, "T1S": 1})
-        self.assertEqual(sum(por.values()), 30)
+        self.assertEqual(sum(por.values()), 26)
 
 
 # ---------------------------------------------------------------------------

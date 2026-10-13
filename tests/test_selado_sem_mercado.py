@@ -405,29 +405,31 @@ class TestOsSeteContraOCatalogoReal(RealBase):
     def test_a_aba_fica_com_30_selados(self):
         """Estes 7 levaram-na de 55 a 48; a 28/09 os 17 do `selado.extra`,
         menos os 2 que voltaram e o chinês que saiu, a 32; e nessa noite os 2
-        Showdown Deck, com a categoria 262, a **30**."""
+        Showdown Deck, com a categoria 262, a **30**. A 2026-10-13, com a caixa
+        chinesa nova e os padrões, **26**."""
         selados = [x for x in self.lista if not x["acessorio"]]
-        self.assertEqual(len(selados), 30,
-                         "98 − 22 − 10 − 11 − 7 − 17 − 1 + 2 − 2")
+        self.assertEqual(len(selados), 26,
+                         "98 − 22 − 10 − 11 − 7 − 17 − 1 + 2 − 2 + 1 − 5")
 
     def test_por_edicao_depois_dos_sete(self):
         """Os números que ele vai ver, edição a edição. Mexem três: a OP
         desaparece (1→0), a PROMO-RIFT 10→5 e a T1S 2→1. (A VEN e a RAD
-        perderam um Showdown Deck cada na noite de 28/09.)"""
+        perderam um Showdown Deck cada na noite de 28/09; a UNL, a VEN, a RAD
+        e a LGC o Vault a 2026-10-13.)"""
         por = {}
         for x in self.lista:
             if not x["acessorio"]:
                 por[x["edicao"]] = por.get(x["edicao"], 0) + 1
-        self.assertEqual(por, {"OGN": 2, "OGS": 1, "SFD": 3, "UNL": 5, "VEN": 4,
-                               "RAD": 3, "LGC": 2, "PG2": 1, "REC": 1, "ARC": 1,
+        self.assertEqual(por, {"OGN": 2, "OGS": 1, "SFD": 3, "UNL": 4, "VEN": 3,
+                               "RAD": 2, "LGC": 1, "PG2": 1, "REC": 1, "ARC": 1,
                                "PROMO-RIFT": 6, "T1S": 1})
-        self.assertEqual(sum(por.values()), 30)
+        self.assertEqual(sum(por.values()), 26)
 
     def test_a_op_desapareceu_por_ter_um_produto_so(self):
         self.assertEqual([x["nome"] for x in self.lista if x["edicao"] == "OP"], [])
 
     def test_saem_exactamente_31_e_cada_nome_casa_com_um(self):
-        ex = self.selado.excluidos(self.cfg)
+        ex = [x for x in self.selado.excluidos(self.cfg) if x["por"] == "nome"]
         self.assertEqual(len(ex), 31)
         self.assertEqual(len({x["id"] for x in ex}), 31)
 
@@ -440,15 +442,25 @@ class TestOsSeteContraOCatalogoReal(RealBase):
 class TestOQueFicaNoCatalogoReal(RealBase):
     """As quatro coisas que esta ordem tinha de NÃO tirar."""
 
+    # O Legacy Vault ficou com ESTA regra e saiu a 2026-10-13 por outra — o
+    # padrão `*Vault` (*"nao quero Vault"*). O que aqui se guarda é que o
+    # critério dos 7 não o tirou; o padrão tem o teste dele (`test_selado_precos`).
+    SAIU_POR_PADRAO = {"Legacy Vault"}
+
     def test_a_pre_venda_continua_visivel(self):
         for n in PRE_VENDA:
+            if n in self.SAIU_POR_PADRAO:
+                self.assertNotIn(n, self.nomes, n)
+                self.assertNotIn(n, self.cfg["selado"]["excluidos"], n)
+                continue
             self.assertIn(n, self.nomes, f"{n} tinha de ficar")
 
     def test_a_pre_venda_nao_tem_cardmarket_id(self):
         """É por isto que o critério exige as DUAS colunas: se bastasse faltar
         o id, estes oito saíam."""
+        crus = {p["nome"]: p for p in self.crus.values()}
         for n in PRE_VENDA:
-            self.assertIsNone(self.por_nome[n]["cardmarket_id"], n)
+            self.assertIsNone(crus[n]["cardmarket_id"], n)
 
     def test_as_edicoes_por_sair_continuam_na_aba(self):
         por = {}
@@ -460,7 +472,8 @@ class TestOQueFicaNoCatalogoReal(RealBase):
         # nessa noite, com a categoria 262 — o «Evelynn vs Seraphine» Showdown
         # Deck. O que este teste guarda é que NENHUMA edição por sair ficou
         # vazia por causa do critério dos 7.
-        for ed, n in (("LGC", 2), ("PG2", 1), ("REC", 1), ("RAD", 3)):
+        # (A 2026-10-13 a LGC e a RAD perderam o Vault pelo padrão `*Vault`.)
+        for ed, n in (("LGC", 1), ("PG2", 1), ("REC", 1), ("RAD", 2)):
             self.assertEqual(por.get(ed), n, ed)
 
     def test_o_arcane_box_set_continua_visivel(self):
@@ -537,7 +550,8 @@ class TestNenhumaExclusaoMorta(RealBase):
         return out
 
     def test_todas_as_entradas_casam_com_um_produto(self):
-        self.assertEqual(len(self.tirados), len(self.cfg["selado"]["excluidos"]))
+        pelo_nome = [x for x in self.tirados.values() if x["por"] == "nome"]
+        self.assertEqual(len(pelo_nome), len(self.cfg["selado"]["excluidos"]))
 
     def test_nenhuma_entrada_fica_por_casar(self):
         por_nome = self._por_nome()
