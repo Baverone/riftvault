@@ -518,9 +518,10 @@ class TestAFraseEmVezDoVazioMudo(Base):
         trecho = APP_JS[max(0, i - 1200):i + 600]
         self.assertIn("decks && !decks.length", trecho,
                       "faltava o caso de ZERO decks, antes do `decks.length`")
-        # E o caso de zero vem ANTES do que conta `cheios`/`decks.length`.
+        # E o caso de zero vem ANTES do que conta os decks (2026-10-13: a
+        # contagem passou para o `iniDecksContagem`; era um `const cheios`).
         self.assertLess(trecho.index("decks && !decks.length"),
-                        trecho.index("const cheios"))
+                        trecho.index("const c = iniDecksContagem(decks)"))
         self.assertIn("SEM_DECKS", trecho)
 
     def test_a_lista_do_inicio_diz_porque_esta_vazia(self):

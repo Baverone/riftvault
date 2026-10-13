@@ -4613,6 +4613,20 @@ function iniCartao(cls, icone, rotulo, valor, nota) {
     <p class="n">${nota}</p></div>`;
 }
 
+/* O cartão «Decks montados» (2026-10-13): MONTADOS é o `montado` de cada deck
+   (`decks.montados`; sem o campo, um payload antigo, conta como montado — é a
+   omissão do config), COMPLETOS é não ter `missing`. Duas perguntas, dois
+   números: misturá-las punha o cartão a dizer «1 de 2 montados» com
+   `decks.montados: []`. */
+function iniDecksContagem(decks) {
+  return {
+    n: decks.length,
+    montados: decks.filter(d => d.montado !== false).length,
+    completos: decks.filter(d => !d.missing).length,
+    faltam: decks.reduce((n, d) => n + (d.missing || 0), 0),
+  };
+}
+
 function renderInicio() {
   const ix = state.index;
   if (!ix) return;
@@ -4661,12 +4675,16 @@ function renderInicio() {
       `${SEM_DECKS} ${SEM_DECKS_COMO} A Coleção dá os mesmos números que daria
        se nunca tivesse havido decks.`);
   } else if (decks) {
-    const cheios = decks.filter(d => !d.missing).length;
-    const faltam = decks.reduce((n, d) => n + (d.missing || 0), 0);
-    cartoes += iniCartao(cheios === decks.length ? 'ok' : '', 'montado', 'Decks montados',
-      `${cheios}<small> de ${decks.length}</small>`,
-      faltam ? `faltam <b>${plural(faltam, 'cópia', 'cópias')}</b> para montar os outros.`
-             : 'estão todos completos.');
+    // O número grande é quantos estão MONTADOS (`decks.montados`) — o rótulo
+    // diz isso. Até 2026-10-13 era quantos estavam COMPLETOS, e com nenhum
+    // montado lia-se «Decks montados 1 de 2». Completos diz-se na nota.
+    const c = iniDecksContagem(decks);
+    cartoes += iniCartao(c.montados === c.n && c.completos === c.n ? 'ok' : '', 'montado',
+      'Decks montados', `${c.montados}<small> de ${c.n}</small>`,
+      `${c.completos === c.n ? (c.n === 1 ? 'está completo' : 'estão todos completos')
+                             : `${c.completos} de ${c.n} completos`}${
+        c.faltam ? ` — faltam <b>${plural(c.faltam, 'cópia', 'cópias')}</b> para os outros` : ''}${
+        c.montados < c.n ? '; num desmontado é a simulação de o montares' : ''}.`);
   } else {
     cartoes += iniCartao('', 'montado', 'Decks montados', tr, 'a carregar os decks…');
   }
