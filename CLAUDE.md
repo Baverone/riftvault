@@ -11446,3 +11446,99 @@ com o crivo desligado, porque o `generated_at` tem resolução de um segundo).
 `mesmo_conteudo(dele, u/baverone)` passaram a comparar a `api/` (a coleção dele
 é a `api/`; a casca é de todos) e os dois do `limpar_raiz` passaram a exigir que
 a casca FIQUE e que a `api/` dele saia.
+
+## 2026-10-05 — ERRO MEU, A LER: o resumo do `colar` fazia uma lista LEGAL parecer uma carta curta
+
+O André mandou colar o deck do Kennen. O `riftvault colar` escreveu
+
+    Main deck       19 cartas   39 cópias   regra 40
+
+e eu li aquilo e disse-lhe que lhe faltava uma carta. **NÃO FALTAVA.** A regra
+do main CONTA o Champion — `decks.DEFAULT_RULES` tem
+`"main_includes_champion": True`, inferido das listas dele (39 no MainDeck + 1
+Champion = 40) — e o `riftvault deck kennen-heart-of-the-tempest` diz,
+correctamente, `main 40/40 ok`. **Duas portas a dizer coisas diferentes sobre a
+mesma lista, e a que ele lê primeiro era a que enganava.** Ramo
+`ai-pc/colar-regra-do-main-2026-10-05`.
+
+**A CAUSA NÃO ERA A REGRA: ERA A ARITMÉTICA DEIXADA PARA QUEM LÊ** — e estava
+escrita por extenso no comentário do `colar.por_papel`: *«é o que ele confere de
+relance ("39 no main + 1 Champion = 40")»*. Confiar nisso é confiar em que quem
+lê não se engana, e quem lê enganou-se. Um número que só está certo depois de
+alguém lhe somar outro de cabeça não é um número.
+
+**A correcção, numa frase: a soma sai no PAYLOAD.** `colar.prever` passou a
+levar **`main_com_champion`** (o número que se compara com `regras["main"]`) e
+**`champion_no_main`** (quantas cópias do Champion entraram nele, 0 quando a
+regra não as conta). Uma pergunta, uma resposta — e é a mesma soma que o
+`decks.legality` faz desde sempre; há teste que compara os dois números na
+mesma lista.
+
+**UMA CORRECÇÃO SERVE AS TRÊS ENTRADAS, e confirmou-se em vez de se presumir:**
+o `colar.prever` é a porta partilhada pela caixa de colar
+(`POST /api/decks/prever`), pela leitura por imagem (`POST /api/decks/imagem`,
+que enche a MESMA caixa — `server.py:522`) e pelo `riftvault colar`, e as duas
+rotas devolvem o payload INTEIRO (`jsonify(colar.prever(...))`). Há teste que o
+fixa, para ninguém filtrar o campo numa rota e quebrar as outras.
+
+| | antes | depois |
+|---|---|---|
+| `riftvault colar` (a linha que ele lê) | `19 cartas   39 cópias   regra 40` | **`19 cartas   40 cópias (= 39 + 1 Champion)   regra 40`** |
+| a caixa do site | `39 (+1 Champion = 40)` · regra `40/40` | igual no ecrã, **a ler o payload** |
+| `riftvault deck` | `main 40/40 ok` | **igual** — já estava certo |
+
+**O 39 não se esconde**: ele quer ver as duas partes, e a linha diz de onde vem
+a soma. A linha do Champion não mexeu, e as outras secções não levam soma
+nenhuma.
+
+**A CAIXA DO SITE NÃO TINHA O DEFEITO VISUAL, e isso mediu-se antes de lhe
+tocar**: o `colarPrevHTML` já somava o Champion e já mostrava `40/40` na coluna
+da regra. Tinha duas coisas mais pequenas, as duas desta família: somava por sua
+conta no cliente (uma segunda resposta à mesma pergunta — passou a ler
+`p.main_com_champion`) e **o `+1` estava escrito à mão**, por isso num deck com
+duas cópias do Champion escrevia «+1 Champion = 41» com o texto e o número a
+contradizerem-se. Há teste com 2 cópias.
+
+**A REGRA NÃO SE TOCOU.** O `main_includes_champion` foi INFERIDO das listas
+dele e não está validado contra as regras oficiais (ver «Superfícies não
+validadas», ponto 4): mudá-lo é outra conversa e é dele. Esta ordem é sobre o
+resumo mentir.
+
+**Procurados os outros sítios onde a regra do main se compara: não há mais
+nenhum a enganar.** São três ao todo — o `decks.legality` (soma, e é ele que o
+`riftvault deck` e a página do deck leem), o chip do `renderDeck` (lê o
+`legality`) e este. O `rules()` vai no payload do índice e **o `app.js` nunca lê
+essa chave**: não há uma quarta aritmética escondida. O `seguir.py` (os decks
+dos outros) e o `imagem.py` não comparam contagens com regra nenhuma — e a
+previsão da imagem passa pelo `colar.prever`, por isso herda isto. **Três coisas
+vistas e NÃO mexidas**, de propósito:
+
+1. **`app.js:3179`** — a nota «O Champion conta para as 40 do main» tem o **40
+   escrito à mão** em vez de `L.main.alvo`. O número que o chip mostra ao lado
+   está certo (vem do `legality`); o que fica desalinhado é o texto, e só se ele
+   mudar o `deck_rules.main` de 40. É a mesma família de defeito e é uma
+   expressão — mas é OUTRO ecrã, não engana hoje, e mexer-lhe a meio da corrida
+   da suite deixava o placar a descrever bytes que não foram testados.
+2. **`cli.py:797`** — o `riftvault deck` diz `main 40/40 ok` (certo) mas, ao
+   contrário da página do deck, **nunca diz que o 40 inclui o Champion**. É a
+   assimetria que resta, e é exactamente a informação que me faltava hoje.
+3. **`site/app.js`** — a cópia publicada leva ainda o código de antes, com o
+   `+1` à mão. **Não se regenera o `site/` numa worktree** (o `data/users/` e o
+   `data/catalog.db` estão no `.gitignore` e o build sai errado): sai sozinho na
+   próxima `riftvault-publicar`.
+
+`tests/test_colar_regra_do_main.py` (**20 testes**): a soma com a regra ligada e
+desligada, o Champion que **não é presumido 1**, uma lista sem main nem Champion
+(que não rebenta), um Champion sem MainDeck, a soma igual à do `decks.legality`,
+a previsão que continua a não gravar nada; a linha do CLI com o 40, com as duas
+partes e com o «+2» de um Champion a 2 cópias, a linha do Champion e as outras
+secções intactas; a caixa do site a LER o payload e sem o `+1` à mão; as três
+portas a lerem o mesmo payload; e a regra a continuar ligada e anotada. **A
+PROVA PELA NEGATIVA** (`_revisao\_prova_negativa_colar_regra.py`, que corre a
+bateria contra uma árvore com o `riftvault/` do `main` — na FONTE, porque o
+`tests/fixture.py:80` faz `importlib.reload(config)` e apagava um patch em
+memória): **12 dos 20 ficam vermelhos**, e os 8 que passam são os que fixam o
+que NÃO podia mudar — a regra, a coluna do site que já comparava com a soma, a
+linha do Champion, as outras secções, as duas partes no ecrã, a previsão que não
+grava, e o CLI com a regra desligada (que sempre disse 39). **Zero testes
+ajustados**: o `test_colar.py` passa inteiro (43) sem uma linha mudada.
