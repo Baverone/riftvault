@@ -2901,6 +2901,13 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   `ai-pc/tasks/`**. Fecha a lacuna 8.5: `tests/test_eficiencia_site.py`, 24
   testes que CONTAM BYTES, com prova pela negativa na FONTE (4/4/1 vermelhos).
   Ver a última secção deste ficheiro e `docs/eficiencia-site-2026-10-04.md`.
+- **Feito também:** O SELADO A 2026-10-13 — fora os Vault por PADRÃO
+  (`selado.excluidos_padrao`: `*Vault` e `*Chinese*`; aba 31 → 26) e o preço
+  GUARDADO todos os dias (`prices.sealed_price_history`, uma linha por
+  blueprint e por dia, com os três números da oferta; backfill de 25/09, 28/09
+  e 13/10 = 232 linhas), com a variação dia/semana/mês do preço de UMA unidade
+  e o efeito do PREÇO separado do inventário. Ver a última secção deste
+  ficheiro.
 - **Por fazer:** a parte 2 do seguir — o separador no site e a tarefa diária;
   e a vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck, com as
   partilhadas assinaladas).
@@ -11542,3 +11549,126 @@ que NÃO podia mudar — a regra, a coluna do site que já comparava com a soma,
 linha do Champion, as outras secções, as duas partes no ecrã, a previsão que não
 grava, e o CLI com a regra desligada (que sempre disse 39). **Zero testes
 ajustados**: o `test_colar.py` passa inteiro (43) sem uma linha mudada.
+
+## 2026-10-13 — O SELADO: fora os Vault POR PADRÃO, e o preço GUARDADO todos os dias (`sealed_price_history`)
+
+Palavras dele: *"nao quero Vault"*. E a ordem: o `riftvault selado --sync`
+reescrevia o `data/selado_catalogo.json` e **o preço de ontem perdia-se** — os
+blueprints do selado tinham ZERO linhas de histórico. Ramo
+`ai-pc/selado-precos-2026-10-13`.
+
+### 0. O CATÁLOGO DE HOJE JÁ PARTIA O `main` — medido antes de mexer
+
+O `data/selado_catalogo.json` de 2026-10-13 (um `--sync` corrido à mão nessa
+tarde, por commitar no `main`) **deixava 6 ficheiros de teste do selado
+vermelhos com o código do `main`**: entrou a «**Chinese 1st Anniversary Box**»
+(261, PROMO-RIFT) — exactamente o que o `_selado_so_ingles` avisava («um
+produto novo com esse marcador entra na aba sozinho») — e um teste lia o preço
+dos Showdown Deck, que o `--sync` já não pede (a 262 saiu a 28/09). O ramo
+traz esse catálogo, e é a primeira vez que um `--sync` real passa pela suite.
+
+### 1. `selado.excluidos_padrao`: o padrão, numa lista À PARTE
+
+A categoria não serve (a 261 tem o «Lunar Revel 2026 Bundle», que ELE TEM, o
+«Riftbound Worlds Bundle 2025» e o «Gift of the Rift Bundle»), e uma lista de
+nomes só apanha o que JÁ existe — a «The Reckoning Vault» entrava sozinha no
+próximo `--sync`. **Lista à parte da dos nomes, e não `*Vault` dentro do
+`excluidos`**: a dos nomes é EXACTA («Pre-Rift Kit» sai, «Pre-Rift EVENT Kit»
+fica, porque nunca casa um pedaço), e misturar curingas mudava a leitura das 31
+entradas que lá estão. Gramática `fnmatch` (`*`, `?`), sem maiúsculas, contra o
+**nome inteiro** (limpo ou bruto) **ou a versão inteira** — `*Vault` apanha
+«Unleashed Vault» e não apanharia «Unleashed Vault Bundle Case».
+
+**A regra dos nomes vale para os padrões**: um padrão que não apanhe NADA
+rebenta, com os nomes PARECIDOS (palavra a palavra — o padrão é curto e
+comparado com o nome inteiro não achava nada; `_parecidos_padrao`); um padrão
+sem curinga é um nome e rebenta a mandá-lo para o `excluidos`; um com menos de
+4 letras fixas (`*`, `*a*`) rebenta por largo demais. Sem catálogo em disco é
+tolerante, como os nomes. Cada excluído diz POR QUÊ (`por`: «nome» ou «padrão
+*Vault»), no CLI e na página — o nome ganha ao padrão.
+
+**O segundo padrão, `*Chinese*`, não é decisão nova**: é a regra dele de
+2026-09-28 (*"nao quero nada que nao seja impressao Inglesa"*), que se
+aplicava à mão e falhou no primeiro `--sync`. Config: `"excluidos_padrao":
+["*Vault", "*Chinese*"]` e a nota `_selado_vault`.
+
+**Medido contra o catálogo de 13/10: a aba tinha 31, ficam 26** — saem os 4
+Vault (UNL, VEN, RAD, LGC perdem um cada) e a caixa chinesa (PROMO-RIFT fica nos
+6 que tinha). Por edição: OGN 2 · OGS 1 · SFD 3 · UNL 4 · VEN 3 · RAD 2 · LGC 1
+· PG2 1 · REC 1 · ARC 1 · PROMO-RIFT 6 · T1S 1. Excluídos: 31 pelo nome + 5
+pelos padrões = 36.
+
+### 2. `prices.sealed_price_history` — e porque não o `price_history`
+
+Tabela no **prices.db** (o ficheiro do robô, já commitado pela tarefa diária),
+**à parte** do `price_history`: esse é por `printing_id` de CARTA e quem o lê
+assume isso (o «A subir» junta-o ao catálogo das cartas); um blueprint de
+display lá dentro era uma carta que não existe, e os dois espaços de ids
+acabavam por colidir. Chave `(blueprint_id, day)`; guarda `price_cents` (NULL =
+sem oferta útil nesse dia — é uma medição, e o sinal de escassez mais forte),
+`n_listings`, `n_sellers`, `n_copies` (que até aqui se deitavam fora) e
+`fonte` (`sync` ou `backfill:<origem>`).
+
+**UMA LINHA POR DIA MEDIDO, não «só quando muda»** — e é a diferença que
+importa: com «só quando muda» um buraco quer dizer «não mudou» OU «não se
+mediu», e não se distingue. Aqui um dia sem linha é um dia que não se mediu, e
+a página pode dizer «sem medição» em vez de fingir uma variação. São ~60
+blueprints por dia. Um segundo `--sync` no mesmo dia substitui; o backfill
+(`riftvault selado --guardar-precos FICHEIRO [--origem X]`) **nunca** escreve
+por cima. O dia gravado é o que o catálogo diz, não o de hoje à força.
+
+**O BACKFILL FOI PARA O `data/prices.db` REAL, e não para o ramo** — o
+`prices.db` é binário e o robô commita-o todos os dias: commitá-lo no ramo era
+um conflito binário certo no merge, e resolver um conflito de SQLite é perder
+um dos lados. Gravado a 2026-10-13 por `_revisao\_sp_backfill.py` (abre SÓ o
+`prices.db`, anexado a uma base em memória; ensaiado antes numa cópia), a
+partir dos três catálogos com preço que existem: **25/09 (git e477f1c) 85
+linhas · 28/09 (git f72510d) 85 · 13/10 62 = 232 linhas** (34, 33 e 27 sem
+oferta). O `vault.db` real tem o mesmo sha256 antes e depois
+(`7b5402b145a22035`). A tabela fica no `prices.db` do `main` e o código do
+`main` ignora-a; a tarefa diária commita-a no próximo «preços: <dia>».
+
+**A TAREFA DIÁRIA** (`ai-pc/tasks/riftvault-daily`): passo `selado` depois dos
+`prices` e antes do `site`, não essencial; commit próprio do
+`selado_catalogo.json` («selado: catalogo <dia>»), e o `test.py` exige linhas de
+hoje na tabela quando a tarefa diz que gravou. **COM UMA PONTE**: enquanto o
+CLI do `main` não tiver `--guardar-precos`, o passo NÃO corre — o `--sync` com o
+código antigo deitava o preço fora na mesma e commitava um catálogo que o
+`main` ainda não sabe filtrar (a caixa chinesa punha a suite vermelha). Depois
+do merge liga-se sozinho.
+
+### 3. A variação: o PREÇO de uma unidade, e o inventário À PARTE
+
+Por linha: dia / semana / mês / desde, em euros e em percentagem, do preço de
+**UMA UNIDADE** no CardTrader. A referência de cada janela é a medição com
+preço mais recente em `[agora − N − folga, agora − N]` (folgas 1, 2 e 5 dias);
+**fora disso a janela diz «—» com o porquê** — nunca se chama «semana» a uma
+diferença de quinze dias. «Desde» é contra a primeira medição, com a data.
+Hoje, com 25/09, 28/09 e 13/10, **só o «desde» tem número** (as outras três
+dizem «—»), e é o certo: amanhã nasce o «dia».
+
+**O cabeçalho separa as duas coisas que o MythicHub separa:** o que o que ele
+tem HOJE ganhou ou perdeu **só pelo preço** — `Σ qty_hoje × (p_agora − p_ref)`,
+as mesmas quantidades nas duas pontas, por isso **uma compra não entra** (há
+teste: comprar outro display sobe o valor e deixa o efeito a zero) —, com
+quantos dos que tem ficaram sem referência; e, à parte, **o inventário não se
+mede**: a `sealed_copies` só guarda a última mudança, não há registo de quando
+cada unidade entrou. Não se inventou. Medido a 13/10 na cópia: «desde
+−45,99 €» com 2 dos que tem sem referência.
+
+### Testes
+
+`tests/test_selado_precos.py` (**56**, contra pastas temporárias, mais uma
+classe contra o config e o catálogo REAIS): os padrões (tira, o Vault de amanhã,
+nome inteiro, versão, maiúsculas, o que não apanha rebenta com parecidos, sem
+curinga, largo demais, tolerante, o nome ganha, repor), o config real (os 4
+fora pelo padrão, a 261 e os Bundles dele ficam, a Reckoning Vault simulada
+sai, a nota com a data e as palavras), o histórico (uma linha no dia do
+catálogo, sem oferta grava-se, substitui, o backfill não escreve por cima, dias
+lado a lado, tabela à parte e no prices.db, dia mal escrito rebenta, a CLI) com
+a **fotografia da Coleção do `test_selado`, por referência**, e a variação
+(janelas, folga, sem preço) com o **preço contra o inventário**. **PROVA PELA
+NEGATIVA** (worktree com o `riftvault/` do `main`, na FONTE): **39 dos 56
+vermelhos**. Seis ficheiros do selado foram ajustados — contavam a aba do
+catálogo real (30 → 26), um os Vault como «têm de ficar», e um lia o preço da
+262 que o `--sync` já não pede.
