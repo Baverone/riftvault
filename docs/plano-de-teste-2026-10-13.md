@@ -1,7 +1,8 @@
 # Plano de teste e fundamentals — Riftbound e Magic
 
-Escrito a 13/10/2026. Tudo o que é regra oficial, opinião de autor ou cálculo
-meu está marcado. As fontes estão no fim de cada secção, com data. O que não
+Escrito a 13/10/2026; as quatro decisões dele estão na secção 10 e já estão
+aplicadas no resto do documento (14/10/2026). Tudo o que é regra oficial,
+opinião de autor ou cálculo meu está marcado. As fontes estão no fim de cada secção, com data. O que não
 verifiquei está na secção 9 — e não aparece como se fosse certo em mais nenhum
 sítio deste documento.
 
@@ -292,15 +293,15 @@ contagens de jogos que não consegues cumprir.
 
 ## 4. O plano semanal — as metas
 
-Três a quatro horas por semana, **espalhadas por três ou quatro noites**, nunca
-numa maratona. Pausa a cada 2 matches. Uma segunda noite de teste só nas duas
-semanas antes de um evento.
+**Três a quatro horas por semana, espalhadas por três ou quatro noites**
+(escolha tua, 14/10), nunca numa maratona. Pausa a cada 2 matches. Uma segunda
+noite de teste só nas duas semanas antes de um evento, se houver um.
 
 | meta da semana | número | pergunta a que responde |
 |---|---|---|
 | Decisões de mão (keep/mull) | **50** | Os meus keeps estão certos? |
 | Goldfishes com contagem de turnos | **10** | O deck executa, e em quantos turnos? |
-| Jogos de Riftbound no Rift Atlas | **5** (Bo1) | Onde é que eu perco os pontos? |
+| Jogos de Riftbound no Rift Atlas, **Quick Match** | **5** (Bo1) | Onde é que eu perco os pontos? |
 | Matches de Magic na Arena (Bo3) | **5** (um «evento») | Os meus planos de sideboard aguentam? |
 | Revisão escrita | **1 jogo, 1 decisão** | Qual é a decisão que eu mudava? |
 | Auto-quiz do guia de sideboard | **1 deck** | Sei o plano de cor, ou só o reconheço? |
@@ -356,9 +357,13 @@ repetidos. **Não se escreve uma percentagem.**
 **Fase 3 — fechar.**
 Guia de sideboard escrito por matchup, **incluindo as cartas de sideboard que
 ele provavelmente tem** · auto-quiz espaçado (três vezes ao longo de duas
-semanas, não uma releitura na noite anterior) · **deck trancado duas semanas
-antes do evento**, no limite uma semana, e as últimas duas semanas só com dois
-decks.
+semanas, não uma releitura na noite anterior) · e a lista fixada.
+Como **não há evento marcado** (decisão tua, 14/10), a regra de trancar o deck
+duas semanas antes não se aplica agora — guarda-se para quando houver data. O
+que fica no lugar dela é a regra que a substitui bem: **um deck de cada vez até
+fechar as três fases**, em vez de saltar de deck a cada sessão má. A estimativa
+publicada é que acertar no «melhor» deck vale 2 a 5% — cerca de 1 match em 20 —
+enquanto a prática funda com um só deck vale muito mais.
 
 Por deck, isto dá **30 a 40 jogos a sério** mais os drills — que é a ordem de
 grandeza que as fontes relatam para alguém com emprego, e muito abaixo das 30
@@ -470,3 +475,19 @@ erro foi meu e fica escrito.
 **Não medi nada disto em ti.** Este documento é pesquisa e desenho; os números
 da secção 4 são propostas ancoradas no que outros relatam, não medições tuas.
 A primeira medição real é a tua primeira semana.
+
+---
+
+## 10. As tuas decisões (14/10/2026)
+
+| pergunta | o que escolheste | o que isso muda |
+|---|---|---|
+| Volume semanal | **3-4 h, em 3 ou 4 noites** | As metas da secção 4 ficam como estão escritas. O chão da semana má continua válido — é o chão, não o alvo |
+| Onde registar | **RiftLite + Arena, automático** | **Não escrevo código novo no riftvault para isto.** O RiftLite grava os matches do Rift Atlas sozinho e dá-te os replays; a tua parte é só a linha da revisão, uma por semana |
+| Alvo | **Sem data: jogar melhor** | O plano fica cíclico. O calendário da secção 6 passa a servir só para saber quando as regras e o metagame mudam — e a regra nova é **um deck de cada vez até fechar as três fases** |
+| Adversários no Riftbound | **Quick Match no Rift Atlas** | É o único teste verdadeiramente às cegas que consegues ter sozinho: o adversário sabe o deck dele e só te vê o que se veria num torneio. Os drills a solo da secção 4 continuam, porque é neles que está a prática deliberada. **Nada de voltar a montar decks em papel** — as cartas ficam nos binders |
+
+**O que fica à tua espera, e é a primeira coisa a fazer:** instalar o RiftLite
+(Windows, grátis, sem conta obrigatória) e abrir o Rift Atlas no browser. São
+os dois pilares do plano e nenhum deles custa nada. Eu não instalo programas na
+tua máquina sem tu dizeres.
