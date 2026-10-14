@@ -1896,6 +1896,17 @@ body.readonly .btn.chegou { display: none; }
   align-items: center; gap: 4px; }
 .sl-links a.alt { color: var(--muted); }
 .sl-links a i { font-style: normal; font-size: 11px; opacity: .8; }
+/* A variação do preço de UMA unidade (2026-10-13). Envolve — nada de
+   `nowrap` nem de scroll lateral: a 375 px cada janela vai para a linha de
+   baixo, que é a lição das filas de botões de 24/09. */
+.sl-vars { display: flex; flex-wrap: wrap; gap: 2px 10px; margin-top: 4px;
+  font-size: 11px; align-items: baseline; }
+.sl-var { color: var(--muted); }
+.sl-var.sobe { color: #6fd08c; }
+.sl-var.desce { color: #ff8a8a; }
+.sl-var.falta { opacity: .6; }
+.sl-hist { margin-top: 6px; }
+.sl-hist-rot { font-weight: 600; color: var(--text, inherit); }
 .sl-marcas { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .sl-marca { font-size: 11px; border-radius: 6px; padding: 1px 6px;
   border: 1px solid var(--line2); color: var(--muted); }
