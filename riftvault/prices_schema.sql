@@ -52,3 +52,43 @@ CREATE TABLE IF NOT EXISTS listings_history (
 );
 
 CREATE INDEX IF NOT EXISTS ix_listings_hist ON listings_history(printing_id, day DESC);
+
+-- O HISTÓRICO DO PRODUTO SELADO (2026-10-13).
+--
+-- PORQUE É QUE EXISTE
+--     O `riftvault selado --sync` reescreve o `data/selado_catalogo.json`, e o
+--     preço de ontem perdia-se. Até 2026-10-13 os blueprints do selado tinham
+--     ZERO linhas de histórico.
+--
+-- PORQUE É UMA TABELA À PARTE e não o `price_history`
+--     O `price_history` é por `printing_id` de CARTA («ogn-001-298»), e quem o
+--     lê assume isso: o «A subir» junta-o ao catálogo das cartas, o valor da
+--     coleção soma-o. Um blueprint de display lá dentro era uma «carta» que não
+--     existe em nenhuma das leituras — e um dia um id de um lado colidia com o
+--     do outro. Dois espaços de ids, duas tabelas.
+--
+-- UMA LINHA POR DIA MEDIDO (não «só quando muda»)
+--     Com «só quando muda», um buraco quer dizer duas coisas — «não mudou» ou
+--     «não se mediu» — e não se distingue qual. Aqui um dia sem linha é um dia
+--     em que NÃO SE MEDIU, e é isso que deixa a página dizer «sem medição há 7
+--     dias» em vez de fingir uma variação. São ~60 blueprints por dia: menos de
+--     dois KB de crescimento diário num ficheiro que já vai para o Git.
+--     Um segundo `--sync` no mesmo dia substitui a linha desse dia.
+--
+-- O PREÇO PODE SER NULL: «hoje não há oferta em inglês» é uma medição, e é o
+-- sinal de escassez mais forte que há. Os três números da OFERTA também se
+-- guardam — o CardTrader dá-os e até aqui deitavam-se fora.
+--
+-- `fonte`: 'sync' (o `--sync` desse dia) ou 'backfill:<origem>' — as linhas
+-- recuperadas de um `selado_catalogo.json` antigo dizem de onde vieram.
+CREATE TABLE IF NOT EXISTS sealed_price_history (
+    blueprint_id INTEGER NOT NULL,
+    day          TEXT    NOT NULL,   -- YYYY-MM-DD
+    price_cents  INTEGER,            -- NULL = sem oferta útil nesse dia
+    currency     TEXT    NOT NULL DEFAULT 'EUR',
+    n_listings   INTEGER NOT NULL DEFAULT 0,
+    n_sellers    INTEGER NOT NULL DEFAULT 0,
+    n_copies     INTEGER NOT NULL DEFAULT 0,
+    fonte        TEXT    NOT NULL DEFAULT 'sync',
+    PRIMARY KEY (blueprint_id, day)
+);

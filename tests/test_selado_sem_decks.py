@@ -343,16 +343,25 @@ class TestOCatalogoReal(unittest.TestCase):
 
     def test_os_dois_showdown_deck_sao_os_que_saem_MESMO(self):
         """Os outros 18 já estavam fora por nome. Estes dois é que a regra
-        tirou — e TINHAM oferta, que é o que desmente a queixa."""
+        tirou — e TINHAM oferta a 2026-09-28 (14,20 € com 58 anúncios, 35,41 €
+        com 9), que é o que desmente a queixa.
+
+        DESDE O `--sync` DE 2026-10-13 o catálogo já não lhes dá preço, e é
+        por construção: o `sincronizar` só pede o preço do que está em
+        `selado.categorias`, e a 262 saiu a 28/09. O teste lia o preço do
+        catálogo do dia e passou a mentir no primeiro `--sync` seguinte. O
+        que se fixa agora é o que não envelhece: os dois continuam no catálogo,
+        na 262, e o preço não se pede para uma categoria fora da aba."""
         precos = self.cat.get("precos") or {}
         for nome in SHOWDOWN:
             p = [x for x in self.cat["produtos"]
                  if self.selado.nome_limpo(x["nome"]) == nome]
             self.assertEqual(len(p), 1, nome)
-            pr = precos.get(str(p[0]["blueprint_id"])) or {}
-            self.assertIsNotNone(pr.get("cents"), f"{nome} devia ter preço")
-            self.assertGreater(pr.get("n_listings") or 0, 0,
-                               f"{nome} devia ter anúncios")
+            self.assertEqual(int(p[0]["categoria_id"]), DECKS, nome)
+        if str(self.cat.get("generated_at") or "") >= "2026-09-29":
+            pedidos = {int(p["categoria_id"]) for p in self.cat["produtos"]
+                       if str(p["blueprint_id"]) in precos}
+            self.assertNotIn(DECKS, pedidos)
 
     def test_nao_havia_champion_deck_nenhum_na_aba_ANTES_desta_ordem(self):
         """A primeira metade da queixa dele. Com a 262 DENTRO (o de antes) e o
@@ -377,7 +386,9 @@ class TestOCatalogoReal(unittest.TestCase):
             self.assertEqual(len(alvo), 1, f"{nome!r} não casa com um produto só")
 
     def test_a_aba_real_tem_30_produtos(self):
-        self.assertEqual(len(self.lista), 30)
+        """30 a 2026-09-28; 26 desde 2026-10-13 (a caixa chinesa entrou com o
+        catálogo desse dia e saiu, com os 4 Vault, pelos padrões)."""
+        self.assertEqual(len(self.lista), 26)
 
     def test_nenhuma_entrada_do_excluidos_serve_para_tirar_um_deck(self):
         """A regra é a categoria, e prova-se por aqui: se alguma entrada do

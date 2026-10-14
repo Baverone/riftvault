@@ -406,34 +406,37 @@ class TestOsOnzeContraOCatalogoReal(RealBase):
         noite, a 48 (ver `test_selado_sem_mercado`); a 28/09 os 17 do
         `selado.extra`, menos os 2 que voltaram e o chinês que saiu, a 32
         (`test_selado_ingles`); e nessa noite os 2 Showdown Deck, com a
-        categoria 262, a **30** (`test_selado_sem_decks`)."""
+        categoria 262, a **30** (`test_selado_sem_decks`). A 2026-10-13, com a
+        caixa chinesa nova e os padrões, **26** (`test_selado_precos`)."""
         selados = [x for x in self.lista if not x["acessorio"]]
-        self.assertEqual(len(selados), 30,
-                         "98 − 22 − 10 − 11 − 7 − 17 − 1 + 2 − 2")
+        self.assertEqual(len(selados), 26,
+                         "98 − 22 − 10 − 11 − 7 − 17 − 1 + 2 − 2 + 1 − 5")
 
     def test_por_edicao_depois_dos_onze(self):
         """Os números que ele vai ver, edição a edição. Desta ordem mexem
         quatro: OGN 8→5, SFD 8→6, UNL 10→8, LGC 6→2; a OP, a PROMO-RIFT e a
         T1S mexeram com os 7 sem mercado, a seguir; e a VEN e a RAD perderam
-        um Showdown Deck cada a 28/09, à noite."""
+        um Showdown Deck cada a 28/09, à noite; a UNL, a VEN, a RAD e a LGC
+        perderam o Vault a 2026-10-13."""
         por = {}
         for x in self.lista:
             if not x["acessorio"]:
                 por[x["edicao"]] = por.get(x["edicao"], 0) + 1
-        self.assertEqual(por, {"OGN": 2, "OGS": 1, "SFD": 3, "UNL": 5, "VEN": 4,
-                               "RAD": 3, "LGC": 2, "PG2": 1, "REC": 1, "ARC": 1,
+        self.assertEqual(por, {"OGN": 2, "OGS": 1, "SFD": 3, "UNL": 4, "VEN": 3,
+                               "RAD": 2, "LGC": 1, "PG2": 1, "REC": 1, "ARC": 1,
                                "PROMO-RIFT": 6, "T1S": 1})
-        self.assertEqual(sum(por.values()), 30)
+        self.assertEqual(sum(por.values()), 26)
 
     def test_a_legacy_fica_so_com_os_por_sair_que_nao_sao_champion(self):
-        """Eram 6: saem os 4 Champion Deck."""
+        """Eram 6: saem os 4 Champion Deck; e a 2026-10-13 o Legacy Vault, pelo
+        padrão `*Vault`. Fica a Legacy Booster Box."""
         lgc = sorted(x["nome"] for x in self.lista if x["edicao"] == "LGC")
-        self.assertEqual(len(lgc), 2)
+        self.assertEqual(lgc, ["Legacy Booster Box"])
         for n in lgc:
             self.assertNotIn("champion deck", n.lower())
 
     def test_saem_exactamente_31_e_cada_nome_casa_com_um(self):
-        ex = self.selado.excluidos(self.cfg)
+        ex = [x for x in self.selado.excluidos(self.cfg) if x["por"] == "nome"]
         self.assertEqual(len(ex), 31)
         self.assertEqual(len({x["id"] for x in ex}), 31)
 
@@ -459,7 +462,10 @@ class TestNenhumaExclusaoMorta(RealBase):
     """
 
     def test_todas_as_entradas_casam_com_um_produto(self):
-        self.assertEqual(len(self.tirados), len(self.cfg["selado"]["excluidos"]))
+        # Só os que saíram pelo NOME (os dos padrões, desde 2026-10-13, têm o
+        # guarda deles em `test_selado_precos`).
+        pelo_nome = [x for x in self.tirados.values() if x["por"] == "nome"]
+        self.assertEqual(len(pelo_nome), len(self.cfg["selado"]["excluidos"]))
 
     def test_nenhuma_entrada_fica_por_casar(self):
         por_nome = {}

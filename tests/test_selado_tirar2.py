@@ -310,20 +310,23 @@ class TestOsDezContraOCatalogoReal(unittest.TestCase):
         e o chinês que saiu) a 32, e nessa noite os 2 Showdown Deck, com a
         categoria 262, a **30**. Ver `test_selado_champion`,
         `test_selado_sem_mercado`, `test_selado_ingles` e
-        `test_selado_sem_decks`."""
+        `test_selado_sem_decks`. A 2026-10-13 o catálogo trouxe a caixa
+        chinesa (31) e os padrões tiraram-na com os 4 Vault: **26** — ver
+        `test_selado_precos`."""
         selados = [x for x in self.lista if not x["acessorio"]]
-        self.assertEqual(len(selados), 30, "98 − 22 − 10 − 11 − 7 − 17 − 1 + 2 − 2")
+        self.assertEqual(len(selados), 26, "98 − 22 − 10 − 11 − 7 − 17 − 1 + 2 − 2 + 1 − 5")
 
     def test_por_edicao_depois_dos_dez(self):
-        """Os números que ele vai ver, edição a edição (a 2026-09-28, à noite)."""
+        """Os números que ele vai ver, edição a edição (a 2026-10-13: sem os 4
+        Vault)."""
         por = {}
         for x in self.lista:
             if not x["acessorio"]:
                 por[x["edicao"]] = por.get(x["edicao"], 0) + 1
-        self.assertEqual(por, {"OGN": 2, "OGS": 1, "SFD": 3, "UNL": 5, "VEN": 4,
-                               "RAD": 3, "LGC": 2, "PG2": 1, "REC": 1, "ARC": 1,
+        self.assertEqual(por, {"OGN": 2, "OGS": 1, "SFD": 3, "UNL": 4, "VEN": 3,
+                               "RAD": 2, "LGC": 1, "PG2": 1, "REC": 1, "ARC": 1,
                                "PROMO-RIFT": 6, "T1S": 1})
-        self.assertEqual(sum(por.values()), 30)
+        self.assertEqual(sum(por.values()), 26)
 
     def test_a_promo_rift_fica_com_seis(self):
         """Eram 18: saíram os 8 Trial Deck desta ordem, e depois os 5 sem

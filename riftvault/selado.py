@@ -265,7 +265,8 @@ import json
 import re
 import sqlite3
 import time
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
+from fnmatch import fnmatchcase
 
 from . import config, mercados
 
@@ -346,6 +347,11 @@ DEFAULTS: dict = {
     # que não case, ou que case com mais do que um produto, REBENTA. Ver o
     # cabeçalho.
     "excluidos": [],
+    # PADRÕES de produtos que ele não quer (2026-10-13, *"nao quero Vault"*).
+    # A lista de cima é de NOMES EXACTOS e só apanha o que já existe; um padrão
+    # (`*Vault`) apanha também o que o próximo `--sync` trouxer. Um padrão que
+    # não case com NADA rebenta, como um nome. Ver «PADRÕES» no cabeçalho.
+    "excluidos_padrao": [],
 }
 
 # ---------------------------------------------------------------------------
@@ -479,6 +485,41 @@ def opcoes(cfg: dict | None = None) -> dict:
                              f"produto (ou o id `ct-<blueprint>`)")
         limpos.append(x.strip())
     out["excluidos"] = limpos
+    out["excluidos_padrao"] = _ler_padroes(out.get("excluidos_padrao"))
+    return out
+
+
+# Um padrão tem de dizer ALGUMA coisa: com menos do que isto de texto fixo, um
+# `*a*` tirava meia aba em silêncio.
+PADRAO_MINIMO = 4
+
+
+def _ler_padroes(bruto) -> list[str]:
+    """O `selado.excluidos_padrao`: padrões de nome com `*` (qualquer texto) e
+    `?` (um carácter), sem maiúsculas.
+
+    Um padrão SEM curinga rebenta — isso é um nome, e um nome tem a sua lista
+    (`selado.excluidos`), com a regra do exacto. Um padrão com menos de
+    `PADRAO_MINIMO` letras fixas também rebenta: `*` sozinho tirava tudo."""
+    padroes = bruto or []
+    if not isinstance(padroes, (list, tuple)):
+        raise ValueError("selado.excluidos_padrao: uma lista de padrões ('*Vault'); "
+                         "vazia = nenhum")
+    out: list[str] = []
+    for i, x in enumerate(padroes):
+        if not isinstance(x, str) or not x.strip():
+            raise ValueError(f"selado.excluidos_padrao[{i}]: {x!r} — escreve-se um "
+                             f"padrão com `*`, por exemplo '*Vault'")
+        x = x.strip()
+        if "*" not in x and "?" not in x:
+            raise ValueError(f"selado.excluidos_padrao[{i}]: {x!r} não tem `*` nem `?` "
+                             f"— é um NOME, e os nomes vão para selado.excluidos")
+        fixo = re.sub(r"[*?\s]", "", x)
+        if len(fixo) < PADRAO_MINIMO:
+            raise ValueError(f"selado.excluidos_padrao[{i}]: {x!r} é largo demais "
+                             f"(menos de {PADRAO_MINIMO} letras fixas) — tirava a aba "
+                             f"quase toda")
+        out.append(x)
     return out
 
 
@@ -818,6 +859,58 @@ def _resolver_excluidos(lista: list[dict], nomes: list[str],
     return fora
 
 
+def _casa_padrao(padrao: str, p: dict) -> bool:
+    """O padrão casa com o nome INTEIRO (o limpo ou o do catálogo) ou com a
+    VERSÃO inteira — nunca com um pedaço: `*Vault` apanha «Unleashed Vault» e
+    não apanha «Unleashed Vault Bundle Case». A versão entra porque é lá que o
+    CardTrader escreve parte dos marcadores de língua («Chinese Exclusive»)."""
+    alvo = _chave_nome(padrao)
+    return any(n and fnmatchcase(_chave_nome(n), alvo)
+               for n in (p["nome"], p.get("nome_bruto"), p.get("versao")))
+
+
+def _resolver_padroes(lista: list[dict], padroes: list[str],
+                      tolerante: bool = False) -> dict[str, str]:
+    """Que `id` é que cada padrão do `selado.excluidos_padrao` apanha, e por
+    qual padrão (`{id: padrão}` — o primeiro que casa).
+
+    **Um padrão que não apanhe NADA rebenta**, com os nomes parecidos — é a
+    regra dos nomes, e pela mesma razão: um padrão mal escrito ignorado em
+    silêncio deixava-o a olhar para os Vault que mandou tirar. `tolerante` é o
+    mesmo do `_resolver_excluidos`: sem catálogo em disco não se sabe."""
+    por: dict[str, str] = {}
+    for padrao in padroes:
+        casam = [p["id"] for p in lista if _casa_padrao(padrao, p)]
+        if not casam:
+            if tolerante:
+                continue
+            parecidos = _parecidos_padrao(padrao, lista)
+            raise ValueError(
+                f"selado.excluidos_padrao: {padrao!r} não apanha nenhum produto da lista"
+                + (f" — parecidos: {', '.join(parecidos)}" if parecidos else "")
+                + ". Um padrão que não tira nada é um padrão mal escrito (ou o produto "
+                  "deixou o CardTrader) — corrige-o ou tira-o da lista.")
+        for pid in casam:
+            por.setdefault(pid, padrao)
+    return por
+
+
+def _parecidos_padrao(padrao: str, lista: list[dict], n: int = 3) -> list[str]:
+    """Os nomes com uma PALAVRA parecida com um pedaço fixo do padrão — um
+    `*Valt` aponta para «Teste Vault». Comparar o padrão com o nome inteiro,
+    como os nomes fazem, não acha nada: o padrão é curto de propósito."""
+    from difflib import SequenceMatcher
+    pedacos = [x.lower() for x in re.split(r"[*?\s]+", padrao) if x]
+    pontos = []
+    for nome in sorted({p["nome"] for p in lista}):
+        palavras = re.findall(r"\w+", nome.lower())
+        r = max((SequenceMatcher(None, a, b).ratio() for a in pedacos for b in palavras),
+                default=0)
+        if r >= 0.75:
+            pontos.append((-r, nome))
+    return [repr(nm) for _, nm in sorted(pontos)[:n]]
+
+
 def _parecidos(entrada: str, lista: list[dict], n: int = 3) -> list[str]:
     """Os nomes mais próximos, para a mensagem de erro dizer onde ele se
     enganou em vez de só dizer que não existe."""
@@ -898,10 +991,17 @@ def _crus(cfg: dict | None = None, com_excluidos: bool = False) -> list[dict]:
     # `extra` do config: os nomes do CardTrader não podem casar e não é erro
     # dele. Aí o nome que não case ignora-se — a secção mostra-se vazia, como
     # sempre fez, em vez de rebentar por não ter sido sincronizada.
-    fora_do_ecra = _resolver_excluidos(out, op["excluidos"],
-                                       tolerante=not dados.get("produtos"))
+    tolerante = not dados.get("produtos")
+    fora_do_ecra = _resolver_excluidos(out, op["excluidos"], tolerante=tolerante)
+    # Os PADRÕES (2026-10-13) — para o Vault de amanhã sair sem ninguém o
+    # escrever. A linha diz por qual das duas listas saiu: o nome ganha,
+    # porque foi uma decisão sobre AQUELE produto.
+    por_padrao = _resolver_padroes(out, op["excluidos_padrao"], tolerante=tolerante)
     for p in out:
-        p["excluido"] = p["id"] in fora_do_ecra
+        p["excluido"] = p["id"] in fora_do_ecra or p["id"] in por_padrao
+        p["excluido_por"] = (None if not p["excluido"] else
+                             "nome" if p["id"] in fora_do_ecra else
+                             f"padrão {por_padrao[p['id']]}")
     if com_excluidos:
         return out
     return [p for p in out if not p["excluido"]]
@@ -1051,7 +1151,7 @@ def excluidos(cfg: dict | None = None) -> list[dict]:
         tipo = p.get("tipo_forcado") or tipo_de(p["nome"], p["versao"], p["categoria_id"])
         saida.append({"id": p["id"], "nome": p["nome"], "edicao": p["edicao"],
                       "tipo": tipo, "tipo_label": TIPO_LABEL[tipo],
-                      "acessorio": p["acessorio"]})
+                      "acessorio": p["acessorio"], "por": p["excluido_por"]})
     saida.sort(key=lambda x: (_ordem_edicao(x["edicao"], op),
                               TIPO_IDS.index(x["tipo"]), x["nome"].lower()))
     return saida
@@ -1119,6 +1219,11 @@ def payload(con: sqlite3.Connection, cfg: dict | None = None,
     selados = [x for x in lista if not x["acessorio"]]
     acess = [x for x in lista if x["acessorio"]]
     dados = carregar()
+    # O HISTÓRICO (2026-10-13): a variação por linha é a do PREÇO DE UMA
+    # UNIDADE; o cabeçalho diz o efeito do preço no que ele tem HOJE e diz,
+    # à parte, que o inventário não se mede. Ver `efeito_do_preco`.
+    hist = _juntar_variacao(con, lista)
+    hist["efeito_preco"] = efeito_do_preco(selados)
     return {
         "editable": editable,
         "generated_at": _now(),
@@ -1128,6 +1233,7 @@ def payload(con: sqlite3.Connection, cfg: dict | None = None,
         "sets": por_edicao(selados, cfg),
         "totals": contar(selados),
         "links": contar_links(selados),
+        "historico": hist,
         "acessorios": {
             "sets": por_edicao(acess, cfg),
             "totals": contar(acess),
@@ -1214,7 +1320,10 @@ def sincronizar(ct=None, cfg: dict | None = None, log=print,
     sem preço até ao `--sync` seguinte, e a página diz quantos são.
 
     O ritmo é o do `riftvault prices`: um pedido de cada vez, `intervalo`
-    segundos entre dois. É um comando À MÃO — não entra em tarefa nenhuma.
+    segundos entre dois. **Desde 2026-10-13 corre todos os dias**, na tarefa
+    `riftvault-daily`, e o CLI grava a seguir o histórico do preço
+    (`gravar_historico`) — antes era um comando à mão e o preço de ontem
+    perdia-se ao reescrever o ficheiro.
     """
     from .prices import CardTrader, RIFTBOUND_GAME_ID, SINGLES_CATEGORY, linguas
 
@@ -1294,6 +1403,181 @@ def sincronizar(ct=None, cfg: dict | None = None, log=print,
 
 
 # ---------------------------------------------------------------------------
+# O HISTÓRICO DO PREÇO (2026-10-13): `prices.sealed_price_history`
+# ---------------------------------------------------------------------------
+#
+# O `--sync` reescreve o catálogo e o preço de ontem perdia-se. Agora cada
+# `--sync` grava UMA LINHA POR BLUEPRINT E POR DIA no `prices.db` (o ficheiro
+# do robô — ver o `prices_schema.sql`, que diz porque é uma tabela à parte e
+# porque é uma linha por dia e não «só quando muda»).
+#
+# A VARIAÇÃO é do PREÇO DE UMA UNIDADE, e só disso. O valor do selado dele
+# também muda quando ele compra outro display — e isso NÃO é o mercado a
+# mexer. As duas coisas nunca se somam na mesma linha: o `efeito_preco` do
+# cabeçalho é «o que o que tens HOJE ganhou ou perdeu só por o preço ter
+# mexido», com as quantidades de hoje nas duas pontas. A parte do inventário
+# NÃO se mede — não há registo de quando cada unidade entrou (a `sealed_copies`
+# só guarda a última mudança) — e a página diz isso em vez de a inventar.
+
+# (nome, dias para trás, folga): a referência de «há uma semana» é a medição
+# mais recente entre 9 e 7 dias antes. Fora da folga não há referência — um
+# preço de há 15 dias não se apresenta como «a semana».
+JANELAS = (("dia", 1, 1), ("semana", 7, 2), ("mes", 30, 5))
+
+
+def gravar_historico(con: sqlite3.Connection, dados: dict | None = None,
+                     fonte: str = "sync", substituir: bool = True) -> dict:
+    """Grava no `prices.sealed_price_history` os preços de um catálogo (o que
+    está em disco, por omissão).
+
+    Uma linha por blueprint, no dia que o próprio catálogo diz (`precos[*].day`)
+    — nunca no dia de hoje à força: um backfill de um ficheiro antigo grava o
+    dia em que foi medido. `substituir=False` é para o backfill: nunca escreve
+    por cima de uma linha que já lá esteja (a do `--sync` desse dia ganha).
+
+    Só toca no `prices.db`. Nada da Coleção, nada da `sealed_copies`."""
+    dados = dados if dados is not None else carregar()
+    precos = dados.get("precos") or {}
+    omissao = str(dados.get("generated_at") or "")[:10] or None
+    verbo = "INSERT OR REPLACE" if substituir else "INSERT OR IGNORE"
+    gravadas, sem_preco, dias = 0, 0, set()
+    for bid, v in precos.items():
+        dia = str(v.get("day") or omissao or "")
+        if not dia:
+            continue
+        date.fromisoformat(dia)            # um dia mal escrito rebenta aqui
+        cur = con.execute(
+            f"{verbo} INTO prices.sealed_price_history (blueprint_id, day, "
+            f"price_cents, currency, n_listings, n_sellers, n_copies, fonte) "
+            f"VALUES (?,?,?,?,?,?,?,?)",
+            (int(bid), dia, v.get("cents"), v.get("currency") or "EUR",
+             int(v.get("n_listings") or 0), int(v.get("n_sellers") or 0),
+             int(v.get("n_copies") or 0), fonte))
+        if cur.rowcount:
+            gravadas += 1
+            dias.add(dia)
+            if v.get("cents") is None:
+                sem_preco += 1
+    return {"linhas": gravadas, "sem_preco": sem_preco, "dias": sorted(dias),
+            "fonte": fonte}
+
+
+def _ha_historico(con: sqlite3.Connection | None) -> bool:
+    """Uma ligação `readonly` não corre o schema, e um `prices.db` antigo não
+    tem a tabela: aí não há histórico, e a página diz isso em vez de rebentar."""
+    return con is not None and con.execute(
+        "SELECT 1 FROM prices.sqlite_master WHERE type='table' "
+        "AND name='sealed_price_history'").fetchone() is not None
+
+
+def historico(con: sqlite3.Connection | None, bids) -> dict[int, list[dict]]:
+    """A série de cada blueprint, do dia mais antigo para o mais recente."""
+    if not _ha_historico(con):
+        return {}
+    bids = sorted({int(b) for b in bids if b is not None})
+    if not bids:
+        return {}
+    out: dict[int, list[dict]] = {b: [] for b in bids}
+    marcas = ",".join("?" * len(bids))
+    for r in con.execute(
+            f"SELECT blueprint_id, day, price_cents, n_listings, n_sellers, n_copies "
+            f"FROM prices.sealed_price_history WHERE blueprint_id IN ({marcas}) "
+            f"ORDER BY blueprint_id, day", bids):
+        out[r["blueprint_id"]].append(dict(r))
+    return out
+
+
+def variacao(serie: list[dict]) -> dict | None:
+    """A variação do preço de UMA UNIDADE, contra a última medição.
+
+    Para cada janela (`JANELAS`), a referência é a medição COM PREÇO mais
+    recente dentro de `[agora − dias − folga, agora − dias]`. Sem medição aí,
+    a janela diz `falta` — nunca se vai buscar um preço mais velho e se
+    chama «semana» a uma diferença de quinze dias. `desde` é contra a
+    primeira medição com preço que houver, e diz a data."""
+    if not serie:
+        return None
+    agora = serie[-1]
+    dia = date.fromisoformat(agora["day"])
+    out = {"medido": agora["day"], "cents": agora["price_cents"],
+           "n_listings": agora["n_listings"], "n_sellers": agora["n_sellers"],
+           "n_copies": agora["n_copies"], "janelas": [], "desde": None,
+           "medicoes": len(serie)}
+
+    def diff(ref: dict) -> dict:
+        d = {"de_dia": ref["day"], "de_cents": ref["price_cents"],
+             "de_listings": ref["n_listings"],
+             "dias": (dia - date.fromisoformat(ref["day"])).days}
+        if agora["price_cents"] is None or ref["price_cents"] is None:
+            d.update(delta_cents=None, pct=None)
+        else:
+            delta = agora["price_cents"] - ref["price_cents"]
+            d.update(delta_cents=delta,
+                     pct=round(100 * delta / ref["price_cents"], 1) if ref["price_cents"] else None)
+        return d
+
+    for nome, dias, folga in JANELAS:
+        fim = dia - timedelta(days=dias)
+        ini = fim - timedelta(days=folga)
+        refs = [r for r in serie if r["price_cents"] is not None
+                and ini <= date.fromisoformat(r["day"]) <= fim]
+        if refs and agora["price_cents"] is not None:
+            out["janelas"].append({"janela": nome, **diff(refs[-1])})
+        else:
+            out["janelas"].append({"janela": nome, "falta": True,
+                                   "entre": [ini.isoformat(), fim.isoformat()]})
+    com_preco = [r for r in serie[:-1] if r["price_cents"] is not None]
+    if com_preco:
+        out["desde"] = diff(com_preco[0])
+    return out
+
+
+def efeito_do_preco(lista: list[dict]) -> dict:
+    """O que o que ele TEM HOJE ganhou ou perdeu SÓ por o preço ter mexido.
+
+    `Σ qty_hoje × (preço_agora − preço_ref)`, janela a janela — as mesmas
+    quantidades nas duas pontas, por isso uma compra nova não entra aqui. Diz
+    também quantos dos que ele tem ficaram de fora (sem referência nessa
+    janela): um total que só conta metade sem o dizer mente."""
+    tem = [x for x in lista if x["qty"] > 0]
+    out = []
+    nomes = [j[0] for j in JANELAS] + ["desde"]
+    for nome in nomes:
+        cents, com, sem = 0, 0, 0
+        for x in tem:
+            v = x.get("variacao") or {}
+            ref = (v.get("desde") if nome == "desde" else
+                   next((j for j in v.get("janelas") or [] if j["janela"] == nome), None))
+            if ref and ref.get("delta_cents") is not None:
+                cents += ref["delta_cents"] * x["qty"]
+                com += 1
+            else:
+                sem += 1
+        out.append({"janela": nome, "cents": cents if com else None,
+                    "produtos": com, "sem_referencia": sem})
+    return {"janelas": out, "tenho": len(tem),
+            "inventario": "não se mede: não há registo de quando cada unidade "
+                          "entrou — uma compra sobe o valor do selado sem que "
+                          "nenhum preço tenha mexido, e por isso não entra aqui"}
+
+
+def _juntar_variacao(con: sqlite3.Connection | None, lista: list[dict]) -> dict:
+    """Põe a `variacao` em cada linha (só as do CardTrader, pelo blueprint VIVO)
+    e devolve o resumo do histórico para o cabeçalho."""
+    series = historico(con, [x["blueprint_id"] for x in lista])
+    for x in lista:
+        x["variacao"] = variacao(series.get(x["blueprint_id"]) or []) \
+            if x["blueprint_id"] is not None else None
+    dias = []
+    if _ha_historico(con):
+        dias = [r[0] for r in con.execute(
+            "SELECT DISTINCT day FROM prices.sealed_price_history ORDER BY day")]
+    return {"dias": len(dias), "primeiro": dias[0] if dias else None,
+            "ultimo": dias[-1] if dias else None,
+            "janelas": [{"janela": n, "dias": d, "folga": f} for n, d, f in JANELAS]}
+
+
+# ---------------------------------------------------------------------------
 # Texto, para o CLI
 # ---------------------------------------------------------------------------
 
@@ -1316,6 +1600,29 @@ def _marca_do_preco(x: dict) -> str:
     return "  sem oferta no CardTrader (a app não lê o Cardmarket)"
 
 
+JANELA_LABEL = {"dia": "dia", "semana": "semana", "mes": "mês", "desde": "desde"}
+
+
+def _delta_txt(d: dict) -> str:
+    if d.get("delta_cents") is None:
+        return "—"
+    sinal = "+" if d["delta_cents"] > 0 else ("−" if d["delta_cents"] < 0 else "±")
+    pct = f" ({sinal}{abs(d['pct']):.1f} %)".replace(".", ",") if d.get("pct") is not None else ""
+    return f"{sinal}{abs(d['delta_cents']) / 100:.2f} €".replace(".", ",") + pct
+
+
+def _texto_variacao(v: dict | None) -> str:
+    """Só as janelas que têm referência; as outras não se escrevem (o
+    cabeçalho diz desde quando há histórico)."""
+    if not v:
+        return ""
+    partes = [f"{JANELA_LABEL[j['janela']]} {_delta_txt(j)}"
+              for j in v["janelas"] if not j.get("falta")]
+    if v.get("desde"):
+        partes.append(f"desde {v['desde']['de_dia']} {_delta_txt(v['desde'])}")
+    return " · ".join(partes)
+
+
 def _linhas_dos_grupos(sets: list[dict]) -> list[str]:
     linhas: list[str] = []
     for g in sets:
@@ -1331,6 +1638,9 @@ def _linhas_dos_grupos(sets: list[dict]) -> list[str]:
                 f"  {eur(x['preco_mostrado_cents'])}"
                 f"{_marca_do_preco(x)}"
                 f"{'  (por sair' + (' ' + x['data'] if x['data'] else '') + ')' if x['por_sair'] else ''}")
+            var = _texto_variacao(x.get("variacao"))
+            if var:
+                linhas.append(f"         preço de 1 unidade: {var}")
             if x.get("conteudo"):
                 linhas.append(f"         dentro: {x['conteudo']}")
             if x.get("nota"):
@@ -1357,6 +1667,21 @@ def texto(p: dict) -> str:
         linhas.append(f"  {t['sem_preco']} sem oferta no CardTrader e sem preço do "
                       f"Cardmarket — a app não lê o Cardmarket (403), o preço de lá "
                       f"escreve-se à mão")
+    h = p.get("historico") or {}
+    if h.get("dias"):
+        linhas.append(f"  histórico do preço: {h['dias']} dia(s) medidos, de "
+                      f"{h['primeiro']} a {h['ultimo']}")
+        ef = h.get("efeito_preco") or {}
+        partes = [f"{JANELA_LABEL[j['janela']]} {_delta_txt({'delta_cents': j['cents']})}"
+                  + (f" ({j['sem_referencia']} sem referência)" if j["sem_referencia"] else "")
+                  for j in ef.get("janelas") or [] if j["cents"] is not None]
+        if partes:
+            linhas.append("  o que tens, SÓ PELO PREÇO (as quantidades de hoje nas duas "
+                          "pontas): " + " · ".join(partes))
+        linhas.append(f"  o inventário {ef.get('inventario', '')}")
+    else:
+        linhas.append("  histórico do preço: ainda nenhum dia medido "
+                      "(`riftvault selado --sync`)")
     linhas += _linhas_dos_grupos(p["sets"])
     ac = p.get("acessorios") or {}
     at = ac.get("totals") or {}
@@ -1373,7 +1698,8 @@ def texto(p: dict) -> str:
                       f"disco está intacto, repor é tirar o nome da lista:")
         for x in ex:
             linhas.append(f"  - {x['edicao'] or '—':<11} {x['tipo_label']:<16} "
-                          f"{x['nome']}")
+                          f"{x['nome']}"
+                          + (f"  (pelo {x['por']})" if x.get("por", "nome") != "nome" else ""))
     f = p["scope"]["fora"]
     nunca = [x for x in f if not x.get("tirada")]
     tiradas = [x for x in f if x.get("tirada")]

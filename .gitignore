@@ -113,3 +113,8 @@ riftvault_config-ensaio.json
 # artefactos do FUSE (acesso a pasta montada a partir do Claude); nunca sao trabalho
 .fuse_hidden*
 data/.fuse_hidden*
+
+# A pasta de rascunho (2026-10-14): o que se tira do caminho antes de um
+# merge vai para ca. Fica fora do Git porque o portao recusa juntar com
+# trabalho nao rastreado, e isto nunca e trabalho.
+_scratch/

@@ -6417,15 +6417,19 @@ function renderSelado() {
         o preço de lá escreve-se à mão, na linha.` : ''}
       ${slLinksNota(p.links)}
       O selado <b>não entra</b> na Coleção — nem nos níveis, nem nas Faltas, nem no valor.</small>
+    ${slHistoricoNota(p.historico)}
     ${tirados.length ? `<details class="sl-tirados"><summary><b>${
       tirados.length}</b> ${tirados.length === 1 ? 'produto tirado' : 'produtos tirados'}
       por ti — não contam para estes números</summary>
-      <small class="nota">Estão em <code>selado.excluidos</code>, no
+      <small class="nota">Estão em <code>selado.excluidos</code> (pelo nome) ou em
+        <code>selado.excluidos_padrao</code> (por um padrão, como <code>*Vault</code>, que
+        apanha também os que o CardTrader ainda vai trazer), no
         <code>riftvault_config.json</code>. <b>Nada foi apagado</b>: o catálogo em disco
-        está intacto e <b>repor é tirar o nome da lista</b>.</small>
+        está intacto e <b>repor é tirar o nome da lista</b> (ou o padrão).</small>
       <ul class="sl-tirados-lista">${tirados.map(x => `<li>${escapeHTML(x.nome)}
         <span class="dim">${escapeHTML(x.edicao || '—')} · ${
-          escapeHTML(x.tipo_label)}</span></li>`).join('')}</ul></details>` : ''}
+          escapeHTML(x.tipo_label)}${x.por && x.por !== 'nome'
+            ? ` · pelo ${escapeHTML(x.por)}` : ''}</span></li>`).join('')}</ul></details>` : ''}
   </div>`;
 
   $('#sl-filtros').innerHTML = `
@@ -6556,6 +6560,64 @@ function slPreco(x) {
     </div>`;
 }
 
+/* A VARIAÇÃO DO PREÇO (2026-10-13), por linha. É o preço de UMA UNIDADE no
+   CardTrader e nada mais — o valor do que ele tem muda também quando compra,
+   e isso não é o mercado a mexer (é o cabeçalho que separa as duas coisas).
+   Uma janela sem medição nessa altura diz «—» com o porquê no `title`: nunca
+   se compara com um preço mais velho e se lhe chama «semana». */
+const SL_JANELA = { dia: 'dia', semana: 'semana', mes: 'mês', desde: 'desde' };
+
+function slDelta(cents, pct) {
+  if (cents == null) return '—';
+  const s = cents > 0 ? '+' : cents < 0 ? '−' : '±';
+  const e = `${s}${(Math.abs(cents) / 100).toFixed(2).replace('.', ',')} €`;
+  return pct == null ? e : `${e} (${s}${Math.abs(pct).toFixed(1).replace('.', ',')} %)`;
+}
+
+function slVariacao(v) {
+  if (!v) return '';
+  const cls = c => c == null ? '' : c > 0 ? ' sobe' : c < 0 ? ' desce' : ' igual';
+  const partes = v.janelas.map(j => j.falta
+    ? `<span class="sl-var falta" title="Sem medição entre ${escapeAttr(j.entre[0])} e ${
+        escapeAttr(j.entre[1])}.">${SL_JANELA[j.janela]} —</span>`
+    : `<span class="sl-var${cls(j.delta_cents)}" title="Contra ${escapeAttr(j.de_dia)}: ${
+        escapeAttr(eur(j.de_cents))}, ${j.de_listings} anúncios.">${SL_JANELA[j.janela]} ${
+        slDelta(j.delta_cents, j.pct)}</span>`);
+  if (v.desde) {
+    partes.push(`<span class="sl-var${cls(v.desde.delta_cents)}" title="Contra a primeira
+      medição: ${escapeAttr(eur(v.desde.de_cents))} a ${escapeAttr(v.desde.de_dia)}, ${
+      v.desde.de_listings} anúncios.">desde ${escapeHTML(v.desde.de_dia.slice(5).split('-').reverse().join('/'))} ${
+      slDelta(v.desde.delta_cents, v.desde.pct)}</span>`);
+  }
+  return `<div class="sl-vars" title="Preço de UMA unidade no CardTrader, medido a ${
+    escapeAttr(v.medido)} (${v.n_listings} anúncios).">${partes.join('')}</div>`;
+}
+
+/* O cabeçalho do histórico: o que o que ele tem HOJE ganhou ou perdeu SÓ
+   PELO PREÇO (as quantidades de hoje nas duas pontas) — e, à parte, que o
+   inventário não se mede. Somar as duas coisas numa linha era o gráfico que
+   mente: uma compra subia o valor sem nenhum preço ter mexido. */
+function slHistoricoNota(h) {
+  if (!h || !h.dias) {
+    return `<small class="nota sl-hist">Histórico do preço: <b>ainda nenhum dia
+      medido</b> — começa no próximo <code>riftvault selado --sync</code>.</small>`;
+  }
+  const ef = h.efeito_preco || { janelas: [] };
+  const partes = ef.janelas.map(j => j.cents == null
+    ? `<span class="sl-var falta">${SL_JANELA[j.janela]} —</span>`
+    : `<span class="sl-var${j.cents > 0 ? ' sobe' : j.cents < 0 ? ' desce' : ' igual'}"${
+        j.sem_referencia ? ` title="${j.sem_referencia} dos que tens sem medição nessa altura — não entram."` : ''}>${
+        SL_JANELA[j.janela]} ${slDelta(j.cents, null)}${j.sem_referencia ? '*' : ''}</span>`);
+  return `<div class="sl-hist">
+    <small class="nota">Histórico do preço: <b>${plural(h.dias, 'dia medido', 'dias medidos')}</b>,
+      de ${escapeHTML(h.primeiro)} a ${escapeHTML(h.ultimo)}.</small>
+    ${ef.tenho ? `<div class="sl-vars"><b class="sl-hist-rot">O que tens, só pelo PREÇO</b>${
+      partes.join('')}</div>
+    <small class="nota">As quantidades de hoje nas duas pontas: é o mercado a mexer, e
+      só isso. <b>O inventário não entra</b> — ${escapeHTML(ef.inventario)}.</small>` : ''}
+  </div>`;
+}
+
 function slLinha(x) {
   const cls = [x.qty > 0 ? 'tem' : '', x.por_sair ? 'porsair' : '',
     x.acessorio ? 'acess' : ''].join(' ');
@@ -6593,6 +6655,7 @@ function slLinha(x) {
         ${escapeHTML(x.edicao_label)}${x.categoria
           ? ` · ${escapeHTML(x.categoria.replace(/^Riftbound /, ''))}` : ''}</div>
       ${slLinks(x)}
+      ${slVariacao(x.variacao)}
       ${marcas.length ? `<div class="sl-marcas">${marcas.join('')}</div>` : ''}
     </div>
     <div class="sl-dir">
