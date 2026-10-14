@@ -256,9 +256,13 @@ DEFAULTS: dict = {
     #                          (`metrics.RARITY_ORDER`: common < uncommon <
     #                          rare < epic < showcase) um deck pode servir-se
     #                          da Coleção sem aviso; abaixo dela, devia vir das
-    #                          cópias próprias do deck. **NÃO BLOQUEIA — MARCA**:
-    #                          a carta leva um aviso e o deck um contador «N
-    #                          cópias a sair da Coleção que não deviam».
+    #                          cópias próprias do deck. **Com
+    #                          `abaixo_do_patamar: marca` NÃO BLOQUEIA**: a
+    #                          carta leva um aviso e o deck um contador «N
+    #                          cópias a sair da Coleção que não deviam». Com
+    #                          `so_o_excedente` (o config dele desde
+    #                          2026-10-13) BLOQUEIA: abaixo do patamar o deck
+    #                          só vê o que passa do alvo da Coleção.
     #                          (No Riftbound não há «mítica»: a raridade de
     #                          topo é a `epic`.) `null` ou `""` desliga o
     #                          aviso; uma raridade que o catálogo não conheça
@@ -280,6 +284,12 @@ DEFAULTS: dict = {
               # deck deixa de ser principal ou é desfeito (2026-09-27).
               "venda_minimo_cents": 50,
               "coleccao_so_a_partir_de": "epic",
+              # MARCA OU BLOQUEIA abaixo do patamar (2026-10-13). O config
+              # dele diz `so_o_excedente` (*«épicas podem vir da Coleção»* —
+              # e o resto não); a omissão é `marca`, o de 2026-09-24, para um
+              # riftvault sem config medir o que sempre mediu. Ver
+              # `decks.abaixo_do_patamar` e `_decks_dois_bolsos_nota`.
+              "abaixo_do_patamar": "marca",
               "modo": "coleccao"},
     # O bloco das runas especiais ("1 runa especial de cada para cada set",
     # 2026-09-08) — só o BLOCO. O `alvo` que aqui vivia (1, "runas 1 de cada")
@@ -383,7 +393,8 @@ DEFAULTS: dict = {
     #
     # O CONTADOR DO TILE, desde 2026-09-27 à noite, NÃO DEPENDE DE CHAVE
     # NENHUMA: o crachá é as NORMAIS contra o `metrics.alvo` e a linha de baixo
-    # é o foil contra o `foil.alvo` (o playset do tipo — Rune 12). As duas
+    # é o foil contra o `foil.alvo` (o alvo de Coleção do tipo desde
+    # 2026-10-13 — Rune 3; até aí o playset, Rune 12). As duas
     # contagens vêem-se separadas, nunca somadas: *"quero que a contagem na
     # carta seja a de non-foil e a de baixo seja a foil, as coisas separadas"*.
     #

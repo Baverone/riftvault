@@ -26,11 +26,12 @@ AS FOILS NÃO SÃO FALTAS — É A FRASE DELE, E É A REGRA
     me faltam para ter o playset EM FOIL». São duas contas diferentes sobre a
     mesma coluna, e nenhuma mexe na outra.
 
-O ALVO É O PLAYSET DO TIPO — a função que já existe
-    `metrics.playset_target` (`playset_targets_by_type`): Unit/Spell/Gear 3,
-    Battlefield 1, Legend 1, **Rune 12**, token 1 (`token_target`). Não há alvo
-    novo escrito em lado nenhum — reutiliza-se a tabela que já manda no playset
-    jogável.
+O ALVO É O ALVO DE COLEÇÃO DO TIPO — desde 2026-10-13 (`foil.alvo`)
+    Unit/Spell/Gear 3, Battlefield 1, Legend 1, **Rune 3**, token 1. Esta metade
+    é desde esse dia a WANTLIST do «master set foil» (a decisão 1 dele, *«duas
+    percentagens lado a lado»*, alvo 3 em foil nas comuns e incomuns), e um
+    número e a sua wantlist não podem ter alvos diferentes. O que se segue até
+    «O ÂMBITO» é a história do Rune 12, de 2026-09-27 a 2026-10-13.
 
     A ORDEM DIZIA DUAS COISAS E ESCOLHEU-SE PELOS NÚMEROS. O texto dela nomeou
     o `metrics.alvo_do_tipo` (o alvo de COLEÇÃO do tipo, que dá **Rune 3** por
@@ -38,8 +39,9 @@ O ALVO É O PLAYSET DO TIPO — a função que já existe
     o `playset_targets_by_type` é a tabela do 12, e o total que ela mandou
     confirmar (1195 cópias, com 72 em runas = 6 runas × 12) só fecha com o 12.
     Fica o `playset_target`, e com ele uma diferença que se diz em voz alta:
-    **numa runa o alvo em foil (12) não é o alvo da coleção normal (3)**. É a
-    única divergência entre as duas metades, e é pergunta para ele.
+    **numa runa o alvo em foil (12) não é o alvo da coleção normal (3)**. Era
+    a única divergência entre as duas metades e era pergunta para ele — a
+    resposta (2026-10-13) foi «alvo 3», e a divergência acabou.
 
 O ÂMBITO É O DO CONTADOR DE FOIL — não há segundo âmbito
     `foil.no_ambito`: as impressões BASE, não sobrenumeradas, das raridades do
@@ -107,21 +109,20 @@ LABEL = "Foils"
 
 # O que o cabeçalho escreve por baixo do rótulo, onde os outros blocos dizem
 # «playset» ou «1 de cada» (`metrics.alvo_do_bloco`).
-ALVO_LABEL = "playset do tipo, em foil"
+ALVO_LABEL = "alvo da Coleção, em foil"
 
 
 def alvo(printing, cfg: dict | None = None) -> int:
-    """O alvo de foils de uma impressão: o PLAYSET DO TIPO.
+    """O alvo de foils de uma impressão: o ALVO DE COLEÇÃO DO TIPO (desde
+    2026-10-13; até aí o playset do tipo — ver o `foil.alvo`).
 
     **Mora no `foil.alvo` desde a noite de 2026-09-27**, quando o contador do
     TILE passou a mostrar `foil M/T` e precisou do mesmo número: a pergunta é da
     mesma casa que o `foil.no_ambito`, e ter duas respostas era ter duas
     tabelas. Esta função fica como o nome por onde esta metade lhe chama.
 
-    Continua a ser o `metrics.playset_target` (`playset_targets_by_type`):
-    Unit/Spell/Gear 3, Battlefield 1, Legend 1, Rune 12, e `token_target` (1)
-    nos tokens. Não é o `metrics.alvo_do_tipo` (o alvo de COLEÇÃO do tipo), e a
-    diferença é só na runa — 12 aqui, 3 na coleção normal. Ver o topo.
+    É o `metrics.alvo_do_tipo`: Unit/Spell/Gear 3, Battlefield 1, Legend 1,
+    Rune 3, e `token_target` (1) nos tokens — o mesmo da coleção normal.
     """
     return foil.alvo(printing, cfg)
 

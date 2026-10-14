@@ -315,8 +315,11 @@ class TestNaoEmSilencio(Base):
         self.assertEqual(con.execute("SELECT COUNT(*) c FROM decks").fetchone()["c"], 0)
         self.assertEqual(sorted(tuple(r) for r in con.execute(
             "SELECT printing_id, qty FROM copies")), antes)
-        self.assertTrue(locais.proprias(con).get("x"),
-                        "as cópias próprias ficam gravadas")
+        # Desde 2026-10-13 não ficam presas no `proprio:x` de um deck que já
+        # não existe: vão para o STOCK DOS DECKS (o binder), para outro deck.
+        self.assertFalse(locais.proprias(con).get("x"))
+        self.assertEqual(locais.em(con, locais.BINDER), {"tst-001-100": 2},
+                         "as cópias próprias passam ao stock dos decks")
         con.close()
 
 

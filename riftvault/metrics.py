@@ -1492,6 +1492,11 @@ def index_payload(con: sqlite3.Connection, editable: bool = True,
         # Coleção lê a da edição aberta para a linha «N cópias a comprar»
         # (`renderFaltaLinha` no app.js).
         "levels": niveis_payload(con),
+        # O MASTER SET FOIL (André, 2026-10-13: *«duas percentagens lado a
+        # lado»*). O `levels` de cima NÃO mudou de alvo; este é o mesmo
+        # denominador com as comuns e incomuns medidas em foil. Ver
+        # `foil.master_set_foil`.
+        "levels_foil": foil.master_set_foil(con, cfg),
         # O painel do topo da Coleção (2026-09-21), por edição e em «Todas»:
         # é o que o separador «Todas» mostra enquanto as edições carregam, e
         # a verdade do servidor para o CLI e os testes.

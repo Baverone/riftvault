@@ -38,12 +38,13 @@ DUAS CONTAGENS SEPARADAS NO TILE, E NUNCA SOMADAS (2026-09-27, à noite)
     non-foil e a de baixo seja a foil, as coisas separadas"*.
 
         o CRACHÁ, em cima     as NORMAIS da Coleção contra o `metrics.alvo`
-        a LINHA, em baixo     as FOILS contra o `foil.alvo` (o playset do tipo)
+        a LINHA, em baixo     as FOILS contra o `foil.alvo`
 
     A separação no tile é ESTRUTURAL — não depende de chave nenhuma. O alvo de
     foil é o `alvo()` deste módulo, o MESMO da metade das foils do separador
-    Faltas (`faltas_foil`), e por isso numa runa base o crachá pede 3 e a linha
-    do foil pede 12.
+    Faltas (`faltas_foil`) e do «master set foil» do Início. Até 2026-10-13 era
+    o playset do tipo e numa runa base a linha pedia 12; desde esse dia é o
+    alvo da Coleção, e pede 3 como o crachá (ver `alvo`).
 
     O ERRO QUE ISTO CORRIGE ERA NOSSO, e tinha tamanho. A 2026-09-26 ele disse
     *"contabilizas tambem como parte do master set"* e ligámos o
@@ -246,25 +247,84 @@ def conta_para_valor(cfg: dict | None = None) -> bool:
 
 
 def alvo(printing, cfg: dict | None = None) -> int:
-    """Quantas foils desta impressão ele quer ter — o PLAYSET DO TIPO.
+    """Quantas foils desta impressão ele quer ter — o ALVO DE COLEÇÃO DO TIPO.
 
-    `metrics.playset_target` (`playset_targets_by_type`): Unit/Spell/Gear 3,
-    Battlefield 1, Legend 1, **Rune 12**, e `token_target` (1) nos tokens. Não
-    há alvo novo escrito em lado nenhum — é a tabela que já manda no playset
-    jogável, e se ele a mudar muda aqui também.
+    `metrics.alvo_do_tipo`: Unit/Spell/Gear 3, Battlefield 1, Legend 1, **Rune
+    3** (o `master_targets_by_type`), e `token_target` (1) nos tokens. É o mesmo
+    número que o crachá de cima (as normais) compara — no âmbito do foil (base,
+    não sobrenumerada) o `metrics.alvo` e este dão o mesmo.
 
-    Nasceu no `faltas_foil.alvo` (2026-09-27, de manhã) e mudou-se para cá à
-    noite, quando o CONTADOR DO TILE passou a mostrar `foil M/T`: a pergunta
-    «quantas foils quero ter» é da mesma casa que «esta impressão tem contador
-    de foil» (o `no_ambito`), e ter duas respostas era ter duas tabelas. O
-    `faltas_foil.alvo` continua a existir e chama esta.
-
-    Não é o `metrics.alvo` (o alvo de COLEÇÃO da impressão, que é o que o
-    crachá de cima compara): a diferença é só na runa — 12 aqui, 3 lá.
+    **ATÉ 2026-10-13 ERA O PLAYSET JOGÁVEL (Rune 12)**, e a runa era a única
+    diferença entre as duas contagens. Mudou com a DECISÃO 1 dele, nesse dia —
+    *«duas percentagens lado a lado»*: o master set continua em não-foil e ao
+    lado nasce o «master set foil», **alvo 3 em foil nas comuns e incomuns**.
+    Esse número, a linha `foil M/T` do tile e a wantlist das foils (a metade das
+    foils das Faltas) passaram a ser a MESMA pergunta, e por isso têm de ter o
+    mesmo alvo — com Rune 12 aqui o painel dizia «faltam 775 foils» e as Faltas
+    «829». O «12» da runa era leitura nossa de 27/09, anotada como pergunta;
+    a resposta dele foi «3».
     """
     cfg = cfg or config.load()
-    return metrics.playset_target(metrics.campo(printing, "type"),
-                                  bool(metrics.campo(printing, "is_token")), cfg)
+    return metrics.alvo_do_tipo(metrics.campo(printing, "type"),
+                                bool(metrics.campo(printing, "is_token")), cfg)
+
+
+def master_set_foil(con: sqlite3.Connection, cfg: dict | None = None) -> dict:
+    """O «MASTER SET FOIL» — a segunda percentagem (André, 2026-10-13).
+
+    *«Duas percentagens lado a lado»*: o master set NÃO muda de alvo (continua
+    em não-foil, comparável com o de ontem e com o dos amigos), e ao lado nasce
+    este número. Mesmo âmbito e mesmo denominador do master set
+    (`metrics.itens_da_colecao`, as impressões que contam para a barra); a
+    diferença é o que cada impressão TEM:
+
+      * no âmbito do foil (`no_ambito` — comuns e incomuns base, não
+        sobrenumeradas, fora o OGS) conta as **FOILS**, contra o `alvo` (3);
+      * fora dele conta o mesmo que o master set — as raras para cima, as
+        runas sem âmbito, o OGS. Em Riftbound de rara para cima a carta *é* a
+        foil, e a cópia dele já está no `copies.qty`.
+
+    O preço de uma linha do âmbito é o da FOIL (`price_foil_cents`), com o
+    fallback para o da normal — o mesmo piso da metade das foils das Faltas.
+    Devolve a forma do `metrics.niveis_payload` (`max`, `levels`, `by_set`) e
+    mais `foil_scope` (quantas impressões do denominador contam foils). A
+    WANTLIST deste número é a metade das FOILS das Faltas (`faltas_foil`): a
+    outra parte (fora do âmbito) é igual à do master set e já está na wantlist
+    geral — repeti-la aqui era contá-la duas vezes.
+    """
+    from . import locais
+
+    cfg = cfg or config.load()
+    normais = locais.na_colecao(con, cfg)
+    foils = qty_foil(con)
+    preco = metrics.prices_map(con)
+    preco_foil = metrics.precos_de_foil_map(con)
+    itens_set: list[tuple] = []
+    no_amb = 0
+    for r in con.execute(
+        "SELECT printing_id, set_id, collector_number, public_code, variant_kind, "
+        "       rarity, base_rarity, type, is_token FROM catalog.printings"
+    ):
+        pid = r["printing_id"]
+        n = metrics.alvo(r, cfg)
+        if n <= 0 or not metrics.e_master(r, cfg):
+            continue
+        if no_ambito(r, cfg):
+            no_amb += 1
+            itens_set.append((r["set_id"], alvo(r, cfg), foils.get(pid, 0),
+                              preco_foil.get(pid, preco.get(pid))))
+        else:
+            itens_set.append((r["set_id"], n, normais.get(pid, 0), preco.get(pid)))
+    n = metrics.degraus([(a, t, p) for _, a, t, p in itens_set], cfg)
+    por_set: dict[str, list] = {}
+    for s, a, t, p in itens_set:
+        por_set.setdefault(s, []).append((a, t, p))
+    return {
+        "max": n,
+        "levels": metrics.niveis([(a, t, p) for _, a, t, p in itens_set], n, cfg),
+        "by_set": {s: metrics.niveis(v, n, cfg) for s, v in por_set.items()},
+        "foil_scope": no_amb,
+    }
 
 
 def no_ambito(printing, cfg: dict | None = None) -> bool:

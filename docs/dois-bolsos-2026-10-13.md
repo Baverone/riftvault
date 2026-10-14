@@ -177,3 +177,66 @@ nota — hoje o cartão diz **«0 de 2»** e por baixo **«1 de 2 completos — 
 
 Com as três respondidas o mecanismo do patch serve de ponto de partida: os dois
 funis estão certos; falta reconciliar as Faltas, a wantlist, o tile e o «A mais».
+
+---
+
+# v2 — as decisões dele, e o que se fez (2026-10-14)
+
+Ramo `ai-pc/dois-bolsos-v2-2026-10-13`. **O patch de cima NÃO se usou**: as
+decisões mudaram a pergunta (a Coleção das comuns NÃO passa a foil), e por
+isso o mecanismo é outro — e mais pequeno.
+
+1. **«Duas percentagens lado a lado».** O master set não mexe. Ao lado nasce o
+   **master set foil** (`foil.master_set_foil`, `index.levels_foil`, um cartão
+   no Início e uma tabela no `riftvault stats`): o mesmo denominador (928), as
+   impressões do âmbito do foil contam as FOILS contra o alvo 3, as outras
+   contam como no master set. A wantlist dele é a metade das foils das Faltas
+   — e por isso o alvo das foils passou de Rune 12 para **Rune 3** (o tile, as
+   Faltas e o número têm de dizer o mesmo).
+2. **«Épicas podem vir da Coleção».** `decks.abaixo_do_patamar:
+   "so_o_excedente"` reusa o `coleccao_so_a_partir_de` de 24/09: abaixo da épica
+   o deck só vê da Coleção **o que passa do alvo** (`decks.so_o_excedente`);
+   o resto é próprio, stock ou falta. A omissão do código continua `marca`.
+3. **O bolso comum é o binder** que já existia. Desmontar
+   (`principal.montar`), apagar a lista (`colar.apagar`) e apagar todos
+   (`decks.apagar_todos`) mandam as próprias e as sleevadas para lá
+   (`locais.devolver_ao_stock`); lá servem qualquer deck, e **o binder deixou de
+   contar para o valor** (`locais.contadas`, `prices.copias_sql`), como as
+   próprias — senão desmontar fazia o valor subir.
+
+## A tabela, antes e depois (cópia do `data/` de 2026-10-14, `copies` sha `66ba0cc5e4e9`)
+
+| número do painel | antes (`main`) | depois (ramo) |
+|---|---|---|
+| Master set · 1 de cada | 912/928 = 98,3 % | **igual** |
+| Master set · 2 de cada | 880/928 = 94,8 % | **igual** |
+| Master set · playset | 828/928 = 89,2 % · faltam 160 · 691,16 € | **igual** |
+| **Master set foil** · 1 de cada | — | **709/928 = 76,4 %** · faltam 219 · 126,98 € |
+| **Master set foil** · 2 de cada | — | **584/928 = 62,9 %** · faltam 514 · 467,48 € |
+| **Master set foil** · playset | — | **475/928 = 51,2 %** · faltam 918 · 1 026,38 € |
+| Falta comprar (wantlist geral) | 130 cópias · 82 cartas · 426,07 € | **igual** |
+| Valor da coleção | 8 297,82 € · 3 359 cópias | **igual** |
+| Coleção extra | 192 cópias · 7 379,81 € | **igual** |
+| Faltas, metade das foils | 829 cópias · 368 impressões · 345,78 € | **775 · 368 · 337,77 €** (as 6 runas: 12 → 3) |
+| Decks montados (cartão) | 0 de 2 | **igual** |
+| Leona (simulação) | 50/54 · falta 4 · aviso 44 | **10/54 · falta 43** · aviso 0 |
+| Kennen (simulação) | 54/54 · falta 0 · aviso 42 | **12/54 · falta 42** · aviso 0 |
+| os dois montados: falta comprar aos decks | 6 cópias · 2 cartas · 14,31 € | **85 cópias · 43 cartas · 62,86 €** |
+| «A mais» (os dois montados) | 122 cópias · 61 | **118 · 60** |
+| «A mais» (nada montado, o de hoje) | 122 · 61 | **igual** |
+
+**Os «~54 €» da ordem são 62,86 €, e o número de cópias é outro.** Os 54,14 € de
+13/10 contavam as comuns normais como stock livre (porque nessa hipótese a
+Coleção delas era em foil). Com a decisão 1 as normais continuam a ser a
+Coleção, e só o que passa do alvo serve os decks: são **85 cópias**, mais do
+que as 32 de então, mas baratas — comuns, incomuns e raras.
+
+## O que fica sem resposta (a pergunta 3)
+
+O «2 playset non-foil» deixou de ser alvo e nenhum número da app o pedia — a
+contagem por níveis nunca passou do playset. Mas há um sítio onde ele deixa de
+ter resposta: **as normais que passam do alvo (o excedente) não têm casa
+visível.** Os decks usam-nas, mas o único ecrã que as lista é o «A mais», que
+está escondido (`abas.escondidas`). Se ele quiser ver «o stock à solta para os
+decks», é decidir se o «A mais» volta, ou se o binder e o excedente se mostram
+juntos na secção Decks.

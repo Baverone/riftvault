@@ -303,18 +303,18 @@ class TestOAlvo(Base):
         self.assertEqual(self.itens(con)["tst-005-100"]["target"], 1)
         self.assertEqual(self.itens(con)["tst-005-100"]["missing"], 1)
 
-    def test_rune_foil_e_12_e_nao_3(self):
-        """A runa coleciona-se a 3 (`master_targets_by_type`) e joga-se a 12; em
-        FOIL o alvo é o playset, 12. É a única divergência entre as duas
-        metades, e é aqui que se vê."""
+    def test_rune_foil_e_3_como_na_colecao(self):
+        """Até 2026-10-13 a runa pedia 12 em foil (o playset jogável) e 3 na
+        coleção normal. A decisão dele nesse dia (*«duas percentagens lado a
+        lado»*, alvo 3 em foil) acabou com a divergência: esta metade é a
+        wantlist do «master set foil», e tem o alvo dele."""
         con = self.catalogo()
         r = con.execute("SELECT * FROM catalog.printings WHERE printing_id='tst-006-100'"
                         ).fetchone()
-        self.assertEqual(self.faltas_foil.alvo(r), 12)
-        self.assertEqual(self.metrics.alvo_do_tipo("Rune", False), 3,
-                         "na coleção normal a runa é 3 — são dois números diferentes")
+        self.assertEqual(self.faltas_foil.alvo(r), 3)
+        self.assertEqual(self.metrics.alvo_do_tipo("Rune", False), 3)
         x = self.itens(con)["tst-006-100"]
-        self.assertEqual((x["target"], x["have"], x["missing"]), (12, 0, 12))
+        self.assertEqual((x["target"], x["have"], x["missing"]), (3, 0, 3))
 
     def test_unit_spell_e_gear_sao_3_e_legend_e_1(self):
         con = self.catalogo()
@@ -335,10 +335,12 @@ class TestOAlvo(Base):
         self.assertEqual(self.faltas_foil.alvo(r), 1)
 
     def test_o_alvo_vem_da_tabela_do_config_e_nao_de_um_numero_escrito(self):
-        """Não há alvo novo: mexe-se no `playset_targets_by_type` e o alvo das
-        foils mexe com ele."""
+        """Não há alvo novo: mexe-se nas tabelas de alvo do tipo e o alvo das
+        foils mexe com elas. Desde 2026-10-13 a runa lê o
+        `master_targets_by_type` (o alvo de coleção), como na coleção normal."""
         self.escrever_config(extra={"playset_targets_by_type": {
-            "Unit": 4, "Battlefield": 2, "Rune": 6, "default": 3}})
+            "Unit": 4, "Battlefield": 2, "Rune": 12, "default": 3},
+            "master_targets_by_type": {"Rune": 6}})
         con = self.catalogo()
         it = self.itens(con)
         self.assertEqual(it["tst-001-100"]["target"], 4)
@@ -351,11 +353,13 @@ class TestOAlvo(Base):
         O alvo MUDOU DE CASA a 2026-09-27, à noite — vive no `foil.alvo`, porque
         o contador do tile passou a mostrar `foil M/T` e precisava do mesmo
         número. O que este teste fixa continua a ser o mesmo: **há uma resposta
-        só, e é o `metrics.playset_target`**.
+        só** — desde 2026-10-13 o `metrics.alvo_do_tipo` (o alvo de coleção do
+        tipo; até aí o `metrics.playset_target`).
         """
         ff = (REPO / "riftvault" / "faltas_foil.py").read_text(encoding="utf-8")
         fo = (REPO / "riftvault" / "foil.py").read_text(encoding="utf-8")
-        self.assertIn("metrics.playset_target(", fo)
+        self.assertIn("metrics.alvo_do_tipo(", fo)
+        self.assertNotIn("metrics.playset_target(", fo)
         # E o `faltas_foil` delega, em vez de ter uma segunda tabela.
         self.assertIn("return foil.alvo(", ff)
         self.assertNotIn("metrics.playset_target(", ff)

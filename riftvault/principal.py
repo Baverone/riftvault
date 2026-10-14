@@ -364,9 +364,16 @@ def montar(con: sqlite3.Connection, s: str, ligar: bool,
     mov = None
     if est.get("despromovido"):
         mov = despromover(con, est["despromovido"], config.load(), source=source)
+    # DESMONTAR DEVOLVE AS CARTAS AO STOCK DOS DECKS (2026-10-13): *«caso o deck
+    # deixe de jogar, essas cartas ficaram guardadas para outro deck que as
+    # possa usar mais tarde»*. Depois da despromoção, de propósito: a Venda lê
+    # as próprias DESTE deck, e a seguir elas passam ao binder (marcar para a
+    # Venda não é vender, e continua a não mover nada).
+    stock = None if ligar else locais.devolver_ao_stock(con, s, source=source)
     return {"montados": est["montados"], "desmontados": est["desmontados"],
             "principal": estado(con, config.load()),
-            "despromovido": est.get("despromovido"), "movimento": mov}
+            "despromovido": est.get("despromovido"), "movimento": mov,
+            "ao_stock": stock}
 
 
 # ---------------------------------------------------------------------------

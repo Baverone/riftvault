@@ -270,6 +270,20 @@ def cmd_stats(args) -> int:
         for nome, ls in linhas:
             print(f"{nome:<{w}} " + " ".join(celula(lv).ljust(larg) for lv in ls))
 
+    # O MASTER SET FOIL (2026-10-13, *«duas percentagens lado a lado»*): o mesmo
+    # denominador, com as comuns e incomuns medidas em foil. Não substitui a
+    # tabela de cima — está ao lado dela.
+    from . import foil as foil_mod
+    nf = foil_mod.master_set_foil(con)
+    if nf["levels"]:
+        print("\nMaster set FOIL (comuns e incomuns em foil, alvo 3; o resto como "
+              "em cima) — ao lado do de cima, não em vez dele:")
+        for lv in nf["levels"]:
+            rot = "playset" if lv["k"] == nf["max"] else f"{lv['k']} de cada"
+            print(f"  {rot:<10} {lv['done']}/{lv['total']} = "
+                  f"{lv['pct']:.1f}".replace(".", ",") + f" % · faltam {lv['missing']} · "
+                  f"{prices.eur(lv['cents'])}")
+
     # O painel do topo da Coleção (2026-09-21): os três níveis em tenho/total
     # por bloco e por edição, sem as runas — o que ele vê nos três cartões.
     print("\nPainel da Coleção (impressões que chegaram a cada nível, sem runas):")

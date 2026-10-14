@@ -202,6 +202,14 @@ def excedente(con: sqlite3.Connection, cfg: dict | None = None,
     foils = ({} if com_foil else
              locais.foils_que_contam(con, "conta_para_coleccao", cfg))
     precos = metrics.prices_map(con)
+    # «ATÉ ÀS RARAS, NUNCA DA COLEÇÃO» (2026-10-13, `decks.abaixo_do_patamar:
+    # so_o_excedente`): abaixo do patamar o que um deck leva da Coleção é só o
+    # que passa do alvo — por isso aí as usadas somam-se ao alvo em vez de se
+    # sobreporem a ele (`max`). Sem isto o «A mais» oferecia como sobra as
+    # mesmas cópias que o deck está a jogar.
+    soma_ao_alvo = decks.abaixo_do_patamar(cfg) == decks.ABAIXO_EXCEDENTE
+    raridades = decks.raridade_por_carta(con) if soma_ao_alvo else {}
+    raridades_ok = decks.raridades_da_colecao(cfg)
 
     itens: list[dict] = []
     for r in con.execute(
@@ -226,7 +234,10 @@ def excedente(con: sqlite3.Connection, cfg: dict | None = None,
         # está escondido, que a Coleção não pede.
         alvo = 0 if escondida else metrics.alvo(r, cfg)
         do_binder = max(0, no_binder.get(pid, 0) - u["no_binder"])
-        da_colecao = max(0, na_colecao.get(pid, 0) - max(u["na_colecao"], alvo))
+        if soma_ao_alvo and raridades.get(r["card_key"]) not in raridades_ok:
+            da_colecao = max(0, na_colecao.get(pid, 0) - alvo - u["na_colecao"])
+        else:
+            da_colecao = max(0, na_colecao.get(pid, 0) - max(u["na_colecao"], alvo))
         sobra = do_binder + da_colecao
         if sobra <= 0:
             continue
