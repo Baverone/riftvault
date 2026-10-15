@@ -49,7 +49,10 @@ CREATE TABLE IF NOT EXISTS printings (
     image_large      TEXT,
     image_path       TEXT,                      -- cache local em data/images/
     api_sort         INTEGER,                   -- ordem devolvida pela API (já agrupa variantes)
-    fetched_at       TEXT
+    fetched_at       TEXT,
+    -- De onde veio a linha (2026-10-15): 'riftscribe' ou 'dotgg' (a Radiance,
+    -- antes de a RiftScribe a ter). Cada fonte só apaga o que é seu.
+    fonte            TEXT NOT NULL DEFAULT 'riftscribe'
 );
 
 CREATE INDEX IF NOT EXISTS ix_printings_set   ON printings(set_id, api_sort);
