@@ -51,6 +51,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from tests.fixture import SEM_CONFIG  # noqa: E402
+
 from tests.fixture import REPO, Vault  # noqa: E402
 
 APP = REPO / "riftvault" / "web" / "app.js"
@@ -88,8 +90,7 @@ class Base(unittest.TestCase):
         self.config.load.cache_clear()
 
         def repor():
-            os.environ["RIFTVAULT_CONFIG"] = str(
-                Path(tempfile.gettempdir()) / "riftvault-nao-existe.json")
+            os.environ["RIFTVAULT_CONFIG"] = SEM_CONFIG
             importlib.reload(self.config)
             self.config.load.cache_clear()
 

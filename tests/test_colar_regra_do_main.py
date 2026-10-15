@@ -44,11 +44,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from tests.fixture import SEM_CONFIG, ficheiro_temporario  # noqa: E402
+
 #: Um caminho que não existe: o `config` cai nos `DEFAULTS`, que é onde vive a
 #: regra que isto mede. Em CADA `setUp`, e não só aqui — um teste que escreva o
 #: seu config LIMPA a variável no fim, e sem ela os seguintes liam o
 #: `riftvault_config.json` A SÉRIO (ver o `SEM_CONFIG` do `test_colar.py`).
-SEM_CONFIG = str(Path(tempfile.gettempdir()) / "riftvault-nao-existe.json")
 
 from tests.fixture import REPO, Vault  # noqa: E402
 
@@ -111,8 +112,7 @@ class Base(unittest.TestCase):
         preciso reimportar, como o `Vault` faz. O nome do ficheiro leva o PID
         (a suite corre em paralelo desde 2026-10-02).
         """
-        caminho = (Path(tempfile.gettempdir())
-                   / f"riftvault-regra-main-{os.getpid()}.json")
+        caminho = ficheiro_temporario("riftvault-regra-main.json")
         caminho.write_text(json.dumps({"deck_rules": deck_rules}), encoding="utf-8")
         os.environ["RIFTVAULT_CONFIG"] = str(caminho)
         from riftvault import config

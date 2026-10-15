@@ -35,12 +35,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from tests.fixture import SEM_CONFIG, ficheiro_temporario  # noqa: E402
+
 #: Um caminho que não existe: o `config` cai nos `DEFAULTS`, que é o que estes
 #: testes querem medir. Põe-se em CADA `setUp` e não só aqui, porque um teste
 #: que escreva o seu config (`config_decks_sem_alt_art`) LIMPA a variável no
 #: fim — e sem ela os testes seguintes liam o `riftvault_config.json` A SÉRIO,
 #: onde `multi.aberto` é `true`: as rotas passavam a pedir sessão e davam 401.
-SEM_CONFIG = str(Path(tempfile.gettempdir()) / "riftvault-nao-existe.json")
 
 from tests.fixture import REPO, Vault  # noqa: E402
 
@@ -439,7 +440,7 @@ class TestComQueSeTapou(Base):
     def test_com_so_base_a_alt_art_NAO_tapa(self):
         """O outro lado do interruptor, agora escrito por extenso: até
         2026-10-03 isto vinha da omissão, que era `true`."""
-        caminho = Path(tempfile.gettempdir()) / f"riftvault-colar-so-base-{os.getpid()}.json"
+        caminho = ficheiro_temporario("riftvault-colar-so-base.json")
         caminho.write_text(json.dumps({"decks": {"so_base": True}}), encoding="utf-8")
         os.environ["RIFTVAULT_CONFIG"] = str(caminho)
         self.addCleanup(lambda: os.environ.__setitem__("RIFTVAULT_CONFIG", SEM_CONFIG))

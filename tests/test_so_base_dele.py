@@ -49,7 +49,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-CONFIG = Path(tempfile.gettempdir()) / "riftvault-so-base-dele.json"
+from tests.fixture import ficheiro_temporario  # noqa: E402
+
+CONFIG = ficheiro_temporario("riftvault-so-base-dele.json")
 REPO = Path(__file__).resolve().parent.parent
 
 

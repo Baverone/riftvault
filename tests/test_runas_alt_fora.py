@@ -36,7 +36,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-CONFIG = Path(tempfile.gettempdir()) / "riftvault-runas-alt-fora.json"
+from tests.fixture import ficheiro_temporario  # noqa: E402
+
+CONFIG = ficheiro_temporario("riftvault-runas-alt-fora.json")
 
 
 def escrever_config(retiradas=("a",), tipos=("Rune",),

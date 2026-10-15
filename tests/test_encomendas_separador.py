@@ -31,6 +31,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from tests.fixture import ficheiro_temporario  # noqa: E402
+
 from tests.fixture import REPO, Vault, config_decks_sem_alt_art  # noqa: E402
 
 config_decks_sem_alt_art()
@@ -41,7 +43,7 @@ AZIR = "Legend:\n1 Emperor of the Sands\n\nMainDeck:\n3 Defy\n"
 def _config(caso, extra: dict) -> None:
     """Um config temporário com o bloco `decks` de hoje mais o que o teste
     quiser. Antes do `Vault`, que é quem recarrega o `config`."""
-    caminho = Path(tempfile.gettempdir()) / f"riftvault-enc-{os.getpid()}.json"
+    caminho = ficheiro_temporario("riftvault-enc.json")
     caminho.write_text(json.dumps({
         # `so_base: false` (2026-09-21): estes testes descrevem a regra de 2026-09-17.
         "decks": {"so_base": False,

@@ -19,10 +19,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from tests.fixture import SEM_CONFIG  # noqa: E402
+
 # Nunca contra o `riftvault_config.json` a sério (a lição de 2026-09-21, quando
 # ele ligou a experiência do pool próprio e este teste passou a ler outra
 # coisa): os defaults do código são o que aqui se descreve.
-os.environ["RIFTVAULT_CONFIG"] = str(Path(tempfile.gettempdir()) / "riftvault-nao-existe.json")
+os.environ["RIFTVAULT_CONFIG"] = SEM_CONFIG
 
 from tests.fixture import Vault, catalogo_simples  # noqa: E402
 

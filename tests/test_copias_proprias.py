@@ -41,7 +41,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-os.environ["RIFTVAULT_CONFIG"] = str(Path(tempfile.gettempdir()) / "riftvault-nao-existe.json")
+from tests.fixture import SEM_CONFIG  # noqa: E402
+
+os.environ["RIFTVAULT_CONFIG"] = SEM_CONFIG
 
 from tests.fixture import REPO, Vault  # noqa: E402
 
@@ -82,8 +84,7 @@ class Base(unittest.TestCase):
         self.config.load.cache_clear()
 
         def repor():
-            os.environ["RIFTVAULT_CONFIG"] = str(
-                Path(tempfile.gettempdir()) / "riftvault-nao-existe.json")
+            os.environ["RIFTVAULT_CONFIG"] = SEM_CONFIG
             importlib.reload(self.config)
             self.config.load.cache_clear()
 
@@ -566,7 +567,7 @@ class TestOModo(Base):
     def test_sem_a_chave_e_coleccao_e_o_deck_usa_o_que_ha(self):
         """A omissão do `so_base` virou a 2026-10-03: com `true`, um riftvault
         sem config mandava comprar uma carta que ele tem em Alt Art."""
-        os.environ["RIFTVAULT_CONFIG"] = str(Path(tempfile.gettempdir()) / "riftvault-nao-existe.json")
+        os.environ["RIFTVAULT_CONFIG"] = SEM_CONFIG
         importlib.reload(self.config)
         self.config.load.cache_clear()
         self.assertEqual(self.decks.modo(), "coleccao")

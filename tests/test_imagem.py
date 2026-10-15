@@ -16,9 +16,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from tests.fixture import SEM_CONFIG  # noqa: E402
+
 #: Um caminho que não existe: o `config` cai nos `DEFAULTS`. Sem isto lia-se o
 #: `riftvault_config.json` A SÉRIO, onde `multi.aberto` é `true`.
-SEM_CONFIG = str(Path(tempfile.gettempdir()) / "riftvault-nao-existe.json")
 
 from tests.fixture import Vault  # noqa: E402
 

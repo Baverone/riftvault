@@ -33,6 +33,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from tests.fixture import SEM_CONFIG  # noqa: E402
+
 from tests.fixture import REPO  # noqa: E402
 from tests.test_selado import CATALOGO, Base, TestNaoEntraNaColecao  # noqa: E402
 
@@ -170,7 +172,7 @@ class TestOConfigReal(unittest.TestCase):
         import importlib
         import tempfile
         from riftvault import config
-        os.environ["RIFTVAULT_CONFIG"] = str(Path(tempfile.gettempdir()) / "riftvault-nao-existe.json")
+        os.environ["RIFTVAULT_CONFIG"] = SEM_CONFIG
         importlib.reload(config)
         config.load.cache_clear()
 
