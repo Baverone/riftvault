@@ -187,10 +187,11 @@ class TestColecao(Base):
     def test_vai_para_um_bloco_proprio(self):
         con = self.edicao()
         self.assertEqual(self.blocos(con)["tst-sp4-006"], "special")
-        # «— 1 de cada» desde 2026-09-19 (*"as Promo passam a 1 de cada ao
-        # inves de playset"*); disse «— playset» durante 2026-09-18, «— 1 de
-        # cada» de 09-15 a 09-18, e «— playset» de 09-14 à noite até 09-15.
-        self.assertEqual(self.metrics.rotulo("special"), "Coleção — promos — 1 de cada")
+        # «— sem alvo» desde 2026-10-15 (*"não quero colecionar Promos com
+        # contagem, guardo se tiver"*); «— 1 de cada» de 2026-09-19 a 10-15,
+        # «— playset» durante 2026-09-18, «— 1 de cada» de 09-15 a 09-18, e
+        # «— playset» de 09-14 à noite até 09-15.
+        self.assertEqual(self.metrics.rotulo("special"), "Coleção — promos — sem alvo")
         con.close()
 
     def test_a_unit_que_partilha_o_numero_fica_onde_estava(self):
@@ -201,16 +202,15 @@ class TestColecao(Base):
         self.assertEqual(b["tst-004a-100"], "alt_art")
         con.close()
 
-    def test_o_alvo_da_promo_e_1_e_o_da_base_e_o_playset(self):
-        """*"as Promo passam a 1 de cada ao inves de playset"* (2026-09-19): a
-        promo pede 1; a Unit base da sequência continua a pedir 3. Andou:
-        playset a 09-14 (*"etc etc mete Playset na contagem"*), 1 a 09-15
-        (*"overnumbered e promos (SP) voltamos a 1 de cada"*), playset a 09-18
-        (*"as promos SP podes meter 3 de cada"*) — ver `test_alvo_1.py`."""
+    def test_a_promo_nao_pede_nada_e_a_base_pede_o_playset(self):
+        """*"não quero colecionar Promos com contagem, guardo se tiver"*
+        (2026-10-15): a promo não pede nada; a Unit base da sequência continua
+        a pedir 3. Andou: playset a 09-14, 1 a 09-15, playset a 09-18, 1 a
+        09-19 — ver `test_alvo_1.py`."""
         con = self.edicao()
         tiles = {pr["id"]: pr for g in self.metrics.set_payload(con, "TST")["groups"]
                  for pr in g["printings"]}
-        self.assertEqual(tiles["tst-sp4-006"]["target"], 1)
+        self.assertEqual(tiles["tst-sp4-006"]["target"], 0)
         self.assertEqual(tiles["tst-004-100"]["target"], 3)
         con.close()
 
@@ -234,10 +234,10 @@ class TestColecao(Base):
         tiles = {pr["id"]: pr for g in p["groups"] for pr in g["printings"]}
         self.assertEqual(tiles["tst-sp4-006"]["qty"], 1)
         blocos = {b["id"]: b for b in p["blocks"]}
-        # Uma de UMA (2026-09-19, *"as Promo passam a 1 de cada"*): o bloco
-        # conta-a como completa. Era «uma de três» durante 2026-09-18.
-        self.assertEqual((blocos["special"]["done"], blocos["special"]["total"]),
-                         (1, 1))
+        # «guardo se tiver» (2026-10-15): o bloco conta-a no «tens 1 de 1» e não
+        # tem nada a completar. Era «uma de uma» de 2026-09-19 a 10-15.
+        self.assertEqual((blocos["special"]["owned"], blocos["special"]["done"],
+                          blocos["special"]["total"]), (1, 0, 1))
         # E não entra no "se estivesse completa": não é preço de fechar o
         # master set. Mas continua a valer no que ele TEM — a caixa é a caixa.
         self.assertEqual(p["progress"]["value"]["full"], 0)
@@ -295,11 +295,13 @@ class TestListasDeCompra(Base):
         """
         con = self.edicao()
         escopo = set(self.a_subir.masterset(con))
+        # Na página e COM ALVO: a promo está na página mas não pede nada desde
+        # 2026-10-15, e por isso nem chega ao âmbito das listas.
         pela_metrica = {r["printing_id"] for r in
                         con.execute("SELECT * FROM catalog.printings")
-                        if self.metrics.e_colecao(r)}
+                        if self.metrics.e_colecao(r) and self.metrics.alvo(r) > 0}
         self.assertEqual(escopo, pela_metrica)
-        self.assertEqual(escopo, set(self.MASTER + self.EXTRA))
+        self.assertEqual(escopo, set(self.MASTER + self.EXTRA) - {"tst-sp4-006"})
         con.close()
 
     def test_a_promo_nao_entra_em_lista_de_compra_nenhuma(self):
@@ -328,10 +330,10 @@ class TestListasDeCompra(Base):
         """A página diz quantas TIROU e de que bloco: «promos», «runas especiais»."""
         con = self.edicao()
         scope = self.a_subir.master_faltas(con)["scope"]
-        self.assertEqual(scope["excluded"], len(self.EXTRA))
+        # A promo já não é TIRADA: sem alvo desde 2026-10-15, nem chega cá.
+        self.assertEqual(scope["excluded"], len(self.EXTRA) - 1)
         motivos = {c["criterio"]: c["n"] for c in scope["excluded_by"]}
-        self.assertEqual(motivos, {"special": 1, "alt_art": 1})
-        self.assertEqual(scope["excluded_labels"]["special"], "promos")
+        self.assertEqual(motivos, {"alt_art": 1})
         con.close()
 
     def test_desligado_o_botao_de_2026_09_14_tira_so_o_que_se_escrever(self):

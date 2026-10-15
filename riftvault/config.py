@@ -147,13 +147,37 @@ DEFAULTS: dict = {
     #                           `metrics.BLOCOS` (hoje só as runas especiais,
     #                           vazias). Só a ordem — não mexe no que cada
     #                           bloco mostra nem no alvo.
+    #   `sem_alvo`            — O QUE NÃO PEDE NADA, alvo zero (2026-10-15: "não
+    #                           quero colecionar Promos com contagem, guardo se
+    #                           tiver"). Ganha ao `um_de_cada` e revoga o 1 de
+    #                           cada das promos de 2026-09-19. Não esconde: a
+    #                           impressão fica na página e no valor, e sai de
+    #                           tudo o que se mede contra um alvo.
+    #   `raridades_promo`     — as raridades que fazem de uma impressão uma
+    #                           promo ("se tiver o simbolo de Promo na
+    #                           raridade"). Nenhuma no catálogo de hoje, por
+    #                           isso não se valida contra ele.
+    #   `special_alt`         — as Special Alt (K/DA e afins, 2026-10-15): bloco
+    #                           próprio a seguir às Alt Art, fora da percentagem.
     # `fora` é o nome antigo da primeira (2026-09-08 a 2026-09-14) e continua a
     # ser lido. Ver `metrics._fora`, `metrics.escondida`, `metrics.e_master`,
-    # `metrics.e_um_de_cada` e `metrics.ordem_dos_blocos`.
-    "master_set": {"fora_da_percentagem": ["a", "overnumbered", "promo"],
+    # `metrics.e_um_de_cada`, `metrics.e_sem_alvo` e `metrics.ordem_dos_blocos`.
+    #
+    # AS PROMOS SEM ALVO VIVEM NO CONFIG DELE, NÃO AQUI (2026-10-15, decisão de
+    # quem implementou): a omissão continua o regime de 2026-09-19 (promos a 1)
+    # porque é o MECANISMO que as baterias do quarto bloco das Faltas, do alvo 1
+    # e do painel descrevem — com `sem_alvo: ["promo"]` aqui esse mecanismo
+    # deixava de ter caso de teste. O `special_alt` entra aqui, sim: sem ele uma
+    # Special Alt contava para a percentagem num riftvault sem config.
+    "master_set": {"fora_da_percentagem": ["a", "special_alt", "overnumbered", "promo"],
                    "escondidas": ["-T", "*", "-R"],
                    "um_de_cada": ["overnumbered", "promo"],
-                   "ordem_dos_blocos": ["master", "overnumbered", "a", "promo"]},
+                   "sem_alvo": [],
+                   "raridades_promo": ["promo"],
+                   "ordem_dos_blocos": ["master", "overnumbered", "a", "special_alt", "promo"]},
+    # As variantes que a API traga e o riftvault não conheça (2026-10-15):
+    # variante (ou o prefixo dela) -> kind. Vazio; ver `catalog.variantes_extra`.
+    "variantes_extra": {},
     # O que os decks JOGAM.
     #   `so_base`            — O DECK USA O QUE ESTÁ NA COLEÇÃO, SEJA QUE ARTE
     #                          FOR. `false` desde 2026-10-03, que é a regra dele

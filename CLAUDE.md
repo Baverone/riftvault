@@ -11831,3 +11831,79 @@ no node); **prova pela negativa contra o `app.js` do `main`: 19 de 22
 vermelhos**, e os 3 verdes são os que fixam o que não podia mudar. O
 `test_foil_separado` ganhou as duas funções novas na lista do que o `foilLinha`
 precisa.
+
+## 2026-10-15 — PREPARAR A RADIANCE: um set novo entra sozinho; as promos SEM ALVO; a Special Alt com bloco próprio
+
+A RAD sai a 23/10 e a 15/10 **não existia em fonte nenhuma** (RiftScribe
+`/cards/filters` = OGN, OGS, SFD, UNL, VEN; RiftHunt idem; e o `/cards?set=RAD`
+**ignora** o `set=` — o parâmetro é `set_id`). O trabalho foi a maquinaria que a
+recebe, provada com um set FALSO. Ramo `ai-pc/radiance-2026-10-15`.
+
+**1. Um set novo JÁ entrava sozinho, e escolheu-se não escrever no config.** O
+sync descobre as edições pelo `/cards/filters`, o `prices.sync_map` pelo `code`
+do CardTrader, e o índice, as abas e o `build` leem as edições do CATÁLOGO, não
+do config. A ausência no `sets` tem omissão: o código como nome (o que ele
+escolheu a 31/08 para todas menos o OGS) e `order` 999 (depois das conhecidas,
+alfabética entre elas). **O sync NÃO escreve no config** — o ficheiro é escrito
+à mão e commitado, e uma escrita automática era uma edição sem ninguém a
+decidir; em vez disso **diz** que a edição é nova (`catalog.sync` → `sets_novos`,
+e uma linha no `riftvault sync`).
+
+**2. A Ultimate Rare: não há caso especial.** O Baron (`unl-238-219`,
+`UNL-238/219`, epic, variante base) é sobrenumerada pelo NÚMERO (238 > 219) —
+confirmado no catálogo real: bloco `overnumbered`, alvo 1, fora da percentagem.
+Uma Ultimate numerada acima do tamanho cai no mesmo sítio; uma raridade nova
+(«ultimate») não rebenta nada (provado com o set falso). Não se escreveu código.
+
+**3. VARIANTE DESCONHECIDA NUNCA É MASTER SET.** Até aqui uma `unknown` que
+ninguém pusesse numa lista caía na SEQUÊNCIA e contava para a percentagem, em
+silêncio. Agora vai para o bloco «Outras» (visível, fora da percentagem —
+`metrics.fora_do_master`) e o sync di-la. Dar-lhe nome é uma linha no
+**`variantes_extra`** do config (`{"b": "special_alt"}`, variante ou prefixo →
+kind; um kind desconhecido rebenta — `catalog.variantes_extra`).
+
+**4. Special Alt (as K/DA): `variant_kind` NOVO, `special_alt`** — *"Bloco
+próprio, a seguir às Alt Art"*. O `special` continua a ser a PROMO (as `VEN-SP`):
+são duas coisas e não se confundem. Bloco «Special Alt» a seguir ao `a` no
+`ordem_dos_blocos`, no `fora_da_percentagem`, alvo = playset do tipo (como as
+Alt Art; decisão minha — ele não disse outro). A gramática aceita `special_alt`,
+`special alt`, `special-alt`. Como a RiftScribe as vai escrever não se sabe: até
+alguém escrever o `variantes_extra`, ficam em «Outras». **NÃO têm bloco nas
+Faltas** (ele não pediu; ficam no `scope.fora` das Faltas, contadas).
+
+**5. As promos SEM ALVO — revoga o «1 de cada» de 2026-09-19.** *"não quero
+colecionar Promos com contagem, guardo se tiver, mas não tenho qualquer tipo de
+interesse se tiver o simbolo de Promo na raridade"*. Quarta lista do
+`master_set`, **`sem_alvo`** (hoje `["promo"]`, ganha ao `um_de_cada`), e
+**`raridades_promo`** (`["promo"]`: uma carta com essa raridade é tratada como
+`special`, venha a variante que vier — `metrics.kind_efectivo`; não se valida
+contra o catálogo porque hoje não existe). Alvo zero NÃO é escondido: o tile
+diz o número, o bloco diz «— sem alvo · tens N de M», o valor conta-as. Saem:
+o bloco «Promos» das Faltas (`faltas_edicao.blocos` tira blocos sem alvo), as
+wantlists (já saíam pelo `alvo > 0` do `a_subir.masterset`), o painel (idem), o
+filtro «Faltas» da grelha, e o **«A mais»** (`a_mais.excedente`: guardar não é
+ter a mais — uma ESCONDIDA de alvo 0 continua a sobrar inteira, como em 17/09).
+Para isso o `set_payload` e o `render()` passaram a contar as impressões sem
+alvo no «tens N de M» do bloco (sem isto o bloco sumia da lista `blocks` e o
+cliente não desenhava os tiles).
+
+**OS DEFAULTS DO CÓDIGO NÃO MUDARAM AS PROMOS** (decisão minha): continuam a 1
+(`sem_alvo: []`), porque é o MECANISMO que as baterias do quarto bloco das
+Faltas, do painel e do alvo 1 descrevem. A regra nova vive no config dele; o
+`special_alt` entrou nos DEFAULTS (sem ele contava para a percentagem).
+
+**Medido a 2026-10-15 numa cópia do `data/` real, `main` e ramo
+(`_revisao\_rad_medir.py`):** denominador **928**, níveis **913/889/843**,
+wantlist «tudo» **85 · 135 · 430,54 €**, valor **11 696,70 €**, Faltas a
+comprar e as foils — **iguais**. Ele tem as **6 `VEN-SP` todas** (a SP5 a 2),
+por isso nenhuma falta em euros desaparece. Mexe: Faltas âmbito **1122 → 1116**
+e 4 → **3 blocos**; tiles das promos «1/1» → **«1»** (alvo 0); bloco «promos —
+1 de cada · tens 6 de 6» → **«promos — sem alvo · tens 6 de 6»**; «A mais»
+**60 · 121 → 59 · 120** (sai a SP5); painel «Tudo» de «Todas» **1116 → 1110**
+(VEN 221 → 215) e o chip «promos» some.
+
+`tests/test_radiance.py` — o set falso `FKE` (base, uma «ultimate» 11/10, alt
+art, uma variante `b`, uma promo `SP`, uma promo pela raridade, um token) pelo
+`riftvault sync` com a API simulada até ao `build`. Ajustados por fixarem o
+regime de 19/09 lendo o config real: `test_alvo_1`, `test_promos`; e
+`test_masterset` (a ordem e os kinds dos DEFAULTS ganharam a Special Alt).
