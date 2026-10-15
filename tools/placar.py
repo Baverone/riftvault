@@ -107,13 +107,28 @@ def ficheiros_de_teste(raiz: Path) -> list[Path]:
 #           4          241s         3.1
 #           6          189s         5.5   <-- este, 2,4x mais rápido
 #
-# Não se vai além dos 6 de propósito. A primeira medição do dia deu 1,2x com 8,
-# e a razão era essa: havia duas outras ordens pesadas a correr, e cada ficheiro
+# Ficou nos 6 até 2026-10-15. A primeira medição de 02/10 deu 1,2x com 8, e a
+# razão era essa: havia duas outras ordens pesadas a correr, e cada ficheiro
 # ficava 6,5x mais lento acompanhado — não é processador (são 32 núcleos), é
 # disco e SQLite. Com a máquina livre o paralelo paga-se; com ela ocupada,
 # aumentar o número só a esgana mais. E o 8770 que ele usa do telemóvel corre
 # aqui: uma suite que coma a máquina faz-lhe o site parecer morto.
-TECTO_TRABALHADORES = 6
+#
+# SUBIU PARA 16 a 2026-10-15 («sobe o tecto», decisão dele). MEDIDO com a SUITE
+# INTEIRA (89 ficheiros, 2853 testes, VERDE em todas), no mesmo HEAD (020574f):
+#
+#     trabalhadores   máquina                          parede   mais lento
+#           6          livre                            1336s       238s
+#          16          livre                            1034s       472s
+#          12          com uma ordem `claude` ao lado   1466s        —
+#
+# Ganham-se ~300 s por merge (23 %), não os 2,7x da conta ingénua: com 16 cada
+# ficheiro leva o dobro, porque a máquina continua presa ao disco e ao SQLite.
+# A terceira linha é a cautela de 02/10 confirmada — com a máquina ocupada, 12
+# foi PIOR do que 6 com ela livre. O 16 é um número medido NESTA máquina
+# (i9-13900K, 24 núcleos / 32 lógicos), não uma lei: numa máquina pequena manda
+# o `cpu_count`, e a variável de ambiente manda por cima de tudo.
+TECTO_TRABALHADORES = 16
 
 # Para depurar: corre um de cada vez, como até 2026-09-30.
 ENV_SERIE = "RIFTVAULT_SUITE_SERIE"
