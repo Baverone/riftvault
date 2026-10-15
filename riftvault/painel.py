@@ -64,18 +64,15 @@ RARIDADES = [
     ("showcase", "Showcase"),
 ]
 
-# Os domínios, pela ordem da maqueta. O `Colorless` da RiftScribe é «sem
-# domínio»; uma carta com dois domínios é «multi-domínio» — uma linha só,
-# como ele a desenhou, e não uma linha por domínio, senão a soma das linhas
-# passava o total do bloco. Um domínio novo aparece na mesma, antes dos dois
-# últimos, com o nome que trouxer.
-DOMINIOS = [
-    ("fury", "Fury"),
-    ("body", "Body"),
-    ("calm", "Calm"),
-    ("mind", "Mind"),
-    ("chaos", "Chaos"),
-    ("order", "Order"),
+# Os domínios, pela ordem DELE (2026-10-15: Fury, Calm, Mind, Body, Chaos,
+# Order — era a da maqueta, com o Body em segundo). A ordem vive numa fonte
+# só, `metrics.ORDEM_DOS_DOMINIOS`, que o bloco das runas também lê. O
+# `Colorless` da RiftScribe é «sem domínio»; uma carta com dois domínios é
+# «multi-domínio» — uma linha só, como ele a desenhou, e não uma linha por
+# domínio, senão a soma das linhas passava o total do bloco. Estas duas são
+# as linhas de FECHO; um domínio novo aparece na mesma, antes delas, com o
+# nome que trouxer.
+DOMINIOS = [(k, k.capitalize()) for k in metrics.ORDEM_DOS_DOMINIOS] + [
     ("none", "Sem domínio"),
     ("multi", "Multi-domínio"),
 ]

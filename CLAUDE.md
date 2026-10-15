@@ -11762,3 +11762,32 @@ só o `a_mais.py` do `main` → 1 vermelho (o do «A mais»); só o `locais.py` 
 `prices.py` do `main` → 6 vermelhos (os do stock e do valor). Ajustados por fixarem o regime antigo: `test_faltas_foil` e
 `test_foil_separado` (Rune 12), `test_colar` e `test_sem_decks` (as próprias
 «ficam no `proprio:<slug>`»).
+
+## 2026-10-15 — A ORDEM DOS DOMÍNIOS E DAS RUNAS É A DELE (`metrics.ORDEM_DOS_DOMINIOS`)
+
+Palavras dele: *"Ordena as runas assim: Fury - Calm - Mind - Body - Chaos -
+Order"* e, sobre o quadro Domínio do painel, *"aqui também, pela ordem que eu
+te disse"*. Ramo `ai-pc/ordem-dos-dominios-2026-10-15`.
+
+**Uma fonte só**, no código: `metrics.ORDEM_DOS_DOMINIOS` (+
+`posicao_do_dominio`, que aceita «Fury» ou «Fury Rune»). Leem dela o quadro
+Domínio (`painel.DOMINIOS`, que antes era a ordem da maqueta, Body em
+segundo), o bloco «Runas — 12 de cada» (era alfabético), o rasto do contador
+antigo (`runas_vista.arquivo`, era `ORDER BY card_key`) e os domínios da
+Legend na página do deck (`decks.legality`, era `sorted`). O que a lista não
+nomeia vai para o FIM, por ordem alfabética; «Sem domínio» e «Multi-domínio»
+continuam a fechar o quadro. O cliente não tem lista própria (a ordem vem do
+payload); o `style.css` foi reordenado só para se ler igual.
+
+**Não é chave de config, por agora**: a ordem é dele e fixa, e havia outra
+sessão a mexer no config. Levá-la a uma chave é decisão dele. **Por fazer:**
+a `_runas_vista_nota` do config ainda enumera as seis por ordem alfabética.
+
+**Medido numa cópia do `data/` real, HEAD do ramo contra o código novo:**
+zero diferenças fora da ordem — `copies` com o mesmo sha (1071 linhas · 2798
+normais · 627 foil), o `rune_counter`, as runas (70 · 39 sem retiradas · 35
+no contador), os níveis (913/891/847 de 928), o painel inteiro por id, as
+Faltas, o valor (9 499,13 €) e o A mais (60 · 121).
+`tests/test_ordem_dos_dominios.py`; três testes ajustados por fixarem a ordem
+antiga (`test_painel`, `test_runas_vista`, `test_runas_por_edicao`, e o rasto
+do `test_runas_contador_edicao`).
