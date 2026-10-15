@@ -12058,3 +12058,23 @@ RiftScribe tomar conta — fica a arte da dotgg, que é a mesma carta.
 
 **A percentagem desce, e é o esperado:** a sequência da RAD entra no
 denominador com zero cópias. Os números da Coleção dele não mexem.
+
+### A RAD lê-se por NÚMERO, não por nome (2026-10-15, à noite)
+
+Palavras dele, a olhar para a aba: *"nao podes ordenar por numeraçao?"*. A dotgg
+devolve as cartas por ordem ALFABÉTICA de nome e o `api_sort` saía da ordem de
+chegada — a grelha abria em «Ahri, Confident» (RAD-038). Ramo
+`ai-pc/ordem-por-numero-2026-10-15`.
+
+O `api_sort` sai agora do `dotgg.ordenar` (`chave_de_ordem`): o número, e dentro
+dele a ordem que a RiftScribe usa nas edições dela (medida, não inventada) — a
+família principal `''`, `a`, `star` (OGN 30× base+alt, 12× base+assinada), e as
+séries por ordem do nome da variante (VEN `''`, `r04`, `sp4`, `t04`). As promos de
+evento (`p`, `p2`), que a RiftScribe não tem, ficam coladas à família principal,
+antes das séries. **O upsert do `gravar_edicao` já reescrevia o `api_sort`**, por
+isso voltar a correr o `riftvault dotgg` arruma a RAD que já está gravada — não
+houve migração. Medido numa cópia do `data/` real: antes `rad-038, rad-sp1,
+rad-038-p2, …` (número não monótono); depois `rad-001, rad-r01, rad-r01a, rad-sp1,
+rad-002, …`, os mesmos 232 ids, a `copies` com o mesmo sha, e o bloco master do
+`api/set/RAD.json` a abrir em RAD-001/167 e a fechar em RAD-167/167.
+`tests/test_radiance_ordem.py` (12; sem o `ordenar` ficam 6 vermelhos).
