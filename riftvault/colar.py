@@ -206,10 +206,14 @@ def apagar(con: sqlite3.Connection, slug: str, *, confirmar: bool = False) -> di
 
     É o par do `gravar`: quem pode meter uma lista pela janela tem de poder
     tirá-la por lá, senão a única saída é ir à pasta à mão, que é exactamente o
-    que esta secção veio resolver. **Apagar a lista não apaga cópias** — as
-    cópias próprias do deck ficam gravadas no `proprio:<slug>`, fora da
-    Coleção, como já acontecia a um deck cujo ficheiro desaparecia.
+    que esta secção veio resolver. **Apagar a lista não apaga cópias** — desde
+    2026-10-13 as próprias e as sleevadas do deck vão para o STOCK DOS DECKS (o
+    binder), fora da Coleção, onde outro deck as pode usar
+    (`locais.devolver_ao_stock`); até aí ficavam presas no `proprio:<slug>` de
+    um deck que já não existia.
     """
+    from . import locais
+
     destino = _ficheiro(con, _slug(slug))
     if not destino.exists():
         raise decks.DeckDesconhecido(f"não há nenhuma lista «{slug}»")
@@ -217,4 +221,5 @@ def apagar(con: sqlite3.Connection, slug: str, *, confirmar: bool = False) -> di
         raise PrecisaConfirmar(f"apagar a lista «{slug}» — confirma")
     destino.unlink()
     decks.import_all(con, log=lambda *_: None)
-    return {"apagado": True, "slug": _slug(slug)}
+    stock = locais.devolver_ao_stock(con, _slug(slug), source="web")
+    return {"apagado": True, "slug": _slug(slug), "ao_stock": stock}

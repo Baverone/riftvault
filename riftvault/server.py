@@ -578,7 +578,8 @@ def api_decks_apagar():
     """Apagar a lista de um deck (2026-10-02): `{slug, confirmar}`.
 
     O par do `colar`: quem mete uma lista pela janela tem de poder tirá-la por
-    lá. **Não apaga cópias** — as próprias do deck ficam no `proprio:<slug>`.
+    lá. **Não apaga cópias** — desde 2026-10-13 as próprias do deck vão para o
+    stock dos decks (o binder), ver `colar.apagar`.
     """
     data = request.get_json(silent=True) or {}
     con = get_con()

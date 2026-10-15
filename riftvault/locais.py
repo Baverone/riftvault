@@ -326,6 +326,12 @@ def contadas(con: sqlite3.Connection, cfg: dict | None = None, *,
     for mapa in proprias(con).values():
         for pid, n in mapa.items():
             total[pid] = max(0, total.get(pid, 0) - n)
+    # O STOCK DOS DECKS (o binder) também não conta, desde 2026-10-13: é para
+    # onde vão as próprias de um deck que deixa de jogar (`devolver_ao_stock`),
+    # e uma cópia que não valia nada no `proprio:<slug>` não pode passar a valer
+    # por o deck ter sido desmontado. *«Deck é Deck»* — à parte da Coleção.
+    for pid, n in em(con, BINDER).items():
+        total[pid] = max(0, total.get(pid, 0) - n)
     # As foils entram aqui com `foil.conta_para_valor` ligado — e desde
     # 2026-09-26 está: *"contam para o valor sim"*. **Quem as multiplica por um
     # preço tem de as separar**: uma foil vale o `price_foil_cents`, não o
@@ -551,6 +557,33 @@ def desfazer_deck(con: sqlite3.Connection, slug: str, source: str = "cli") -> di
         (local,)).fetchall()
     feitas = [mover(con, r["printing_id"], r["qty"], local, BINDER, source=source)
               for r in linhas]
+    return {"deck": slug, "printings": len(feitas),
+            "copies": sum(x["qty"] for x in feitas), "movidas": feitas}
+
+
+def devolver_ao_stock(con: sqlite3.Connection, slug: str, source: str = "cli") -> dict:
+    """O deck deixa de jogar: as cópias DELE vão para o STOCK DOS DECKS.
+
+    André, 2026-10-13: *«Coleção é Coleção e não mexe, tudo tem que lá estar /
+    Deck é Deck / tudo o que eu marcar que tenho no deck, deve ser tratado como
+    à parte, caso o deck deixe de jogar, essas cartas ficaram guardadas para
+    outro deck que as possa usar mais tarde»*.
+
+    O STOCK DOS DECKS É O BINDER que já existia (2026-09-10, «o stock livre
+    dos decks»): não se fez um bolso novo. As cópias próprias (`proprio:<slug>`,
+    que só servem aquele deck) e as sleevadas (`deck:<slug>`) passam lá, onde
+    servem qualquer deck por prioridade e nenhuma conta para a Coleção nem para
+    o valor (`na_colecao` e `contadas` tiram-nas). **Nunca voltam à Coleção.**
+    Chamado ao DESMONTAR e ao APAGAR a lista; cada movimento fica na
+    `location_ops` e no `locais.log`, como todos os outros.
+    """
+    feitas = []
+    for local in (deck_local(slug), proprio_local(slug)):
+        for r in con.execute(
+            "SELECT printing_id, qty FROM copy_locations WHERE location = ? AND qty > 0",
+            (local,)).fetchall():
+            feitas.append(mover(con, r["printing_id"], r["qty"], local, BINDER,
+                                source=source))
     return {"deck": slug, "printings": len(feitas),
             "copies": sum(x["qty"] for x in feitas), "movidas": feitas}
 

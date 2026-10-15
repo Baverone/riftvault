@@ -341,15 +341,19 @@ class TestAVendaEAsProprias(Base):
         antes = self.sha_copies(con)
         self.apagar(con)
         self.assertEqual(self.sha_copies(con), antes, "a Venda não vende")
-        self.assertEqual(self.locais.proprias_de(con, "azir"), {"tst-001-100": 1},
-                         "a cópia continua no proprio:azir")
+        # Desde 2026-10-13 a cópia sai do `proprio:azir` para o STOCK DOS DECKS
+        # (o binder) — não é vendida e não volta à Coleção.
+        self.assertEqual(self.locais.em(con, self.locais.BINDER), {"tst-001-100": 1},
+                         "a cópia passa ao stock dos decks")
 
     def test_as_proprias_nao_se_apagam_e_dizem_se(self):
         con = self.catalogo()
         self.proprias.ajustar(con, "ornn", "tst-001-100", 2, source="test")
         res = self.apagar(con)
         self.assertEqual(res["proprias"], {"ornn": 2})
-        self.assertEqual(self.locais.proprias_de(con, "ornn"), {"tst-001-100": 2})
+        # Não se apagam: vão para o stock dos decks (2026-10-13).
+        self.assertEqual(self.locais.proprias_de(con, "ornn"), {})
+        self.assertEqual(self.locais.em(con, self.locais.BINDER), {"tst-001-100": 2})
 
     def test_as_proprias_continuam_fora_da_colecao_e_do_valor(self):
         con = self.catalogo()
@@ -518,9 +522,10 @@ class TestAFraseEmVezDoVazioMudo(Base):
         trecho = APP_JS[max(0, i - 1200):i + 600]
         self.assertIn("decks && !decks.length", trecho,
                       "faltava o caso de ZERO decks, antes do `decks.length`")
-        # E o caso de zero vem ANTES do que conta `cheios`/`decks.length`.
+        # E o caso de zero vem ANTES do que conta os decks (2026-10-13: a
+        # contagem passou para o `iniDecksContagem`; era um `const cheios`).
         self.assertLess(trecho.index("decks && !decks.length"),
-                        trecho.index("const cheios"))
+                        trecho.index("const c = iniDecksContagem(decks)"))
         self.assertIn("SEM_DECKS", trecho)
 
     def test_a_lista_do_inicio_diz_porque_esta_vazia(self):

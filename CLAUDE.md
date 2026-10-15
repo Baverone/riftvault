@@ -21,6 +21,16 @@ secções abaixo que falam da Legend/Champion em versão especial (17/09) ou de
 outras versões a tapar buracos descrevem a regra que `so_base: false` liga;
 com `true` (hoje) não valem.
 
+**DESDE 2026-10-13 HÁ DOIS BOLSOS** — *«Coleção é Coleção e não mexe, tudo
+tem que lá estar / Deck é Deck»*. Três decisões dele: (1) **duas percentagens
+lado a lado** — o master set continua em não-foil e ao lado há o **master set
+foil** (`foil.master_set_foil`, alvo 3 em foil nas comuns e incomuns; o alvo
+das foils passou de Rune 12 a Rune 3); (2) **até às raras, nunca da Coleção**
+(`decks.abaixo_do_patamar: "so_o_excedente"`: abaixo da épica um deck só vê o
+que passa do alvo); (3) **desmontar devolve ao STOCK DOS DECKS** (o binder,
+`locais.devolver_ao_stock`), que não conta para a Coleção nem para o valor.
+Ver a última secção deste ficheiro.
+
 **DESDE 2026-09-27 HÁ UM DECK PRINCIPAL** (`decks.principal`, hoje «LeBlanc
 Hook») — *"Deck Principal: neste caso LeBlanc […] todas as cartas do Deck sao
 Wantlist, as comuns e incomuns em Foil"*. É UM só, é sempre montado
@@ -11672,3 +11682,64 @@ NEGATIVA** (worktree com o `riftvault/` do `main`, na FONTE): **39 dos 56
 vermelhos**. Seis ficheiros do selado foram ajustados — contavam a aba do
 catálogo real (30 → 26), um os Vault como «têm de ficar», e um lia o preço da
 262 que o `--sync` já não pede.
+
+## 2026-10-13/14 — OS DOIS BOLSOS: master set foil ao lado, «até às raras nunca da Coleção», e o stock dos decks
+
+Palavras dele (13/10): *«Coleção é Coleção e não mexe, tudo tem que lá estar /
+Deck é Deck / tudo o que eu marcar que tenho no deck, deve ser tratado como à
+parte, caso o deck deixe de jogar, essas cartas ficaram guardadas para outro
+deck que as possa usar mais tarde»*. A primeira ordem MEDIU e parou (à letra o
+master set caía de 89,2 % para 51,2 % e os decks pediam 407,02 €) —
+`docs/dois-bolsos-2026-10-13.md`. Ele decidiu no mesmo dia; ramo
+`ai-pc/dois-bolsos-v2-2026-10-13`, e a tabela antes/depois está nesse documento.
+
+**1. «Duas percentagens lado a lado».** O master set NÃO muda de alvo (não-foil,
+comparável com o de ontem e com o dos amigos). Ao lado nasce o **master set
+foil** — `foil.master_set_foil`, `index.levels_foil`, um cartão no Início, uma
+tabela no `riftvault stats`: o mesmo denominador, as impressões do âmbito do
+foil (`foil.no_ambito`) a contar FOILS contra o alvo 3, as outras a contar como
+no master set. Medido: **475/928 = 51,2 %** ao lado dos **828/928 = 89,2 %**. A
+wantlist dele é a metade das foils das Faltas, e **por isso o `foil.alvo` passou
+do playset jogável (Rune 12) para o alvo de Coleção do tipo (Rune 3)**: o tile,
+as Faltas (829 → **775** cópias) e o número dizem agora o mesmo. A divergência
+«runa 3 / foil 12» de 27/09, que era pergunta, acabou.
+
+**2. «Épicas podem vir da Coleção».** Reusa o `coleccao_so_a_partir_de: "epic"`
+de 24/09, que só MARCAVA: a chave nova `decks.abaixo_do_patamar` passa a
+`"so_o_excedente"` no config dele — abaixo do patamar o monte da Coleção que o
+deck vê é `max(0, cópias − alvo)` (`decks.so_o_excedente`, chamado no
+`allocate`), o aviso vem vazio, e o que não houver (próprias, stock) é falta. A
+omissão do código é `"marca"` (o de 24/09), de propósito: um riftvault sem
+config mede o que sempre mediu. **O excedente acima do alvo É usável** — decisão
+nossa, dita: a 4.ª cópia de uma Unit não é «o que tem de lá estar». O «A mais»
+passou a SOMAR as usadas ao alvo nessas cartas (`cópias − alvo − usadas`), senão
+oferecia como sobra o que o deck está a jogar (os dois decks montados: 122 →
+**118** cópias). Medido com os dois montados: a falta dos decks vai de **6 cópias
+· 14,31 €** a **85 cópias · 43 cartas · 62,86 €** (a ordem estimava ~54 €: essa
+conta dava as comuns normais como stock; com a decisão 1 elas continuam a ser a
+Coleção).
+
+**3. O bolso comum é o BINDER que já existia** («o stock livre dos decks», 10/09).
+`locais.devolver_ao_stock` manda as próprias (`proprio:<slug>`) e as sleevadas
+(`deck:<slug>`) para lá ao DESMONTAR (`principal.montar`, depois da despromoção
+para a Venda), ao APAGAR A LISTA (`colar.apagar`) e no `decks.apagar_todos`. Lá
+servem qualquer deck por prioridade e **nunca voltam à Coleção**. E **o binder
+deixou de contar para o valor** (`locais.contadas`, `prices.copias_sql` — os dois
+gémeos), como as próprias: senão desmontar fazia o valor subir. Hoje a
+`copy_locations` está vazia, por isso o valor não mexeu (8 297,82 € dos dois
+lados).
+
+**O que não se fez:** o patch de 13/10 (`foil.coleccao_em_foil`) não se usou — a
+decisão 1 tirou-lhe a razão. O «A mais» continua escondido, e é a única casa do
+excedente acima do alvo que os decks agora usam: está dito no documento como a
+pergunta que fica. A omissão `marca` no `config.DEFAULTS` é escolha, não
+descuido.
+
+`tests/test_dois_bolsos.py` (31 testes); **prova pela negativa na FONTE**
+(`_revisao\_prova_negativa_dois_bolsos.py`, árvore com o `riftvault/` e o config
+do `main`): **23 dos 31 vermelhos**, e os 8 verdes são os que fixam o que não
+podia mudar. Duas provas PARCIAIS (`_prova_negativa_dois_bolsos_parcial.py`):
+só o `a_mais.py` do `main` → 1 vermelho (o do «A mais»); só o `locais.py` e o
+`prices.py` do `main` → 6 vermelhos (os do stock e do valor). Ajustados por fixarem o regime antigo: `test_faltas_foil` e
+`test_foil_separado` (Rune 12), `test_colar` e `test_sem_decks` (as próprias
+«ficam no `proprio:<slug>`»).

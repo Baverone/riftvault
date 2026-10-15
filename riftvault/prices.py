@@ -582,8 +582,11 @@ def copias_sql(con: sqlite3.Connection, cfg: dict | None = None) -> tuple[str, l
             f"        c0.qty - COALESCE(cl.q, 0) + {foil} AS qty "
             " FROM copies c0 "
             " LEFT JOIN (SELECT printing_id, SUM(qty) AS q FROM copy_locations "
-            "            WHERE location LIKE ? GROUP BY printing_id) cl "
-            " ON cl.printing_id = c0.printing_id) c", [locais.PROPRIO_PREFIX + "%"])
+            "            WHERE location LIKE ? OR location = ? GROUP BY printing_id) cl "
+            " ON cl.printing_id = c0.printing_id) c",
+            # O stock dos decks (o binder) sai também, desde 2026-10-13 — ver o
+            # `locais.contadas`, que é o gémeo.
+            [locais.PROPRIO_PREFIX + "%", locais.BINDER])
 
 
 def valor_sql(c: str = "c", p: str = "p") -> str:

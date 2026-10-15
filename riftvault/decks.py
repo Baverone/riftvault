@@ -473,9 +473,9 @@ def apagar_todos(con: sqlite3.Connection, cfg: dict | None = None,
     Os seis passos, cada um pela porta que já existia:
 
       1. **Conta as cópias próprias** (`locais.proprias`) e di-las. Não as
-         apaga: uma cópia própria é dele e fica gravada no `proprio:<slug>`,
-         fora da Coleção e do valor, como já acontecia a um deck cujo `.txt`
-         desaparecia. Quem chama vê o número no relatório.
+         apaga: uma cópia própria é dele. Até 2026-10-13 ficava no
+         `proprio:<slug>`; desde esse dia vai no passo 3 para o STOCK DOS
+         DECKS (o binder), fora da Coleção e do valor, onde outro deck a usa.
       2. **Despromove o principal** (`principal.definir(con, None)`), que é o
          que manda as cópias próprias dele de 0,50 € para cima para a Venda —
          *"se eu 'desfazer' o deck ou deixar de ser o principal, essas cartas
@@ -516,11 +516,12 @@ def apagar_todos(con: sqlite3.Connection, cfg: dict | None = None,
     slugs = [r["name"] for r in rows]
     rotulos_ = {r["name"]: (r["display_name"] or r["name"]) for r in rows}
 
-    # 1. As cópias próprias — contam-se e dizem-se, nunca se apagam.
+    # 1. As cópias próprias — contam-se e dizem-se, nunca se apagam (vão para o
+    # stock dos decks no passo 3).
     pr = locais_mod.proprias(con)
     proprias = {s: sum(q.values()) for s, q in pr.items() if sum(q.values())}
     if proprias:
-        log("  cópias próprias que FICAM gravadas (fora da Coleção, como já estavam):")
+        log("  cópias próprias que FICAM, no stock dos decks (fora da Coleção):")
         for s, n in sorted(proprias.items()):
             log(f"    {rotulos_.get(s, s)}: {n}")
 
@@ -536,12 +537,14 @@ def apagar_todos(con: sqlite3.Connection, cfg: dict | None = None,
                if n.get("copies") else " — nada para a Venda"))
         cfg = config.load()
 
-    # 3. O que estivesse sleevado vai para o binder Decks/Venda.
+    # 3. O que estivesse sleevado E as cópias próprias vão para o stock dos
+    # decks (o binder) — desde 2026-10-13 as próprias também: *«caso o deck
+    # deixe de jogar, essas cartas ficaram guardadas para outro deck»*.
     desfeitos = []
     for s in slugs:
-        d = locais_mod.desfazer_deck(con, s, source=source)
+        d = locais_mod.devolver_ao_stock(con, s, source=source)
         if d["copies"]:
-            log(f"  {rotulos_.get(s, s)}: {d['copies']} cópias sleevadas → binder")
+            log(f"  {rotulos_.get(s, s)}: {d['copies']} cópias → stock dos decks (binder)")
         desfeitos.append(d)
 
     # 4. Arquivar e apagar os `.txt`.
@@ -998,8 +1001,10 @@ class DeckDesconhecido(ValueError):
 # repetidas exclusivamente aos decks, para nao ter que mexer na coleccao.
 # apenas miticas para acima devo ter que usar as da coleccao"*. Da raridade
 # `decks.coleccao_so_a_partir_de` para CIMA um deck serve-se da Coleção sem
-# aviso; abaixo dela, a cópia devia vir das PRÓPRIAS do deck. **Não bloqueia:
-# marca** — a alocação é a mesma, e sai `aviso_colecao` por carta e somado.
+# aviso; abaixo dela, a cópia devia vir das PRÓPRIAS do deck. **Até 2026-10-13
+# não bloqueava: marcava** — a alocação era a mesma, e saía `aviso_colecao`.
+# Desde esse dia BLOQUEIA no config dele (`decks.abaixo_do_patamar:
+# so_o_excedente`, ver a seguir); `marca` continua a ser a omissão.
 # (No Riftbound não há «mítica»: a raridade de topo do catálogo é a `epic`.)
 RARIDADE_COLECAO = "coleccao_so_a_partir_de"
 
@@ -1028,6 +1033,74 @@ def raridades_da_colecao(cfg: dict | None = None) -> frozenset[str]:
     if minima is None:
         return frozenset(metrics.RARITY_ORDER)
     return frozenset(metrics.RARITY_ORDER[metrics.RARITY_ORDER.index(minima):])
+
+
+# ABAIXO DO PATAMAR: MARCA OU SÓ O EXCEDENTE (André, 2026-10-13). A regra de
+# 2026-09-24 MARCAVA e não bloqueava. Nesse dia ele decidiu, entre as hipóteses
+# que lhe foram postas, *«épicas podem vir da Coleção»* — e com isso a outra
+# metade: a sua regra *«Coleção é Coleção e não mexe, tudo tem que lá estar /
+# Deck é Deck»* vale ATÉ ÀS RARAS. Comuns, incomuns e raras que um deck use têm
+# de ser cópias PRÓPRIAS do deck (ou do stock dos decks, o binder), nunca da
+# Coleção. Das épicas para cima continuam a poder sair da Coleção.
+#
+#   `marca`           — o de 2026-09-24: a alocação serve-se da Coleção inteira
+#                       e o que vem de baixo do patamar sai em `aviso_colecao`;
+#   `so_o_excedente`  — o de 2026-10-13: abaixo do patamar um deck só vê da
+#                       Coleção o que passa do ALVO dela (`metrics.alvo`) —
+#                       as cópias que a Coleção não precisa. As que fazem o
+#                       alvo ficam lá, e o que o deck não tiver é falta.
+#
+# O EXCEDENTE NÃO É «TIRAR DA COLEÇÃO», e é decisão nossa, dita: a quarta cópia
+# de uma Unit de playset 3 não faz parte do que a Coleção quer ter («tudo tem
+# que lá estar» — está, as três). Deixar o deck usá-la é o que a medição de
+# 13/10 chamava «stock à solta»; a outra leitura (o deck só vê próprias e
+# binder) põe-no a comprar o que ele já tem na caixa. A medição das duas está
+# no `docs/dois-bolsos-2026-10-13.md`.
+ABAIXO = "abaixo_do_patamar"
+ABAIXO_MARCA = "marca"
+ABAIXO_EXCEDENTE = "so_o_excedente"
+ABAIXO_VALORES = (ABAIXO_MARCA, ABAIXO_EXCEDENTE)
+
+
+def abaixo_do_patamar(cfg: dict | None = None) -> str:
+    """`decks.abaixo_do_patamar`: `marca` (a omissão) ou `so_o_excedente`."""
+    valor = _opcoes_decks(cfg).get(ABAIXO) or ABAIXO_MARCA
+    if valor not in ABAIXO_VALORES:
+        raise ValueError(f"decks.{ABAIXO} = {valor!r}: aceita {ABAIXO_VALORES}")
+    return valor
+
+
+def so_o_excedente(con: sqlite3.Connection, colecao: dict[str, int],
+                   raridades: dict[str, str], raridades_ok: frozenset[str],
+                   cfg: dict | None = None) -> dict[str, int]:
+    """O monte da Coleção que os decks VEEM, com `so_o_excedente` ligado.
+
+    Por impressão: da raridade do patamar para cima, a Coleção inteira; abaixo
+    dele, `max(0, cópias − alvo)` — só o que passa do alvo. A raridade é a da
+    CARTA (`raridade_por_carta`), como no aviso: a arte alternativa de uma rara
+    é `showcase` e continua a ser uma rara. O alvo é o `metrics.alvo` das
+    impressões da Coleção; uma escondida não tem alvo (0) e sobra inteira.
+    Não escreve nada e não muda número nenhum da Coleção: é o que os decks
+    podem pedir emprestado.
+    """
+    from . import metrics
+
+    cfg = cfg or config.load()
+    if not colecao:
+        return {}
+    linhas = {r["printing_id"]: r for r in con.execute(
+        "SELECT printing_id, card_key, set_id, collector_number, public_code, "
+        "       variant_kind, type, is_token FROM catalog.printings")}
+    out: dict[str, int] = {}
+    for pid, q in colecao.items():
+        r = linhas.get(pid)
+        if r is None or raridades.get(r["card_key"]) in raridades_ok:
+            out[pid] = q
+            continue
+        alvo = metrics.alvo(r, cfg) if metrics.e_colecao(r, cfg) else 0
+        if q - alvo > 0:
+            out[pid] = q - alvo
+    return out
 
 
 def raridade_por_carta(con: sqlite3.Connection,
@@ -1750,10 +1823,13 @@ def allocate(con: sqlite3.Connection) -> dict:
     isso que faz a Coleção dar exactamente os mesmos números que daria sem
     esses decks.
 
-    A REGRA DE RARIDADE (mesmo dia, `decks.coleccao_so_a_partir_de`) não muda
-    alocação nenhuma: marca. `aviso_colecao` é, por carta, quantas cópias
-    saem da Coleção com uma raridade abaixo do patamar — as que ele quer que
-    venham das cópias próprias do deck.
+    A REGRA DE RARIDADE (mesmo dia, `decks.coleccao_so_a_partir_de`) com
+    `decks.abaixo_do_patamar: marca` não muda alocação nenhuma: marca.
+    `aviso_colecao` é, por carta, quantas cópias saem da Coleção com uma
+    raridade abaixo do patamar. Com `so_o_excedente` (2026-10-13, *«épicas
+    podem vir da Coleção»* — e o resto não) BLOQUEIA: abaixo do patamar o monte
+    da Coleção é só o que passa do alvo (`so_o_excedente`), o que o deck não
+    tiver é falta, e o aviso vem vazio.
     """
     from . import pending
 
@@ -1788,6 +1864,12 @@ def allocate(con: sqlite3.Connection) -> dict:
     # (2026-09-24). O aviso é informação: não muda a alocação.
     raridades = raridade_por_carta(con, versoes)
     raridades_ok = raridades_da_colecao()
+    # Com `so_o_excedente` (2026-10-13) a regra passa a BLOQUEAR: abaixo do
+    # patamar o deck só vê o que passa do alvo da Coleção, e já não há nada a
+    # avisar — o que sai da Coleção abaixo do patamar é só excedente.
+    bloqueia = abaixo_do_patamar() == ABAIXO_EXCEDENTE
+    if bloqueia:
+        colecao_real = so_o_excedente(con, colecao_real, raridades, raridades_ok)
 
     # AS DUAS PASSAGENS (2026-09-24). Primeiro os grupos dos decks MONTADOS,
     # pela prioridade de sempre, a consumir os montes; depois cada DESMONTADO
@@ -2183,8 +2265,9 @@ def allocate(con: sqlite3.Connection) -> dict:
             # A REGRA DE RARIDADE (2026-09-24): as cópias que este deck tira da
             # COLEÇÃO e cuja raridade está abaixo do patamar — as que ele quer
             # que venham das cópias próprias do deck. Só marca.
-            aviso = {ck: n for ck, n in m_col.items()
-                     if n > 0 and raridades.get(ck) not in raridades_ok}
+            aviso = {} if bloqueia else {
+                ck: n for ck, n in m_col.items()
+                if n > 0 and raridades.get(ck) not in raridades_ok}
             out[d["deck_id"]] = {
                 "alloc": m_alloc, "no_deck": m_deck, "no_binder": m_binder,
                 "na_colecao": m_col, "a_caminho": m_cam, "missing": m_miss,
@@ -2803,6 +2886,8 @@ def deck_payload(con: sqlite3.Connection, deck_id: int) -> dict | None:
         # pode servir-se da Coleção sem aviso, e quantas cópias a estão a
         # contrariar neste deck.
         "raridade_colecao": raridade_da_colecao(),
+        # `marca` ou `so_o_excedente` (2026-10-13) — a página diz qual vale.
+        "abaixo_do_patamar": abaixo_do_patamar(),
         "aviso_colecao": sum(a["aviso_colecao"].values()),
         "aviso_cartas": len(a["aviso_colecao"]),
         # Quantas cópias deste deck saem da Coleção em FOIL (2026-09-26): as

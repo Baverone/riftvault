@@ -279,9 +279,10 @@ const PAGINA = {
          + 'uma carta própria.</p>'
          + '<p>Nas comuns e incomuns há <b>duas contagens separadas</b>, e nunca se '
          + 'somam: o <b>crachá</b> do tile são as <b>normais</b> contra o alvo da '
-         + 'Coleção, e a linha por baixo são as <b>foils</b> contra o playset do tipo em '
-         + 'foil (numa runa, 12). As foils <b>não contam</b> para os alvos, os níveis, a '
-         + 'percentagem nem as listas de compra — se contassem, 2 normais e 1 foil '
+         + 'Coleção, e a linha por baixo são as <b>foils</b> contra o mesmo alvo, em foil '
+         + '(o «master set foil» do Início, desde 2026-10-13). As foils <b>não contam</b> '
+         + 'para os alvos, os níveis, a percentagem do master set nem a wantlist geral '
+         + '— têm a sua percentagem e a sua lista — se contassem, 2 normais e 1 foil '
          + 'liam-se «3/3» e uma falta de normais desaparecia do ecrã. <b>Contam para o '
          + 'valor</b>, ao <b>preço da foil</b> do CardTrader, e só ao da normal quando '
          + 'não há oferta foil (a linha do tile diz qual é o caso). No «A mais» não '
@@ -3196,7 +3197,7 @@ function renderDeck() {
         ${/* APAGAR A LISTA (2026-10-02): o par da caixa de colar. Quem mete
               uma lista pela janela tem de poder tirá-la por lá — era a última
               coisa que ainda obrigava a ir à pasta à mão. NÃO apaga cópias:
-              as próprias do deck ficam no `proprio:<slug>`. */ ''}
+              as próprias do deck vão para o stock dos decks (2026-10-13). */ ''}
         ${state.editable
           ? '<button class="btn perigo" data-act="apagar-lista">Apagar a lista</button>' : ''}
         ${state.editable && state.ordemFixa
@@ -3324,7 +3325,7 @@ function montagemHTML(p) {
     <p class="note">Por esta ordem: primeiro o que falta, depois o que tens de ir
       buscar à Coleção, e no fim o que já está.
       ${p.montado === false ? '<b>O deck está desmontado</b>: os números da Coleção são a simulação de o montares a seguir aos que estão montados. ' : ''}
-      ${p.raridade_colecao ? `O <b>!</b> é a regra de raridade: abaixo de
+      ${p.raridade_colecao && p.abaixo_do_patamar !== 'so_o_excedente' ? `O <b>!</b> é a regra de raridade: abaixo de
         <b>${escapeHTML(p.raridade_colecao)}</b> a cópia devia ser <b>própria do deck</b>,
         não sair da Coleção.` : ''}
       ${p.foil_na_colecao ? `<b>${plural(p.foil_na_colecao, 'cópia', 'cópias')}</b> de ${
@@ -3454,6 +3455,13 @@ function deckLocais(p) {
       deviam ser <b>próprias do deck</b> e a Coleção ficar quieta${
       state.editable ? ` — mete-as com <code>riftvault proprias ${escapeHTML(p.slug)} --mais REF</code>` : ''}. Não bloqueia
       nada: é só um aviso.</small>` : ''}
+    ${p.abaixo_do_patamar === 'so_o_excedente' && p.raridade_colecao ? `<small class="nota regra">
+      <b>Coleção é Coleção, deck é deck</b> (2026-10-13): abaixo de
+      <b>${escapeHTML(p.raridade_colecao)}</b> este deck só usa da Coleção o que
+      <b>passa do alvo</b> dela — o resto tem de ser <b>cópia própria</b> ou vir do
+      <b>stock dos decks</b> (o binder), e o que não houver é falta.
+      De <b>${escapeHTML(p.raridade_colecao)}</b> para cima continua a vir da Coleção.
+      Desmontar o deck devolve as cópias dele ao stock dos decks, nunca à Coleção.</small>` : ''}
     <small class="nota">As <b>cópias próprias</b> são as que tens guardadas
       <b>para este deck</b>${state.editable ? ` — a página diz quantas tem cada carta;
       para mudar o número é <code>riftvault proprias ${escapeHTML(p.slug)} --mais/--menos REF</code>` : ''}.
@@ -3884,16 +3892,16 @@ async function deckAction(act) {
 }
 
 /* APAGAR A LISTA de um deck (2026-10-02) — o par da caixa de colar.
-   NÃO apaga cópias: as próprias do deck ficam gravadas no `proprio:<slug>`,
-   fora da Coleção, como já acontecia a um deck cujo `.txt` desaparecia. É por
-   isso que a pergunta fala da LISTA e não do deck. */
+   NÃO apaga cópias: desde 2026-10-13 as próprias (e as sleevadas) do deck vão
+   para o STOCK DOS DECKS (o binder), fora da Coleção, onde outro deck as usa
+   (`locais.devolver_ao_stock`). É por isso que a pergunta fala da LISTA. */
 async function apagarLista() {
   const p = state.deck;
   if (!p) return;
   if (!confirm(`Apagar a lista «${p.name}»?\n\n`
     + 'O deck deixa de existir e a Coleção volta a dar os números que daria se '
     + 'ele nunca tivesse havido. As cópias NÃO se apagam — as próprias deste '
-    + 'deck continuam guardadas.')) return;
+    + 'deck passam para o stock dos decks, para outro deck as usar.')) return;
   try {
     const r = await fetch('api/decks/apagar', {
       method: 'POST', headers: cabecalhos(),
@@ -4613,6 +4621,20 @@ function iniCartao(cls, icone, rotulo, valor, nota) {
     <p class="n">${nota}</p></div>`;
 }
 
+/* O cartão «Decks montados» (2026-10-13): MONTADOS é o `montado` de cada deck
+   (`decks.montados`; sem o campo, um payload antigo, conta como montado — é a
+   omissão do config), COMPLETOS é não ter `missing`. Duas perguntas, dois
+   números: misturá-las punha o cartão a dizer «1 de 2 montados» com
+   `decks.montados: []`. */
+function iniDecksContagem(decks) {
+  return {
+    n: decks.length,
+    montados: decks.filter(d => d.montado !== false).length,
+    completos: decks.filter(d => !d.missing).length,
+    faltam: decks.reduce((n, d) => n + (d.missing || 0), 0),
+  };
+}
+
 function renderInicio() {
   const ix = state.index;
   if (!ix) return;
@@ -4638,6 +4660,25 @@ function renderInicio() {
          + (um && dois ? ` 1 de cada ${fmtPct(um.pct)} · 2 de cada ${fmtPct(dois.pct)}.` : '')
          : 'a carregar…');
 
+  // O MASTER SET FOIL (André, 2026-10-13: «duas percentagens lado a lado»).
+  // O de cima continua em não-foil; este é o mesmo denominador com as comuns e
+  // incomuns medidas em FOIL contra o alvo 3. Nenhum substitui o outro, e a
+  // wantlist deste é a metade das foils das Faltas. Vem do servidor
+  // (`index.levels_foil`, `foil.master_set_foil`): não há conta aqui.
+  const nf = (ix.levels_foil || {}).levels || [];
+  const playF = nf.find(l => l.k === 3);
+  if (nf.length) {
+    const umF = nf.find(l => l.k === 1);
+    const doisF = nf.find(l => l.k === 2);
+    cartoes += iniCartao('rox', 'colecao', 'Master set foil · playset',
+      `${num(playF.done)}<small>/${num(playF.total)}</small>`,
+      `<b>${fmtPct(playF.pct)}</b> — as comuns e incomuns contadas em <b>foil</b>
+       (alvo 3), o resto como no master set; faltam <b>${
+       plural(playF.missing, 'cópia', 'cópias')}</b>. A lista é a das
+       <a href="#faltas-edicao">foils, nas Faltas</a>.`
+      + (umF && doisF ? ` 1 de cada ${fmtPct(umF.pct)} · 2 de cada ${fmtPct(doisF.pct)}.` : ''));
+  }
+
   const fl = fe && fe.totals_lists;
   cartoes += iniCartao('gold', 'faltas', 'Falta comprar',
     fl ? `${num(fl.copies)}<small> cópias</small>` : tr,
@@ -4661,12 +4702,16 @@ function renderInicio() {
       `${SEM_DECKS} ${SEM_DECKS_COMO} A Coleção dá os mesmos números que daria
        se nunca tivesse havido decks.`);
   } else if (decks) {
-    const cheios = decks.filter(d => !d.missing).length;
-    const faltam = decks.reduce((n, d) => n + (d.missing || 0), 0);
-    cartoes += iniCartao(cheios === decks.length ? 'ok' : '', 'montado', 'Decks montados',
-      `${cheios}<small> de ${decks.length}</small>`,
-      faltam ? `faltam <b>${plural(faltam, 'cópia', 'cópias')}</b> para montar os outros.`
-             : 'estão todos completos.');
+    // O número grande é quantos estão MONTADOS (`decks.montados`) — o rótulo
+    // diz isso. Até 2026-10-13 era quantos estavam COMPLETOS, e com nenhum
+    // montado lia-se «Decks montados 1 de 2». Completos diz-se na nota.
+    const c = iniDecksContagem(decks);
+    cartoes += iniCartao(c.montados === c.n && c.completos === c.n ? 'ok' : '', 'montado',
+      'Decks montados', `${c.montados}<small> de ${c.n}</small>`,
+      `${c.completos === c.n ? (c.n === 1 ? 'está completo' : 'estão todos completos')
+                             : `${c.completos} de ${c.n} completos`}${
+        c.faltam ? ` — faltam <b>${plural(c.faltam, 'cópia', 'cópias')}</b> para os outros` : ''}${
+        c.montados < c.n ? '; num desmontado é a simulação de o montares' : ''}.`);
   } else {
     cartoes += iniCartao('', 'montado', 'Decks montados', tr, 'a carregar os decks…');
   }
