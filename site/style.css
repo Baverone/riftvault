@@ -94,9 +94,9 @@
   --rar-epic: #F59A3C;
   --rar-showcase: #C9A0FF;
   --dom-fury: #F05A62;
-  --dom-body: #F59A3C;
   --dom-calm: #49C47E;
   --dom-mind: #58A6F5;
+  --dom-body: #F59A3C;
   --dom-chaos: #B57CF0;
   --dom-order: #E8C13E;
   --dom-none: #9AA8C0;
@@ -664,9 +664,9 @@ h1.pgt { margin: 0; font-size: clamp(21px, 2.6vw, 27px); font-weight: 700; lette
 .dot.rar-epic { background: var(--rar-epic); }
 .dot.rar-showcase { background: var(--rar-showcase); }
 .dot.dom-fury { background: var(--dom-fury); }
-.dot.dom-body { background: var(--dom-body); }
 .dot.dom-calm { background: var(--dom-calm); }
 .dot.dom-mind { background: var(--dom-mind); }
+.dot.dom-body { background: var(--dom-body); }
 .dot.dom-chaos { background: var(--dom-chaos); }
 .dot.dom-order { background: var(--dom-order); }
 .dot.dom-none { background: var(--dom-none); }
