@@ -319,27 +319,26 @@ class TestOAmbitoDaLinha(Base):
 
 
 class TestOAlvoDeFoil(Base):
-    def test_e_o_alvo_de_colecao_do_tipo(self):
+    def test_e_o_playset_do_tipo(self):
         con = self.catalogo()
         self.assertEqual(self.tile(con, "tst-001-100")["foil_target"], 3)   # Unit
         self.assertEqual(self.tile(con, "tst-004-100")["foil_target"], 1)   # Battlefield
-        self.assertEqual(self.tile(con, "tst-005-100")["foil_target"], 3)   # Rune
+        self.assertEqual(self.tile(con, "tst-005-100")["foil_target"], 12)  # Rune
 
-    def test_na_runa_o_alvo_de_foil_e_o_alvo_da_coleccao(self):
-        """Até 2026-10-13 era a única divergência entre as duas contagens (3 na
-        Coleção, 12 em foil). Nesse dia ele decidiu «alvo 3 em foil» (o
-        «master set foil»), e os dois números passaram a ser o mesmo."""
+    def test_na_runa_o_alvo_de_foil_nao_e_o_alvo_da_coleccao(self):
+        """A única divergência entre as duas contagens, e diz-se em voz alta: a
+        runa base pede 3 na Coleção (`master_targets_by_type`, 2026-09-15) e 12
+        em foil (o playset jogável)."""
         con = self.catalogo()
         self.cfg_foil({}, extra={"master_targets_by_type": {"Rune": 3}})
         t = self.tile(con, "tst-005-100")
         self.assertEqual(t["target"], 3)
-        self.assertEqual(t["foil_target"], 3)
+        self.assertEqual(t["foil_target"], 12)
 
     def test_vem_da_tabela_do_config(self):
         con = self.catalogo()
         self.cfg_foil({}, extra={"playset_targets_by_type": {
-            "Unit": 4, "Battlefield": 2, "Rune": 12, "default": 3},
-            "master_targets_by_type": {"Rune": 6}})
+            "Unit": 4, "Battlefield": 2, "Rune": 6, "default": 3}})
         self.assertEqual(self.tile(con, "tst-001-100")["foil_target"], 4)
         self.assertEqual(self.tile(con, "tst-004-100")["foil_target"], 2)
         self.assertEqual(self.tile(con, "tst-005-100")["foil_target"], 6)
@@ -355,8 +354,7 @@ class TestOAlvoDeFoil(Base):
     def test_ha_uma_resposta_so_e_o_faltas_foil_delega(self):
         ff = (REPO / "riftvault" / "faltas_foil.py").read_text(encoding="utf-8")
         fo = (REPO / "riftvault" / "foil.py").read_text(encoding="utf-8")
-        # Desde 2026-10-13 o alvo de coleção do tipo (antes, o playset).
-        self.assertIn("metrics.alvo_do_tipo(", fo)
+        self.assertIn("metrics.playset_target(", fo)
         self.assertIn("return foil.alvo(", ff)
         self.assertNotIn("metrics.playset_target(", ff)
         # E o `metrics` não escreve um alvo de foil à mão: pergunta ao `foil`.
@@ -431,7 +429,7 @@ class TestOsDoisContadores(Base):
         """Para a CLI e o tile dizerem «foil M/T» a partir do mesmo número."""
         con = self.catalogo()
         r = self.foil.ajustar(con, "tst-005-100", 1, source="test")
-        self.assertEqual((r["foil"], r["foil_target"]), (1, 3))  # runa: 3 desde 2026-10-13
+        self.assertEqual((r["foil"], r["foil_target"]), (1, 12))
 
     def test_a_cli_diz_as_duas_contagens_separadas_e_o_alvo(self):
         con = self.catalogo()

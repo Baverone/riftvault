@@ -42,9 +42,9 @@ DUAS CONTAGENS SEPARADAS NO TILE, E NUNCA SOMADAS (2026-09-27, à noite)
 
     A separação no tile é ESTRUTURAL — não depende de chave nenhuma. O alvo de
     foil é o `alvo()` deste módulo, o MESMO da metade das foils do separador
-    Faltas (`faltas_foil`) e do «master set foil» do Início. Até 2026-10-13 era
-    o playset do tipo e numa runa base a linha pedia 12; desde esse dia é o
-    alvo da Coleção, e pede 3 como o crachá (ver `alvo`).
+    Faltas (`faltas_foil`) e do «master set foil» do Início. É o playset do
+    tipo: numa runa base a linha pede 12 e o crachá 3 (de 13/10 a 15/10 foi o
+    alvo da Coleção, e ele mandou voltar — ver `alvo`).
 
     O ERRO QUE ISTO CORRIGE ERA NOSSO, e tinha tamanho. A 2026-09-26 ele disse
     *"contabilizas tambem como parte do master set"* e ligámos o
@@ -247,26 +247,32 @@ def conta_para_valor(cfg: dict | None = None) -> bool:
 
 
 def alvo(printing, cfg: dict | None = None) -> int:
-    """Quantas foils desta impressão ele quer ter — o ALVO DE COLEÇÃO DO TIPO.
+    """Quantas foils desta impressão ele quer ter — o PLAYSET DO TIPO.
 
-    `metrics.alvo_do_tipo`: Unit/Spell/Gear 3, Battlefield 1, Legend 1, **Rune
-    3** (o `master_targets_by_type`), e `token_target` (1) nos tokens. É o mesmo
-    número que o crachá de cima (as normais) compara — no âmbito do foil (base,
-    não sobrenumerada) o `metrics.alvo` e este dão o mesmo.
+    `metrics.playset_target` (`playset_targets_by_type`): Unit/Spell/Gear 3,
+    Battlefield 1, Legend 1, **Rune 12**, e `token_target` (1) nos tokens. Não
+    há alvo novo escrito em lado nenhum — é a tabela que já manda no playset
+    jogável, e se ele a mudar muda aqui também.
 
-    **ATÉ 2026-10-13 ERA O PLAYSET JOGÁVEL (Rune 12)**, e a runa era a única
-    diferença entre as duas contagens. Mudou com a DECISÃO 1 dele, nesse dia —
-    *«duas percentagens lado a lado»*: o master set continua em não-foil e ao
-    lado nasce o «master set foil», **alvo 3 em foil nas comuns e incomuns**.
-    Esse número, a linha `foil M/T` do tile e a wantlist das foils (a metade das
-    foils das Faltas) passaram a ser a MESMA pergunta, e por isso têm de ter o
-    mesmo alvo — com Rune 12 aqui o painel dizia «faltam 775 foils» e as Faltas
-    «829». O «12» da runa era leitura nossa de 27/09, anotada como pergunta;
-    a resposta dele foi «3».
+    Nasceu no `faltas_foil.alvo` (2026-09-27, de manhã) e mudou-se para cá à
+    noite, quando o CONTADOR DO TILE passou a mostrar `foil M/T`: a pergunta
+    «quantas foils quero ter» é da mesma casa que «esta impressão tem contador
+    de foil» (o `no_ambito`), e ter duas respostas era ter duas tabelas. O
+    `faltas_foil.alvo` continua a existir e chama esta, e o `master_set_foil`
+    (o cartão de 2026-10-13) também — o número e a wantlist têm o mesmo alvo.
+
+    Não é o `metrics.alvo` (o alvo de COLEÇÃO da impressão, que é o que o
+    crachá de cima compara): a diferença é só na runa — 12 aqui, 3 lá.
+
+    **DE 2026-10-13 A 2026-10-15 FOI O ALVO DE COLEÇÃO (Rune 3)**: a ordem dos
+    «dois bolsos» alinhou-o com o crachá para o número e a wantlist baterem.
+    Ele recusou-o a 15/10 — *«não, as runas são 12, então esquece o que eu
+    disse, deixa como está»* — e escolheu *«Põe o 12 de volta e mais nada»*.
+    O número e a wantlist continuam a bater: os dois voltaram ao playset.
     """
     cfg = cfg or config.load()
-    return metrics.alvo_do_tipo(metrics.campo(printing, "type"),
-                                bool(metrics.campo(printing, "is_token")), cfg)
+    return metrics.playset_target(metrics.campo(printing, "type"),
+                                  bool(metrics.campo(printing, "is_token")), cfg)
 
 
 def master_set_foil(con: sqlite3.Connection, cfg: dict | None = None) -> dict:
@@ -279,7 +285,8 @@ def master_set_foil(con: sqlite3.Connection, cfg: dict | None = None) -> dict:
     diferença é o que cada impressão TEM:
 
       * no âmbito do foil (`no_ambito` — comuns e incomuns base, não
-        sobrenumeradas, fora o OGS) conta as **FOILS**, contra o `alvo` (3);
+        sobrenumeradas, fora o OGS) conta as **FOILS**, contra o `alvo` (o
+        playset do tipo — Rune 12; de 13/10 a 15/10 foi o da Coleção, Rune 3);
       * fora dele conta o mesmo que o master set — as raras para cima, as
         runas sem âmbito, o OGS. Em Riftbound de rara para cima a carta *é* a
         foil, e a cópia dele já está no `copies.qty`.

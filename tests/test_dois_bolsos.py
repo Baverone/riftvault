@@ -226,7 +226,14 @@ class TestOConfig(unittest.TestCase):
             self.assertIn(frase, n)
         self.assertIn("2026-10-13", c["_decks_raridade_nota"][:120])
         self.assertIn("2026-10-13", c["_foil_master_set_foil_nota"])
-        self.assertIn("2026-10-13", c["_faltas_foil_nota"][:80])
+        # O alvo das foils voltou ao playset a 2026-10-15 (decisão dele): as
+        # duas notas dizem-no, com a frase dele, e já não abrem com o «Rune 3».
+        for k in ("_foil_master_set_foil_nota", "_faltas_foil_nota", "_foil_nota"):
+            self.assertIn("2026-10-15", c[k], k)
+            self.assertIn("as runas são 12", c[k], k)
+        self.assertNotIn("Rune 12 -> Rune 3", c["_faltas_foil_nota"])
+        self.assertTrue(c["_foil_nota"].startswith("A contagem de FOIL"))
+        self.assertTrue(c["_faltas_foil_nota"].startswith("AS FALTAS EM DUAS METADES"))
 
 
 # ---------------------------------------------------------------------------
@@ -325,12 +332,28 @@ class TestMasterSetFoil(Base):
         # Faltam 1 Salvage (0,90), 1 Hidden Blade (7,00) e 1 runa (0,40) em foil.
         self.assertEqual(um["cents"], 90 + 700 + 40)
 
-    def test_a_runa_pede_3_em_foil_e_nao_12(self):
+    def test_a_runa_pede_12_em_foil_e_3_na_coleccao(self):
+        """TRAVA (André, 2026-10-15): «não, as runas são 12, então esquece o
+        que eu disse, deixa como está» — e «Põe o 12 de volta e mais nada».
+
+        De 13/10 a 15/10 o alvo em foil foi «alinhado» com o da Coleção (3)
+        para o número e a wantlist baterem. ELE NÃO O PEDIU. Os dois alvos
+        ficam na MESMA asserção para ninguém os voltar a alinhar sem ele: a
+        mesma runa base pede 12 em foil e 3 na Coleção.
+        """
         con = self.catalogo(decks=())
         r = con.execute("SELECT * FROM catalog.printings WHERE printing_id = 'tst-006-100'").fetchone()
-        self.assertEqual(self.foil.alvo(r), 3)
-        self.assertEqual(self.foil.alvo(r), self.metrics.alvo(r))
-        self.assertEqual(self.faltas_foil.alvo(r), 3)
+        self.assertEqual((self.foil.alvo(r), self.metrics.alvo(r)), (12, 3),
+                         "foil = playset do tipo (12); Coleção = 3 — NÃO alinhar")
+        # O número e a sua wantlist continuam com o mesmo alvo — o playset.
+        self.assertEqual(self.faltas_foil.alvo(r), self.foil.alvo(r))
+        self.assertEqual(self.faltas_foil.escopo(con)["tst-006-100"]["target"], 12)
+        # E o cartão «master set foil» pede as 12 no último degrau.
+        play = self.foil.master_set_foil(con)["levels"][-1]
+        self.assertEqual(self.foil.master_set_foil(con)["max"], 3,
+                         "os degraus continuam três; o último pede o alvo inteiro")
+        um = self.foil.master_set_foil(con)["levels"][0]
+        self.assertEqual(play["missing"] - um["missing"], (3 - 1) + (3 - 1) + (12 - 1))
 
     def test_vai_no_indice_ao_lado_do_master_set(self):
         con = self.catalogo(decks=())
@@ -353,8 +376,10 @@ class TestInterface(unittest.TestCase):
         self.assertIn("p.abaixo_do_patamar === 'so_o_excedente'", self.JS)
         self.assertIn("stock dos decks", self.JS)
 
-    def test_a_ajuda_ja_nao_diz_runa_12(self):
-        self.assertNotIn("foil (numa runa, 12)", self.JS)
+    def test_a_ajuda_diz_runa_12_outra_vez(self):
+        # 2026-10-15: voltou ao playset, e a ajuda e o cartão dizem-no.
+        self.assertIn("foil (numa runa, 12", self.JS)
+        self.assertNotIn("(alvo 3), o resto como no master set", self.JS)
 
 
 if __name__ == "__main__":
