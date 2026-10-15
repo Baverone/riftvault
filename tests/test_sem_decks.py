@@ -600,5 +600,48 @@ class TestACli(Base):
         self.assertIn("As REGRAS ficam", CLI_PY)
 
 
+class TestABateriaNaoPrecisaDeDecks(unittest.TestCase):
+    """A bateria tem de passar com a pasta `decks/` do repo VAZIA (2026-10-15).
+
+    Os decks são dele e vão e vêm: a 2026-10-15 ele mandou apagá-los e o
+    `test_colar.py` ficou vermelho, porque lia a lista real de
+    `decks/leona-radiant-dawn.txt`. Material fixo de um teste vive em
+    `tests/fixtures/`; um teste que precise de um deck escreve-o numa pasta
+    temporária (`Vault.write_deck`). Isto lê o código dos testes e recusa
+    qualquer caminho para a pasta `decks/` A SÉRIO.
+    """
+
+    #: As formas de chegar à pasta real: pela raiz do repo, ou pela constante
+    #: do `config` (que, sem `RIFTVAULT_DECKS`, é `ROOT / "decks"`).
+    PROIBIDOS = (
+        r"""(REPO|ROOT|parent\.parent)\s*/\s*["']decks["']""",
+        r"""config\.DECKS_DIR""",
+        r"""["']decks/[^"'\s]+\.txt["']""",
+    )
+
+    def test_nenhum_teste_le_a_pasta_decks_do_repo(self):
+        import re
+        achados = []
+        for f in sorted((REPO / "tests").glob("*.py")):
+            if f.name == Path(__file__).name:
+                continue
+            for n, linha in enumerate(f.read_text(encoding="utf-8").splitlines(), 1):
+                codigo = linha.split("#", 1)[0]
+                if any(re.search(p, codigo) for p in self.PROIBIDOS):
+                    achados.append(f"{f.name}:{n}: {linha.strip()}")
+        self.assertEqual(achados, [],
+                         "estes testes dependem de um deck existir em `decks/`; "
+                         "o material fixo vai para `tests/fixtures/`")
+
+    def test_a_regra_apanha_o_que_partiu_a_15_10(self):
+        """Prova pela negativa: a linha que estava no `test_colar.py`."""
+        import re
+        velha = 'LISTA_REAL = REPO / "decks" / "leona-radiant-dawn.txt"'
+        self.assertTrue(any(re.search(p, velha) for p in self.PROIBIDOS))
+
+    def test_a_lista_real_esta_nas_fixtures(self):
+        self.assertTrue((REPO / "tests" / "fixtures" / "leona-radiant-dawn.txt").is_file())
+
+
 if __name__ == "__main__":
     unittest.main()
