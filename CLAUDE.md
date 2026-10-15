@@ -24,8 +24,10 @@ com `true` (hoje) não valem.
 **DESDE 2026-10-13 HÁ DOIS BOLSOS** — *«Coleção é Coleção e não mexe, tudo
 tem que lá estar / Deck é Deck»*. Três decisões dele: (1) **duas percentagens
 lado a lado** — o master set continua em não-foil e ao lado há o **master set
-foil** (`foil.master_set_foil`, alvo 3 em foil nas comuns e incomuns; o alvo
-das foils passou de Rune 12 a Rune 3); (2) **até às raras, nunca da Coleção**
+foil** (`foil.master_set_foil`, as comuns e incomuns em foil contra o playset do
+tipo — **Rune 12**; a ordem desse dia pô-lo a Rune 3 e ele mandou voltar a
+2026-10-15: *«não, as runas são 12, então esquece o que eu disse, deixa como
+está»*); (2) **até às raras, nunca da Coleção**
 (`decks.abaixo_do_patamar: "so_o_excedente"`: abaixo da épica um deck só vê o
 que passa do alvo); (3) **desmontar devolve ao STOCK DOS DECKS** (o binder,
 `locais.devolver_ao_stock`), que não conta para a Coleção nem para o valor.
@@ -11703,6 +11705,23 @@ wantlist dele é a metade das foils das Faltas, e **por isso o `foil.alvo` passo
 do playset jogável (Rune 12) para o alvo de Coleção do tipo (Rune 3)**: o tile,
 as Faltas (829 → **775** cópias) e o número dizem agora o mesmo. A divergência
 «runa 3 / foil 12» de 27/09, que era pergunta, acabou.
+
+**REVERTIDO A 2026-10-15 — o alvo das foils VOLTOU AO PLAYSET (Rune 12).** O
+«3» nas runas não foi pedido por ele: foi a ordem a alinhar o número com a
+wantlist. Palavras dele: *«não, as runas são 12, então esquece o que eu disse,
+deixa como está»* e, escolhido numa caixa, *«Põe o 12 de volta e mais nada»*.
+O princípio fica (o tile, o cartão e a metade das foils perguntam todos ao
+mesmo `foil.alvo`), só que o alvo é o `metrics.playset_target`. O cartão fica,
+o `conta_para_coleccao` fica `false`, as regras dos decks ficam. Ramo
+`ai-pc/runas-foil-12-2026-10-15`. Medido numa cópia do `data/` de 15/10, o
+`main` e o ramo na mesma cópia: master set **838/928 = 90,3 %** dos dois lados;
+master set foil (playset) **485/928 = 52,3 %** dos dois lados, a faltar **903 →
+957** cópias (as runas não têm foil nenhuma, por isso nenhum degrau muda de
+impressões — mudam as cópias); a metade das foils das Faltas **775 · 342,12 € →
+829 · 350,13 €** (alvo somado 1400 → 1454); as 6 runas base do OGN pedem **18 →
+72** foils; valor **9 024,52 €** igual. `test_dois_bolsos::
+test_a_runa_pede_12_em_foil_e_3_na_coleccao` trava os dois alvos na mesma
+asserção.
 
 **2. «Épicas podem vir da Coleção».** Reusa o `coleccao_so_a_partir_de: "epic"`
 de 24/09, que só MARCAVA: a chave nova `decks.abaixo_do_patamar` passa a

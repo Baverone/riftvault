@@ -1,0 +1,40 @@
+Nome: Leona Radiant Dawn
+
+Legend:
+1 Leona, Radiant Dawn
+
+Champion:
+1 Leona, Zealot
+
+MainDeck:
+2 Charm
+3 Defy
+2 Hidden Blade
+2 Mournful Witness
+3 Scuttle Crab
+3 Shepherd's Heirloom
+2 Zhonya's Hourglass
+3 Back Off
+2 Call to Glory
+3 Kayle, Justified
+2 Kennen, Keeper of Balance
+3 Zenith Blade
+3 Fiora, Victorious
+3 Vi, Peacekeeper
+3 Astral Heron
+
+Battlefields:
+1 Monastery of Hirana
+1 Grove of the God-Willow
+1 Risen Altar
+
+Rune Pool:
+6 Calm Rune
+6 Order Rune
+
+Sideboard:
+1 Not So Fast
+3 Salvage
+2 Tomb-Raider Barbara
+2 Harnessed Dragon
+2 Vilemaw

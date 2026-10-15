@@ -276,7 +276,8 @@ def cmd_stats(args) -> int:
     from . import foil as foil_mod
     nf = foil_mod.master_set_foil(con)
     if nf["levels"]:
-        print("\nMaster set FOIL (comuns e incomuns em foil, alvo 3; o resto como "
+        print("\nMaster set FOIL (comuns e incomuns em foil, contra o playset do "
+              "tipo — runas 12; o resto como "
               "em cima) — ao lado do de cima, não em vez dele:")
         for lv in nf["levels"]:
             rot = "playset" if lv["k"] == nf["max"] else f"{lv['k']} de cada"

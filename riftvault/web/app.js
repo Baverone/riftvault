@@ -279,8 +279,8 @@ const PAGINA = {
          + 'uma carta própria.</p>'
          + '<p>Nas comuns e incomuns há <b>duas contagens separadas</b>, e nunca se '
          + 'somam: o <b>crachá</b> do tile são as <b>normais</b> contra o alvo da '
-         + 'Coleção, e a linha por baixo são as <b>foils</b> contra o mesmo alvo, em foil '
-         + '(o «master set foil» do Início, desde 2026-10-13). As foils <b>não contam</b> '
+         + 'Coleção, e a linha por baixo são as <b>foils</b> contra o playset do tipo em '
+         + 'foil (numa runa, 12 — o mesmo alvo do «master set foil» do Início). As foils <b>não contam</b> '
          + 'para os alvos, os níveis, a percentagem do master set nem a wantlist geral '
          + '— têm a sua percentagem e a sua lista — se contassem, 2 normais e 1 foil '
          + 'liam-se «3/3» e uma falta de normais desaparecia do ecrã. <b>Contam para o '
@@ -4662,7 +4662,8 @@ function renderInicio() {
 
   // O MASTER SET FOIL (André, 2026-10-13: «duas percentagens lado a lado»).
   // O de cima continua em não-foil; este é o mesmo denominador com as comuns e
-  // incomuns medidas em FOIL contra o alvo 3. Nenhum substitui o outro, e a
+  // incomuns medidas em FOIL contra o playset do tipo (runas 12 — de 13/10 a
+  // 15/10 foi o alvo 3, e ele mandou voltar). Nenhum substitui o outro, e a
   // wantlist deste é a metade das foils das Faltas. Vem do servidor
   // (`index.levels_foil`, `foil.master_set_foil`): não há conta aqui.
   const nf = (ix.levels_foil || {}).levels || [];
@@ -4673,7 +4674,7 @@ function renderInicio() {
     cartoes += iniCartao('rox', 'colecao', 'Master set foil · playset',
       `${num(playF.done)}<small>/${num(playF.total)}</small>`,
       `<b>${fmtPct(playF.pct)}</b> — as comuns e incomuns contadas em <b>foil</b>
-       (alvo 3), o resto como no master set; faltam <b>${
+       (contra o playset do tipo — runas 12), o resto como no master set; faltam <b>${
        plural(playF.missing, 'cópia', 'cópias')}</b>. A lista é a das
        <a href="#faltas-edicao">foils, nas Faltas</a>.`
       + (umF && doisF ? ` 1 de cada ${fmtPct(umF.pct)} · 2 de cada ${fmtPct(doisF.pct)}.` : ''));
