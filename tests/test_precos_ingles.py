@@ -21,9 +21,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from tests.fixture import SEM_CONFIG  # noqa: E402
+
 # Antes do `Vault`, que é quem recarrega o `config` com as variáveis postas:
 # sem isto o config real do repositório era lido pelos testes sem `com_config`.
-os.environ["RIFTVAULT_CONFIG"] = str(Path(tempfile.gettempdir()) / "riftvault-nao-existe.json")
+os.environ["RIFTVAULT_CONFIG"] = SEM_CONFIG
 
 from tests.fixture import REPO, Vault  # noqa: E402
 
@@ -53,8 +55,7 @@ class Base(unittest.TestCase):
         self.config.load.cache_clear()
 
         def repor():
-            os.environ["RIFTVAULT_CONFIG"] = str(
-                Path(tempfile.gettempdir()) / "riftvault-nao-existe.json")
+            os.environ["RIFTVAULT_CONFIG"] = SEM_CONFIG
             importlib.reload(self.config)
             self.config.load.cache_clear()
 

@@ -271,8 +271,12 @@ ALVO_UM = 1
 # A quarta lista, com a mesma gramática: o que NÃO PEDE NADA — alvo zero.
 # André, 2026-10-15: *"não quero colecionar Promos com contagem, guardo se
 # tiver, mas não tenho qualquer tipo de interesse se tiver o simbolo de Promo
-# na raridade"*. Hoje `["promo"]`. Ganha ao `um_de_cada` (revoga o «as Promo
-# passam a 1 de cada» de 2026-09-19). Alvo zero NÃO é escondido: a impressão
+# na raridade"*. HOJE VAZIA: de manhã teve `["promo"]` e isso pôs as `VEN-SP`
+# sem alvo por engano — à tarde ele corrigiu (*"VEN-SP são parte do Set, não
+# têm marca de Promo na Raridade"*), elas voltaram ao `um_de_cada` e a regra
+# dele passou a valer só pela RARIDADE (`e_raridade_promo`, que não depende
+# desta lista). Fica como mecanismo por variante, e ganha ao `um_de_cada`.
+# Alvo zero NÃO é escondido: a impressão
 # continua na grelha, no seu bloco, com o número do que ele tem, e continua a
 # contar para o VALOR; o que perde é tudo o que se mede contra um alvo — as
 # Faltas, as wantlists, os níveis, o painel e o «A mais» (guardar não é ter a
@@ -433,10 +437,11 @@ def master_target(printing_id: str, kind: str, card_type: str | None, is_token: 
     UMA regra: **o alvo de coleção do tipo** (`alvo_do_tipo`: Unit/Spell/Gear
     3, Legend e Battlefield 1, e Rune 3 desde 2026-09-15) — **excepto 1 no
     que está em `master_set.um_de_cada`**: as sobrenumeradas (2026-09-15,
-    *"overnumbered e promos (SP) voltamos a 1 de cada"*) — **e 0 no que está
-    em `master_set.sem_alvo`**: as promos, desde 2026-10-15 (*"não quero
-    colecionar Promos com contagem, guardo se tiver"*; pediram 1 de 2026-09-19
-    a 2026-10-15 e o playset durante 2026-09-18). Vale igual no master set e na coleção
+    *"overnumbered e promos (SP) voltamos a 1 de cada"*; as promos `VEN-SP`
+    desde 2026-09-19) — **e 0 no que tem a raridade de promo ou está em
+    `master_set.sem_alvo`** (2026-10-15, *"guardo se tiver, mas não tenho
+    qualquer tipo de interesse se tiver o simbolo de Promo na raridade"*; hoje
+    nenhuma carta). Vale igual no master set e na coleção
     extra — as artes alternativas pedem o playset desde 2026-09-18 (*"muda
     novamente: Alt Art para playset, overnumbered continua 1 de cada"*; entre
     2026-09-16 e 2026-09-18 estavam no `um_de_cada`). Os tokens ficam com o
@@ -661,11 +666,23 @@ def kind_efectivo(printing, cfg: dict | None = None) -> str:
     Uma variante que o catálogo não conhece (`unknown`) devolve-se tal e qual:
     é o `fora_do_master` que a manda para um bloco visível.
     """
-    rar = {str(campo(printing, "rarity", "") or "").lower(),
-           str(campo(printing, "base_rarity", "") or "").lower()} - {""}
-    if rar & raridades_promo(cfg):
+    if e_raridade_promo(printing, cfg):
         return "special"
     return campo(printing, "variant_kind", "unknown")
+
+
+def e_raridade_promo(printing, cfg: dict | None = None) -> bool:
+    """Esta impressão tem «o simbolo de Promo na raridade» (2026-10-15)?
+
+    É a regra do «sem contagem», e vale SOZINHA: não depende do `sem_alvo` ter
+    o bloco das promos. Era assim de manhã (o `sem_alvo: ["promo"]` fazia as
+    duas coisas) e por isso as `VEN-SP` — Units `epic`, parte da edição, sem
+    marca de promo na raridade — ficaram sem alvo por engano. Hoje nenhuma
+    carta do catálogo tem esta raridade.
+    """
+    rar = {str(campo(printing, "rarity", "") or "").lower(),
+           str(campo(printing, "base_rarity", "") or "").lower()} - {""}
+    return bool(rar & raridades_promo(cfg or config.load()))
 
 
 def _sem_alvo(cfg: dict | None = None) -> tuple[frozenset[str], bool]:
@@ -678,13 +695,18 @@ def e_sem_alvo(printing, cfg: dict | None = None) -> bool:
     """Esta impressão NÃO PEDE NADA — alvo zero, mas na página?
 
     André, 2026-10-15: *"não quero colecionar Promos com contagem, guardo se
-    tiver"*. É a quarta lista do `master_set` (hoje `["promo"]`), e ganha ao
-    `um_de_cada`. «Guardo se tiver» manda na leitura: a impressão NÃO é
-    escondida — aparece no bloco dela com o número do que ele tem e conta para
-    o valor —, só deixa de ter alvo, e por isso sai de tudo o que se mede contra
-    um alvo (Faltas, wantlists, níveis, painel, «A mais»).
+    tiver, mas não tenho qualquer tipo de interesse se tiver o simbolo de Promo
+    na raridade"*. Duas portas: a RARIDADE de promo (`e_raridade_promo`, que
+    vale sozinha) e a quarta lista do `master_set`, `sem_alvo`, por variante
+    (hoje vazia — as `VEN-SP` pedem 1). As duas ganham ao `um_de_cada`.
+    «Guardo se tiver» manda na leitura: a impressão NÃO é escondida — aparece
+    no bloco dela com o número do que ele tem e conta para o valor —, só deixa
+    de ter alvo, e por isso sai de tudo o que se mede contra um alvo (Faltas,
+    wantlists, níveis, painel, «A mais»).
     """
     cfg = cfg or config.load()
+    if e_raridade_promo(printing, cfg):
+        return True
     kinds, over = _sem_alvo(cfg)
     if kind_efectivo(printing, cfg) in kinds:
         return True

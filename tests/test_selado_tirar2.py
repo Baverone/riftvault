@@ -52,6 +52,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from tests.fixture import SEM_CONFIG  # noqa: E402
+
 from tests.test_selado import APP_JS, CATALOGO, Base  # noqa: E402
 from tests.test_selado import TestNaoEntraNaColecao as _Foto  # noqa: E402
 
@@ -195,8 +197,7 @@ class TestOsDezContraOCatalogoReal(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        os.environ["RIFTVAULT_CONFIG"] = str(
-            Path(tempfile.gettempdir()) / "riftvault-nao-existe.json")
+        os.environ["RIFTVAULT_CONFIG"] = SEM_CONFIG
         importlib.reload(cls.config)
         cls.config.load.cache_clear()
 

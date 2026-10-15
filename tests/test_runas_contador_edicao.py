@@ -43,6 +43,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from tests.fixture import ficheiro_temporario  # noqa: E402
+
 from tests.fixture import REPO, Vault, config_decks_sem_alt_art  # noqa: E402
 
 config_decks_sem_alt_art()
@@ -65,7 +67,7 @@ def sem_relogio(obj):
 
 
 def _config(caso, extra: dict | None = None) -> None:
-    caminho = Path(tempfile.gettempdir()) / f"riftvault-runas-contador-{os.getpid()}.json"
+    caminho = ficheiro_temporario("riftvault-runas-contador.json")
     caminho.write_text(json.dumps({
         "decks": {"so_base": False,
                   "so_normais_excepto": ["legend", "champion"],

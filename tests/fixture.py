@@ -7,6 +7,7 @@ o que interessa é a forma (impressões, cartas lógicas, grupos), não o tamanh
 
 from __future__ import annotations
 
+import atexit
 import importlib
 import json
 import os
@@ -15,6 +16,57 @@ import tempfile
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
+
+
+# --- UMA PASTA TEMPORÁRIA POR PROCESSO (2026-10-15) --------------------------
+#
+# Os testes escreviam configs no `%TEMP%` com NOME FIXO
+# (`riftvault-voltar-1.json`, `riftvault-runas-alt-fora.json`, …). Em série
+# isso não se vê; com o portão a 16 trabalhadores, e com duas baterias a correr
+# ao mesmo tempo em worktrees diferentes, dois processos truncavam e
+# reescreviam o MESMO ficheiro — e o `test_voltar_1` até o reescreve com outro
+# conteúdo a meio de um teste. Quem o lia no instante errado lia o config do
+# outro, ou um JSON a meio. Sozinho passava; a meias com outra bateria, não.
+#
+# A cura é a de sempre: cada processo tem a SUA pasta (`tempfile.mkdtemp`, que
+# garante um nome que mais ninguém tem, mesmo entre processos que partilhem o
+# `%TEMP%`), e todo o ficheiro temporário de nome escolhido pelo teste vive lá
+# dentro. O nome dentro da pasta pode ser fixo à vontade: a pasta é que é
+# única. Apaga-se à saída do processo (`atexit`).
+#
+# Porquê `mkdtemp` e não `NamedTemporaryFile`: os testes precisam de um CAMINHO
+# que se escreve, se lê e se reescreve (e que se passa ao `riftvault` por uma
+# variável de ambiente); no Windows um `NamedTemporaryFile` aberto não se deixa
+# abrir uma segunda vez, e um com `delete=False` volta a deixar lixo. Uma pasta
+# por processo dá as duas coisas: nomes legíveis e uma limpeza só.
+_PASTA_DO_PROCESSO: Path | None = None
+
+
+def pasta_do_processo() -> Path:
+    """A pasta temporária DESTE processo — criada uma vez, apagada à saída."""
+    global _PASTA_DO_PROCESSO
+    if _PASTA_DO_PROCESSO is None:
+        _PASTA_DO_PROCESSO = Path(tempfile.mkdtemp(prefix="riftvault-tests-"))
+        atexit.register(shutil.rmtree, _PASTA_DO_PROCESSO, True)
+    return _PASTA_DO_PROCESSO
+
+
+def ficheiro_temporario(nome: str) -> Path:
+    """Um caminho para `nome` que só ESTE processo usa.
+
+    Não cria o ficheiro: quem chama escreve-o (ou, no `SEM_CONFIG`, conta com
+    que ele não exista)."""
+    return pasta_do_processo() / nome
+
+
+#: O config que «não existe» — para o `riftvault` medir com os DEFAULTS.
+#: Era `%TEMP%/riftvault-nao-existe.json`, um caminho PARTILHADO por mais de
+#: quarenta ficheiros de teste e por todos os processos. Só valia enquanto
+#: ninguém o criasse — e o `config.escrever_valor` CRIA-O quando se escreve no
+#: config com ele apontado (é o que faz o «Montar» de um deck). Um teste desses
+#: num processo deixava os outros todos, até na corrida seguinte, a ler um
+#: config que não era o deles. Agora é por processo.
+SEM_CONFIG = str(ficheiro_temporario("riftvault-nao-existe.json"))
 
 
 def config_decks_sem_alt_art(caso=None) -> Path:
@@ -40,9 +92,12 @@ def config_decks_sem_alt_art(caso=None) -> Path:
     aparece uma vez em cada tantas corridas e não se reproduz, que é a pior
     espécie. O PID dá um ficheiro por processo e não muda nada do que o teste
     mede — o conteúdo é igual ao que sempre foi.
+
+    Desde 2026-10-15 vive na pasta do processo (`ficheiro_temporario`), que dá
+    o mesmo isolamento e ainda se apaga no fim — os ficheiros com PID ficavam
+    no `%TEMP%` para sempre (eram 335 nesse dia).
     """
-    caminho = (Path(tempfile.gettempdir())
-               / f"riftvault-decks-sem-alt-art-{os.getpid()}.json")
+    caminho = ficheiro_temporario("riftvault-decks-sem-alt-art.json")
     # `so_base: false` (2026-09-21): a omissão passou a ser só versões base, a
     # Legend e o Champion incluídos; os testes que chamam isto descrevem a
     # regra de 2026-09-17 e desligam-na de propósito.

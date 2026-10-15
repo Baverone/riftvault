@@ -147,28 +147,28 @@ DEFAULTS: dict = {
     #                           `metrics.BLOCOS` (hoje só as runas especiais,
     #                           vazias). Só a ordem — não mexe no que cada
     #                           bloco mostra nem no alvo.
-    #   `sem_alvo`            — O QUE NÃO PEDE NADA, alvo zero (2026-10-15: "não
-    #                           quero colecionar Promos com contagem, guardo se
-    #                           tiver"). Ganha ao `um_de_cada` e revoga o 1 de
-    #                           cada das promos de 2026-09-19. Não esconde: a
-    #                           impressão fica na página e no valor, e sai de
-    #                           tudo o que se mede contra um alvo.
+    #   `sem_alvo`            — O QUE NÃO PEDE NADA, alvo zero, por VARIANTE.
+    #                           Ganha ao `um_de_cada`. Não esconde: a impressão
+    #                           fica na página e no valor, e sai de tudo o que
+    #                           se mede contra um alvo. Vazio: as VEN-SP pedem 1
+    #                           (2026-09-19, reposto a 2026-10-15 — "VEN-SP são
+    #                           parte do Set").
     #   `raridades_promo`     — as raridades que fazem de uma impressão uma
     #                           promo ("se tiver o simbolo de Promo na
-    #                           raridade"). Nenhuma no catálogo de hoje, por
-    #                           isso não se valida contra ele.
+    #                           raridade"). Uma carta com uma destas raridades
+    #                           NÃO PEDE NADA, sozinha — não depende do
+    #                           `sem_alvo` (`metrics.e_raridade_promo`). Nenhuma
+    #                           no catálogo de hoje, por isso não se valida.
     #   `special_alt`         — as Special Alt (K/DA e afins, 2026-10-15): bloco
     #                           próprio a seguir às Alt Art, fora da percentagem.
     # `fora` é o nome antigo da primeira (2026-09-08 a 2026-09-14) e continua a
     # ser lido. Ver `metrics._fora`, `metrics.escondida`, `metrics.e_master`,
     # `metrics.e_um_de_cada`, `metrics.e_sem_alvo` e `metrics.ordem_dos_blocos`.
     #
-    # AS PROMOS SEM ALVO VIVEM NO CONFIG DELE, NÃO AQUI (2026-10-15, decisão de
-    # quem implementou): a omissão continua o regime de 2026-09-19 (promos a 1)
-    # porque é o MECANISMO que as baterias do quarto bloco das Faltas, do alvo 1
-    # e do painel descrevem — com `sem_alvo: ["promo"]` aqui esse mecanismo
-    # deixava de ter caso de teste. O `special_alt` entra aqui, sim: sem ele uma
-    # Special Alt contava para a percentagem num riftvault sem config.
+    # As promos VEN-SP pedem 1 aqui e no config dele (2026-10-15, à tarde: a
+    # leitura da manhã, que as punha sem alvo, estava errada). O `special_alt`
+    # entra aqui: sem ele uma Special Alt contava para a percentagem num
+    # riftvault sem config.
     "master_set": {"fora_da_percentagem": ["a", "special_alt", "overnumbered", "promo"],
                    "escondidas": ["-T", "*", "-R"],
                    "um_de_cada": ["overnumbered", "promo"],

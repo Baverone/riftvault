@@ -108,7 +108,9 @@ class Dois(unittest.TestCase):
 
     def _config(self):
         """O config deste teste: a regra dos decks de hoje e um selado."""
-        caminho = Path(tempfile.gettempdir()) / "riftvault-isolamento.json"
+        # Um caminho deste processo (2026-10-15): o nome fixo no `%TEMP%`
+        # chocava com outra bateria a correr ao mesmo tempo.
+        caminho = fixture.ficheiro_temporario("riftvault-isolamento.json")
         caminho.write_text(json.dumps({
             "decks": {"so_base": False,
                       "so_normais_excepto": ["legend", "champion"],

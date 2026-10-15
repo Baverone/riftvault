@@ -43,7 +43,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-CONFIG = Path(tempfile.gettempdir()) / "riftvault-voltar-1.json"
+from tests.fixture import ficheiro_temporario  # noqa: E402
+
+CONFIG = ficheiro_temporario("riftvault-voltar-1.json")
 
 
 def escrever_config(papeis=("legend", "champion"),

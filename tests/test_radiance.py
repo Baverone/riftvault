@@ -17,8 +17,12 @@ E as quatro decisões dele desse dia:
      sem caso especial;
   2. Special Alt — bloco próprio a seguir às Alt Art, fora da percentagem;
   3. sobrenumeradas — 1 de cada, como hoje;
-  4. promos — SEM ALVO: ficam na página e no valor, saem das Faltas, das
-     wantlists, dos níveis, do painel e do «A mais».
+  4. promos — a carta com «o simbolo de Promo na RARIDADE» fica SEM ALVO: na
+     página e no valor, fora das Faltas, das wantlists, dos níveis, do painel
+     e do «A mais». As promos da série `SP` (as `VEN-SP`) NÃO são isso — são
+     parte da edição e pedem 1 de cada. De manhã lemos «o bloco das promos» e
+     pusemo-las sem alvo; à tarde ele corrigiu (*"VEN-SP são parte do Set, não
+     têm marca de Promo na Raridade"*).
 
 Tudo contra cópias descartáveis (`tests.fixture.Vault`) e um config temporário.
 """
@@ -29,18 +33,17 @@ import importlib
 import json
 import os
 import sys
-import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-os.environ["RIFTVAULT_CONFIG"] = str(Path(tempfile.gettempdir()) / "riftvault-nao-existe.json")
+from tests.fixture import REPO, SEM_CONFIG, Vault  # noqa: E402
 
-from tests.fixture import REPO, Vault  # noqa: E402
+os.environ["RIFTVAULT_CONFIG"] = SEM_CONFIG
 
-NAO_EXISTE = str(Path(tempfile.gettempdir()) / "riftvault-nao-existe.json")
+NAO_EXISTE = SEM_CONFIG
 
 
 def _carta(pid, sid, cn, variant, code, name, rarity, tipo="Unit", dominios=("Fury",)):
@@ -188,24 +191,31 @@ class TestAsQuatroDecisoes(Base):
     def test_3_as_sobrenumeradas_pedem_1(self):
         self.assertEqual(self.m.alvo_do_bloco(self.m.BLOCO_OVER), "1 de cada")
 
-    def test_4_a_promo_SP_nao_pede_nada_mas_esta_na_pagina(self):
+    def test_4_a_promo_SP_e_parte_do_set_e_pede_1(self):
+        """«VEN-SP são parte do Set, não têm marca de Promo na Raridade»."""
         r = self.linha("fke-sp1-003")
-        self.assertEqual(self.m.alvo(r), 0)
+        self.assertEqual(r["rarity"], "epic")
+        self.assertFalse(self.m.e_raridade_promo(r))
+        self.assertFalse(self.m.e_sem_alvo(r))
+        self.assertEqual(self.m.alvo(r), 1)
         self.assertEqual(self.m.bloco(r), "special")
         self.assertFalse(self.m.escondida(r))
         self.assertIsNotNone(self.tile(self.m.set_payload(self.con, "FKE"), "fke-sp1-003"))
 
-    def test_4_a_promo_pela_RARIDADE_segue_a_mesma_regra(self):
+    def test_4_a_promo_pela_RARIDADE_nao_pede_nada_mas_esta_na_pagina(self):
         r = self.linha("fke-004-010")
         self.assertEqual(r["variant_kind"], "base")
+        self.assertTrue(self.m.e_raridade_promo(r))
         self.assertEqual(self.m.kind_efectivo(r), "special")
         self.assertEqual(self.m.bloco(r), "special")
         self.assertEqual(self.m.alvo(r), 0)
         self.assertFalse(self.m.e_master(r))
+        self.assertFalse(self.m.escondida(r))
+        self.assertEqual(self.tile(self.m.set_payload(self.con, "FKE"), "fke-004-010")["target"], 0)
 
-    def test_4_o_bloco_das_promos_diz_sem_alvo(self):
-        self.assertEqual(self.m.alvo_do_bloco("special"), self.m.SEM_ALVO)
-        self.assertIn("sem alvo", self.m.rotulo("special"))
+    def test_4_o_bloco_das_promos_diz_1_de_cada(self):
+        self.assertEqual(self.m.alvo_do_bloco("special"), "1 de cada")
+        self.assertIn("1 de cada", self.m.rotulo("special"))
 
 
 class TestSpecialAltComNome(Base):
@@ -260,21 +270,22 @@ class TestPeloCaminhoTodo(Base):
         ids = [b["id"] for b in p["blocks"]]
         self.assertEqual(ids, ["master", "overnumbered", "alt_art", "special", "outras"])
         promos = [b for b in p["blocks"] if b["id"] == "special"][0]
-        # «guardo se tiver»: o bloco diz o que ele tem e não tem nada a completar.
+        # A SP1 pede 1 e está feita; a promo pela raridade conta no «tens» e
+        # não tem nada a completar.
         self.assertEqual((promos["owned"], promos["total"], promos["done"],
-                          promos["max_target"]), (2, 2, 0, 0))
+                          promos["max_target"]), (2, 2, 1, 1))
 
     def test_a_percentagem_e_so_a_sequencia(self):
         p = self.m.set_payload(self.con, "FKE")
         self.assertEqual(p["progress"]["master"], {"done": 0, "total": 3})
 
-    def test_as_faltas_nao_tem_promos(self):
+    def test_as_faltas_tem_o_bloco_das_promos_sem_a_da_raridade(self):
         fe = self.fe.payload(self.con)
-        self.assertNotIn("special", [b["id"] for b in fe["blocks"]])
+        self.assertIn("special", [b["id"] for b in fe["blocks"]])
         fke = [s for s in fe["sets"] if s["set"] == "FKE"][0]
         pids = {x["printing_id"] for g in fke["blocks"] for x in g["items"]}
-        self.assertNotIn("fke-sp1-003", pids)
-        self.assertNotIn("fke-004-010", pids)
+        self.assertNotIn("fke-sp1-003", pids)       # pede 1 e ele tem 2
+        self.assertNotIn("fke-004-010", pids)       # a da raridade não pede nada
         self.assertIn("fke-011-010", pids)          # a Ultimate falta, a 1
         self.assertIn("fke-001a-010", pids)         # a Alt Art falta, a 3
         self.assertEqual(fe["scope"]["fora"], {"outras": 1})   # a variante desconhecida, dita
@@ -289,16 +300,17 @@ class TestPeloCaminhoTodo(Base):
         v = self.prices.collection_value(self.con)
         self.assertEqual(v["cents"], 1 * 100 + 2 * 1000 + 1 * 700)
 
-    def test_o_a_mais_nao_oferece_as_promos(self):
-        am = self.a_mais.excedente(self.con, self.config.load())
-        self.assertNotIn("fke-sp1-003", {x["printing_id"] for x in am})
+    def test_o_a_mais_nao_oferece_a_da_raridade_e_oferece_a_SP_a_mais(self):
+        am = {x["printing_id"]: x for x in self.a_mais.excedente(self.con, self.config.load())}
+        self.assertNotIn("fke-004-010", am)          # guardar não é ter a mais
+        self.assertEqual(am["fke-sp1-003"]["extra"], 1)   # 2 de alvo 1
 
-    def test_o_painel_nao_conta_as_promos(self):
+    def test_o_painel_conta_a_SP_e_nao_a_da_raridade(self):
         pa = self.painel.payload(self.con, self.config.load())
-        self.assertNotIn("special", [b["id"] for b in pa["blocks"]])
+        self.assertIn("special", [b["id"] for b in pa["blocks"]])
         # master 3 + sobrenumerada 1 + alt art 1 + a variante desconhecida 1
-        # (no bloco «Outras», com o alvo do tipo) — e nenhuma das duas promos.
-        self.assertEqual(pa["sets"]["FKE"]["tudo"]["n"], 3 + 1 + 1 + 1)
+        # (no bloco «Outras», com o alvo do tipo) + a SP1 — e não a da raridade.
+        self.assertEqual(pa["sets"]["FKE"]["tudo"]["n"], 3 + 1 + 1 + 1 + 1)
 
     def test_o_site_publica_a_edicao_nova(self):
         out = self.v.root / "site"
@@ -339,23 +351,48 @@ class TestARegraDasPromos(unittest.TestCase):
         self.assertEqual(self.m.kind_efectivo(p, c), "base")
         self.assertEqual(self.m.alvo(p, c), 3)
 
+    def test_a_raridade_promo_nao_depende_do_sem_alvo(self):
+        """O defeito de manhã: a regra da raridade só tirava o alvo porque o
+        `sem_alvo` tinha o bloco das promos. Com o `sem_alvo` VAZIO e o
+        `promo` no `um_de_cada`, a carta da raridade continua sem alvo e a
+        SP da edição pede 1."""
+        c = self.cfg(um_de_cada=["overnumbered", "promo"], sem_alvo=[],
+                     raridades_promo=["promo"])
+        rar = {"printing_id": "x", "variant_kind": "base", "rarity": "promo",
+               "type": "Unit", "is_token": 0}
+        sp = {"printing_id": "y", "variant_kind": "special", "rarity": "epic",
+              "type": "Unit", "is_token": 0}
+        self.assertTrue(self.m.e_sem_alvo(rar, c))
+        self.assertEqual(self.m.alvo(rar, c), 0)
+        self.assertFalse(self.m.e_sem_alvo(sp, c))
+        self.assertEqual(self.m.alvo(sp, c), 1)
+        # A raridade pode vir só na base do grupo (uma alt art de uma promo).
+        alt = {**rar, "variant_kind": "alt_art", "rarity": "showcase", "base_rarity": "promo"}
+        self.assertEqual(self.m.alvo(alt, c), 0)
+
     def test_o_config_real_tem_as_quatro_decisoes(self):
         real = json.loads((REPO / "riftvault_config.json").read_text(encoding="utf-8"))
         ms = real["master_set"]
-        self.assertEqual(ms["sem_alvo"], ["promo"])
-        self.assertNotIn("promo", ms["um_de_cada"])
+        # As VEN-SP são parte do set: pedem 1, e o `sem_alvo` fica vazio.
+        self.assertEqual(ms["sem_alvo"], [])
+        self.assertIn("promo", ms["um_de_cada"])
+        self.assertEqual(ms["raridades_promo"], ["promo"])
         self.assertIn("overnumbered", ms["um_de_cada"])
         self.assertIn("special_alt", ms["fora_da_percentagem"])
         o = ms["ordem_dos_blocos"]
         self.assertEqual(o.index("special_alt"), o.index("a") + 1)
-        self.assertIn("2026-10-15", real["_master_set_promos_sem_alvo_nota"])
-        self.assertIn("REVOGA", real["_master_set_promos_sem_alvo_nota"])
+        nota = real["_master_set_promos_sem_alvo_nota"]
+        self.assertIn("2026-10-15", nota)
+        self.assertIn("ESTAVA ERRADA", nota)
+        # As duas frases dele, por esta ordem.
+        a = nota.index("simbolo de Promo na raridade")
+        b = nota.index("VEN-SP são parte do Set")
+        self.assertLess(a, b)
         self.assertIn("Baron", real["_master_set_radiance_nota"])
 
-    def test_os_defaults_tem_a_special_alt_fora_e_as_promos_no_regime_de_19_09(self):
-        """A regra das promos vive no config DELE; a omissão continua a de
-        2026-09-19 (é o mecanismo que as outras baterias descrevem). A Special
-        Alt é que tem de estar fora da percentagem também sem config."""
+    def test_os_defaults_tem_a_special_alt_fora_e_as_promos_a_1(self):
+        """As VEN-SP pedem 1 também sem config. A Special Alt tem de estar
+        fora da percentagem também sem config."""
         from riftvault import config
         ms = config.DEFAULTS["master_set"]
         self.assertEqual(ms["sem_alvo"], [])

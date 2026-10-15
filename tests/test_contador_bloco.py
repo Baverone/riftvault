@@ -27,6 +27,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from tests.fixture import ficheiro_temporario  # noqa: E402
+
 from tests.fixture import Vault
 
 
@@ -40,7 +42,7 @@ class TestContadorDoBloco(unittest.TestCase):
         import json
         import os
         import tempfile
-        caminho = Path(tempfile.gettempdir()) / "riftvault-contador-bloco.json"
+        caminho = ficheiro_temporario("riftvault-contador-bloco.json")
         # O `master_set` substitui-se inteiro (o `config.load` funde só o
         # primeiro nível), por isso vão as três listas.
         caminho.write_text(json.dumps(
