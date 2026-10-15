@@ -29,7 +29,17 @@ from . import config, db, riftscribe
 # aparecem no mesmo tile-grupo da grelha.
 MAIN_VARIANTS = {"", "a", "star"}
 
-LANE_KINDS = {"t": "token", "r": "rune_promo", "sp": "special"}
+LANE_KINDS = {"t": "token", "r": "rune_promo", "sp": "special",
+              # As promos de evento da dotgg (`RAD-038-P`, `RAD-038-P2`,
+              # 2026-10-15): a RiftScribe não as tem em edição nenhuma. São a
+              # promo, como as `sp`; a regra delas sai da raridade (`dotgg`).
+              "p": "special"}
+
+# Uma variante de série com um `a` no fim (`r01a`, a `RAD-R01A` da dotgg) é a
+# ARTE ALTERNATIVA dessa série — é o mesmo sufixo do `OGN-007a`. Sem isto uma
+# runa em alt art da Radiance era `rune_promo` e escapava à regra de 2026-09-17
+# (*"deixa as runas Alt Art, nao incluas em nada"*), que pergunta pelo kind.
+_SERIE_ALT = re.compile(r"^[a-z]+\d+a$")
 
 LABELS = {
     "base": "Base",
@@ -77,7 +87,14 @@ def variantes_extra(cfg: dict | None = None) -> dict[str, str]:
     return out
 
 
-def kind_of(variant: str, extra: dict[str, str] | None = None) -> str:
+def kind_of(variant: str, extra: dict[str, str] | None = None,
+            set_id: str | None = None) -> str:
+    """O `variant_kind` de uma variante.
+
+    O `variantes_extra` aceita também `EDIÇÃO:variante` (`"RAD:sp": "special_alt"`),
+    que só vale nessa edição e ganha às outras escritas — é o que deixa as SP de
+    uma edição serem outra coisa sem mudar as `VEN-SP`, que são as mesmas letras.
+    """
     if variant == "":
         return "base"
     if variant == "a":
@@ -85,11 +102,19 @@ def kind_of(variant: str, extra: dict[str, str] | None = None) -> str:
     if variant == "star":
         return "signature"
     extra = extra or {}
+    v = (variant or "").lower()
+    if set_id:
+        s = set_id.lower()
+        for chave in (f"{s}:{v}", f"{s}:{lane_of(variant)}"):
+            if chave in extra:
+                return extra[chave]
     # A variante inteira primeiro (`b`), depois o prefixo dela (`ka` de `ka1`).
-    if (variant or "").lower() in extra:
-        return extra[variant.lower()]
+    if v in extra:
+        return extra[v]
     if lane_of(variant) in extra:
         return extra[lane_of(variant)]
+    if _SERIE_ALT.match(v):
+        return "alt_art"
     return LANE_KINDS.get(lane_of(variant), "unknown")
 
 
@@ -121,6 +146,11 @@ def aliases_of(row: dict) -> set[str]:
         for suf in suffixes:
             out.add(f"{set_id}-{cn}{suf}")
             out.add(f"{set_id}-{cn:03d}{suf}")
+    elif lane_of(variant) == "p":
+        # As promos de evento (`RAD-038-P`) não têm número de série próprio: são
+        # a promo DAQUELA carta. Um `rad-p` sozinho servia a todas.
+        out.add(f"{set_id}-{cn}-{variant}")
+        out.add(f"{set_id}-{cn:03d}-{variant}")
     else:
         out.add(f"{set_id}-{variant}")
 
@@ -138,7 +168,7 @@ def _now() -> str:
 
 def _to_row(api: dict, api_sort: int, cfg: dict) -> dict:
     variant = api.get("variant") or ""
-    kind = kind_of(variant, variantes_extra(cfg))
+    kind = kind_of(variant, variantes_extra(cfg), api.get("set_id"))
     lane = lane_of(variant)
     stats = api.get("stats") or {}
     key = card_key_of(api.get("name", ""))
@@ -177,7 +207,13 @@ def _to_row(api: dict, api_sort: int, cfg: dict) -> dict:
         "image_path": None,
         "api_sort": api_sort,
         "fetched_at": _now(),
+        "fonte": FONTE,
     }
+
+
+#: De onde veio a linha (2026-10-15). A RiftScribe é a fonte do catálogo; a
+#: dotgg (`dotgg.py`) só traz as edições que ela ainda não tem.
+FONTE = "riftscribe"
 
 
 _INSERT = """
@@ -187,14 +223,14 @@ INSERT INTO printings (
     base_rarity, faction, domains_json, type, orientation, energy, might,
     power, is_banned, is_token, description, flavor_text, artist,
     keywords_json, tags_json, image_url, image_small, image_medium,
-    image_large, image_path, api_sort, fetched_at
+    image_large, image_path, api_sort, fetched_at, fonte
 ) VALUES (
     :printing_id, :set_id, :collector_number, :variant, :lane, :group_key,
     :variant_kind, :variant_label, :card_key, :public_code, :name, :rarity,
     :base_rarity, :faction, :domains_json, :type, :orientation, :energy,
     :might, :power, :is_banned, :is_token, :description, :flavor_text,
     :artist, :keywords_json, :tags_json, :image_url, :image_small,
-    :image_medium, :image_large, :image_path, :api_sort, :fetched_at
+    :image_medium, :image_large, :image_path, :api_sort, :fetched_at, :fonte
 )
 ON CONFLICT(printing_id) DO UPDATE SET
     set_id=excluded.set_id, collector_number=excluded.collector_number,
@@ -210,7 +246,8 @@ ON CONFLICT(printing_id) DO UPDATE SET
     keywords_json=excluded.keywords_json, tags_json=excluded.tags_json,
     image_url=excluded.image_url, image_small=excluded.image_small,
     image_medium=excluded.image_medium, image_large=excluded.image_large,
-    api_sort=excluded.api_sort, fetched_at=excluded.fetched_at
+    api_sort=excluded.api_sort, fetched_at=excluded.fetched_at,
+    fonte=excluded.fonte
 """
 
 
@@ -256,24 +293,11 @@ def sync(set_ids: list[str] | None = None, delay: float = riftscribe.POLITE_DELA
         for r in rows:
             r["base_rarity"] = base_rarity.get(r["group_key"], r["rarity"])
 
-        con.execute("BEGIN")
-        # Impressões que a API deixou de devolver saem do catálogo.
-        placeholders = ",".join("?" * len(rows))
-        con.execute(
-            f"DELETE FROM printings WHERE set_id = ? AND printing_id NOT IN ({placeholders})",
-            [set_id] + [r["printing_id"] for r in rows],
-        )
-        con.executemany(_INSERT, rows)
-        con.execute(
-            "INSERT INTO sets (set_id, name, sort_order, n_printings, synced_at) "
-            "VALUES (?,?,?,?,?) ON CONFLICT(set_id) DO UPDATE SET "
-            "name=excluded.name, sort_order=excluded.sort_order, "
-            "n_printings=excluded.n_printings, synced_at=excluded.synced_at",
-            (set_id, config.set_name(set_id), config.set_order(set_id), len(rows), _now()),
-        )
-        con.execute("COMMIT")
-        counts[set_id] = len(rows)
-        log(f"  {set_id}: {len(rows)} impressões")
+        out = gravar_edicao(con, set_id, rows, FONTE)
+        counts[set_id] = out["n"]
+        log(f"  {set_id}: {len(rows)} impressões"
+            + (f" ({out['reaproveitados']} já estavam no catálogo com outro id — "
+               f"ficou o de lá)" if out["reaproveitados"] else ""))
 
     rebuild_cards(con)
     rebuild_aliases(con)
@@ -292,6 +316,104 @@ def sync(set_ids: list[str] | None = None, delay: float = riftscribe.POLITE_DELA
         # config: diz-se, para ele lhe dar nome ou ordem se quiser.
         "sets_novos": sorted(s for s in counts if s not in (cfg.get("sets") or {})),
     }
+
+
+def _natural(r) -> tuple:
+    """A impressão sem o id: o número e a variante, dentro da edição.
+
+    É a mesma chave com que o `prices.sync_map` casa o CardTrader com a
+    RiftScribe (número + sufixo), e é única em todas as edições do catálogo.
+    """
+    return (int(r["collector_number"]), str(r["variant"] or "").lower())
+
+
+def _larga(r) -> tuple:
+    """A segunda chave, para quando duas fontes escrevem a mesma variante de
+    maneira diferente (`sp1` e `sp01`): o número, a família, a categoria e a
+    carta. Só se usa se casar com UMA linha — duas é ambiguidade, e aí não se
+    escolhe."""
+    return (int(r["collector_number"]), lane_of(str(r["variant"] or "")),
+            r["variant_kind"], r["card_key"])
+
+
+def gravar_edicao(con: sqlite3.Connection, set_id: str, rows: list[dict],
+                  fonte: str) -> dict:
+    """Escreve as impressões de UMA edição, vindas de UMA fonte. Devolve a conta.
+
+    **O `printing_id` QUE JÁ EXISTE FICA (2026-10-15).** A RiftScribe e a dotgg
+    dão ids diferentes à mesma impressão (`rad-001-<tamanho>` contra `rad-001`)
+    e a `copies` — de todos os utilizadores — guarda o id sem chave estrangeira.
+    Antes disto o sync apagava o que a API deixou de devolver e inseria o novo:
+    a impressão mudava de id e as cópias dele ficavam ÓRFÃS, sem erro nenhum.
+    Agora a linha que chega procura a que já lá está pela impressão (número e
+    variante; ou, se as fontes escreverem a variante de outra maneira, número,
+    categoria e carta — só se casar com uma) e, se a achar, fica com o id DELA.
+    Assim não há migração de ids em `vault.db` nenhum: as cópias do André, do
+    Miguel, do Gonçalves e do Rafael não se tocam.
+
+    **Cada fonte só apaga o que é seu.** A RiftScribe não tem as promos de
+    evento que a dotgg tem; apagar «o que a API não devolveu» deitava-as fora.
+
+    **A dotgg não escreve por cima da RiftScribe.** Uma linha que a RiftScribe
+    já trouxe é dela: a dotgg só tapa o que ela não tem.
+    """
+    existentes = [dict(r) for r in con.execute(
+        "SELECT printing_id, collector_number, variant, variant_kind, card_key, fonte "
+        "FROM printings WHERE set_id = ?", (set_id,))]
+    por_nat = {_natural(e): e for e in existentes}
+    por_larga: dict[tuple, list[dict]] = {}
+    for e in existentes:
+        por_larga.setdefault(_larga(e), []).append(e)
+
+    tomados: set[str] = set()
+    reaproveitados = mantidas = 0
+    escrever = []
+    ids = []
+    for r in rows:
+        e = por_nat.get(_natural(r))
+        if e is not None and e["printing_id"] in tomados:
+            e = None
+        if e is None:
+            cands = [x for x in por_larga.get(_larga(r), []) if x["printing_id"] not in tomados]
+            e = cands[0] if len(cands) == 1 else None
+        if e is not None:
+            tomados.add(e["printing_id"])
+            if e["printing_id"] != r["printing_id"]:
+                r = {**r, "printing_id": e["printing_id"]}
+                reaproveitados += 1
+            if fonte != FONTE and (e["fonte"] or FONTE) != fonte:
+                # É da RiftScribe: fica como ela a escreveu.
+                mantidas += 1
+                ids.append(r["printing_id"])
+                continue
+        ids.append(r["printing_id"])
+        escrever.append(r)
+
+    con.execute("BEGIN")
+    try:
+        # Impressões que ESTA fonte deixou de devolver saem do catálogo.
+        placeholders = ",".join("?" * len(ids))
+        con.execute(
+            f"DELETE FROM printings WHERE set_id = ? AND COALESCE(fonte, ?) = ? "
+            f"AND printing_id NOT IN ({placeholders})",
+            [set_id, FONTE, fonte] + ids,
+        )
+        con.executemany(_INSERT, escrever)
+        n = con.execute("SELECT COUNT(*) FROM printings WHERE set_id = ?",
+                        (set_id,)).fetchone()[0]
+        con.execute(
+            "INSERT INTO sets (set_id, name, sort_order, n_printings, synced_at) "
+            "VALUES (?,?,?,?,?) ON CONFLICT(set_id) DO UPDATE SET "
+            "name=excluded.name, sort_order=excluded.sort_order, "
+            "n_printings=excluded.n_printings, synced_at=excluded.synced_at",
+            (set_id, config.set_name(set_id), config.set_order(set_id), n, _now()),
+        )
+        con.execute("COMMIT")
+    except Exception:
+        con.execute("ROLLBACK")
+        raise
+    return {"n": n, "escritas": len(escrever), "reaproveitados": reaproveitados,
+            "mantidas": mantidas}
 
 
 def rebuild_cards(con: sqlite3.Connection) -> int:

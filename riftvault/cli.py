@@ -114,6 +114,38 @@ def cmd_sync(args) -> int:
     return 0
 
 
+def cmd_dotgg(args) -> int:
+    """As edições que a RiftScribe ainda não tem, pela dotgg (2026-10-15, a RAD)."""
+    from . import dotgg
+
+    sets = [s.upper() for s in args.set] if args.set else None
+    print("A descarregar da dotgg (riftbound.gg)...")
+    res = dotgg.sync(sets)
+    print(f"\n{res['total']} impressões em {len(res['sets'])} edições.")
+    if res["reaproveitados"]:
+        print(f"{res['reaproveitados']} já estavam no catálogo com outro id — ficou o de lá "
+              f"(é a ele que as cópias estão agarradas).")
+    if res["da_riftscribe"]:
+        print(f"{res['da_riftscribe']} já vieram da RiftScribe e não se tocaram — ela manda "
+              f"nas dela; a dotgg só tapa o que ela não tem.")
+    for e in res["estranhos"]:
+        print(f"  ! {e} — ficou de fora")
+    if res["unknown_variants"]:
+        print("ATENÇÃO: variantes que o riftvault não sabe classificar: "
+              + ", ".join(repr(v) for v in res["unknown_variants"])
+              + " — estão no bloco «Outras». Dá-lhes nome no `variantes_extra`.")
+    if args.images:
+        print("\nA descarregar imagens...")
+        img = catalog.sync_images(list(res["sets"]))
+        print(f"  {img['downloaded']} novas, {img['cached']} já em cache, "
+              f"{img['failed']} falhadas (de {img['total']}).")
+    if res["sets_vazias"]:
+        print(f"\nerro: {', '.join(res['sets_vazias'])} vieram sem uma única carta da "
+              f"dotgg. O catálogo dessas edições ficou como estava.", file=sys.stderr)
+        return 1
+    return 0
+
+
 def cmd_images(args) -> int:
     sets = [s.upper() for s in args.set] if args.set else None
     res = catalog.sync_images(sets)
@@ -2764,6 +2796,12 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--images", action="store_true", help="descarrega também as imagens")
     p.add_argument("--fast", action="store_true", help="sem pausa entre pedidos")
     p.set_defaults(func=cmd_sync)
+
+    p = sub.add_parser("dotgg", help="as edições que a RiftScribe ainda não tem "
+                                     "(hoje a RAD), pela API do riftbound.gg")
+    p.add_argument("--set", action="append", help="só esta edição (tem de estar em `dotgg.edicoes`)")
+    p.add_argument("--images", action="store_true", help="descarrega também as imagens")
+    p.set_defaults(func=cmd_dotgg)
 
     p = sub.add_parser("images", help="descarrega as imagens em falta")
     p.add_argument("--set", action="append")

@@ -278,6 +278,20 @@ def _migrar_sale_lines_origem(con: sqlite3.Connection) -> None:
         raise
 
 
+def _migrar_printings(con: sqlite3.Connection, schema: str = "catalog") -> None:
+    """A coluna `fonte` da `printings` (2026-10-15, a Radiance pela dotgg).
+
+    Um `ADD COLUMN` com omissão: as linhas que já lá estão são todas da
+    RiftScribe, que é exactamente o que a omissão diz — não muda um número, por
+    isso não leva backup. Corre pelas duas portas, como a da `price_latest`.
+    """
+    tabela = "printings" if schema == "main" else f"{schema}.printings"
+    cols = _columns(con, "printings", schema)
+    if cols and "fonte" not in cols:
+        con.execute(f"ALTER TABLE {tabela} ADD COLUMN fonte TEXT NOT NULL "
+                    f"DEFAULT 'riftscribe'")
+
+
 def _migrar_price_latest(con: sqlite3.Connection, schema: str = "catalog") -> None:
     """As colunas que a `price_latest` ganhou depois da primeira versão.
 
@@ -428,6 +442,7 @@ def _migrate(con: sqlite3.Connection) -> None:
     # da foil (2026-09-26). Vive numa função porque o `catalog_only()` também a
     # chama, com o catálogo como base principal.
     _migrar_price_latest(con, "catalog")
+    _migrar_printings(con, "catalog")
 
     # O histórico de preços mudou de casa: era do vault.db, passou a ser do
     # prices.db, para o robô do GitHub Actions poder fazer commit dele sem
@@ -586,6 +601,7 @@ def catalog_only() -> sqlite3.Connection:
     # este caminho — senão um `riftvault map` num catálogo antigo ficava sem as
     # colunas até alguém abrir o vault.db.
     _migrar_price_latest(con, "main")
+    _migrar_printings(con, "main")
     return con
 
 

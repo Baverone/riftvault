@@ -2920,6 +2920,12 @@ continuam **por validar** — ver "Superfícies NÃO validadas", ponto 7.
   e 13/10 = 232 linhas), com a variação dia/semana/mês do preço de UMA unidade
   e o efeito do PREÇO separado do inventário. Ver a última secção deste
   ficheiro.
+- **Feito também:** A RADIANCE NO CATÁLOGO PELA DOTGG (2026-10-15) — 232
+  impressões pela API do riftbound.gg (`dotgg.py`, `riftvault dotgg`), só a
+  RAD; e o `catalog.gravar_edicao`, que **reaproveita o `printing_id` que já
+  existe** e só apaga o que é da própria fonte (`printings.fonte`) — quando a
+  RiftScribe publicar a RAD não há duplicados nem cópias órfãs, provado em
+  teste. Ver a última secção deste ficheiro.
 - **Por fazer:** a parte 2 do seguir — o separador no site e a tarefa diária;
   e a vista "todos os decks ao mesmo tempo" (hoje vê-se deck a deck, com as
   partilhadas assinaladas).
@@ -4445,7 +4451,9 @@ do `build`, o `riftvault promos`, o `config.PROMOS_PATH`, o botão e a
 deste ficheiro. **Para a trazer de volta** é reverter o commit da reversão
 (está no relatório) — o código e a lista já casada voltam inteiros. **Não
 voltar a construir sem ele pedir.** O `robots.txt` do riftbound.gg continua a
-proibir o `anthropic-ai`.
+proibir o `anthropic-ai` — mas **a regra desta casa de não lá ir CAIU a
+2026-10-15**, por decisão dele (*"usa sempre que possivel"*); ver a última
+secção deste ficheiro.
 
 **As 6 `VEN-SP` são OUTRA COISA e não foram tocadas.** São impressões que o
 catálogo da RiftScribe conhece, estão na categoria `promo` da coleção extra
@@ -11907,3 +11915,146 @@ art, uma variante `b`, uma promo `SP`, uma promo pela raridade, um token) pelo
 `riftvault sync` com a API simulada até ao `build`. Ajustados por fixarem o
 regime de 19/09 lendo o config real: `test_alvo_1`, `test_promos`; e
 `test_masterset` (a ordem e os kinds dos DEFAULTS ganharam a Special Alt).
+
+
+## 2026-10-15 — A RADIANCE NO CATÁLOGO, PELA DOTGG; e o sync deixa de mudar ids (`dotgg.py`, `catalog.gravar_edicao`)
+
+Palavras dele: *"coloca agora essas, dia 23 apenas confirmas se está tudo bem"*
+e, sobre a regra de não ir ao riftbound.gg, **«usa sempre que possivel»**. **A
+REGRA CAIU NESSE DIA, por decisão dele** — o `robots.txt` deles continua igual;
+mudou a regra desta casa, não a deles. Ramo `ai-pc/radiance-cartas-2026-10-15`.
+
+**A FONTE, encontrada e medida por ele num browser:** o riftbound.gg é uma casca
+sobre `https://api.dotgg.gg/cgfw/getcards?game=riftbound&mode=indexed&part=cards`
+— `{"names": [colunas], "data": [[...]]}`, 1770 linhas de todas as edições, com
+`id` (`RAD-038`), `name` (`Ahri - Confident`), `color`, `cost`, `might`,
+`power`, `type`, `rarity`, `promo` e `image` (`static.dotgg.gg`). **Um pedido
+só.** NÃO traz o denominador do código impresso nem o artista.
+
+**SÓ A RAD.** `dotgg.edicoes` no config (hoje `["RAD"]`); **a RiftScribe
+continua a ser a fonte das outras cinco**, e o `riftvault dotgg` recusa uma
+edição que não esteja na lista. Não está em tarefa nenhuma: corre-se à mão
+(`riftvault dotgg --images`), e outra vez a 23/10 para conferir.
+
+### 1. A tradução foi MEDIDA, não adivinhada
+
+Contra o catálogo da RiftScribe nas cinco edições que as duas têm:
+
+| | regra | medido |
+|---|---|---|
+| nome | `Ahri - Confident` → `Ahri, Confident` | 295 cartas |
+| nome dos Legends | só o título (`Kai'Sa - Daughter of the Void` → `Daughter of the Void`) | 118 |
+| tokens de duas faces | a primeira (`Bird // Buff` → `Bird`) | — |
+| promo de evento | sem o parêntese («… Summoner Skirmish Top 8 Promo») — cai na carta da base | — |
+| facção / domínios | o primeiro da dotgg / por ordem alfabética | (Kennen: `order`, `["Chaos","Order"]`) |
+| `cost` / `power` | é a `energy` / 0 é «não tem» (a RiftScribe dá `None`) | — |
+| variantes | `''` · `a` · `star` · `r01` · `t02` · `sp1`, como a RiftScribe as escreve | VEN-R04 = cn 4 `r04`, VEN-SP3 = cn 3 `sp3` |
+
+**O ID É O DA DOTGG EM MINÚSCULAS** (`rad-038`, `rad-168-star`, `rad-038-p`) e
+fica para sempre — ver o ponto 3.
+
+### 2. As variantes, no vocabulário que já existia
+
+| dotgg | variante | kind | onde cai |
+|---|---|---|---|
+| `RAD-001` | `''` | base | a sequência; do **168 em diante, sobrenumerada** (1 de cada) |
+| `RAD-001A` | `a` | alt_art | Alt Art (playset) |
+| `RAD-168-STAR` | `star` | signature | **escondida** (`"*"`, 11/09) |
+| `RAD-038-P`, `-P2` | `p`, `p2` | special | Promos, **sem alvo** — ver a seguir |
+| `RAD-R01` | `r01` | rune_promo | **escondida** (`-R`, as runas sem numeração, 15/09) |
+| `RAD-R01A` | `r01a` | **alt_art** | **retirada** (as runas em Alt Art, 17/09) |
+| `RAD-T02` | `t02` | token | escondida |
+| `RAD-SP1` | `sp1` | special | Promos, **1 de cada** como as `VEN-SP` |
+
+- **O denominador (167) vem do config** (`dotgg.tamanhos`): medido na dotgg (1
+  a 167 sem buracos; 168–184 são todas Showcase — os nove Legends da edição
+  e oito Units/Battlefield, cinco delas cartas de edições anteriores: Aphelios,
+  Ezreal, Kayn, Sett e Yone) e dito por ele. Vai para o
+  `public_code` (`RAD-001/167`), que é de onde o `metrics.e_overnumbered` o lê:
+  **zero linhas novas no `metrics.py`**. O número impresso não se sabe; o código
+  da RiftScribe substitui-o.
+- **O SÍMBOLO DE PROMO (`promo = "1"`) VAI PARA A RARIDADE**: a linha fica com
+  `rarity = "promo"` e a impressa (Rare) na `base_rarity`. É lá que a regra dele
+  de hoje o procura (`master_set.raridades_promo`, `metrics.e_raridade_promo`) —
+  não se inventou outra. São 6 na RAD (`RAD-038-P/-P2`, `RAD-015-P/-P2`,
+  `RAD-085-P`, `RAD-110-P`), todas Summoner Skirmish.
+- **As SP não se separam das alt art pela dotgg — e não se inventou.** As cinco
+  (`Ahri, Confident`, `Akali, Brash`, `Evelynn, In Control`, `Kai'Sa, Rebel`,
+  `Seraphine, Not Alone`) têm `promo = 0` e raridade `Showcase`, **exactamente
+  como as `VEN-SP`** na dotgg. Ficam `special`, como as `VEN-SP`. São os nomes
+  das K/DA; se ele as quiser no bloco «Special Alt» é UMA linha:
+  `"variantes_extra": {"RAD:sp": "special_alt"}` — o `variantes_extra` passou a
+  aceitar `EDIÇÃO:variante`, que só vale nessa edição (as `VEN-SP` não mexem).
+- **A runa em alt art (`r01a`) é `alt_art`**: o `catalog.kind_of` passou a ler
+  uma variante de série com um `a` no fim como a arte alternativa dessa série.
+  Sem isto era `rune_promo` e escapava à retirada, que pergunta pelo kind.
+- **`p` passou a ser uma família conhecida** (`LANE_KINDS["p"] = "special"`) e
+  os aliases de uma promo de evento levam o número (`rad-038-p`); um `rad-p`
+  sozinho serviria a todas.
+
+### 3. O SYNC DEIXOU DE MUDAR IDS — o defeito que isto expunha
+
+Até hoje o `catalog.sync` fazia `DELETE FROM printings WHERE set_id = ? AND
+printing_id NOT IN (...)` e inseria o que a API dava. Quando a RiftScribe
+trouxesse a RAD (`rad-001-<tamanho>`), as linhas da dotgg (`rad-001`) eram
+apagadas e as cópias marcadas entretanto ficavam **ÓRFÃS** — a `copies` não tem
+chave estrangeira, e não havia erro nenhum.
+
+**A cura não migra ids em `vault.db` nenhum**: o `catalog.gravar_edicao` (a
+escrita de UMA edição, por onde passam as duas fontes) procura, para cada linha
+que chega, a que já lá está **pela impressão** — `(número, variante)`, a chave
+com que o `prices.sync_map` já casava o CardTrader; e, se as fontes escreverem a
+variante de outra maneira (`sp1`/`sp01`), `(número, família, categoria, carta)`,
+**só se casar com uma** — e fica com o id DELA. As cópias do André, do Miguel,
+do Gonçalves e do Rafael não se tocam.
+
+E mais duas regras, numa coluna nova, **`printings.fonte`** (`riftscribe` por
+omissão — as linhas que já lá estavam são todas dela; `ADD COLUMN` sem backup,
+pelas duas portas, `db._migrar_printings`):
+
+- **cada fonte só apaga o que é seu** — a RiftScribe não tem as promos de evento
+  nem a runa em alt art, e apagar «o que ela não devolveu» deitava-as fora;
+- **a dotgg não escreve por cima da RiftScribe** — uma linha que ela já trouxe é
+  dela; a dotgg só tapa o que ela não tem.
+
+**A PROVA** (`tests/test_radiance_dotgg.py`, 26 testes): uma RAD de brincar pela
+dotgg, cópias marcadas em oito impressões, e um sync simulado da RiftScribe com
+os ids DELA — **uma linha por impressão, zero cópias órfãs, a mesma contagem**,
+os ids que existiam ficam, os dados passam a ser os da RiftScribe, o que só a
+dotgg tem fica. **Prova pela negativa na FONTE**
+(`_revisao\rad_scripts\prova_negativa.py`, árvore copiada com o `DELETE` de
+antes e sem reaproveitar ids): **10 dos 26 vermelhos** — todos os da classe que
+prova a não-duplicação e o da segunda chave; os 16 verdes são os da tradução,
+que o defeito não toca.
+
+### 4. As imagens
+
+O catálogo guarda o URL do `static.dotgg.gg` em `image_url`/`image_medium`, por
+isso **a página tem imagens desde o primeiro sync** (o site publicado vai ao
+CDN; o 8770 serve do cache e, sem ficheiro, redirecciona para lá). Medido: 200
+sem referer, ~80 KB cada. **Não se descarregaram para o `data/` dele nesta
+ordem** (é o PC dele): `riftvault dotgg --images` põe-nas no cache (~18 MB),
+que é o que o `imagem.py` precisa para reconhecer cartas da RAD numa
+fotografia. O ficheiro chama-se pelo `printing_id`, que não muda quando a
+RiftScribe tomar conta — fica a arte da dotgg, que é a mesma carta.
+
+### 5. Medido a 2026-10-15 numa CÓPIA do `data/` real
+
+(`_revisao\rad_scripts\medir_rad.py`; bases copiadas por `Connection.backup()`.)
+
+| | antes | depois |
+|---|---|---|
+| impressões da RAD | 0 | **232** (19 escondidas: 5 assinadas, 6 runas, 6 runas em alt art — retiradas —, 2 tokens) |
+| separador RAD | — | **213** |
+| na sequência (`e_master`) | — | **167** |
+| blocos da RAD | — | master **167** · sobrenumeradas **17** · Alt Art **18** · Promos **11** (5 SP a 1 de cada + 6 de evento sem alvo) |
+| sobrenumeradas | — | 22 (17 visíveis + as 5 assinadas) |
+| **denominador da percentagem** | **928** | **1095** |
+| níveis (1 / 2 / playset) | 911 / 889 / 836 de 928 | **911 / 889 / 836 de 1095** |
+| `copies` (sha · linhas · normais · foil) | André `ed1feeb8…` · 1073 · 2789 · 683 | **igual** |
+| as dos três amigos | goncalves `a5974d38…`, miguel `3db33c95…`, rafael `7f7d719f…` | **iguais** |
+| segunda corrida | — | 232, 0 ids mudados, as linhas iguais |
+| cartas da RAD que já existiam | — | 11 (as 6 runas, e Aphelios, Ezreal, Kayn, Sett e Yone nas sobrenumeradas) |
+
+**A percentagem desce, e é o esperado:** a sequência da RAD entra no
+denominador com zero cópias. Os números da Coleção dele não mexem.
