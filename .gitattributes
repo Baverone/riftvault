@@ -1,0 +1,4 @@
+# Material fixo dos testes que tem de ficar BYTE A BYTE como foi guardado:
+# sem isto o `core.autocrlf` desta máquina reescreve-o com CRLF no checkout e o
+# `test_colar` deixa de provar que é a lista que ele colou (o sha256 muda).
+tests/fixtures/leona-radiant-dawn.txt -text
