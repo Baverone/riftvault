@@ -246,6 +246,45 @@ def para_linha(linha: dict, api_sort: int, cfg: dict) -> dict:
 
 FONTE = "dotgg"
 
+#: Dentro da família principal, a ordem que a RiftScribe usa no OGN, SFD e UNL
+#: (medido a 2026-10-15): a base, depois a arte alternativa, depois a assinada.
+_ORDEM_MAIN = {"": 0, "a": 1, "star": 2}
+
+
+def chave_de_ordem(r: dict) -> tuple:
+    """A posição de uma impressão na edição: o NÚMERO, e dentro dele a variante.
+
+    André, 2026-10-15, a olhar para a aba da Radiance: *"nao podes ordenar por
+    numeraçao?"*. A dotgg devolve as cartas por ordem ALFABÉTICA de nome, e o
+    `api_sort` saía dessa ordem — a RAD lia-se Ahri, Akali, Amateur… enquanto as
+    outras cinco se leem pelo número.
+
+    A ordem das variantes dentro do mesmo número segue a da RiftScribe, medida
+    nas edições dela (não inventada): a família principal primeiro (`''`, `a`,
+    `star` — OGN 30× base+alt, 12× base+assinada), e as séries próprias a seguir,
+    por ordem do nome da variante (VEN: `''`, `r01`, `sp1`; e `''`, `r04`, `sp4`,
+    `t04`; UNL/SFD: `''`, `t01`). As promos de evento (`p`, `p2`) a RiftScribe não
+    as tem: são a promo DAQUELA carta, por isso ficam coladas à família principal,
+    antes das séries. A runa em alt art (`r01a`) cai a seguir à `r01` sozinha.
+    """
+    v = str(r.get("variant") or "")
+    lane = r.get("lane") or ""
+    if v in _ORDEM_MAIN:
+        dentro = (0, _ORDEM_MAIN[v], "")
+    elif lane == "p":
+        dentro = (1, 0, v)
+    else:
+        dentro = (2, 0, v)
+    return (int(r["collector_number"]),) + dentro
+
+
+def ordenar(rows: list[dict]) -> list[dict]:
+    """As linhas de UMA edição pela ordem do número, com o `api_sort` 0..n-1."""
+    out = sorted(rows, key=chave_de_ordem)
+    for i, r in enumerate(out):
+        r["api_sort"] = i
+    return out
+
 
 def sync(set_ids: list[str] | None = None, log=print, linhas_api: list[dict] | None = None) -> dict:
     """Traz as edições do `dotgg.edicoes` para o catálogo. Pode voltar a correr.
@@ -281,6 +320,10 @@ def sync(set_ids: list[str] | None = None, log=print, linhas_api: list[dict] | N
                 if r["variant_kind"] == "unknown":
                     desconhecidas.add(r["variant"])
                 rows.append(r)
+            # O `api_sort` sai do NÚMERO, não da ordem de chegada (alfabética).
+            # O upsert do `gravar_edicao` reescreve-o também nas linhas que já lá
+            # estão, por isso voltar a correr isto arruma uma RAD gravada antes.
+            rows = ordenar(rows)
             if not rows:
                 res["sets_vazias"].append(sid)
                 log(f"  ! {sid}: a dotgg não devolveu nenhuma carta — catálogo mantido")
