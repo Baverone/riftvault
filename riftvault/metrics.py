@@ -75,6 +75,31 @@ KIND_ORDER = {"base": 0, "alt_art": 1, "signature": 2,
 
 RARITY_ORDER = ["common", "uncommon", "rare", "epic", "showcase"]
 
+# A ORDEM DOS SEIS DOMÍNIOS — e por isso das seis runas, que são uma por
+# domínio. É a DELE (2026-10-15): «Ordena as runas assim: Fury - Calm - Mind -
+# Body - Chaos - Order» e, sobre o quadro Domínio do painel, «aqui também,
+# pela ordem que eu te disse». Até aqui o painel seguia a maqueta (Fury, Body,
+# Calm, Mind, Chaos, Order) e o bloco das runas ia por ordem alfabética.
+#
+# UMA FONTE SÓ: o quadro Domínio (`painel.DOMINIOS`), o bloco «Runas — 12 de
+# cada» (e o rasto do contador antigo) e os domínios da Legend na página do deck
+# (`decks.legality`) leem daqui. É APRESENTAÇÃO — nenhum número sabe dela.
+# Vive no código e não no config: é uma decisão dele, fixa, sobre a ordem de
+# seis nomes do jogo; se ele a quiser mexer sem código, leva-se a uma chave.
+# Um domínio que esta lista não nomeie vai para o FIM, nunca desaparece.
+ORDEM_DOS_DOMINIOS = ("fury", "calm", "mind", "body", "chaos", "order")
+
+
+def posicao_do_dominio(nome: str | None) -> tuple[int, str]:
+    """A chave de ordenação de um domínio (ou do nome de uma runa, «Fury
+    Rune»): a posição na ordem dele e, para o que ela não nomeia, o fim por
+    ordem alfabética."""
+    k = (nome or "").strip().lower()
+    k = k[:-len(" rune")] if k.endswith(" rune") else k
+    if k in ORDEM_DOS_DOMINIOS:
+        return (ORDEM_DOS_DOMINIOS.index(k), "")
+    return (len(ORDEM_DOS_DOMINIOS), k)
+
 # OS BLOCOS da grelha — o CATÁLOGO deles, com o rótulo de cada um. A ORDEM em
 # que aparecem já não é esta lista: é `master_set.ordem_dos_blocos` no config
 # (ver `ordem_dos_blocos`), desde 2026-09-19 — André: *"na ordem das

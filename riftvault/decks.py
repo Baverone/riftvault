@@ -2973,6 +2973,13 @@ def _imagem_pid(r) -> dict:
             "landscape": (r["orientation"] or "").lower() == "landscape"}
 
 
+def _por_dominio(doms) -> list[str]:
+    """Os domínios pela ordem dele (`metrics.ORDEM_DOS_DOMINIOS`, 2026-10-15)
+    em vez da alfabética — é o «Fury + Calm» da página do deck."""
+    from . import metrics
+    return sorted(doms, key=metrics.posicao_do_dominio)
+
+
 def legality(con: sqlite3.Connection, deck_id: int) -> dict:
     """Validação contra as regras do config. NÃO são as regras oficiais."""
     r = rules()
@@ -3007,7 +3014,7 @@ def legality(con: sqlite3.Connection, deck_id: int) -> dict:
         ):
             dom = set(json.loads(row["domains_json"] or "[]"))
             if dom and not dom <= dominios | {"Colorless"}:
-                fora.append({"name": row["name"], "domains": sorted(dom)})
+                fora.append({"name": row["name"], "domains": _por_dominio(dom)})
 
     return {
         "main": {"n": main, "alvo": r["main"], "ok": main == r["main"]},
@@ -3016,7 +3023,7 @@ def legality(con: sqlite3.Connection, deck_id: int) -> dict:
         "battlefields": {"n": counts.get("battlefields", 0), "alvo": r["battlefields"],
                          "ok": counts.get("battlefields", 0) == r["battlefields"]},
         "max_copies": {"alvo": r["max_copies"], "excesso": excesso, "ok": not excesso},
-        "dominios": {"legend": sorted(dominios), "fora": fora, "ok": not fora},
+        "dominios": {"legend": _por_dominio(dominios), "fora": fora, "ok": not fora},
         "main_inclui_champion": r["main_includes_champion"],
     }
 

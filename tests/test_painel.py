@@ -416,7 +416,7 @@ class TestOAmbito(Base):
         dominio = {l["id"]: l for l in m["domain"]}
         self.assertEqual(dominio["multi"]["levels"], [1, 0, 0])
         self.assertEqual(dominio["none"]["n"], 1)
-        self.assertEqual([l["id"] for l in m["domain"]], ["fury", "body", "mind", "none", "multi"])
+        self.assertEqual([l["id"] for l in m["domain"]], ["fury", "mind", "body", "none", "multi"])
         con.close()
 
     def test_as_escondidas_e_as_retiradas_seguem_a_regra_da_grelha(self):

@@ -154,7 +154,7 @@ class TestCadaEdicaoRespondePorSi(Base):
         con = self.catalogo()
         p = self.rv.payload(con)
         self.assertEqual([x["name"] for x in self.ed(p, "OGN")["runas"]],
-                         ["Calm Rune", "Fury Rune"])
+                         ["Fury Rune", "Calm Rune"])   # a ordem dele, 2026-10-15
         for sid in ("SFD", "UNL", "VEN"):
             self.assertEqual([x["name"] for x in self.ed(p, sid)["runas"]], ["Calm Rune"])
             self.assertEqual(self.ed(p, sid)["totals"]["cards"], 1)

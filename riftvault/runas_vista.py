@@ -289,6 +289,8 @@ def arquivo(con: sqlite3.Connection) -> dict | None:
         return None   # uma base anterior à migração (readonly, por exemplo)
     if not linhas:
         return None
+    # A ordem dele (2026-10-15), a mesma do bloco — o SQL dá a alfabética.
+    linhas.sort(key=lambda r: metrics.posicao_do_dominio(r["card_key"]))
     return {
         "linhas": linhas,
         "total": sum(r["qty"] for r in linhas),
@@ -409,7 +411,10 @@ def payload(con: sqlite3.Connection, cfg: dict | None = None,
 
     def _itens(linhas: dict[str, dict], sid: str | None) -> list[dict]:
         out = []
-        for linha in sorted(linhas.values(), key=lambda x: x["name"]):
+        # Pela ordem DELE (2026-10-15), a de `metrics.ORDEM_DOS_DOMINIOS` —
+        # era a alfabética. Uma runa que ela não nomeie vai para o fim.
+        for linha in sorted(linhas.values(),
+                            key=lambda x: metrics.posicao_do_dominio(x["name"])):
             ck = linha["card_key"]
             linha = {k: v for k, v in linha.items() if k != "_todas"}
             # O contador é o DELE e é DAQUELA EDIÇÃO. Em «Todas» (`sid` a

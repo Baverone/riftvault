@@ -122,7 +122,8 @@ class TestOQueConta(Base):
     def test_uma_linha_por_runa_com_alvo_12(self):
         con = self.catalogo()
         p = self.rv.payload(con)
-        self.assertEqual([x["name"] for x in p["runas"]], ["Calm Rune", "Fury Rune"])
+        # A ordem dele (2026-10-15), não a alfabética.
+        self.assertEqual([x["name"] for x in p["runas"]], ["Fury Rune", "Calm Rune"])
         self.assertEqual([x["target"] for x in p["runas"]], [12, 12])
         self.assertEqual(p["alvo"], 12)
         self.assertTrue(p["so_para_ver"])

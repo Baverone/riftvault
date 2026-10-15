@@ -314,10 +314,12 @@ class TestORasto(Base):
         a = self.rv.payload(con)["antes"]
         self.assertEqual(a["total"], 6)
         self.assertEqual(a["cards"], 2)
-        self.assertEqual([r["card_key"] for r in a["linhas"]], ["calm rune", "fury rune"])
-        self.assertEqual(a["linhas"][0]["qty"], 3)
-        self.assertEqual(a["linhas"][0]["seeded_from"], 27)
-        self.assertEqual(a["linhas"][0]["updated_at"], "2026-09-26T21:44:48+00:00")
+        # A ordem dele (2026-10-15): Fury antes de Calm, não a alfabética.
+        self.assertEqual([r["card_key"] for r in a["linhas"]], ["fury rune", "calm rune"])
+        calm = a["linhas"][1]
+        self.assertEqual(calm["qty"], 3)
+        self.assertEqual(calm["seeded_from"], 27)
+        self.assertEqual(calm["updated_at"], "2026-09-26T21:44:48+00:00")
         self.assertIsNone(a["dispensado_em"])
         self.assertIn("reposto a ZERO", a["aviso"])
         self.assertIn("por edição", a["aviso"])
