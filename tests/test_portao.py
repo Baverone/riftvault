@@ -505,6 +505,43 @@ class TestForcarOModoSerie(unittest.TestCase):
         self.assertLessEqual(self._com(), pl.TECTO_TRABALHADORES)
         self.assertGreaterEqual(pl.TECTO_TRABALHADORES, 2)
 
+
+class TestOTectoDosTrabalhadores(unittest.TestCase):
+    """O tecto subiu de 6 para 16 a 2026-10-15 («sobe o tecto», medido: 1336 s
+    com 6 e 1034 s com 16, a máquina livre). O que interessa provar não é o
+    número — é quem manda: a variável por cima de tudo, o `cpu_count` numa
+    máquina pequena, o tecto numa grande, e nunca menos de um."""
+
+    def _com(self, nucleos, **env):
+        with _ambiente(env), mock.patch.object(pl.os, "cpu_count",
+                                               return_value=nucleos):
+            return pl.trabalhadores()
+
+    def test_o_tecto_e_o_que_ele_decidiu(self):
+        self.assertIsInstance(pl.TECTO_TRABALHADORES, int)
+        self.assertEqual(pl.TECTO_TRABALHADORES, 16)
+
+    def test_numa_maquina_grande_manda_o_tecto(self):
+        self.assertEqual(self._com(32), pl.TECTO_TRABALHADORES)
+
+    def test_numa_maquina_pequena_manda_o_cpu_count(self):
+        self.assertEqual(self._com(4), 4)
+        self.assertEqual(self._com(1), 1)
+
+    def test_sem_saber_os_nucleos_corre_um(self):
+        self.assertEqual(self._com(None), 1)
+
+    def test_a_variavel_manda_por_cima_do_tecto_e_dos_nucleos(self):
+        self.assertEqual(self._com(4, **{pl.ENV_TRABALHADORES: "24"}), 24)
+        self.assertEqual(self._com(32, **{pl.ENV_TRABALHADORES: "2"}), 2)
+
+    def test_e_sempre_um_inteiro_de_pelo_menos_um(self):
+        for nucleos in (None, 1, 4, 32, 128):
+            for escrito in ("", "0", "-3", "muitos", "7"):
+                n = self._com(nucleos, **{pl.ENV_TRABALHADORES: escrito})
+                self.assertIsInstance(n, int)
+                self.assertGreaterEqual(n, 1, (nucleos, escrito))
+
     def test_sao_variaveis_de_ambiente_e_nao_chaves_do_config(self):
         """A razão é a do `RIFTVAULT_ENSAIO`: uma chave num ficheiro commitado
         está a um merge de distância de ficar ligada sem ninguém decidir."""
