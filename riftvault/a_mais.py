@@ -230,6 +230,12 @@ def excedente(con: sqlite3.Connection, cfg: dict | None = None,
         pid = r["printing_id"]
         u = usadas.get(pid) or {"no_deck": 0, "no_binder": 0, "na_colecao": 0, "decks": []}
         escondida = not metrics.e_colecao(r, cfg)
+        # SEM ALVO não é «a mais» (as promos, 2026-10-15: *"guardo se
+        # tiver"*). Uma escondida tem alvo 0 e sobra inteira, que é a regra de
+        # 2026-09-17; uma promo também tem alvo 0, mas ele disse que a GUARDA —
+        # oferecê-la como sobra era o contrário. Fica fora do «A mais».
+        if not escondida and metrics.e_sem_alvo(r, cfg):
+            continue
         # O alvo da página inteira — master set e coleção extra —; 0 no que
         # está escondido, que a Coleção não pede.
         alvo = 0 if escondida else metrics.alvo(r, cfg)

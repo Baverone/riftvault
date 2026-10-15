@@ -34,6 +34,7 @@ LANE_KINDS = {"t": "token", "r": "rune_promo", "sp": "special"}
 LABELS = {
     "base": "Base",
     "alt_art": "Arte alt.",
+    "special_alt": "Special Alt",
     "signature": "Signature",
     "token": "Token",
     "rune_promo": "Runa promo",
@@ -49,13 +50,46 @@ def lane_of(variant: str) -> str:
     return m.group(1) if m else "other"
 
 
-def kind_of(variant: str) -> str:
+def variantes_extra(cfg: dict | None = None) -> dict[str, str]:
+    """`variantes_extra` do config: variante (ou o prefixo dela) -> kind.
+
+    A PORTA PARA UMA VARIANTE NOVA (2026-10-15, a preparar a Radiance). A API
+    da RiftScribe documenta só `''`, `a`, `star` e `tNN`; o que uma edição nova
+    trouxer para as Special Alt (as K/DA) não se sabe — pode ser um `b`, um
+    `ka`, outra coisa. Em vez de adivinhar no código, escreve-se aqui numa
+    linha (`{"b": "special_alt"}`) e o sync seguinte classifica-as. Vazio hoje.
+    Um kind que o riftvault não conheça REBENTA: ficava `unknown` em silêncio.
+    """
+    from . import metrics
+
+    cfg = cfg if cfg is not None else config.load()
+    bruto = cfg.get("variantes_extra") or {}
+    out: dict[str, str] = {}
+    for k, v in bruto.items():
+        if str(k).startswith("_"):
+            continue
+        kind = str(v).strip().lower()
+        if kind not in metrics.KIND_ORDER or kind == "unknown":
+            raise ValueError(
+                f"variantes_extra: {k!r} -> {v!r} não é um kind que o riftvault "
+                f"conheça. Aceita: {', '.join(sorted(set(metrics.KIND_ORDER) - {'unknown'}))}")
+        out[str(k).strip().lower()] = kind
+    return out
+
+
+def kind_of(variant: str, extra: dict[str, str] | None = None) -> str:
     if variant == "":
         return "base"
     if variant == "a":
         return "alt_art"
     if variant == "star":
         return "signature"
+    extra = extra or {}
+    # A variante inteira primeiro (`b`), depois o prefixo dela (`ka` de `ka1`).
+    if (variant or "").lower() in extra:
+        return extra[variant.lower()]
+    if lane_of(variant) in extra:
+        return extra[lane_of(variant)]
     return LANE_KINDS.get(lane_of(variant), "unknown")
 
 
@@ -104,7 +138,7 @@ def _now() -> str:
 
 def _to_row(api: dict, api_sort: int, cfg: dict) -> dict:
     variant = api.get("variant") or ""
-    kind = kind_of(variant)
+    kind = kind_of(variant, variantes_extra(cfg))
     lane = lane_of(variant)
     stats = api.get("stats") or {}
     key = card_key_of(api.get("name", ""))
@@ -250,6 +284,13 @@ def sync(set_ids: list[str] | None = None, delay: float = riftscribe.POLITE_DELA
         "total": sum(counts.values()),
         "unknown_variants": sorted(unknown_variants),
         "sets_vazias": vazias,
+        # As edições que o config não nomeia (2026-10-15, a Radiance). ENTRAM
+        # NA MESMA — o catálogo é que decide que edições há, não o config —,
+        # com a omissão do `config.set_name`/`set_order`: o código como nome
+        # (que é o que ele escolheu para todas menos o OGS, 2026-08-31) e
+        # depois das conhecidas, por ordem alfabética. O sync NÃO escreve no
+        # config: diz-se, para ele lhe dar nome ou ordem se quiser.
+        "sets_novos": sorted(s for s in counts if s not in (cfg.get("sets") or {})),
     }
 
 

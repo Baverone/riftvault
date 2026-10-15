@@ -17,9 +17,11 @@ ficam onde a ordem das runas as deixou.
 
 **As promos andaram**: playset a 09-14, 1 a 09-15, playset durante 2026-09-18
 (*"as promos SP podes meter 3 de cada"* — o `promo` saiu da lista) e **1 outra
-vez desde 2026-09-19** (*"as Promo passam a 1 de cada ao inves de playset"*
-— o `promo` voltou). O teste da promo fixa o 1 e que tirar o `promo` da lista
-a volta a pôr ao playset.
+vez a 2026-09-19** (*"as Promo passam a 1 de cada ao inves de playset"*
+— o `promo` voltou) — e **desde 2026-10-15 não pedem NADA** (*"não quero
+colecionar Promos com contagem, guardo se tiver"*: o `promo` saiu do
+`um_de_cada` para o `sem_alvo`). Os testes da promo fixam o zero, e que a
+lista manda: sem o `sem_alvo` volta ao 1, sem as duas volta ao playset.
 
 Corre contra cópias (`tests.fixture.Vault`): o config real só é LIDO, nunca
 escrito. Os testes que mudam o config passam um dicionário, não tocam no
@@ -102,21 +104,27 @@ class TestAlvo(Base):
         self.assertEqual(self.metrics.alvo(self.linhas(con)[self.BASE]), 3)
         con.close()
 
-    def test_a_promo_pede_1_desde_2026_09_19(self):
-        """Pediu 1 de 2026-09-15 a 2026-09-18, o playset durante 2026-09-18
-        (*"as promos SP podes meter 3 de cada"*) e 1 outra vez desde
-        2026-09-19 (*"as Promo passam a 1 de cada ao inves de playset"*). É a
-        lista que manda: tirar o `promo` do `um_de_cada` volta a pô-la ao
-        playset — não há número cravado."""
+    def test_a_promo_nao_pede_nada_desde_2026_10_15(self):
+        """Pediu 1 de 2026-09-15 a 2026-09-18, o playset durante 2026-09-18, 1
+        outra vez a 2026-09-19 e NADA desde 2026-10-15 (*"não quero colecionar
+        Promos com contagem, guardo se tiver"*). É a lista que manda: sem o
+        `sem_alvo` e com o `promo` no `um_de_cada` volta a 1; sem as duas,
+        volta ao playset — não há número cravado."""
         from riftvault import config
         con = self.edicao()
         r = self.linhas(con)[self.PROMO]
-        self.assertTrue(self.metrics.e_um_de_cada(r))
-        self.assertEqual(self.metrics.alvo(r), 1)
+        self.assertTrue(self.metrics.e_sem_alvo(r))
+        self.assertFalse(self.metrics.e_um_de_cada(r))
+        self.assertEqual(self.metrics.alvo(r), 0)
         cfg = config.load()
-        self.assertIn("promo", cfg["master_set"]["um_de_cada"])
-        c = {**cfg, "master_set": {**cfg["master_set"], "um_de_cada": ["overnumbered"]}}
-        self.assertFalse(self.metrics.e_um_de_cada(r, c))
+        self.assertIn("promo", cfg["master_set"]["sem_alvo"])
+        self.assertNotIn("promo", cfg["master_set"]["um_de_cada"])
+        c = {**cfg, "master_set": {**cfg["master_set"], "sem_alvo": [],
+                                   "um_de_cada": ["overnumbered", "promo"]}}
+        self.assertEqual(self.metrics.alvo(r, c), 1)
+        self.assertEqual(self.metrics.rotulo("special", c), "Coleção — promos — 1 de cada")
+        c = {**cfg, "master_set": {**cfg["master_set"], "sem_alvo": [],
+                                   "um_de_cada": ["overnumbered"]}}
         self.assertEqual(self.metrics.alvo(r, c), 3)
         self.assertEqual(self.metrics.rotulo("special", c), "Coleção — promos — playset")
         con.close()
@@ -162,8 +170,9 @@ class TestAlvo(Base):
     def test_o_cabecalho_dos_dois_blocos_diz_1_de_cada(self):
         self.assertEqual(self.metrics.rotulo("overnumbered"),
                          "Coleção — sobrenumeradas — 1 de cada")
-        # O das promos disse «playset» só durante 2026-09-18.
-        self.assertEqual(self.metrics.rotulo("special"), "Coleção — promos — 1 de cada")
+        # O das promos disse «playset» durante 2026-09-18, «1 de cada» de
+        # 2026-09-19 a 2026-10-15, e desde então não pede nada.
+        self.assertEqual(self.metrics.rotulo("special"), "Coleção — promos — sem alvo")
         # E o das artes alternativas diz «playset» desde 2026-09-18 (disse «1
         # de cada» de 2026-09-16 a 2026-09-18) — só isso: o alvo não sobe com
         # os decks (`test_voltar_1.py`).
@@ -174,7 +183,8 @@ class TestAlvo(Base):
         """`um_de_cada` é só o alvo: tirá-la do config é o mundo de 09-14."""
         from riftvault import config
         cfg = config.load()
-        ms = {k: v for k, v in cfg["master_set"].items() if k != "um_de_cada"}
+        ms = {k: v for k, v in cfg["master_set"].items()
+              if k not in ("um_de_cada", "sem_alvo")}
         cfg = {**cfg, "master_set": ms}
         con = self.edicao()
         r = self.linhas(con)
@@ -193,18 +203,23 @@ class TestAlvo(Base):
         r = self.linhas(con)
         for escrita in (["-SP"], ["special"], ["promo"]):
             with self.subTest(escrita=escrita):
-                c = {**cfg, "master_set": {**cfg["master_set"], "um_de_cada": escrita}}
+                c = {**cfg, "master_set": {**cfg["master_set"], "sem_alvo": [],
+                                           "um_de_cada": escrita}}
                 self.assertEqual(self.metrics.alvo(r[self.PROMO], c), 1)
                 self.assertEqual(self.metrics.alvo(r[self.OVER], c), 3)
-        c = {**cfg, "master_set": {**cfg["master_set"], "um_de_cada": ["sp7"]}}
+                # E o `sem_alvo` lê a mesma gramática.
+                c = {**cfg, "master_set": {**cfg["master_set"], "sem_alvo": escrita}}
+                self.assertEqual(self.metrics.alvo(r[self.PROMO], c), 0)
+        c = {**cfg, "master_set": {**cfg["master_set"], "sem_alvo": [], "um_de_cada": ["sp7"]}}
         with self.assertRaises(ValueError):
             self.metrics.alvo(r[self.PROMO], c)
         con.close()
 
     def test_sem_a_linha_do_catalogo_so_a_variante_responde(self):
-        """Os quatro escalares chegam para a promo; a sobrenumerada precisa do
-        código impresso, e sem ele a resposta é o playset."""
-        self.assertEqual(self.metrics.master_target("x", "special", "Unit", False), 1)
+        """Os quatro escalares chegam para a promo (que não pede nada desde
+        2026-10-15); a sobrenumerada precisa do código impresso, e sem ele a
+        resposta é o playset."""
+        self.assertEqual(self.metrics.master_target("x", "special", "Unit", False), 0)
         self.assertEqual(self.metrics.master_target("x", "base", "Unit", False), 3)
 
 
@@ -217,18 +232,19 @@ class TestUmaCopiaEDuas(Base):
         collection.adjust(con, self.OVER, 1, source="test")
         collection.adjust(con, self.PROMO, 1, source="test")
         p, t = self.tiles(con)
-        for pid in (self.OVER, self.PROMO):
-            self.assertEqual((t[pid]["qty"], t[pid]["target"]), (1, 1), pid)
-            self.assertGreaterEqual(t[pid]["qty"], t[pid]["target"])
+        self.assertEqual((t[self.OVER]["qty"], t[self.OVER]["target"]), (1, 1))
+        # A promo não pede nada (2026-10-15): o tile diz o que ele tem.
+        self.assertEqual((t[self.PROMO]["qty"], t[self.PROMO]["target"]), (1, 0))
         blocos = {b["id"]: b for b in p["blocks"]}
         # As duas sobrenumeradas: a Unit (1/1) e o Legend (0/1).
         self.assertEqual((blocos["overnumbered"]["owned"], blocos["overnumbered"]["done"],
                           blocos["overnumbered"]["total"]), (1, 1, 2))
+        # «guardo se tiver»: o bloco conta-a, e não tem nada a completar.
         self.assertEqual((blocos["special"]["owned"], blocos["special"]["done"],
-                          blocos["special"]["total"]), (1, 1, 1))
-        # Com alvo 1 o cabeçalho não precisa da segunda conta.
+                          blocos["special"]["total"]), (1, 0, 1))
+        # Com alvo 1 (ou nenhum) o cabeçalho não precisa da segunda conta.
         self.assertEqual(blocos["overnumbered"]["max_target"], 1)
-        self.assertEqual(blocos["special"]["max_target"], 1)
+        self.assertEqual(blocos["special"]["max_target"], 0)
         con.close()
 
     def test_com_duas_copias_continua_a_aparecer_e_nada_a_marca_como_a_mais(self):
@@ -242,10 +258,11 @@ class TestUmaCopiaEDuas(Base):
         collection.adjust(con, self.OVER, 1, source="test")
         collection.adjust(con, self.PROMO, 1, source="test")
         p2, t2 = self.tiles(con)
-        for pid in (self.OVER, self.PROMO):
-            # O tile está lá, com «2/1»: é o mesmo tile de antes, com o mesmo
-            # conjunto de campos — não ganhou nenhuma marca de excesso.
-            self.assertEqual((t2[pid]["qty"], t2[pid]["target"]), (2, 1), pid)
+        for pid, alvo in ((self.OVER, 1), (self.PROMO, 0)):
+            # O tile está lá, com «2/1» (a promo, sem alvo, com «2»): é o mesmo
+            # tile de antes, com o mesmo conjunto de campos — não ganhou
+            # nenhuma marca de excesso.
+            self.assertEqual((t2[pid]["qty"], t2[pid]["target"]), (2, alvo), pid)
             self.assertEqual(set(t2[pid]), set(t1[pid]), pid)
             self.assertEqual(t2[pid]["block"], t1[pid]["block"])
         # O bloco conta exactamente o mesmo que com uma cópia.
@@ -312,10 +329,11 @@ class TestForaDasContas(Base):
         # A «A subir» parte do mesmo âmbito.
         seguidas = {x["printing_id"] for x in self.a_subir.calcular(con).get("items", [])}
         self.assertFalse(seguidas & extra, seguidas & extra)
-        # E a página diz que as tirou por BLOCO, não por alvo.
+        # E a página diz que tirou as sobrenumeradas por BLOCO. As promos nem
+        # chegam ao âmbito desde 2026-10-15: sem alvo, não há o que tirar.
         scope = self.a_subir.master_faltas(con)["scope"]
         self.assertIn("overnumbered", scope["excluded_blocks"])
-        self.assertIn("special", scope["excluded_blocks"])
+        self.assertNotIn("special", scope["excluded_blocks"])
         con.close()
 
 
