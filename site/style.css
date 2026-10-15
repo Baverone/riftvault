@@ -859,6 +859,27 @@ b.fo, .fo-num b.fo { color: var(--foil); }
 .step:active { background: var(--accent); color: #0f1016; transform: scale(.96); }
 .step.minus:disabled { opacity: .3; cursor: default; }
 
+/* O «+ extra» (2026-10-15): no alvo o `+` sai e fica isto, discreto — letra
+   pequena, cor apagada, borda tracejada — e só escreve se ele CARREGAR SEM
+   LARGAR. Enquanto segura, enche-se da esquerda para a direita no mesmo tempo
+   do `MAIS_LONGO_MS` do `app.js` (500 ms): ele vê que o gesto está a contar.
+   Sem o menu de contexto nem a selecção de texto do telemóvel. */
+.step.extra {
+  font-size: 11px; font-weight: 600; color: var(--dim);
+  border-style: dashed; white-space: nowrap;
+  /* `touch-action` fica o `manipulation` do `.step`: arrastar o dedo por cima
+     continua a deslizar a grelha, e isso cancela o gesto (`pointercancel`). */
+  -webkit-touch-callout: none;
+  background-image: linear-gradient(to right, var(--accent) 50%, transparent 50%);
+  background-size: 200% 100%; background-position: 100% 0;
+}
+.step.extra:active { background-color: var(--panel-2); color: var(--dim); transform: none; }
+.step.extra.a-segurar {
+  color: #0f1016; background-position: 0 0;
+  transition: background-position .5s linear, color .5s step-end;
+}
+.steppers.foil .step.extra { font-size: 10px; padding: 0 4px; color: var(--foil); }
+
 /* Cópias que saíram do binder para um deck. Âmbar, a mesma cor que a vista
    de decks usa para "está noutro deck". */
 .indeck {
