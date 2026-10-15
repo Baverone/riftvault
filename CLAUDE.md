@@ -11791,3 +11791,43 @@ Faltas, o valor (9 499,13 €) e o A mais (60 · 121).
 `tests/test_ordem_dos_dominios.py`; três testes ajustados por fixarem a ordem
 antiga (`test_painel`, `test_runas_vista`, `test_runas_por_edicao`, e o rasto
 do `test_runas_contador_edicao`).
+
+## 2026-10-15 — O «+» SAI DO TILE NO ALVO, e uma a mais é o «+ extra» (carregar sem largar)
+
+Palavras dele: *"quero acrescentar mais 1 pormenor / quando chega ao playset,
+que retires o "+""*. Perguntado o que fazer às cópias A MAIS, escolheu na
+caixa: *"Desaparece, e volta com gesto deliberado"*. Na pergunta de ONDE
+marcou *"Também a linha do foil"* — **lido como o crachá das normais E a linha
+do foil** (o tile todo): só a linha do foil deixava o crachá de cima passar dos
+3, que é o que ele pediu para acabar. Ramo `ai-pc/mais-so-ate-ao-alvo-2026-10-15`.
+
+**Só o tile da Coleção.** O Selado, as Encomendas, as Faltas («já encomendei»),
+a Venda e o contador das runas não mudam — não os escolheu (há teste).
+
+**Cada `+` pára no alvo que o SEU contador mostra**, sem alvo novo: o de cima
+nas normais contra o `state.targets` (`metrics.alvo` do crachá), o do foil nas
+foils contra o `state.foilAlvo` (`foil.alvo`, **12 nas runas**). Uma regra só,
+`maisChegou(n, alvo)` (`alvo > 0 && n >= alvo`); sem alvo o `+` fica sempre.
+Ao chegar lá o `+` **sai** (não fica apagado) e no lugar fica um **«+ extra»**
+discreto (tracejado, letra pequena). O `−` nunca muda.
+
+**O gesto é CARREGAR SEM LARGAR, 500 ms** (`MAIS_LONGO_MS`; o botão enche-se da
+esquerda para a direita no mesmo tempo, `.step.extra.a-segurar`). Escolhido
+contra o segundo toque porque ele marca pelo telemóvel e um duplo toque
+dispara-se sem querer a marcar uma pilha de cartas; segurar não. Pointer
+events, por isso o rato serve igual; arrastar o dedo cancela
+(`pointercancel`), o menu de contexto não abre. Um toque curto **não escreve** e
+diz no ecrã porquê (toast). No **teclado** (a tecla `+` ou Enter no botão) o
+gesto é carregar duas vezes em 2 s. A ajuda da Coleção di-lo.
+
+**O «+ extra» manda EXACTAMENTE o pedido do `+`** (`adjust(pid, 1)` /
+`foilAjustar(pid, 1)`, `maisDispara`) — nenhum `.py` mudou. Medido a 15/10
+(`_revisao\_medir_mais_extra.py`): o site do `main` e do ramo contra a mesma
+cópia do `data/` dão 73 ficheiros dos dois lados e **os 61 JSON iguais** (sem o
+relógio); só diferem o `app.js` e o `style.css`.
+
+`tests/test_mais_ate_ao_alvo.py` (22, correm as funções verdadeiras do `app.js`
+no node); **prova pela negativa contra o `app.js` do `main`: 19 de 22
+vermelhos**, e os 3 verdes são os que fixam o que não podia mudar. O
+`test_foil_separado` ganhou as duas funções novas na lista do que o `foilLinha`
+precisa.

@@ -565,10 +565,13 @@ class TestAInterface(Base):
         if not node:
             self.skipTest("sem node")
         js = APP.read_text(encoding="utf-8")
-        # As três funções de que a linha precisa, e a própria.
+        # As funções de que a linha precisa, e a própria. O `maisChegou` e o
+        # `maisFoilHTML` entraram a 2026-10-15: o «+» do foil sai no alvo e dá
+        # lugar ao «+ extra» (ver `test_mais_ate_ao_alvo`).
         trechos = []
         for nome in ("function foilLimite(", "function foilLinha(",
-                     "function foilPrecoTxt(", "function foilContamTxt("):
+                     "function foilPrecoTxt(", "function foilContamTxt(",
+                     "function maisChegou(", "function maisFoilHTML("):
             i = js.index(nome)
             trechos.append(js[i:js.index("\n}", i) + 2])
         harness = "\n".join(trechos) + """
