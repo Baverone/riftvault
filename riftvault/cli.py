@@ -82,14 +82,18 @@ def cmd_sync(args) -> int:
     print("A descarregar o catálogo da RiftScribe...")
     res = catalog.sync(sets, delay=0.0 if args.fast else 1.0)
     print(f"\n{res['total']} impressões em {len(res['sets'])} edições.")
+    for s in res.get("sets_novos") or ():
+        print(f"Edição nova: {s} — entrou com o código como nome, depois das que o "
+              f"config conhece. Para lhe dar nome ou ordem, escreve-a em `sets`.")
 
     if res["unknown_variants"]:
         print("\n" + "!" * 60)
         print("ATENÇÃO: variantes que o riftvault não sabe classificar:")
         for v in res["unknown_variants"]:
             print(f"  variant={v!r}")
-        print("Foram guardadas como 'unknown'. Acrescenta-as em catalog.LANE_KINDS")
-        print("e volta a correr o sync, senão os alvos ficam errados.")
+        print("Foram guardadas como 'unknown' e estão no bloco «Outras» da Coleção,")
+        print("fora da percentagem. Para lhes dar nome escreve-as no `variantes_extra`")
+        print("do config (ex.: {\"b\": \"special_alt\"}) e volta a correr o sync.")
         print("!" * 60)
 
     if args.images:

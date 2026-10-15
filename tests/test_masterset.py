@@ -209,7 +209,7 @@ class TestConfigDasListas(Base):
 
     def test_os_defaults_dao_os_kinds_certos(self):
         self.assertEqual(self.metrics.kinds_fora(),
-                         frozenset({"alt_art", "rune_promo", "special",
+                         frozenset({"alt_art", "special_alt", "rune_promo", "special",
                                     "token", "signature"}))
         self.assertEqual(self.metrics.kinds_escondidas(),
                          frozenset({"token", "signature", "rune_promo"}))
@@ -501,8 +501,9 @@ class TestOrdem(Base):
             {"master_set": {"ordem_dos_blocos": ["master", "a", "promo", "overnumbered"]}}),
             m.ordem_dos_blocos(
             {"master_set": {"ordem_dos_blocos": ["master", "alt_art", "-SP", "overnumbered"]}}))
-        self.assertEqual(m.ordem_dos_blocos({})[:4],
-                         ["master", "overnumbered", "alt_art", "special"])
+        # A Special Alt (2026-10-15) vem a seguir às Alt Art.
+        self.assertEqual(m.ordem_dos_blocos({})[:5],
+                         ["master", "overnumbered", "alt_art", "special_alt", "special"])
         # Todos os blocos do catálogo estão sempre na resposta, uma vez cada.
         self.assertEqual(sorted(m.ordem_dos_blocos({})), sorted(b for b, _ in m.BLOCOS))
         with self.assertRaises(ValueError):

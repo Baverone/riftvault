@@ -344,7 +344,13 @@ def blocos(cfg: dict | None = None) -> list[tuple[str, str]]:
     — as artes alternativas das runas são «Alt Art» —, por isso sai da lista
     sem deixar buraco.
     """
-    ordem = [b for b in metrics.ordem_dos_blocos(cfg) if b in BLOCO_LABEL]
+    # Um bloco SEM ALVO (as promos desde 2026-10-15: *"não quero colecionar
+    # Promos com contagem"*) não tem faltas por construção — o `a_subir.
+    # masterset` já não lhe deixa entrar impressão nenhuma — e por isso sai do
+    # separador em vez de ficar um cabeçalho vazio e uma wantlist sempre a zero.
+    # Volta sozinho no dia em que a palavra sair do `master_set.sem_alvo`.
+    ordem = [b for b in metrics.ordem_dos_blocos(cfg) if b in BLOCO_LABEL
+             and metrics.alvo_do_bloco(b, cfg) != metrics.SEM_ALVO]
     return [(b, BLOCO_LABEL[b]) for b in ordem]
 
 

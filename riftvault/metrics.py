@@ -70,8 +70,8 @@ from datetime import datetime, timezone
 from . import config
 
 # Ordem em que as variantes aparecem dentro do grupo, na grelha.
-KIND_ORDER = {"base": 0, "alt_art": 1, "signature": 2,
-              "rune_promo": 3, "special": 4, "token": 5, "unknown": 9}
+KIND_ORDER = {"base": 0, "alt_art": 1, "special_alt": 2, "signature": 3,
+              "rune_promo": 4, "special": 5, "token": 6, "unknown": 9}
 
 RARITY_ORDER = ["common", "uncommon", "rare", "epic", "showcase"]
 
@@ -130,6 +130,12 @@ BLOCOS = [
     # está escrito aqui — ver `rotulo`.
     (BLOCO_RUNA, "Runas especiais"),
     ("alt_art", "Artes alternativas"),
+    # As SPECIAL ALT (as K/DA e afins, 2026-10-15) — André: *"Bloco próprio, a
+    # seguir às Alt Art"*. Não são as promos (`special`, as `VEN-SP`): são
+    # artes alternativas especiais, uma categoria da coleção extra com contagem
+    # própria. Nenhuma edição de hoje as tem; o catálogo dá-lhes este kind pelo
+    # `variantes_extra` do config (ver `catalog.kind_of`).
+    ("special_alt", "Special Alt"),
     (BLOCO_OVER, "Sobrenumeradas"),
     # As `VEN-SP` (André, 2026-09-10). Chamam-se «promos» porque é o nome que
     # ele lhes deu e o que o catálogo lhes chama (`variant_label: "Promo"`); as
@@ -150,7 +156,7 @@ BLOCO_LABEL = dict(BLOCOS)
 # `master_set.ordem_dos_blocos`, com a gramática das outras listas do
 # `master_set` (`a`, `promo`, `overnumbered`, …) ou o id do bloco.
 LISTA_ORDEM = "ordem_dos_blocos"
-ORDEM_OMISSAO = (BLOCO_MASTER, BLOCO_OVER, "alt_art", "special")
+ORDEM_OMISSAO = (BLOCO_MASTER, BLOCO_OVER, "alt_art", "special_alt", "special")
 
 # O prefixo do cabeçalho de um bloco que NÃO conta para a percentagem: é a
 # palavra dele (*"é puramente coleção"*). Um bloco que conte — só o master set,
@@ -164,6 +170,7 @@ BLOCO_CURTO = {
     BLOCO_MASTER: "master set",
     BLOCO_RUNA: "runas especiais",
     "alt_art": "artes alternativas",
+    "special_alt": "special alt",
     "token": "tokens",
     "signature": "signatures",
     BLOCO_OVER: "sobrenumeradas",
@@ -202,6 +209,9 @@ LISTA_RETIRADAS = "retiradas"
 # playset»), por oposição aos blocos que pedem um número fixo («— 1 de cada»).
 # Ver `_sufixo_alvo`.
 ALVO_PLAYSET = "playset"
+# E de um bloco que não pede nada (`master_set.sem_alvo`, 2026-10-15): o
+# cabeçalho diz «— sem alvo» e o tile só o número do que ele tem.
+SEM_ALVO = "sem alvo"
 
 # O sufixo do CÓDIGO IMPRESSO -> o `variant_kind` que ele dá no catálogo. É a
 # escrita do André ("sigla-T", "a no fim"), e o `master_set.fora` aceita-a a par
@@ -226,6 +236,10 @@ SUFIXO_KIND = {
 # masterset"*). Ver `escondida`.
 PALAVRA_KIND = {
     "promo": "special",     # VEN-SP4
+    # As Special Alt (2026-10-15) pela palavra dele, com e sem espaço.
+    "special alt": "special_alt",
+    "special-alt": "special_alt",
+    "specialalt": "special_alt",
 }
 
 # O valor das listas do `master_set` que NÃO é uma variante. As sobrenumeradas
@@ -254,6 +268,25 @@ LISTA_ESCONDIDAS = "escondidas"
 # novamente: Alt Art para playset, overnumbered continua 1 de cada"*).
 LISTA_UM = "um_de_cada"
 ALVO_UM = 1
+# A quarta lista, com a mesma gramática: o que NÃO PEDE NADA — alvo zero.
+# André, 2026-10-15: *"não quero colecionar Promos com contagem, guardo se
+# tiver, mas não tenho qualquer tipo de interesse se tiver o simbolo de Promo
+# na raridade"*. Hoje `["promo"]`. Ganha ao `um_de_cada` (revoga o «as Promo
+# passam a 1 de cada» de 2026-09-19). Alvo zero NÃO é escondido: a impressão
+# continua na grelha, no seu bloco, com o número do que ele tem, e continua a
+# contar para o VALOR; o que perde é tudo o que se mede contra um alvo — as
+# Faltas, as wantlists, os níveis, o painel e o «A mais» (guardar não é ter a
+# mais). Ver `e_sem_alvo`.
+LISTA_SEM_ALVO = "sem_alvo"
+# As RARIDADES que fazem de uma impressão uma promo (2026-10-15): *"se tiver o
+# simbolo de Promo na raridade"*. O catálogo de hoje não tem nenhuma — a escada
+# é common < uncommon < rare < epic < showcase —, por isso esta lista NÃO se
+# valida contra o catálogo (era rebentar hoje por uma raridade que só pode vir
+# amanhã). Uma impressão com uma destas raridades é tratada como `special` (a
+# promo) em tudo o que pergunta pela variante: o bloco, a percentagem, o alvo.
+# Ver `kind_efectivo`.
+LISTA_RARIDADES_PROMO = "raridades_promo"
+RARIDADES_PROMO = ("promo",)
 
 # Memo do `_ler_lista`: as listas do config não mudam dentro de uma corrida, e
 # a pergunta é feita uma vez por impressão (1180) por payload.
@@ -400,9 +433,10 @@ def master_target(printing_id: str, kind: str, card_type: str | None, is_token: 
     UMA regra: **o alvo de coleção do tipo** (`alvo_do_tipo`: Unit/Spell/Gear
     3, Legend e Battlefield 1, e Rune 3 desde 2026-09-15) — **excepto 1 no
     que está em `master_set.um_de_cada`**: as sobrenumeradas (2026-09-15,
-    *"overnumbered e promos (SP) voltamos a 1 de cada"*) e as promos `VEN-SP`
-    (2026-09-19, *"as Promo passam a 1 de cada ao inves de playset"* — pediram
-    o playset só durante 2026-09-18). Vale igual no master set e na coleção
+    *"overnumbered e promos (SP) voltamos a 1 de cada"*) — **e 0 no que está
+    em `master_set.sem_alvo`**: as promos, desde 2026-10-15 (*"não quero
+    colecionar Promos com contagem, guardo se tiver"*; pediram 1 de 2026-09-19
+    a 2026-10-15 e o playset durante 2026-09-18). Vale igual no master set e na coleção
     extra — as artes alternativas pedem o playset desde 2026-09-18 (*"muda
     novamente: Alt Art para playset, overnumbered continua 1 de cada"*; entre
     2026-09-16 e 2026-09-18 estavam no `um_de_cada`). Os tokens ficam com o
@@ -430,7 +464,12 @@ def master_target(printing_id: str, kind: str, card_type: str | None, is_token: 
         return int(override)
     if is_token:
         return int(cfg.get("token_target", 1))
-    if e_um_de_cada(printing if printing is not None else {"variant_kind": kind}, cfg):
+    linha = printing if printing is not None else {"variant_kind": kind}
+    # O `sem_alvo` (2026-10-15, as promos) ganha ao `um_de_cada`: a mesma
+    # impressão nas duas listas não pede nada.
+    if e_sem_alvo(linha, cfg):
+        return 0
+    if e_um_de_cada(linha, cfg):
         return ALVO_UM
     return alvo_do_tipo(card_type, is_token, cfg)
 
@@ -599,6 +638,59 @@ def ordem_dos_blocos(cfg: dict | None = None) -> list[str]:
     return ordem
 
 
+def raridades_promo(cfg: dict | None = None) -> frozenset[str]:
+    """`master_set.raridades_promo` lido (minúsculas). Ver `LISTA_RARIDADES_PROMO`."""
+    cfg = cfg or config.load()
+    ms = cfg.get("master_set") or {}
+    bruto = ms[LISTA_RARIDADES_PROMO] if LISTA_RARIDADES_PROMO in ms else RARIDADES_PROMO
+    if not isinstance(bruto, (list, tuple)):
+        raise ValueError(f"master_set.{LISTA_RARIDADES_PROMO}: tem de ser uma lista")
+    return frozenset(str(x).strip().lower() for x in bruto)
+
+
+def kind_efectivo(printing, cfg: dict | None = None) -> str:
+    """A variante desta impressão PARA AS LISTAS DO `master_set`.
+
+    É o `variant_kind` do catálogo — excepto numa impressão cuja RARIDADE seja
+    de promo (`raridades_promo`, 2026-10-15: *"se tiver o simbolo de Promo na
+    raridade"*), que passa a ser `special`, a promo, venha a variante que vier.
+    É por aqui que uma promo nova que a API traga como base com raridade
+    «promo» cai no bloco das promos e na regra delas, em vez de entrar na
+    sequência do master set a contar para a percentagem.
+
+    Uma variante que o catálogo não conhece (`unknown`) devolve-se tal e qual:
+    é o `fora_do_master` que a manda para um bloco visível.
+    """
+    rar = {str(campo(printing, "rarity", "") or "").lower(),
+           str(campo(printing, "base_rarity", "") or "").lower()} - {""}
+    if rar & raridades_promo(cfg):
+        return "special"
+    return campo(printing, "variant_kind", "unknown")
+
+
+def _sem_alvo(cfg: dict | None = None) -> tuple[frozenset[str], bool]:
+    """O `master_set.sem_alvo` lido: (variantes, as sobrenumeradas também?)."""
+    cfg = cfg or config.load()
+    return _ler_lista(LISTA_SEM_ALVO, _lista(cfg, LISTA_SEM_ALVO))
+
+
+def e_sem_alvo(printing, cfg: dict | None = None) -> bool:
+    """Esta impressão NÃO PEDE NADA — alvo zero, mas na página?
+
+    André, 2026-10-15: *"não quero colecionar Promos com contagem, guardo se
+    tiver"*. É a quarta lista do `master_set` (hoje `["promo"]`), e ganha ao
+    `um_de_cada`. «Guardo se tiver» manda na leitura: a impressão NÃO é
+    escondida — aparece no bloco dela com o número do que ele tem e conta para
+    o valor —, só deixa de ter alvo, e por isso sai de tudo o que se mede contra
+    um alvo (Faltas, wantlists, níveis, painel, «A mais»).
+    """
+    cfg = cfg or config.load()
+    kinds, over = _sem_alvo(cfg)
+    if kind_efectivo(printing, cfg) in kinds:
+        return True
+    return bool(over and e_overnumbered(printing))
+
+
 def _um_de_cada(cfg: dict | None = None) -> tuple[frozenset[str], bool]:
     """O `master_set.um_de_cada` lido: (variantes, as sobrenumeradas também?)."""
     cfg = cfg or config.load()
@@ -632,7 +724,7 @@ def e_um_de_cada(printing, cfg: dict | None = None) -> bool:
     """
     cfg = cfg or config.load()
     kinds, over = _um_de_cada(cfg)
-    if campo(printing, "variant_kind", "unknown") in kinds:
+    if kind_efectivo(printing, cfg) in kinds:
         return True
     return bool(over and e_overnumbered(printing))
 
@@ -651,7 +743,7 @@ def escondida(printing, cfg: dict | None = None) -> bool:
     if retirada(printing, cfg):
         return True
     kinds, over = _escondidas(cfg)
-    if campo(printing, "variant_kind", "unknown") in kinds:
+    if kind_efectivo(printing, cfg) in kinds:
         return True
     return bool(over and e_overnumbered(printing))
 
@@ -716,7 +808,15 @@ def fora_do_master(printing, cfg: dict | None = None) -> str | None:
     """
     cfg = cfg or config.load()
     kinds, over = _fora(cfg)
-    kind = campo(printing, "variant_kind", "unknown")
+    kind = kind_efectivo(printing, cfg)
+    # UMA VARIANTE QUE O CATÁLOGO NÃO CONHECE NUNCA É MASTER SET (2026-10-15,
+    # a preparar a Radiance). Até aqui uma `unknown` que ninguém pusesse numa
+    # lista caía na sequência e passava a contar para a percentagem com o alvo
+    # do tipo — em silêncio, que é o contrário do ponto 6 das «Superfícies não
+    # validadas». Vai para o bloco «Outras», visível e fora da percentagem, e o
+    # `riftvault sync` diz qual é; dar-lhe nome é uma linha no `variantes_extra`.
+    if kind == "unknown":
+        return "outras"
     if kind in kinds:
         # Uma variante nova (um `b`? um `sp7`?) tem de cair num sítio visível em
         # vez de desaparecer — ver CLAUDE.md, "Superfícies não validadas".
@@ -796,8 +896,8 @@ def bloco(printing, cfg: dict | None = None) -> str:
     fora = fora_do_master(printing, cfg)
     if fora is not None:
         return fora
-    if printing["variant_kind"] == "alt_art":
-        return "alt_art"
+    if printing["variant_kind"] in ("alt_art", "special_alt"):
+        return printing["variant_kind"]
     return BLOCO_MASTER
 
 
@@ -843,9 +943,14 @@ def alvo_do_bloco(bloco_id: str, cfg: dict | None = None) -> str:
     """
     cfg = cfg or config.load()
     kinds_um, over_um = _um_de_cada(cfg)
+    kinds_zero, over_zero = _sem_alvo(cfg)
     # O bloco das runas especiais é feito de artes alternativas (as das runas
     # do OGN): pede o que as artes alternativas pedem.
     kind_do_bloco = "alt_art" if bloco_id == BLOCO_RUNA else bloco_id
+    # Sem alvo (2026-10-15, as promos): o `sem_alvo` ganha ao `um_de_cada`,
+    # como no `master_target`.
+    if (bloco_id == BLOCO_OVER and over_zero) or kind_do_bloco in kinds_zero:
+        return SEM_ALVO
     if bloco_id == "token":
         alvo_bloco = int(cfg.get("token_target", 1))
     elif (bloco_id == BLOCO_OVER and over_um) or kind_do_bloco in kinds_um:
@@ -1336,13 +1441,19 @@ def set_payload(con: sqlite3.Connection, set_id: str, editable: bool = True,
     by_block: dict[str, list[int]] = {}
     for g in ordered:
         for p in g["printings"]:
+            slot = by_block.setdefault(p["block"], [0, 0, 0, 0])
+            # Uma impressão SEM ALVO (as promos, 2026-10-15: *"guardo se
+            # tiver"*) está na página e conta no «tens N de M» do bloco dela —
+            # é o número do que ele tem —, mas não tem nada a completar: não
+            # entra no `done`, no `max_target` nem em conta nenhuma a seguir.
+            # Sem isto o bloco desaparecia da lista `blocks` e o cliente, que
+            # percorre essa lista, deixava de desenhar os tiles.
+            slot[1] += 1
+            slot[2] += 1 if p["qty"] > 0 else 0
             if p["target"] <= 0:
                 continue
             complete = p["qty"] >= p["target"]
-            slot = by_block.setdefault(p["block"], [0, 0, 0, 0])
-            slot[1] += 1
             slot[0] += 1 if complete else 0
-            slot[2] += 1 if p["qty"] > 0 else 0
             slot[3] = max(slot[3], p["target"])
             if not conta_bloco(p["block"], cfg):
                 continue
