@@ -277,6 +277,11 @@ const PAGINA = {
          + 'contador, igual em todas as edições; a linha de baixo, <b>«nesta edição»</b>, '
          + 'conta só as impressões da edição aberta — a arte alternativa de cada edição é '
          + 'uma carta própria.</p>'
+         + '<p>Quando um tile chega ao <b>alvo</b> (o crachá, ou a linha do foil), o '
+         + '<b>+</b> sai e fica um <b>«+ extra»</b>: para marcar uma cópia a mais, '
+         + '<b>carrega nele sem largar</b> (no teclado, carrega duas vezes). Um toque '
+         + 'curto não escreve nada — é para não passares do alvo sem querer. O '
+         + '<b>−</b> está sempre lá.</p>'
          + '<p>Nas comuns e incomuns há <b>duas contagens separadas</b>, e nunca se '
          + 'somam: o <b>crachá</b> do tile são as <b>normais</b> contra o alvo da '
          + 'Coleção, e a linha por baixo são as <b>foils</b> contra o playset do tipo em '
@@ -1504,7 +1509,7 @@ function tileHTML(g, p, comUso = false) {
     <div class="steppers">
       <button class="step minus" data-act="-1" aria-label="menos uma de ${escapeAttr(p.name)}"
               ${qtyNormais(p.id) <= 0 ? 'disabled' : ''}>−</button>
-      <button class="step plus" data-act="1" aria-label="mais uma de ${escapeAttr(p.name)}">+</button>
+      ${maisNormalHTML(p.id)}
     </div>
     <div class="playset ${play.target > 0 && play.owned >= play.target ? 'is-done' : ''}"
          data-kind="${g.is_token ? 'token' : 'jogável'}"
@@ -1516,6 +1521,143 @@ function tileHTML(g, p, comUso = false) {
     ${deckLine(p.id)}
     ${comUso ? usoLine(g) : ''}
   </div>`;
+}
+
+/* O «+» PÁRA NO ALVO, E UMA A MAIS É UM GESTO DELIBERADO (André, 2026-10-15)
+
+   *"quero acrescentar mais 1 pormenor / quando chega ao playset, que retires o
+   "+""* — e, perguntado o que fazer às cópias A MAIS, escolheu na caixa:
+   *"Desaparece, e volta com gesto deliberado"*. Na pergunta de ONDE marcou
+   *"Também a linha do foil"*, que se leu como o crachá das normais E a linha do
+   foil (o tile todo).
+
+   Cada `+` pára no alvo que o SEU contador já mostra — não há alvo novo:
+
+     o `+` de cima     as normais (`state.qty`) contra o `state.targets`, que é o
+                       `metrics.alvo` do crachá (3, 1 na Legend e no Battlefield,
+                       1 nas sobrenumeradas e nas promos…)
+     o `+` do foil     as foils (`state.foil`) contra o `state.foilAlvo`, que é o
+                       `foil.alvo` da linha (o playset do tipo: 12 nas runas)
+
+   Ao chegar lá o `+` SAI (não fica apagado: um botão cinzento lia-se «partido»)
+   e no lugar dele fica um «+ extra» discreto, que só escreve com um gesto de
+   propósito: CARREGAR SEM LARGAR (`MAIS_LONGO_MS`). É o gesto natural no
+   telemóvel, que é onde ele marca a coleção, e funciona igual com o rato. Um
+   toque curto não escreve nada e diz no ecrã porquê. No teclado (a tecla `+`,
+   ou Enter no botão) o gesto é carregar duas vezes seguidas.
+
+   O «+ extra» manda EXACTAMENTE o mesmo pedido do `+` (`adjust(pid, 1)` /
+   `foilAjustar(pid, 1)`): é a mesma cópia, pela mesma rota — o «A mais» e todos
+   os números ficam como se tivesse sido o `+` de sempre. O `−` nunca muda.
+   Sem alvo (`0`) o `+` fica sempre: não há alvo a que chegar. */
+
+const MAIS_LONGO_MS = 500;
+let maisGestoEm = 0;      // quando o último gesto escreveu (ver `wireMaisExtra`)
+
+/* @mais-puro:inicio — só JavaScript puro, para o teste o correr no node. */
+function maisChegou(n, alvo) {
+  return alvo > 0 && n >= alvo;
+}
+/* @mais-puro:fim */
+
+function maisNormalHTML(pid) {
+  const nome = state.meta.get(pid)?.name || '';
+  const q = state.qty.get(pid) || 0;
+  const t = state.targets.get(pid) || 0;
+  if (!maisChegou(q, t)) {
+    return `<button class="step plus" data-act="1" aria-label="mais uma de ${escapeAttr(nome)}">+</button>`;
+  }
+  return `<button class="step plus extra" data-act="1" data-extra="1"
+    title="Já tens ${q} de ${t} — o alvo. Para marcar uma a mais, carrega aqui sem largar."
+    aria-label="uma a mais de ${escapeAttr(nome)} (já chegaste ao alvo: carrega sem largar)">+ extra</button>`;
+}
+
+function maisFoilHTML(pid, f, t) {
+  if (f >= foilLimite()) {
+    return `<button class="step plus" data-foil="1" aria-label="mais uma foil" disabled>+</button>`;
+  }
+  if (!maisChegou(f, t)) {
+    return `<button class="step plus" data-foil="1" aria-label="mais uma foil">+</button>`;
+  }
+  return `<button class="step plus extra" data-foil="1" data-extra="1"
+    title="Já tens ${f} de ${t} em foil — o alvo. Para marcar uma a mais, carrega aqui sem largar."
+    aria-label="uma foil a mais (já chegaste ao alvo: carrega sem largar)">+ extra</button>`;
+}
+
+/* Quando o «+ extra» escreve: a mesma função do `+` normal, com o mesmo delta. */
+function maisDispara(btn) {
+  const pid = btn.closest('.tile')?.dataset.pid;
+  if (!pid) return;
+  if (btn.dataset.foil) foilAjustar(pid, Number(btn.dataset.foil));
+  else adjust(pid, Number(btn.dataset.act));
+}
+
+/* O toque curto no «+ extra» não escreve: diz porquê e como. */
+function maisAviso(btn, teclado = false) {
+  const foil = !!btn.dataset.foil;
+  const como = teclado ? 'carrega outra vez' : 'carrega no «+ extra» sem largar';
+  toast(`Já chegaste ao alvo${foil ? ' em foil' : ''}. Para marcar uma a mais, ${como}.`,
+        { ms: 3000 });
+}
+
+/* O gesto: carregar sem largar. Pointer events servem o toque e o rato. O
+   `click` que vem a seguir a um gesto que já escreveu é engolido (senão o
+   aviso aparecia por cima de uma cópia que acabou de entrar). */
+function wireMaisExtra(raiz) {
+  let timer = null, alvo = null;
+  const parar = () => {
+    clearTimeout(timer); timer = null;
+    if (alvo) alvo.classList.remove('a-segurar');
+    alvo = null;
+  };
+  raiz.addEventListener('pointerdown', (e) => {
+    const btn = e.target.closest('.step[data-extra]');
+    if (!btn || btn.disabled || (e.button != null && e.button > 0)) return;
+    parar();
+    alvo = btn;
+    btn.classList.add('a-segurar');
+    timer = setTimeout(() => {
+      btn.classList.remove('a-segurar');
+      // Marca-se a HORA e não o botão: o `refreshTiles` troca o botão logo a
+      // seguir, e o `click` do largar pode cair no botão novo.
+      maisGestoEm = Date.now();
+      timer = null; alvo = null;
+      if (navigator.vibrate) navigator.vibrate(15);
+      maisDispara(btn);
+    }, MAIS_LONGO_MS);
+  });
+  for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) {
+    raiz.addEventListener(ev, (e) => {
+      if (alvo && (ev !== 'pointerleave' || e.target === alvo)) parar();
+    }, true);
+  }
+  // Carregar sem largar abre o menu de contexto no telemóvel: aqui não.
+  raiz.addEventListener('contextmenu', (e) => {
+    if (e.target.closest('.step[data-extra]')) e.preventDefault();
+  });
+}
+
+/* O clique no «+ extra». Com o rato ou o dedo (`detail > 0`) só avisa — quem
+   escreve é o gesto. Com o teclado (`detail === 0`, Enter/Espaço no botão) o
+   gesto é carregar duas vezes seguidas. Devolve `true` se tratou o clique. */
+const maisTeclado = { pid: null, foil: false, ate: 0 };
+function maisCliqueExtra(btn, e) {
+  if (Date.now() - maisGestoEm < 1000) return true;   // o largar do gesto
+  if (e && e.detail > 0) { maisAviso(btn); return true; }
+  return maisTeclaDupla(btn);
+}
+function maisTeclaDupla(btn) {
+  const pid = btn.closest('.tile')?.dataset.pid;
+  const foil = !!btn.dataset.foil;
+  const agora = Date.now();
+  if (maisTeclado.pid === pid && maisTeclado.foil === foil && agora < maisTeclado.ate) {
+    maisTeclado.pid = null;
+    maisDispara(btn);
+  } else {
+    Object.assign(maisTeclado, { pid, foil, ate: agora + 2000 });
+    maisAviso(btn, true);
+  }
+  return true;
 }
 
 /* «juntar à venda» (2026-09-25), no tile da Coleção: só no modo edição e só
@@ -1567,13 +1709,11 @@ function foilLinha(pid) {
   if (!state.foilOk.has(pid)) return '';
   const f = state.foil.get(pid) || 0;
   const t = state.foilAlvo.get(pid) || 0;
-  const lim = foilLimite();
-  const feito = t > 0 && f >= t;
+  const feito = maisChegou(f, t);
   const controlos = state.editable ? `<span class="steppers foil">
       <button class="step minus" data-foil="-1" aria-label="menos uma foil"
               ${f <= 0 ? 'disabled' : ''}>−</button>
-      <button class="step plus" data-foil="1" aria-label="mais uma foil"
-              ${f >= lim ? 'disabled' : ''}>+</button>
+      ${maisFoilHTML(pid, f, t)}
     </span>` : '';
   // O que as foils contam vem do servidor (`foil.conta_para_coleccao` /
   // `conta_para_valor`): a frase muda com as chaves em vez de ficar a dizer o
@@ -2642,6 +2782,10 @@ function refreshTiles(pid, cardKey) {
     // O `−` baixa as NORMAIS, não o `qty` da Coleção (que desde 2026-09-26
     // pode trazer foils por cima) — ver o `qtyNormais`.
     el.querySelector('.step.minus').disabled = qtyNormais(pid) <= 0;
+    // O `+` de cima troca com o «+ extra» quando o crachá chega ao alvo (e
+    // volta quando desce) — 2026-10-15.
+    const mais = el.querySelector('.steppers:not(.foil) .step.plus');
+    if (mais) mais.outerHTML = maisNormalHTML(pid);
     const linha = el.querySelector('.indeck');
     if (linha) linha.outerHTML = deckLine(pid);
     const fo = el.querySelector('.foil-linha');
@@ -2809,12 +2953,16 @@ function wireControls() {
     }
     const btn = e.target.closest('.step');
     if (!btn) return;
+    // O «+ extra» (no alvo, 2026-10-15) não escreve com um clique: o gesto é
+    // carregar sem largar, e quem o trata é o `wireMaisExtra`.
+    if (btn.dataset.extra) { maisCliqueExtra(btn, e); return; }
     const tile = btn.closest('.tile');
     // O contador de foil (2026-09-22) é outro par de botões no mesmo tile: o
     // `data-foil` reparte o que ele já tem, o `data-act` mexe no total.
     if (btn.dataset.foil) foilAjustar(tile.dataset.pid, Number(btn.dataset.foil));
     else adjust(tile.dataset.pid, Number(btn.dataset.act));
   });
+  wireMaisExtra($('#grid'));
 
   // Imagem local em falta cai para o CDN (e vice-versa no modo publicado).
   // Qualquer secção com artes tem de estar nesta lista: uma imagem que o cache
@@ -2900,6 +3048,9 @@ function wireKeyboard() {
 
     function act(d) {
       if (state.focus < 0) return;
+      // No alvo a tecla `+` é o «+ extra»: duas vezes seguidas (2026-10-15).
+      const extra = d > 0 && tiles[state.focus].querySelector('.steppers:not(.foil) .step[data-extra]');
+      if (extra) { maisTeclaDupla(extra); return; }
       adjust(tiles[state.focus].dataset.pid, d);
     }
   });
