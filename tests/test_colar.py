@@ -44,8 +44,14 @@ SEM_CONFIG = str(Path(tempfile.gettempdir()) / "riftvault-nao-existe.json")
 
 from tests.fixture import REPO, Vault  # noqa: E402
 
-#: A lista REAL que ele colou (2026-10-01), versionada em `decks/`.
-LISTA_REAL = REPO / "decks" / "leona-radiant-dawn.txt"
+#: A lista REAL que ele colou (2026-10-01). Viveu em `decks/` até 2026-10-15,
+#: quando os decks foram apagados a pedido dele (`3edc274`); desde então está
+#: guardada aqui, byte a byte (`git show 3edc274~1:decks/leona-radiant-dawn.txt`,
+#: sha256 f9bb1bca…, LF), porque os decks vão e vêm e este teste não pode
+#: depender de um estar montado no repo. O NOME do ficheiro tem de continuar a
+#: ser este: o `decks.parse` tira o slug do nome, e a prova das duas portas
+#: compara-o com o `slug="leona-radiant-dawn"` do texto colado.
+LISTA_REAL = REPO / "tests" / "fixtures" / "leona-radiant-dawn.txt"
 
 
 class Base(unittest.TestCase):
@@ -104,6 +110,13 @@ class TestUmLeitorSo(Base):
         self.assertEqual(a["nome"], b["nome"])
         self.assertEqual(a["content_hash"], b["content_hash"],
                          "o ficheiro e o texto têm de dar o mesmo hash")
+
+    def test_a_LISTA_REAL_esta_guardada_byte_a_byte(self):
+        """Normalizar a lista (pontas de linha, espaços) deixava de provar que
+        é a que ele colou: o sha256 é o do `3edc274~1:decks/…` e do arquivo."""
+        import hashlib
+        self.assertEqual(hashlib.sha256(LISTA_REAL.read_bytes()).hexdigest(),
+                         "f9bb1bca6dd5242920e8f4859f7100199793262d638b5142798da01b1b0372ba")
 
     def test_so_ha_um_leitor_no_codigo(self):
         """O `colar.py` não pode ter uma segunda gramática de decklist."""

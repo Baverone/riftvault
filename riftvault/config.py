@@ -393,8 +393,9 @@ DEFAULTS: dict = {
     #
     # O CONTADOR DO TILE, desde 2026-09-27 à noite, NÃO DEPENDE DE CHAVE
     # NENHUMA: o crachá é as NORMAIS contra o `metrics.alvo` e a linha de baixo
-    # é o foil contra o `foil.alvo` (o alvo de Coleção do tipo desde
-    # 2026-10-13 — Rune 3; até aí o playset, Rune 12). As duas
+    # é o foil contra o `foil.alvo` (o playset do tipo, Rune 12 — de
+    # 2026-10-13 a 2026-10-15 foi o da Coleção, Rune 3, e ele mandou voltar
+    # ao 12). As duas
     # contagens vêem-se separadas, nunca somadas: *"quero que a contagem na
     # carta seja a de non-foil e a de baixo seja a foil, as coisas separadas"*.
     #
