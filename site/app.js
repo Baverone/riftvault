@@ -1468,7 +1468,8 @@ function visiblePrintings(group) {
   // ou 1. Havia dois filtros separados (em falta / parciais) e o André pediu
   // para juntar: a pergunta é sempre a mesma, o que é que ainda me falta.
   if (state.prefs.stateFilter === 'missing') {
-    list = list.filter(p => tileState(p.id) !== 'done');
+    // Sem alvo (as promos, 2026-10-15) nunca é falta: não pede nada.
+    list = list.filter(p => (state.targets.get(p.id) || 0) > 0 && tileState(p.id) !== 'done');
   }
   // "Em decks" é por CARTA, não por impressão: a alocação é por carta lógica
   // e o rótulo «Azir 3 · Kennen 2» é do grupo inteiro (2026-09-11).
@@ -2154,11 +2155,14 @@ function render() {
       }
       for (const p of list) {
         const t = state.targets.get(p.id) || 0;
-        if (t <= 0) continue;
+        // Sem alvo (as promos, 2026-10-15: «guardo se tiver») conta no «tens N
+        // de M» — é o que ele tem — mas não tem nada a completar. É a mesma
+        // conta do `by_block` do `metrics.set_payload`.
         total++;
         const q = state.qty.get(p.id) || 0;
-        if (q >= t) feitas++;
         if (q > 0) alguma++;
+        if (t <= 0) continue;
+        if (q >= t) feitas++;
         alvoMax = Math.max(alvoMax, t);
       }
       if (filasDoBinder) {
@@ -2667,9 +2671,10 @@ function renderWantlists() {
        conta para a percentagem —, ao <b>playset</b> do tipo (Unit/Spell/Gear
        e runa 3, Legend e Battlefield 1). Conta enquanto <b>cópias + a
        caminho &lt; alvo</b>, e vai por número de coleção.${doNivel}
-       As outras wantlists desta edição — <b>Alt Art</b>, <b>OverNumbered</b> e
-       <b>Promos</b>, uma por bloco, separadas — estão no separador
-       <a href="#faltas-edicao">Faltas</a>.${foraTexto(m.scope)}`, nivel) : ''}
+       As outras wantlists desta edição — <b>Alt Art</b> e <b>OverNumbered</b>,
+       uma por bloco, separadas — estão no separador
+       <a href="#faltas-edicao">Faltas</a>; as <b>Promos</b> não têm, porque não
+       pedem nada (guardas as que tiveres).${foraTexto(m.scope)}`, nivel) : ''}
 
     ${wlBloco('wl-tudo', 'Wantlist — tudo', todas,
       `As cinco edições seguidas, na ordem dos separadores — tudo o que falta
