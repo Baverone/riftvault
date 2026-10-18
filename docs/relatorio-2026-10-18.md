@@ -106,3 +106,102 @@ Correu por ordem do runner, com verificador independente a confirmar tudo:
 * **Duas ordens do mtgvault parqueadas desde 13/10** (`mtg-familia-mox-opal`,
   `mtg-fontes-pioneer-legacy`), à mão, numa pasta que o runner não conhece.
   Estão lá há cinco dias sem ninguém lhes tocar.
+
+---
+
+## Parte do riftvault (sessão local) — suite + varrimento da PRIVACIDADE
+
+### 1. O placar (Parte 1)
+
+| | |
+|---|---|
+| `main` (HEAD `6a5ae1a`) | **VERDE: 94 ficheiros, 2958 testes, 0 vermelhos, 1636,6 s**, `mexeram_a_meio: false` |
+| ramo com as correções (HEAD `3cbbe37` + árvore por commitar) | **VERDE: 95 ficheiros, 2969 testes, 0 vermelhos** (+11 testes, +1 ficheiro) |
+
+O placar antigo era de 15/10; este substitui-o.
+
+### 2. Onde a privacidade é consultada (Parte 2, ponto 1)
+
+Guardada em duas cópias (`privacidade.py`): `users.publico` no **registo**
+(`data/users/registo.db`) e a cópia dentro de cada `vault.db`; `de()` devolve o
+mais fechado dos dois. Consultam-na: `build.build` e `build.build_todos`,
+`lista.publicas` (e por ela o cartão da lista), `lista.cartao` (volta a filtrar),
+`_Saida.json` (o filtro `limpar` — porta única de escrita de JSON),
+`db._carimbar_dono` (a cada ligação), `conta.exportar/importar/apagar`, a rota
+`/api/conta/privacidade` e o `/api/conta.json`. O servidor Flask **não** aplica o
+modo às leituras: de fora e sem sessão não serve nada (`origem.py`), e quem tem
+sessão só lê a sua. Não há `/u/<slug>/` neste servidor.
+
+### 3. Provas por saída (Parte 2, ponto 2)
+
+Feitas contra **cópias** do `data/` real (`Connection.backup`, `RIFTVAULT_DATA`
+apontado à cópia; o `data/` a sério nunca foi escrito), script
+`C:\Users\Catarina\_revisao\rift_priv\probe.py`.
+
+* **`nada`**: `build()` não gera nada (já testado) e `lista.publicas` não o
+  nomeia. Ver o defeito 1 — o que lá estava continuava.
+* **`sem-valores`**: André posto em `sem-valores`, site gerado, 152 preços ≥ 20 €
+  do `price_latest` procurados como números em todos os JSON: **0 ocorrências**;
+  nenhum `€` em texto; sem chaves `value`/`pct` com quantias. Fugiu **uma coisa**:
+  a chave `mais_cara` (defeito 2).
+* **`tudo`**: sai tudo, como sempre.
+
+### 4. Defeitos com prova
+
+1. **Ele em `nada` não despublicava a raiz.** Medido: com as portas fechadas
+   (ou só um amigo público), `tudo` → `nada` → `build_todos` deixa
+   `api/index.json`, `index.html` e `robots.txt` na raiz — a coleção e o valor
+   dele ficam no ar. `limpar_nao_publicadas` só mexe em `u/`. Teste que chumba
+   no `main`: `TestEleProprioEmNada.test_a_raiz_dele_sai_quando_ele_escolhe_nada`.
+2. **`sem-valores` publicava a carta mais cara de cada caixa das Faltas**
+   (`mais_cara: {code, name, cents:null}`): o euro saía, a resposta «qual é a
+   mais cara» ficava. Teste: `TestMaisCara.test_o_filtro_tira_a_mais_cara`
+   (chumba no `main`).
+3. **Corrida no `definir`** (registo escrito, vault ainda não) desfeita por
+   qualquer ligação que carimbasse o dono: a escolha de quem abre a coleção
+   dizia «ok» e perdia-se. Prova com duas threads e um `Event`:
+   `no_registo` = `nada` no `main`, `tudo` com o trinco. Cai para o lado seguro
+   (fecha), mas perde a escolha.
+4. **A rota `/api/conta/privacidade` respondia «não é uma opção» a qualquer
+   erro** (incl. base bloqueada) e rebentava em 500 com um valor que não fosse
+   texto. Agora só `ValorInvalido` é 400.
+
+### 5. Corrigido, e ficou em ramo
+
+Tudo no ramo **`ai-pc/privacidade-2026-10-18`**, **não juntado**. Portão verde,
+mas não juntei: a correção 3 põe um trinco dentro do `db._carimbar_dono`, que
+corre em **toda** a ligação ao `vault.db` (uso diário dele), e a 1 muda o que se
+publica. Nenhuma altera o que ele vê hoje (está em `tudo`; nenhum amigo está em
+`sem-valores`) — mas por tocar no caminho quente deixo para ele decidir. Para
+juntar: `py C:\Users\Catarina\Desktop\ai-pc\work\juntar-ramo.py` com este ramo.
+Nota: o commit `3cbbe37` da supervisora (este ficheiro) caiu no ramo porque a
+árvore partilhada estava nele; vem junto com o merge.
+
+### 6. O que fica por tratar / limites
+
+* O trinco é **por processo**: servidor e CLI em simultâneo ainda têm a janela
+  (cai sempre para o lado fechado).
+* Despublicar apaga ficheiros, mas o **histórico do Git** do `site/` guarda o que
+  esteve publicado. Não há remédio aqui.
+* A ordenação das listas (ex. wantlist por preço) em `sem-valores` não foi
+  analisada como fuga de ordem; só `mais_cara` foi tirada.
+* O teste `test_no_site_gerado_sem_valores` passa também sem a correção (a
+  fixture não tem itens em falta com preço); a prova a sério é a do filtro.
+* `data/` a sério: não foi escrito.
+
+### 7. Os relatórios de 05 a 17/10
+
+Não há `relatorio-2026-10-*.md` para essas noites (confirmei: só `02` e `04`).
+Existem **resumos diários** noutro sítio: `C:\Users\Catarina\Desktop\ai-pc\state\resumo-2026-10-05.md`
+… `resumo-2026-10-17.md` (05–07 e 12–17 encontrados; 08–11 não apareceram).
+
+### 8. Os meus erros desta ordem
+
+* A primeira chamada da sonda falhou por eu escrever o caminho com `\` no Bash
+  (comeu-os); refiz com `/`.
+* A primeira sonda do «André em nada» deu «despublicado» — por eu ter testado com
+  as portas abertas, onde a lista já limpa `u/baverone`. Só com as portas
+  fechadas apareceu o defeito. Não concluí antes de repetir.
+* O ramo foi criado na árvore partilhada e a supervisora commitou o relatório
+  dela nele (`3cbbe37`) antes de eu commitar o meu código. Não é perda, mas o
+  commit dela está agora no ramo e não no `main`.
