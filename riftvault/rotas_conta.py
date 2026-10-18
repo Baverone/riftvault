@@ -72,10 +72,12 @@ A PORTA NÃO É A FECHADURA DA ENTRADA (2026-09-30)
 
 from __future__ import annotations
 
+import html as _html
 import json
-from urllib.parse import urlsplit
+from urllib.parse import urlencode, urlsplit
 
-from flask import Blueprint, current_app, g, jsonify, redirect, request
+from flask import (Blueprint, Response, current_app, g, jsonify, redirect,
+                   request)
 
 from . import auth, config, origem
 
@@ -710,7 +712,7 @@ def entrar(nome: str):
         try:
             auth.exigir_porta_aberta(_cfg())
         except auth.PortaFechada as e:
-            return _resposta(str(e), 403)
+            return _pagina_de_erro(str(e), 403, nome)
 
     # O fornecedor LOCAL não anda pelo browser: entra-se de uma vez, com o
     # `sub` no endereço. Só existe em ensaio, e é o `multi.exigir_ensaio` de
@@ -718,7 +720,7 @@ def entrar(nome: str):
     try:
         p = auth.provedor(nome)
     except auth.ProvedorDesconhecido as e:
-        return _resposta(str(e), 400)
+        return _pagina_de_erro(str(e), 400, None)
     if not p.redireciona:
         return _entrar_local(p, con, chave)
 
@@ -736,11 +738,11 @@ def entrar(nome: str):
                          destino=request.args.get("destino"),
                          liga_a=liga_a, cfg=_cfg())
     except auth.DemasiadasTentativas as e:
-        return _resposta(str(e), 429)
+        return _pagina_de_erro(str(e), 429, nome)
     except auth.PedidoInvalido as e:
-        return _resposta(str(e), 400)
+        return _pagina_de_erro(str(e), 400, nome)
     except (auth.ProvedorDesconhecido, auth.ProvedorPorConfigurar) as e:
-        return _resposta(str(e), 400)
+        return _pagina_de_erro(str(e), 400, nome)
     resp = redirect(r["url"], code=302)
     # O `nonce` ata esta entrada A ESTE browser (ver `auth.consumir_pedido`).
     # Dura o que o fluxo dura, e não mais.
@@ -748,10 +750,84 @@ def entrar(nome: str):
     # demorasse 16 minutos perdia as duas coisas ao mesmo tempo e lia a
     # mensagem errada («não começou neste browser») em vez da certa («demorou
     # demasiado»). O que manda na validade é o registo no servidor.
+    #
+    # `SameSite=None` POR HTTPS (2026-10-18). Com `Lax`, o Safari do iPhone NÃO
+    # mandava este cookie na volta do Google — a volta é um 302 do
+    # accounts.google.com que vem a seguir a um POST (o «Continuar» do ecrã de
+    # consentimento), e o WebKit trata essa navegação como cross-site. O André
+    # ficou fora da conta a 16/10 e a 18/10 com «não começou neste browser».
+    # É seguro: o cookie só serve para COMPARAR com o `nonce_hash` do pedido —
+    # quem o fizesse chegar de outro site não ganha nada, porque o `state` dele
+    # tem outro nonce. Sem HTTPS (o 8770 em casa) o `None` exige `Secure` e o
+    # browser deitava-o fora, por isso aí fica `Lax`. E se mesmo assim não vier,
+    # há o salto pela página (`_saltar_pela_pagina`).
+    https = _por_https()
     resp.set_cookie(auth.COOKIE_NONCE, r["nonce"],
                     max_age=auth.PEDIDO_MINUTOS * 60 * 4, httponly=True,
-                    samesite="Lax", secure=_por_https(), path="/")
+                    samesite="None" if https else "Lax", secure=https, path="/")
     return resp
+
+
+#: O parâmetro que marca a segunda passagem do salto (ver `_saltar_pela_pagina`).
+SALTO = "salto"
+
+
+def _pagina(titulo: str, corpo: str, codigo: int = 200,
+            refresh: str | None = None) -> Response:
+    """Uma página HTML mínima, sem depender do `app.js`. É o que o browser vê
+    nas rotas `/entrar/…`, que são NAVEGAÇÕES e não pedidos do `fetch`: JSON
+    cru ali era uma parede (2026-10-18, o iPhone dele)."""
+    meta = (f'<meta http-equiv="refresh" content="0;url={_html.escape(refresh)}">'
+            if refresh else "")
+    doc = f"""<!doctype html>
+<html lang="pt"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">{meta}
+<title>{_html.escape(titulo)} — riftvault</title>
+<style>
+body{{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+background:#0f0d16;color:#ece8f5;font:16px/1.5 system-ui,sans-serif;padding:20px;box-sizing:border-box}}
+main{{max-width:420px;width:100%;background:#1a1626;border:1px solid #2e2840;border-radius:14px;padding:24px}}
+h1{{font-size:20px;margin:0 0 12px}} p{{margin:0 0 16px;color:#c9c2dc}}
+a.btn{{display:block;text-align:center;background:#a77bff;color:#120d1c;font-weight:600;
+text-decoration:none;padding:14px;border-radius:10px;margin-bottom:10px}}
+a.sec{{display:block;text-align:center;color:#a77bff;padding:8px}}
+</style></head><body><main>{corpo}</main></body></html>"""
+    return Response(doc, status=codigo, mimetype="text/html")
+
+
+def _pagina_de_erro(mensagem: str, codigo: int, nome: str | None) -> Response:
+    """O erro de uma entrada, com o botão para RECOMEÇAR — nunca JSON cru.
+    Sem fornecedor conhecido (`nome=None`) o botão volta ao início."""
+    m = str(mensagem or "")
+    m = m[:1].upper() + m[1:]
+    href = f"/entrar/{_html.escape(nome)}" if nome else "/"
+    corpo = (f"<h1>Não foi possível entrar</h1><p>{_html.escape(m)}</p>"
+             f'<a class="btn" href="{href}">'
+             f"Recomeçar a entrada</a>"
+             f'<a class="sec" href="/">Voltar ao início</a>')
+    return _pagina("Não foi possível entrar", corpo, codigo)
+
+
+def _saltar_pela_pagina() -> Response:
+    """A volta do fornecedor chegou SEM o cookie do `nonce`: tenta-se outra vez,
+    agora a partir de uma página DESTE site.
+
+    É a rede para os browsers que não mandam cookies numa navegação que vem de
+    outro site (o caso do Safari do iPhone com `Lax`). Uma navegação que parte
+    de uma página nossa é same-site e leva o cookie, se ele existir. O `state`
+    NÃO se gasta aqui — só a segunda passagem o consome —, e o `salto=1` impede
+    um ciclo: se à segunda o cookie continuar a faltar, é porque não existe
+    neste browser, e aí diz-se com a página de erro.
+    """
+    args = request.args.to_dict(flat=True)
+    args[SALTO] = "1"
+    destino = f"{request.path}?{urlencode(args)}"
+    js = json.dumps(destino)
+    corpo = (f"<h1>A concluir a entrada…</h1><p>Um momento.</p>"
+             f'<a class="btn" href="{_html.escape(destino)}">Continuar</a>'
+             f"<script>location.replace({js})</script>")
+    return _pagina("A concluir a entrada", corpo, 200, refresh=destino)
 
 
 def _entrar_local(p, con, chave: str):
@@ -791,7 +867,15 @@ def _concluir(nome: str, con, chave: str):
     erro = request.args.get("error")
     if erro:
         auth.registar_tentativa(con, chave, nome, False)
-        return _resposta(f"o fornecedor recusou a entrada: {erro}", 400)
+        return _pagina_de_erro(f"o fornecedor recusou a entrada: {erro}", 400,
+                               nome)
+
+    # Sem o cookie, e ainda sem o salto: tenta-se a partir de uma página nossa
+    # ANTES de gastar o `state` (ver `_saltar_pela_pagina`).
+    if (not request.cookies.get(auth.COOKIE_NONCE)
+            and request.args.get(SALTO) != "1"
+            and request.args.get("state")):
+        return _saltar_pela_pagina()
 
     try:
         auth.exigir_folga(con, chave, _cfg())
@@ -804,10 +888,13 @@ def _concluir(nome: str, con, chave: str):
                              verifier=pedido["verifier"],
                              redirect_uri=_redirect_uri(nome), cfg=_cfg())
     except auth.DemasiadasTentativas as e:
-        return _resposta(str(e), 429)
+        return _pagina_de_erro(str(e), 429, nome)
     except auth.ErroDeAutenticacao as e:
         auth.registar_tentativa(con, chave, nome, False)
-        return _resposta(str(e), 400)
+        resp = _pagina_de_erro(str(e), 400, nome)
+        # O `nonce` que veio não serve mais: recomeçar põe um novo.
+        resp.delete_cookie(auth.COOKIE_NONCE, path="/")
+        return resp
 
     auth.registar_tentativa(con, chave, nome, True)
     user_id = auth.por_identidade(con, ident)
