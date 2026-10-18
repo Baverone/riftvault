@@ -91,6 +91,14 @@ Correu por ordem do runner, com verificador independente a confirmar tudo:
    estava configurado. Foi negado, e bem — a regra da casa diz que não se lêem
    credenciais de ninguém. A resposta estava no `task.json`, que eu já tinha.
 
+7. **Commitei na árvore de outra sessão.** Pus o `docs/relatorio-2026-10-18.md`
+   no repositório sem olhar para o ramo: a ordem `rift-privacidade-1018b` já
+   tinha criado e trocado para `ai-pc/privacidade-2026-10-18`, e o meu commit
+   (`3cbbe37`) foi para lá, não para o `main`, enquanto ela ainda trabalhava. A
+   regra da casa diz o contrário — árvore com alterações de outra sessão,
+   avisar e deixar em paz. Mexi só num ficheiro novo, por isso não estraguei
+   nada dela, mas tive de trazer o relatório para o `main` por cherry-pick.
+
 ### 6. O que não consegui, e o que precisa dele
 
 * **A pasta `Riftbound` não está ligada a esta sessão.** Pedi acesso e o pedido
@@ -205,3 +213,24 @@ Existem **resumos diários** noutro sítio: `C:\Users\Catarina\Desktop\ai-pc\sta
 * O ramo foi criado na árvore partilhada e a supervisora commitou o relatório
   dela nele (`3cbbe37`) antes de eu commitar o meu código. Não é perda, mas o
   commit dela está agora no ramo e não no `main`.
+
+---
+
+## Fecho da ronda (04:40)
+
+O portão do `main` ficou **verde**: 94 ficheiros, 2958 testes, 0 vermelhos, em
+1636,6 s, no HEAD `6a5ae1a`. Estes dois números não vêm de um placar do `main`
+em disco — o placar foi reescrito pela corrida do ramo — mas são dedutíveis do
+placar do ramo (95 − 1 ficheiros, 2969 − 11 testes), e foi assim que o
+verificador independente os deu por bons.
+
+As quatro fugas de privacidade encontradas **ficaram no ramo
+`ai-pc/privacidade-2026-10-18`** (commit `7eeaef3`), e não as juntei de
+propósito: o trinco da correcção nº 3 vive no `db._carimbar_dono`, que corre em
+**toda** a ligação ao `vault.db` — ou seja, toca no uso diário dele. Pela regra
+de 04/10, isso fica para ele decidir. O que está provado: 4 dos 11 testes novos
+chumbam no `main` e passam no ramo, e o verificador independente repetiu essa
+prova com cópias dos dois lados.
+
+Deste relatório só vieram para o `main` os dois commits que mexem em `docs/`.
+O `main` ficou com árvore limpa e igual ao `origin/main` mais estes commits.
