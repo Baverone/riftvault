@@ -892,11 +892,16 @@ class TestNonceDaEntrada(Base):
                                   cfg=self.config.load())
         finally:
             con.close()
-        # A vítima abre o endereço de volta sem nunca ter começado nada.
+        # A vítima abre o endereço de volta sem nunca ter começado nada. À
+        # primeira salta por uma página nossa (2026-10-18, o Safari do iPhone),
+        # sem gastar o state; no salto, sem cookie, recusa — com uma PÁGINA.
         resp = c.get(f"/entrar/discord?code=abc&state={r['state']}")
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("salto=1", resp.get_data(as_text=True))
+        resp = c.get(f"/entrar/discord?code=abc&state={r['state']}&salto=1")
         self.assertEqual(resp.status_code, 400)
-        self.assertIn("browser", resp.get_json()["erro"])
-        self.assertNotIn(self.auth.COOKIE, resp.headers.get("Set-Cookie", ""))
+        self.assertIn("browser", resp.get_data(as_text=True))
+        self.assertNotIn(self.auth.COOKIE + "=", resp.headers.get("Set-Cookie", ""))
 
 
 # --------------------------------------------------------------------------
