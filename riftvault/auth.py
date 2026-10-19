@@ -1201,6 +1201,19 @@ def consumir_pedido(con: sqlite3.Connection, state: str,
     return dict(row)
 
 
+def pedido_liga_a(con: sqlite3.Connection, state: str) -> int | None:
+    """O `liga_a` de um pedido por consumir, SEM o gastar. `None` se não existe.
+
+    Serve a porta fechada: na volta do fornecedor o `?ligar=` já não vem no
+    endereço, e o que prova que a entrada nasceu de um convite da consola é o
+    pedido guardado na ida. Só leitura — quem consome (e valida prazo e
+    `nonce`) continua a ser o `consumir_pedido`.
+    """
+    row = con.execute("SELECT liga_a FROM auth_pedidos WHERE state = ?",
+                      (state or "",)).fetchone()
+    return int(row["liga_a"]) if row and row["liga_a"] else None
+
+
 def limpar_pedidos(con: sqlite3.Connection) -> int:
     limite = _mais(-PEDIDO_MINUTOS * 60)
     cur = con.execute("DELETE FROM auth_pedidos WHERE criado_em < ?", (limite,))

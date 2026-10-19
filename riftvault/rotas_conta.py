@@ -707,6 +707,11 @@ def entrar(nome: str):
     con = _auth_con()
     chave = _chave_do_pedido()
     convite = request.args.get("ligar")
+    # Na VOLTA o `?ligar=` já não vem no endereço (o `redirect_uri` não o leva):
+    # o convite foi gasto na ida e o que o prova é o `liga_a` do pedido guardado.
+    if (not convite and request.args.get("code") and request.args.get("state")
+            and auth.pedido_liga_a(con, request.args["state"])):
+        convite = "volta"
 
     if not convite:
         try:
