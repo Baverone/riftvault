@@ -33,6 +33,13 @@
     padding: 32px 20px 64px; padding-bottom: calc(64px + env(safe-area-inset-bottom));
   }
   .l-wrap { max-width: 980px; margin: 0 auto; }
+  /* O caminho de volta (20/10/2026, achado R6): as coleções têm-no, a lista
+     não tinha nenhum — os únicos links eram os cartões. */
+  .l-casa {
+    display: inline-block; margin-bottom: 14px; padding: 6px 0;
+    color: var(--muted); font-size: 13px; font-weight: 600; text-decoration: none;
+  }
+  .l-casa:hover, .l-casa:focus-visible { color: var(--accent); }
   .l-topo { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
   .l-logo {
     width: 38px; height: 38px; border-radius: 10px; flex: 0 0 auto;
@@ -85,6 +92,7 @@
 </head>
 <body>
   <div class="l-wrap">
+    <a class="l-casa" href="https://baverone.com">← baverone.com</a>
     <div class="l-topo">
       <span class="l-logo" aria-hidden="true">R</span>
       <h1>riftvault</h1>
