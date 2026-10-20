@@ -457,7 +457,9 @@ h1.pgt { margin: 0; font-size: clamp(21px, 2.6vw, 27px); font-weight: 700; lette
 }
 .chip input:checked + span { color: var(--text); border-color: var(--accent); }
 
-#search {
+/* As três pesquisas com o estilo do tema (20/10/2026, achado R8): a do Selado
+   e a das Encomendas saíam com o fundo branco e a letra do browser. */
+#search, #enc-search, #sl-filtros input[type="search"] {
   flex: 1 1 180px; min-width: 140px;
   background: var(--panel); color: var(--text);
   border: 1px solid var(--line); border-radius: 10px;

@@ -187,11 +187,15 @@ class TestAraizSoMudaComDuas(Base):
         a = self.gerar("aberto", aberto=True)
         self.assertTrue(build.mesmo_conteudo(f / "api", a / "u" / "baverone" / "api"),
                         "a coleção dele mudou de conteúdo ao mudar de sítio")
-        # E a página é a MESMA página, a menos do caminho da casca.
+        # E a página é a MESMA página, a menos do caminho da casca — e, desde
+        # 2026-10-20 (achado R7), do link para a lista, que só se acende quando
+        # a lista existe.
         na_raiz = (f / "index.html").read_text(encoding="utf-8")
         em_u = (a / "u" / "baverone" / "index.html").read_text(encoding="utf-8")
         self.assertEqual(na_raiz, em_u.replace('"../../app.js"', '"app.js"')
-                         .replace('"../../style.css"', '"style.css"'),
+                         .replace('"../../style.css"', '"style.css"')
+                         .replace('<a class="casa" id="link-lista" href="../../">',
+                                  build.LINK_DA_LISTA),
                          "o index.html dele mudou em mais do que o caminho da casca")
 
     def test_os_restos_do_site_dele_saem_da_raiz(self):

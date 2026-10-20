@@ -215,7 +215,9 @@ class TestARegraEACategoria(Sem262):
         self.assertIn("Produto selado que TIRASTE", txt)
         js = (REPO / "riftvault" / "web" / "app.js").read_text(encoding="utf-8")
         self.assertIn("slForaTexto", js)
-        self.assertIn("que <b>tiraste</b>", js)
+        # 20/10/2026 (achado R4): «tiraste» só na coleção do André — o texto
+        # passou a dizer quem tirou pelo `quemTirou()`.
+        self.assertIn("tirado ${quemTirou()}", js)
 
     def test_uma_unidade_gravada_num_deck_nao_se_apaga_e_volta(self):
         """Esconder não é apagar, como sempre: a `sealed_copies` fica."""

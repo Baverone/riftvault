@@ -277,6 +277,24 @@ def registo(user_id: int | None = None,
     return dict(row)
 
 
+def apresentacao(user_id: int | None = None) -> dict:
+    """De quem é uma coleção, como a página a mostra: `{slug, nome, andre}`.
+
+    20/10/2026 (achados R3–R5 da auditoria): o `index.html` e o `app.js` são os
+    MESMOS para toda a gente, e a página publicada não sabia de quem era — a
+    faixa mandava o Miguel correr o `riftvault serve` «no PC», e o Selado dele
+    dizia «tirados por ti» de exclusões que são do config. Vai no
+    `api/index.json`. Só o nome e o slug, que a lista das coleções já publica;
+    um registo que falhe devolve o André, que é o que a página assumia antes.
+    """
+    uid = atual() if user_id is None else int(user_id)
+    try:
+        r = registo(uid)
+    except Exception:  # sem registo (um clone fresco): a página de sempre
+        return {"slug": SLUG_ANDRE, "nome": NOME_ANDRE, "andre": True}
+    return {"slug": r["slug"], "nome": r["nome"], "andre": uid == ANDRE}
+
+
 def por_slug(slug: str, obrigatorio: bool = True,
              con: sqlite3.Connection | None = None) -> dict | None:
     proprio = con is None

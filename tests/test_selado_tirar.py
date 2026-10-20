@@ -536,7 +536,7 @@ class TestOs22ContraOCatalogoReal(unittest.TestCase):
         for n in ("Origins | Nexus Night Promo Booster",
                   "Spiritforged | Nexus Night Promo Booster",
                   "Unleashed | Nexus Night Promo Booster",
-                  "Vendetta | Nexus Night Promo Booster",
+                  "Radiance | Nexus Night Promo Booster",   # era «Vendetta |» até 20/10
                   "Origins Booster Box", "Spiritforged Booster Box",
                   "Unleashed Booster Box", "Vendetta Booster Box",
                   "Radiance Booster Box", "Legacy Booster Box",
@@ -609,8 +609,9 @@ class TestOs22ContraOCatalogoReal(unittest.TestCase):
         por = {}
         for x in lista:
             por[x["edicao"]] = por.get(x["edicao"], 0) + 1
-        self.assertEqual(por, {"OGN": 2, "OGS": 1, "SFD": 3, "UNL": 4, "VEN": 3,
-                               "RAD": 2, "LGC": 1, "PG2": 1, "REC": 1, "ARC": 1,
+        # 20/10: o Nexus Night 408707 passou da VEN para a RAD no CardTrader.
+        self.assertEqual(por, {"OGN": 2, "OGS": 1, "SFD": 3, "UNL": 4, "VEN": 2,
+                               "RAD": 3, "LGC": 1, "PG2": 1, "REC": 1, "ARC": 1,
                                "PROMO-RIFT": 6, "T1S": 1})
         self.assertEqual(sum(por.values()), 26)
 

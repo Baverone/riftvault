@@ -150,8 +150,14 @@ def api_index():
     # O `servidor=True` é o que diz ao `app.js` que vale a pena pedir o
     # `api/conta.json` — era o `editable` que o dizia à socapa, e por isso ele
     # não podia dizer a verdade. Ver `metrics.index_payload`.
-    return jsonify(metrics.index_payload(get_con(), editable=_editavel(),
-                                         image_mode="local", servidor=True))
+    con = get_con()
+    idx = metrics.index_payload(con, editable=_editavel(),
+                                image_mode="local", servidor=True)
+    # De quem é a coleção aberta (20/10/2026): os textos que falam das
+    # exclusões do config dizem «por ti» só na dele. Ver o `build._gerar`.
+    from . import utilizador
+    idx["dono"] = utilizador.apresentacao(getattr(con, "riftvault_user", None))
+    return jsonify(idx)
 
 
 @app.get("/api/set/<set_id>.json")

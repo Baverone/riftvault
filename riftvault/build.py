@@ -72,7 +72,21 @@ def _aponta_a_casca(html: str, subida: str) -> str:
                 f"de a acompanhar, senão a página sai sem {nome}")
         html = html.replace(velha, velha.replace(f'"{nome}"',
                                                  f'"{subida}{nome}"'))
+    # O CAMINHO PARA A LISTA DAS COLEÇÕES (20/10/2026, achado R7). A casca vive
+    # `subida` acima porque a lista tomou a raiz — e é lá que a lista está. O
+    # link nasce escondido no `index.html` e acende-se aqui, no HTML e não no
+    # `api/index.json`: assim a `api/` dele é a MESMA na raiz e em `u/baverone/`.
+    quantas = html.count(LINK_DA_LISTA)
+    if quantas != 1:
+        raise ValueError(f"o index.html tem o link da lista {quantas} vezes (esperava 1)")
+    html = html.replace(LINK_DA_LISTA,
+                        f'<a class="casa" id="link-lista" href="{subida}">')
     return html
+
+
+#: O link da lista como nasce no `index.html` — escondido, porque uma coleção
+#: sozinha na raiz não tem lista nenhuma para onde voltar.
+LINK_DA_LISTA = '<a class="casa" id="link-lista" href="#" hidden>'
 
 
 def _sem_relogio(obj):
@@ -495,6 +509,10 @@ def _gerar(out_dir: Path | str, log=print, imagens: bool = True,
     decks.import_all(con, log=lambda *_: None)
 
     index = metrics.index_payload(con, editable=False, image_mode=image_mode, cfg=cfg)
+    # DE QUEM É (20/10/2026, achados R3–R5): a página é a mesma para todos e só
+    # daqui sabe de quem é a coleção (o link para a lista, R7, vai no HTML —
+    # ver o `_aponta_a_casca`).
+    index["dono"] = utilizador.apresentacao(user_id)
     escrever(_Saida.INDICE, index)
 
     n_sets = 0
