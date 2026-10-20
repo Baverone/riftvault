@@ -31,6 +31,10 @@
   <aside class="side" id="side" tabindex="-1" aria-label="Navegação do site">
     <div class="sidetop">
       <a class="casa" href="https://baverone.com">← baverone.com</a>
+      <!-- O caminho para a lista das coleções (20/10/2026, achado R7). Só
+           aparece quando a lista existe: quem o acende é o `build`
+           (`_aponta_a_casca`), que sabe onde ela está. -->
+      <a class="casa" id="link-lista" href="#" hidden>← todas as coleções</a>
       <a class="marca" href="#inicio">
         <span class="mk" aria-hidden="true">R</span>
         <span><b>riftvault</b><small>coleção de Riftbound</small></span>
@@ -78,11 +82,14 @@
     <main id="conteudo" tabindex="-1">
      <div class="wrap">
 
+      <!-- O texto definitivo é o `faixaPublicada()` do app.js, que sabe de quem é
+           a coleção (20/10/2026, achado R3: dava a toda a gente as instruções
+           do PC do André). Este é o de antes de o índice chegar. -->
       <div id="readonly-banner" class="banner" hidden>
-        <b>Esta é a cópia publicada — só para consultar.</b>
+        <b>Só para consultar.</b>
         <span>Os botões <code>+</code> e <code>−</code> não existem aqui de propósito.
-        Para mexer nas contagens, corre <code>riftvault serve</code> no PC e abre o
-        endereço que ele mostra.</span>
+        Se a coleção é tua, edita-a em
+        <a href="https://editar.baverone.com">https://editar.baverone.com</a>.</span>
       </div>
 
       <!-- ============================================================ INÍCIO
@@ -174,7 +181,8 @@
             <label class="chip"><input type="checkbox" value="other" checked><span>Tokens/Promos</span></label>
           </div>
 
-          <input id="search" type="search" placeholder="Procurar carta ou código…" autocomplete="off">
+          <input id="search" type="search" placeholder="Procurar carta ou código…" autocomplete="off"
+                 aria-label="Procurar carta ou código na coleção">
         </div>
 
         <p id="count-line" class="count-line"></p>
@@ -259,7 +267,8 @@
             <button class="seg-btn" data-enc-filter="ordered">A caminho</button>
             <button class="seg-btn" data-enc-filter="missing">Faltas</button>
           </div>
-          <input id="enc-search" type="search" placeholder="Procurar carta ou código…" autocomplete="off">
+          <input id="enc-search" type="search" placeholder="Procurar carta ou código…" autocomplete="off"
+                 aria-label="Procurar carta ou código nas encomendas">
         </div>
         <p id="enc-count" class="count-line"></p>
         <div id="enc-grid" class="grid"></div>

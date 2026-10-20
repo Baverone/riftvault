@@ -220,7 +220,10 @@ class TestR4R5Textos(unittest.TestCase):
         """O cabeçalho da Venda dizia «metido por ti» também na cópia
         publicada; o `sub_ro` já dizia «metido à mão»."""
         f = funcao("renderVenda")
-        self.assertNotIn("Trend do Cardmarket, metido por ti</span>", f)
+        self.assertIn("Trend do Cardmarket, metido à mão</span>", f)
+        # «metido por ti» só no ramo de quem pode escrever
+        i = f.index("Trend do Cardmarket, metido por ti</span>")
+        self.assertIn("state.editable", f[max(0, i - 120):i])
 
     def quem(self, dono):
         return node(BASE_JS + "const state = { index: { dono: " + json.dumps(dono) + " } };\n"
@@ -276,9 +279,14 @@ class TestDonoNoIndice(unittest.TestCase):
     def test_o_dele_diz_que_e_ele(self):
         self.assertTrue(self.indice("baverone")["dono"]["andre"])
 
-    def test_cada_colecao_sabe_onde_esta_a_lista(self):
-        self.assertEqual(self.indice("miguel")["lista"], "../../")
-        self.assertEqual(self.indice("baverone")["lista"], "../../")
+    def test_cada_colecao_tem_o_link_aceso_para_a_lista(self):
+        for slug in ("miguel", "baverone"):
+            h = (self.out / "u" / slug / "index.html").read_text(encoding="utf-8")
+            self.assertIn('<a class="casa" id="link-lista" href="../../">', h, slug)
+
+    def test_o_link_nao_vai_no_indice(self):
+        """Senão a `api/` dele deixava de ser a mesma na raiz e em `u/`."""
+        self.assertNotIn("lista", self.indice("baverone"))
 
     def test_r6_a_lista_tem_caminho_para_baverone(self):
         raiz = (self.out / "index.html").read_text(encoding="utf-8")
@@ -291,10 +299,25 @@ class TestDonoNoIndice(unittest.TestCase):
 
 class TestR7LinkParaALista(unittest.TestCase):
 
-    def test_o_html_tem_o_sitio_do_link_e_o_app_preenche_o(self):
-        self.assertIn('id="link-lista"', HTML)
-        self.assertIn("link-lista", JS)
-        self.assertIn("state.index.lista", JS)
+    def test_o_html_tem_o_link_escondido_e_o_build_acende_o(self):
+        self.assertIn(build.LINK_DA_LISTA, HTML)
+        aceso = build._aponta_a_casca(HTML, "../../")
+        self.assertIn('<a class="casa" id="link-lista" href="../../">', aceso)
+        self.assertNotIn(build.LINK_DA_LISTA, aceso)
+
+    def test_sozinha_na_raiz_o_link_fica_escondido(self):
+        """Uma coleção só, na raiz: não há lista para onde voltar."""
+        v = fixture.Vault()
+        self.addCleanup(v.close)
+        fixture.config_decks_sem_alt_art(self)
+        con = v.connect()
+        v.add_printing(con, "tst-001-100", "TST", 1, "Defy")
+        v.rebuild(con)
+        con.close()
+        privacidade.definir(None, utilizador.ANDRE, "tudo")
+        out = v.root / "site"
+        build.build_todos(out, log=lambda *_: None, cfg={"multi": {"aberto": False}})
+        self.assertIn(build.LINK_DA_LISTA, (out / "index.html").read_text(encoding="utf-8"))
 
     def test_r6_o_html_da_lista_leva_o_link(self):
         dados = {"coleccoes": [], "dele": None, "gerado_em": "x"}
@@ -312,7 +335,8 @@ class TestR7LinkParaALista(unittest.TestCase):
 class TestR8Pesquisa(unittest.TestCase):
 
     def regra(self, seletor):
-        for m in re.finditer(r"([^{}]+)\{([^}]*)\}", CSS):
+        css = re.sub(r"/\*.*?\*/", "", CSS, flags=re.S)
+        for m in re.finditer(r"([^{}]+)\{([^}]*)\}", css):
             if seletor in [s.strip() for s in m.group(1).split(",")]:
                 return m.group(2)
         return ""

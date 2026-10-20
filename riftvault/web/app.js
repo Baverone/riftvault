@@ -272,7 +272,7 @@ const PAGINA = {
          + 'acompanhar não é querer comprar.</p>'
          + '<p>Tokens, signatures e as runas sem numeração de master set não se mostram; as '
          + 'runas em arte alternativa estão retiradas de tudo. O bloco <b>Runas — 12 de '
-         + 'cada</b>, no fim, é o contador dele: os <b>+</b>/<b>−</b> de lá escrevem numa '
+         + 'cada</b>, no fim, é o teu contador: os <b>+</b>/<b>−</b> de lá escrevem numa '
          + 'tabela à parte e não contam para número nenhum do site. O <b>crachá</b> é o '
          + 'contador, igual em todas as edições; a linha de baixo, <b>«nesta edição»</b>, '
          + 'conta só as impressões da edição aberta — a arte alternativa de cada edição é '
@@ -369,8 +369,8 @@ const PAGINA = {
   'selado': {
     sub: 'Displays, cases, decks, bundles e Proving Grounds: o que <b>há</b>, o que '
        + '<b>tens</b> e o que <b>não tens</b>. Não entra na Coleção.',
-    sub_ro: 'Displays, cases, decks, bundles e Proving Grounds: o que há, o que ele '
-          + 'tem e o que não tem. Não entra na Coleção.',
+    sub_ro: 'Displays, cases, decks, bundles e Proving Grounds: o que há, o que '
+          + 'tens e o que não tens. Não entra na Coleção.',
     ajuda: '<p>A lista vem do <b>CardTrader</b>, que arruma os blueprints por '
          + '<b>categoria</b>: a 258 são as cartas e as outras são produto e acessórios. '
          + 'Entram seis categorias — <i>Booster Boxes, Boosters, Bundles, Starter Decks, '
@@ -933,6 +933,68 @@ async function mostrarSeTrancado() {
   return true;
 }
 
+/* A FAIXA DA CÓPIA SÓ DE LEITURA (20/10/2026, achado R3). Dizia «corre
+   `riftvault serve` no PC» — instruções do PC do André, também na coleção do
+   Miguel e do Gonçalves, que editam pelo editar.baverone.com. Agora diz de quem
+   é a coleção e, a quem for o dono, onde se edita. No servidor (uma página de
+   outra pessoa, ou sem sessão) a resposta é entrar — o formulário está no menu. */
+function faixaPublicada(dono, servidor) {
+  const de = dono && dono.nome
+    ? `a coleção de <b>${escapeHTML(dono.nome)}</b>` : 'esta coleção';
+  const onde = servidor
+    ? 'Se a coleção é tua, entra com a tua conta (no menu) para mexer nas contagens.'
+    : 'Se a coleção é tua, edita-a em <a href="https://editar.baverone.com">'
+      + 'https://editar.baverone.com</a>.';
+  return `<b>Só para consultar — ${de}.</b>
+    <span>Os botões <code>+</code> e <code>−</code> não existem aqui de propósito. ${onde}</span>`;
+}
+
+/* A coleção aberta é a do André? As exclusões do Produto Selado vivem no
+   config, que é um só e é dele: «tiradas por ti» só é verdade na coleção dele
+   (20/10/2026, achado R4). Um índice sem `dono` é de uma versão antiga, que só
+   publicava a dele. */
+function donoEAndre() {
+  const d = state.index && state.index.dono;
+  return !d || d.andre !== false;
+}
+
+/* Quem tirou os produtos e as categorias que não entram no Selado. */
+function quemTirou() {
+  return donoEAndre()
+    ? 'por ti'
+    : 'na lista do riftvault — são as mesmas em todas as coleções';
+}
+
+/* ÂNCORAS DENTRO DE UMA SECÇÃO (20/10/2026, achado R9). `#wl-edicao` não é uma
+   rota, e aberto num separador novo caía na última secção guardada (no rastejo,
+   a Venda). Cada âncora diz em que secção vive; o arranque e o `hashchange`
+   abrem essa secção e descem até ela. */
+const ANCORAS = { 'wl-edicao': 'colecao', 'wl-tudo': 'colecao' };
+function seccaoDaAncora(nome) {
+  return Object.prototype.hasOwnProperty.call(ANCORAS, nome) ? ANCORAS[nome] : null;
+}
+/* A wantlist desenha-se depois de o `wantlist.json` chegar: tenta-se durante
+   uns segundos. Sem o bloco da edição (em «Todas» só há o de tudo), vai-se ao
+   de tudo. */
+function irParaAncora(nome, tentativas = 40) {
+  const el = document.getElementById(nome)
+    || (nome === 'wl-edicao' ? document.getElementById('wl-tudo') : null);
+  if (el) { el.scrollIntoView({ block: 'start' }); return; }
+  if (tentativas > 0) setTimeout(() => irParaAncora(nome, tentativas - 1), 250);
+}
+
+/* A EDIÇÃO COM QUE A COLEÇÃO ABRE (20/10/2026, o «Extra» do supervisor). Quem
+   chega pela primeira vez via a primeira edição — ou, com uma escolha antiga
+   noutra coleção do mesmo domínio, a RAD a 0/167 — e a página parecia vazia.
+   Sem escolha guardada abre em «Todas»; a escolha de quem já lá esteve
+   continua a valer. */
+function edicaoInicial(guardada, sets) {
+  if (guardada === TODAS && sets.length > 1) return TODAS;
+  if (guardada && sets.some(s => s.id === guardada)) return guardada;
+  if (sets.length > 1) return TODAS;
+  return sets.length ? sets[0].id : null;
+}
+
 async function boot() {
   loadPrefs();
   wireCasca();
@@ -990,6 +1052,9 @@ async function boot() {
   // no telemóvel carrega no sítio dos +/- e não percebe porque não acontece
   // nada. O aviso tem de ser grande.
   $('#readonly-banner').hidden = state.editable;
+  if (!state.editable) {
+    $('#readonly-banner').innerHTML = faixaPublicada(state.index.dono, !!state.index.servidor);
+  }
   $('#generated').textContent = state.index.generated_at
     ? `Atualizado em ${state.index.generated_at.replace('T', ' ').replace('+00:00', ' UTC')}.` : '';
 
@@ -1008,22 +1073,23 @@ async function boot() {
   // existe: o `#a-mais` de um favorito antigo cai na primeira que se vê, como
   // qualquer outro nome que já não exista.
   const r = lerHash();
-  const sec = seccaoValida(r.sec) ? r.sec
+  // Uma âncora (`#wl-edicao`) abre a secção dela e não a última guardada.
+  const ancora = seccaoValida(seccaoDaAncora(r.sec)) ? r.sec : null;
+  const sec = ancora ? seccaoDaAncora(ancora)
+    : seccaoValida(r.sec) ? r.sec
     : seccaoValida(state.prefs.section) ? state.prefs.section : seccaoInicial();
   const sub = seccaoValida(r.sec) ? r.sub : '';
 
   // A Coleção carrega-se sempre à partida: é dela que saem as barras, o painel
   // e o `state.qty` que a secção Encomendas e o bloco das runas leem.
   renderSetTabs();
-  const first = state.index.sets[0];
   const daRota = sec === 'colecao' && sub
     && (sub === TODAS || state.index.sets.some(s => s.id === sub)) ? sub : null;
-  const wanted = daRota
-    || (state.prefs.set === TODAS || state.index.sets.some(s => s.id === state.prefs.set)
-        ? state.prefs.set : (first && first.id));
+  const wanted = daRota || edicaoInicial(state.prefs.set, state.index.sets);
   if (wanted) await loadSet(wanted, { url: false });
 
   showSection(sec, sub);
+  if (ancora) irParaAncora(ancora);
 
   // Uma ligação `#encomendas` dentro da página (a nota do deck), o botão
   // «voltar» do browser e um endereço colado à mão entram todos por aqui.
@@ -1031,6 +1097,12 @@ async function boot() {
     if (aEscreverHash) return;
     const h = lerHash();
     if (seccaoValida(h.sec)) showSection(h.sec, h.sub, { url: false });
+    else if (seccaoValida(seccaoDaAncora(h.sec))) {
+      // Um clique normal já desce até à âncora; isto é para quando a secção
+      // dela não é a que está no ecrã.
+      if (seccaoNoEcra !== seccaoDaAncora(h.sec)) showSection(seccaoDaAncora(h.sec), '', { url: false });
+      irParaAncora(h.sec);
+    }
   });
 }
 
@@ -6208,8 +6280,13 @@ function renderVenda() {
         plural(t.lines, 'linha', 'linhas')}</span></div>
     <div class="deck-meta">
       <span><i>Total</i><b class="vd-total">${eur(t.cents)}</b></span>
-      <span><i>Preços</i>Trend do Cardmarket, metido por ti</span>
-      <span><i>Coleção</i>não mexe até carregares em «marcar como vendidas»</span>
+      ${state.editable
+        ? `<span><i>Preços</i>Trend do Cardmarket, metido por ti</span>
+      <span><i>Coleção</i>não mexe até carregares em «marcar como vendidas»</span>`
+        // Na cópia só de leitura não há botões nem quem os carregue (20/10/2026,
+        // achado R5): diz-se o mesmo que o `sub_ro` desta secção.
+        : `<span><i>Preços</i>Trend do Cardmarket, metido à mão</span>
+      <span><i>Coleção</i>não mexe enquanto as cartas não forem marcadas como vendidas</span>`}
     </div>
     ${avisos.length ? `<small class="nota vd-avisos">${avisos.join('<br>')}</small>` : ''}
     ${vdOrigens(t)}
@@ -6448,7 +6525,7 @@ function renderVdConta() {
       <button class="btn" id="vd-copiar">Copiar a conta</button>
       ${state.editable ? `<button class="btn ghost" id="vd-limpar">Limpar a venda</button>
         <button class="btn perigo" id="vd-vender">Marcar como vendidas</button>` : ''}
-      <textarea id="vd-txt" class="wl-txt" readonly hidden></textarea>
+      <textarea id="vd-txt" class="wl-txt" readonly hidden aria-label="A conta da venda, em texto para copiar"></textarea>
       <small class="nota" id="vd-nota" hidden></small>
     </div>`;
 
@@ -6586,7 +6663,7 @@ function renderSelado() {
     </div>
     <small class="nota">Lista do <b>CardTrader</b>${p.catalogo_em
       ? ` (${escapeHTML(String(p.catalogo_em).slice(0, 10))})` : ''} — as categorias
-      de produto selado dele${t.do_config ? `, mais ${plural(t.do_config, 'produto', 'produtos')}
+      de produto selado do riftvault${t.do_config ? `, mais ${plural(t.do_config, 'produto', 'produtos')}
       do config` : ''}.
       ${at.ha ? `Os <b>${at.ha}</b> acessórios (binders e deck boxes) têm secção
         própria em baixo e <b>não contam</b> para estes números.` : ''}
@@ -6604,7 +6681,7 @@ function renderSelado() {
     ${slHistoricoNota(p.historico)}
     ${tirados.length ? `<details class="sl-tirados"><summary><b>${
       tirados.length}</b> ${tirados.length === 1 ? 'produto tirado' : 'produtos tirados'}
-      por ti — não contam para estes números</summary>
+      ${quemTirou()} — não contam para estes números</summary>
       <small class="nota">Estão em <code>selado.excluidos</code> (pelo nome) ou em
         <code>selado.excluidos_padrao</code> (por um padrão, como <code>*Vault</code>, que
         apanha também os que o CardTrader ainda vai trazer), no
@@ -6626,7 +6703,7 @@ function renderSelado() {
       id="sl-acess" aria-pressed="${state.prefs.selAcess === false ? 'false' : 'true'}">
       Acessórios (${at.ha})</button>` : ''}
     <input id="sl-q" type="search" placeholder="Procurar produto…" autocomplete="off"
-           value="${escapeAttr(state.slQ || '')}">`;
+           aria-label="Procurar produto selado" value="${escapeAttr(state.slQ || '')}">`;
   for (const b of document.querySelectorAll('#sl-filtros [data-sl-filter]')) {
     b.onclick = () => {
       state.prefs.selFiltro = b.dataset.slFilter;
@@ -6659,8 +6736,12 @@ function renderSeladoCorpo(casa) {
       .toLowerCase().includes(q);
   }
   if (!p.items.length) {
-    $('#sl-body').innerHTML = '<p class="empty">A lista está vazia. Corre '
-      + '<code>riftvault selado --sync</code> no PC para a ir buscar ao CardTrader.</p>';
+    // A instrução do PC só no servidor dele (20/10/2026, achado R3): na cópia
+    // publicada de outra pessoa não se dão instruções do PC do André.
+    $('#sl-body').innerHTML = '<p class="empty">A lista está vazia.'
+      + (state.index && state.index.servidor && donoEAndre()
+        ? ' Corre <code>riftvault selado --sync</code> no PC para a ir buscar ao CardTrader.'
+        : '') + '</p>';
     return;
   }
   const grupos = sets => {
@@ -6709,8 +6790,10 @@ function slForaTexto(fora) {
       coleção.`);
   }
   if (tiradas.length) {
+    // «tiraste» só é verdade na coleção do André: o config é um só e é dele
+    // (20/10/2026, achado R4).
     p.push(` <b>${tiradas.reduce((s, x) => s + x.n, 0)}</b> são produto selado
-      que <b>tiraste</b> (${tiradas.map(nome).join(', ')}) — a categoria saiu do
+      tirado ${quemTirou()} (${tiradas.map(nome).join(', ')}) — a categoria saiu do
       <code>selado.categorias</code>, e repor é escrevê-la outra vez.`);
   }
   return p.join('');
@@ -7015,7 +7098,7 @@ function cmZonaHTML(id) {
       <button class="btn ghost" data-cm="${id}" data-cm-modo="codigo">Copiar com código</button>
       <button class="btn ghost" data-cm="${id}" data-cm-modo="csv">Descarregar CSV</button>
     </div>
-    <textarea id="${id}-txt" class="wl-txt" readonly hidden></textarea>
+    <textarea id="${id}-txt" class="wl-txt" readonly hidden aria-label="Wantlist em texto para colar no Cardmarket"></textarea>
     <small class="nota" id="${id}-nota" hidden></small>
     <small class="nota aviso-foil" id="${id}-foil" hidden></small>
   </div>`;
@@ -7188,7 +7271,7 @@ function renderPorDeck() {
       : '<p class="empty">Nada a comprar — este deck fica completo com o que vem acima.</p>'}
     <div class="wl-zona">
       <button class="btn" id="wl-btn">Lista para a wantlist do Cardmarket</button>
-      <textarea id="wl-txt" class="wl-txt" readonly hidden></textarea>
+      <textarea id="wl-txt" class="wl-txt" readonly hidden aria-label="Wantlist em texto para colar no Cardmarket"></textarea>
       <small class="nota" id="wl-nota" hidden></small>
       <small class="nota aviso-foil" id="wl-foil" hidden></small>
     </div>
@@ -7322,7 +7405,7 @@ function renderPimp() {
           achata(alvo).map(x => pimpTile(x, false)).join('')}</div>`}
     <div class="wl-zona">
       <button class="btn" id="pimp-btn">Lista para a wantlist do Cardmarket</button>
-      <textarea id="pimp-txt" class="wl-txt" readonly hidden></textarea>
+      <textarea id="pimp-txt" class="wl-txt" readonly hidden aria-label="Wantlist do Pimp em texto para colar no Cardmarket"></textarea>
       <small class="nota" id="pimp-nota" hidden></small>
     </div>`;
 
