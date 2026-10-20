@@ -12078,3 +12078,41 @@ rad-038-p2, …` (número não monótono); depois `rad-001, rad-r01, rad-r01a, r
 rad-002, …`, os mesmos 232 ids, a `copies` com o mesmo sha, e o bloco master do
 `api/set/RAD.json` a abrir em RAD-001/167 e a fechar em RAD-167/167.
 `tests/test_radiance_ordem.py` (12; sem o `ordenar` ficam 6 vermelhos).
+
+## 2026-10-20 — AS CORRECÇÕES DA AUDITORIA DOS SITES (R1–R10 e o «Extra»)
+
+Pedido dele: *"corrige tudo o que for relacionado com o site baverone.com e os
+subsites do mtg e rift e tibia"*. A lista é a secção rift de
+`ai-pc/work/auditoria-sites-1020/relatorio.md`. Ramo `sites-rift-1020`;
+`tests/test_sites_rift_1020.py` (vermelhos contra o código da manhã).
+
+- **R1/R2 — o Nexus Night 408707 é da RADIANCE.** A API a 20/10 (depois do
+  `--sync` das 02:02) diz expansão 4522, «Radiance | Nexus Night Promo
+  Booster», `card_market_ids` [917622] e a imagem com outro nome de ficheiro; o
+  link estava certo, o catálogo é que estava velho. Corrigida a entrada; nenhum
+  outro produto tem o prefixo de outra edição (o «Origins |» vive nas «Promos»
+  do CardTrader, e isso é legítimo). O `selado.sincronizar` passou a perguntar
+  ao CDN por cada imagem (`imagem_responde`, injectável como `sonda_imagem`) e
+  guarda `img: null` + `img_falhou` quando não dá 200 — `null` é o marcador
+  `sl-semimg` que a página já desenhava; e o `onerror` da linha troca a imagem
+  pelo mesmo marcador em vez de deixar um buraco. Os testes que contavam o
+  Selado por edição passaram a VEN 2 / RAD 3.
+- **R3–R5 — a página sabe DE QUEM É.** O `api/index.json` leva `dono`
+  (`utilizador.apresentacao`: slug, nome, `andre`), no `build` e no servidor. A
+  faixa só de leitura (`faixaPublicada`) diz «a coleção de X» e manda o dono
+  para https://editar.baverone.com — nunca o `riftvault serve` do PC dele. Os
+  textos em 3.ª pessoa passaram a «tu»; as exclusões do Selado (o config é UM e
+  é dele) dizem «por ti» só na coleção dele e, nas outras, que são da lista do
+  riftvault, iguais em todas (`quemTirou`). Não se separaram por pessoa: mudava
+  os números dos amigos e não foi pedido.
+- **R6/R7 — os caminhos.** A lista leva «← baverone.com»; cada coleção leva «←
+  todas as coleções», que nasce escondido no `index.html`
+  (`build.LINK_DA_LISTA`) e é aceso pelo `_aponta_a_casca` — no HTML e não no
+  índice, para a `api/` dele continuar igual na raiz e em `u/baverone/`.
+- **R8** as três pesquisas partilham o estilo do `#search`; **R10** rótulos
+  acessíveis nas pesquisas e nas caixas de texto das listas.
+- **R9** `ANCORAS` (`wl-edicao`, `wl-tudo` → Coleção): o arranque e o
+  `hashchange` abrem a secção da âncora e descem até ela.
+- **Extra** sem edição guardada a Coleção abre em «Todas» (`edicaoInicial`); a
+  escolha guardada continua a valer. **Anotado, não mudado:** as preferências
+  são do DOMÍNIO, por isso a edição escolhida numa coleção vale nas outras.
