@@ -89,7 +89,9 @@ class TestR1Imagem(unittest.TestCase):
         """O `onerror` tirava a imagem e deixava o quadrado vazio."""
         f = funcao("slLinha")
         self.assertNotIn('onerror="this.remove()"', f)
-        self.assertIn("sl-semimg", f.split("onerror", 1)[1] if "onerror" in f else "")
+        depois = f.split("onerror", 1)[1] if "onerror" in f else ""
+        self.assertIn("semimg", depois)
+        self.assertRegex(f, r"semImg = `<span class=\"sl-semimg\">")
 
 
 class TestR1Gerador(unittest.TestCase):
@@ -162,6 +164,8 @@ class TestR2Nome(unittest.TestCase):
         maus = []
         for p in CATALOGO["produtos"]:
             pref = p["nome"].split(" | ")[0] if " | " in p["nome"] else None
+            if p["edicao"] == "PROMO-RIFT":      # as «Promos» de todas as edições
+                continue
             if pref in conhecidos and pref != nomes.get(p["edicao"]):
                 maus.append((p["blueprint_id"], p["nome"], p["edicao"]))
         self.assertEqual(maus, [])

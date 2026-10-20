@@ -104,9 +104,13 @@ PRE_VENDA = {
 
 # FICAM POR DECIDIR: sem `cardmarket_id` mas com ofertas — pela letra do pedido
 # saíam, pelo facto de se comprarem ficam. A pergunta foi devolvida ao André.
+#
+# 20/10/2026: eram dois. O segundo era o «Vendetta | Nexus Night Promo
+# Booster», e o CardTrader passou-o para a Radiance, com nome novo e
+# `cardmarket_id` (917622) — por isso deixou de estar por decidir pela razão
+# que o punha aqui. Fica o da Unleashed.
 NEXUS_POR_DECIDIR = {
     "Unleashed | Nexus Night Promo Booster": 13,
-    "Vendetta | Nexus Night Promo Booster": 6,
 }
 
 # --- catálogo de brincar ----------------------------------------------------
@@ -421,8 +425,9 @@ class TestOsSeteContraOCatalogoReal(RealBase):
         for x in self.lista:
             if not x["acessorio"]:
                 por[x["edicao"]] = por.get(x["edicao"], 0) + 1
-        self.assertEqual(por, {"OGN": 2, "OGS": 1, "SFD": 3, "UNL": 4, "VEN": 3,
-                               "RAD": 2, "LGC": 1, "PG2": 1, "REC": 1, "ARC": 1,
+        # 20/10: o Nexus Night 408707 passou da VEN para a RAD no CardTrader.
+        self.assertEqual(por, {"OGN": 2, "OGS": 1, "SFD": 3, "UNL": 4, "VEN": 2,
+                               "RAD": 3, "LGC": 1, "PG2": 1, "REC": 1, "ARC": 1,
                                "PROMO-RIFT": 6, "T1S": 1})
         self.assertEqual(sum(por.values()), 26)
 
@@ -473,8 +478,10 @@ class TestOQueFicaNoCatalogoReal(RealBase):
         # nessa noite, com a categoria 262 — o «Evelynn vs Seraphine» Showdown
         # Deck. O que este teste guarda é que NENHUMA edição por sair ficou
         # vazia por causa do critério dos 7.
-        # (A 2026-10-13 a LGC e a RAD perderam o Vault pelo padrão `*Vault`.)
-        for ed, n in (("LGC", 1), ("PG2", 1), ("REC", 1), ("RAD", 2)):
+        # (A 2026-10-13 a LGC e a RAD perderam o Vault pelo padrão `*Vault`; a
+        # 2026-10-20 a RAD ganhou o Nexus Night 408707, que o CardTrader mudou
+        # da VEN para lá.)
+        for ed, n in (("LGC", 1), ("PG2", 1), ("REC", 1), ("RAD", 3)):
             self.assertEqual(por.get(ed), n, ed)
 
     def test_o_arcane_box_set_continua_visivel(self):

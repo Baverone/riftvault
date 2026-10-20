@@ -1308,8 +1308,29 @@ def preco_do_selado(products: list[dict], linguas: frozenset[str]) -> dict:
             "n_copies": sum(int(p.get("quantity") or 1) for p in uteis)}
 
 
+def imagem_responde(url: str) -> int | str:
+    """O código HTTP de uma imagem do CardTrader (ou o erro, em texto).
+
+    20/10/2026, achado R1 da auditoria: o catálogo guardava o `image_url` tal e
+    qual, e o do 408707 passou a dar 404 quando o CardTrader mudou o produto de
+    edição (e o nome do ficheiro com ele) — a página ficava com um quadrado
+    vazio e um erro na consola. Pergunta-se ao CDN, não à API: é o URL que o
+    browser vai pedir. O User-Agent é ASCII (ver `prices.CardTrader`)."""
+    import requests
+    try:
+        r = requests.get(url, timeout=30, stream=True,
+                         headers={"User-Agent": "riftvault/0.1 (personal collection manager)"})
+        try:
+            return r.status_code
+        finally:
+            r.close()
+    except Exception as exc:  # rede em baixo, URL mal escrito, ...
+        return f"{type(exc).__name__}"
+
+
 def sincronizar(ct=None, cfg: dict | None = None, log=print,
-                com_precos: bool = True, intervalo: float = 1.0) -> dict:
+                com_precos: bool = True, intervalo: float = 1.0,
+                sonda_imagem=None) -> dict:
     """Vai ao CardTrader buscar TODOS os blueprints que não são singles, por
     expansão do Riftbound, e escreve o `data/selado_catalogo.json`.
 
@@ -1367,6 +1388,28 @@ def sincronizar(ct=None, cfg: dict | None = None, log=print,
             })
         log(f"  {code or e['id']}: {len(bps)} blueprints, "
             f"{len(nao_singles)} não singles")
+
+    # AS IMAGENS QUE NÃO RESPONDEM NÃO SE GUARDAM (20/10/2026). Uma imagem que
+    # dá 404 fica `None` — e `None` é o MARCADOR que a página já desenha (o
+    # quadrado com o tipo do produto, `sl-semimg`) — com o URL que falhou em
+    # `img_falhou`, para se ver porquê. Pede-se uma vez por produto, ao ritmo
+    # de um terço do `intervalo` (é o CDN, não a API).
+    sonda = sonda_imagem or imagem_responde
+    falhadas = 0
+    for p in produtos:
+        url = p.get("img")
+        if not url:
+            continue
+        if intervalo:
+            time.sleep(intervalo / 3)
+        estado = sonda(url)
+        if estado != 200:
+            p["img"] = None
+            p["img_falhou"] = url
+            falhadas += 1
+            log(f"  imagem {p['blueprint_id']} ({p['nome']}): {estado} — fica o marcador")
+    if falhadas:
+        log(f"  {falhadas} imagens não responderam 200 — ficam sem imagem (marcador)")
 
     precos: dict[str, dict] = {}
     if com_precos:

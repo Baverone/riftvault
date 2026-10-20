@@ -423,8 +423,9 @@ class TestOsOnzeContraOCatalogoReal(RealBase):
         for x in self.lista:
             if not x["acessorio"]:
                 por[x["edicao"]] = por.get(x["edicao"], 0) + 1
-        self.assertEqual(por, {"OGN": 2, "OGS": 1, "SFD": 3, "UNL": 4, "VEN": 3,
-                               "RAD": 2, "LGC": 1, "PG2": 1, "REC": 1, "ARC": 1,
+        # 20/10: o Nexus Night 408707 passou da VEN para a RAD no CardTrader.
+        self.assertEqual(por, {"OGN": 2, "OGS": 1, "SFD": 3, "UNL": 4, "VEN": 2,
+                               "RAD": 3, "LGC": 1, "PG2": 1, "REC": 1, "ARC": 1,
                                "PROMO-RIFT": 6, "T1S": 1})
         self.assertEqual(sum(por.values()), 26)
 

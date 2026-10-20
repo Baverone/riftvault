@@ -6825,11 +6825,14 @@ function slLinha(x) {
       CardTrader (${escapeHTML(x.duplicados.map(d => d.blueprint_id).join(', '))})</span>`);
   }
   // A imagem vem do CardTrader (é o dono da lista). Sem imagem, um quadrado
-  // com o tipo lá dentro — nunca um ícone partido.
+  // com o tipo lá dentro — nunca um ícone partido. Uma imagem que falhe ao
+  // carregar (um 404 do CardTrader, achado R1 de 20/10/2026) troca-se pelo
+  // MESMO marcador: tirá-la só deixava o quadrado vazio.
+  const semImg = `<span class="sl-semimg">${escapeHTML(x.tipo_label)}</span>`;
   const arte = x.img
     ? `<img src="${escapeAttr(x.img)}" alt="" loading="lazy" decoding="async"
-            onerror="this.remove()">`
-    : `<span class="sl-semimg">${escapeHTML(x.tipo_label)}</span>`;
+            onerror="this.outerHTML=this.dataset.semimg" data-semimg="${escapeAttr(semImg)}">`
+    : semImg;
   return `<div class="sl-linha ${cls}" data-pid="${escapeAttr(x.id)}">
     <div class="sl-art">${arte}${x.qty ? `<span class="sl-qty">${x.qty}×</span>` : ''}</div>
     <div class="sl-meio">
