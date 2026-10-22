@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-21T02:06:55+00:00",
+ "generated_at": "2026-10-22T02:07:06+00:00",
  "fonte": "cardtrader",
  "game_id": 22,
  "singles_category": 258,
@@ -1143,6 +1143,28 @@
    "tcg_player_id": null
   },
   {
+   "blueprint_id": 418392,
+   "nome": "Cranky Overseer",
+   "versao": "2026 Cornerstone Championships",
+   "categoria_id": 288,
+   "edicao": "OP",
+   "edicao_nome": "Organized Play",
+   "img": "https://cardtrader.com/uploads/blueprints/image/418392/preview_418392-cranky-overseer-2026-cornerstone-championships-promotional.png",
+   "cardmarket_id": 916945,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 418394,
+   "nome": "Den of Evil",
+   "versao": "2026 Cornerstone Championships",
+   "categoria_id": 288,
+   "edicao": "OP",
+   "edicao_nome": "Organized Play",
+   "img": "https://cardtrader.com/uploads/blueprints/image/418394/preview_418394-den-of-evil-2026-cornerstone-championships-promotional.png",
+   "cardmarket_id": null,
+   "tcg_player_id": null
+  },
+  {
    "blueprint_id": 330876,
    "nome": "Arcane Chinese Promo Set",
    "versao": "",
@@ -1712,6 +1734,50 @@
    "edicao_nome": "Championship Promo",
    "img": "https://cardtrader.com/uploads/blueprints/image/417490/preview_417490-akali-brash-playmat-champion-prize-championship-promo.jpg",
    "cardmarket_id": 917540,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 418430,
+   "nome": "KDA Event Exclusive Playmat",
+   "versao": "Stuttgart Regional Championship 2026 ",
+   "categoria_id": 264,
+   "edicao": "RIFT-CHAMP",
+   "edicao_nome": "Championship Promo",
+   "img": "https://cardtrader.com/uploads/blueprints/image/418430/preview_418430-kda-event-exclusive-playmat-stuttgart-regional-championship-2026-championship-promo.jpg",
+   "cardmarket_id": 917821,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 418431,
+   "nome": "\"Seraphine, Not Alone\" Playmat",
+   "versao": "Prize Wall Playmat",
+   "categoria_id": 264,
+   "edicao": "RIFT-CHAMP",
+   "edicao_nome": "Championship Promo",
+   "img": "https://cardtrader.com/uploads/blueprints/image/418431/preview_418431-seraphine-not-alone-playmat-prize-wall-playmat-championship-promo.jpg",
+   "cardmarket_id": 917822,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 418432,
+   "nome": "\"Riven, Deserter\" Playmat",
+   "versao": "Prize Wall Playmat",
+   "categoria_id": 264,
+   "edicao": "RIFT-CHAMP",
+   "edicao_nome": "Championship Promo",
+   "img": "https://cardtrader.com/uploads/blueprints/image/418432/preview_418432-riven-deserter-playmat-prize-wall-playmat-championship-promo.jpg",
+   "cardmarket_id": 917823,
+   "tcg_player_id": null
+  },
+  {
+   "blueprint_id": 418433,
+   "nome": "\"K'Sante, Dauntless\" Playmat",
+   "versao": "Prize Wall Playmat",
+   "categoria_id": 264,
+   "edicao": "RIFT-CHAMP",
+   "edicao_nome": "Championship Promo",
+   "img": "https://cardtrader.com/uploads/blueprints/image/418433/preview_418433-k-sante-dauntless-playmat-prize-wall-playmat-championship-promo.jpg",
+   "cardmarket_id": 917824,
    "tcg_player_id": null
   },
   {
@@ -2454,12 +2520,12 @@
  ],
  "precos": {
   "330791": {
-   "cents": 18013,
+   "cents": 17554,
    "n_listings": 43,
    "n_sellers": 37,
-   "n_copies": 131,
+   "n_copies": 129,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "330792": {
    "cents": 5564,
@@ -2467,7 +2533,7 @@
    "n_sellers": 1,
    "n_copies": 3,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "330886": {
    "cents": 110059,
@@ -2475,7 +2541,7 @@
    "n_sellers": 19,
    "n_copies": 28,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "330949": {
    "cents": 795,
@@ -2483,7 +2549,7 @@
    "n_sellers": 13,
    "n_copies": 339,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "355460": {
    "cents": null,
@@ -2491,7 +2557,7 @@
    "n_sellers": 0,
    "n_copies": 0,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "361487": {
    "cents": null,
@@ -2499,7 +2565,7 @@
    "n_sellers": 0,
    "n_copies": 0,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "330871": {
    "cents": null,
@@ -2507,7 +2573,7 @@
    "n_sellers": 0,
    "n_copies": 0,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "330873": {
    "cents": null,
@@ -2515,7 +2581,7 @@
    "n_sellers": 0,
    "n_copies": 0,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "330874": {
    "cents": null,
@@ -2523,7 +2589,7 @@
    "n_sellers": 0,
    "n_copies": 0,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "330875": {
    "cents": null,
@@ -2531,7 +2597,7 @@
    "n_sellers": 0,
    "n_copies": 0,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "353676": {
    "cents": 94964,
@@ -2539,7 +2605,7 @@
    "n_sellers": 9,
    "n_copies": 11,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "357554": {
    "cents": 1521,
@@ -2547,7 +2613,7 @@
    "n_sellers": 11,
    "n_copies": 82,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "374739": {
    "cents": null,
@@ -2555,7 +2621,7 @@
    "n_sellers": 0,
    "n_copies": 0,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "379338": {
    "cents": null,
@@ -2563,7 +2629,7 @@
    "n_sellers": 0,
    "n_copies": 0,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "379341": {
    "cents": null,
@@ -2571,7 +2637,7 @@
    "n_sellers": 0,
    "n_copies": 0,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "402914": {
    "cents": null,
@@ -2579,7 +2645,7 @@
    "n_sellers": 0,
    "n_copies": 0,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "404544": {
    "cents": 19563,
@@ -2587,7 +2653,7 @@
    "n_sellers": 5,
    "n_copies": 18,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "408687": {
    "cents": null,
@@ -2595,7 +2661,7 @@
    "n_sellers": 0,
    "n_copies": 0,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "415928": {
    "cents": null,
@@ -2603,7 +2669,7 @@
    "n_sellers": 0,
    "n_copies": 0,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "330887": {
    "cents": null,
@@ -2611,7 +2677,7 @@
    "n_sellers": 0,
    "n_copies": 0,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "375498": {
    "cents": null,
@@ -2619,7 +2685,7 @@
    "n_sellers": 0,
    "n_copies": 0,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "330876": {
    "cents": null,
@@ -2627,7 +2693,7 @@
    "n_sellers": 0,
    "n_copies": 0,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "349090": {
    "cents": 60064,
@@ -2635,7 +2701,7 @@
    "n_sellers": 5,
    "n_copies": 7,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "349091": {
    "cents": null,
@@ -2643,7 +2709,7 @@
    "n_sellers": 0,
    "n_copies": 0,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "346723": {
    "cents": 613,
@@ -2651,15 +2717,15 @@
    "n_sellers": 10,
    "n_copies": 219,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "346724": {
-   "cents": 13364,
-   "n_listings": 39,
-   "n_sellers": 36,
-   "n_copies": 147,
+   "cents": 13362,
+   "n_listings": 41,
+   "n_sellers": 38,
+   "n_copies": 148,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "357555": {
    "cents": 4104,
@@ -2667,15 +2733,15 @@
    "n_sellers": 6,
    "n_copies": 25,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "361488": {
-   "cents": 94563,
-   "n_listings": 19,
-   "n_sellers": 19,
-   "n_copies": 26,
+   "cents": 90063,
+   "n_listings": 18,
+   "n_sellers": 18,
+   "n_copies": 23,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "363126": {
    "cents": null,
@@ -2683,7 +2749,7 @@
    "n_sellers": 0,
    "n_copies": 0,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "372438": {
    "cents": null,
@@ -2691,7 +2757,7 @@
    "n_sellers": 0,
    "n_copies": 0,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "374694": {
    "cents": null,
@@ -2699,39 +2765,39 @@
    "n_sellers": 0,
    "n_copies": 0,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "374734": {
    "cents": 614,
-   "n_listings": 15,
-   "n_sellers": 15,
-   "n_copies": 213,
+   "n_listings": 16,
+   "n_sellers": 16,
+   "n_copies": 233,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "363127": {
    "cents": 12564,
-   "n_listings": 15,
-   "n_sellers": 12,
-   "n_copies": 87,
+   "n_listings": 16,
+   "n_sellers": 13,
+   "n_copies": 89,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "363128": {
-   "cents": 80054,
-   "n_listings": 5,
-   "n_sellers": 5,
-   "n_copies": 9,
+   "cents": 78053,
+   "n_listings": 6,
+   "n_sellers": 6,
+   "n_copies": 10,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "363129": {
    "cents": 509,
-   "n_listings": 21,
-   "n_sellers": 18,
-   "n_copies": 468,
+   "n_listings": 20,
+   "n_sellers": 17,
+   "n_copies": 465,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "363132": {
    "cents": null,
@@ -2739,7 +2805,7 @@
    "n_sellers": 0,
    "n_copies": 0,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "363133": {
    "cents": 2822,
@@ -2747,7 +2813,7 @@
    "n_sellers": 17,
    "n_copies": 83,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "363134": {
    "cents": 6059,
@@ -2755,7 +2821,7 @@
    "n_sellers": 6,
    "n_copies": 14,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "380641": {
    "cents": null,
@@ -2763,7 +2829,7 @@
    "n_sellers": 0,
    "n_copies": 0,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "388487": {
    "cents": null,
@@ -2771,7 +2837,7 @@
    "n_sellers": 0,
    "n_copies": 0,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "388488": {
    "cents": null,
@@ -2779,7 +2845,7 @@
    "n_sellers": 0,
    "n_copies": 0,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "389903": {
    "cents": 714,
@@ -2787,15 +2853,15 @@
    "n_sellers": 10,
    "n_copies": 81,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "374963": {
-   "cents": 13564,
-   "n_listings": 12,
+   "cents": 12064,
+   "n_listings": 13,
    "n_sellers": 12,
-   "n_copies": 44,
+   "n_copies": 46,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "374964": {
    "cents": 89613,
@@ -2803,15 +2869,15 @@
    "n_sellers": 9,
    "n_copies": 10,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "379017": {
    "cents": 609,
    "n_listings": 7,
    "n_sellers": 6,
-   "n_copies": 102,
+   "n_copies": 106,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "379018": {
    "cents": 2942,
@@ -2819,7 +2885,7 @@
    "n_sellers": 27,
    "n_copies": 118,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "379020": {
    "cents": 2789,
@@ -2827,31 +2893,31 @@
    "n_sellers": 13,
    "n_copies": 113,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "374965": {
-   "cents": 11798,
-   "n_listings": 24,
+   "cents": 11762,
+   "n_listings": 23,
    "n_sellers": 18,
-   "n_copies": 104,
+   "n_copies": 99,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "374966": {
-   "cents": 71999,
-   "n_listings": 13,
-   "n_sellers": 11,
-   "n_copies": 15,
+   "cents": 74764,
+   "n_listings": 12,
+   "n_sellers": 9,
+   "n_copies": 14,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "399489": {
-   "cents": 595,
-   "n_listings": 12,
-   "n_sellers": 10,
-   "n_copies": 658,
+   "cents": 592,
+   "n_listings": 14,
+   "n_sellers": 11,
+   "n_copies": 674,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "399490": {
    "cents": null,
@@ -2859,23 +2925,23 @@
    "n_sellers": 0,
    "n_copies": 0,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "399491": {
-   "cents": 2832,
-   "n_listings": 12,
-   "n_sellers": 12,
-   "n_copies": 121,
+   "cents": 2830,
+   "n_listings": 11,
+   "n_sellers": 11,
+   "n_copies": 95,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "399492": {
-   "cents": 3250,
-   "n_listings": 20,
-   "n_sellers": 18,
-   "n_copies": 92,
+   "cents": 3219,
+   "n_listings": 22,
+   "n_sellers": 20,
+   "n_copies": 106,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "408707": {
    "cents": 694,
@@ -2883,7 +2949,7 @@
    "n_sellers": 4,
    "n_copies": 32,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "400775": {
    "cents": null,
@@ -2891,7 +2957,7 @@
    "n_sellers": 0,
    "n_copies": 0,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "400776": {
    "cents": null,
@@ -2899,7 +2965,7 @@
    "n_sellers": 0,
    "n_copies": 0,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "404545": {
    "cents": 19999,
@@ -2907,7 +2973,7 @@
    "n_sellers": 9,
    "n_copies": 35,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "408619": {
    "cents": 1014,
@@ -2915,7 +2981,7 @@
    "n_sellers": 5,
    "n_copies": 51,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "408699": {
    "cents": 4699,
@@ -2923,7 +2989,7 @@
    "n_sellers": 4,
    "n_copies": 8,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "404546": {
    "cents": null,
@@ -2931,7 +2997,7 @@
    "n_sellers": 0,
    "n_copies": 0,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "404547": {
    "cents": 1121,
@@ -2939,7 +3005,7 @@
    "n_sellers": 3,
    "n_copies": 44,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   },
   "404548": {
    "cents": 25064,
@@ -2947,7 +3013,7 @@
    "n_sellers": 3,
    "n_copies": 11,
    "currency": "EUR",
-   "day": "2026-10-21"
+   "day": "2026-10-22"
   }
  }
 }
