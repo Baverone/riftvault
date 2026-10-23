@@ -709,7 +709,12 @@ def entrar(nome: str):
     convite = request.args.get("ligar")
     # Na VOLTA o `?ligar=` já não vem no endereço (o `redirect_uri` não o leva):
     # o convite foi gasto na ida e o que o prova é o `liga_a` do pedido guardado.
-    if (not convite and request.args.get("code") and request.args.get("state")
+    # A volta pode trazer `error` em vez de `code` — o Google, quando a pessoa
+    # cancela, volta com `?error=access_denied&state=…` (ronda de 2026-10-23):
+    # com o mesmo `state` validado tem de chegar ao «o fornecedor recusou», e não
+    # à porta fechada. Sem um `state` de convite continua a não passar.
+    if (not convite and (request.args.get("code") or request.args.get("error"))
+            and request.args.get("state")
             and auth.pedido_liga_a(con, request.args["state"])):
         convite = "volta"
 

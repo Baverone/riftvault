@@ -399,6 +399,7 @@ def gravar_edicao(con: sqlite3.Connection, set_id: str, rows: list[dict],
             [set_id, FONTE, fonte] + ids,
         )
         con.executemany(_INSERT, escrever)
+        _arrumar_api_sort(con, set_id)
         n = con.execute("SELECT COUNT(*) FROM printings WHERE set_id = ?",
                         (set_id,)).fetchone()[0]
         con.execute(
@@ -414,6 +415,41 @@ def gravar_edicao(con: sqlite3.Connection, set_id: str, rows: list[dict],
         raise
     return {"n": n, "escritas": len(escrever), "reaproveitados": reaproveitados,
             "mantidas": mantidas}
+
+
+def _arrumar_api_sort(con: sqlite3.Connection, set_id: str) -> None:
+    """Uma numeração só para a edição, quando há linhas de mais do que uma fonte.
+
+    Ronda de 2026-10-23: a RAD tinha 219 linhas da RiftScribe (`api_sort` 0..218,
+    pela ordem dela) e 13 da dotgg com os números da lista da dotgg (0..231) — os
+    dois espaços colidiam (`rad-015-p` e `rad-018` com 34) e as promos de evento
+    apareciam fora do sítio na grelha. Fica a ordem da RiftScribe tal e qual, e
+    cada linha das outras fontes entra no sítio dela pela chave do número
+    (`dotgg.chave_de_ordem`, a mesma que arruma a dotgg sozinha). Corre em todas
+    as escritas de uma edição — a da RiftScribe também —, porque um sync dela
+    reescreve os números dela e voltava a pôr os dois espaços em choque.
+    Uma edição de uma fonte só não se toca: os números são os que ela deu.
+    """
+    from .dotgg import chave_de_ordem
+
+    rows = [dict(r) for r in con.execute(
+        "SELECT printing_id, collector_number, variant, lane, api_sort, "
+        "COALESCE(fonte, ?) AS fonte FROM printings WHERE set_id = ?", (FONTE, set_id))]
+    if len({r["fonte"] for r in rows}) < 2:
+        return
+    principal = sorted((r for r in rows if r["fonte"] == FONTE),
+                       key=lambda r: (r["api_sort"], r["printing_id"]))
+    outras = sorted((r for r in rows if r["fonte"] != FONTE), key=chave_de_ordem)
+    ordem, i = [], 0
+    for r in principal:
+        while i < len(outras) and chave_de_ordem(outras[i]) < chave_de_ordem(r):
+            ordem.append(outras[i])
+            i += 1
+        ordem.append(r)
+    ordem.extend(outras[i:])
+    con.executemany("UPDATE printings SET api_sort = ? WHERE printing_id = ?",
+                    [(n, r["printing_id"]) for n, r in enumerate(ordem)
+                     if r["api_sort"] != n])
 
 
 def rebuild_cards(con: sqlite3.Connection) -> int:

@@ -80,8 +80,16 @@ def produto(bid: int) -> dict:
 class TestR1Imagem(unittest.TestCase):
 
     def test_o_408707_tem_a_imagem_actual_do_cardtrader(self):
-        """Lida da API a 2026-10-20: o ficheiro passou a chamar-se «radiance»."""
-        img = produto(408707)["img"]
+        """Lida da API a 2026-10-20: o ficheiro passou a chamar-se «radiance».
+
+        O catálogo é reescrito pelo `--sync` diário, e um dia em que o CDN não
+        tenha a imagem deixa `img` a `None` com o `img_falhou` ao lado — é o
+        marcador, não um defeito. O teste não pode depender da rede desse dia
+        (ronda de 2026-10-23: rebentava com `TypeError`)."""
+        p = produto(408707)
+        self.assertEqual(p["edicao"], "RAD")
+        img = p["img"] or p.get("img_falhou")
+        self.assertIsNotNone(img, "sem imagem tem de ficar o URL que falhou")
         self.assertNotIn("vendetta", img)
         self.assertIn("preview_408707-radiance-nexus-night-promo-booster-radiance.jpg", img)
 

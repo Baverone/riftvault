@@ -284,14 +284,19 @@ def apresentacao(user_id: int | None = None) -> dict:
     MESMOS para toda a gente, e a página publicada não sabia de quem era — a
     faixa mandava o Miguel correr o `riftvault serve` «no PC», e o Selado dele
     dizia «tirados por ti» de exclusões que são do config. Vai no
-    `api/index.json`. Só o nome e o slug, que a lista das coleções já publica;
-    um registo que falhe devolve o André, que é o que a página assumia antes.
+    `api/index.json`. Só o nome e o slug, que a lista das coleções já publica.
+
+    Um registo que falhe só dá o André se for MESMO o André (o clone fresco, sem
+    registo): para outro dono a resposta é neutra — sem nome nem slug, e
+    `andre: False` —, nunca a página de outra pessoa (ronda de 2026-10-23).
     """
     uid = atual() if user_id is None else int(user_id)
     try:
         r = registo(uid)
-    except Exception:  # sem registo (um clone fresco): a página de sempre
-        return {"slug": SLUG_ANDRE, "nome": NOME_ANDRE, "andre": True}
+    except Exception:
+        if uid == ANDRE:  # sem registo (um clone fresco): a página de sempre
+            return {"slug": SLUG_ANDRE, "nome": NOME_ANDRE, "andre": True}
+        return {"slug": None, "nome": None, "andre": False}
     return {"slug": r["slug"], "nome": r["nome"], "andre": uid == ANDRE}
 
 
