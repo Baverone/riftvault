@@ -12116,3 +12116,32 @@ subsites do mtg e rift e tibia"*. A lista é a secção rift de
 - **Extra** sem edição guardada a Coleção abre em «Todas» (`edicaoInicial`); a
   escolha guardada continua a valer. **Anotado, não mudado:** as preferências
   são do DOMÍNIO, por isso a edição escolhida numa coleção vale nas outras.
+
+## 2026-10-23 — RONDA, SÓ BUGS (`tests/test_ronda_1023.py`)
+
+Quatro achados de uma leitura do código; cada um provado com um teste que
+chumbava no `main` antes da correcção (12 de 15 vermelhos; os 3 verdes são
+guardas). Ramo `rift-bugs-1023`.
+
+1. **O `api_sort` da RAD estava em DUAS numerações.** As 219 linhas da
+   RiftScribe (0..218, pela ordem dela) e as 13 da dotgg com os números da
+   lista da dotgg (0..231) — 12 empates no `catalog.db` real (`rad-015-p` e
+   `rad-018` com 34) e as promos fora do sítio na grelha. `catalog.
+   _arrumar_api_sort`, chamado dentro do `gravar_edicao` (as DUAS fontes passam
+   por lá, por isso um sync da RiftScribe já não volta a partir), fica com a
+   ordem da RiftScribe tal e qual e mete as outras no sítio pelo
+   `dotgg.chave_de_ordem`. Uma edição de uma fonte só não se toca. Medido numa
+   CÓPIA do `catalog.db`: 0 empates, o número nunca desce, `rad-015-p` entre
+   `rad-015` e `rad-015-p2`, as outras cinco edições iguais. **O catálogo real
+   arruma-se no próximo `riftvault sync`** (o passo da tarefa diária) — não se
+   escreveu nele à mão.
+2. **Selado: só um 404/410 tira a imagem** (`selado.IMAGEM_NAO_EXISTE`); um
+   429, um 5xx ou a rede em baixo deixam o endereço e dizem-no no log. O
+   `test_sites_rift_1020` deixou de rebentar com `TypeError` quando o catálogo
+   do dia vem sem a imagem (lê o `img_falhou`).
+3. **Cancelar no Google com a porta fechada** (`?error=access_denied&state=…`)
+   passa a dar «o fornecedor recusou» (400) e regista a tentativa falhada — só
+   com um `state` de convite (`pedido_liga_a`); sem ele continua 403.
+4. **`utilizador.apresentacao` com o registo partido** só devolve o André se o
+   dono FOR o André (o clone fresco); para outro dá `{slug: None, nome: None,
+   andre: False}` — o `app.js` já escrevia «esta coleção» com isso.

@@ -1308,6 +1308,11 @@ def preco_do_selado(products: list[dict], linguas: frozenset[str]) -> dict:
             "n_copies": sum(int(p.get("quantity") or 1) for p in uteis)}
 
 
+#: As respostas que querem dizer «esta imagem não existe» — as únicas que a tiram
+#: do catálogo. Tudo o resto (429, 5xx, rede em baixo) é passageiro.
+IMAGEM_NAO_EXISTE = frozenset({404, 410})
+
+
 def imagem_responde(url: str) -> int | str:
     """O código HTTP de uma imagem do CardTrader (ou o erro, em texto).
 
@@ -1389,8 +1394,8 @@ def sincronizar(ct=None, cfg: dict | None = None, log=print,
         log(f"  {code or e['id']}: {len(bps)} blueprints, "
             f"{len(nao_singles)} não singles")
 
-    # AS IMAGENS QUE NÃO RESPONDEM NÃO SE GUARDAM (20/10/2026). Uma imagem que
-    # dá 404 fica `None` — e `None` é o MARCADOR que a página já desenha (o
+    # AS IMAGENS QUE NÃO EXISTEM NÃO SE GUARDAM (20/10/2026). Uma imagem que
+    # dá 404/410 fica `None` — e `None` é o MARCADOR que a página já desenha (o
     # quadrado com o tipo do produto, `sl-semimg`) — com o URL que falhou em
     # `img_falhou`, para se ver porquê. Pede-se uma vez por produto, ao ritmo
     # de um terço do `intervalo` (é o CDN, não a API).
@@ -1403,13 +1408,19 @@ def sincronizar(ct=None, cfg: dict | None = None, log=print,
         if intervalo:
             time.sleep(intervalo / 3)
         estado = sonda(url)
-        if estado != 200:
+        # Só uma resposta DEFINITIVA tira a imagem (ronda de 2026-10-23). Um
+        # 429, um 503, um timeout ou a rede em baixo diziam o mesmo que um 404 e
+        # o catálogo publicado ficava sem a imagem até ao `--sync` seguinte.
+        if estado in IMAGEM_NAO_EXISTE:
             p["img"] = None
             p["img_falhou"] = url
             falhadas += 1
             log(f"  imagem {p['blueprint_id']} ({p['nome']}): {estado} — fica o marcador")
+        elif estado != 200:
+            log(f"  imagem {p['blueprint_id']} ({p['nome']}): {estado} — falha passageira, "
+                f"fica o endereço")
     if falhadas:
-        log(f"  {falhadas} imagens não responderam 200 — ficam sem imagem (marcador)")
+        log(f"  {falhadas} imagens não existem (404/410) — ficam sem imagem (marcador)")
 
     precos: dict[str, dict] = {}
     if com_precos:

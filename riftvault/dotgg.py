@@ -321,8 +321,10 @@ def sync(set_ids: list[str] | None = None, log=print, linhas_api: list[dict] | N
                     desconhecidas.add(r["variant"])
                 rows.append(r)
             # O `api_sort` sai do NÚMERO, não da ordem de chegada (alfabética).
-            # O upsert do `gravar_edicao` reescreve-o também nas linhas que já lá
-            # estão, por isso voltar a correr isto arruma uma RAD gravada antes.
+            # Isto só vale enquanto a edição for toda da dotgg: com linhas da
+            # RiftScribe ao lado, quem dá a numeração é o `gravar_edicao`
+            # (`catalog._arrumar_api_sort`, ronda de 2026-10-23), que mete as
+            # da dotgg no sítio delas entre as da RiftScribe.
             rows = ordenar(rows)
             if not rows:
                 res["sets_vazias"].append(sid)
