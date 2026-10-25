@@ -3339,6 +3339,7 @@ async function loadDeck(deckId) {
   state.deckId = deckId;
   state.prefs.deck = deckId;
   savePrefs();
+  await garanteDecks();
   renderDeckTabs();
   if (state.prefs.section === 'decks') escreverHash('decks', deckSubAtual());
   $('#deck-head').innerHTML = '';
@@ -3350,7 +3351,7 @@ async function loadDeck(deckId) {
 
 function renderDeck() {
   const p = state.deck;
-  const idx = state.decks.find(d => d.id === p.id) || {};
+  const idx = (state.decks || []).find(d => d.id === p.id) || {};
   const L = p.legality;
 
   const chip = (ok, txt) => `<span class="chip-l ${ok ? 'ok' : 'bad'}">${txt}</span>`;
@@ -4742,16 +4743,20 @@ function abrirSubVista(name, sub) {
   if (name === 'decks') {
     // `state.decks` pode já estar preenchido pelo painel do Início sem que
     // nenhum deck tenha sido aberto — quem decide é o `deckId`.
-    if (state.deckId === null) loadDecks(sub).catch(err => erro('#deck-body', err));
+    // Sem `state.decks` (uma encomenda ou uma venda marcam-no velho) também se
+    // relê: o deck aberto ficava a «a carregar…» e o índice vazio (25/10).
+    if (state.deckId === null || !state.decks) loadDecks(sub).catch(err => erro('#deck-body', err));
     else if (sub) abrirDeckOuLista(sub);
     return;
   }
 
   if (name === 'faltas-edicao') {
     if (!state.faltasEdicao) { loadFaltasEdicao(sub).catch(err => erro('#fe-body', err)); return; }
-    if (sub && feSetValido(sub) && sub !== state.prefs.feSet) {
-      state.prefs.feSet = sub; savePrefs(); renderFeTabs(); renderFaltasEdicao();
-    }
+    const outra = sub && feSetValido(sub) && sub !== state.prefs.feSet;
+    if (outra) { state.prefs.feSet = sub; savePrefs(); }
+    // O Início traz este payload para o cartão dele SEM o desenhar (revisão
+    // 25/10: Início → Faltas abria em branco). Fila vazia = nunca desenhado.
+    if (outra || !$('#fe-tabs').children.length) { renderFeTabs(); renderFaltasEdicao(); }
     return;
   }
 
@@ -4834,7 +4839,10 @@ async function carregarInicio() {
   inicioAPedir = Promise.all([
     tentar(!state.decks, garanteDecks),
     tentar(!state.enc.resumo, async () => { state.enc.resumo = await getJSON('api/encomendas.json'); }),
-    tentar(!state.faltasEdicao, async () => { state.faltasEdicao = await getJSON('api/faltas_edicao.json'); }),
+    tentar(!state.faltasEdicao, async () => {
+      state.faltasEdicao = await getJSON('api/faltas_edicao.json');
+      feLigarCaixas();   // as caixas sem `items` rebentavam ao abrir as Faltas
+    }),
   ]).then(() => {
     inicioAPedir = null;
     if (state.prefs.section === 'inicio') renderInicio();
