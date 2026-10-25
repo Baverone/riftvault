@@ -571,7 +571,11 @@ function wireCasca() {
    URL é o que deixa ligar a «as faltas do UNL» de fora da página, e é o que o
    botão «voltar» do browser passa a saber desfazer. */
 function lerHash() {
-  const h = decodeURIComponent((location.hash || '').slice(1));
+  // Um `%` partido (`#colecao%`) fazia o `decodeURIComponent` rebentar e o
+  // arranque morria em «Falhou a carregar» (revisão 25/10): fica cru.
+  const cru = (location.hash || '').slice(1);
+  let h;
+  try { h = decodeURIComponent(cru); } catch (_) { h = cru; }
   const [sec, sub] = h.split('/');
   return { sec, sub: sub || '' };
 }
@@ -3086,7 +3090,9 @@ function wireControls() {
 /* Desktop: setas navegam na grelha, + e − ajustam o tile em foco. */
 function wireKeyboard() {
   document.addEventListener('keydown', (e) => {
-    if (e.target.matches('input, textarea')) return;
+    if (e.target.matches('input, textarea, select, [contenteditable]')) return;
+    // Ctrl/⌘ + `+` é o zoom do browser, não um `+` na carta (revisão 25/10).
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
     // As outras secções só ficam `hidden` — os tiles da Coleção continuam no
     // DOM e o querySelectorAll apanhava-os na mesma. Sem esta guarda, uma seta
     // seguida de `+` na secção Decks somava uma cópia a uma carta que nem
@@ -3095,7 +3101,10 @@ function wireKeyboard() {
     // linha ficou a perguntar por um elemento que já não existe — `null.hidden`
     // rebentava a cada tecla premida fora de um campo de texto.)
     if ($('#sec-colecao').hidden) return;
-    const tiles = [...document.querySelectorAll('.tile')];
+    // Só os da grelha: os tiles das Encomendas (`.tile.enc`) ficam no DOM,
+    // escondidos, e a seta passava para eles — o `+` escrevia numa carta que
+    // não estava no ecrã (revisão 25/10).
+    const tiles = [...$('#grid').querySelectorAll('.tile')];
     if (!tiles.length) return;
 
     if (e.key === '+' || e.key === '=') { act(1); return; }
@@ -4289,6 +4298,9 @@ async function loadEncomendas(setId = null) {
     state.enc.resumo ? Promise.resolve(state.enc.resumo) : getJSON('api/encomendas.json'),
     getJSON(`api/encomendas/${setId}.json`),
   ]);
+  // Dois cliques rápidos (OGN e logo SFD): a resposta lenta desenhava a OGN
+  // debaixo do separador SFD. O `loadSet` e o `loadDeck` já tinham esta guarda.
+  if (state.enc.setId !== setId) return;
   state.enc.resumo = resumo;
   state.enc.payload = p;
   state.enc.ordered.clear(); state.enc.qty.clear();

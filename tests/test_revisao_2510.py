@@ -124,5 +124,110 @@ class TestDeckDepoisDeUmaEncomenda(unittest.TestCase):
         self.assertIn("await garanteDecks()", funcao("loadDeck"))
 
 
+def correr_js(prelude: str, nomes, corpo: str):
+    node = shutil.which("node")
+    if not node:
+        raise unittest.SkipTest("sem node")
+    codigo = prelude + "\n" + "\n".join(funcao(n) for n in nomes) + "\n" + corpo
+    r = subprocess.run([node, "-e", codigo], capture_output=True, text=True,
+                       encoding="utf-8", timeout=60)
+    if r.returncode != 0:
+        raise AssertionError(r.stderr)
+    return json.loads(r.stdout)
+
+
+class TestHashPartido(unittest.TestCase):
+    """Bug 3: `#colecao%` fazia o `decodeURIComponent` rebentar dentro do
+    `lerHash`, e o arranque morria em «Falhou a carregar»."""
+
+    def test_percent_partido_nao_rebenta(self):
+        r = correr_js("const location = { hash: '#colecao%' };", ["lerHash"],
+                      "console.log(JSON.stringify(lerHash()));")
+        self.assertEqual(r["sec"], "colecao%")
+
+    def test_hash_normal_continua(self):
+        r = correr_js("const location = { hash: '#faltas-edicao/OGN' };", ["lerHash"],
+                      "console.log(JSON.stringify(lerHash()));")
+        self.assertEqual(r, {"sec": "faltas-edicao", "sub": "OGN"})
+
+
+# O `wireKeyboard` com um documento de brincar: a grelha da Coleção tem UM
+# tile; os tiles escondidos das Encomendas existem noutro sítio do DOM.
+TECLADO = r"""
+const escritas = [];
+let ouvinte = null;
+const tileGrelha = { dataset: { pid: 'ogn-001' }, querySelector: () => null,
+                     getBoundingClientRect: () => ({ top: 0, left: 0, width: 10, height: 10 }) };
+const tileEnc = { dataset: { pid: 'sfd-099' }, querySelector: () => null,
+                  getBoundingClientRect: () => ({ top: 0, left: 20, width: 10, height: 10 }) };
+const document = {
+  addEventListener: (ev, fn) => { ouvinte = fn; },
+  querySelectorAll: (s) => s === '.tile' ? [tileGrelha, tileEnc] : [],
+};
+const els = { '#sec-colecao': { hidden: false },
+              '#grid': { querySelectorAll: (s) => s === '.tile' ? [tileGrelha] : [] } };
+function $(s) { return els[s]; }
+const state = { focus: -1 };
+function setFocus(i) { state.focus = i; }
+function adjust(pid, d) { escritas.push([pid, d]); }
+function maisTeclaDupla() {}
+function tecla(key, extra = {}) {
+  const alvo = { matches: (s) => !!extra.campo && s.split(',').map(x => x.trim()).includes(extra.campo) };
+  ouvinte({ key, target: alvo, preventDefault() {}, ...extra });
+}
+"""
+
+
+class TestTeclado(unittest.TestCase):
+    """Bug 4: a seta passava para os tiles escondidos das Encomendas e o `+`
+    escrevia numa carta fora do ecrã; Ctrl+`+` (zoom do browser) também
+    somava uma cópia; e a seta num `<select>` era engolida."""
+
+    def test_seta_fica_na_grelha(self):
+        r = correr_js(TECLADO, ["wireKeyboard"], """
+          wireKeyboard();
+          tecla('ArrowRight'); tecla('ArrowRight'); tecla('+');
+          console.log(JSON.stringify(escritas));""")
+        self.assertEqual(r, [["ogn-001", 1]])
+
+    def test_ctrl_mais_e_zoom(self):
+        r = correr_js(TECLADO, ["wireKeyboard"], """
+          wireKeyboard();
+          tecla('ArrowRight'); tecla('+', { ctrlKey: true }); tecla('=', { metaKey: true });
+          console.log(JSON.stringify(escritas));""")
+        self.assertEqual(r, [])
+
+    def test_select_nao_e_engolido(self):
+        r = correr_js(TECLADO, ["wireKeyboard"], """
+          wireKeyboard();
+          tecla('ArrowDown', { campo: 'select' });
+          console.log(JSON.stringify(state.focus));""")
+        self.assertEqual(r, -1)
+
+
+class TestEncomendasForaDeOrdem(unittest.TestCase):
+    """Bug 5: OGN e logo SFD — a resposta lenta da OGN desenhava-se debaixo do
+    separador SFD e enchia o `state.enc` com os números da OGN."""
+
+    def test_resposta_velha_e_ignorada(self):
+        r = correr_js(r"""
+          const desenhos = [];
+          const resolver = {};
+          function getJSON(u) { return new Promise(res => { resolver[u] = res; }); }
+          const els = {}; function $(s) { return els[s] || (els[s] = {}); }
+          function savePrefs() {} function escreverHash() {} function edicaoAberta() { return null; }
+          function renderEncTabs() {} function renderEncomendas() { desenhos.push(state.enc.payload.set); }
+          const state = { prefs: { section: 'encomendas' }, index: { sets: [{ id: 'OGN' }, { id: 'SFD' }] },
+                          enc: { resumo: {}, ordered: new Map(), qty: new Map() } };
+        """, ["loadEncomendas"], """
+          (async () => {
+            const a = loadEncomendas('OGN'); const b = loadEncomendas('SFD');
+            resolver['api/encomendas/SFD.json']({ set: 'SFD', groups: [] }); await b;
+            resolver['api/encomendas/OGN.json']({ set: 'OGN', groups: [] }); await a;
+            console.log(JSON.stringify({ desenhos, payload: state.enc.payload.set }));
+          })();""")
+        self.assertEqual(r, {"desenhos": ["SFD"], "payload": "SFD"})
+
+
 if __name__ == "__main__":
     unittest.main()
