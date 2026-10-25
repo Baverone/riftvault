@@ -549,6 +549,21 @@ class TestVendaDeUmaCartaSoDoCardTrader(unittest.TestCase):
             self.venda.juntar(self.con, "ct-1", 2, source="test")
         self.assertEqual(self.venda.linhas(self.con), {})
 
+    def test_a_despromocao_deixa_ficar_a_que_esta_fora_do_catalogo(self):
+        """Segunda opinião (25/10): uma cópia própria de uma impressão fora do
+        catálogo (linha antiga da `copy_locations`) ia para a Venda e o
+        `juntar` rebentava a despromoção a meio."""
+        import importlib
+        from riftvault import principal
+        importlib.reload(principal)
+        self.con.execute("INSERT INTO catalog.price_latest (printing_id, price_cents) "
+                         "VALUES ('ct-1', 900)")
+        self.con.execute("INSERT INTO copy_locations (printing_id, location, qty, updated_at) "
+                         "VALUES ('ct-1', 'proprio:x', 2, '2026-10-25T00:00:00Z')")
+        p = principal.proprias_por_valor(self.con, "x")
+        self.assertEqual([x["printing_id"] for x in p["abaixo"]], ["ct-1"])
+        self.assertEqual(p["acima"], [])
+
     def test_a_do_catalogo_continua_a_entrar(self):
         self.venda.juntar(self.con, "tst-001-100", 1, source="test")
         self.assertEqual(self.venda.linhas(self.con), {"tst-001-100": 1})
