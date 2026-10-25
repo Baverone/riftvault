@@ -328,5 +328,46 @@ class TestRotasDao400(unittest.TestCase):
             self.assertEqual(r.status_code, 400, (eur, r.get_data(as_text=True)[:200]))
 
 
+class TestChegouDuasVezesAoMesmoTempo(unittest.TestCase):
+    """Bug 8: o `pending.arrive` lia as linhas abertas FORA de uma transação e
+    só as marcava como chegadas depois de somar as cópias. Dois «Chegou» ao
+    mesmo tempo liam a mesma linha e somavam as cópias duas vezes. Simula-se a
+    corrida a meter o segundo «Chegou» DENTRO da entrada do primeiro."""
+
+    def setUp(self):
+        import importlib
+        import os
+        from tests.fixture import SEM_CONFIG, Vault
+        os.environ["RIFTVAULT_CONFIG"] = SEM_CONFIG
+        self.v = Vault()
+        self.addCleanup(self.v.close)
+        from riftvault import collection, pending
+        importlib.reload(collection)
+        importlib.reload(pending)
+        self.collection, self.pending = collection, pending
+        con = self.v.connect()
+        self.v.add_printing(con, "tst-002-100", "TST", 2, "Brutalizer", rarity="rare", size=100)
+        self.v.rebuild(con)
+        self.pending.add(con, "tst-002-100", 2)
+        self.con = con
+
+    def test_a_segunda_entrada_nao_soma_outra_vez(self):
+        original = self.collection.adjust
+        outra = self.v.connect()
+        chamadas = []
+
+        def adjust_com_corrida(con, *a, **k):
+            if not chamadas:
+                chamadas.append(1)
+                self.pending.arrive(outra, source="test")   # o outro toque
+            return original(con, *a, **k)
+
+        self.pending.collection.adjust = adjust_com_corrida
+        self.addCleanup(setattr, self.pending.collection, "adjust", original)
+        self.pending.arrive(self.con, source="test")
+        qty = self.con.execute("SELECT qty FROM copies WHERE printing_id = 'tst-002-100'").fetchone()[0]
+        self.assertEqual(qty, 2, "a mesma encomenda entrou duas vezes")
+
+
 if __name__ == "__main__":
     unittest.main()
