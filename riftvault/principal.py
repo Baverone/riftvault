@@ -296,7 +296,10 @@ def proprias_por_valor(con: sqlite3.Connection, s: str,
                 "set": r["set_id"] if r is not None else None,
                 "foil": e_foil, "cents": p["cents"], "fonte": p["fonte"],
                 "total": (p["cents"] or 0) * qty}
-        (acima if (p["cents"] or 0) >= minimo and p["cents"] is not None
+        # Fora do catálogo (`r is None`) fica sempre: a Venda só aceita
+        # impressões do catálogo desde 2026-10-25 (`venda.juntar`), e mandá-la
+        # para lá rebentava a despromoção a meio, com o config já escrito.
+        (acima if r is not None and (p["cents"] or 0) >= minimo and p["cents"] is not None
          else abaixo).append(item)
     resumo = lambda lst: {  # noqa: E731
         "printings": len(lst), "copies": sum(x["qty"] for x in lst),

@@ -98,6 +98,10 @@ def perguntar_ao_tunel(base: str, espera: float = ESPERA_DO_TUNEL) -> dict:
                 "erro": f"{type(e).__name__}: {e}"}
     try:
         dados = json.loads(corpo.decode("utf-8", "replace"))
+        # Um portal cativo que responda `"ok"` ou `[]` é JSON válido e não é
+        # um objecto: o `.get` a seguir rebentava (revisão 25/10).
+        if not isinstance(dados, dict):
+            raise ValueError("não é um objecto")
     except Exception:
         return {"respondeu": True, "codigo": codigo, "origem": None,
                 "sinais": [], "url": url,

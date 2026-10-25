@@ -463,15 +463,26 @@ def arrive(con: sqlite3.Connection, pending_id: int | list[int] | None = None,
 
     feitas = []
     for r in linhas:
+        # A linha é RECLAMADA antes de mexer nas cópias (revisão 25/10): dois
+        # «Chegou» ao mesmo tempo (duplo toque, ou «Chegou» e «Chegou tudo»)
+        # liam a mesma linha aberta e somavam as cópias duas vezes. Só quem a
+        # conseguir marcar dá entrada; se a entrada falhar, a marca volta atrás.
+        claim = con.execute("UPDATE pending SET arrived_at = ? "
+                            "WHERE id = ? AND arrived_at IS NULL", (_now(), r["id"]))
+        if claim.rowcount != 1:
+            continue
         e_foil = bool(r["foil"])
-        if e_foil:
-            res = foil_mod.ajustar(con, r["printing_id"], r["qty"], source=source,
-                                   validar=False)
-            total = res["foil"]
-        else:
-            total = collection.adjust(con, r["printing_id"], r["qty"],
-                                      source=source)["qty"]
-        con.execute("UPDATE pending SET arrived_at = ? WHERE id = ?", (_now(), r["id"]))
+        try:
+            if e_foil:
+                res = foil_mod.ajustar(con, r["printing_id"], r["qty"], source=source,
+                                       validar=False)
+                total = res["foil"]
+            else:
+                total = collection.adjust(con, r["printing_id"], r["qty"],
+                                          source=source)["qty"]
+        except Exception:
+            con.execute("UPDATE pending SET arrived_at = NULL WHERE id = ?", (r["id"],))
+            raise
         feitas.append({"id": r["id"], "printing_id": r["printing_id"],
                        "qty": r["qty"], "total": total, "foil": e_foil})
     _log(con, [{"printing_id": f["printing_id"], "qty": f["qty"], "accao": "chegou",

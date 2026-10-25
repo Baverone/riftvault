@@ -192,7 +192,7 @@ def api_runas_ajustar():
     edição não há célula onde contar. Um `card_key` que não seja runa, ou uma
     edição que não tenha aquela runa, são 404.
     """
-    data = request.get_json(silent=True) or {}
+    data = rotas_conta.dados_do_pedido()
     try:
         delta = int(data.get("delta", 0))
     except (TypeError, ValueError):
@@ -218,7 +218,7 @@ def api_runas_dispensar():
     linhas que ele contou à mão ficam lá e no `riftvault runas`. `{voltar:
     true}` repõe o aviso.
     """
-    data = request.get_json(silent=True) or {}
+    data = rotas_conta.dados_do_pedido()
     return jsonify({"antes": runas_vista.dispensar(
         get_con(), voltar=bool(data.get("voltar")))})
 
@@ -235,7 +235,7 @@ def api_foil_ajustar():
     impressão fora do âmbito (`foil.raridades`/`foil.edicoes_fora`) é 400; uma
     que não exista é 404.
     """
-    data = request.get_json(silent=True) or {}
+    data = rotas_conta.dados_do_pedido()
     try:
         delta = int(data.get("delta", 0))
     except (TypeError, ValueError):
@@ -272,7 +272,7 @@ def api_selado_ajustar():
     abaixo de zero. Um produto que não esteja na lista (API + `selado.extra`)
     é 404.
     """
-    data = request.get_json(silent=True) or {}
+    data = rotas_conta.dados_do_pedido()
     try:
         delta = int(data.get("delta", 0))
     except (TypeError, ValueError):
@@ -302,7 +302,7 @@ def api_selado_preco():
     Escreve SÓ na `sealed_price`: o `copies`, a `ops`, os locais e o valor da
     Coleção não mexem. `eur` vazio APAGA. Um produto fora da lista é 404.
     """
-    data = request.get_json(silent=True) or {}
+    data = rotas_conta.dados_do_pedido()
     if not data.get("product_id"):
         return jsonify({"error": "falta product_id"}), 400
     con = get_con()
@@ -345,7 +345,7 @@ def api_venda_linha():
     **Não mexe no `copies` nem em conta nenhuma** — é uma lista de intenção. Um
     `−` numa carta que não está na venda é 400.
     """
-    data = request.get_json(silent=True) or {}
+    data = rotas_conta.dados_do_pedido()
     try:
         delta = int(data.get("delta", 0))
     except (TypeError, ValueError):
@@ -372,7 +372,7 @@ def api_venda_trend():
     vazio ou `null` apaga o Trend guardado. Nunca se grava aqui um preço do
     CardTrader — são fontes diferentes, e a conta é feita com esta.
     """
-    data = request.get_json(silent=True) or {}
+    data = rotas_conta.dados_do_pedido()
     if not data.get("printing_id"):
         return jsonify({"error": "falta printing_id"}), 400
     bruto = data.get("eur")
@@ -380,8 +380,10 @@ def api_venda_trend():
         cents = None
     else:
         try:
+            # `inf`/`nan`/`1e999` passavam o `float` e o `round` rebentava em
+            # 500 (OverflowError/ValueError) — revisão 25/10.
             cents = round(float(str(bruto).replace(",", ".").replace("€", "").strip()) * 100)
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, OverflowError):
             return jsonify({"error": f"não percebi o preço {bruto!r}"}), 400
     con = get_con()
     try:
@@ -400,7 +402,7 @@ def api_venda_limpar():
     Com `{"origem": "deck:<slug>"}` tira de uma vez as que vieram de desfazer
     ou despromover um deck (2026-09-27) e deixa as que ele marcou à mão.
     """
-    data = request.get_json(silent=True) or {}
+    data = rotas_conta.dados_do_pedido()
     con = get_con()
     n = venda.limpar(con, origem=data.get("origem") or None)
     return jsonify({"limpas": n, **venda.payload(con, editable=_editavel())})
@@ -415,7 +417,7 @@ def api_venda_vender():
     confirmação. Cada linha passa pelo `collection.adjust` (fica na `ops`, dá
     para desfazer) e escreve no `sale_log`.
     """
-    data = request.get_json(silent=True) or {}
+    data = rotas_conta.dados_do_pedido()
     con = get_con()
     try:
         res = venda.vender(con, confirmar=bool(data.get("confirmar")), source="web")
@@ -430,7 +432,10 @@ def api_venda_vender():
 
 @app.get("/api/history.json")
 def api_history():
-    limit = min(int(request.args.get("limit", 30)), 500)
+    try:
+        limit = max(1, min(int(request.args.get("limit", 30)), 500))
+    except ValueError:
+        return jsonify({"error": "limit tem de ser um número"}), 400
     return jsonify({"ops": collection.history(get_con(), limit)})
 
 
@@ -471,7 +476,7 @@ def api_decks_montar():
     Venda — é o *"se eu 'desfazer' o deck"* do pedido. `movimento` diz o que
     foi e o que ficou; entrar na Venda não é vender.
     """
-    data = request.get_json(silent=True) or {}
+    data = rotas_conta.dados_do_pedido()
     if not data.get("slug"):
         return jsonify({"error": "falta o slug do deck"}), 400
     con = get_con()
@@ -493,7 +498,7 @@ def api_decks_principal():
     Venda, marcada com a origem. **Nada sai do `proprio:<slug>` e nada se
     vende**; as de menos de 0,50 € ficam, e o `movimento` diz quantas são.
     """
-    data = request.get_json(silent=True) or {}
+    data = rotas_conta.dados_do_pedido()
     con = get_con()
     _reimport_if_changed(con)
     try:
@@ -546,7 +551,7 @@ def api_decks_prever():
     texto na query era uma leitura da coleção sem essa protecção, e ainda por
     cima com a decklist no registo do servidor.
     """
-    data = request.get_json(silent=True) or {}
+    data = rotas_conta.dados_do_pedido()
     con = get_con()
     try:
         return jsonify(colar.prever(con, data.get("texto") or "",
@@ -564,7 +569,7 @@ def api_decks_colar():
     utilizador) e reimporta pela porta de sempre. `confirmar` é preciso se
     alguma linha não casou (409); `substituir`, se o deck já existe (409).
     """
-    data = request.get_json(silent=True) or {}
+    data = rotas_conta.dados_do_pedido()
     con = get_con()
     try:
         res = colar.gravar(con, data.get("texto") or "", data.get("slug"),
@@ -587,7 +592,7 @@ def api_decks_apagar():
     lá. **Não apaga cópias** — desde 2026-10-13 as próprias do deck vão para o
     stock dos decks (o binder), ver `colar.apagar`.
     """
-    data = request.get_json(silent=True) or {}
+    data = rotas_conta.dados_do_pedido()
     con = get_con()
     try:
         res = colar.apagar(con, data.get("slug") or "",
@@ -609,7 +614,7 @@ def api_proprias_ajustar():
     `decks.so_base`, só a base; 400 se não for). Um `−` a zero devolve 0 sem
     erro. Deck desconhecido: 404.
     """
-    data = request.get_json(silent=True) or {}
+    data = rotas_conta.dados_do_pedido()
     try:
         delta = int(data.get("delta", 0))
     except (TypeError, ValueError):
@@ -712,11 +717,14 @@ def api_pending_arrive():
     A entrada passa pelo `collection.adjust`, portanto fica no log e dá para
     desfazer. Idempotente: a segunda chamada não encontra nada e dá 404.
     """
-    data = request.get_json(silent=True) or {}
+    data = rotas_conta.dados_do_pedido()
     pid = data.get("id")
     ids = data.get("ids")
     con = get_con()
-    alvo = [int(i) for i in ids] if isinstance(ids, list) else (int(pid) if pid else None)
+    try:
+        alvo = [int(i) for i in ids] if isinstance(ids, list) else (int(pid) if pid else None)
+    except (TypeError, ValueError):
+        return jsonify({"error": "os ids das encomendas são números"}), 400
     # `foil` (2026-09-27) escolhe o acabamento: sem a chave entram os dois, e
     # cada linha vai para o contador dela — uma foil para o `copies.qty_foil`.
     e_foil = data.get("foil")
@@ -753,7 +761,7 @@ def api_encomenda():
     mesmo acabamento, e sem a chave tira-se de qualquer uma (é o que a CLI
     antiga faz).
     """
-    data = request.get_json(silent=True) or {}
+    data = rotas_conta.dados_do_pedido()
     try:
         delta = int(data.get("delta", 0))
     except (TypeError, ValueError):
@@ -814,11 +822,15 @@ def api_local_propor(slug: str):
 
 @app.post("/api/local/mover")
 def api_local_mover():
-    data = request.get_json(silent=True) or {}
+    data = rotas_conta.dados_do_pedido()
     if not data.get("printing_id"):
         return jsonify({"error": "falta printing_id"}), 400
     try:
-        res = locais.mover(get_con(), data["printing_id"], int(data.get("qty", 1)),
+        qty = int(data.get("qty", 1))
+    except (TypeError, ValueError):
+        return jsonify({"error": "qty tem de ser um número"}), 400
+    try:
+        res = locais.mover(get_con(), data["printing_id"], qty,
                            data.get("de") or locais.COLECAO, data.get("para") or "",
                            source="web", request_id=data.get("request_id"))
     except (locais.LocalInvalido, locais.SemCopias) as exc:
@@ -837,7 +849,7 @@ def api_local_marcar():
     do mtgvault de 2026-09-09, onde o registo gravou uma alocação calculada
     inteira — incluindo cartas que ele tinha dito não ter.
     """
-    data = request.get_json(silent=True) or {}
+    data = rotas_conta.dados_do_pedido()
     linhas = data.get("linhas")
     if not isinstance(linhas, list) or not linhas:
         return jsonify({"error": "o marcador só grava as linhas que confirmaste; "
@@ -853,7 +865,7 @@ def api_local_marcar():
 @app.post("/api/local/desfazer-deck")
 def api_local_desfazer_deck():
     """Desfaz um deck: tudo o que estava nele passa ao binder Decks/Venda."""
-    slug = (request.get_json(silent=True) or {}).get("slug")
+    slug = rotas_conta.dados_do_pedido().get("slug")
     if not slug:
         return jsonify({"error": "falta o slug do deck"}), 400
     con = get_con()
@@ -873,12 +885,16 @@ def api_local_undo():
 @app.post("/api/decks/order")
 def api_decks_order():
     """Reordena. O primeiro id da lista passa a ser o deck principal."""
-    ids = (request.get_json(silent=True) or {}).get("ids")
+    ids = rotas_conta.dados_do_pedido().get("ids")
     if not isinstance(ids, list) or not ids:
         return jsonify({"error": "falta a lista de ids"}), 400
+    try:
+        ids = [int(i) for i in ids]
+    except (TypeError, ValueError):
+        return jsonify({"error": "os ids dos decks são números"}), 400
     con = get_con()
     try:
-        decks.set_order(con, [int(i) for i in ids])
+        decks.set_order(con, ids)
     except decks.OrdemFixa as e:
         return jsonify({"error": str(e)}), 409
     return jsonify({"decks": decks.decks_index(con)})
@@ -905,7 +921,7 @@ def _reimport_if_changed(con) -> None:
 
 @app.post("/api/adjust")
 def api_adjust():
-    data = request.get_json(silent=True) or {}
+    data = rotas_conta.dados_do_pedido()
     printing_id = data.get("printing_id")
     request_id = data.get("request_id")
     try:
@@ -930,8 +946,13 @@ def api_adjust():
 
 @app.post("/api/undo")
 def api_undo():
-    data = request.get_json(silent=True) or {}
+    data = rotas_conta.dados_do_pedido()
     op_id = data.get("op_id")
+    if op_id is not None and not isinstance(op_id, int):
+        try:
+            op_id = int(op_id)
+        except (TypeError, ValueError):
+            return jsonify({"error": "op_id tem de ser um número"}), 400
     con = get_con()
     res = collection.undo_op(con, int(op_id), source="web") if op_id \
         else collection.undo_last(con, source="web")

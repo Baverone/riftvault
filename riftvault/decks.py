@@ -1548,27 +1548,11 @@ def printing_allocation(con: sqlite3.Connection) -> dict[str, list[dict]]:
     return out
 
 
-def binder_allocation(con: sqlite3.Connection) -> dict[str, list[dict]]:
-    """printing_id -> [{deck, qty}] das cópias do BINDER Decks/Venda que os
-    decks pedem.
-
-    A alocação é por carta lógica; aqui escolhe-se a impressão, com **artes base
-    primeiro** — a mesma regra de sempre, e a certa: se ele tem a base e a alt
-    art no binder e um deck só precisa de uma, é a base que vai jogar e a alt
-    art que fica para venda.
-
-    O que sobra depois disto é o que a Venda propõe: *cópias no binder que
-    nenhum deck pede* (André, 2026-09-10).
-    """
-    from . import locais
-
-    return _por_impressao(con, "no_binder", locais.em(con, locais.BINDER))
-
-
 def colecao_allocation(con: sqlite3.Connection) -> dict[str, list[dict]]:
     """printing_id -> [{deck, qty}] das cópias da COLEÇÃO que os decks usam.
 
-    O gémeo do `binder_allocation` para o terceiro monte (2026-09-11): a
+    O gémeo do antigo `binder_allocation` (sem chamadores, saiu na revisão de
+    2026-10-25) para o terceiro monte (2026-09-11): a
     Coleção monta decks, e a Venda precisa de saber que impressões da Coleção
     estão a ser jogadas para não as propor — *"cópias − max(usadas nos decks,
     alvo da coleção)"*, com «usadas» a ser a SOMA do que os decks levam, senão
@@ -1711,10 +1695,6 @@ def grupos(con: sqlite3.Connection) -> list[dict]:
         g["variantes"] = len(g["deck_ids"]) > 1
         g["rotulo"] = GRUPO_SEP.join(g["nomes"])
     return out
-
-
-def grupo_de(con: sqlite3.Connection, deck_id: int) -> dict:
-    return next(g for g in grupos(con) if deck_id in g["deck_ids"])
 
 
 def _need(con: sqlite3.Connection, deck_id: int,

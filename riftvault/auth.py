@@ -20,7 +20,7 @@ caseira, para usar entre amigos"*.
 
 O OAUTH (Google e Discord) FICA, PARADO
     O código de 29/09 está inteiro e testado, e um dia pode servir. **Sem
-    segredo configurado o botão não aparece** (`disponiveis`/`prontos`), e o
+    segredo configurado o botão não aparece** (`disponiveis`, campo `pronto`), e o
     `auth.discord.client_id` fica onde está. Não se apagou nada: ver o pedido
     de 2026-09-30, ponto 6.
 
@@ -630,10 +630,6 @@ def disponiveis(cfg: dict | None = None) -> list[dict]:
     return fora
 
 
-def prontos(cfg: dict | None = None) -> list[dict]:
-    return [p for p in disponiveis(cfg) if p["pronto"]]
-
-
 # --------------------------------------------------------------------------
 # PKCE
 # --------------------------------------------------------------------------
@@ -1033,6 +1029,19 @@ class SenhaErrada(ErroDeAutenticacao):
     """A password não é aquela."""
 
 
+_HASH_FALSO: str | None = None
+
+
+def _hash_falso() -> str:
+    """Um hash com os parâmetros de hoje, de uma password que ninguém tem —
+    para a conta que não existe gastar o mesmo tempo que uma que existe."""
+    global _HASH_FALSO
+    if _HASH_FALSO is None:
+        from . import senha as _senha
+        _HASH_FALSO = _senha.cifrar(secrets.token_urlsafe(24))
+    return _HASH_FALSO
+
+
 def entrar(con: sqlite3.Connection, slug: str, senha_escrita: str, *,
            chave: str | None = None) -> dict:
     """O nome e a password -> o utilizador. É aqui que a entrada se decide.
@@ -1067,8 +1076,15 @@ def entrar(con: sqlite3.Connection, slug: str, senha_escrita: str, *,
     row = (con.execute("SELECT * FROM user_senha WHERE user_id = ?",
                        (uid,)).fetchone() if uid else None)
     with _uma_vaga():
-        certa = (row is not None
-                 and _senha.confere(row["hash"], str(senha_escrita or "")))
+        if row is None:
+            # Uma conta que não existe (ou sem password) também paga o scrypt
+            # (revisão 25/10): sem isto respondia em ~0 ms contra ~130 ms, e
+            # dava para saber pelo relógio que nomes existem — incluindo os
+            # das coleções privadas, que não estão na lista pública.
+            _senha.confere(_hash_falso(), str(senha_escrita or ""))
+            certa = False
+        else:
+            certa = _senha.confere(row["hash"], str(senha_escrita or ""))
     if not certa:
         registar_tentativa(con, chave or "?", "senha", False, uid)
         # O travão da conta DEPOIS de a falha estar registada (e sem se contar
