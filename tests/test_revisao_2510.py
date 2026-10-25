@@ -414,5 +414,44 @@ class TestDesfazerLocalComRastoDasProprias(unittest.TestCase):
         self.assertIsNone(self.locais.undo_last(self.con, source="test"))
 
 
+class TestNomeQueNaoExistePagaOScrypt(unittest.TestCase):
+    """Bug 10: para um nome que não existe o `auth.entrar` saltava o scrypt e
+    respondia em ~0 ms contra ~130 ms de uma conta verdadeira — pelo relógio
+    sabia-se que nomes existem, incluindo os das coleções privadas."""
+
+    def setUp(self):
+        import importlib
+        import os
+        from tests.fixture import SEM_CONFIG, Vault
+        os.environ["RIFTVAULT_CONFIG"] = SEM_CONFIG
+        self.v = Vault()
+        self.addCleanup(self.v.close)
+        os.environ["RIFTVAULT_AUTH"] = str(self.v.data / "auth.db")
+        self.addCleanup(lambda: os.environ.pop("RIFTVAULT_AUTH", None))
+        from riftvault import auth, config, db, senha, utilizador
+        for m in (config, db, utilizador, senha, auth):
+            importlib.reload(m)
+        self.auth, self.senha, self.utilizador = auth, senha, utilizador
+
+    def test_os_dois_casos_chamam_o_confere(self):
+        u = self.utilizador.criar("Miguel", "miguel")
+        con = self.auth.abrir()
+        self.addCleanup(con.close)
+        self.auth.nova_temporaria(con, int(u["user_id"]))
+        chamadas = []
+        original = self.senha.confere
+
+        def contar(h, s):
+            chamadas.append(h)
+            return original(h, s)
+
+        self.senha.confere = contar
+        self.addCleanup(setattr, self.senha, "confere", original)
+        for nome in ("miguel", "ninguem-com-este-nome"):
+            with self.assertRaises(self.auth.SenhaErrada):
+                self.auth.entrar(con, nome, "errada-de-certeza-123", chave="10.0.0.%d" % len(chamadas))
+        self.assertEqual(len(chamadas), 2, "o nome que não existe não pagou o scrypt")
+
+
 if __name__ == "__main__":
     unittest.main()
