@@ -3169,6 +3169,7 @@ async function garanteDecks() {
 
 async function loadDecks(sub = '') {
   await garanteDecks();
+  state.decksDaVista = state.decks;   // ver o `abrirSubVista`: relê se mudar
   renderDeckTabs();
   // A rota do URL (`#decks/ornn`, `#decks/staples`) manda; a seguir, a última
   // escolha. Uma preferência guardada com a aba «Encomendas» (que viveu aqui
@@ -4753,7 +4754,11 @@ function abrirSubVista(name, sub) {
     // nenhum deck tenha sido aberto — quem decide é o `deckId`.
     // Sem `state.decks` (uma encomenda ou uma venda marcam-no velho) também se
     // relê: o deck aberto ficava a «a carregar…» e o índice vazio (25/10).
-    if (state.deckId === null || !state.decks) loadDecks(sub).catch(err => erro('#deck-body', err));
+    // E se a lista em memória já não é a da vista (o Início trouxe outra
+    // depois de a encomenda a limpar), o deck aberto tem números velhos.
+    if (state.deckId === null || !state.decks || state.decksDaVista !== state.decks) {
+      loadDecks(sub).catch(err => erro('#deck-body', err));
+    }
     else if (sub) abrirDeckOuLista(sub);
     return;
   }
@@ -4763,8 +4768,9 @@ function abrirSubVista(name, sub) {
     const outra = sub && feSetValido(sub) && sub !== state.prefs.feSet;
     if (outra) { state.prefs.feSet = sub; savePrefs(); }
     // O Início traz este payload para o cartão dele SEM o desenhar (revisão
-    // 25/10: Início → Faltas abria em branco). Fila vazia = nunca desenhado.
-    if (outra || !$('#fe-tabs').children.length) { renderFeTabs(); renderFaltasEdicao(); }
+    // 25/10: Início → Faltas abria em branco, ou com o payload anterior a uma
+    // encomenda). Desenha-se se o que está no ecrã não é ESTE payload.
+    if (outra || state.feDesenhado !== state.faltasEdicao) { renderFeTabs(); renderFaltasEdicao(); }
     return;
   }
 
@@ -5454,6 +5460,7 @@ function feCaixa() {
 
 function renderFeTabs() {
   const p = state.faltasEdicao;
+  state.feDesenhado = p;   // o `abrirSubVista` sabe assim se o ecrã é deste payload
   if (!feSetValido(state.prefs.feSet)) state.prefs.feSet = 'all';
   const escolher = (id) => {
     state.prefs.feSet = id; savePrefs();

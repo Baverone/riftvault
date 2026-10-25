@@ -89,10 +89,20 @@ class TestFaltasDepoisDoInicio(unittest.TestCase):
     def test_ja_desenhado_nao_redesenha(self):
         r = correr("""
           state.faltasEdicao = { sets: [], caixas: [] };
-          $('#fe-tabs').children = [1, 2];                 // já desenhado
+          state.feDesenhado = state.faltasEdicao;          // já desenhado
           abrirSubVista('faltas-edicao', '');
           console.log(JSON.stringify(chamadas));""")
         self.assertEqual(r, [])
+
+    def test_ecra_de_um_payload_anterior_e_redesenhado(self):
+        # segunda opinião: Faltas desenhadas, uma encomenda limpa o payload, o
+        # Início traz um novo — o ecrã tinha a fila cheia mas números velhos
+        r = correr("""
+          state.feDesenhado = { sets: [], caixas: [] };    // o de antes
+          state.faltasEdicao = { sets: [], caixas: [] };   // o novo, do Início
+          abrirSubVista('faltas-edicao', '');
+          console.log(JSON.stringify(chamadas));""")
+        self.assertIn("renderFaltasEdicao", r)
 
     def test_o_inicio_liga_as_caixas(self):
         # sem `feLigarCaixas` as caixas não têm `items` e o `renderFeCaixa`
@@ -115,9 +125,18 @@ class TestDeckDepoisDeUmaEncomenda(unittest.TestCase):
     def test_decks_em_memoria_nao_relem(self):
         r = correr("""
           state.deckId = 7; state.decks = [{ id: 7, slug: 'x' }];
+          state.decksDaVista = state.decks;
           abrirSubVista('decks', '');
           console.log(JSON.stringify(chamadas));""")
         self.assertNotIn("loadDecks", r)
+
+    def test_decks_trocados_pelo_inicio_relem_se(self):
+        r = correr("""
+          state.deckId = 7; state.decksDaVista = [{ id: 7 }];
+          state.decks = [{ id: 7 }];                       // outra lista, do Início
+          abrirSubVista('decks', '');
+          console.log(JSON.stringify(chamadas));""")
+        self.assertIn("loadDecks", r)
 
     def test_render_deck_e_load_deck_aguentam_decks_nulos(self):
         self.assertIn("(state.decks || []).find", funcao("renderDeck"))
