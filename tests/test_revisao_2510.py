@@ -453,5 +453,35 @@ class TestNomeQueNaoExistePagaOScrypt(unittest.TestCase):
         self.assertEqual(len(chamadas), 2, "o nome que não existe não pagou o scrypt")
 
 
+class TestTunelQueRespondeOutraCoisa(unittest.TestCase):
+    """Bug 11: o `perguntar_ao_tunel` promete «nunca levanta», mas um portal
+    cativo a responder `[]` (JSON válido, não um objecto) rebentava no `.get` e
+    o `riftvault multi --verificar` caía."""
+
+    def test_json_que_nao_e_objecto(self):
+        import io
+        import urllib.request
+        from riftvault import abrir
+
+        class Resp(io.BytesIO):
+            status = 200
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+        original = urllib.request.urlopen
+        for corpo in (b"[]", b'"ok"', b"3"):
+            urllib.request.urlopen = lambda *a, c=corpo, **k: Resp(c)
+            try:
+                r = abrir.perguntar_ao_tunel("http://x")
+            finally:
+                urllib.request.urlopen = original
+            self.assertTrue(r["respondeu"])
+            self.assertIsNone(r["origem"])
+
+
 if __name__ == "__main__":
     unittest.main()
