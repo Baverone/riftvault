@@ -84,8 +84,6 @@ const state = {
   // continua lá, mas não é o que se vê ao abrir.
   decks: null, deckId: null, deck: null,
   ordemFixa: false,            // a ordem vem do config (`decks.ordem`): sem botões
-  // Só versões base nos decks (2026-09-21, `decks.so_base`, do `api/decks.json`).
-  soBase: true,
   // O antigo `faltas.json` partiu-se a 2026-09-15 (à tarde) na wantlist da
   // Coleção (`api/wantlist.json`) e nas listas de compra dos decks
   // (`api/compras.json`). Cada um tem o pedido a caminho guardado (`*P`) para
@@ -571,7 +569,11 @@ function wireCasca() {
    URL é o que deixa ligar a «as faltas do UNL» de fora da página, e é o que o
    botão «voltar» do browser passa a saber desfazer. */
 function lerHash() {
-  const h = decodeURIComponent((location.hash || '').slice(1));
+  // Um `%` partido (`#colecao%`) fazia o `decodeURIComponent` rebentar e o
+  // arranque morria em «Falhou a carregar» (revisão 25/10): fica cru.
+  const cru = (location.hash || '').slice(1);
+  let h;
+  try { h = decodeURIComponent(cru); } catch (_) { h = cru; }
   const [sec, sub] = h.split('/');
   return { sec, sub: sub || '' };
 }
@@ -3086,7 +3088,9 @@ function wireControls() {
 /* Desktop: setas navegam na grelha, + e − ajustam o tile em foco. */
 function wireKeyboard() {
   document.addEventListener('keydown', (e) => {
-    if (e.target.matches('input, textarea')) return;
+    if (e.target.matches('input, textarea, select, [contenteditable]')) return;
+    // Ctrl/⌘ + `+` é o zoom do browser, não um `+` na carta (revisão 25/10).
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
     // As outras secções só ficam `hidden` — os tiles da Coleção continuam no
     // DOM e o querySelectorAll apanhava-os na mesma. Sem esta guarda, uma seta
     // seguida de `+` na secção Decks somava uma cópia a uma carta que nem
@@ -3095,7 +3099,10 @@ function wireKeyboard() {
     // linha ficou a perguntar por um elemento que já não existe — `null.hidden`
     // rebentava a cada tecla premida fora de um campo de texto.)
     if ($('#sec-colecao').hidden) return;
-    const tiles = [...document.querySelectorAll('.tile')];
+    // Só os da grelha: os tiles das Encomendas (`.tile.enc`) ficam no DOM,
+    // escondidos, e a seta passava para eles — o `+` escrevia numa carta que
+    // não estava no ecrã (revisão 25/10).
+    const tiles = [...$('#grid').querySelectorAll('.tile')];
     if (!tiles.length) return;
 
     if (e.key === '+' || e.key === '=') { act(1); return; }
@@ -3157,13 +3164,12 @@ async function garanteDecks() {
   // A ordem escrita no config (`decks.ordem`, 2026-09-21) manda: sem botões
   // de reordenar, senão o clique era desfeito na importação seguinte.
   state.ordemFixa = !!d.ordem_fixa;
-  // Só versões base (2026-09-21, `decks.so_base`): diz-se ao lado dos `+`/`−`.
-  state.soBase = d.so_base !== false;
   return state.decks;
 }
 
 async function loadDecks(sub = '') {
   await garanteDecks();
+  state.decksDaVista = state.decks;   // ver o `abrirSubVista`: relê se mudar
   renderDeckTabs();
   // A rota do URL (`#decks/ornn`, `#decks/staples`) manda; a seguir, a última
   // escolha. Uma preferência guardada com a aba «Encomendas» (que viveu aqui
@@ -3339,6 +3345,7 @@ async function loadDeck(deckId) {
   state.deckId = deckId;
   state.prefs.deck = deckId;
   savePrefs();
+  await garanteDecks();
   renderDeckTabs();
   if (state.prefs.section === 'decks') escreverHash('decks', deckSubAtual());
   $('#deck-head').innerHTML = '';
@@ -3350,7 +3357,7 @@ async function loadDeck(deckId) {
 
 function renderDeck() {
   const p = state.deck;
-  const idx = state.decks.find(d => d.id === p.id) || {};
+  const idx = (state.decks || []).find(d => d.id === p.id) || {};
   const L = p.legality;
 
   const chip = (ok, txt) => `<span class="chip-l ${ok ? 'ok' : 'bad'}">${txt}</span>`;
@@ -4288,6 +4295,9 @@ async function loadEncomendas(setId = null) {
     state.enc.resumo ? Promise.resolve(state.enc.resumo) : getJSON('api/encomendas.json'),
     getJSON(`api/encomendas/${setId}.json`),
   ]);
+  // Dois cliques rápidos (OGN e logo SFD): a resposta lenta desenhava a OGN
+  // debaixo do separador SFD. O `loadSet` e o `loadDeck` já tinham esta guarda.
+  if (state.enc.setId !== setId) return;
   state.enc.resumo = resumo;
   state.enc.payload = p;
   state.enc.ordered.clear(); state.enc.qty.clear();
@@ -4742,16 +4752,25 @@ function abrirSubVista(name, sub) {
   if (name === 'decks') {
     // `state.decks` pode já estar preenchido pelo painel do Início sem que
     // nenhum deck tenha sido aberto — quem decide é o `deckId`.
-    if (state.deckId === null) loadDecks(sub).catch(err => erro('#deck-body', err));
+    // Sem `state.decks` (uma encomenda ou uma venda marcam-no velho) também se
+    // relê: o deck aberto ficava a «a carregar…» e o índice vazio (25/10).
+    // E se a lista em memória já não é a da vista (o Início trouxe outra
+    // depois de a encomenda a limpar), o deck aberto tem números velhos.
+    if (state.deckId === null || !state.decks || state.decksDaVista !== state.decks) {
+      loadDecks(sub).catch(err => erro('#deck-body', err));
+    }
     else if (sub) abrirDeckOuLista(sub);
     return;
   }
 
   if (name === 'faltas-edicao') {
     if (!state.faltasEdicao) { loadFaltasEdicao(sub).catch(err => erro('#fe-body', err)); return; }
-    if (sub && feSetValido(sub) && sub !== state.prefs.feSet) {
-      state.prefs.feSet = sub; savePrefs(); renderFeTabs(); renderFaltasEdicao();
-    }
+    const outra = sub && feSetValido(sub) && sub !== state.prefs.feSet;
+    if (outra) { state.prefs.feSet = sub; savePrefs(); }
+    // O Início traz este payload para o cartão dele SEM o desenhar (revisão
+    // 25/10: Início → Faltas abria em branco, ou com o payload anterior a uma
+    // encomenda). Desenha-se se o que está no ecrã não é ESTE payload.
+    if (outra || state.feDesenhado !== state.faltasEdicao) { renderFeTabs(); renderFaltasEdicao(); }
     return;
   }
 
@@ -4834,7 +4853,10 @@ async function carregarInicio() {
   inicioAPedir = Promise.all([
     tentar(!state.decks, garanteDecks),
     tentar(!state.enc.resumo, async () => { state.enc.resumo = await getJSON('api/encomendas.json'); }),
-    tentar(!state.faltasEdicao, async () => { state.faltasEdicao = await getJSON('api/faltas_edicao.json'); }),
+    tentar(!state.faltasEdicao, async () => {
+      state.faltasEdicao = await getJSON('api/faltas_edicao.json');
+      feLigarCaixas();   // as caixas sem `items` rebentavam ao abrir as Faltas
+    }),
   ]).then(() => {
     inicioAPedir = null;
     if (state.prefs.section === 'inicio') renderInicio();
@@ -5438,6 +5460,7 @@ function feCaixa() {
 
 function renderFeTabs() {
   const p = state.faltasEdicao;
+  state.feDesenhado = p;   // o `abrirSubVista` sabe assim se o ecrã é deste payload
   if (!feSetValido(state.prefs.feSet)) state.prefs.feSet = 'all';
   const escolher = (id) => {
     state.prefs.feSet = id; savePrefs();
@@ -5749,6 +5772,10 @@ async function feAjustar(pid, foil, delta) {
   if (!x) return;
   const antes = { pending: x.pending || 0, missing: x.missing, total: x.total };
   if (delta < 0 && antes.pending <= 0) return;
+  // Acima do que falta o ecrã corta o número (`x.short`) e o servidor não:
+  // ficavam encomendas que esta linha nunca mostrava, e o `−` parecia morto
+  // (revisão 25/10). O `+` pára no que falta.
+  if (delta > 0 && antes.pending >= (x.short || 0)) return;
   feAplicar(x, Math.max(0, Math.min(antes.pending + delta, x.short)));
   feDesenharLinha(pid, foil);
 
@@ -6032,7 +6059,7 @@ function feEncHTML(x) {
       <button class="step minus" data-fe-d="-1" ${n ? '' : 'disabled'}
               aria-label="menos uma encomendada de ${escapeAttr(x.name)}"
               title="afinal não encomendei esta">−</button>
-      <button class="step plus" data-fe-d="1"
+      <button class="step plus" data-fe-d="1" ${n >= (x.short || 0) ? 'disabled' : ''}
               aria-label="marcar mais uma encomendada de ${escapeAttr(x.name)}"
               title="já encomendei mais uma${x.foil ? ' (foil)' : ''}">+</button>
     </div>` : '';
