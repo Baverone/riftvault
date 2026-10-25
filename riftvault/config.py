@@ -628,12 +628,6 @@ def escrever_lista(seccao: str, chave: str, valores: list[str]) -> list[str]:
     return list(valores)
 
 
-# O valor já escrito de uma chave, para o trocar sem reformatar o ficheiro: uma
-# lista, um texto, `null`, um booleano ou um número. A alternativa era reler e
-# reescrever o JSON inteiro — ver o porquê no `escrever_valor`.
-_VALOR = r'(\[[^\]]*\]|"(?:[^"\\]|\\.)*"|null|true|false|-?\d+(?:\.\d+)?)'
-
-
 class ConfigPartilhado(RuntimeError):
     """Escrever no `riftvault_config.json` como outro utilizador.
 
@@ -680,8 +674,8 @@ def escrever_valor(seccao: str, chave: str, valor):
     objectos numa linha (`{ "name": "OGN", "order": 1 }`) e dezenas de `_notas`
     pelo meio; um `json.dumps(indent=2)` do ficheiro inteiro reformatava-o todo
     a cada clique. Por isso troca-se **só o valor desta chave**, como texto:
-    procura-se o bloco da secção a contar chavetas e, lá dentro, a linha da
-    chave; se ela ainda não existir, entra logo a seguir ao `{` da secção.
+    o parser do JSON diz onde começa e acaba a secção e o valor antigo; se a
+    chave ainda não existir, entra logo a seguir ao `{` da secção.
 
     Devolve o valor escrito. Sem ficheiro nenhum (os testes que apontam o
     `RIFTVAULT_CONFIG` para um caminho que não existe) cria um com a secção.
@@ -706,38 +700,68 @@ def escrever_valor(seccao: str, chave: str, valor):
         reload()
         return valor
 
-    bloco = bruto[ini:fim]
-    alvo = re.search(r'"' + re.escape(chave) + r'"\s*:\s*' + _VALOR, bloco)
+    # O valor antigo e a secção lêem-se com o PARSER do JSON e não com uma
+    # regex (revisão 25/10): a regex parava no primeiro `]` ou `}` mesmo dentro
+    # de um texto, e um deck chamado «Deck [v2]» deixava o ficheiro partido —
+    # e com ele o `config.load()` de toda a app.
+    abre = bruto.index("{", ini)
+    membros, fecha = _membros(bruto, abre)
+    alvo = next((m for m in membros if m[0] == chave), None)
     if alvo:
-        novo = bloco[:alvo.start()] + f'"{chave}": {texto}' + bloco[alvo.end():]
+        novo = bruto[:alvo[1]] + texto + bruto[alvo[2]:]
     else:
         # Entra logo a seguir ao `{` da secção, com a indentação da linha
-        # seguinte (ou quatro espaços, que é a do ficheiro dele).
-        abre = bloco.index("{") + 1
-        seg = re.match(r'\n(\s*)', bloco[abre:])
+        # seguinte (ou quatro espaços, que é a do ficheiro dele). Numa secção
+        # vazia não leva vírgula.
+        seg = re.match(r'\n(\s*)', bruto[abre + 1:])
         indent = seg.group(1) if seg else "    "
-        novo = bloco[:abre] + f'\n{indent}"{chave}": {texto},' + bloco[abre:]
-    CONFIG_PATH.write_text(bruto[:ini] + novo + bruto[fim:], encoding="utf-8")
+        virgula = "," if membros else ""
+        novo = bruto[:abre + 1] + f'\n{indent}"{chave}": {texto}{virgula}' + bruto[abre + 1:]
+    json.loads(novo)   # nunca se escreve um ficheiro que não se lê
+    CONFIG_PATH.write_text(novo, encoding="utf-8")
     reload()
     return valor
+
+
+def _membros(bruto: str, abre: int) -> tuple[list[tuple[str, int, int]], int]:
+    """As chaves de PRIMEIRO nível do objecto que abre em `bruto[abre]`, cada
+    uma com o (início, fim) do seu valor, e o índice do `}` que o fecha. Lê
+    com o `raw_decode` do próprio JSON, que sabe o que é um texto."""
+    dec = json.JSONDecoder()
+    ws = re.compile(r"\s*")
+    i = ws.match(bruto, abre + 1).end()
+    out = []
+    if bruto[i] == "}":
+        return out, i
+    while True:
+        chave, i = dec.raw_decode(bruto, i)
+        i = ws.match(bruto, i).end()
+        if bruto[i] != ":":
+            raise ValueError(f"config: esperava ':' na posição {i}")
+        i = ws.match(bruto, i + 1).end()
+        _, fim = dec.raw_decode(bruto, i)
+        out.append((chave, i, fim))
+        i = ws.match(bruto, fim).end()
+        if bruto[i] == "}":
+            return out, i
+        if bruto[i] != ",":
+            raise ValueError(f"config: esperava ',' ou '}}' na posição {i}")
+        i = ws.match(bruto, i + 1).end()
 
 
 def _bloco_do_config(bruto: str, seccao: str) -> tuple[int | None, int | None]:
     """(início, fim) do texto `"<seccao>": { … }` no ficheiro, a contar
     chavetas — o bloco tem objectos lá dentro e um `.index("}")` cortava no
     primeiro deles."""
-    m = re.search(r'"' + re.escape(seccao) + r'"\s*:\s*\{', bruto)
-    if not m:
+    # Só as chaves de PRIMEIRO nível do ficheiro: um `"decks": {` escrito
+    # dentro de uma `_nota` ou de outra secção não é a secção.
+    try:
+        topo, _ = _membros(bruto, bruto.index("{"))
+    except ValueError:
         return None, None
-    nivel, i = 0, m.end() - 1
-    while i < len(bruto):
-        if bruto[i] == "{":
-            nivel += 1
-        elif bruto[i] == "}":
-            nivel -= 1
-            if nivel == 0:
-                return m.start(), i + 1
-        i += 1
+    for k, ini, fim in topo:
+        if k == seccao and bruto[ini] == "{":
+            return ini, fim
     return None, None
 
 

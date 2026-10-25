@@ -229,5 +229,55 @@ class TestEncomendasForaDeOrdem(unittest.TestCase):
         self.assertEqual(r, {"desenhos": ["SFD"], "payload": "SFD"})
 
 
+class TestConfigComParentesesNoNome(unittest.TestCase):
+    """Bug 6: o `escrever_valor` achava o valor antigo e a secção por regex e
+    parava no primeiro `]` ou `}` mesmo dentro de um texto. Um deck chamado
+    «Deck [v2]» montado duas vezes deixava o `riftvault_config.json` partido,
+    e o `config.load()` de toda a app rebentava."""
+
+    def setUp(self):
+        import importlib
+        import os
+        from tests.fixture import Vault
+        self.v = Vault()
+        self.addCleanup(self.v.close)
+        self.caminho = self.v.root / "mao.json"
+        self.caminho.write_text(
+            '{\n  "_nota": "texto com \\"decks\\": { dentro",\n'
+            '  "sets": { "TST": { "name": "TST", "order": 1 } },\n'
+            '  "decks": {\n    "so_base": true,\n    "principal": null\n  },\n'
+            '  "vazio": {}\n}\n', encoding="utf-8")
+        os.environ["RIFTVAULT_CONFIG"] = str(self.caminho)
+        self.addCleanup(lambda: os.environ.pop("RIFTVAULT_CONFIG", None))
+        importlib.reload(self.v.config)
+        self.v.config.load.cache_clear()
+        self.config = self.v.config
+
+    def ler(self):
+        return json.loads(self.caminho.read_text(encoding="utf-8"))
+
+    def test_parentese_recto_no_nome_duas_vezes(self):
+        self.config.escrever_lista("decks", "montados", ["Deck [v2]"])
+        self.config.escrever_lista("decks", "montados", ["Deck [v2]", "Outro"])
+        self.assertEqual(self.ler()["decks"]["montados"], ["Deck [v2]", "Outro"])
+
+    def test_chaveta_no_nome_nao_perde_a_escrita(self):
+        self.config.escrever_lista("decks", "montados", ["Deck }"])
+        self.config.escrever_valor("decks", "principal", "Deck }")
+        raw = self.ler()
+        self.assertEqual(raw["decks"]["principal"], "Deck }")
+        self.assertEqual(self.caminho.read_text(encoding="utf-8").count('"principal"'), 1)
+
+    def test_seccao_vazia_sem_virgula_a_mais(self):
+        self.config.escrever_valor("vazio", "k", 1)
+        self.assertEqual(self.ler()["vazio"], {"k": 1})
+
+    def test_o_feitio_fica(self):
+        self.config.escrever_lista("decks", "montados", ["A"])
+        texto = self.caminho.read_text(encoding="utf-8")
+        self.assertIn('"sets": { "TST": { "name": "TST", "order": 1 } }', texto)
+        self.assertIn('"_nota": "texto com \\"decks\\": { dentro"', texto)
+
+
 if __name__ == "__main__":
     unittest.main()
