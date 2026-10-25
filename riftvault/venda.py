@@ -198,6 +198,13 @@ def juntar(con: sqlite3.Connection, ref: str, delta: int = 1,
     pid = collection.resolve_printing(con, ref)
     delta = int(delta)
     atual = linhas(con).get(pid, 0)
+    # Uma impressão só do CardTrader (`market_only`) resolve, mas a conta lê o
+    # catálogo: a linha nunca aparecia, e o «marcar como vendidas» apagava-a
+    # sem baixar cópia nenhuma (revisão 25/10). Recusa-se ao juntar.
+    if delta > 0 and not con.execute(
+            "SELECT 1 FROM catalog.printings WHERE printing_id = ?", (pid,)).fetchone():
+        raise collection.UnknownPrinting(
+            f"{ref} só existe no CardTrader (fora do catálogo) — não entra na venda")
     if delta < 0 and atual == 0:
         raise SemLinha(f"{pid} não está na venda")
     novo = max(0, atual + delta)

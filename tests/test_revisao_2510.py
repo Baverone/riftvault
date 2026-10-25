@@ -483,5 +483,39 @@ class TestTunelQueRespondeOutraCoisa(unittest.TestCase):
             self.assertIsNone(r["origem"])
 
 
+class TestVendaDeUmaCartaSoDoCardTrader(unittest.TestCase):
+    """Bug 12: o `venda.juntar` aceitava uma impressão `market_only` (resolve
+    pelo CardTrader), mas a conta lê o catálogo: a linha nunca aparecia, e o
+    «marcar como vendidas» apagava-a sem baixar cópia nenhuma."""
+
+    def setUp(self):
+        import importlib
+        import os
+        from tests.fixture import SEM_CONFIG, Vault
+        os.environ["RIFTVAULT_CONFIG"] = SEM_CONFIG
+        self.v = Vault()
+        self.addCleanup(self.v.close)
+        from riftvault import collection, venda
+        importlib.reload(collection)
+        importlib.reload(venda)
+        self.collection, self.venda = collection, venda
+        con = self.v.connect()
+        self.v.add_printing(con, "tst-001-100", "TST", 1, "Defy", rarity="common", size=100)
+        self.v.rebuild(con)
+        con.execute("INSERT INTO catalog.market_only (printing_id, blueprint_id, set_id, "
+                    "collector_raw, card_key, market_name) VALUES "
+                    "('ct-1', 1, 'TST', 'R02a', 'calm rune', 'Calm Rune')")
+        self.con = con
+
+    def test_recusa_ao_juntar_e_a_venda_fica_vazia(self):
+        with self.assertRaises(self.collection.UnknownPrinting):
+            self.venda.juntar(self.con, "ct-1", 2, source="test")
+        self.assertEqual(self.venda.linhas(self.con), {})
+
+    def test_a_do_catalogo_continua_a_entrar(self):
+        self.venda.juntar(self.con, "tst-001-100", 1, source="test")
+        self.assertEqual(self.venda.linhas(self.con), {"tst-001-100": 1})
+
+
 if __name__ == "__main__":
     unittest.main()
