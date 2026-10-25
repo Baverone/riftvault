@@ -279,5 +279,54 @@ class TestConfigComParentesesNoNome(unittest.TestCase):
         self.assertIn('"_nota": "texto com \\"decks\\": { dentro"', texto)
 
 
+class TestRotasDao400(unittest.TestCase):
+    """Bug 7: um corpo JSON que não é objecto (`[1]`, `"x"`), um `limit=abc`,
+    ids que não são números e um preço `inf` davam 500 (exceção por apanhar)
+    em vez de 400 com a razão — em vinte e tal rotas e no guarda do CSRF."""
+
+    def setUp(self):
+        import importlib
+        import os
+        from tests.fixture import SEM_CONFIG, Vault
+        os.environ["RIFTVAULT_CONFIG"] = SEM_CONFIG
+        self.v = Vault()
+        self.addCleanup(self.v.close)
+        con = self.v.connect()
+        self.v.add_printing(con, "tst-001-100", "TST", 1, "Defy", rarity="common", size=100)
+        self.v.rebuild(con)
+        con.close()
+        from riftvault import rotas_conta, server
+        importlib.reload(rotas_conta)
+        importlib.reload(server)
+        server.app.testing = True
+        self.c = server.app.test_client()
+
+    def post(self, rota, corpo):
+        return self.c.post(rota, data=json.dumps(corpo), content_type="application/json")
+
+    def test_corpo_que_nao_e_objecto(self):
+        for rota in ("/api/adjust", "/api/venda/trend", "/api/pending/arrive",
+                     "/api/local/mover", "/api/decks/order", "/api/undo"):
+            for corpo in ([1], "x", 3):
+                r = self.post(rota, corpo)
+                self.assertNotEqual(r.status_code, 500, (rota, corpo, r.get_data(as_text=True)[:200]))
+
+    def test_limit_que_nao_e_numero(self):
+        self.assertEqual(self.c.get("/api/history.json?limit=abc").status_code, 400)
+        self.assertEqual(self.c.get("/api/history.json?limit=5").status_code, 200)
+
+    def test_ids_e_quantidades_que_nao_sao_numeros(self):
+        self.assertEqual(self.post("/api/pending/arrive", {"ids": ["x"]}).status_code, 400)
+        self.assertEqual(self.post("/api/local/mover",
+                                   {"printing_id": "tst-001-100", "qty": "x"}).status_code, 400)
+        self.assertEqual(self.post("/api/decks/order", {"ids": ["x"]}).status_code, 400)
+        self.assertEqual(self.post("/api/undo", {"op_id": "x"}).status_code, 400)
+
+    def test_preco_infinito(self):
+        for eur in ("inf", "1e999", "nan"):
+            r = self.post("/api/venda/trend", {"printing_id": "tst-001-100", "eur": eur})
+            self.assertEqual(r.status_code, 400, (eur, r.get_data(as_text=True)[:200]))
+
+
 if __name__ == "__main__":
     unittest.main()

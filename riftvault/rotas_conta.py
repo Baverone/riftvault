@@ -482,6 +482,17 @@ def _guardar_escrita():
     return None
 
 
+def dados_do_pedido() -> dict:
+    """O corpo JSON do pedido, ou `{}` se não for um OBJECTO.
+
+    Revisão 25/10: `request.get_json(silent=True) or {}` devolvia a lista ou
+    o texto tal como vinham (`[1]`, `"x"`), e o `.get` a seguir rebentava em
+    500 em vez de um 400 — em vinte e tal rotas, e no próprio guarda do CSRF.
+    """
+    d = request.get_json(silent=True)
+    return d if isinstance(d, dict) else {}
+
+
 def _csrf_enviado() -> str | None:
     """O token vem num cabeçalho. Não vem num cookie, de propósito.
 
@@ -494,7 +505,7 @@ def _csrf_enviado() -> str | None:
         return do_cabecalho
     # No corpo também serve, para um `<form>` sem JavaScript poder escrever.
     if request.is_json:
-        return (request.get_json(silent=True) or {}).get("csrf")
+        return dados_do_pedido().get("csrf")
     return request.form.get("csrf")
 
 
@@ -1007,7 +1018,7 @@ def entrar_com_senha():
             "este pedido tem de vir em JSON (é uma protecção: impede outro "
             "site de te fazer entrar aqui sem saberes).", 415)
 
-    dados = request.get_json(silent=True) or {}
+    dados = dados_do_pedido()
     con = _auth_con()
     try:
         quem = auth.entrar(con, dados.get("nome") or dados.get("slug") or "",
@@ -1046,7 +1057,7 @@ def mudar_senha():
 
     uid = int(sess["user_id"])
     u = utilizador.registo(uid)
-    dados = request.get_json(silent=True) or {}
+    dados = dados_do_pedido()
     con = _auth_con()
     try:
         # O `chave` é o que liga esta rota ao TRAVÃO, e era o que faltava
@@ -1114,7 +1125,7 @@ def registar():
     if not auth.csrf_valido(sess, _csrf_enviado()):
         return _resposta("o pedido não trazia a marca de segurança (CSRF).", 403)
 
-    dados = request.get_json(silent=True) or {}
+    dados = dados_do_pedido()
     try:
         slug = auth.exigir_slug(dados.get("slug", ""))
     except ValueError as e:
@@ -1156,7 +1167,7 @@ def mudar_privacidade():
         uid = _meu()
     except PermissionError as e:
         return _resposta(str(e), 401)
-    valor = (request.get_json(silent=True) or {}).get("publico")
+    valor = dados_do_pedido().get("publico")
     try:
         novo = privacidade.definir(None, uid, valor)
     except Exception:
@@ -1191,7 +1202,7 @@ def apagar():
     except PermissionError as e:
         return _resposta(str(e), 401)
 
-    dados = request.get_json(silent=True) or {}
+    dados = dados_do_pedido()
     u = utilizador.registo(uid)
     # A confirmação é escrever o próprio nome do endereço: é o padrão que evita
     # um clique distraído apagar um mês de trabalho.
