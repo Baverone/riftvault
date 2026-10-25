@@ -92,3 +92,60 @@ CREATE TABLE IF NOT EXISTS sealed_price_history (
     fonte        TEXT    NOT NULL DEFAULT 'sync',
     PRIMARY KEY (blueprint_id, day)
 );
+
+-- OS PREÇOS DO CARDMARKET, POR CARTA E POR DIA (2026-10-25).
+--
+-- André: *"preciso que estejas constantemente a atulizar o Price Trend do
+-- market, principalmente de Radiance"*. Ver o `cardmarket_precos.py`, que diz
+-- de onde vem cada coluna e o que ela É (o `cmPrice` da dotgg é a média de 1
+-- dia, não o Trend — medido nesse dia contra o guia oficial).
+--
+-- PORQUE É UMA TABELA À PARTE do `price_history`: aquele é o CardTrader, um
+-- preço por impressão e «só quando muda»; isto é outro mercado, com doze
+-- números por linha, e UMA LINHA POR DIA MEDIDO mesmo que nada mude — a regra
+-- que ele aprovou para o selado a 13/10: um dia sem linha é «não se mediu».
+--
+-- O `day` é o do próprio guia (`createdAt`), não o de hoje à força. Os
+-- cêntimos são EUR; os `outro_usd_*` são o preço do OUTRO mercado que a dotgg
+-- dá (`price`/`foilPrice`), em CÊNTIMOS DE DÓLAR — não se converte. Um `NULL`
+-- é «a fonte não tem número» (um zero do guia guarda-se como NULL).
+--
+-- TRÊS TABELAS, E É POR CAUSA DO GIT: a primeira versão punha tudo numa linha
+-- por dia (o URL, o id da dotgg, a data do guia...) e o prices.db cresceu
+-- 320 KB NUM DIA (medido a 25/10). O que não muda de dia para dia (a ligação
+-- de cada impressão ao produto do Cardmarket) vive numa tabela à parte, que se
+-- reescreve com os mesmos bytes; o dia guarda só os números, `WITHOUT ROWID`
+-- (sem um segundo índice a repetir a chave).
+CREATE TABLE IF NOT EXISTS cardmarket_ligacao (
+    printing_id   TEXT    PRIMARY KEY,
+    cm_product_id INTEGER,              -- idProduct do Cardmarket
+    dotgg_id      TEXT,
+    cm_url        TEXT,
+    has_normal    INTEGER NOT NULL DEFAULT 0,  -- 0 = a carta só existe em foil
+    has_foil      INTEGER NOT NULL DEFAULT 0
+) WITHOUT ROWID;
+
+CREATE TABLE IF NOT EXISTS cardmarket_dia (
+    day            TEXT PRIMARY KEY,
+    guia_criado_em TEXT,                -- o `createdAt` do price guide
+    origem_ligacao TEXT,                -- 'dotgg' ou 'ligacao-anterior'
+    linhas         INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS cardmarket_price_history (
+    printing_id          TEXT    NOT NULL,
+    day                  TEXT    NOT NULL,   -- YYYY-MM-DD, o do guia
+    trend_cents          INTEGER,
+    low_cents            INTEGER,
+    avg1_cents           INTEGER,
+    avg7_cents           INTEGER,
+    avg30_cents          INTEGER,
+    trend_foil_cents     INTEGER,
+    low_foil_cents       INTEGER,
+    avg1_foil_cents      INTEGER,
+    avg7_foil_cents      INTEGER,
+    avg30_foil_cents     INTEGER,
+    outro_usd_cents      INTEGER,
+    outro_usd_foil_cents INTEGER,
+    PRIMARY KEY (printing_id, day)
+) WITHOUT ROWID;

@@ -58,6 +58,10 @@ PRICES_DB = Path(os.environ.get("RIFTVAULT_PRICES", DATA_DIR / "prices.db"))
 IMAGES_DIR = Path(os.environ.get("RIFTVAULT_IMAGES", DATA_DIR / "images"))
 DECKS_DIR = Path(os.environ.get("RIFTVAULT_DECKS", ROOT / "decks"))
 CONFIG_PATH = Path(os.environ.get("RIFTVAULT_CONFIG", _CONFIG_OMISSAO))
+#: Os Excel de preços (2026-10-25): GERADOS, nunca editados à mão — ver o
+#: `excel_precos.py`. Na raiz do projecto e no `.gitignore`.
+PRECOS_DIR = Path(os.environ.get("RIFTVAULT_PRECOS",
+                                 ROOT / ("precos-ensaio" if ENSAIO else "precos")))
 
 # O ENSAIO NÃO USA O `data/` A SÉRIO, e isto rebenta à importação em vez de
 # deixar acontecer. É o erro que o ensaio existe para não deixar cometer:

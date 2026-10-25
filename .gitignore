@@ -64,6 +64,12 @@ data/seguir/paginas/
 site-prova/
 *-prova/
 
+# Os Excel de preços (2026-10-25): uma VISTA gerada todos os dias a partir do
+# prices.db e do vault.db — nunca editada à mão, e um binário por dia não vai
+# para o Git (a verdade já lá está, no prices.db).
+precos/
+precos-ensaio/
+
 # ... mas as imagens copiadas para dentro do site continuam fora do Git: são
 # ~88 MB e o `static_images` está em "remote".
 site/img/

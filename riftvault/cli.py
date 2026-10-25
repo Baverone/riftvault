@@ -22,6 +22,7 @@
     riftvault venda [--juntar REF [N] | --tirar REF [N]] [--trend REF EUR]
                     [--limpar] [--vender --sim]
     riftvault selado [--sync] [--guardar-precos [FICHEIRO]] [--mais ID [N] | --menos ID [N]] [--edicao OGN]
+    riftvault cardmarket [--sync] [--excel] [--pasta P]   preços do Cardmarket (Trend) e o Excel
                      [--so-faltas | --so-tenho] [--preco ID [EUROS]]
 """
 
@@ -1796,6 +1797,47 @@ def cmd_conta(args) -> int:
     return 0
 
 
+def cmd_cardmarket(args) -> int:
+    """OS PREÇOS DO CARDMARKET (2026-10-25): guardar o dia e gerar o Excel.
+
+    `--sync` vai buscar o price guide oficial do Cardmarket (o Trend a sério) e
+    a ligação da dotgg, e grava uma linha por impressão no
+    `prices.cardmarket_price_history` (corre na tarefa diária). `--excel` gera
+    o Excel — uma VISTA, nunca editada à mão. Sem opções, diz o valor da
+    Coleção pelo Trend ao lado do do site. Só toca no `prices.db` e na pasta do
+    Excel: nada da Coleção.
+    """
+    from . import cardmarket_precos as cmp
+
+    con = db.connect()
+    if args.sync:
+        print("A ir buscar o price guide do Cardmarket e a ligação da dotgg (2 pedidos)...")
+        try:
+            r = cmp.sincronizar(con, log=print)
+        except cmp.FonteFalhou as exc:
+            print(f"falhou: {exc}", file=sys.stderr)
+            return 1
+        print(f"histórico do Cardmarket: {r['gravadas']} linha(s) de {r['dia']} "
+              f"-> prices.cardmarket_price_history (ligação: {r['origem_ligacao']}; "
+              f"{r['sem_produto']} impressões sem produto do Cardmarket, "
+              f"{r['fora_do_guia']} fora do guia)")
+    if args.excel:
+        from . import excel_precos
+        e = excel_precos.gerar(con, args.pasta)
+        print(f"Excel: {e['ficheiro']}")
+        print(f"       {e['fixo']}" if not e["fixo_falhou"] else f"  ! {e['fixo_falhou']}")
+        print(f"       {e['linhas']} impressões ({e['rad']} da RAD), {e['tenho']} que tens; "
+              f"preços do Cardmarket de {e['dia_cm'] or '—'}")
+    v = cmp.comparar_valor(con)
+    print(f"valor da Coleção: {prices.eur(v['cm_cents'])} pelo Trend do Cardmarket "
+          f"({v['dia_cm'] or 'sem dados'}) · {prices.eur(v['ct_cents'])} pelo CardTrader "
+          f"(o do site, {v['dia_ct'] or '—'}) — mercados diferentes")
+    if v["copias_sem_trend"]:
+        print(f"  {v['copias_sem_trend']} cópias em {v['impressoes_sem_trend']} impressões "
+              f"sem Trend do Cardmarket ficam fora do primeiro total")
+    return 0
+
+
 def cmd_selado(args) -> int:
     """PRODUTO SELADO (2026-09-25): o que HÁ, o que TEM e o que NÃO TEM.
 
@@ -3014,6 +3056,15 @@ def main(argv: list[str] | None = None) -> int:
                    help="só o que não tens (sem os que ainda não saíram)")
     p.add_argument("--so-tenho", action="store_true", help="só o que tens")
     p.set_defaults(func=cmd_selado)
+
+    p = sub.add_parser("cardmarket", help="os preços do Cardmarket (o Price Trend), "
+                                          "guardados por dia, e o Excel gerado deles")
+    p.add_argument("--sync", action="store_true",
+                   help="busca o price guide oficial do Cardmarket e grava o dia no histórico")
+    p.add_argument("--excel", action="store_true",
+                   help="gera o Excel (uma vista: nunca se edita à mão)")
+    p.add_argument("--pasta", help="onde escrever o Excel (omissão: precos/ na raiz)")
+    p.set_defaults(func=cmd_cardmarket)
 
     p = sub.add_parser("conta", help="criar uma conta, dar uma password nova, "
                                      "exportar, importar e APAGAR — sem tocar "
