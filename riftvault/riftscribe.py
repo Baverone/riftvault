@@ -48,11 +48,6 @@ def list_sets() -> list[str]:
     return list(filters().get("sets") or [])
 
 
-def count_cards(set_id: str) -> int:
-    resp = _get("/cards", {"set_id": set_id, "limit": 1, "offset": 0})
-    return int(resp.headers.get("X-Total-Count", 0))
-
-
 def iter_cards(set_id: str, delay: float = POLITE_DELAY) -> Iterator[dict]:
     """Todas as entradas de uma edição, na ordem `sort=default`.
 
@@ -77,11 +72,6 @@ def iter_cards(set_id: str, delay: float = POLITE_DELAY) -> Iterator[dict]:
             return
         if delay:
             time.sleep(delay)
-
-
-def card(card_id: str) -> dict:
-    """/api/cards/{card_id} — aceita OGN-7, OGN-007a, OGN-301-star, UNL-T03."""
-    return _get(f"/cards/{card_id}").json()
 
 
 def download(url: str) -> bytes:

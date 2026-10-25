@@ -84,8 +84,6 @@ const state = {
   // continua lá, mas não é o que se vê ao abrir.
   decks: null, deckId: null, deck: null,
   ordemFixa: false,            // a ordem vem do config (`decks.ordem`): sem botões
-  // Só versões base nos decks (2026-09-21, `decks.so_base`, do `api/decks.json`).
-  soBase: true,
   // O antigo `faltas.json` partiu-se a 2026-09-15 (à tarde) na wantlist da
   // Coleção (`api/wantlist.json`) e nas listas de compra dos decks
   // (`api/compras.json`). Cada um tem o pedido a caminho guardado (`*P`) para
@@ -3166,8 +3164,6 @@ async function garanteDecks() {
   // A ordem escrita no config (`decks.ordem`, 2026-09-21) manda: sem botões
   // de reordenar, senão o clique era desfeito na importação seguinte.
   state.ordemFixa = !!d.ordem_fixa;
-  // Só versões base (2026-09-21, `decks.so_base`): diz-se ao lado dos `+`/`−`.
-  state.soBase = d.so_base !== false;
   return state.decks;
 }
 

@@ -588,13 +588,6 @@ def _precos(con: sqlite3.Connection, pid: str) -> dict:
             "price_foil": row["foil"] if row else None}
 
 
-def historico(con: sqlite3.Connection, limit: int = 20) -> list[dict]:
-    return [dict(x) for x in con.execute(
-        "SELECT f.*, p.public_code, p.name FROM foil_ops f "
-        "LEFT JOIN catalog.printings p ON p.printing_id = f.printing_id "
-        "ORDER BY f.id DESC LIMIT ?", (limit,))]
-
-
 def _eur(cents: int) -> str:
     """Os euros de uma linha deste resumo. O `prices.eur` faz o mesmo, mas
     importá-lo aqui punha este módulo a conhecer o `prices` por causa de uma

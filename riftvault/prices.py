@@ -378,15 +378,6 @@ def oferta(products: list[dict], aceites: frozenset[str] | None = None) -> dict:
     }
 
 
-def lowest(products: list[dict]) -> tuple[int | None, bool, int]:
-    """(preço em cêntimos, veio_de_foil, nº de ofertas utilizáveis).
-
-    A forma antiga do `oferta()`, mantida para quem só quer o preço.
-    """
-    o = oferta(products)
-    return o["cents"], o["from_foil"], o["n_listings"]
-
-
 def sync_prices(ct: CardTrader | None = None, log=print) -> dict:
     """Atualiza `price_latest` (todas) e `price_history` (só as que tenho)."""
     ct = ct or CardTrader()

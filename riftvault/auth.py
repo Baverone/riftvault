@@ -20,7 +20,7 @@ caseira, para usar entre amigos"*.
 
 O OAUTH (Google e Discord) FICA, PARADO
     O código de 29/09 está inteiro e testado, e um dia pode servir. **Sem
-    segredo configurado o botão não aparece** (`disponiveis`/`prontos`), e o
+    segredo configurado o botão não aparece** (`disponiveis`, campo `pronto`), e o
     `auth.discord.client_id` fica onde está. Não se apagou nada: ver o pedido
     de 2026-09-30, ponto 6.
 
@@ -628,10 +628,6 @@ def disponiveis(cfg: dict | None = None) -> list[dict]:
                      "pronto": p.configurado(cfg),
                      "falta": p.em_falta(cfg)})
     return fora
-
-
-def prontos(cfg: dict | None = None) -> list[dict]:
-    return [p for p in disponiveis(cfg) if p["pronto"]]
 
 
 # --------------------------------------------------------------------------

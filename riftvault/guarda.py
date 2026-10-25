@@ -190,10 +190,3 @@ def a_copiar(con: Ligacao):
         yield con
     finally:
         con._anexar_ok -= 1
-
-
-def desarmar(con: sqlite3.Connection) -> None:
-    """Tira o guarda. Existe para o `conta.py`, que precisa de anexar a base
-    de um utilizador para a exportar ou importar — e faz isso numa ligação
-    própria, nunca numa que esteja a servir alguém."""
-    con.set_authorizer(None)
