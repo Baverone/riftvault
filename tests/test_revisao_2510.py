@@ -229,6 +229,43 @@ class TestEncomendasForaDeOrdem(unittest.TestCase):
         self.assertEqual(r, {"desenhos": ["SFD"], "payload": "SFD"})
 
 
+class TestJaEncomendeiParaNoQueFalta(unittest.TestCase):
+    """Bug 13: nas Faltas o `+` de «já encomendei» deixava encomendar mais do
+    que faltava. O ecrã corta o número ao que falta e o servidor não: ficavam
+    encomendas que a linha nunca mostrava, e o `−` parecia não fazer nada."""
+
+    PRE = r"""
+      const pedidos = [];
+      globalThis.fetch = (u, o) => { pedidos.push(JSON.parse(o.body)); return new Promise(() => {}); };
+      function escapeAttr(s) { return String(s); }
+      function cabecalhos() { return {}; }
+      function feDesenharLinha() {} function feMarcaVelhos() {} function toast() {}
+      function feAplicar(x, n) { x.pending = n; }
+      const state = { editable: true, feVoo: new Map(), feFila: new Map() };
+      const X = { name: 'Defy', pending: 2, short: 2, missing: 0, total: 0 };
+      function feItem() { return X; }
+    """
+
+    def test_o_mais_fica_desligado_no_que_falta(self):
+        r = correr_js(self.PRE, ["feEncHTML"], """
+          const h = feEncHTML(X);
+          console.log(JSON.stringify(/class="step plus"[^>]*disabled/.test(h)));""")
+        self.assertTrue(r)
+
+    def test_o_mais_nao_pede_nada_ao_servidor(self):
+        r = correr_js(self.PRE, ["feAjustar"], """
+          feAjustar('tst-001', false, 1);
+          setTimeout(() => console.log(JSON.stringify({ pedidos, pending: X.pending })), 0);""")
+        self.assertEqual(r, {"pedidos": [], "pending": 2})
+
+    def test_abaixo_do_que_falta_continua_a_pedir(self):
+        r = correr_js(self.PRE, ["feAjustar"], """
+          X.pending = 1;
+          feAjustar('tst-001', false, 1);
+          setTimeout(() => console.log(JSON.stringify(pedidos.length)), 0);""")
+        self.assertEqual(r, 1)
+
+
 class TestConfigComParentesesNoNome(unittest.TestCase):
     """Bug 6: o `escrever_valor` achava o valor antigo e a secção por regex e
     parava no primeiro `]` ou `}` mesmo dentro de um texto. Um deck chamado

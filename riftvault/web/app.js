@@ -5769,6 +5769,10 @@ async function feAjustar(pid, foil, delta) {
   if (!x) return;
   const antes = { pending: x.pending || 0, missing: x.missing, total: x.total };
   if (delta < 0 && antes.pending <= 0) return;
+  // Acima do que falta o ecrã corta o número (`x.short`) e o servidor não:
+  // ficavam encomendas que esta linha nunca mostrava, e o `−` parecia morto
+  // (revisão 25/10). O `+` pára no que falta.
+  if (delta > 0 && antes.pending >= (x.short || 0)) return;
   feAplicar(x, Math.max(0, Math.min(antes.pending + delta, x.short)));
   feDesenharLinha(pid, foil);
 
@@ -6052,7 +6056,7 @@ function feEncHTML(x) {
       <button class="step minus" data-fe-d="-1" ${n ? '' : 'disabled'}
               aria-label="menos uma encomendada de ${escapeAttr(x.name)}"
               title="afinal não encomendei esta">−</button>
-      <button class="step plus" data-fe-d="1"
+      <button class="step plus" data-fe-d="1" ${n >= (x.short || 0) ? 'disabled' : ''}
               aria-label="marcar mais uma encomendada de ${escapeAttr(x.name)}"
               title="já encomendei mais uma${x.foil ? ' (foil)' : ''}">+</button>
     </div>` : '';
