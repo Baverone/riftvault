@@ -369,5 +369,50 @@ class TestChegouDuasVezesAoMesmoTempo(unittest.TestCase):
         self.assertEqual(qty, 2, "a mesma encomenda entrou duas vezes")
 
 
+class TestDesfazerLocalComRastoDasProprias(unittest.TestCase):
+    """Bug 9: o `locais.undo_last` pegava na última linha da `location_ops`,
+    mesmo quando era o rasto de uma cópia própria (`(entrou como cópia
+    própria)`) ou de um `−` na grelha (`(saiu da coleção)`), e o `mover`
+    rebentava em `LocalInvalido` — o «Desfazer» dos locais deixava de servir."""
+
+    def setUp(self):
+        import importlib
+        import os
+        from tests.fixture import SEM_CONFIG, Vault
+        os.environ["RIFTVAULT_CONFIG"] = SEM_CONFIG
+        self.v = Vault()
+        self.addCleanup(self.v.close)
+        from riftvault import collection, locais, proprias
+        for m in (collection, locais, proprias):
+            importlib.reload(m)
+        self.locais, self.proprias = locais, proprias
+        con = self.v.connect()
+        self.v.add_printing(con, "tst-002-100", "TST", 2, "Brutalizer", rarity="rare", size=100)
+        self.v.rebuild(con)
+        collection.adjust(con, "tst-002-100", 3, source="test")
+        self.con = con
+
+    def test_salta_o_rasto_e_desfaz_o_movimento(self):
+        self.locais.mover(self.con, "tst-002-100", 1, self.locais.COLECAO,
+                          self.locais.BINDER, source="test")
+        self.assertEqual(self.locais.por_local(self.con)["tst-002-100"][self.locais.BINDER], 1)
+        # o rasto que o `proprias.ajustar` deixa (um `+` numa cópia própria)
+        self.con.execute(
+            "INSERT INTO location_ops (ts, printing_id, qty, from_loc, to_loc, source) "
+            "VALUES ('2026-10-25T00:00:00Z', 'tst-002-100', 1, ?, 'proprio:x', 'web')",
+            (self.proprias.ENTROU,))
+        res = self.locais.undo_last(self.con, source="test")
+        self.assertIsNotNone(res)
+        self.assertEqual(self.locais.por_local(self.con).get("tst-002-100", {}).get(
+            self.locais.BINDER, 0), 0)
+
+    def test_so_rasto_nao_ha_nada_a_desfazer(self):
+        self.con.execute(
+            "INSERT INTO location_ops (ts, printing_id, qty, from_loc, to_loc, source) "
+            "VALUES ('2026-10-25T00:00:00Z', 'tst-002-100', 1, 'binder', ?, 'web')",
+            (self.locais.SAIU,))
+        self.assertIsNone(self.locais.undo_last(self.con, source="test"))
+
+
 if __name__ == "__main__":
     unittest.main()

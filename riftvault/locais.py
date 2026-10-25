@@ -589,9 +589,18 @@ def devolver_ao_stock(con: sqlite3.Connection, slug: str, source: str = "cli") -
 
 
 def undo_last(con: sqlite3.Connection, source: str = "cli") -> dict | None:
-    """Desfaz o último movimento de local que ainda não foi desfeito."""
+    """Desfaz o último movimento de local que ainda não foi desfeito.
+
+    Só os movimentos ENTRE LOCAIS: as linhas de rasto com um pseudo-local
+    entre parênteses — `(saiu da coleção)` do `ajustar_ao_total`, e o
+    `(entrou como cópia própria)`/`(saiu das cópias próprias)` do
+    `proprias.ajustar` — não são lugares para onde se possa mover, e o `mover`
+    rebentava em `LocalInvalido` (revisão 25/10). Essas desfazem-se pelo
+    caminho que as fez (`riftvault undo`, `riftvault proprias --menos`).
+    """
     op = con.execute(
         "SELECT * FROM location_ops WHERE undone_at IS NULL AND undo_of IS NULL "
+        "AND from_loc NOT LIKE '(%' AND to_loc NOT LIKE '(%' "
         "ORDER BY id DESC LIMIT 1").fetchone()
     if not op:
         return None
