@@ -3012,12 +3012,28 @@ function toastUndo(pid, delta, opId) {
 
 /* ---------------------------------------------------------------- eventos */
 
-// Imagem local em falta cai para o CDN (e vice-versa no modo publicado).
+// Imagem local em falta cai para o CDN (e vice-versa no modo publicado). Se a
+// segunda fonte também falhar (ou se não havia segunda), a imagem é trocada
+// por um marcador com o NOME da carta: um buraco em branco não diz que carta
+// é. Só se troca a `<img>` — o crachá, o preço, os botões e o tile ficam onde
+// estavam, e os cliques são apanhados por delegação no contentor.
 function imgFallback(e) {
   const img = e.target;
-  if (img.tagName !== 'IMG' || !img.dataset.fallback) return;
-  img.src = img.dataset.fallback;
-  delete img.dataset.fallback;
+  if (!img || img.tagName !== 'IMG') return;
+  const alt = img.dataset.fallback;
+  if (alt) {
+    delete img.dataset.fallback;
+    img.src = alt;
+    return;
+  }
+  if (!img.isConnected) return;
+  const marca = document.createElement('span');
+  marca.className = 'img-falhou';
+  marca.setAttribute('role', 'img');
+  const nome = img.getAttribute('alt') || '';
+  marca.setAttribute('aria-label', nome ? `${nome} (sem imagem)` : 'sem imagem');
+  marca.textContent = nome || 'sem imagem';
+  img.replaceWith(marca);
 }
 
 function wireControls() {
