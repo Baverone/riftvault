@@ -3027,6 +3027,14 @@ function imgFallback(e) {
     return;
   }
   if (!img.isConnected) return;
+  // Só a ARTE de um tile leva o marcador com o nome (ronda 28/10). Uma
+  // miniatura fora dela (a da proposta de marcação, 26 px ao lado do nome) não
+  // tem onde o desenhar — ficava «sem imagem» em texto cru no meio da linha —,
+  // e o nome já está ao lado: esconde-se e guarda o lugar.
+  if (!img.closest || !img.closest('.art')) {
+    img.classList.add('img-sem');
+    return;
+  }
   const marca = document.createElement('span');
   marca.className = 'img-falhou';
   marca.setAttribute('role', 'img');

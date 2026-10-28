@@ -89,6 +89,10 @@ class SemCopias(ValueError):
     pass
 
 
+class NaoDesfazivel(ValueError):
+    """O «Desfazer» dos locais recusou-se e não mexeu em nada (2026-10-28)."""
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
@@ -597,6 +601,14 @@ def undo_last(con: sqlite3.Connection, source: str = "cli") -> dict | None:
     `proprias.ajustar` — não são lugares para onde se possa mover, e o `mover`
     rebentava em `LocalInvalido` (revisão 25/10). Essas desfazem-se pelo
     caminho que as fez (`riftvault undo`, `riftvault proprias --menos`).
+
+    SÓ SE ELE AINDA FOR O ÚLTIMO (ronda 28/10). Saltar o rasto não pode querer
+    dizer passar por cima dele: se depois do movimento houve outra acção sobre a
+    MESMA carta — um `+` numa cópia própria, um `−` na grelha que a tirou do
+    binder —, desfazê-lo era desfazer uma coisa antiga sem aviso, ou mover
+    cópias que já não estão lá (`SemCopias`, e o `/api/local/undo` dava 500).
+    Recusa com `NaoDesfazivel`, a dizer porquê, sem mexer em nada. Uma acção
+    noutra carta não conta, e um par movimento/desfazer já fechado também não.
     """
     op = con.execute(
         "SELECT * FROM location_ops WHERE undone_at IS NULL AND undo_of IS NULL "
@@ -604,8 +616,25 @@ def undo_last(con: sqlite3.Connection, source: str = "cli") -> dict | None:
         "ORDER BY id DESC LIMIT 1").fetchone()
     if not op:
         return None
-    res = mover(con, op["printing_id"], op["qty"], op["to_loc"], op["from_loc"],
-                source=source)
+    nomes = nomes_dos_decks(con)
+    oque = (f"o último movimento (#{op['id']}: {op['qty']}x {op['printing_id']}, "
+            f"{rotulo(op['from_loc'], nomes)} -> {rotulo(op['to_loc'], nomes)})")
+    depois = con.execute(
+        "SELECT * FROM location_ops WHERE id > ? AND printing_id = ? "
+        "AND undone_at IS NULL ORDER BY id LIMIT 1",
+        (op["id"], op["printing_id"])).fetchone()
+    if depois:
+        raise NaoDesfazivel(
+            f"não desfiz {oque}: depois dele houve outra acção sobre esta carta "
+            f"(#{depois['id']}: {depois['qty']}x {depois['from_loc']} -> "
+            f"{depois['to_loc']}), e desfazê-lo agora era desfazer uma coisa antiga. "
+            f"Desfaz primeiro essa pelo caminho que a fez (`riftvault undo`, "
+            f"`riftvault proprias --menos`) ou move a cópia à mão. Não mexi em nada.")
+    try:
+        res = mover(con, op["printing_id"], op["qty"], op["to_loc"], op["from_loc"],
+                    source=source)
+    except SemCopias as exc:
+        raise NaoDesfazivel(f"não desfiz {oque}: {exc}. Não mexi em nada.") from exc
     # O `undo_of` vai na op de COMPENSAÇÃO (é ela que reverte); o `undone_at`
     # vai na original. Sem os dois, um `undo` repetido ficava a saltar entre as
     # duas últimas em vez de andar para trás no histórico.

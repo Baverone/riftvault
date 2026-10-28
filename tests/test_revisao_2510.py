@@ -408,19 +408,38 @@ class TestChegouDuasVezesAoMesmoTempo(unittest.TestCase):
         self.con = con
 
     def test_a_segunda_entrada_nao_soma_outra_vez(self):
+        # O outro toque corre noutra THREAD, com outra ligação. Até 28/10 era
+        # chamado aqui dentro, na mesma thread; desde que a reclamação e a
+        # entrada são UMA transacção (ronda 28/10), o segundo espera pelo
+        # trinco do primeiro — na mesma thread isso era um impasse.
+        import threading
         original = self.collection.adjust
-        outra = self.v.connect()
-        chamadas = []
+        chamadas, erros = [], []
+
+        def outro_toque():
+            try:
+                outra = self.v.connect()
+                try:
+                    self.pending.arrive(outra, source="test")
+                finally:
+                    outra.close()
+            except Exception as exc:   # noqa: BLE001
+                erros.append(exc)
+
+        t = threading.Thread(target=outro_toque)
 
         def adjust_com_corrida(con, *a, **k):
-            if not chamadas:
+            if not chamadas and threading.current_thread() is threading.main_thread():
                 chamadas.append(1)
-                self.pending.arrive(outra, source="test")   # o outro toque
+                t.start()
+                t.join(1.0)   # sem trinco, o outro toque somava já aqui
             return original(con, *a, **k)
 
         self.pending.collection.adjust = adjust_com_corrida
         self.addCleanup(setattr, self.pending.collection, "adjust", original)
         self.pending.arrive(self.con, source="test")
+        t.join(20)
+        self.assertFalse(erros, erros)
         qty = self.con.execute("SELECT qty FROM copies WHERE printing_id = 'tst-002-100'").fetchone()[0]
         self.assertEqual(qty, 2, "a mesma encomenda entrou duas vezes")
 
@@ -444,6 +463,7 @@ class TestDesfazerLocalComRastoDasProprias(unittest.TestCase):
         self.locais, self.proprias = locais, proprias
         con = self.v.connect()
         self.v.add_printing(con, "tst-002-100", "TST", 2, "Brutalizer", rarity="rare", size=100)
+        self.v.add_printing(con, "tst-003-100", "TST", 3, "Defy", rarity="common", size=100)
         self.v.rebuild(con)
         collection.adjust(con, "tst-002-100", 3, source="test")
         self.con = con
@@ -452,10 +472,12 @@ class TestDesfazerLocalComRastoDasProprias(unittest.TestCase):
         self.locais.mover(self.con, "tst-002-100", 1, self.locais.COLECAO,
                           self.locais.BINDER, source="test")
         self.assertEqual(self.locais.por_local(self.con)["tst-002-100"][self.locais.BINDER], 1)
-        # o rasto que o `proprias.ajustar` deixa (um `+` numa cópia própria)
+        # o rasto que o `proprias.ajustar` deixa (um `+` numa cópia própria) —
+        # de OUTRA carta: desde a ronda de 28/10 um rasto da MESMA carta depois
+        # do movimento faz o desfazer recusar (`tests/test_ronda_1028.py`).
         self.con.execute(
             "INSERT INTO location_ops (ts, printing_id, qty, from_loc, to_loc, source) "
-            "VALUES ('2026-10-25T00:00:00Z', 'tst-002-100', 1, ?, 'proprio:x', 'web')",
+            "VALUES ('2026-10-25T00:00:00Z', 'tst-003-100', 1, ?, 'proprio:x', 'web')",
             (self.proprias.ENTROU,))
         res = self.locais.undo_last(self.con, source="test")
         self.assertIsNotNone(res)

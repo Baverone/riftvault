@@ -529,8 +529,9 @@ def ajustar(con: sqlite3.Connection, ref: str, delta: int,
             f"{', '.join(sorted(opcoes(cfg)[1])) or 'nenhuma edição'}")
     delta = int(delta)
 
-    con.execute("BEGIN IMMEDIATE")
-    try:
+    # `transacao` e não `BEGIN IMMEDIATE`: o «Chegou» de uma foil chama isto
+    # DENTRO da transacção que reclama a encomenda (ronda 28/10).
+    with collection.transacao(con, "foil"):
         normal = collection.get_qty(con, pid)
         atual = de(con, pid)
         novo = max(0, min(atual + delta, LIMITE))
@@ -546,10 +547,6 @@ def ajustar(con: sqlite3.Connection, ref: str, delta: int,
                 "qty_foil = excluded.qty_foil, updated_at = excluded.updated_at",
                 (pid, normal, novo, _now()))
             _registar(con, pid, applied, novo, source)
-        con.execute("COMMIT")
-    except Exception:
-        con.execute("ROLLBACK")
-        raise
 
     return {"printing_id": pid,
             # Com `validar=False` a impressão pode nem estar no catálogo (uma

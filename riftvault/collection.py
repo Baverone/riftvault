@@ -13,12 +13,43 @@ que o André pediu ao mesmo tempo:
 
 from __future__ import annotations
 
+import contextlib
 import sqlite3
 from datetime import datetime, timezone
 
 
 class UnknownPrinting(LookupError):
     pass
+
+
+@contextlib.contextmanager
+def transacao(con: sqlite3.Connection, nome: str = "rv"):
+    """Uma transacção que se deixa aninhar (ronda 28/10).
+
+    Sozinha é um `BEGIN IMMEDIATE` … `COMMIT`, como sempre foi aqui; dentro de
+    outra transacção (o `pending.arrive`, que reclama a encomenda e soma as
+    cópias NUMA só) é um `SAVEPOINT`, porque o SQLite não aceita um `BEGIN`
+    dentro de outro. Qualquer saída por excepção — `BaseException` incluída,
+    que é o mais perto de o processo morrer a meio — volta tudo atrás.
+    """
+    if con.in_transaction:
+        con.execute(f"SAVEPOINT {nome}")
+        try:
+            yield
+        except BaseException:
+            con.execute(f"ROLLBACK TO {nome}")
+            con.execute(f"RELEASE {nome}")
+            raise
+        con.execute(f"RELEASE {nome}")
+        return
+    con.execute("BEGIN IMMEDIATE")
+    try:
+        yield
+    except BaseException:
+        if con.in_transaction:   # um erro do próprio SQLite pode já a ter fechado
+            con.execute("ROLLBACK")
+        raise
+    con.execute("COMMIT")
 
 
 def _now() -> str:
@@ -84,14 +115,12 @@ def adjust(con: sqlite3.Connection, ref: str, delta: int, source: str = "cli",
             return {"printing_id": printing_id, "qty": prev["qty_after"],
                     "applied": prev["delta"], "op_id": prev["id"], "duplicate": True}
 
-    con.execute("BEGIN IMMEDIATE")
-    try:
+    with transacao(con, "adjust"):
         current = get_qty(con, printing_id)
         applied = max(delta, -current)  # trava no zero
         new_qty = current + applied
 
         if applied == 0:
-            con.execute("COMMIT")
             return {"printing_id": printing_id, "qty": current, "applied": 0,
                     "op_id": None, "duplicate": False}
 
@@ -113,10 +142,6 @@ def adjust(con: sqlite3.Connection, ref: str, delta: int, source: str = "cli",
              _now() if _undo_of else None, _undo_of),
         )
         op_id = cur.lastrowid
-        con.execute("COMMIT")
-    except Exception:
-        con.execute("ROLLBACK")
-        raise
 
     saidas = []
     if applied < 0:
