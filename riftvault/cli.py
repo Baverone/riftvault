@@ -22,8 +22,8 @@
     riftvault venda [--juntar REF [N] | --tirar REF [N]] [--trend REF EUR]
                     [--limpar] [--vender --sim]
     riftvault selado [--sync] [--guardar-precos [FICHEIRO]] [--mais ID [N] | --menos ID [N]] [--edicao OGN]
-    riftvault cardmarket [--sync] [--excel] [--pasta P]   preços do Cardmarket (Trend) e o Excel
                      [--so-faltas | --so-tenho] [--preco ID [EUROS]]
+    riftvault cardmarket [--sync] [--excel] [--pasta P]   preços do Cardmarket (Trend) e o Excel
 """
 
 from __future__ import annotations
