@@ -876,7 +876,11 @@ def api_local_desfazer_deck():
 
 @app.post("/api/local/undo")
 def api_local_undo():
-    res = locais.undo_last(get_con(), source="web")
+    # Uma recusa é 409 com a razão, nunca 500 (ronda 28/10).
+    try:
+        res = locais.undo_last(get_con(), source="web")
+    except locais.NaoDesfazivel as exc:
+        return jsonify({"error": str(exc)}), 409
     if not res:
         return jsonify({"error": "não havia movimentos para desfazer"}), 404
     return jsonify(res)

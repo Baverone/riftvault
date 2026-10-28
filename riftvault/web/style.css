@@ -807,8 +807,15 @@ b.fo, .fo-num b.fo { color: var(--foil); }
   overflow-wrap: anywhere; overflow: hidden;
 }
 
-/* Sem cópias: dessaturada e escurecida. */
+/* Uma miniatura fora de um tile cujas fontes falharam: some, mas guarda o lugar. */
+.img-sem { visibility: hidden; }
+
+/* Sem cópias: dessaturada e escurecida. O marcador do `imgFallback` também
+   (ronda 28/10): sem isto a carta que não tens parecia igual à que tens. */
 .tile.none .art img { filter: grayscale(1) brightness(.42); }
+.tile.none .art .img-falhou,
+.dtile.gone .art .img-falhou, .dtile.shared .art .img-falhou,
+.dtile .art.sem-cor .img-falhou { opacity: .45; }
 .tile.done .art { border-color: rgba(62, 207, 142, .55); }
 
 .label {

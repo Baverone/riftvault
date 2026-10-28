@@ -33,6 +33,15 @@ function el(tag, attrs = {}) {
   const n = {
     tagName: tag.toUpperCase(), dataset: {}, attrs: {}, children: [], parent: null,
     textContent: '', className: '', src: '',
+    // `closest` e `classList` desde a ronda de 28/10: o marcador só vai para
+    // dentro de uma `.art` (ver `tests/test_ronda_1028.py`).
+    classList: { add(c) { n.className = (n.className + ' ' + c).trim(); } },
+    closest(sel) {
+      const cls = sel.replace(/^\./, '');
+      for (let p = this; p; p = p.parent)
+        if ((' ' + p.className + ' ').includes(' ' + cls + ' ')) return p;
+      return null;
+    },
     get isConnected() { let p = this; while (p.parent) p = p.parent; return p.raiz === true; },
     setAttribute(k, v) { this.attrs[k] = String(v); },
     getAttribute(k) { return k in this.attrs ? this.attrs[k] : null; },

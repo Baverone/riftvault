@@ -466,13 +466,23 @@ def arrive(con: sqlite3.Connection, pending_id: int | list[int] | None = None,
         # A linha é RECLAMADA antes de mexer nas cópias (revisão 25/10): dois
         # «Chegou» ao mesmo tempo (duplo toque, ou «Chegou» e «Chegou tudo»)
         # liam a mesma linha aberta e somavam as cópias duas vezes. Só quem a
-        # conseguir marcar dá entrada; se a entrada falhar, a marca volta atrás.
-        claim = con.execute("UPDATE pending SET arrived_at = ? "
-                            "WHERE id = ? AND arrived_at IS NULL", (_now(), r["id"]))
-        if claim.rowcount != 1:
-            continue
-        e_foil = bool(r["foil"])
+        # conseguir marcar dá entrada.
+        #
+        # A RECLAMAÇÃO E A ENTRADA SÃO UMA TRANSACÇÃO SÓ (ronda 28/10). As
+        # ligações estão em autocommit, e a marca ficava gravada antes de as
+        # cópias somarem: se o processo morresse entre as duas, a encomenda
+        # dizia «chegou» e as cópias nunca entravam. Agora ou entram as duas ou
+        # nenhuma; o segundo «Chegou» espera pelo trinco do primeiro e, quando
+        # o apanha, a linha já está marcada e salta-a. Uma transacção por linha:
+        # uma falha numa não desfaz as que já entraram.
+        con.execute("BEGIN IMMEDIATE")
         try:
+            claim = con.execute("UPDATE pending SET arrived_at = ? "
+                                "WHERE id = ? AND arrived_at IS NULL", (_now(), r["id"]))
+            if claim.rowcount != 1:
+                con.execute("COMMIT")
+                continue
+            e_foil = bool(r["foil"])
             if e_foil:
                 res = foil_mod.ajustar(con, r["printing_id"], r["qty"], source=source,
                                        validar=False)
@@ -480,8 +490,10 @@ def arrive(con: sqlite3.Connection, pending_id: int | list[int] | None = None,
             else:
                 total = collection.adjust(con, r["printing_id"], r["qty"],
                                           source=source)["qty"]
-        except Exception:
-            con.execute("UPDATE pending SET arrived_at = NULL WHERE id = ?", (r["id"],))
+            con.execute("COMMIT")
+        except BaseException:
+            if con.in_transaction:   # um erro do próprio SQLite pode já a ter fechado
+                con.execute("ROLLBACK")
             raise
         feitas.append({"id": r["id"], "printing_id": r["printing_id"],
                        "qty": r["qty"], "total": total, "foil": e_foil})

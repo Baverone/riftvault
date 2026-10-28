@@ -2561,7 +2561,12 @@ def cmd_local(args) -> int:
     nomes = locais_mod.nomes_dos_decks(con)
 
     if args.undo:
-        res = locais_mod.undo_last(con, source="cli")
+        try:
+            res = locais_mod.undo_last(con, source="cli")
+        except locais_mod.NaoDesfazivel as exc:
+            print(f"erro: {exc}", file=sys.stderr)
+            con.close()
+            return 1
         if not res:
             print("não havia movimentos de local para desfazer.")
             return 1
