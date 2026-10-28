@@ -12145,3 +12145,56 @@ guardas). Ramo `rift-bugs-1023`.
 4. **`utilizador.apresentacao` com o registo partido** só devolve o André se o
    dono FOR o André (o clone fresco); para outro dá `{slug: None, nome: None,
    andre: False}` — o `app.js` já escrevia «esta coleção» com isso.
+
+## 2026-10-25 — OS PREÇOS DO CARDMARKET, TODOS OS DIAS, E O EXCEL (`cardmarket_precos.py`, `excel_precos.py`)
+
+Palavras dele: *"preciso que estejas constantemente a atulizar o Price Trend do
+market, principalmente de Radiance [...] podes criar Excel para servir de base
+de dados e ires atualizando os precos"*. Ramo
+`ai-pc/precos-cardmarket-2026-10-25`; as medições todas em
+**`docs/precos-cardmarket-2026-10-25.md`**.
+
+**O `cmPrice` DA DOTGG NÃO É O PRICE TREND — É A MÉDIA DE 1 DIA.** Medido contra
+o price guide oficial do Cardmarket do mesmo dia: 1429 de 1633 batem ao cêntimo
+com o `avg1` (190 com o `trend`); nos foils 1559 de 1577. Sem `avg1`, a dotgg
+cai para o `low`. E numa carta que só existe em foil o `cmPrice` é um número do
+lado normal que a página nem mostra (Ambessa VEN-196: 95,00 € contra o Trend de
+60,61 €). **Não se usa para nada.**
+
+**O TREND VEM DO PRICE GUIDE OFICIAL DO CARDMARKET** — um ficheiro de download
+diário (`downloads.s3.cardmarket.com/productCatalog/priceGuide/
+price_guide_22.json`, o Riftbound é o jogo 22), um pedido por dia; não é a página
+(essa tem o anti-bot e não se toca por programa). A **dotgg** fica para LIGAR
+cada impressão ao produto do Cardmarket (`cmid`/`cmurl`, pelo id exacto ou por
+alias; com duas linhas na mesma impressão fica a que tem `cmid`) e para o preço
+do outro mercado em dólares. Sem a dotgg, usa-se a ligação gravada; sem o guia,
+o dia não se grava e diz-se. **Decisão minha**: a ordem dizia «o que corre todos
+os dias é a API da dotgg» contando que ela tivesse o Trend; não tem.
+
+**NUMA CARTA QUE SÓ EXISTE EM FOIL, O TREND É O DO FOIL** (`has_normal = 0` da
+dotgg): a página mostra os números do foil, e as cópias que o riftvault conta
+como «normais» de uma rara valem esse número (`preco_referencia`). No Excel o
+lado normal dessas cartas fica em BRANCO. Um zero do guia guarda-se `NULL`.
+
+**`prices.db`, três tabelas** (`prices_schema.sql`): `cardmarket_price_history`
+(uma linha por impressão e por DIA, mesmo sem mudança — a regra do selado de
+13/10 —, só números, `WITHOUT ROWID`), `cardmarket_ligacao` (o que não muda) e
+`cardmarket_dia`. Separadas porque tudo numa linha crescia **320 KB/dia**; assim
+são **~75 KB/dia** (~27 MB/ano) — está dito, e é a pergunta que fica.
+
+**O EXCEL É GERADO, NUNCA EDITADO À MÃO.** A base de dados continua a ser o
+`prices.db` e o `vault.db`; o Excel é uma vista em `precos/` (no `.gitignore`):
+`riftvault-precos-AAAA-MM-DD.xlsx` e `riftvault-precos.xlsx` (nome fixo).
+Folhas: Leia-me, Radiance, Tudo, O que tenho (todas as cópias físicas, também
+as dos decks), A subir - a descer (pela variação de 7 dias do preço de
+referência, do NOSSO histórico — vazia até 01/11, e diz porquê; não se pede a
+variação a outra fonte). As do CardTrader fora do catálogo (`market_only`) só
+entram se ele as tiver.
+
+`riftvault cardmarket [--sync] [--excel] [--pasta P]`; na tarefa diária, passo
+`cardmarket` depois do `selado`, com a ponte (só corre depois do merge) e o
+teste a exigir linhas do dia no `prices.db` e o Excel escrito hoje. **Medido a
+25/10 (cópia do `data/`):** 1421 impressões, 1399 com preço; RAD 232, 218 com
+preço; 22 sem preço nenhum; valor **10 686,47 €** pelo Trend contra
+**11 646,85 €** pelo CardTrader (−8,2 %, quase tudo nas cartas caras).
+`tests/test_cardmarket_precos.py` (27).
