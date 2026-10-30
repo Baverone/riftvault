@@ -556,6 +556,31 @@ h1.pgt { margin: 0; font-size: clamp(21px, 2.6vw, 27px); font-weight: 700; lette
   /* E o teto, para num ecrã largo os tiles não crescerem sem fim. */
   max-width: calc(8 * var(--tile) + 7 * var(--binder-gap));
 }
+/* A DOBRA da pasta (André, 2026-10-30: *"algo a meio para eu conseguir
+   distinguir a pagina da esquerda da direita"*): uma linha no meio do
+   espaço entre a 4.ª e a 5.ª coluna. As colunas são iguais e o espaço entre
+   elas também, por isso o centro da grelha é esse espaço. Só na sequência
+   de 8 — nos blocos de 4 não há duas páginas lado a lado. */
+.grid.binder:not(.b4) {
+  /* Na cor de destaque: a cinzento, com 2 px num espaço de 8 entre cartas
+     escuras, não se via (visto no browser a 2026-10-30). */
+  background: linear-gradient(var(--accent), var(--accent)) center / 4px 100% no-repeat;
+}
+/* As ON e as Alt Art (2026-10-30): uma página de 4 colunas, fixas como as
+   da sequência, e o bloco corre para o lado em vez de refluir. */
+.grid.binder.b4 {
+  grid-template-columns: repeat(4, minmax(var(--tile-binder), 1fr));
+  min-width: calc(4 * var(--tile-binder) + 3 * var(--binder-gap));
+  max-width: calc(4 * var(--tile) + 3 * var(--binder-gap));
+}
+/* A marca «página N»: ocupa a fila inteira, entre a última carta de uma
+   página e a primeira da seguinte. */
+.binder-pagina {
+  grid-column: 1 / -1;
+  margin: 6px 0 2px; padding-top: 6px;
+  border-top: 1px dashed var(--line2);
+  font-size: 12px; color: var(--muted); letter-spacing: .02em;
+}
 /* Fecha a primeira fila nas 4: ocupa as outras 4 colunas e empurra a 5.ª
    carta para a fila de baixo. Não se vê nem se lê. */
 .binder-gap { grid-column: span 4; }
