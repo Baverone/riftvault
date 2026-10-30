@@ -2168,16 +2168,25 @@ const BINDER_FILA = 8;
    — decisão por confirmar com ele, ver o CLAUDE.md. */
 const BLOCO_BINDER = 'master';
 
+/* As PÁGINAS dos blocos que não são a sequência (André, 2026-10-30): *"as ON
+   em filas de 4, e caso seja necessario, a cada 3 linhas ter uma marca a
+   dizer que mudou de pagina"* e, das AltArt, *"cada pagina leva 4 playsets"*.
+   Fila de 4 colunas fixas e, ao fim de cada página, a marca «página N» — o
+   número de cartas por página é o da pasta, não o da janela. Recomeça em cada
+   edição, como as filas do master set. */
+const BINDER_PAGINA_FILA = 4;
+const PAGINAS_DO_BLOCO = { overnumbered: 12, alt_art: 4 };
+
 /* As filas do binder só valem com a SEQUÊNCIA INTEIRA no ecrã.
    Qualquer filtro — a procura, «Faltas», «só artes base», os tipos — esconde
    impressões, e a carta que ficasse no lugar da escondida passava a apontar a
    bolsa errada. Nesse caso volta-se ao `auto-fill` e diz-se porquê: mentir na
    posição é pior do que mudar de desenho. */
-function binderCheio() {
+function binderCheio(bloco = BLOCO_BINDER) {
   let todas = 0, vistas = 0;
   for (const g of state.payload?.groups || []) {
-    todas += g.printings.filter(p => (p.block || 'master') === BLOCO_BINDER).length;
-    vistas += visiblePrintings(g).filter(p => (p.block || 'master') === BLOCO_BINDER).length;
+    todas += g.printings.filter(p => (p.block || 'master') === bloco).length;
+    vistas += visiblePrintings(g).filter(p => (p.block || 'master') === bloco).length;
   }
   return { cheio: todas > 0 && vistas === todas, todas, vistas };
 }
@@ -2210,6 +2219,11 @@ function render() {
     const pedacos = [];
     // As filas do binder valem para a sequência, e só com ela inteira.
     const filasDoBinder = b.id === BLOCO_BINDER && binder.cheio;
+    // As páginas das ON e das Alt Art, com a mesma regra: com um filtro a
+    // esconder parte do bloco, a «página 2» apontava a página errada.
+    const porPagina = PAGINAS_DO_BLOCO[b.id] || 0;
+    const doBloco = porPagina ? binderCheio(b.id) : null;
+    const emPaginas = porPagina > 0 && doBloco.cheio;
     // Quantos tiles já saíram na edição que está a ser desenhada: é ele que
     // decide onde entra o calço que fecha a primeira fila nas 4. Recomeça a
     // cada edição — em «Todas» cada edição é a sua pasta.
@@ -2256,6 +2270,19 @@ function render() {
         });
         continue;
       }
+      if (emPaginas) {
+        // Uma impressão, uma bolsa, como na sequência; e ao fechar uma página
+        // a marca ocupa a fila inteira e diz o número da que começa.
+        list.forEach((p, i) => {
+          if (naEdicao > 0 && naEdicao % porPagina === 0) {
+            pedacos.push(`<div class="binder-pagina">página ${naEdicao / porPagina + 1}</div>`);
+          }
+          state.tiles.push(p.id);
+          pedacos.push(`<div class="group">${tileHTML(g, p, i === 0)}</div>`);
+          naEdicao++;
+        });
+        continue;
+      }
       const inner = list.map((p, i) => {
         state.tiles.push(p.id);
         return tileHTML(g, p, i === 0);   // o uso nos decks sai uma vez por carta
@@ -2293,9 +2320,16 @@ function render() {
         procura e os filtros para voltar às filas de
         ${BINDER_PRIMEIRA} + ${BINDER_FILA}.</p>`);
     }
+    if (porPagina && !emPaginas) {
+      parts.push(`<p class="binder-nota">As páginas <b>não</b> são as do binder:
+        um filtro está a esconder parte deste bloco (vêem-se
+        <b>${doBloco.vistas}</b> de <b>${doBloco.todas}</b> impressões).</p>`);
+    }
     parts.push(filasDoBinder
       ? `<div class="binder-wrap"><div class="grid binder">${pedacos.join('')}</div></div>`
-      : pedacos.join(''));
+      : emPaginas
+        ? `<div class="binder-wrap"><div class="grid binder b4">${pedacos.join('')}</div></div>`
+        : pedacos.join(''));
   }
 
   grid.innerHTML = parts.join('');

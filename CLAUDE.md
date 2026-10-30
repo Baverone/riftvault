@@ -64,6 +64,13 @@ tile É a posição da carta na pasta: por isso o número por fila é FIXO (nada
 `auto-fill` ali), cada impressão ocupa UMA célula (nada de `.group.multi` na
 sequência), e num ecrã estreito o bloco corre para o lado em vez de refluir.
 **Não mexe em número nenhum** — é desenho, e nenhum `.py` sabe que existe.
+**Desde 2026-10-30** a sequência tem uma linha a meio (a dobra da pasta,
+página da esquerda / da direita — `.grid.binder:not(.b4)`), e as
+**sobrenumeradas** e as **Alt Art** também saem como na pasta: filas de 4
+(`.grid.binder.b4`) com a marca «página N» ao mudar de página — 12 cartas por
+página nas ON, 4 nas Alt Art (*"cada pagina leva 4 playsets"*;
+`PAGINAS_DO_BLOCO` no `app.js`). Com um filtro a esconder parte do bloco,
+volta ao desenho normal e diz porquê, como a sequência.
 
 **DESDE 2026-09-25 AS ABAS ESCONDEM-SE POR CONFIG** (`abas.escondidas`, hoje
 `["a-mais", "pordeck", "pimp"]`) — ver a última secção deste ficheiro.

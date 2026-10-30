@@ -229,6 +229,54 @@ class TestSoASequencia(unittest.TestCase):
             v.close()
 
 
+class TestAsPaginasDoBinder(unittest.TestCase):
+    """O que se lê no ecrã da pasta (André, 2026-10-30, à letra): *"colocasses
+    algo a meio para eu conseguir distinguir a pagina da esquerda da direita"*,
+    *"as ON em filas de 4, e (...) a cada 3 linhas ter uma marca a dizer que
+    mudou de pagina"* e *"as AltArt (...) cada pagina leva 4 playsets"*."""
+
+    def test_o_meio_da_sequencia_tem_uma_linha(self):
+        # A linha entre a 4.ª e a 5.ª coluna é a dobra da pasta: só na
+        # sequência de 8, nunca nos blocos de 4 (lá não há duas páginas).
+        corpo = _regra(".grid.binder:not(.b4)")
+        self.assertIn("linear-gradient", corpo)
+        self.assertIn("center", corpo)
+
+    def test_as_paginas_de_cada_bloco_estao_escritas_uma_vez(self):
+        self.assertIn("const BINDER_PAGINA_FILA = 4;", JS)
+        self.assertIn("overnumbered: 12", JS)
+        self.assertIn("alt_art: 4", JS)
+
+    def test_os_blocos_em_paginas_tem_quatro_colunas_fixas(self):
+        corpo = _regra(".grid.binder.b4")
+        self.assertIn("repeat(4, minmax(var(--tile-binder), 1fr))", corpo)
+        self.assertNotIn("auto-fill", corpo)
+
+    def test_a_marca_de_pagina_ocupa_a_fila_e_diz_o_numero(self):
+        self.assertIn("grid-column: 1 / -1", _regra(".binder-pagina"))
+        corpo = _corpo_do_render()
+        self.assertIn('class="binder-pagina"', corpo)
+        self.assertIn("página ${", corpo)
+
+    def test_a_marca_entra_ao_mudar_de_pagina_e_recomeca_por_edicao(self):
+        corpo = _corpo_do_render()
+        self.assertIn("naEdicao % porPagina === 0", corpo)
+        self.assertIn('<div class="binder-wrap"><div class="grid binder b4">', corpo)
+
+    def test_com_um_filtro_tambem_nao_mente_nas_paginas(self):
+        corpo = _corpo_do_render()
+        self.assertIn("binderCheio(b.id)", corpo)
+        self.assertIn("emPaginas", corpo)
+
+    def test_paginas_em_posicoes(self):
+        # As ON: a 13.ª abre a página 2 e a 25.ª a página 3; as Alt Art: a 5.ª
+        # abre a página 2. É a aritmética que ele confere contra a pasta.
+        def pagina(n, por):
+            return 1 + (n - 1) // por
+        self.assertEqual((pagina(12, 12), pagina(13, 12), pagina(25, 12)), (1, 2, 3))
+        self.assertEqual((pagina(4, 4), pagina(5, 4), pagina(9, 4)), (1, 2, 3))
+
+
 class TestNaoReflui(unittest.TestCase):
     """Se o número por fila mudasse com a largura, a funcionalidade morria."""
 
@@ -268,7 +316,7 @@ class TestQuandoUmFiltroEsconde(unittest.TestCase):
     """Mentir na posição é pior do que mudar de desenho."""
 
     def test_as_filas_do_binder_exigem_a_sequencia_inteira(self):
-        corpo = JS[JS.index("function binderCheio()"):]
+        corpo = JS[JS.index("function binderCheio("):]
         corpo = corpo[:corpo.index("\n}")]
         self.assertIn("visiblePrintings(g)", corpo)
         self.assertIn("vistas === todas", corpo)
@@ -305,10 +353,11 @@ class TestNaoMexeEmNumeroNenhum(unittest.TestCase):
         self.assertIn("const BLOCO_BINDER = 'master';", JS)
 
     def test_a_grelha_desenha_as_mesmas_impressoes(self):
-        """O ramo do binder empurra o MESMO `state.tiles` que o outro: o que
+        """Os ramos do binder (a sequência e, desde 2026-10-30, as páginas das
+        ON e das Alt Art) empurram o MESMO `state.tiles` que o outro: o que
         muda é a célula onde cada tile cai, não quais se mostram."""
         corpo = _corpo_do_render()
-        self.assertEqual(corpo.count("state.tiles.push(p.id);"), 2)
+        self.assertEqual(corpo.count("state.tiles.push(p.id);"), 3)
         self.assertIn("${state.tiles.length} impressões a mostrar", corpo)
 
 
