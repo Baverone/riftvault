@@ -145,7 +145,139 @@ class TestADelegacao(Base):
             con.close()
 
 
+class TestOCofreNaoTrocaPessoas(Base):
+    """Revisão de 2026-10-31: o número do cofre não é, por si, o do registo.
+
+    Uma conta criada no cofre por outra porta (a consola do cofre, o mtgvault)
+    leva um número AUTOINCREMENT que pode ser o de OUTRA pessoa do riftvault.
+    Entrar com ela tem de falhar como uma password errada — nunca dar a coleção
+    do dono daquele número.
+    """
+
+    def test_conta_do_cofre_com_o_numero_de_outro_nao_entra_como_ele(self):
+        # O registo: 1 é o André, e o zeteste fica com o 2.
+        zeteste = int(self.utilizador.criar("Zé Teste", "zeteste")["user_id"])
+        m = self.cofre.modulo()
+        cc = self.cofre.abrir()
+        try:
+            # A Ana nasceu no cofre (pela consola dele), com o número do zeteste.
+            m.criar_conta(cc, "ana", "Ana", conta_id=zeteste)
+            m.dar_acesso(cc, zeteste, "rift")
+            m.definir_password(cc, zeteste, FRASE)
+        finally:
+            cc.close()
+        con = self.auth.abrir()
+        try:
+            with self.assertRaises(self.auth.SenhaErrada) as certa:
+                self.auth.entrar(con, "ana", FRASE, chave="1.1.1.1")
+            with self.assertRaises(self.auth.SenhaErrada) as errada:
+                self.auth.entrar(con, "ana", "nao-e-esta", chave="1.1.1.1")
+        finally:
+            con.close()
+        self.assertEqual(str(certa.exception), str(errada.exception),
+                         "a recusa não pode dizer que a password estava certa")
+
+    def test_conta_do_cofre_sem_registo_nao_entra(self):
+        m = self.cofre.modulo()
+        cc = self.cofre.abrir()
+        try:
+            c = m.criar_conta(cc, "rui", "Rui", conta_id=500)
+            m.dar_acesso(cc, c["conta_id"], "rift")
+            m.definir_password(cc, c["conta_id"], FRASE)
+        finally:
+            cc.close()
+        con = self.auth.abrir()
+        try:
+            with self.assertRaises(self.auth.SenhaErrada):
+                self.auth.entrar(con, "rui", FRASE, chave="1.1.1.1")
+        finally:
+            con.close()
+
+
+class TestApagarLimpaOCofre(Base):
+    def _apagar(self, slug: str):
+        from riftvault import conta
+        importlib.reload(conta)
+        conta.apagar(slug, confirmar=True, com_backup=False)
+
+    def test_apagar_tira_a_conta_do_cofre_e_o_nome_volta_a_servir(self):
+        uid = self.conta("zeteste")
+        self._apagar("zeteste")
+        m = self.cofre.modulo()
+        cc = self.cofre.abrir()
+        try:
+            self.assertIsNone(m.por_id(cc, uid), "a conta ficou no cofre")
+        finally:
+            cc.close()
+        # O nome pode voltar a ser usado — era aqui que rebentava.
+        novo = int(self.utilizador.criar("Zé", "zeteste")["user_id"])
+        con = self.auth.abrir()
+        try:
+            self.auth.nova_temporaria(con, novo)
+        finally:
+            con.close()
+
+    def test_apagar_nao_tira_a_conta_a_quem_ainda_entra_no_mtg(self):
+        uid = self.conta("zeteste")
+        m = self.cofre.modulo()
+        cc = self.cofre.abrir()
+        try:
+            m.dar_acesso(cc, uid, "mtg")
+        finally:
+            cc.close()
+        self._apagar("zeteste")
+        cc = self.cofre.abrir()
+        try:
+            self.assertIsNotNone(m.por_id(cc, uid))
+            self.assertFalse(m.tem_acesso(cc, uid, "rift"))
+            self.assertTrue(m.tem_acesso(cc, uid, "mtg"))
+            self.assertTrue(m.estado_password(cc, uid)["tem"])
+        finally:
+            cc.close()
+
+    def test_criar_pela_cli_falha_limpo_se_o_cofre_recusar(self):
+        """O nome está tomado no cofre (uma conta só do mtg): sem utilizador a meio."""
+        import contextlib
+        import io
+        from riftvault import cli
+        importlib.reload(cli)
+        m = self.cofre.modulo()
+        cc = self.cofre.abrir()
+        try:
+            m.criar_conta(cc, "miguel", "Miguel do mtg", conta_id=77)
+            m.dar_acesso(cc, 77, "mtg")
+        finally:
+            cc.close()
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            codigo = cli.main(["conta", "--criar", "miguel"])
+        self.assertEqual(codigo, 1, out.getvalue() + err.getvalue())
+        self.assertIn("miguel", err.getvalue())
+        self.assertNotIn("Traceback", err.getvalue())
+        self.assertNotIn("Password:", out.getvalue())
+        self.assertIsNone(self.utilizador.por_slug("miguel", obrigatorio=False),
+                          "ficou um utilizador criado a meio no registo")
+
+
 class TestAGeracao(Base):
+    def test_tirar_o_acesso_rift_mata_a_sessao(self):
+        uid = self.conta("miguel")
+        con = self.auth.abrir()
+        try:
+            quem = self.auth.entrar(con, "miguel", FRASE, chave="1.1.1.1")
+            s = self.auth.criar_sessao(con, user_id=uid,
+                                       geracao=quem["geracao"])
+            self.assertIsNotNone(self.auth.sessao(con, s["sid"]))
+            m = self.cofre.modulo()
+            cc = self.cofre.abrir()
+            try:
+                m.tirar_acesso(cc, uid, "rift")
+            finally:
+                cc.close()
+            self.assertIsNone(self.auth.sessao(con, s["sid"]))
+        finally:
+            con.close()
+
     def test_sessao_com_geracao_antiga(self):
         """Mudou a password noutro sítio (o mtgvault): a sessão de cá cai."""
         uid = self.conta("miguel")

@@ -888,6 +888,13 @@ def geracao_no_cofre(user_id: int) -> int:
         return m.geracao(cc, int(user_id))
 
 
+#: A mensagem da recusa, IGUAL à do cofre para a password errada (há teste que
+#: compara as duas): uma recusa que se distinguisse dizia que a password estava
+#: certa.
+MENSAGEM_ERRADA = ("o nome ou a password não estão certos. Se te esqueceste, "
+                   "pede ao André uma password nova.")
+
+
 def entrar(con: sqlite3.Connection, slug: str, senha_escrita: str, *,
            chave: str | None = None) -> dict:
     """O nome e a password -> o utilizador. Decide-o o cofre, com `site="rift"`.
@@ -901,9 +908,26 @@ def entrar(con: sqlite3.Connection, slug: str, senha_escrita: str, *,
     A mesma mensagem para «não existe», «sem acesso a este site» e «errada»; o
     travão do sítio antes do scrypt e o da conta depois — ver o bloco acima e a
     `entrar` do cofre.
+
+    O NÚMERO DO COFRE CONFERE-SE NO REGISTO (revisão de 2026-10-31). O cofre
+    diz que conta é, e o número dela é o `user_id` daqui só porque o
+    `definir_senha` os põe iguais. Uma conta criada no cofre por outra porta (a
+    consola dele, o mtgvault) leva o número seguinte de LÁ, que pode ser o de
+    outra pessoa CÁ — e entrar com ela dava a coleção dessa pessoa. Por isso o
+    registo tem de ter aquele número com o MESMO slug; senão é recusa, com a
+    mesma mensagem da password errada (o scrypt já correu, o tempo é igual), e
+    conta como falha do sítio — sem conta, para não travar a dona da password.
     """
+    from . import utilizador
     with _no_cofre() as (m, cc):
         quem = m.entrar(cc, slug, senha_escrita, site=SITE, chave=chave)
+        try:
+            reg = utilizador.registo(int(quem["conta_id"]))
+        except utilizador.UtilizadorDesconhecido:
+            reg = None
+        if reg is None or str(reg["slug"]).strip().lower() != quem["slug"]:
+            m.registar_tentativa(cc, chave, SITE, False, None)
+            raise m.SenhaErrada(MENSAGEM_ERRADA)
     return {"user_id": int(quem["conta_id"]), "slug": quem["slug"],
             "nome": quem["nome"], "temporaria": bool(quem["temporaria"]),
             "geracao": int(quem["geracao"])}
@@ -1378,14 +1402,28 @@ def esquecer_identidades(con: sqlite3.Connection, user_id: int) -> dict:
 
 
 def _esquecer_no_cofre(user_id: int) -> int:
-    """O lado do cofre do `esquecer_identidades`. Devolve as passwords apagadas."""
+    """O lado do cofre do `esquecer_identidades`. Devolve as passwords apagadas.
+
+    Sem site nenhum, a conta APAGA-SE no cofre (a linha, a password e os
+    acessos; o rasto das tentativas fica). Só esquecer a password deixava a
+    linha a ocupar o nome para sempre, e o próximo `riftvault conta --criar`
+    com aquele nome rebentava no `garantir_conta`.
+    """
     with _no_cofre() as (m, cc):
         if m.por_id(cc, user_id) is None:
             return 0
         m.tirar_acesso(cc, user_id, SITE)
         if any(m.tem_acesso(cc, user_id, s) for s in m.SITES):
             return 0
-        return m.esquecer_password(cc, user_id)
+        tinha = m.estado_password(cc, user_id)["tem"]
+        m.apagar_conta(cc, user_id)
+        return 1 if tinha else 0
+
+
+def nome_livre_no_cofre(slug: str) -> bool:
+    """O cofre ainda não tem uma conta com este nome? (Ver `cli` `--criar`.)"""
+    with _no_cofre() as (m, cc):
+        return m.por_slug(cc, slug) is None
 
 
 # --------------------------------------------------------------------------

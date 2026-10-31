@@ -1610,11 +1610,27 @@ def cmd_conta(args) -> int:
             print(f"já há uma conta com o nome «{slug}». "
                   f"`riftvault conta` lista as que existem.", file=sys.stderr)
             return 1
+        # O COFRE DE CONTAS (2026-10-31) também tem de ter o nome livre: é lá
+        # que a password vai morar, partilhada com o mtgvault. Pergunta-se ANTES
+        # de criar o utilizador, e se o cofre recusar na mesma (o número já
+        # usado lá, por exemplo) desfaz-se o utilizador — nunca fica uma conta
+        # a meio, no registo e sem password.
+        if not auth.nome_livre_no_cofre(slug):
+            print(f"o nome «{slug}» já existe no cofre de contas (é de uma "
+                  f"conta do mtgvault ou criada na consola do cofre). "
+                  f"Escolhe outro nome.",
+                  file=sys.stderr)
+            return 1
         nome = (args.nome or slug).strip()
         u = utilizador.criar(nome, slug)
         con = auth.abrir()
         try:
             password = auth.nova_temporaria(con, int(u["user_id"]))
+        except (ValueError, auth.ErroDeAutenticacao) as e:
+            utilizador.apagar(int(u["user_id"]))
+            print(f"o cofre de contas recusou a conta «{slug}»: {e} "
+                  f"(não ficou nada criado).", file=sys.stderr)
+            return 1
         finally:
             con.close()
         _password_uma_vez(u["slug"], u["nome"], password, criada=True)

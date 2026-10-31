@@ -12231,8 +12231,15 @@ o `build` não precisa do cofre.
   password no cofre — aqui, no mtgvault ou pela consola do cofre — mata as
   sessões abertas antes. NULL (as de antes de hoje) vale 0, a geração de uma
   conta migrada.
-- **Apagar a conta** tira o acesso `rift` no cofre e só apaga a password se a
-  conta ficar sem site nenhum (não tranca a pessoa fora do mtgvault).
+- **Apagar a conta** tira o acesso `rift` no cofre (o que sobe a geração e
+  fecha as sessões) e só apaga a conta do cofre (`apagar_conta`: linha,
+  password, acessos) se ela ficar sem site nenhum — não tranca a pessoa fora
+  do mtgvault, e o nome volta a servir.
+- **Entrar confere o registo:** o número da conta no cofre tem de existir no
+  registo com o MESMO slug, senão é recusa igual à password errada (uma conta
+  feita no cofre por outra porta pode ter o número de outra pessoa daqui). O
+  `riftvault conta --criar` recusa um nome que o cofre já tenha, e desfaz o
+  utilizador se o cofre recusar.
 - **Testes:** o `tests.fixture.Vault` põe o `CONTAS_DB` na pasta temporária, e
   o `tools/placar.py` dá a cada filho um `CONTAS_DB` próprio se não houver um.
   Nenhum teste abre o cofre a sério. `tests/test_cofre_ligacao.py`.

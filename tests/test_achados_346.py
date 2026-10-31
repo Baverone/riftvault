@@ -430,14 +430,22 @@ class TestApagarNaoDeixaNadaNoAuthDb(Base):
                     out[t] = n
         finally:
             con.close()
+        # E a linha da conta e os acessos no cofre (revisão de 2026-10-31): uma
+        # conta que ficasse lá a ocupar o nome impedia que ele voltasse a
+        # servir, e o `--criar` seguinte rebentava.
         cc = cofre.abrir()
         try:
-            n = cc.execute("SELECT COUNT(*) FROM senhas WHERE conta_id = ?",
-                           (uid,)).fetchone()[0]
+            for chave, sql in (
+                    ("cofre.senhas",
+                     "SELECT COUNT(*) FROM senhas WHERE conta_id = ?"),
+                    ("cofre.contas", "SELECT COUNT(*) FROM contas WHERE id = ?"),
+                    ("cofre.acessos",
+                     "SELECT COUNT(*) FROM acessos WHERE conta_id = ?")):
+                n = cc.execute(sql, (uid,)).fetchone()[0]
+                if n:
+                    out[chave] = n
         finally:
             cc.close()
-        if n:
-            out["cofre.senhas"] = n
         return out
 
     # -- o defeito, pela PRIMITIVA (era aqui que ficava) -------------------
@@ -469,7 +477,8 @@ class TestApagarNaoDeixaNadaNoAuthDb(Base):
     def test_PROVA_PELA_NEGATIVA_o_varrimento_sabe_encontrar(self):
         """Um varrimento que nunca ache nada vale zero."""
         uid = self.preparar("outro")
-        self.assertIn("cofre.senhas", self.rastos(uid))
+        for chave in ("cofre.senhas", "cofre.contas", "cofre.acessos"):
+            self.assertIn(chave, self.rastos(uid))
 
     # -- a forma, não só o resultado --------------------------------------
 
