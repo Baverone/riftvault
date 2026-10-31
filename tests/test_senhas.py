@@ -637,6 +637,32 @@ class TestATemporariaTrancaTudo(Base):
         self.assertEqual(r.status_code, 400)
         self.assertIn("10 caracteres", r.get_json()["erro"])
 
+    def _envelhecer(self):
+        """Põe a temporária como dada a 2026-01-01 (o prazo do cofre são 24 h)."""
+        con = sqlite3.connect(os.environ["CONTAS_DB"])
+        try:
+            con.execute("UPDATE senhas SET mudado_em = '2026-01-01T00:00:00+00:00' "
+                        "WHERE conta_id = ?", (self.uid,))
+            con.commit()
+        finally:
+            con.close()
+
+    def test_a_temporaria_caducada_nao_entra_e_diz_porque(self):
+        self._envelhecer()
+        c = self.cliente(aberto=True)
+        r = c.post("/api/conta/entrar", json={"nome": "miguel", "senha": self.tmp})
+        self.assertEqual(r.status_code, 401)
+        self.assertIn("24 horas", r.get_json()["erro"])
+
+    def test_a_temporaria_caducada_ja_nao_se_troca(self):
+        """O prazo é da password: uma sessão aberta antes não a troca depois."""
+        self._envelhecer()
+        r = self.c.post("/api/conta/senha",
+                        json={"atual": self.tmp, "nova": "a-minha-frase-nova"},
+                        headers={"X-CSRF-Token": self.csrf})
+        self.assertEqual(r.status_code, 403)
+        self.assertIn("24 horas", r.get_json()["erro"])
+
     def test_a_troca_exige_csrf(self):
         r = self.c.post("/api/conta/senha",
                         json={"atual": self.tmp, "nova": "uma-frase-nova"})
