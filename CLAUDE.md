@@ -12205,3 +12205,34 @@ teste a exigir linhas do dia no `prices.db` e o Excel escrito hoje. **Medido a
 preço; 22 sem preço nenhum; valor **10 686,47 €** pelo Trend contra
 **11 646,85 €** pelo CardTrader (−8,2 %, quase tudo nas cartas caras).
 `tests/test_cardmarket_precos.py` (27).
+
+## 2026-10-31 — AS PASSWORDS MORAM NO COFRE DE CONTAS (`riftvault/cofre.py`, `contas/`)
+
+**Onde estão as passwords desde hoje:** no cofre partilhado com o mtgvault, o
+pacote `contas` (`Desktop/Claude/01-Projetos/contas`, só stdlib, fora deste
+repositório), na base `contas/data/contas.db`. O `riftvault/cofre.py` diz onde
+ele está (`CONTAS_DIR`, senão sobe os antepassados da raiz até achar
+`contas/contas/__init__.py`) e onde está a base (`CONTAS_DB`; num ensaio ou com
+`RIFTVAULT_AUTH`/`RIFTVAULT_DATA`, ao lado do `auth.db`). O import é preguiçoso:
+o `build` não precisa do cofre.
+
+- **Foram para lá tal e qual:** o hash (formato `scrypt$...` de sempre), o
+  travão das tentativas (5 por conta, 10 por endereço, a escada), a fila do
+  scrypt (8 vagas) e o `senha.py` — o `riftvault/senha.py` é agora um ALIAS do
+  `contas/senha.py` (o mesmo objecto).
+- **O `auth.py` mantém as funções e as assinaturas** (`definir_senha`,
+  `entrar`, `mudar_senha`, `estado_senha`, ...) e delega; os erros são os do
+  cofre (`auth.SenhaErrada is contas.cofre.SenhaErrada`) e o
+  `except auth.ErroDeAutenticacao` continua a apanhá-los. `auth.ESCADA`,
+  `auth._VAGAS` e companhia são reexportados.
+- **Fica no `auth.db`:** sessões, OAuth (parado, com o tecto de 20 por hora
+  só dele), convites, pedidos. A `user_senha` fica, sem uso — arquivo.
+- **A sessão leva a GERAÇÃO da password** (`sessions.geracao`): mudar a
+  password no cofre — aqui, no mtgvault ou pela consola do cofre — mata as
+  sessões abertas antes. NULL (as de antes de hoje) vale 0, a geração de uma
+  conta migrada.
+- **Apagar a conta** tira o acesso `rift` no cofre e só apaga a password se a
+  conta ficar sem site nenhum (não tranca a pessoa fora do mtgvault).
+- **Testes:** o `tests.fixture.Vault` põe o `CONTAS_DB` na pasta temporária, e
+  o `tools/placar.py` dá a cada filho um `CONTAS_DB` próprio se não houver um.
+  Nenhum teste abre o cofre a sério. `tests/test_cofre_ligacao.py`.

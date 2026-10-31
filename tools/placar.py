@@ -35,8 +35,10 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
@@ -153,13 +155,39 @@ def trabalhadores() -> int:
     return max(1, min(os.cpu_count() or 1, TECTO_TRABALHADORES))
 
 
+def _ambiente_do_filho(cofre: Path | None) -> dict | None:
+    """O ambiente de um ficheiro de teste: o de cá, com um COFRE DE CONTAS seu.
+
+    O cofre (2026-10-31) é onde moram as passwords de toda a gente, e vive fora
+    deste repositório — um teste que o abrisse sem querer escrevia contas de
+    brincar no cofre a sério. O `tests.fixture.Vault` já aponta o `CONTAS_DB`
+    para a pasta dele; isto é a rede por baixo, para o teste que não passa pelo
+    `Vault`: cada filho recebe um `contas.db` numa pasta temporária SÓ DELE
+    (dois processos não partilham contas, nem a repetição sozinha herda as da
+    primeira volta). Se o `CONTAS_DB` já vier do ambiente, quem o pôs é que
+    manda.
+    """
+    if cofre is None:
+        return None
+    env = dict(os.environ)
+    env["CONTAS_DB"] = str(cofre / "contas.db")
+    return env
+
+
 def _correr_um(raiz: Path, f: Path) -> dict:
     """Um ficheiro, um processo. Devolve o que aconteceu, sem julgar."""
     t0 = time.monotonic()
-    r = subprocess.run([sys.executable, "-X", "utf8", "-m", "unittest",
-                        f"tests.{f.stem}"],
-                       cwd=str(raiz), capture_output=True, text=True,
-                       encoding="utf-8", errors="replace")
+    cofre = (None if os.environ.get("CONTAS_DB", "").strip()
+             else Path(tempfile.mkdtemp(prefix=f"riftvault-contas-{f.stem}-")))
+    try:
+        r = subprocess.run([sys.executable, "-X", "utf8", "-m", "unittest",
+                            f"tests.{f.stem}"],
+                           cwd=str(raiz), capture_output=True, text=True,
+                           encoding="utf-8", errors="replace",
+                           env=_ambiente_do_filho(cofre))
+    finally:
+        if cofre is not None:
+            shutil.rmtree(cofre, ignore_errors=True)
     saida = (r.stderr or "") + (r.stdout or "")
     m = re.search(r"^Ran (\d+) test", saida, re.M)
     return {

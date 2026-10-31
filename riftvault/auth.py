@@ -11,6 +11,14 @@ pessoa, que não se inverte, e quem se esquecer não recebe a que tinha — rece
 uma NOVA, temporária, que é obrigado a trocar. Toda a criptografia disto vive
 no `riftvault/senha.py`, com os parâmetros medidos e a razão escrita.
 
+**DESDE 2026-10-31 AS PASSWORDS MORAM NO COFRE DE CONTAS**, partilhado com o
+mtgvault (o pacote `contas`; `riftvault/cofre.py` diz onde está). O hash, o
+travão das tentativas e a fila do scrypt foram para lá tal e qual, e o
+`riftvault/senha.py` passou a ser um alias do `contas/senha.py`. Ficam aqui, no
+`auth.db`, as sessões (que levam a GERAÇÃO da password, ver `sessao`), o
+OAuth, os convites e o tecto do OAuth; a `user_senha` fica, sem uso, como
+arquivo. Ver o bloco «AS PASSWORDS MORAM NO COFRE».
+
     riftvault conta --criar <nome>            cria e diz uma temporária
     riftvault conta <nome> --nova-password    diz outra (o «esqueci-me»)
 
@@ -77,7 +85,6 @@ import os
 import re
 import secrets
 import sqlite3
-import threading
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -115,7 +122,15 @@ TIMEOUT = 15
 
 
 class ErroDeAutenticacao(Exception):
-    """Base de tudo o que corre mal a entrar. A mensagem é para se mostrar."""
+    """Base de tudo o que corre mal a entrar. A mensagem é para se mostrar.
+
+    Desde 2026-10-31 é também a base dos erros do cofre de contas (ver o
+    `_cofre`). O `__slots__` vazio não é enfeite: é o que deixa pô-la por baixo
+    do `ErroDeConta` do cofre, que nasceu como `Exception` — o Python só aceita
+    trocar a base de uma classe por outra com a mesma forma por dentro.
+    """
+
+    __slots__ = ()
 
 
 class ProvedorDesconhecido(ErroDeAutenticacao):
@@ -167,6 +182,11 @@ ESQUEMA = """
 -- vez e o guarda não deixa fazer mais nada até ser trocada
 -- (`rotas_conta._trava_temporaria`). É o que faz uma password que andou pelo
 -- WhatsApp ter o tempo de vida de um WhatsApp.
+--
+-- **É ARQUIVO DESDE 2026-10-31.** As passwords passaram para o cofre de contas
+-- (ver o bloco «AS PASSWORDS MORAM NO COFRE»); ninguém lê nem escreve aqui. A
+-- tabela fica para a migração se poder conferir e repetir, e só o apagar de uma
+-- conta ainda lhe toca (`esquecer_identidades`).
 CREATE TABLE IF NOT EXISTS user_senha (
     user_id    INTEGER PRIMARY KEY,
     hash       TEXT    NOT NULL,
@@ -212,7 +232,8 @@ CREATE TABLE IF NOT EXISTS sessions (
     criado_em TEXT    NOT NULL,
     visto_em  TEXT    NOT NULL,
     expira_em TEXT    NOT NULL,
-    agente    TEXT
+    agente    TEXT,
+    geracao   INTEGER             -- a da password no cofre (2026-10-31)
 );
 
 CREATE INDEX IF NOT EXISTS ix_sessions_user ON sessions(user_id);
@@ -328,6 +349,13 @@ def _migrar(con: sqlite3.Connection) -> None:
     # de ontem) passarem pelo mesmo sítio — ver o comentário no ESQUEMA.
     con.execute("CREATE INDEX IF NOT EXISTS ix_tentativas_user "
                 "ON auth_tentativas(user_id, ts)")
+    # A GERAÇÃO da password com que a sessão nasceu (2026-10-31), para uma
+    # mudança de password no cofre — feita aqui ou no mtgvault — matar as
+    # sessões abertas antes. As linhas de ontem ficam a NULL, que vale 0: é a
+    # geração de uma conta migrada, por isso não caem no dia da mudança.
+    tem = {r["name"] for r in con.execute("PRAGMA table_info(sessions)")}
+    if "geracao" not in tem:
+        con.execute("ALTER TABLE sessions ADD COLUMN geracao INTEGER")
 
 
 def _agora() -> str:
@@ -651,6 +679,12 @@ def par_pkce() -> tuple[str, str]:
 # --------------------------------------------------------------------------
 
 
+#: Tentativas que ficam na tabela. O tecto conta UMA HORA — tudo o que é mais
+#: velho do que isto não serve para decidir nada e é lixo a crescer. Uma
+#: semana deixa rasto suficiente para ele perceber que alguém andou a tentar.
+TENTATIVAS_DIAS = 7
+
+
 def tentativas_por_hora(cfg: dict | None = None) -> int:
     cfg = cfg if cfg is not None else config.load()
     valor = (cfg.get("auth") or {}).get("tentativas_por_hora", TENTATIVAS_POR_HORA)
@@ -693,420 +727,186 @@ def exigir_folga(con: sqlite3.Connection, chave: str,
 
 
 # --------------------------------------------------------------------------
-# O TRAVÃO DA PASSWORD — duas dimensões, escada a subir
+# AS PASSWORDS MORAM NO COFRE DE CONTAS (2026-10-31)
 # --------------------------------------------------------------------------
 #
-# Uma password adivinha-se, um `sub` do Discord não. Por isso o tecto de cima
-# (20 por hora, para não usar isto como amplificador de pedidos ao Google) não
-# chega, e este travão é outro: conta FALHAS na última hora e faz esperar cada
-# vez mais.
+# Até 2026-10-31 este bloco tinha a password de cada um (a `user_senha`), o
+# travão das tentativas e a fila do scrypt. Mudaram-se TAL E QUAL para o cofre
+# partilhado com o mtgvault (`contas/cofre.py`, ver `riftvault/cofre.py` para
+# onde ele está), porque as mesmas pessoas passam a entrar nos dois sites com o
+# mesmo nome e a mesma password — e duas cópias do travão eram duas políticas.
+# Os comentários longos (os números da escada, as medições do scrypt) foram
+# com o código: é lá que se lêem.
 #
-# OS NÚMEROS, E PORQUE ESTES
-#   * **5 falhas de graça por CONTA.** Uma password ditada pelo WhatsApp
-#     escreve-se mal duas ou três vezes — quem se engana tem de poder tentar
-#     outra vez sem ir pedir ajuda. À sexta começa a escada.
-#   * **10 por ENDEREÇO.** É o dobro, porque um endereço pode ser uma casa
-#     inteira: dois amigos atrapalhados no mesmo wi-fi não se trancam um ao
-#     outro. Um atacante com muitos endereços continua travado pela conta, que
-#     é a dimensão que ele não consegue mudar.
-#   * **A escada 1 → 5 → 15 → 60 minutos**, a contar da ÚLTIMA falha. Ao fim
-#     de quatro patamares está numa hora, e a janela de contagem é uma hora:
-#     na prática são ~9 tentativas por hora no pior caso, contra as 4×10^11
-#     combinações de uma temporária. Um ataque de dicionário desiste.
+# O QUE FICA AQUI: as funções de sempre, com as assinaturas de sempre (o `con`
+# do `auth.db` continua a ser aceite, para nenhum chamador mudar), que abrem o
+# cofre e delegam. E as razões que são DESTE site:
 #
-# O que isto NÃO faz, de propósito: **não tranca a conta para sempre.** Um
-# bloqueio permanente é uma maneira de um estranho tirar o riftvault a um
-# amigo só por lhe saber o nome — o remédio seria pior, e com a escada o custo
-# de quem ataca já é absurdo.
+# «TRANCA-O-AMIGO» (2026-10-01). Os nomes do riftvault estão PÚBLICOS, em
+# `rift.baverone.com/api/lista.json` — é o que torna o ataque possível: quem
+# soubesse o nome de um amigo falhava de propósito e trancava-o de fora. A cura
+# é a do cofre: o travão do SÍTIO corre antes do scrypt (protege o CPU e só
+# tranca quem o enche); o da CONTA só depois de a password sair errada — quem
+# acerta entra, sempre.
 #
-# ---------------------------------------------------------------------------
-# «TRANCA-O-AMIGO»: A PASSWORD CERTA ENTRA SEMPRE (2026-10-01)
-# ---------------------------------------------------------------------------
-# A linha de cima — «não tranca para sempre» — era meia resposta, e a outra
-# metade era um defeito. Com a escada a contar da ÚLTIMA falha, quem souber o
-# nome de um amigo (e os nomes estão PÚBLICOS, em
-# `rift.baverone.com/api/lista.json`) falhava de propósito meia dúzia de vezes
-# e punha a pessoa a esperar; a falhar outra vez de minuto a minuto, a espera
-# nunca acabava. Não era um bloqueio permanente — era um bloqueio renovável,
-# que para o dono é a mesma coisa.
+# O TRAVÃO DA PASSWORD CONTA SÓ PASSWORDS. Até aqui a `auth_tentativas` levava
+# as falhas da password e as do OAuth na mesma tabela, e o travão do sítio
+# contava as duas. Agora as da password vão para o cofre e as do OAuth ficam
+# no `auth.db`, com o tecto delas (`exigir_folga`, 20 por hora): o OAuth está
+# parado, e um tecto de pedidos ao Google não é um travão de palpites.
 #
-# E NÃO HÁ MANEIRA DE DISTINGUIR o vizinho a arreliar de um ataque distribuído:
-# qualquer contador por CONTA é enchível por qualquer pessoa. Foi por aí que se
-# tentou primeiro, e nenhuma variante resiste — «contar só as falhas dos outros
-# sítios» tranca o dono (o vizinho é um dos outros sítios), «contar por (conta,
-# sítio)» passa a não acrescentar nada ao travão do sítio, e um tecto baixo na
-# escada só torna a espera mais curta e igualmente renovável.
-#
-# A saída é não pôr o travão da CONTA à frente da porta:
-#
-#     travao_do_sitio   corre ANTES do scrypt, e é ele que protege o CPU.
-#                       Só pode ser enchido por quem está a tentar — enchê-lo
-#                       tranca o atacante, nunca outra pessoa.
-#     travao_da_conta   corre DEPOIS de a password sair errada. Quem acerta
-#                       entra, sempre.
-#
-# ISTO NÃO AFROUXA O TRAVÃO, e vale a pena ver porquê: quem está a adivinhar
-# não ganha nada com «a certa entra» — não a tem. Continua a levar o mesmo 429
-# e a mesma espera por cada palpite errado, e a escada continua a subir. O
-# único a quem a excepção serve é a quem já sabe a password — e contra essa
-# pessoa um travão nunca protegeu nada.
-#
-# O QUE SE PAGA: uma tentativa errada passa a custar os 130 ms de scrypt mesmo
-# com a conta travada. O tecto desse custo é o travão DO SÍTIO, que não mudou
-# (~13 tentativas por hora por endereço), e o número de verificações a correr
-# ao mesmo tempo tem agora tecto próprio (ver `VAGAS_DE_SCRYPT`).
-#
-# O que se revela: um 429 em vez de um 401 diz que aquele nome existe. É
-# aceitável aqui e em mais lado nenhum — **os nomes já são públicos** (é o
-# mesmo ficheiro que torna este ataque possível), e quem lê o 429 foi quem
-# encheu o contador.
+# OS ERROS SÃO OS DO COFRE (`auth.SenhaErrada is contas.cofre.SenhaErrada`), e
+# as rotas continuam a apanhá-los com `except auth.ErroDeAutenticacao`: o
+# `_cofre()` regista o `ErroDeAutenticacao` como base do `ErroDeConta` do
+# cofre. É herança posta à mão, e é a que mexe menos — o cofre não pode saber
+# do riftvault (o mtgvault usa-o também), e o import tem de ser preguiçoso (o
+# `build` importa este ficheiro e não pode precisar do cofre).
 
-#: Falhas que não custam nada, por conta e por endereço.
-FALHAS_LIVRES_CONTA = 5
-FALHAS_LIVRES_CHAVE = 10
+#: Os nomes que o `auth` reexporta do cofre — os erros, os números do travão e
+#: a fila do scrypt. Lêem-se como sempre (`auth.ESCADA`, `auth.TemDeEsperar`);
+#: o `__getattr__` do módulo vai buscá-los ao cofre à primeira leitura.
+_DO_COFRE = frozenset({
+    "ErroDeConta", "SemConta", "SenhaErrada", "TemDeEsperar",
+    "ServidorOcupado", "FALHAS_LIVRES_CONTA", "FALHAS_LIVRES_CHAVE",
+    "ESCADA", "JANELA_S", "_espera", "_em_palavras", "VAGAS_DE_SCRYPT",
+    "ESPERA_POR_VAGA_S", "_VAGAS", "_uma_vaga",
+})
 
-#: Quanto se espera depois de gastar as de graça, em segundos.
-ESCADA = (60, 300, 900, 3600)
-
-#: A janela em que as falhas contam.
-JANELA_S = 3600
+#: O site deste repositório, no cofre.
+SITE = "rift"
 
 
-class TemDeEsperar(DemasiadasTentativas):
-    """Falhou demasiadas vezes: tem de esperar. Diz quanto, em segundos."""
+def _cofre():
+    """O `contas.cofre`, com os erros dele ligados aos daqui.
 
-    def __init__(self, segundos: int, porque: str):
-        self.segundos = int(segundos)
-        super().__init__(
-            f"password errada demasiadas vezes ({porque}). Espera "
-            f"{_em_palavras(self.segundos)} e tenta outra vez.")
-
-
-def _em_palavras(segundos: int) -> str:
-    if segundos < 60:
-        return f"{segundos} segundos"
-    minutos = (segundos + 59) // 60
-    if minutos < 60:
-        return f"{minutos} minuto" + ("s" if minutos != 1 else "")
-    return "uma hora"
-
-
-#: Falhas que ficam na tabela. A janela do travão é UMA HORA — tudo o que é
-#: mais velho do que isto não serve para decidir nada e é lixo a crescer. Uma
-#: semana deixa rasto suficiente para ele perceber que alguém andou a tentar.
-TENTATIVAS_DIAS = 7
-
-
-def _falhas(con: sqlite3.Connection, *, user_id: int | None = None,
-            chave: str | None = None) -> tuple[int, str | None]:
-    """Quantas falhas na última hora, e quando foi a última."""
-    desde = _mais(-JANELA_S)
-    if user_id is not None:
-        onde, valor = "user_id = ?", int(user_id)
-    else:
-        onde, valor = "chave = ?", (chave or "?")
-    row = con.execute(
-        f"SELECT COUNT(*) AS n, MAX(ts) AS ultima FROM auth_tentativas "  # noqa: S608
-        f"WHERE {onde} AND ok = 0 AND ts >= ?", (valor, desde)).fetchone()
-    return int(row["n"]), row["ultima"]
-
-
-def _espera(falhas: int, livres: int) -> int:
-    """A escada: quanto tempo esperar quem já falhou `falhas` vezes.
-
-    O `+ 1` é a diferença entre «5 falhas de graça» e «6», e foi um defeito
-    apanhado em teste: isto corre ANTES da tentativa, por isso com 5 falhas no
-    registo a tentativa a seguir é a SEXTA — e tem de ser travada. Sem o `+ 1`
-    dava uma tentativa de graça a mais do que o que está escrito.
+    A ligação refaz-se se faltar, e falta depois de um `importlib.reload` deste
+    módulo (os testes fazem-no): o `ErroDeAutenticacao` passa a ser outra
+    classe e o cofre ainda apontava para a antiga.
     """
-    passos = falhas - livres + 1
-    if passos <= 0:
-        return 0
-    return ESCADA[min(passos, len(ESCADA)) - 1]
+    from . import cofre
+    m = cofre.modulo()
+    if ErroDeAutenticacao not in m.ErroDeConta.__mro__:
+        m.ErroDeConta.__bases__ = (ErroDeAutenticacao,)
+    return m
 
 
-def _travao(con: sqlite3.Connection, dimensoes: list, desconto: int = 0) -> None:
-    """O cálculo, partilhado pelas duas dimensões. Lê e não escreve.
+def __getattr__(nome: str):
+    if nome in _DO_COFRE:
+        return getattr(_cofre(), nome)
+    raise AttributeError(f"o módulo {__name__!r} não tem {nome!r}")
 
-    Quem registra a tentativa é o `registar_tentativa`; o `desconto` é para
-    quem já a registou antes de perguntar (ver `travao_da_conta`).
+
+@contextlib.contextmanager
+def _no_cofre():
+    """(o `contas.cofre`, uma ligação ao cofre), fechada à saída."""
+    from . import cofre
+    m = _cofre()
+    cc = cofre.abrir()
+    try:
+        yield m, cc
+    finally:
+        cc.close()
+
+
+def _garantir(m, cc: sqlite3.Connection, user_id: int) -> None:
+    """A conta do utilizador no cofre, com o MESMO número e acesso a este site.
+
+    O nome e o slug vêm do registo (`utilizador.registo`), que é quem sabe quem
+    existe aqui. Se o cofre tiver aquele número com outro slug, o
+    `garantir_conta` rebenta em vez de renomear — dois sítios a discordar sobre
+    quem é o utilizador N é um erro a ver.
     """
-    agora = datetime.now(timezone.utc)
-    pior = 0
-    porque = ""
-    for filtro, livres, texto in dimensoes:
-        n, ultima = _falhas(con, **filtro)
-        espera = _espera(max(0, n - desconto), livres)
-        if not espera or not ultima:
-            continue
-        try:
-            passou = (agora - datetime.fromisoformat(ultima)).total_seconds()
-        except (ValueError, TypeError):
-            # Data ilegível (ou sem fuso, de uma linha escrita à mão): conta
-            # como acabada de acontecer. Na dúvida, espera-se — o lado seguro.
-            passou = 0
-        falta = int(espera - passou)
-        if falta > pior:
-            pior, porque = falta, f"{n} vezes {texto}"
-    if pior > 0:
-        raise TemDeEsperar(pior, porque)
+    from . import utilizador
+    u = utilizador.registo(int(user_id))
+    m.garantir_conta(cc, int(user_id), u["slug"], u.get("nome") or u["slug"])
+    m.dar_acesso(cc, int(user_id), SITE)
 
 
 def travao_do_sitio(con: sqlite3.Connection, chave: str | None) -> None:
-    """Quantas falhas vieram DESTE endereço? — e corre ANTES do scrypt.
-
-    É o travão que protege o PC: sem ele cada tentativa custava 130 ms e 64 MiB
-    a quem está do lado de cá. **Enchê-lo tranca quem o encheu** e mais
-    ninguém, e é por isso que este pode estar à frente da porta.
-    """
-    if not chave:
-        return
-    _travao(con, [({"chave": chave}, FALHAS_LIVRES_CHAVE, "deste sítio")])
+    """O travão do endereço, ANTES do scrypt. É o do cofre (ver o bloco)."""
+    with _no_cofre() as (m, cc):
+        m.travao_do_sitio(cc, chave)
 
 
 def travao_da_conta(con: sqlite3.Connection, user_id: int | None, *,
                     ja_registada: bool = False) -> None:
-    """Quantas falhas levou ESTA conta? — e corre DEPOIS de a password falhar.
-
-    Nunca à frente da porta: era isso que deixava um estranho trancar um amigo
-    só por lhe saber o nome (ver «TRANCA-O-AMIGO», acima). Quem acerta a
-    password nunca passa por aqui.
-
-    `ja_registada=True` quando a falha desta tentativa já está na tabela: as
-    cinco de graça são cinco, e a que acabou de falhar não se conta a si mesma.
-    """
-    if user_id is None:
-        return
-    _travao(con, [({"user_id": int(user_id)},
-                   FALHAS_LIVRES_CONTA, "nesta conta")],
-            desconto=1 if ja_registada else 0)
-
-
-# --------------------------------------------------------------------------
-# QUANTAS PASSWORDS SE VERIFICAM AO MESMO TEMPO (2026-10-01)
-# --------------------------------------------------------------------------
-#
-# O travão limita as tentativas NO TEMPO; nada limitava quantas corriam AO
-# MESMO TEMPO. O `serve` é `threaded=True`: N pedidos simultâneos são N vezes
-# 64 MiB de scrypt (os «67 MB» que o `senha.py` documenta, em decimal), e
-# ninguém contava os N.
-#
-# MEDIDO NA MÁQUINA DELE a 2026-10-01 (32 núcleos lógicos, 31,7 GB de RAM,
-# 12,1 GB livres com o que ele tinha aberto):
-#
-#      1 em paralelo    128 ms      64 MiB
-#      2 em paralelo    136 ms     128 MiB
-#      4 em paralelo    135 ms     256 MiB
-#      8 em paralelo    158 ms     512 MiB
-#     16 em paralelo    207 ms       1 GiB
-#     32 em paralelo    276 ms       2 GiB     <- ainda sem um erro
-#
-# Ou seja: em DÉBITO esta máquina engole tudo o que o travão lhe consegue
-# mandar, e um tecto por causa de tempo não se justificava.
-#
-# O TECTO ESTÁ AQUI POR OUTRA RAZÃO, E É DE CORRECÇÃO, não de desempenho:
-# o `senha.confere` apanha o `MemoryError` e devolve **False**. Com memória a
-# faltar — e 190 verificações a par chegavam aos 12 GB livres desta máquina —
-# uma password CERTA passava a sair errada, e a tentativa ainda contava para o
-# travão da conta. Um atacante que consiga encher a memória fazia o dono
-# falhar a entrada e, de caminho, trancava-lhe a conta. Com uma fila essa
-# situação deixa de ser alcançável: quem não tem vaga ESPERA, e quem espera
-# demasiado lê que o servidor está ocupado — nunca «a password está errada».
-#
-# OITO, e não trinta e dois: 512 MiB de pico é 1,6% da RAM dele e cabe com
-# folga no que estava livre, e oito a 20 ms cada esvaziam a fila a ~60 por
-# segundo — muito mais do que o travão do sítio consegue entregar. O número
-# não vem dos núcleos de propósito: o que falta primeiro aqui é memória.
-
-#: Verificações de password a correr ao mesmo tempo. Ver o comentário acima.
-VAGAS_DE_SCRYPT = 8
-
-#: Quanto um pedido espera por uma vaga antes de desistir. Nunca deve chegar
-#: aqui: são ~600 pedidos à frente na fila. Sem tecto, um pedido em espera
-#: prendia um fio do servidor para sempre.
-ESPERA_POR_VAGA_S = 10
-
-_VAGAS = threading.BoundedSemaphore(VAGAS_DE_SCRYPT)
-
-
-class ServidorOcupado(ErroDeAutenticacao):
-    """Não houve vaga para verificar a password. **Não é password errada.**
-
-    A distinção é o ponto: isto responde 503 e não conta falha nenhuma, senão
-    um ataque à memória virava um ataque à conta de quem estava a entrar.
-    """
-
-
-@contextlib.contextmanager
-def _uma_vaga():
-    """Uma vaga para correr o scrypt. Ver `VAGAS_DE_SCRYPT`."""
-    if not _VAGAS.acquire(timeout=ESPERA_POR_VAGA_S):
-        raise ServidorOcupado(
-            "o servidor está a verificar demasiadas passwords ao mesmo tempo. "
-            "Tenta outra vez dentro de alguns segundos.")
-    try:
-        yield
-    finally:
-        _VAGAS.release()
-
-
-# --------------------------------------------------------------------------
-# A PASSWORD DE CADA UM
-# --------------------------------------------------------------------------
-#
-# A criptografia vive toda no `senha.py`; aqui é só onde se guarda e quem
-# pergunta. Nenhuma função deste bloco devolve, grava ou escreve uma password
-# em claro — a única que a VÊ é a `entrar`, durante o pedido, e não a guarda em
-# lado nenhum.
+    """O travão da conta, DEPOIS de a password falhar. É o do cofre."""
+    with _no_cofre() as (m, cc):
+        m.travao_da_conta(cc, user_id, ja_registada=ja_registada)
 
 
 def definir_senha(con: sqlite3.Connection, user_id: int, nova: str, *,
                   temporaria: bool = False, validar: bool = True,
                   slug: str = "", nome: str = "") -> None:
-    """Grava o hash da password daquele utilizador. Substitui a que houver.
+    """Grava a password daquele utilizador NO COFRE. Substitui a que houver.
 
-    `validar=False` é só para a TEMPORÁRIA, que este código gera e que não tem
-    de passar pelas regras de quem escolhe à mão (tem 38,6 bits, e a regra de
-    «não conter o teu nome» não faz sentido numa password aleatória).
+    Primeiro garante a conta no cofre (o mesmo número do registo) e o acesso a
+    este site; depois é a `definir_password` do cofre, que sobe a geração — as
+    sessões abertas com a password de antes deixam de valer (ver `sessao`).
+
+    `validar=False` é só para a TEMPORÁRIA, que o código gera e que não tem de
+    passar pelas regras de quem escolhe à mão.
     """
-    from . import senha as _senha
-    if validar:
-        nova = _senha.validar(nova, slug=slug, nome=nome)
-    agora = _agora()
-    with _uma_vaga():
-        cifrada = _senha.cifrar(nova)
-    con.execute(
-        "INSERT INTO user_senha (user_id, hash, temporaria, criado_em, mudado_em) "
-        "VALUES (?, ?, ?, ?, ?) "
-        "ON CONFLICT(user_id) DO UPDATE SET hash = excluded.hash, "
-        "temporaria = excluded.temporaria, mudado_em = excluded.mudado_em",
-        (int(user_id), cifrada, 1 if temporaria else 0, agora, agora))
-    con.commit()
+    with _no_cofre() as (m, cc):
+        _garantir(m, cc, user_id)
+        m.definir_password(cc, int(user_id), nova, temporaria=temporaria,
+                           validar=validar, slug=slug, nome=nome)
 
 
 def nova_temporaria(con: sqlite3.Connection, user_id: int) -> str:
-    """Gera uma temporária, grava-a cifrada e DEVOLVE-A EM CLARO.
+    """Gera uma temporária, grava-a no cofre e DEVOLVE-A EM CLARO.
 
     É a única função do riftvault que devolve uma password, e é o «esqueci-me»
     dele: a password existe neste valor de retorno, aparece uma vez na consola,
-    e em lado nenhum mais. Quem a receber tem de a trocar para poder usar o
-    site.
+    e em lado nenhum mais.
     """
-    from . import senha as _senha
-    nova = _senha.temporaria()
-    definir_senha(con, user_id, nova, temporaria=True, validar=False)
-    return nova
+    with _no_cofre() as (m, cc):
+        _garantir(m, cc, user_id)
+        return m.nova_temporaria(cc, int(user_id))
 
 
 def estado_senha(con: sqlite3.Connection, user_id: int) -> dict:
     """Tem password? É temporária? — sem devolver o hash.
 
-    O hash não sai daqui de propósito: quem precisa de o comparar chama a
-    `entrar`. Uma função que devolvesse o hash acabava um dia num payload.
+    As chaves são as de sempre; a `geracao` que o cofre também devolve fica de
+    fora, porque quem lê isto (a CLI, o `multi --verificar`) não precisa dela.
     """
-    row = con.execute(
-        "SELECT temporaria, criado_em, mudado_em FROM user_senha "
-        "WHERE user_id = ?", (int(user_id),)).fetchone()
-    if row is None:
-        return {"tem": False, "temporaria": False,
-                "criado_em": None, "mudado_em": None}
-    return {"tem": True, "temporaria": bool(row["temporaria"]),
-            "criado_em": row["criado_em"], "mudado_em": row["mudado_em"]}
+    with _no_cofre() as (m, cc):
+        e = m.estado_password(cc, int(user_id))
+    return {k: e[k] for k in ("tem", "temporaria", "criado_em", "mudado_em")}
 
 
 def esquecer_senha(con: sqlite3.Connection, user_id: int) -> int:
-    n = con.execute("DELETE FROM user_senha WHERE user_id = ?",
-                    (int(user_id),)).rowcount
-    con.commit()
-    return n
+    """Apaga a password no cofre (e sobe a geração). Devolve quantas apagou."""
+    with _no_cofre() as (m, cc):
+        return m.esquecer_password(cc, int(user_id))
 
 
-class SemConta(ErroDeAutenticacao):
-    """Não há utilizador com aquele nome, ou não tem password definida."""
-
-
-class SenhaErrada(ErroDeAutenticacao):
-    """A password não é aquela."""
-
-
-_HASH_FALSO: str | None = None
-
-
-def _hash_falso() -> str:
-    """Um hash com os parâmetros de hoje, de uma password que ninguém tem —
-    para a conta que não existe gastar o mesmo tempo que uma que existe."""
-    global _HASH_FALSO
-    if _HASH_FALSO is None:
-        from . import senha as _senha
-        _HASH_FALSO = _senha.cifrar(secrets.token_urlsafe(24))
-    return _HASH_FALSO
+def geracao_no_cofre(user_id: int) -> int:
+    """A geração da password no cofre (0 se não há conta). Ver `sessao`."""
+    with _no_cofre() as (m, cc):
+        return m.geracao(cc, int(user_id))
 
 
 def entrar(con: sqlite3.Connection, slug: str, senha_escrita: str, *,
            chave: str | None = None) -> dict:
-    """O nome e a password -> o utilizador. É aqui que a entrada se decide.
+    """O nome e a password -> o utilizador. Decide-o o cofre, com `site="rift"`.
 
-    A MESMA MENSAGEM PARA «não existe» E PARA «errada», e é de propósito:
-    mensagens diferentes dizem a um estranho quais os nomes que existem, e o
-    nome de um utilizador é metade do que ele precisa. Rebenta com
-    `SenhaErrada` nos dois casos; o `SemConta` fica para a CLI, que já sabe
-    quem existe.
+    Devolve o que sempre devolveu (`user_id`, `slug`, `nome`, `temporaria`) e
+    mais a `geracao` — a lida JUNTO com o hash que foi verificado, que é a que a
+    sessão tem de levar (ver `rotas_conta.entrar_com_senha`). Ler a geração
+    outra vez depois de entrar dava a quem entrou com a password velha a
+    geração de uma reposição feita a meio.
 
-    A ORDEM É TRAVÃO DO SÍTIO -> PROCURAR -> VERIFICAR -> TRAVÃO DA CONTA, e
-    cada peça está onde está por uma razão:
-
-    * o do SÍTIO antes do scrypt, senão cada tentativa custava 130 ms de
-      scrypt e era isso que um atacante usava para pôr o PC dele de joelhos;
-    * o da CONTA depois, e só quando a password sai errada — à frente da porta
-      era o «tranca-o-amigo» (ver o comentário dele, acima). **Quem sabe a
-      password entra, sempre.**
+    A mesma mensagem para «não existe», «sem acesso a este site» e «errada»; o
+    travão do sítio antes do scrypt e o da conta depois — ver o bloco acima e a
+    `entrar` do cofre.
     """
-    from . import senha as _senha, utilizador
-
-    alvo = None
-    try:
-        alvo = utilizador.por_slug(str(slug or "").strip().lower(),
-                                   obrigatorio=False)
-    except Exception:
-        alvo = None
-    uid = int(alvo["user_id"]) if alvo else None
-
-    travao_do_sitio(con, chave)
-
-    row = (con.execute("SELECT * FROM user_senha WHERE user_id = ?",
-                       (uid,)).fetchone() if uid else None)
-    with _uma_vaga():
-        if row is None:
-            # Uma conta que não existe (ou sem password) também paga o scrypt
-            # (revisão 25/10): sem isto respondia em ~0 ms contra ~130 ms, e
-            # dava para saber pelo relógio que nomes existem — incluindo os
-            # das coleções privadas, que não estão na lista pública.
-            _senha.confere(_hash_falso(), str(senha_escrita or ""))
-            certa = False
-        else:
-            certa = _senha.confere(row["hash"], str(senha_escrita or ""))
-    if not certa:
-        registar_tentativa(con, chave or "?", "senha", False, uid)
-        # O travão da conta DEPOIS de a falha estar registada (e sem se contar
-        # a si mesma): a escada continua a subir e a password certa continua a
-        # entrar. Rebenta com `TemDeEsperar` em vez de `SenhaErrada` para quem
-        # falha dizer o que fazer.
-        travao_da_conta(con, uid, ja_registada=True)
-        # Uma conta sem nome e uma password errada respondem igual — e o travão
-        # do sítio também conta as duas, senão dava para descobrir quais os
-        # nomes que existem só pelo tempo até ser travado.
-        raise SenhaErrada(
-            "o nome ou a password não estão certos. Se te esqueceste, pede ao "
-            "André uma password nova.")
-
-    registar_tentativa(con, chave or "?", "senha", True, uid)
-    # Cifrada com parâmetros de ontem? Recifra-se AGORA, que é a única altura
-    # em que a password existe em claro. A pessoa não sabe de nada.
-    if _senha.precisa_recifrar(row["hash"]):
-        definir_senha(con, uid, str(senha_escrita),
-                      temporaria=bool(row["temporaria"]), validar=False)
-    return {"user_id": uid, "slug": alvo["slug"], "nome": alvo["nome"],
-            "temporaria": bool(row["temporaria"])}
+    with _no_cofre() as (m, cc):
+        quem = m.entrar(cc, slug, senha_escrita, site=SITE, chave=chave)
+    return {"user_id": int(quem["conta_id"]), "slug": quem["slug"],
+            "nome": quem["nome"], "temporaria": bool(quem["temporaria"]),
+            "geracao": int(quem["geracao"])}
 
 
 def mudar_senha(con: sqlite3.Connection, user_id: int, atual: str,
@@ -1114,38 +914,15 @@ def mudar_senha(con: sqlite3.Connection, user_id: int, atual: str,
                 chave: str | None = None) -> None:
     """Troca a password, exigindo a que está. Levanta `SenhaErrada`/`SenhaFraca`.
 
-    EXIGE A ACTUAL mesmo tendo sessão, e não é burocracia: um computador
-    deixado aberto no café não pode dar a conta a quem passar. É a mesma razão
-    por que todos os sites o pedem.
-
-    **O TRAVÃO É O MESMO DA ENTRADA, e estava a faltar aqui** (defeito
-    encontrado a 2026-10-01). A rota registava a falha e nunca chamava o
-    travão: quem tivesse uma sessão — um computador deixado aberto, um cookie
-    apanhado — martelava a password ACTUAL sem limite nenhum, a 130 ms e 64 MB
-    de scrypt por palpite. Exigir a actual sem travar as tentativas é pedir a
-    chave e deixar experimentar à vontade.
+    EXIGE A ACTUAL mesmo tendo sessão (um computador deixado aberto no café não
+    pode dar a conta a quem passar), e o travão é o MESMO da entrada — o
+    defeito de 2026-10-01 era a rota registar a falha e nunca travar. Tudo isso
+    vive na `mudar_password` do cofre, que também sobe a geração: as outras
+    sessões desta conta deixam de valer, aqui e no mtgvault.
     """
-    from . import senha as _senha
-    row = con.execute("SELECT hash FROM user_senha WHERE user_id = ?",
-                      (int(user_id),)).fetchone()
-    if row is None:
-        raise SemConta("esta conta ainda não tem password definida.")
-    # O do sítio ANTES do scrypt (é o que protege o CPU); o da conta depois, e
-    # só se a actual sair errada — a mesma ordem da `entrar`, e pela mesma
-    # razão: com ele à frente, quem soubesse o nome de um amigo impedia-o de
-    # trocar a password dele.
-    travao_do_sitio(con, chave)
-    with _uma_vaga():
-        certa = _senha.confere(row["hash"], str(atual or ""))
-    if not certa:
-        registar_tentativa(con, chave or "?", "senha", False, int(user_id))
-        travao_da_conta(con, int(user_id), ja_registada=True)
-        raise SenhaErrada("a password actual não está certa.")
-    if str(nova or "") == str(atual or ""):
-        raise _senha.SenhaFraca(
-            "a password nova é igual à actual — escolhe outra.")
-    definir_senha(con, user_id, nova, temporaria=False, validar=True,
-                  slug=slug, nome=nome)
+    with _no_cofre() as (m, cc):
+        m.mudar_password(cc, int(user_id), atual, nova, slug=slug, nome=nome,
+                         chave=chave)
 
 
 # --------------------------------------------------------------------------
@@ -1316,11 +1093,17 @@ def sessao_dias(cfg: dict | None = None) -> int:
 def criar_sessao(con: sqlite3.Connection, *, user_id: int | None = None,
                  identidade: Identidade | None = None,
                  agente: str | None = None,
-                 cfg: dict | None = None) -> dict:
+                 cfg: dict | None = None,
+                 geracao: int | None = None) -> dict:
     """Uma sessão nova. Devolve o `sid` EM CLARO — é a única vez que ele existe.
 
     `user_id` a `None` com `identidade` preenchida é a sessão pré-registo: a
     pessoa já provou quem é e ainda não tem conta.
+
+    Uma sessão com dono leva a GERAÇÃO da password (2026-10-31, ver `sessao`).
+    Quem acabou de entrar passa a `geracao` que o `entrar` devolveu — a do hash
+    que foi verificado; sem ela lê-se a de agora no cofre, que é o certo para
+    quem não entrou por password (o OAuth, a sessão nova depois de uma troca).
     """
     # Uma entrada é o momento em que estas tabelas crescem, e é raro: varre-se
     # aqui. Ver `limpar`.
@@ -1333,28 +1116,45 @@ def criar_sessao(con: sqlite3.Connection, *, user_id: int | None = None,
     # válido um mês, e as linhas de registos que nunca aconteceram desaparecem
     # sozinhas na primeira limpeza.
     prazo = (sessao_dias(cfg) * 86400) if user_id is not None else 3600
+    if user_id is not None and geracao is None:
+        geracao = geracao_no_cofre(user_id)
     con.execute(
         "INSERT INTO sessions (sid_hash, user_id, provedor, sub, nome, csrf, "
-        "criado_em, visto_em, expira_em, agente) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "criado_em, visto_em, expira_em, agente, geracao) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (_hash(sid), user_id,
          identidade.provedor if identidade else None,
          identidade.sub if identidade else None,
          identidade.nome if identidade else None,
-         csrf, agora, agora, _mais(prazo), (agente or "")[:200]))
+         csrf, agora, agora, _mais(prazo), (agente or "")[:200],
+         int(geracao) if user_id is not None else None))
     con.commit()
     return {"sid": sid, "csrf": csrf, "user_id": user_id}
 
 
 def sessao(con: sqlite3.Connection, sid: str | None) -> dict | None:
-    """A sessão daquele cookie, ou `None`. Uma expirada é apagada e vale `None`."""
+    """A sessão daquele cookie, ou `None`. Uma expirada é apagada e vale `None`.
+
+    E uma de uma password que já não é a de hoje também (2026-10-31): se a
+    geração guardada na sessão não for a do cofre, a password mudou depois de
+    ela nascer — trocada aqui, no mtgvault, ou reposta pelo André — e a sessão
+    morre como uma expirada. É o que dá sentido a «mudei a password porque ma
+    viram»: as sessões de quem a viu vão-se com ela, nos dois sites.
+
+    A geração NULL (as sessões de antes desta mudança) vale 0, que é a de uma
+    conta migrada: não caem no dia da migração, e caem na primeira mudança de
+    password depois dele, como as outras. Uma sessão sem dono (pré-registo) não
+    tem password e não se mede.
+    """
     if not sid:
         return None
     row = con.execute("SELECT * FROM sessions WHERE sid_hash = ?",
                       (_hash(sid),)).fetchone()
     if row is None:
         return None
-    if _passou(row["expira_em"]):
+    if _passou(row["expira_em"]) or (
+            row["user_id"] is not None
+            and int(row["geracao"] or 0) != geracao_no_cofre(row["user_id"])):
         con.execute("DELETE FROM sessions WHERE sid_hash = ?", (row["sid_hash"],))
         con.commit()
         return None
@@ -1438,11 +1238,18 @@ def limpar_expiradas(con: sqlite3.Connection) -> int:
 
 
 def limpar_tentativas(con: sqlite3.Connection) -> int:
-    """As tentativas velhas. A janela do travão é uma hora; guardam-se 7 dias."""
+    """As tentativas velhas. A janela do travão é uma hora; guardam-se 7 dias.
+
+    As do OAuth estão aqui; as da password estão no cofre desde 2026-10-31, e
+    varrem-se no mesmo passo — senão a tabela do cofre era a única das que
+    crescem sem ninguém a varrer (ver `limpar`). Conta as duas.
+    """
     limite = _mais(-TENTATIVAS_DIAS * 86400)
     cur = con.execute("DELETE FROM auth_tentativas WHERE ts < ?", (limite,))
     con.commit()
-    return cur.rowcount
+    with _no_cofre() as (m, cc):
+        do_cofre = m.limpar_tentativas(cc)
+    return cur.rowcount + do_cofre
 
 
 def limpar_convites(con: sqlite3.Connection) -> int:
@@ -1561,7 +1368,24 @@ def esquecer_identidades(con: sqlite3.Connection, user_id: int) -> dict:
     n_senha = con.execute("DELETE FROM user_senha WHERE user_id = ?",
                           (user_id,)).rowcount
     con.commit()
+    # Desde 2026-10-31 a password está no COFRE, e a conta de lá pode ser de
+    # dois sites. Tira-se o acesso a este; a password só se apaga se a conta
+    # ficar sem site nenhum — apagar a coleção do riftvault não pode trancar a
+    # pessoa fora do mtgvault. A linha da `user_senha` de cima é o arquivo de
+    # antes da mudança (ver o ESQUEMA), e conta na mesma: também era um hash.
+    n_senha += _esquecer_no_cofre(int(user_id))
     return {"identidades": n_ident, "sessoes": n_sess, "senhas": n_senha}
+
+
+def _esquecer_no_cofre(user_id: int) -> int:
+    """O lado do cofre do `esquecer_identidades`. Devolve as passwords apagadas."""
+    with _no_cofre() as (m, cc):
+        if m.por_id(cc, user_id) is None:
+            return 0
+        m.tirar_acesso(cc, user_id, SITE)
+        if any(m.tem_acesso(cc, user_id, s) for s in m.SITES):
+            return 0
+        return m.esquecer_password(cc, user_id)
 
 
 # --------------------------------------------------------------------------

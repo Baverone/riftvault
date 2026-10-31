@@ -31,6 +31,13 @@ código de antes** — não é um relatório, é a prova.
 
 Tudo contra pastas temporárias (`tests.fixture.Vault`) e um config temporário:
 o `data/` e o `riftvault_config.json` a sério nunca são tocados.
+
+DESDE 2026-10-31 o travão e a fila do scrypt vivem no COFRE DE CONTAS
+(`contas/cofre.py`), partilhado com o mtgvault, e o `auth.py` delega lá. Os
+defeitos são os mesmos e as provas também; o que mudou é ONDE se lê: as provas
+pela leitura do código lêem o `cofre.py` (`fonte_do_cofre`), as falhas contam-se
+na tabela `tentativas` do cofre (`falhas`), e a fila ocupa-se no cofre
+(`sem_vagas`).
 """
 
 from __future__ import annotations
@@ -128,25 +135,47 @@ class Base(unittest.TestCase):
         return r.get_json()["csrf"]
 
     def sem_vagas(self):
-        """Ocupa a fila toda e devolve-a no fim do teste, com uma espera curta."""
-        antes = self.auth.ESPERA_POR_VAGA_S
-        apanhadas = [self.auth._VAGAS.acquire(timeout=1)
-                     for _ in range(self.auth.VAGAS_DE_SCRYPT)]
+        """Ocupa a fila toda e devolve-a no fim do teste, com uma espera curta.
+
+        A fila é a do COFRE (2026-10-31): é lá que o `ESPERA_POR_VAGA_S` se
+        lê, por isso é lá que se encurta — no `auth` não mudava nada.
+        """
+        from riftvault import cofre
+        m = cofre.modulo()
+        antes = m.ESPERA_POR_VAGA_S
+        apanhadas = [m._VAGAS.acquire(timeout=1)
+                     for _ in range(m.VAGAS_DE_SCRYPT)]
         self.assertTrue(all(apanhadas), "a fila devia estar livre")
-        self.auth.ESPERA_POR_VAGA_S = 0.2
+        m.ESPERA_POR_VAGA_S = 0.2
 
         def devolver():
-            self.auth.ESPERA_POR_VAGA_S = antes
+            m.ESPERA_POR_VAGA_S = antes
             for _ in apanhadas:
-                self.auth._VAGAS.release()
+                m._VAGAS.release()
 
         self.addCleanup(devolver)
 
     def falhas(self, con, **onde) -> int:
+        """As falhas de password registadas — no COFRE desde 2026-10-31.
+
+        O `con` (do `auth.db`) fica na assinatura para os testes não mudarem;
+        o `user_id` daqui é o `conta_id` de lá (o mesmo número).
+        """
+        from riftvault import cofre
         chave, valor = next(iter(onde.items()))
-        return con.execute(
-            f"SELECT COUNT(*) AS n FROM auth_tentativas "  # noqa: S608
-            f"WHERE {chave} = ? AND ok = 0", (valor,)).fetchone()["n"]
+        chave = {"user_id": "conta_id"}.get(chave, chave)
+        cc = cofre.abrir()
+        try:
+            return cc.execute(
+                f"SELECT COUNT(*) AS n FROM tentativas "  # noqa: S608
+                f"WHERE {chave} = ? AND ok = 0", (valor,)).fetchone()["n"]
+        finally:
+            cc.close()
+
+    def fonte_do_cofre(self) -> str:
+        """O `contas/cofre.py`, onde a política da password mora desde 31/10."""
+        from riftvault import cofre
+        return Path(cofre.modulo().__file__).read_text(encoding="utf-8")
 
 
 # --------------------------------------------------------------------------
@@ -208,8 +237,8 @@ class TestOTravaoDaTroca(Base):
 
     def test_o_travao_do_sitio_corre_ANTES_do_scrypt_na_troca(self):
         """Senão cada palpite custava 130 ms, que é o que o travão evita."""
-        fonte = (REPO / "riftvault" / "auth.py").read_text(encoding="utf-8")
-        corpo = fonte.split("def mudar_senha(")[1].split("\ndef ")[0]
+        corpo = self.fonte_do_cofre().split("def mudar_password(")[1].split(
+            "\ndef ")[0]
         self.assertLess(corpo.index("travao_do_sitio(con"),
                         corpo.index("confere("),
                         "o travão do sítio tem de correr antes do scrypt")
@@ -352,8 +381,8 @@ class TestTrancaOAmigo(Base):
 
     def test_o_travao_da_conta_nao_esta_a_frente_da_porta(self):
         """A prova pela leitura: na `entrar`, a conta vem depois do `confere`."""
-        fonte = (REPO / "riftvault" / "auth.py").read_text(encoding="utf-8")
-        corpo = fonte.split("\ndef entrar(")[1].split("\ndef ")[0]
+        corpo = self.fonte_do_cofre().split("\ndef entrar(")[1].split(
+            "\ndef ")[0]
         self.assertLess(corpo.index("travao_do_sitio(con"), corpo.index("confere("))
         self.assertGreater(corpo.index("travao_da_conta(con"), corpo.index("confere("))
         self.assertNotIn("travao(con, uid", corpo,
@@ -380,8 +409,8 @@ class TestOTectoDoScrypt(Base):
     def test_ha_um_tecto_e_e_justificado(self):
         self.assertEqual(self.auth.VAGAS_DE_SCRYPT, 8)
         self.assertEqual(self.auth.ESPERA_POR_VAGA_S, 10)
-        fonte = (REPO / "riftvault" / "auth.py").read_text(encoding="utf-8")
-        bloco = fonte.split("QUANTAS PASSWORDS SE VERIFICAM")[1][:4000]
+        bloco = self.fonte_do_cofre().split(
+            "QUANTAS PASSWORDS SE VERIFICAM")[1][:4000]
         for pedaco in ("32 em paralelo", "MemoryError", "12,1 GB"):
             self.assertIn(pedaco, bloco,
                           f"a medição tem de estar escrita: falta «{pedaco}»")
@@ -428,11 +457,11 @@ class TestOTectoDoScrypt(Base):
                              f"corriam {pico} verificações ao mesmo tempo")
 
     def test_as_tres_chamadas_ao_scrypt_passam_pela_fila(self):
-        """São três e estão todas no `auth.py` — cifrar, entrar e trocar."""
-        fonte = (REPO / "riftvault" / "auth.py").read_text(encoding="utf-8")
-        for funcao, chamada in (("definir_senha", "cifrar("),
+        """São três e estão todas no cofre — cifrar, entrar e trocar."""
+        fonte = self.fonte_do_cofre()
+        for funcao, chamada in (("def definir_password(", "cifrar("),
                                 ("\ndef entrar(", "confere("),
-                                ("def mudar_senha(", "confere(")):
+                                ("def mudar_password(", "confere(")):
             corpo = fonte.split(funcao)[1].split("\ndef ")[0]
             self.assertIn("_uma_vaga()", corpo, f"{funcao} sem fila")
             self.assertLess(corpo.index("_uma_vaga()"), corpo.index(chamada),
@@ -466,7 +495,9 @@ class TestOTectoDoScrypt(Base):
             con.close()
 
     def test_a_fila_devolve_a_vaga_mesmo_quando_rebenta(self):
-        """Uma excepção a meio não pode gastar uma vaga para sempre."""
+        """Uma excepção a meio não pode gastar uma vaga para sempre.
+
+        (`auth._VAGAS` e `auth._uma_vaga` são os do cofre, reexportados.)"""
         antes = self.auth._VAGAS._value
         with self.assertRaises(ZeroDivisionError):
             with self.auth._uma_vaga():

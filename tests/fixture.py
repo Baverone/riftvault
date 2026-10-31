@@ -130,6 +130,14 @@ class Vault:
         os.environ["RIFTVAULT_DB"] = str(self.data / "vault.db")
         os.environ["RIFTVAULT_CATALOG"] = str(self.data / "catalog.db")
         os.environ["RIFTVAULT_PRICES"] = str(self.data / "prices.db")
+        # O COFRE DE CONTAS (2026-10-31), onde moram as passwords: um por
+        # riftvault de brincar. Um cofre partilhado entre testes guardava a
+        # conta 2 de um teste para o seguinte, que criava OUTRA conta 2 — e o
+        # cofre recusa, com razão. Guarda-se o que lá estava (o `placar` dá a
+        # cada processo um) para o repor no `close`: tirá-lo só deixava o
+        # teste seguinte sem cofre de brincar.
+        self._contas_db_antes = os.environ.get("CONTAS_DB")
+        os.environ["CONTAS_DB"] = str(self.data / "contas.db")
 
         from riftvault import config
         importlib.reload(config)
@@ -140,6 +148,10 @@ class Vault:
         for var in ("RIFTVAULT_DATA", "RIFTVAULT_DECKS", "RIFTVAULT_DB",
                     "RIFTVAULT_CATALOG", "RIFTVAULT_PRICES"):
             os.environ.pop(var, None)
+        if self._contas_db_antes is None:
+            os.environ.pop("CONTAS_DB", None)
+        else:
+            os.environ["CONTAS_DB"] = self._contas_db_antes
         from riftvault import config
         importlib.reload(config)
         config.load.cache_clear()

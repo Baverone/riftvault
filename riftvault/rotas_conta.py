@@ -1033,9 +1033,12 @@ def entrar_com_senha():
     except auth.ErroDeAutenticacao as e:
         return _resposta(str(e), 401)
 
+    # A geração que vai na sessão é a que o `entrar` leu JUNTO com o hash que
+    # verificou (2026-10-31): lida agora, uma reposição a meio do scrypt dava a
+    # quem entrou com a password velha uma sessão que sobrevivia à reposição.
     nova = auth.criar_sessao(con, user_id=quem["user_id"],
                              agente=request.headers.get("User-Agent"),
-                             cfg=_cfg())
+                             cfg=_cfg(), geracao=quem["geracao"])
     resp = jsonify({"ok": True, "slug": quem["slug"], "nome": quem["nome"],
                     "senha_temporaria": quem["temporaria"],
                     "csrf": nova["csrf"]})
@@ -1084,7 +1087,9 @@ def mudar_senha():
     # SESSÃO NOVA a seguir a trocar a password, e a antiga apagada: se alguém
     # tinha o cookie dela (é a razão de estar a trocar), deixa de valer aqui.
     # As outras sessões dela vão-se todas — entrar outra vez no telemóvel é o
-    # preço, e é o que se espera de uma troca de password.
+    # preço, e é o que se espera de uma troca de password. A sessão nova leva a
+    # geração de AGORA, a da password nova (o `criar_sessao` lê-a no cofre); as
+    # do mtgvault caem sozinhas, pela geração.
     auth.terminar_todas(con, uid)
     nova = auth.criar_sessao(con, user_id=uid,
                              agente=request.headers.get("User-Agent"),

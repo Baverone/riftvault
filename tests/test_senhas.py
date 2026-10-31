@@ -195,17 +195,21 @@ class TestOKdf(Base):
             self.senha.cifrar("a-minha-password")))
 
     def test_entrar_recifra_sozinho(self):
+        """O hash mora no COFRE desde 2026-10-31 (a tabela `senhas`)."""
+        from riftvault import cofre
         uid = self.com_senha("miguel", SENTINELA)
         con = self.auth.abrir()
+        cc = cofre.abrir()
         try:
             # Finge-se uma password cifrada à antiga, como se fosse de 2026.
-            con.execute("UPDATE user_senha SET hash = ? WHERE user_id = ?",
-                        (self.senha.cifrar(SENTINELA, n=2 ** 14), uid))
-            con.commit()
+            cc.execute("UPDATE senhas SET hash = ? WHERE conta_id = ?",
+                       (self.senha.cifrar(SENTINELA, n=2 ** 14), uid))
+            cc.commit()
             self.auth.entrar(con, "miguel", SENTINELA, chave="1.2.3.4")
-            novo = con.execute("SELECT hash FROM user_senha WHERE user_id = ?",
-                               (uid,)).fetchone()["hash"]
+            novo = cc.execute("SELECT hash FROM senhas WHERE conta_id = ?",
+                              (uid,)).fetchone()["hash"]
         finally:
+            cc.close()
             con.close()
         self.assertFalse(self.senha.precisa_recifrar(novo),
                          "entrou e não foi recifrada")
@@ -822,8 +826,12 @@ class TestOTravao(Base):
         Desde 2026-10-01 são DOIS travões e só um está à frente do scrypt: o do
         SÍTIO, que é o que protege o CPU e que só pode ser enchido por quem está
         a tentar. O da CONTA corre depois — ver `tests/test_fechaduras.py`.
+
+        Desde 2026-10-31 a `entrar` que decide é a do cofre de contas (o
+        `auth.entrar` delega), e é por isso que se lê o `contas/cofre.py`.
         """
-        fonte = (REPO / "riftvault" / "auth.py").read_text(encoding="utf-8")
+        from riftvault import cofre
+        fonte = Path(cofre.modulo().__file__).read_text(encoding="utf-8")
         corpo = fonte.split("\ndef entrar(")[1].split("\ndef ")[0]
         self.assertLess(corpo.index("travao_do_sitio(con"),
                         corpo.index("confere("),

@@ -409,6 +409,13 @@ class TestApagarNaoDeixaNadaNoAuthDb(Base):
         return uid
 
     def rastos(self, uid: int) -> dict:
+        """O que fica da pessoa no `auth.db` — e, desde 2026-10-31, no cofre.
+
+        A password passou para o cofre de contas (a `user_senha` é arquivo), por
+        isso o hash procura-se lá, na `senhas`, com o mesmo número. A chave
+        `cofre.senhas` é o que a prova pela negativa espera encontrar.
+        """
+        from riftvault import cofre
         con = self.auth.abrir()
         try:
             out = {}
@@ -421,9 +428,17 @@ class TestApagarNaoDeixaNadaNoAuthDb(Base):
                     n = 0
                 if n:
                     out[t] = n
-            return out
         finally:
             con.close()
+        cc = cofre.abrir()
+        try:
+            n = cc.execute("SELECT COUNT(*) FROM senhas WHERE conta_id = ?",
+                           (uid,)).fetchone()[0]
+        finally:
+            cc.close()
+        if n:
+            out["cofre.senhas"] = n
+        return out
 
     # -- o defeito, pela PRIMITIVA (era aqui que ficava) -------------------
 
@@ -454,7 +469,7 @@ class TestApagarNaoDeixaNadaNoAuthDb(Base):
     def test_PROVA_PELA_NEGATIVA_o_varrimento_sabe_encontrar(self):
         """Um varrimento que nunca ache nada vale zero."""
         uid = self.preparar("outro")
-        self.assertIn("user_senha", self.rastos(uid))
+        self.assertIn("cofre.senhas", self.rastos(uid))
 
     # -- a forma, não só o resultado --------------------------------------
 
