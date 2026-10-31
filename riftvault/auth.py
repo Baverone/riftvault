@@ -1420,6 +1420,43 @@ def _esquecer_no_cofre(user_id: int) -> int:
         return 1 if tinha else 0
 
 
+def linha_de_arranque() -> str:
+    """Uma linha para o arranque do `serve`: que cofre, e quantas contas entram.
+
+    É a pergunta que se faz quando ninguém consegue entrar — «este processo
+    está a olhar para o cofre certo?» —, e respondida no arranque poupa ir ao
+    código. Diz QUANTAS contas têm acesso ao riftvault, nunca quais: o nome de
+    cada um não tem nada que fazer num log.
+
+    **Não cria o cofre** (o `cofre.abrir` criava). Um cofre que falta é um aviso
+    a ler — ninguém entra com password —, não uma base vazia a nascer em
+    silêncio no sítio errado. Abre-se só para ler. Mora aqui e não no
+    `cofre.py` pela razão do resto deste módulo: o cofre não é uma base de dono
+    (ver a excepção do `auth.py` no `test_multi_utilizador`).
+    """
+    from . import cofre
+    try:
+        p = cofre.caminho_db()
+    except RuntimeError as e:
+        return f"  Cofre de contas: não o encontrei ({e})."
+    if not p.is_file():
+        return (f"  Cofre de contas: {p} NÃO EXISTE — as entradas com password "
+                "falham até ele existir (não o criei agora).")
+    try:
+        cc = sqlite3.connect(f"{p.resolve().as_uri()}?mode=ro", uri=True)
+        try:
+            n = cc.execute(
+                "SELECT COUNT(DISTINCT a.conta_id) FROM acessos a "
+                "JOIN contas c ON c.id = a.conta_id WHERE a.site = ?",
+                (SITE,)).fetchone()[0]
+        finally:
+            cc.close()
+    except sqlite3.Error as e:
+        return f"  Cofre de contas: {p} (não o consegui ler: {e})."
+    contas = "1 conta" if n == 1 else f"{n} contas"
+    return f"  Cofre de contas: {p} · {contas} com acesso ao {SITE}."
+
+
 def nome_livre_no_cofre(slug: str) -> bool:
     """O cofre ainda não tem uma conta com este nome? (Ver `cli` `--criar`.)"""
     with _no_cofre() as (m, cc):

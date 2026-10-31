@@ -94,6 +94,10 @@ data/auth.db
 data/auth.db-wal
 data/auth.db-shm
 data/auth.db-journal
+# O COFRE DE CONTAS (2026-10-31) mora fora deste repositório, mas um ensaio ou
+# um engano pode pô-lo no `data/` daqui, ao lado do `auth.db`. São as passwords
+# de toda a gente: nunca vão para um repositório público.
+data/contas.db*
 
 data/backups/
 _lixo/

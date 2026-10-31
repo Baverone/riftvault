@@ -100,6 +100,52 @@ class TestOCaminho(Base):
         self.assertNotEqual(self.cofre.caminho_db(),
                             self.cofre.pasta_contas() / "data" / "contas.db")
 
+    def _so_o_ensaio(self, valor: str):
+        """O ambiente sem nada que aponte o cofre, com `RIFTVAULT_ENSAIO=valor`,
+        e o `config` relido com ele. Tudo volta ao que estava no fim."""
+        from riftvault import config
+        guardado = {v: os.environ.pop(v, None)
+                    for v in ("CONTAS_DB", "RIFTVAULT_AUTH", "RIFTVAULT_DATA")}
+
+        def repor():
+            for v, antes in guardado.items():
+                if antes is None:
+                    os.environ.pop(v, None)
+                else:
+                    os.environ[v] = antes
+            os.environ.pop("RIFTVAULT_ENSAIO", None)
+            importlib.reload(config)
+        self.addCleanup(repor)
+        os.environ["RIFTVAULT_ENSAIO"] = valor
+        importlib.reload(config)
+        return config
+
+    def test_ensaio_a_zero_nao_e_ensaio(self):
+        """`RIFTVAULT_ENSAIO=0` é o ensaio DESLIGADO (é o que o `config` lê):
+        o cofre é o a sério, e nunca um `contas.db` dentro do `data/` daqui."""
+        config = self._so_o_ensaio("0")
+        self.assertFalse(config.ENSAIO)
+        p = self.cofre.caminho_db()  # só se resolve; não se abre
+        dados = (config.ROOT / "data").resolve()
+        self.assertNotEqual(p.resolve().parent, dados)
+        self.assertFalse(str(p.resolve()).startswith(str(dados)), p)
+        self.assertEqual(p, self.cofre.pasta_contas() / "data" / "contas.db")
+
+    def test_ensaio_ligado_leva_o_cofre_para_o_data_do_ensaio(self):
+        config = self._so_o_ensaio("1")
+        self.assertTrue(config.ENSAIO)
+        self.assertEqual(self.cofre.caminho_db(),
+                         config.ROOT / "data-ensaio" / "contas.db")
+
+    def test_o_gitignore_tem_o_cofre(self):
+        """Um `contas.db` a parar no `data/` (um ensaio antigo, um engano) nunca
+        pode ir para o Git: o repositório é PÚBLICO."""
+        from riftvault import config
+        linhas = (config.ROOT / ".gitignore").read_text(
+            encoding="utf-8").splitlines()
+        self.assertTrue("data/contas.db*" in [ln.strip() for ln in linhas],
+                        "falta a linha data/contas.db* no .gitignore")
+
     def test_a_pasta_do_contas_encontra_se_a_partir_do_repositorio(self):
         p = self.cofre.pasta_contas()
         self.assertTrue((p / "contas" / "__init__.py").is_file(), p)
@@ -257,6 +303,97 @@ class TestApagarLimpaOCofre(Base):
         self.assertNotIn("Password:", out.getvalue())
         self.assertIsNone(self.utilizador.por_slug("miguel", obrigatorio=False),
                           "ficou um utilizador criado a meio no registo")
+
+    def test_criar_pela_cli_falha_limpo_com_qualquer_erro_do_cofre(self):
+        """Um erro que não é de conta (a base trancada, um disco cheio) também
+        desfaz o utilizador: nunca fica um no registo sem password."""
+        import contextlib
+        import io
+        from unittest import mock
+        from riftvault import cli
+        importlib.reload(cli)
+        out, err = io.StringIO(), io.StringIO()
+        with mock.patch.object(self.auth, "nova_temporaria",
+                               side_effect=RuntimeError("o disco encheu")):
+            with contextlib.redirect_stdout(out), \
+                    contextlib.redirect_stderr(err):
+                codigo = cli.main(["conta", "--criar", "miguel"])
+        self.assertEqual(codigo, 1, out.getvalue() + err.getvalue())
+        self.assertIn("miguel", err.getvalue())
+        self.assertNotIn("Traceback", err.getvalue())
+        self.assertNotIn("Password:", out.getvalue())
+        self.assertIsNone(self.utilizador.por_slug("miguel", obrigatorio=False),
+                          "ficou um utilizador criado a meio no registo")
+
+    def test_criar_pela_cli_tira_do_cofre_o_que_la_ficou_a_meio(self):
+        """A conta nasceu no cofre e a password falhou: sai do cofre também,
+        senão o nome ficava tomado lá e o `--criar` seguinte recusava-o."""
+        import contextlib
+        import io
+        from unittest import mock
+        from riftvault import cli
+        importlib.reload(cli)
+        m = self.cofre.modulo()
+        out, err = io.StringIO(), io.StringIO()
+        with mock.patch.object(m, "definir_password",
+                               side_effect=RuntimeError("o disco encheu")):
+            with contextlib.redirect_stdout(out), \
+                    contextlib.redirect_stderr(err):
+                codigo = cli.main(["conta", "--criar", "miguel"])
+        self.assertEqual(codigo, 1, out.getvalue() + err.getvalue())
+        self.assertNotIn("Traceback", err.getvalue())
+        cc = self.cofre.abrir()
+        try:
+            self.assertIsNone(m.por_slug(cc, "miguel"),
+                              "ficou uma conta a meio no cofre")
+        finally:
+            cc.close()
+
+
+class TestALinhaDeArranque(Base):
+    """O `serve` diz que cofre está a usar e quantas contas entram no rift —
+    nunca quem são."""
+
+    def test_diz_o_caminho_e_quantas_contas_tem_o_rift(self):
+        self.conta("miguel")
+        self.conta("zeteste", OUTRA)
+        m = self.cofre.modulo()
+        cc = self.cofre.abrir()
+        try:
+            c = m.criar_conta(cc, "soumtg", "Só do mtg")
+            m.dar_acesso(cc, c["conta_id"], "mtg")
+        finally:
+            cc.close()
+        linha = self.auth.linha_de_arranque()
+        self.assertIn(str(self.cofre.caminho_db()), linha)
+        self.assertIn("2 contas", linha)
+        for slug in ("miguel", "zeteste", "soumtg"):
+            self.assertNotIn(slug, linha)
+        self.assertNotIn("scrypt$", linha)
+
+    def test_cofre_que_nao_existe_diz_se_e_nao_se_cria(self):
+        pasta = Path(tempfile.mkdtemp(prefix="riftvault-sem-cofre-"))
+        os.environ["CONTAS_DB"] = str(pasta / "nao-ha" / "contas.db")
+        linha = self.auth.linha_de_arranque()
+        self.assertIn("não existe", linha.lower())
+        self.assertIn(str(pasta / "nao-ha" / "contas.db"), linha)
+        self.assertFalse((pasta / "nao-ha").exists(), "o arranque criou o cofre")
+
+    def test_o_serve_imprime_a_linha(self):
+        import contextlib
+        import io
+        from unittest import mock
+        from riftvault import server
+        importlib.reload(server)
+        self.conta("miguel")
+        out = io.StringIO()
+        with mock.patch.object(server.app, "run"), \
+                mock.patch.object(server, "lan_ips", return_value=["10.0.0.2"]), \
+                mock.patch.object(server, "ascii_qr", return_value=""), \
+                contextlib.redirect_stdout(out):
+            server.serve(port=8999)
+        self.assertIn(self.auth.linha_de_arranque(), out.getvalue())
+        self.assertIn("1 conta ", out.getvalue())
 
 
 class TestAGeracao(Base):

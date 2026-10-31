@@ -1626,8 +1626,21 @@ def cmd_conta(args) -> int:
         con = auth.abrir()
         try:
             password = auth.nova_temporaria(con, int(u["user_id"]))
-        except (ValueError, auth.ErroDeAutenticacao) as e:
-            utilizador.apagar(int(u["user_id"]))
+        except Exception as e:  # noqa: BLE001 — qualquer erro desfaz tudo
+            # QUALQUER erro, e não só os de conta: uma base trancada ou um
+            # disco cheio deixavam o utilizador no registo sem password, com o
+            # nome tomado. Desfaz-se o que nasceu no cofre (só se for MESMO a
+            # conta deste nome — o número podia ser de outra pessoa lá) e o
+            # utilizador do registo.
+            uid = int(u["user_id"])
+            try:
+                with auth._no_cofre() as (m, cc):
+                    c = m.por_id(cc, uid)
+                    if c is not None and c["slug"] == slug:
+                        m.apagar_conta(cc, uid)
+            except Exception:  # noqa: BLE001 — o cofre pode ser o que partiu
+                pass
+            utilizador.apagar(uid)
             print(f"o cofre de contas recusou a conta «{slug}»: {e} "
                   f"(não ficou nada criado).", file=sys.stderr)
             return 1

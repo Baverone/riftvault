@@ -15,10 +15,12 @@ ONDE ESTÁ A BASE, por ordem:
 
   1. `CONTAS_DB` — o que os testes e o executor da suite usam;
   2. se o riftvault está num ensaio ou numa pasta de dados à parte
-     (`RIFTVAULT_AUTH`, `RIFTVAULT_DATA` ou `RIFTVAULT_ENSAIO`), ao lado do
-     `auth.db` dele — senão um teste ou um ensaio que se esquecesse do
-     `CONTAS_DB` escrevia no cofre a sério, que é onde estão as passwords de
-     toda a gente;
+     (`RIFTVAULT_AUTH` ou `RIFTVAULT_DATA` escritos, ou o `config.ENSAIO`
+     ligado), ao lado do `auth.db` dele — senão um teste ou um ensaio que se
+     esquecesse do `CONTAS_DB` escrevia no cofre a sério, que é onde estão as
+     passwords de toda a gente. O ensaio lê-se no `config`, e não na
+     variável «escrita»: `RIFTVAULT_ENSAIO=0` é o ensaio DESLIGADO, e lido à
+     letra punha o cofre no `data/` a sério daqui, ao lado do `auth.db`;
   3. o cofre a sério, `<pasta do contas>/data/contas.db`.
 """
 
@@ -29,8 +31,9 @@ import sqlite3
 import sys
 from pathlib import Path
 
-#: As variáveis que dizem «isto não é o riftvault a sério» (ver o topo).
-_FORA_DO_REAL = ("RIFTVAULT_AUTH", "RIFTVAULT_DATA", "RIFTVAULT_ENSAIO")
+#: As variáveis que, escritas, dizem «isto não é o riftvault a sério» (ver o
+#: topo). O ensaio não está aqui: é o `config.ENSAIO`, que sabe ler o «0».
+_FORA_DO_REAL = ("RIFTVAULT_AUTH", "RIFTVAULT_DATA")
 
 
 def pasta_contas() -> Path:
@@ -67,7 +70,9 @@ def caminho_db() -> Path:
     escrito = os.environ.get("CONTAS_DB", "").strip()
     if escrito:
         return Path(escrito)
-    if any(os.environ.get(v, "").strip() for v in _FORA_DO_REAL):
+    from . import config
+    if config.ENSAIO or any(os.environ.get(v, "").strip()
+                            for v in _FORA_DO_REAL):
         from . import auth
         return auth.caminho().with_name("contas.db")
     return pasta_contas() / "data" / "contas.db"

@@ -1180,6 +1180,11 @@ def serve(host: str = "0.0.0.0", port: int = 8770) -> None:
     print(ascii_qr(lan))
     for linha in _aviso_das_contas():
         print(linha)
+    # Que cofre de contas (as passwords, partilhadas com o mtgvault) este
+    # processo usa, e quantas contas entram aqui: é a primeira pergunta quando
+    # ninguém consegue entrar. Só o número, nunca os nomes; e não o cria.
+    from . import auth
+    print(auth.linha_de_arranque())
     print("  Ctrl+C para parar.")
     print("=" * 60)
 
